@@ -104,7 +104,7 @@ mod serial {
         mut orphaned: RemovedComponents<ChildOf>,
         transform_query: Query<
             (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
-            (With<ChildOf>, With<Children>),
+            With<ChildOf>,
         >,
         child_query: Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
         mut orphaned_entities: Local<Vec<Entity>>,
