@@ -314,7 +314,7 @@ impl ShaderCache {
                         #[cfg(not(feature = "coupled_naga"))]
                         {
                             let mut validator = naga::valid::Validator::new(
-                                naga::valid::ValidationFlags::empty(),
+                                naga::valid::ValidationFlags::all(),
                                 self.composer.capabilities,
                             );
                             let module_info = validator.validate(&naga).unwrap();
