@@ -86,7 +86,7 @@ impl AssetServer {
         sources: AssetSources,
         mode: AssetServerMode,
         watching_for_changes: bool,
-        out_of_bounds_mode: UnapprovedPathMode,
+        unapproved_path_mode: UnapprovedPathMode,
     ) -> Self {
         Self::new_with_loaders(
             sources,
@@ -94,7 +94,7 @@ impl AssetServer {
             mode,
             AssetMetaCheck::Always,
             watching_for_changes,
-            out_of_bounds_mode,
+            unapproved_path_mode,
         )
     }
 
@@ -105,7 +105,7 @@ impl AssetServer {
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
         watching_for_changes: bool,
-        out_of_bounds_mode: UnapprovedPathMode,
+        unapproved_path_mode: UnapprovedPathMode,
     ) -> Self {
         Self::new_with_loaders(
             sources,
@@ -113,7 +113,7 @@ impl AssetServer {
             mode,
             meta_check,
             watching_for_changes,
-            out_of_bounds_mode,
+            unapproved_path_mode,
         )
     }
 
@@ -123,7 +123,7 @@ impl AssetServer {
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
         watching_for_changes: bool,
-        out_of_bounds_mode: UnapprovedPathMode,
+        unapproved_path_mode: UnapprovedPathMode,
     ) -> Self {
         let (asset_event_sender, asset_event_receiver) = crossbeam_channel::unbounded();
         let mut infos = AssetInfos::default();
@@ -137,7 +137,7 @@ impl AssetServer {
                 asset_event_receiver,
                 loaders,
                 infos: RwLock::new(infos),
-                unapproved_path_mode: out_of_bounds_mode,
+                unapproved_path_mode,
             }),
         }
     }

@@ -273,7 +273,7 @@ pub struct AssetPlugin {
 /// It is strongly discouraged to use [`Allow`](UnapprovedPathMode::Allow) if your
 /// app will include scripts or modding support, as it could allow allow arbitrary file
 /// access for malicious code.
-/// 
+///
 /// See [`AssetPath::is_unapproved`](crate::AssetPath::is_unapproved)
 #[derive(Clone, Default)]
 pub enum UnapprovedPathMode {
@@ -1888,16 +1888,13 @@ mod tests {
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 
-    fn out_of_bounds_setup(mode: UnapprovedPathMode) -> (App, GateOpener) {
+    fn unapproved_path_setup(mode: UnapprovedPathMode) -> (App, GateOpener) {
         let dir = Dir::default();
         let a_path = "../a.cool.ron";
         let a_ron = r#"
 (
     text: "a",
-    dependencies: [
-        "foo/b.cool.ron",
-        "c.cool.ron",
-    ],
+    dependencies: [],
     embedded_dependencies: [],
     sub_texts: [],
 )"#;
@@ -1925,8 +1922,8 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn out_of_bounds_forbid_should_panic() {
-        let (mut app, _gate) = out_of_bounds_setup(UnapprovedPathMode::Forbid);
+    fn unapproved_path_forbid_should_panic() {
+        let (mut app, _gate) = unapproved_path_setup(UnapprovedPathMode::Forbid);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         fn load_assets(assets: Res<AssetServer>) {
@@ -1935,12 +1932,13 @@ mod tests {
         app.add_systems(Update, (uses_assets, load_assets));
 
         app.world_mut().run_schedule(Update);
+        drop(_gate);
     }
 
     #[test]
     #[should_panic]
-    fn out_of_bounds_deny_should_panic() {
-        let (mut app, _gate) = out_of_bounds_setup(UnapprovedPathMode::Deny);
+    fn unapproved_path_deny_should_panic() {
+        let (mut app, _gate) = unapproved_path_setup(UnapprovedPathMode::Deny);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         fn load_assets(assets: Res<AssetServer>) {
@@ -1949,11 +1947,12 @@ mod tests {
         app.add_systems(Update, (uses_assets, load_assets));
 
         app.world_mut().run_schedule(Update);
+        drop(_gate);
     }
 
     #[test]
-    fn out_of_bounds_deny_should_finish() {
-        let (mut app, _gate) = out_of_bounds_setup(UnapprovedPathMode::Deny);
+    fn unapproved_path_deny_should_finish() {
+        let (mut app, _gate) = unapproved_path_setup(UnapprovedPathMode::Deny);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         fn load_assets(assets: Res<AssetServer>) {
@@ -1962,11 +1961,12 @@ mod tests {
         app.add_systems(Update, (uses_assets, load_assets));
 
         app.world_mut().run_schedule(Update);
+        drop(_gate);
     }
 
     #[test]
-    fn out_of_bounds_allow_should_finish() {
-        let (mut app, _gate) = out_of_bounds_setup(UnapprovedPathMode::Allow);
+    fn unapproved_path_allow_should_finish() {
+        let (mut app, _gate) = unapproved_path_setup(UnapprovedPathMode::Allow);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         fn load_assets(assets: Res<AssetServer>) {
@@ -1975,5 +1975,6 @@ mod tests {
         app.add_systems(Update, (uses_assets, load_assets));
 
         app.world_mut().run_schedule(Update);
+        drop(_gate);
     }
 }
