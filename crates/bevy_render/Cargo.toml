@@ -13,8 +13,15 @@ default = ["coupled_naga"]
 
 # Bevy users should _always_ leave this feature on.
 #
-# Bevy/wgpu developers can turn this feature off to test a newer version of wgpu
+# Bevy/wgpu developers can turn this feature off (see `default` above) to test a newer version of wgpu
 # without needing to also update naga_oil. Make sure to update both wgpu and wgpu-types.
+#
+# When turning this feature off, you can add the following to bevy/Cargo.toml:
+# [patch.crates-io]
+# wgpu = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+# wgpu-core = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+# wgpu-hal = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+# wgpu-types = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
 coupled_naga = ["wgpu/naga-ir"]
 
 # Texture formats (require more than just image support)
