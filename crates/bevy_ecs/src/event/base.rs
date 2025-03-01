@@ -22,7 +22,7 @@ use core::{
 /// 
 /// ## Derive
 /// This trait can be derived.
-/// Adding `auto_propegate` sets [`Self::AUTO_PROPAGATE`] to true.
+/// Adding `auto_propagate` sets [`Self::AUTO_PROPAGATE`] to true.
 /// Adding `traversal = "X"` sets [`Self::Traversal`] to be of type "X".
 ///
 /// ```
