@@ -1,0 +1,48 @@
+error: Custom on_insert hooks are not supported as relationships already define an on_insert hook
+ --> tests/ui/component_hook_relationship.rs:4:1
+  |
+4 | #[relationship(relationship_target = FooTargets)]
+  | ^
+
+error: Custom on_replace hooks are not supported as RelationshipTarget already defines an on_replace hook
+  --> tests/ui/component_hook_relationship.rs:10:1
+   |
+10 | #[relationship_target(relationship = FooTargetOf)]
+   | ^
+
+error: Custom on_replace hooks are not supported as Relationships already define an on_replace hook
+  --> tests/ui/component_hook_relationship.rs:16:1
+   |
+16 | #[relationship(relationship_target = BarTargets)]
+   | ^
+
+error[E0277]: the trait bound `BarTargetOf: Relationship` is not satisfied
+   --> tests/ui/component_hook_relationship.rs:22:38
+    |
+22  | #[relationship_target(relationship = BarTargetOf)]
+    |                                      ^^^^^^^^^^^ the trait `Relationship` is not implemented for `BarTargetOf`
+    |
+    = help: the trait `Relationship` is implemented for `ChildOf`
+note: required by a bound in `bevy_ecs::relationship::RelationshipTarget::Relationship`
+   --> $BEVY_ROOT/bevy_ecs/src/relationship/mod.rs:167:24
+    |
+167 |     type Relationship: Relationship<RelationshipTarget = Self>;
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `RelationshipTarget::Relationship`
+
+warning: unused variable: `world`
+  --> tests/ui/component_hook_relationship.rs:27:13
+   |
+27 | fn foo_hook(world: bevy_ecs::world::DeferredWorld, ctx: bevy_ecs::component::HookContext) {}
+   |             ^^^^^ help: if this is intentional, prefix it with an underscore: `_world`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `ctx`
+  --> tests/ui/component_hook_relationship.rs:27:52
+   |
+27 | fn foo_hook(world: bevy_ecs::world::DeferredWorld, ctx: bevy_ecs::component::HookContext) {}
+   |                                                    ^^^ help: if this is intentional, prefix it with an underscore: `_ctx`
+
+error: aborting due to 4 previous errors; 2 warnings emitted
+
+For more information about this error, try `rustc --explain E0277`.
