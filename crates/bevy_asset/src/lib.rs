@@ -271,7 +271,7 @@ pub struct AssetPlugin {
 ///
 /// The bevy team strongly discourages using [`Allow`](OutOfBoundsMode::Allow) if your
 /// app will include scripts or modding support, as it could allow allow arbitrary file
-/// access for malitious code.
+/// access for malicious code.
 #[derive(Clone, Default)]
 pub enum OutOfBoundsMode {
     /// Out-of-bounds asset loading is allowed. This is
