@@ -55,6 +55,8 @@ impl Default for TextNodeFlags {
 ///
 /// Note that [`Transform`](bevy_transform::components::Transform) on this entity is managed automatically by the UI layout system.
 ///
+/// This entity is intended to be a leaf node, and as such should not have children with `Node`
+/// components.
 ///
 /// ```
 /// # use bevy_asset::Handle;
