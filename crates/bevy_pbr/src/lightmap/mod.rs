@@ -32,7 +32,7 @@
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -40,12 +40,14 @@ use bevy_ecs::{
     query::{Changed, Or},
     reflect::ReflectComponent,
     removal_detection::RemovedComponents,
+    resource::Resource,
     schedule::IntoSystemConfigs,
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::Image;
 use bevy_math::{uvec2, vec4, Rect, UVec2};
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     render_asset::RenderAssets,
@@ -57,7 +59,7 @@ use bevy_render::{
     Extract, ExtractSchedule, RenderApp,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
-use bevy_utils::{default, HashSet};
+use bevy_utils::default;
 use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
 use tracing::error;
@@ -66,7 +68,7 @@ use crate::{binding_arrays_are_usable, ExtractMeshesSet};
 
 /// The ID of the lightmap shader.
 pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(285484768317531991932943596447919767152);
+    weak_handle!("fc28203f-f258-47f3-973c-ce7d1dd70e59");
 
 /// The number of lightmaps that we store in a single slab, if bindless textures
 /// are in use.

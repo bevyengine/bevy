@@ -2,7 +2,8 @@ use crate::{
     entity::Entity,
     prelude::Mut,
     reflect::{AppTypeRegistry, ReflectBundle, ReflectComponent},
-    system::{EntityCommands, Resource},
+    resource::Resource,
+    system::EntityCommands,
     world::{EntityWorldMut, World},
 };
 use alloc::{borrow::Cow, boxed::Box};
@@ -19,7 +20,7 @@ pub trait ReflectCommandExt {
     ///
     /// - If the entity doesn't exist.
     /// - If [`AppTypeRegistry`] does not have the reflection data for the given
-    ///     [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
+    ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
     /// - If [`AppTypeRegistry`] is not present in the [`World`].
     ///
@@ -211,7 +212,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If [`AppTypeRegistry`] does not have the reflection data for the given
-    ///     [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
+    ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
     /// - If [`AppTypeRegistry`] is not present in the [`World`].
     ///
@@ -242,7 +243,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If the given [`Resource`] does not have the reflection data for the given
-    ///     [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
+    ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
     /// - If the given [`Resource`] is not present in the [`World`].
     pub fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
@@ -387,7 +388,6 @@ fn remove_reflect_with_registry_ref(
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         bundle::Bundle,
         component::Component,
         prelude::{AppTypeRegistry, ReflectComponent},

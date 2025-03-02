@@ -19,7 +19,7 @@ fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             Sprite::from_image(texture.clone()),
             Transform::from_scale(Vec3::splat(0.1))
                 .with_translation(Vec2::splat(0.0).extend(z as f32)),
-            Velocity(20.0 * Vec2::new(rng.gen::<f32>() - 0.5, rng.gen::<f32>() - 0.5)),
+            Velocity(20.0 * Vec2::new(rng.r#gen::<f32>() - 0.5, rng.r#gen::<f32>() - 0.5)),
         ));
     }
 }
@@ -42,7 +42,10 @@ fn move_system(mut sprites: Query<(&mut Transform, &Velocity)>) {
 }
 
 // Bounce sprites outside the window
-fn bounce_system(window: Single<&Window>, mut sprites: Query<(&Transform, &mut Velocity)>) {
+fn bounce_system(window: Query<&Window>, mut sprites: Query<(&Transform, &mut Velocity)>) {
+    let Ok(window) = window.get_single() else {
+        return;
+    };
     let width = window.width();
     let height = window.height();
     let left = width / -2.0;

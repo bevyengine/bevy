@@ -7,14 +7,16 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_core_pipeline::{
     core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT},
+    oit::OrderIndependentTransparencySettings,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
 };
 
 use bevy_ecs::{
     prelude::Entity,
     query::Has,
+    resource::Resource,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
@@ -300,6 +302,7 @@ fn queue_line_gizmos_3d(
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
+            Has<OrderIndependentTransparencySettings>,
         ),
     )>,
 ) {
@@ -313,7 +316,7 @@ fn queue_line_gizmos_3d(
         view,
         msaa,
         render_layers,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass, oit),
     ) in &views
     {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
@@ -340,6 +343,10 @@ fn queue_line_gizmos_3d(
 
         if deferred_prepass {
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
+        }
+
+        if oit {
+            view_key |= MeshPipelineKey::OIT_ENABLED;
         }
 
         for (entity, main_entity, config) in &line_gizmos {

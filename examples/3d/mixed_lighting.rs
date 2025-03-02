@@ -175,7 +175,7 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
              mut lighting_mode_change_event_writer: EventWriter<LightingModeChanged>| {
                 // When the scene loads, send a `LightingModeChanged` event so
                 // that we set up the lightmaps.
-                lighting_mode_change_event_writer.send(LightingModeChanged);
+                lighting_mode_change_event_writer.write(LightingModeChanged);
             },
         );
 }
@@ -393,7 +393,7 @@ fn handle_lighting_mode_change(
 ) {
     for event in widget_click_event_reader.read() {
         app_status.lighting_mode = **event;
-        lighting_mode_change_event_writer.send(LightingModeChanged);
+        lighting_mode_change_event_writer.write(LightingModeChanged);
     }
 }
 
@@ -432,7 +432,7 @@ fn reset_sphere_position(
 fn move_sphere(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     pointers: Query<&PointerInteraction>,
-    mut meshes: Query<(&Name, &Parent), With<Mesh3d>>,
+    mut meshes: Query<(&Name, &ChildOf), With<Mesh3d>>,
     mut transforms: Query<&mut Transform>,
     app_status: Res<AppStatus>,
 ) {
@@ -445,11 +445,11 @@ fn move_sphere(
     }
 
     // Find the sphere.
-    let Some(parent) = meshes
+    let Some(child_of) = meshes
         .iter_mut()
-        .filter_map(|(name, parent)| {
+        .filter_map(|(name, child_of)| {
             if &**name == "Sphere" {
-                Some(parent)
+                Some(child_of)
             } else {
                 None
             }
@@ -460,7 +460,7 @@ fn move_sphere(
     };
 
     // Grab its transform.
-    let Ok(mut transform) = transforms.get_mut(**parent) else {
+    let Ok(mut transform) = transforms.get_mut(child_of.parent) else {
         return;
     };
 

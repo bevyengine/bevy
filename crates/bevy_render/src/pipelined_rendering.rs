@@ -2,8 +2,8 @@ use async_channel::{Receiver, Sender};
 
 use bevy_app::{App, AppExit, AppLabel, Plugin, SubApp};
 use bevy_ecs::{
+    resource::Resource,
     schedule::MainThreadExecutor,
-    system::Resource,
     world::{Mut, World},
 };
 use bevy_tasks::ComputeTaskPool;
@@ -92,14 +92,14 @@ impl Drop for RenderAppChannels {
 /// ```
 ///
 /// - `sync` is the step where the entity-entity mapping between the main and render world is updated.
-///     This is run on the main app's thread. For more information checkout [`SyncWorldPlugin`].
+///   This is run on the main app's thread. For more information checkout [`SyncWorldPlugin`].
 /// - `extract` is the step where data is copied from the main world to the render world.
-///     This is run on the main app's thread.
+///   This is run on the main app's thread.
 /// - On the render thread, we first apply the `extract commands`. This is not run during extract, so the
-///     main schedule can start sooner.
+///   main schedule can start sooner.
 /// - Then the `rendering schedule` is run. See [`RenderSet`](crate::RenderSet) for the standard steps in this process.
 /// - In parallel to the rendering thread the [`RenderExtractApp`] schedule runs. By
-///     default, this schedule is empty. But it is useful if you need something to run before I/O processing.
+///   default, this schedule is empty. But it is useful if you need something to run before I/O processing.
 /// - Next all the `winit events` are processed.
 /// - And finally the `main app schedule` is run.
 /// - Once both the `main app schedule` and the `render schedule` are finished running, `extract` is run again.

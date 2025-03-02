@@ -16,8 +16,8 @@ use crate::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::prelude::*;
-use bevy_utils::HashMap;
 
 type DepthSortedHits = Vec<(Entity, HitData)>;
 
@@ -118,7 +118,7 @@ fn build_over_map(
     let cancelled_pointers: HashSet<PointerId> = pointer_input
         .read()
         .filter_map(|p| {
-            if let PointerAction::Canceled = p.action {
+            if let PointerAction::Cancel = p.action {
                 Some(p.pointer_id)
             } else {
                 None
@@ -244,7 +244,7 @@ pub fn update_interactions(
     for (hovered_entity, new_interaction) in new_interaction_state.drain() {
         if let Ok(mut interaction) = interact.get_mut(hovered_entity) {
             *interaction = new_interaction;
-        } else if let Some(mut entity_commands) = commands.get_entity(hovered_entity) {
+        } else if let Ok(mut entity_commands) = commands.get_entity(hovered_entity) {
             entity_commands.try_insert(new_interaction);
         }
     }

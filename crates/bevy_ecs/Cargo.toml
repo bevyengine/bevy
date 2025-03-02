@@ -1,14 +1,14 @@
 [package]
 name = "bevy_ecs"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "Bevy Engine's entity component system"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["ecs", "game", "bevy"]
 categories = ["game-engines", "data-structures"]
-rust-version = "1.83.0"
+rust-version = "1.85.0"
 
 [features]
 default = ["std", "bevy_reflect", "async_executor"]
@@ -20,7 +20,12 @@ default = ["std", "bevy_reflect", "async_executor"]
 multi_threaded = ["bevy_tasks/multi_threaded", "dep:arrayvec"]
 
 ## Adds serialization support through `serde`.
-serialize = ["dep:serde", "bevy_utils/serde"]
+serialize = [
+  "dep:serde",
+  "bevy_utils/serde",
+  "bevy_platform_support/serialize",
+  "indexmap/serde",
+]
 
 ## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = ["dep:bevy_reflect"]
@@ -76,34 +81,30 @@ std = [
   "nonmax/std",
   "arrayvec?/std",
   "log/std",
+  "bevy_platform_support/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
 critical-section = [
-  "dep:critical-section",
   "bevy_tasks?/critical-section",
-  "portable-atomic?/critical-section",
-]
-
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support.
-portable-atomic = [
-  "dep:portable-atomic",
-  "dep:portable-atomic-util",
-  "bevy_tasks?/portable-atomic",
-  "concurrent-queue/portable-atomic",
-  "spin/portable_atomic",
+  "bevy_platform_support/critical-section",
+  "bevy_reflect?/critical-section",
 ]
 
 [dependencies]
 bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
+  "smallvec",
+], default-features = false, optional = true }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
 bevy_ecs_macros = { path = "macros", version = "0.16.0-dev" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "alloc",
+] }
 
 bitflags = { version = "2.3", default-features = false }
 concurrent-queue = { version = "2.5.0", default-features = false }
@@ -111,6 +112,7 @@ disqualified = { version = "1.0", default-features = false }
 fixedbitset = { version = "0.5", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "alloc",
+  "serde_derive",
 ], optional = true }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = [
@@ -121,23 +123,17 @@ derive_more = { version = "1", default-features = false, features = [
 ] }
 nonmax = { version = "0.5", default-features = false }
 arrayvec = { version = "0.7.4", default-features = false, optional = true }
-smallvec = { version = "1", features = ["union"] }
+smallvec = { version = "1", features = ["union", "const_generics"] }
 indexmap = { version = "2.5.0", default-features = false }
 variadics_please = { version = "1.1", default-features = false }
-critical-section = { version = "1.2.0", optional = true }
-portable-atomic = { version = "1", default-features = false, features = [
-  "fallback",
-], optional = true }
-portable-atomic-util = { version = "0.2.4", features = [
-  "alloc",
-], optional = true }
-spin = { version = "0.9.8", default-features = false, features = [
-  "spin_mutex",
-  "rwlock",
-] }
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 bumpalo = "3"
+
+[target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
+concurrent-queue = { version = "2.5.0", default-features = false, features = [
+  "portable-atomic",
+] }
 
 [dev-dependencies]
 rand = "0.8"

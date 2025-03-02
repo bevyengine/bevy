@@ -11,7 +11,8 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::Entity,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
-    system::{Query, ResMut, Resource},
+    resource::Resource,
+    system::{Query, ResMut},
 };
 
 use crate::sync_world::MainEntityHashMap;

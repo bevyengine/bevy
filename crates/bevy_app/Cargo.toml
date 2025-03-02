@@ -1,7 +1,7 @@
 [package]
 name = "bevy_app"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "Provides core App functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -48,23 +48,16 @@ std = [
   "downcast-rs/std",
   "bevy_utils/std",
   "bevy_tasks?/std",
+  "bevy_platform_support/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
 critical-section = [
-  "portable-atomic?/critical-section",
   "bevy_tasks?/critical-section",
   "bevy_ecs/critical-section",
-]
-
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support. 
-portable-atomic = [
-  "dep:portable-atomic",
-  "dep:portable-atomic-util",
-  "bevy_tasks?/portable-atomic",
-  "bevy_ecs/portable-atomic",
+  "bevy_platform_support/critical-section",
+  "bevy_reflect?/critical-section",
 ]
 
 [dependencies]
@@ -76,6 +69,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features 
   "alloc",
 ] }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
 
 # other
 downcast-rs = { version = "2", default-features = false }
@@ -83,12 +77,6 @@ thiserror = { version = "2", default-features = false }
 variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
-portable-atomic = { version = "1", default-features = false, features = [
-  "fallback",
-], optional = true }
-portable-atomic-util = { version = "0.2.4", features = [
-  "alloc",
-], optional = true }
 
 [target.'cfg(any(unix, windows))'.dependencies]
 ctrlc = { version = "3.4.4", optional = true }

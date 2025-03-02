@@ -2,13 +2,14 @@ pub use crate::change_detection::{NonSendMut, Res, ResMut};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
-    change_detection::{Ticks, TicksMut},
+    change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
     },
+    resource::Resource,
     storage::ResourceData,
     system::{Query, Single, SystemMeta},
     world::{
@@ -17,16 +18,15 @@ use crate::{
     },
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
-pub use bevy_ecs_macros::{Resource, SystemParam};
+pub use bevy_ecs_macros::SystemParam;
 use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::synccell::SyncCell;
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 use core::{
     any::Any,
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
+    panic::Location,
 };
 use disqualified::ShortName;
 
@@ -333,7 +333,8 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
-        unsafe { Query::new(world, state, system_meta.last_run, change_tick) }
+        // The caller ensures the world matches the one used in init_state.
+        unsafe { state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick) }
     }
 }
 
@@ -401,12 +402,14 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not accessible somewhere elsewhere.
-        let result =
-            unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
-        let single =
-            result.expect("The query was expected to contain exactly one matching entity.");
+        // The caller ensures the world matches the one used in init_state.
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
+        };
+        let single = query
+            .get_single_inner()
+            .expect("The query was expected to contain exactly one matching entity.");
         Single {
             item: single,
             _filter: PhantomData,
@@ -419,17 +422,17 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
-        let result = unsafe {
-            state.as_readonly().get_single_unchecked_manual(
+        // The caller ensures the world matches the one used in init_state.
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(
                 world,
                 system_meta.last_run,
                 world.change_tick(),
             )
         };
-        let is_valid = result.is_ok();
+        let is_valid = query.get_single_inner().is_ok();
         if !is_valid {
             system_meta.try_warn_param::<Self>();
         }
@@ -467,9 +470,11 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     ) -> Self::Item<'w, 's> {
         state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not accessible elsewhere.
-        let result =
-            unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
-        match result {
+        // The caller ensures the world matches the one used in init_state.
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
+        };
+        match query.get_single_inner() {
             Ok(single) => Some(Single {
                 item: single,
                 _filter: PhantomData,
@@ -485,16 +490,17 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
-        let result = unsafe {
-            state.as_readonly().get_single_unchecked_manual(
+        // The caller ensures the world matches the one used in init_state.
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(
                 world,
                 system_meta.last_run,
                 world.change_tick(),
             )
         };
+        let result = query.get_single_inner();
         let is_valid = !matches!(result, Err(QuerySingleError::MultipleEntities(_)));
         if !is_valid {
             system_meta.try_warn_param::<Self>();
@@ -554,13 +560,17 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        state.validate_world(world.id());
         // SAFETY:
         // - We have read-only access to the components accessed by query.
-        // - The world has been validated.
-        !unsafe {
-            state.is_empty_unsafe_world_cell(world, system_meta.last_run, world.change_tick())
-        }
+        // - The caller ensures the world matches the one used in init_state.
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(
+                world,
+                system_meta.last_run,
+                world.change_tick(),
+            )
+        };
+        !query.is_empty()
     }
 }
 
@@ -675,7 +685,7 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 ///         // ...
 ///         # let _event = event;
 ///     }
-///     set.p1().send(MyEvent::new());
+///     set.p1().write(MyEvent::new());
 ///
 ///     let entities = set.p2().entities();
 ///     // ...
@@ -797,73 +807,6 @@ macro_rules! impl_param_set {
 
 all_tuples_enumerated!(impl_param_set, 1, 8, P, m, p);
 
-/// A type that can be inserted into a [`World`] as a singleton.
-///
-/// You can access resource data in systems using the [`Res`] and [`ResMut`] system parameters
-///
-/// Only one resource of each type can be stored in a [`World`] at any given time.
-///
-/// # Examples
-///
-/// ```
-/// # let mut world = World::default();
-/// # let mut schedule = Schedule::default();
-/// # use bevy_ecs::prelude::*;
-/// #[derive(Resource)]
-/// struct MyResource { value: u32 }
-///
-/// world.insert_resource(MyResource { value: 42 });
-///
-/// fn read_resource_system(resource: Res<MyResource>) {
-///     assert_eq!(resource.value, 42);
-/// }
-///
-/// fn write_resource_system(mut resource: ResMut<MyResource>) {
-///     assert_eq!(resource.value, 42);
-///     resource.value = 0;
-///     assert_eq!(resource.value, 0);
-/// }
-/// # schedule.add_systems((read_resource_system, write_resource_system).chain());
-/// # schedule.run(&mut world);
-/// ```
-///
-/// # `!Sync` Resources
-/// A `!Sync` type cannot implement `Resource`. However, it is possible to wrap a `Send` but not `Sync`
-/// type in [`SyncCell`] or the currently unstable [`Exclusive`] to make it `Sync`. This forces only
-/// having mutable access (`&mut T` only, never `&T`), but makes it safe to reference across multiple
-/// threads.
-///
-/// This will fail to compile since `RefCell` is `!Sync`.
-/// ```compile_fail
-/// # use std::cell::RefCell;
-/// # use bevy_ecs::system::Resource;
-///
-/// #[derive(Resource)]
-/// struct NotSync {
-///    counter: RefCell<usize>,
-/// }
-/// ```
-///
-/// This will compile since the `RefCell` is wrapped with `SyncCell`.
-/// ```
-/// # use std::cell::RefCell;
-/// # use bevy_ecs::system::Resource;
-/// use bevy_utils::synccell::SyncCell;
-///
-/// #[derive(Resource)]
-/// struct ActuallySync {
-///    counter: SyncCell<RefCell<usize>>,
-/// }
-/// ```
-///
-/// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a `Resource`",
-    label = "invalid `Resource`",
-    note = "consider annotating `{Self}` with `#[derive(Resource)]`"
-)]
-pub trait Resource: Send + Sync + 'static {}
-
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 
@@ -919,7 +862,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks, _caller) =
+        let (ptr, ticks, caller) =
             world
                 .get_resource_with_ticks(component_id)
                 .unwrap_or_else(|| {
@@ -937,8 +880,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
-            #[cfg(feature = "track_location")]
-            changed_by: _caller.deref(),
+            changed_by: caller.map(|caller| caller.deref()),
         }
     }
 }
@@ -964,7 +906,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     ) -> Self::Item<'w, 's> {
         world
             .get_resource_with_ticks(component_id)
-            .map(|(ptr, ticks, _caller)| Res {
+            .map(|(ptr, ticks, caller)| Res {
                 value: ptr.deref(),
                 ticks: Ticks {
                     added: ticks.added.deref(),
@@ -972,8 +914,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
                     last_run: system_meta.last_run,
                     this_run: change_tick,
                 },
-                #[cfg(feature = "track_location")]
-                changed_by: _caller.deref(),
+                changed_by: caller.map(|caller| caller.deref()),
             })
     }
 }
@@ -1050,7 +991,6 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
-            #[cfg(feature = "track_location")]
             changed_by: value.changed_by,
         }
     }
@@ -1082,7 +1022,6 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
                     last_run: system_meta.last_run,
                     this_run: change_tick,
                 },
-                #[cfg(feature = "track_location")]
                 changed_by: value.changed_by,
             })
     }
@@ -1138,9 +1077,16 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     type Item<'world, 'state> = DeferredWorld<'world>;
 
     fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.component_access_set.read_all();
+        assert!(
+            !system_meta
+                .component_access_set
+                .combined_access()
+                .has_any_read(),
+            "DeferredWorld in system {} conflicts with a previous access.",
+            system_meta.name,
+        );
         system_meta.component_access_set.write_all();
-        system_meta.set_has_deferred();
+        system_meta.archetype_component_access.write_all();
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -1182,6 +1128,25 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// write_system.run((), world);
 /// // Note how the read local is still 0 due to the locals not being shared.
 /// assert_eq!(read_system.run((), world), 0);
+/// ```
+///
+/// A simple way to set a different default value for a local is by wrapping the value with an Option.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let world = &mut World::default();
+/// fn counter_from_10(mut count: Local<Option<usize>>) -> usize {
+///     let count = count.get_or_insert(10);
+///     *count += 1;
+///     *count
+/// }
+/// let mut counter_system = IntoSystem::into_system(counter_from_10);
+/// counter_system.initialize(world);
+///
+/// // Counter is initialized at 10, and increases to 11 on first run.
+/// assert_eq!(counter_system.run((), world), 11);
+/// // Counter is only increased by 1 on subsequent runs.
+/// assert_eq!(counter_system.run((), world), 12);
 /// ```
 ///
 /// N.B. A [`Local`]s value cannot be read or written to outside of the containing system.
@@ -1463,7 +1428,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
 /// over to another thread.
 ///
 /// This [`SystemParam`] fails validation if non-send resource doesn't exist.
-/// /// This will cause a panic, but can be configured to do nothing or warn once.
+/// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<NonSend<T>>`] instead if the resource might not always exist.
 pub struct NonSend<'w, T: 'static> {
@@ -1471,8 +1436,7 @@ pub struct NonSend<'w, T: 'static> {
     ticks: ComponentTicks,
     last_run: Tick,
     this_run: Tick,
-    #[cfg(feature = "track_location")]
-    changed_by: &'static Location<'static>,
+    changed_by: MaybeLocation<&'w &'static Location<'static>>,
 }
 
 // SAFETY: Only reads a single World non-send resource
@@ -1499,9 +1463,8 @@ impl<'w, T: 'static> NonSend<'w, T> {
     }
 
     /// The location that last caused this to change.
-    #[cfg(feature = "track_location")]
-    pub fn changed_by(&self) -> &'static Location<'static> {
-        self.changed_by
+    pub fn changed_by(&self) -> MaybeLocation {
+        self.changed_by.copied()
     }
 }
 
@@ -1522,8 +1485,7 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
             },
             this_run: nsm.ticks.this_run,
             last_run: nsm.ticks.last_run,
-            #[cfg(feature = "track_location")]
-            changed_by: nsm.changed_by,
+            changed_by: nsm.changed_by.map(|changed_by| &*changed_by),
         }
     }
 }
@@ -1582,7 +1544,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks, _caller) =
+        let (ptr, ticks, caller) =
             world
                 .get_non_send_with_ticks(component_id)
                 .unwrap_or_else(|| {
@@ -1598,8 +1560,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             ticks: ticks.read(),
             last_run: system_meta.last_run,
             this_run: change_tick,
-            #[cfg(feature = "track_location")]
-            changed_by: _caller.deref(),
+            changed_by: caller.map(|caller| caller.deref()),
         }
     }
 }
@@ -1625,13 +1586,12 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     ) -> Self::Item<'w, 's> {
         world
             .get_non_send_with_ticks(component_id)
-            .map(|(ptr, ticks, _caller)| NonSend {
+            .map(|(ptr, ticks, caller)| NonSend {
                 value: ptr.deref(),
                 ticks: ticks.read(),
                 last_run: system_meta.last_run,
                 this_run: change_tick,
-                #[cfg(feature = "track_location")]
-                changed_by: _caller.deref(),
+                changed_by: caller.map(|caller| caller.deref()),
             })
     }
 }
@@ -1693,7 +1653,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks, _caller) =
+        let (ptr, ticks, caller) =
             world
                 .get_non_send_with_ticks(component_id)
                 .unwrap_or_else(|| {
@@ -1706,8 +1666,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
             ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
-            #[cfg(feature = "track_location")]
-            changed_by: _caller.deref_mut(),
+            changed_by: caller.map(|caller| caller.deref_mut()),
         }
     }
 }
@@ -1730,11 +1689,10 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     ) -> Self::Item<'w, 's> {
         world
             .get_non_send_with_ticks(component_id)
-            .map(|(ptr, ticks, _caller)| NonSendMut {
+            .map(|(ptr, ticks, caller)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
-                #[cfg(feature = "track_location")]
-                changed_by: _caller.deref_mut(),
+                changed_by: caller.map(|caller| caller.deref_mut()),
             })
     }
 }
@@ -2637,10 +2595,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        system::assert_is_system,
-    };
+    use crate::system::assert_is_system;
     use core::cell::RefCell;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.

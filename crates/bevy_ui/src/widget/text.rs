@@ -1,29 +1,27 @@
 use crate::{
-    ComputedNode, ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node,
-    NodeMeasure, TargetCamera, UiScale,
+    ComputedNode, ComputedNodeTarget, ContentSize, FixedMeasure, Measure, MeasureArgs, Node,
+    NodeMeasure,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    entity::{Entity, EntityHashMap},
+    entity::Entity,
     prelude::{require, Component},
     query::With,
     reflect::ReflectComponent,
-    system::{Local, Query, Res, ResMut},
+    system::{Query, Res, ResMut},
     world::{Mut, Ref},
 };
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::camera::Camera;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
     TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
     TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
 };
-use bevy_utils::Entry;
 use taffy::style::AvailableSpace;
 use tracing::error;
 
@@ -63,7 +61,7 @@ impl Default for TextNodeFlags {
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor};
+/// # use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor, TextSpan};
 /// # use bevy_ui::prelude::Text;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
@@ -88,9 +86,15 @@ impl Default for TextNodeFlags {
 ///     Text::new("hello world\nand bevy!"),
 ///     TextLayout::new_with_justify(JustifyText::Center)
 /// ));
+///
+/// // With spans
+/// world.spawn(Text::new("hello ")).with_children(|parent| {
+///     parent.spawn(TextSpan::new("world"));
+///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+/// });
 /// ```
-#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq)]
 #[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
 pub struct Text(pub String);
 
@@ -236,18 +240,13 @@ fn create_text_measure<'a>(
 /// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 ///
-/// * Measures are regenerated if the target camera's scale factor (or primary window if no specific target) or [`UiScale`] is changed.
+/// * Measures are regenerated on changes to either [`ComputedTextBlock`] or [`ComputedNodeTarget`].
 /// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system
-///     is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
-///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
-///     method should be called when only changing the `Text`'s colors.
+///   is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
+///   color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
+///   method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
-    mut scale_factors_buffer: Local<EntityHashMap<f32>>,
-    mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
-    camera_query: Query<(Entity, &Camera)>,
-    default_ui_camera: DefaultUiCamera,
-    ui_scale: Res<UiScale>,
     mut text_query: Query<
         (
             Entity,
@@ -255,7 +254,7 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
-            Option<&TargetCamera>,
+            Ref<ComputedNodeTarget>,
         ),
         With<Node>,
     >,
@@ -263,30 +262,9 @@ pub fn measure_text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    scale_factors_buffer.clear();
-
-    let default_camera_entity = default_ui_camera.get();
-
-    for (entity, block, content_size, text_flags, computed, maybe_camera) in &mut text_query {
-        let Some(camera_entity) = maybe_camera
-            .map(TargetCamera::entity)
-            .or(default_camera_entity)
-        else {
-            continue;
-        };
-        let scale_factor = match scale_factors_buffer.entry(camera_entity) {
-            Entry::Occupied(entry) => *entry.get(),
-            Entry::Vacant(entry) => *entry.insert(
-                camera_query
-                    .get(camera_entity)
-                    .ok()
-                    .and_then(|(_, c)| c.target_scaling_factor())
-                    .unwrap_or(1.0)
-                    * ui_scale.0,
-            ),
-        };
+    for (entity, block, content_size, text_flags, computed, computed_target) in &mut text_query {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
-        if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
+        if computed_target.is_changed()
             || computed.needs_rerender()
             || text_flags.needs_measure_fn
             || content_size.is_added()
@@ -294,7 +272,7 @@ pub fn measure_text_system(
             create_text_measure(
                 entity,
                 &fonts,
-                scale_factor.into(),
+                computed_target.scale_factor.into(),
                 text_reader.iter(entity),
                 block,
                 &mut text_pipeline,
@@ -305,7 +283,6 @@ pub fn measure_text_system(
             );
         }
     }
-    core::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }
 
 #[inline]

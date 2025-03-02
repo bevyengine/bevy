@@ -2,6 +2,7 @@ use crate::{
     io::{AssetSourceEvent, AssetWatcher},
     path::normalize_path,
 };
+use alloc::borrow::ToOwned;
 use core::time::Duration;
 use crossbeam_channel::Sender;
 use notify_debouncer_full::{
@@ -17,7 +18,9 @@ use std::path::{Path, PathBuf};
 use tracing::error;
 
 /// An [`AssetWatcher`] that watches the filesystem for changes to asset files in a given root folder and emits [`AssetSourceEvent`]
-/// for each relevant change. This uses [`notify_debouncer_full`] to retrieve "debounced" filesystem events.
+/// for each relevant change.
+///
+/// This uses [`notify_debouncer_full`] to retrieve "debounced" filesystem events.
 /// "Debouncing" defines a time window to hold on to events and then removes duplicate events that fall into this window.
 /// This introduces a small delay in processing events, but it helps reduce event duplicates. A small delay is also necessary
 /// on some systems to avoid processing a change event before it has actually been applied.
@@ -26,6 +29,7 @@ pub struct FileWatcher {
 }
 
 impl FileWatcher {
+    /// Creates a new [`FileWatcher`] that watches for changes to the asset files in the given `path`.
     pub fn new(
         path: PathBuf,
         sender: Sender<AssetSourceEvent>,

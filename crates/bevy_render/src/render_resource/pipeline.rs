@@ -6,7 +6,6 @@ use crate::{
     render_resource::{BindGroupLayout, Shader},
 };
 use alloc::borrow::Cow;
-use alloc::sync::Arc;
 use bevy_asset::Handle;
 use core::ops::Deref;
 use wgpu::{
@@ -22,7 +21,7 @@ define_atomic_id!(RenderPipelineId);
 #[derive(Clone, Debug)]
 pub struct RenderPipeline {
     id: RenderPipelineId,
-    value: Arc<WgpuWrapper<wgpu::RenderPipeline>>,
+    value: WgpuWrapper<wgpu::RenderPipeline>,
 }
 
 impl RenderPipeline {
@@ -36,7 +35,7 @@ impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
         RenderPipeline {
             id: RenderPipelineId::new(),
-            value: Arc::new(WgpuWrapper::new(value)),
+            value: WgpuWrapper::new(value),
         }
     }
 }
@@ -59,7 +58,7 @@ define_atomic_id!(ComputePipelineId);
 #[derive(Clone, Debug)]
 pub struct ComputePipeline {
     id: ComputePipelineId,
-    value: Arc<WgpuWrapper<wgpu::ComputePipeline>>,
+    value: WgpuWrapper<wgpu::ComputePipeline>,
 }
 
 impl ComputePipeline {
@@ -74,7 +73,7 @@ impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
         ComputePipeline {
             id: ComputePipelineId::new(),
-            value: Arc::new(WgpuWrapper::new(value)),
+            value: WgpuWrapper::new(value),
         }
     }
 }

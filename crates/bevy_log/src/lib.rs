@@ -62,7 +62,7 @@ use tracing_subscriber::{
 };
 #[cfg(feature = "tracing-chrome")]
 use {
-    bevy_ecs::system::Resource,
+    bevy_ecs::resource::Resource,
     bevy_utils::synccell::SyncCell,
     tracing_subscriber::fmt::{format::DefaultFields, FormattedFields},
 };
@@ -80,11 +80,11 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
 /// this plugin will setup a collector appropriate to your target platform:
 /// * Using [`tracing-subscriber`](https://crates.io/crates/tracing-subscriber) by default,
-///     logging to `stdout`.
+///   logging to `stdout`.
 /// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android,
-///     logging to Android logs.
+///   logging to Android logs.
 /// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in Wasm, logging
-///     to the browser console.
+///   to the browser console.
 ///
 /// You can configure this plugin.
 /// ```no_run
@@ -117,7 +117,10 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
 /// # use bevy_log::LogPlugin;
 /// fn main() {
+/// #   // SAFETY: Single-threaded
+/// #   unsafe {
 ///     std::env::set_var("NO_COLOR", "1");
+/// #   }
 ///     App::new()
 ///        .add_plugins(DefaultPlugins)
 ///        .run();

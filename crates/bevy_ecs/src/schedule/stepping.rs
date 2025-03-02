@@ -1,9 +1,11 @@
 use crate::{
+    resource::Resource,
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
-    system::{IntoSystem, ResMut, Resource},
+    system::{IntoSystem, ResMut},
 };
 use alloc::vec::Vec;
-use bevy_utils::{HashMap, TypeIdMap};
+use bevy_platform_support::collections::HashMap;
+use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use fixedbitset::FixedBitSet;
 use log::{info, warn};
@@ -14,8 +16,6 @@ use log::error;
 
 #[cfg(test)]
 use log::debug;
-
-use crate as bevy_ecs;
 
 #[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
 enum Action {
@@ -829,8 +829,6 @@ mod tests {
     use alloc::{format, vec};
     use std::println;
 
-    pub use crate as bevy_ecs;
-
     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
     struct TestSchedule;
 
@@ -1350,7 +1348,9 @@ mod tests {
         //
         // first system will be configured as `run_if(|| false)`, so it can
         // just panic if called
-        let first_system = move || panic!("first_system should not be run");
+        let first_system: fn() = move || {
+            panic!("first_system should not be run");
+        };
 
         // The second system, we need to know when it has been called, so we'll
         // add a resource for tracking if it has been run.  The system will

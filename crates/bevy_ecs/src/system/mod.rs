@@ -160,6 +160,12 @@ use crate::world::World;
 /// Use this to get a system from a function. Also note that every system implements this trait as
 /// well.
 ///
+/// # Usage notes
+///
+/// This trait should only be used as a bound for trait implementations or as an
+/// argument to a function. If a system needs to be returned from a function or
+/// stored somewhere, use [`System`] instead of this trait.
+///
 /// # Examples
 ///
 /// ```
@@ -324,15 +330,15 @@ mod tests {
     use std::println;
 
     use crate::{
-        self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
         change_detection::DetectChanges,
-        component::{Component, Components, Tick},
+        component::{Component, Components},
         entity::{Entities, Entity},
         prelude::{AnyOf, EntityRef},
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
+        resource::Resource,
         result::Result,
         schedule::{
             common_conditions::resource_exists, ApplyDeferred, Condition, IntoSystemConfigs,
@@ -340,9 +346,9 @@ mod tests {
         },
         system::{
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
-            Resource, Single, StaticSystemParam, System, SystemState,
+            Single, StaticSystemParam, System, SystemState,
         },
-        world::{EntityMut, FromWorld, World},
+        world::{DeferredWorld, EntityMut, FromWorld, World},
     };
 
     #[derive(Resource, PartialEq, Debug)]
@@ -391,7 +397,7 @@ mod tests {
 
     #[test]
     fn get_many_is_ordered() {
-        use crate::system::Resource;
+        use crate::resource::Resource;
         const ENTITIES_COUNT: usize = 1000;
 
         #[derive(Resource)]
@@ -472,7 +478,7 @@ mod tests {
 
     #[test]
     fn changed_resource_system() {
-        use crate::system::Resource;
+        use crate::resource::Resource;
 
         #[derive(Resource)]
         struct Flipper(bool);
@@ -1354,7 +1360,7 @@ mod tests {
             fn mutable_query(mut query: Query<&mut A>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<&A>) {}
@@ -1369,7 +1375,7 @@ mod tests {
             fn mutable_query(mut query: Query<Option<&mut A>>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<Option<&A>>) {}
@@ -1384,7 +1390,7 @@ mod tests {
             fn mutable_query(mut query: Query<(&mut A, &B)>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<(&A, &B)>) {}
@@ -1399,7 +1405,7 @@ mod tests {
             fn mutable_query(mut query: Query<(&mut A, &mut B)>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<(&A, &B)>) {}
@@ -1414,7 +1420,7 @@ mod tests {
             fn mutable_query(mut query: Query<(&mut A, &mut B), With<C>>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<(&A, &B), With<C>>) {}
@@ -1429,7 +1435,7 @@ mod tests {
             fn mutable_query(mut query: Query<(&mut A, &mut B), Without<C>>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<(&A, &B), Without<C>>) {}
@@ -1444,7 +1450,7 @@ mod tests {
             fn mutable_query(mut query: Query<(&mut A, &mut B), Added<C>>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<(&A, &B), Added<C>>) {}
@@ -1459,7 +1465,7 @@ mod tests {
             fn mutable_query(mut query: Query<(&mut A, &mut B), Changed<C>>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<(&A, &B), Changed<C>>) {}
@@ -1566,24 +1572,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Encountered a mismatched World."]
-    fn query_validates_world_id() {
-        let mut world1 = World::new();
-        let world2 = World::new();
-        let qstate = world1.query::<()>();
-        // SAFETY: doesnt access anything
-        let query = unsafe {
-            Query::new(
-                world2.as_unsafe_world_cell_readonly(),
-                &qstate,
-                Tick::new(0),
-                Tick::new(0),
-            )
-        };
-        query.iter();
-    }
-
-    #[test]
     #[should_panic]
     fn assert_system_does_not_conflict() {
         fn system(_query: Query<(&mut W<u32>, &mut W<u32>)>) {}
@@ -1592,10 +1580,19 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_world_and_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
+        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_world_and_entity_mut_system_does_conflict_first::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
     )]
-    fn assert_world_and_entity_mut_system_does_conflict() {
+    fn assert_world_and_entity_mut_system_does_conflict_first() {
         fn system(_query: &World, _q2: Query<EntityMut>) {}
+        super::assert_system_does_not_conflict(system);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules"
+    )]
+    fn assert_world_and_entity_mut_system_does_conflict_second() {
+        fn system(_: Query<EntityMut>, _: &World) {}
         super::assert_system_does_not_conflict(system);
     }
 
@@ -1618,10 +1615,43 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(
+        expected = "error[B0001]: Query<EntityRef, ()> in system bevy_ecs::system::tests::assert_deferred_world_and_entity_ref_system_does_conflict_first::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
+    )]
+    fn assert_deferred_world_and_entity_ref_system_does_conflict_first() {
+        fn system(_world: DeferredWorld, _query: Query<EntityRef>) {}
+        super::assert_system_does_not_conflict(system);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "DeferredWorld in system bevy_ecs::system::tests::assert_deferred_world_and_entity_ref_system_does_conflict_second::system conflicts with a previous access."
+    )]
+    fn assert_deferred_world_and_entity_ref_system_does_conflict_second() {
+        fn system(_query: Query<EntityRef>, _world: DeferredWorld) {}
+        super::assert_system_does_not_conflict(system);
+    }
+
+    #[test]
+    fn assert_deferred_world_and_empty_query_does_not_conflict_first() {
+        fn system(_world: DeferredWorld, _query: Query<Entity>) {}
+        super::assert_system_does_not_conflict(system);
+    }
+
+    #[test]
+    fn assert_deferred_world_and_empty_query_does_not_conflict_second() {
+        fn system(_query: Query<Entity>, _world: DeferredWorld) {}
+        super::assert_system_does_not_conflict(system);
+    }
+
+    #[test]
     #[should_panic]
     fn panic_inside_system() {
         let mut world = World::new();
-        run_system(&mut world, || panic!("this system panics"));
+        let system: fn() = || {
+            panic!("this system panics");
+        };
+        run_system(&mut world, system);
     }
 
     #[test]

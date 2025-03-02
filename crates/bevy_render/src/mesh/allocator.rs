@@ -11,11 +11,13 @@ use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{Res, ResMut, Resource},
+    system::{Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_utils::{default, HashMap, HashSet};
+use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
+use bevy_utils::default;
 use offset_allocator::{Allocation, Allocator};
 use tracing::error;
 use wgpu::{
@@ -194,7 +196,7 @@ struct GeneralSlab {
     element_layout: ElementLayout,
 
     /// The size of this slab in slots.
-    slot_capacity: u32,
+    current_slot_capacity: u32,
 }
 
 /// A slab that contains a single object.
@@ -220,6 +222,18 @@ enum ElementClass {
     Vertex,
     /// A vertex index.
     Index,
+}
+
+/// The results of [`GeneralSlab::grow_if_necessary`].
+enum SlabGrowthResult {
+    /// The mesh data already fits in the slab; the slab doesn't need to grow.
+    NoGrowthNeeded,
+    /// The slab needed to grow.
+    ///
+    /// The [`SlabToReallocate`] contains the old capacity of the slab.
+    NeededGrowth(SlabToReallocate),
+    /// The slab wanted to grow but couldn't because it hit its maximum size.
+    CantGrow,
 }
 
 /// Information about the size of individual elements (vertices or indices)
@@ -276,9 +290,8 @@ struct SlabsToReallocate(HashMap<SlabId, SlabToReallocate>);
 /// reallocated.
 #[derive(Default)]
 struct SlabToReallocate {
-    /// Maps all allocations that need to be relocated to their positions within
-    /// the *new* slab.
-    allocations_to_copy: HashMap<AssetId<Mesh>, SlabAllocation>,
+    /// The capacity of the slab before we decided to grow it.
+    old_slot_capacity: u32,
 }
 
 impl Display for SlabId {
@@ -396,7 +409,7 @@ impl MeshAllocator {
         slab_id: SlabId,
     ) -> Option<MeshBufferSlice> {
         match self.slabs.get(&slab_id)? {
-            Slab::General(ref general_slab) => {
+            Slab::General(general_slab) => {
                 let slab_allocation = general_slab.resident_allocations.get(mesh_id)?;
                 Some(MeshBufferSlice {
                     buffer: general_slab.buffer.as_ref()?,
@@ -407,7 +420,7 @@ impl MeshAllocator {
                 })
             }
 
-            Slab::LargeObject(ref large_object_slab) => {
+            Slab::LargeObject(large_object_slab) => {
                 let buffer = large_object_slab.buffer.as_ref()?;
                 Some(MeshBufferSlice {
                     buffer,
@@ -542,7 +555,7 @@ impl MeshAllocator {
 
         match *slab {
             Slab::General(ref mut general_slab) => {
-                let (Some(ref buffer), Some(allocated_range)) = (
+                let (Some(buffer), Some(allocated_range)) = (
                     &general_slab.buffer,
                     general_slab.pending_allocations.remove(mesh_id),
                 ) else {
@@ -692,32 +705,39 @@ impl MeshAllocator {
         // and try to allocate the mesh inside them. We go with the first one
         // that succeeds.
         let mut mesh_allocation = None;
-        'slab: for &slab_id in &*candidate_slabs {
-            loop {
-                let Some(Slab::General(ref mut slab)) = self.slabs.get_mut(&slab_id) else {
-                    unreachable!("Slab not found")
-                };
+        for &slab_id in &*candidate_slabs {
+            let Some(Slab::General(slab)) = self.slabs.get_mut(&slab_id) else {
+                unreachable!("Slab not found")
+            };
 
-                if let Some(allocation) = slab.allocator.allocate(data_slot_count) {
-                    mesh_allocation = Some(MeshAllocation {
-                        slab_id,
-                        slab_allocation: SlabAllocation {
-                            allocation,
-                            slot_count: data_slot_count,
-                        },
-                    });
-                    break 'slab;
-                }
+            let Some(allocation) = slab.allocator.allocate(data_slot_count) else {
+                continue;
+            };
 
-                // Try to grow the slab. If this fails, the slab is full; go on
-                // to the next slab.
-                match slab.try_grow(settings) {
-                    Ok(new_mesh_allocation_records) => {
-                        slabs_to_grow.insert(slab_id, new_mesh_allocation_records);
+            // Try to fit the object in the slab, growing if necessary.
+            match slab.grow_if_necessary(allocation.offset + data_slot_count, settings) {
+                SlabGrowthResult::NoGrowthNeeded => {}
+                SlabGrowthResult::NeededGrowth(slab_to_reallocate) => {
+                    // If we already grew the slab this frame, don't replace the
+                    // `SlabToReallocate` entry. We want to keep the entry
+                    // corresponding to the size that the slab had at the start
+                    // of the frame, so that we can copy only the used portion
+                    // of the initial buffer to the new one.
+                    if let Entry::Vacant(vacant_entry) = slabs_to_grow.entry(slab_id) {
+                        vacant_entry.insert(slab_to_reallocate);
                     }
-                    Err(()) => continue 'slab,
                 }
+                SlabGrowthResult::CantGrow => continue,
             }
+
+            mesh_allocation = Some(MeshAllocation {
+                slab_id,
+                slab_allocation: SlabAllocation {
+                    allocation,
+                    slot_count: data_slot_count,
+                },
+            });
+            break;
         }
 
         // If we still have no allocation, make a new slab.
@@ -743,9 +763,7 @@ impl MeshAllocator {
         // Mark the allocation as pending. Don't copy it in just yet; further
         // meshes loaded this frame may result in its final allocation location
         // changing.
-        if let Some(Slab::General(ref mut general_slab)) =
-            self.slabs.get_mut(&mesh_allocation.slab_id)
-        {
+        if let Some(Slab::General(general_slab)) = self.slabs.get_mut(&mesh_allocation.slab_id) {
             general_slab
                 .pending_allocations
                 .insert(*mesh_id, mesh_allocation.slab_allocation);
@@ -772,10 +790,11 @@ impl MeshAllocator {
 
     /// Reallocates a slab that needs to be resized, or allocates a new slab.
     ///
-    /// This performs the actual growth operation that [`GeneralSlab::try_grow`]
-    /// scheduled. We do the growth in two phases so that, if a slab grows
-    /// multiple times in the same frame, only one new buffer is reallocated,
-    /// rather than reallocating the buffer multiple times.
+    /// This performs the actual growth operation that
+    /// [`GeneralSlab::grow_if_necessary`] scheduled. We do the growth in two
+    /// phases so that, if a slab grows multiple times in the same frame, only
+    /// one new buffer is reallocated, rather than reallocating the buffer
+    /// multiple times.
     fn reallocate_slab(
         &mut self,
         render_device: &RenderDevice,
@@ -803,38 +822,28 @@ impl MeshAllocator {
                 slab_id,
                 buffer_usages_to_str(buffer_usages)
             )),
-            size: slab.slot_capacity as u64 * slab.element_layout.slot_size(),
+            size: slab.current_slot_capacity as u64 * slab.element_layout.slot_size(),
             usage: buffer_usages,
             mapped_at_creation: false,
         });
 
         slab.buffer = Some(new_buffer.clone());
 
+        let Some(old_buffer) = old_buffer else { return };
+
         // In order to do buffer copies, we need a command encoder.
         let mut encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("slab resize encoder"),
         });
 
-        // If we have no objects to copy over, we're done.
-        let Some(old_buffer) = old_buffer else {
-            return;
-        };
-
-        for (mesh_id, src_slab_allocation) in &mut slab.resident_allocations {
-            let Some(dest_slab_allocation) = slab_to_grow.allocations_to_copy.get(mesh_id) else {
-                continue;
-            };
-
-            encoder.copy_buffer_to_buffer(
-                &old_buffer,
-                src_slab_allocation.allocation.offset as u64 * slab.element_layout.slot_size(),
-                &new_buffer,
-                dest_slab_allocation.allocation.offset as u64 * slab.element_layout.slot_size(),
-                dest_slab_allocation.slot_count as u64 * slab.element_layout.slot_size(),
-            );
-            // Now that we've done the copy, we can update the allocation record.
-            *src_slab_allocation = dest_slab_allocation.clone();
-        }
+        // Copy the data from the old buffer into the new one.
+        encoder.copy_buffer_to_buffer(
+            &old_buffer,
+            0,
+            &new_buffer,
+            0,
+            slab_to_grow.old_slot_capacity as u64 * slab.element_layout.slot_size(),
+        );
 
         let command_buffer = encoder.finish();
         render_queue.submit([command_buffer]);
@@ -870,16 +879,19 @@ impl GeneralSlab {
         layout: ElementLayout,
         data_slot_count: u32,
     ) -> GeneralSlab {
-        let slab_slot_capacity = (settings.min_slab_size.div_ceil(layout.slot_size()) as u32)
+        let initial_slab_slot_capacity = (settings.min_slab_size.div_ceil(layout.slot_size())
+            as u32)
+            .max(offset_allocator::ext::min_allocator_size(data_slot_count));
+        let max_slab_slot_capacity = (settings.max_slab_size.div_ceil(layout.slot_size()) as u32)
             .max(offset_allocator::ext::min_allocator_size(data_slot_count));
 
         let mut new_slab = GeneralSlab {
-            allocator: Allocator::new(slab_slot_capacity),
+            allocator: Allocator::new(max_slab_slot_capacity),
             buffer: None,
             resident_allocations: HashMap::default(),
             pending_allocations: HashMap::default(),
             element_layout: layout,
-            slot_capacity: slab_slot_capacity,
+            current_slot_capacity: initial_slab_slot_capacity,
         };
 
         // This should never fail.
@@ -896,68 +908,40 @@ impl GeneralSlab {
         new_slab
     }
 
-    /// Attempts to grow a slab that's just run out of space.
+    /// Checks to see if the size of this slab is at least `new_size_in_slots`
+    /// and grows the slab if it isn't.
     ///
-    /// Returns a structure the allocations that need to be relocated if the
-    /// growth succeeded. If the slab is full, returns `Err`.
-    fn try_grow(&mut self, settings: &MeshAllocatorSettings) -> Result<SlabToReallocate, ()> {
-        // In extremely rare cases due to allocator fragmentation, it may happen
-        // that we fail to re-insert every object that was in the slab after
-        // growing it. Even though this will likely never happen, we use this
-        // loop to handle this unlikely event properly if it does.
-        'grow: loop {
-            let new_slab_slot_capacity = ((self.slot_capacity as f64 * settings.growth_factor)
-                .ceil() as u32)
-                .min((settings.max_slab_size / self.element_layout.slot_size()) as u32);
-            if new_slab_slot_capacity == self.slot_capacity {
-                // The slab is full.
-                return Err(());
-            }
-
-            // Grow the slab.
-            self.allocator = Allocator::new(new_slab_slot_capacity);
-            self.slot_capacity = new_slab_slot_capacity;
-
-            let mut slab_to_grow = SlabToReallocate::default();
-
-            // Place every resident allocation that was in the old slab in the
-            // new slab.
-            for (allocated_mesh_id, old_allocation_range) in &self.resident_allocations {
-                let allocation_size = old_allocation_range.slot_count;
-                match self.allocator.allocate(allocation_size) {
-                    Some(allocation) => {
-                        slab_to_grow.allocations_to_copy.insert(
-                            *allocated_mesh_id,
-                            SlabAllocation {
-                                allocation,
-                                slot_count: allocation_size,
-                            },
-                        );
-                    }
-                    None => {
-                        // We failed to insert one of the allocations that we
-                        // had before.
-                        continue 'grow;
-                    }
-                }
-            }
-
-            // Move every allocation that was pending in the old slab to the new
-            // slab.
-            for slab_allocation in self.pending_allocations.values_mut() {
-                let allocation_size = slab_allocation.slot_count;
-                match self.allocator.allocate(allocation_size) {
-                    Some(allocation) => slab_allocation.allocation = allocation,
-                    None => {
-                        // We failed to insert one of the allocations that we
-                        // had before.
-                        continue 'grow;
-                    }
-                }
-            }
-
-            return Ok(slab_to_grow);
+    /// The returned [`SlabGrowthResult`] describes whether the slab needed to
+    /// grow and whether, if so, it was successful in doing so.
+    fn grow_if_necessary(
+        &mut self,
+        new_size_in_slots: u32,
+        settings: &MeshAllocatorSettings,
+    ) -> SlabGrowthResult {
+        // Is the slab big enough already?
+        let initial_slot_capacity = self.current_slot_capacity;
+        if self.current_slot_capacity >= new_size_in_slots {
+            return SlabGrowthResult::NoGrowthNeeded;
         }
+
+        // Try to grow in increments of `MeshAllocatorSettings::growth_factor`
+        // until we're big enough.
+        while self.current_slot_capacity < new_size_in_slots {
+            let new_slab_slot_capacity =
+                ((self.current_slot_capacity as f64 * settings.growth_factor).ceil() as u32)
+                    .min((settings.max_slab_size / self.element_layout.slot_size()) as u32);
+            if new_slab_slot_capacity == self.current_slot_capacity {
+                // The slab is full.
+                return SlabGrowthResult::CantGrow;
+            }
+
+            self.current_slot_capacity = new_slab_slot_capacity;
+        }
+
+        // Tell our caller what we did.
+        SlabGrowthResult::NeededGrowth(SlabToReallocate {
+            old_slot_capacity: initial_slot_capacity,
+        })
     }
 }
 

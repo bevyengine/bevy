@@ -1,4 +1,4 @@
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use core::time::Duration;
 
 /// Settings for the [`WinitPlugin`](super::WinitPlugin).
@@ -80,7 +80,7 @@ pub enum UpdateMode {
     /// - `wait` time has elapsed since the previous update
     /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
     /// - new [window](`winit::event::WindowEvent`), [raw input](`winit::event::DeviceEvent`), or custom
-    ///     events have appeared
+    ///   events have appeared
     /// - a redraw has been requested with the [`EventLoopProxy`](crate::EventLoopProxy)
     Reactive {
         /// The approximate time from the start of one update to the next.

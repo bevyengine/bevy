@@ -1,8 +1,8 @@
 use core::{fmt::Write, hint::black_box, iter, time::Duration};
 
 use benches::bench;
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{DynamicMap, Map};
-use bevy_utils::HashMap;
 use criterion::{
     criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId,
     Criterion, PlotConfiguration, Throughput,
@@ -145,7 +145,7 @@ fn u64_to_n_byte_key(k: u64, n: usize) -> String {
     write!(&mut key, "{}", k).unwrap();
 
     // Pad key to n bytes.
-    key.extend(iter::repeat('\0').take(n - key.len()));
+    key.extend(iter::repeat_n('\0', n - key.len()));
     key
 }
 

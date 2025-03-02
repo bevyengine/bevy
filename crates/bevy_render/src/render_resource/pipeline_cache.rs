@@ -8,10 +8,12 @@ use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::{
     event::EventReader,
-    system::{Res, ResMut, Resource},
+    resource::Resource,
+    system::{Res, ResMut},
 };
+use bevy_platform_support::collections::{hash_map::EntryRef, HashMap, HashSet};
 use bevy_tasks::Task;
-use bevy_utils::{default, hashbrown::hash_map::EntryRef, HashMap, HashSet};
+use bevy_utils::default;
 use core::{future::Future, hash::Hash, mem, ops::Deref};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
@@ -249,7 +251,7 @@ impl ShaderCache {
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
 
-                if cfg!(feature = "ios_simulator") {
+                if cfg!(target_abi = "sim") {
                     shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
                 }
 
@@ -316,7 +318,19 @@ impl ShaderCache {
                 render_device
                     .wgpu_device()
                     .push_error_scope(wgpu::ErrorFilter::Validation);
-                let shader_module = render_device.create_shader_module(module_descriptor);
+
+                let shader_module = match shader.validate_shader {
+                    ValidateShader::Enabled => {
+                        render_device.create_and_validate_shader_module(module_descriptor)
+                    }
+                    // SAFETY: we are interfacing with shader code, which may contain undefined behavior,
+                    // such as indexing out of bounds.
+                    // The checks required are prohibitively expensive and a poor default for game engines.
+                    ValidateShader::Disabled => unsafe {
+                        render_device.create_shader_module(module_descriptor)
+                    },
+                };
+
                 let error = render_device.wgpu_device().pop_error_scope();
 
                 // `now_or_never` will return Some if the future is ready and None otherwise.
@@ -868,16 +882,14 @@ impl PipelineCache {
                 };
             }
 
-            CachedPipelineState::Creating(ref mut task) => {
-                match bevy_tasks::futures::check_ready(task) {
-                    Some(Ok(pipeline)) => {
-                        cached_pipeline.state = CachedPipelineState::Ok(pipeline);
-                        return;
-                    }
-                    Some(Err(err)) => cached_pipeline.state = CachedPipelineState::Err(err),
-                    _ => (),
+            CachedPipelineState::Creating(task) => match bevy_tasks::futures::check_ready(task) {
+                Some(Ok(pipeline)) => {
+                    cached_pipeline.state = CachedPipelineState::Ok(pipeline);
+                    return;
                 }
-            }
+                Some(Err(err)) => cached_pipeline.state = CachedPipelineState::Err(err),
+                _ => (),
+            },
 
             CachedPipelineState::Err(err) => match err {
                 // Retry
@@ -1066,6 +1078,18 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
     capabilities.set(
         Capabilities::SUBGROUP_VERTEX_STAGE,
         features.contains(Features::SUBGROUP_VERTEX),
+    );
+    capabilities.set(
+        Capabilities::SHADER_FLOAT32_ATOMIC,
+        features.contains(Features::SHADER_FLOAT32_ATOMIC),
+    );
+    capabilities.set(
+        Capabilities::TEXTURE_ATOMIC,
+        features.contains(Features::TEXTURE_ATOMIC),
+    );
+    capabilities.set(
+        Capabilities::TEXTURE_INT64_ATOMIC,
+        features.contains(Features::TEXTURE_INT64_ATOMIC),
     );
 
     capabilities

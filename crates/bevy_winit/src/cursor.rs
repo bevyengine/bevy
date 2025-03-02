@@ -8,14 +8,14 @@ use crate::{
 use crate::{
     custom_cursor::{
         calculate_effective_rect, extract_and_transform_rgba_pixels, extract_rgba_pixels,
-        CustomCursorPlugin,
+        transform_hotspot, CustomCursorPlugin,
     },
     state::{CustomCursorCache, CustomCursorCacheKey},
     WinitCustomCursor,
 };
 use bevy_app::{App, Last, Plugin};
 #[cfg(feature = "custom_cursor")]
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 #[cfg(feature = "custom_cursor")]
 use bevy_ecs::system::Res;
 use bevy_ecs::{
@@ -29,14 +29,15 @@ use bevy_ecs::{
     world::{OnRemove, Ref},
 };
 #[cfg(feature = "custom_cursor")]
-use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
-#[cfg(feature = "custom_cursor")]
-use bevy_math::URect;
+use bevy_image::{Image, TextureAtlasLayout};
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_utils::HashSet;
 use bevy_window::{SystemCursorIcon, Window};
 #[cfg(feature = "custom_cursor")]
 use tracing::warn;
+
+#[cfg(feature = "custom_cursor")]
+pub use crate::custom_cursor::{CustomCursor, CustomCursorImage};
 
 pub(crate) struct CursorPlugin;
 
@@ -75,51 +76,6 @@ impl From<SystemCursorIcon> for CursorIcon {
     }
 }
 
-#[cfg(feature = "custom_cursor")]
-impl From<CustomCursor> for CursorIcon {
-    fn from(cursor: CustomCursor) -> Self {
-        CursorIcon::Custom(cursor)
-    }
-}
-
-#[cfg(feature = "custom_cursor")]
-/// Custom cursor image data.
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
-pub enum CustomCursor {
-    /// Image to use as a cursor.
-    Image {
-        /// The image must be in 8 bit int or 32 bit float rgba. PNG images
-        /// work well for this.
-        handle: Handle<Image>,
-        /// The (optional) texture atlas used to render the image.
-        texture_atlas: Option<TextureAtlas>,
-        /// Whether the image should be flipped along its x-axis.
-        flip_x: bool,
-        /// Whether the image should be flipped along its y-axis.
-        flip_y: bool,
-        /// An optional rectangle representing the region of the image to
-        /// render, instead of rendering the full image. This is an easy one-off
-        /// alternative to using a [`TextureAtlas`].
-        ///
-        /// When used with a [`TextureAtlas`], the rect is offset by the atlas's
-        /// minimal (top-left) corner position.
-        rect: Option<URect>,
-        /// X and Y coordinates of the hotspot in pixels. The hotspot must be
-        /// within the image bounds.
-        hotspot: (u16, u16),
-    },
-    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
-    /// A URL to an image to use as the cursor.
-    Url {
-        /// Web URL to an image to use as the cursor. PNGs preferred. Cursor
-        /// creation can fail if the image is invalid or not reachable.
-        url: String,
-        /// X and Y coordinates of the hotspot in pixels. The hotspot must be
-        /// within the image bounds.
-        hotspot: (u16, u16),
-    },
-}
-
 fn update_cursors(
     mut commands: Commands,
     windows: Query<(Entity, Ref<CursorIcon>), With<Window>>,
@@ -135,14 +91,16 @@ fn update_cursors(
 
         let cursor_source = match cursor.as_ref() {
             #[cfg(feature = "custom_cursor")]
-            CursorIcon::Custom(CustomCursor::Image {
-                handle,
-                texture_atlas,
-                flip_x,
-                flip_y,
-                rect,
-                hotspot,
-            }) => {
+            CursorIcon::Custom(CustomCursor::Image(c)) => {
+                let CustomCursorImage {
+                    handle,
+                    texture_atlas,
+                    flip_x,
+                    flip_y,
+                    rect,
+                    hotspot,
+                } = c;
+
                 let cache_key = CustomCursorCacheKey::Image {
                     id: handle.id(),
                     texture_atlas_layout_id: texture_atlas.as_ref().map(|a| a.layout.id()),
@@ -166,10 +124,13 @@ fn update_cursors(
                     let (rect, needs_sub_image) =
                         calculate_effective_rect(&texture_atlases, image, texture_atlas, rect);
 
-                    let maybe_rgba = if *flip_x || *flip_y || needs_sub_image {
-                        extract_and_transform_rgba_pixels(image, *flip_x, *flip_y, rect)
+                    let (maybe_rgba, hotspot) = if *flip_x || *flip_y || needs_sub_image {
+                        (
+                            extract_and_transform_rgba_pixels(image, *flip_x, *flip_y, rect),
+                            transform_hotspot(*hotspot, *flip_x, *flip_y, rect),
+                        )
                     } else {
-                        extract_rgba_pixels(image)
+                        (extract_rgba_pixels(image), *hotspot)
                     };
 
                     let Some(rgba) = maybe_rgba else {
@@ -199,14 +160,15 @@ fn update_cursors(
                 target_family = "wasm",
                 target_os = "unknown"
             ))]
-            CursorIcon::Custom(CustomCursor::Url { url, hotspot }) => {
-                let cache_key = CustomCursorCacheKey::Url(url.clone());
+            CursorIcon::Custom(CustomCursor::Url(c)) => {
+                let cache_key = CustomCursorCacheKey::Url(c.url.clone());
 
                 if cursor_cache.0.contains_key(&cache_key) {
                     CursorSource::CustomCached(cache_key)
                 } else {
                     use crate::CustomCursorExtWebSys;
-                    let source = WinitCustomCursor::from_url(url.clone(), hotspot.0, hotspot.1);
+                    let source =
+                        WinitCustomCursor::from_url(c.url.clone(), c.hotspot.0, c.hotspot.1);
                     CursorSource::Custom((cache_key, source))
                 }
             }
