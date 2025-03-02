@@ -1487,10 +1487,14 @@ impl AssetServer {
         let reader = source.reader();
         match reader.read_meta_bytes(path.path()).await {
             Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
-            Err(_) => {
-                // Either the meta file couldn't be found (so we can continue), or this was an I/O
-                // error, which will almost certainly be repeated below. Therefore, fallthrough is
-                // fine.
+            Err(AssetReaderError::NotFound(_)) => {
+                // The meta file couldn't be found so just fall through.
+            }
+            Err(AssetReaderError::Io(err)) => {
+                return Err(WriteDefaultMetaError::IoErrorFromExistingMetaCheck(err))
+            }
+            Err(AssetReaderError::HttpError(err)) => {
+                return Err(WriteDefaultMetaError::HttpErrorFromExistingMetaCheck(err))
             }
         }
 
@@ -1908,4 +1912,8 @@ pub enum WriteDefaultMetaError {
     FailedToWriteMeta(#[from] AssetWriterError),
     #[error("asset meta file already exists, so avoiding overwrite")]
     MetaAlreadyExists,
+    #[error("encountered an I/O error while reading the existing meta file: {0}")]
+    IoErrorFromExistingMetaCheck(Arc<std::io::Error>),
+    #[error("encountered HTTP status {0} when reading the existing meta file")]
+    HttpErrorFromExistingMetaCheck(u16),
 }
