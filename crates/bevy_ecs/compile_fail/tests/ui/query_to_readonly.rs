@@ -55,7 +55,7 @@ fn single_mut_query(mut query: Query<&mut Foo>) {
 
         let ref_foo = readonly_query.single();
 
-        let mut mut_foo = query.single_mut();
+        let mut mut_foo = query.single_mut().unwrap();
         //~^ E0502
 
         println!("{ref_foo:?}");

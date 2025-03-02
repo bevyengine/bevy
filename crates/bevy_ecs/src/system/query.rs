@@ -1742,7 +1742,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// A deprecated alias for [`single`](Self::single).
-    #[deprecated(since = "0.16", note = "Please use `single` instead")]
+    #[deprecated(note = "Please use `single` instead")]
     pub fn get_single(&self) -> Result<ROQueryItem<'_, D>, QuerySingleError> {
         self.single()
     }
@@ -1777,7 +1777,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// A deprecated alias for [`single_mut`](Self::single_mut).
-    #[deprecated(since = "0.16", note = "Please use `single_mut` instead")]
+    #[deprecated(note = "Please use `single_mut` instead")]
     pub fn get_single_mut(&mut self) -> Result<D::Item<'_>, QuerySingleError> {
         self.single_mut()
     }
