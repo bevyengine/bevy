@@ -1,7 +1,8 @@
-use crate::{FocusPolicy, UiRect, Val};
+use crate::{widget::Text, FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_ecs::{component::HookContext, prelude::*, system::SystemParam, world::DeferredWorld};
+use bevy_log::error_once;
 use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
@@ -340,6 +341,7 @@ impl From<Vec2> for ScrollPosition {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+#[component(on_insert=on_insert_node)]
 pub struct Node {
     /// Which layout algorithm to use when laying out this node's contents:
     ///   - [`Display::Flex`]: Use the Flexbox layout algorithm
@@ -620,6 +622,16 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
     pub grid_column: GridPlacement,
+}
+
+fn on_insert_node(world: DeferredWorld, ctx: HookContext) {
+    let Some(childof) = world.get::<ChildOf>(ctx.entity) else {
+        return;
+    };
+
+    if let Some(_parent) = world.get::<Text>(childof.parent) {
+        error_once!("Found `Node` with `Text` as a component of parent entity. This is unsupported behaviour and will lead to unexpected results.");
+    }
 }
 
 impl Node {
