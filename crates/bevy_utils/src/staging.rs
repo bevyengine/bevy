@@ -934,7 +934,7 @@ impl<T: StagedChanges> ArcStageOnWrite<T> {
     /// But that is very unlikely.
     #[inline]
     pub fn stage_scope_locked_eager<R>(&mut self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
-        // Safety: Since this has mutible access to self, we can be reasonably sure this is safe.
+        // Safety: Since this has mutable access to self, we can be reasonably sure this is safe.
         // The only way this isn't safe is if the arc has been cloned on the same thread instead of passed by ref.
         // But that is documented above
         let mut lock = unsafe { self.stage_lock_unsafe() };
