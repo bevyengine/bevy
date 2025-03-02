@@ -630,7 +630,7 @@ fn on_insert_node(world: DeferredWorld, ctx: HookContext) {
     };
 
     if let Some(_parent) = world.get::<Text>(childof.parent) {
-        error_once!("Found `Node` with `Text` as a component of parent entity. This is unsupported behaviour and will lead to unexpected results.");
+        error_once!("Found `Node` with `Text` as a component of parent entity. This is unsupported behavior and will lead to unexpected results.");
     }
 }
 
