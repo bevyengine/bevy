@@ -260,8 +260,8 @@ pub struct AssetPlugin {
     pub meta_check: AssetMetaCheck,
     /// How to handle load requests of files that are outside the approved directories.
     ///
-    /// Approved directories are [`AssetPlugin::file_path`] and the directories of each
-    /// [`AssetSource`](io::AssetSource)
+    /// Approved folders are [`AssetPlugin::file_path`] and the folder of each
+    /// [`AssetSource`](io::AssetSource). Subfolders within these folders are also valid.
     pub unapproved_path_mode: UnapprovedPathMode,
 }
 
@@ -279,10 +279,10 @@ pub struct AssetPlugin {
 pub enum UnapprovedPathMode {
     /// Unapproved asset loading is allowed. This is strongly discouraged.
     Allow,
-    /// Panics if any asset load is unapproved, unless an override method is used, like
-    /// [`AssetServer::load_override`]
+    /// Fails to load any asset that is is unapproved, unless an override method is used, like
+    /// [`AssetServer::load_override`].
     Deny,
-    /// Panics if any asset load is unapproved.
+    /// Fails to load any asset that is is unapproved.
     #[default]
     Forbid,
 }
