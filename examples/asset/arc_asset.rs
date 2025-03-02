@@ -217,7 +217,7 @@ fn generate_mesh(size: UVec2, interpolation: Arc<LinearInterpolation>) -> Mesh {
     let mut uvs = Vec::with_capacity(((size.x + 1) * (size.y + 1)) as usize);
     for y in 0..size.y + 1 {
         for x in 0..size.x + 1 {
-            let height = interpolation.sample(rng.gen());
+            let height = interpolation.sample(rng.r#gen());
             vertices.push(Vec3::new(x as f32, height, -(y as f32)) - center);
             uvs.push(Vec2::new(x as f32, -(y as f32)));
         }
