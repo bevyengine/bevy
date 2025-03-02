@@ -705,7 +705,7 @@ impl<'a> ReflectStruct<'a> {
                         let field_id = field.field_id(bevy_reflect_path);
 
                         quote! {
-                            return #FQResult::Err(#bevy_reflect_path::ReflectCloneError::FieldNotClonable {
+                            return #FQResult::Err(#bevy_reflect_path::ReflectCloneError::FieldNotCloneable {
                                 field: #field_id,
                                 variant: #FQOption::None,
                                 container_type_path:  #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(

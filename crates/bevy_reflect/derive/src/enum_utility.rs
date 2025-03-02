@@ -379,7 +379,7 @@ impl<'a> VariantBuilder for ReflectCloneVariantBuilder<'a> {
 
                 quote! {
                     return #FQResult::Err(
-                        #bevy_reflect_path::ReflectCloneError::FieldNotClonable {
+                        #bevy_reflect_path::ReflectCloneError::FieldNotCloneable {
                             field: #field_id,
                             variant: #FQOption::Some(#bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(#variant_name)),
                             container_type_path: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path())

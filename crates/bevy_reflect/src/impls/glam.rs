@@ -491,8 +491,20 @@ reflect_enum!(
     }
 );
 
-impl_reflect_opaque!(::glam::BVec3A(Clone, Debug, Default, Deserialize, Serialize));
-impl_reflect_opaque!(::glam::BVec4A(Clone, Debug, Default, Deserialize, Serialize));
+impl_reflect_opaque!(::glam::BVec3A(
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize
+));
+impl_reflect_opaque!(::glam::BVec4A(
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize
+));
 
 #[cfg(test)]
 mod tests {

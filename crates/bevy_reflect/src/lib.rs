@@ -1024,8 +1024,11 @@ mod tests {
     fn should_reflect_clone_with_clone() {
         // A custom clone function to verify that the `#[reflect(Clone)]` container attribute
         // takes precedence over the `#[reflect(clone)]` field attribute.
-        #[allow(dead_code, unused_variables)]
-        fn custom_clone(value: &usize) -> usize {
+        #[expect(
+            dead_code,
+            reason = "if things are working correctly, this function should never be called"
+        )]
+        fn custom_clone(_value: &usize) -> usize {
             panic!("should not be called");
         }
 
@@ -1108,7 +1111,7 @@ mod tests {
         let clone = foo.reflect_clone();
         assert_eq!(
             clone.unwrap_err(),
-            ReflectCloneError::FieldNotClonable {
+            ReflectCloneError::FieldNotCloneable {
                 field: FieldId::Unnamed(0),
                 variant: None,
                 container_type_path: Cow::Borrowed(Foo::type_path()),
@@ -1126,7 +1129,7 @@ mod tests {
         let clone = bar.reflect_clone();
         assert_eq!(
             clone.unwrap_err(),
-            ReflectCloneError::FieldNotClonable {
+            ReflectCloneError::FieldNotCloneable {
                 field: FieldId::Named(Cow::Borrowed("value")),
                 variant: None,
                 container_type_path: Cow::Borrowed(Bar::type_path()),
@@ -1147,7 +1150,7 @@ mod tests {
         let clone = baz.reflect_clone();
         assert_eq!(
             clone.unwrap_err(),
-            ReflectCloneError::FieldNotClonable {
+            ReflectCloneError::FieldNotCloneable {
                 field: FieldId::Unnamed(0),
                 variant: Some(Cow::Borrowed("Tuple")),
                 container_type_path: Cow::Borrowed(Baz::type_path()),
@@ -1158,7 +1161,7 @@ mod tests {
         let clone = baz.reflect_clone();
         assert_eq!(
             clone.unwrap_err(),
-            ReflectCloneError::FieldNotClonable {
+            ReflectCloneError::FieldNotCloneable {
                 field: FieldId::Named(Cow::Borrowed("value")),
                 variant: Some(Cow::Borrowed("Struct")),
                 container_type_path: Cow::Borrowed(Baz::type_path()),

@@ -262,7 +262,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             }
 
             #common_methods
-            
+
             #clone_fn
         }
     }

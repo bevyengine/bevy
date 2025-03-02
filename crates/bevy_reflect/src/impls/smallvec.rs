@@ -142,12 +142,13 @@ where
         Ok(Box::new(
             self.iter()
                 .map(|value| {
-                    value.reflect_clone()?.take().or_else(|_| {
-                        Err(ReflectCloneError::FailedDowncast {
+                    value
+                        .reflect_clone()?
+                        .take()
+                        .map_err(|_| ReflectCloneError::FailedDowncast {
                             expected: Cow::Borrowed(<T::Item as TypePath>::type_path()),
                             received: Cow::Owned(value.reflect_type_path().to_string()),
                         })
-                    })
                 })
                 .collect::<Result<Self, ReflectCloneError>>()?,
         ))

@@ -634,11 +634,11 @@ macro_rules! impl_reflect_for_veclike {
                 Ok(Box::new(
                     self.iter()
                         .map(|value| {
-                            value.reflect_clone()?.take().or_else(|_| {
-                                Err(ReflectCloneError::FailedDowncast {
+                            value.reflect_clone()?.take().map_err(|_| {
+                                ReflectCloneError::FailedDowncast {
                                     expected: Cow::Borrowed(<T as TypePath>::type_path()),
                                     received: Cow::Owned(value.reflect_type_path().to_string()),
-                                })
+                                }
                             })
                         })
                         .collect::<Result<Self, ReflectCloneError>>()?,
@@ -887,17 +887,17 @@ macro_rules! impl_reflect_for_hashmap {
             fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
                 let mut map = Self::with_capacity_and_hasher(self.len(), S::default());
                 for (key, value) in self.iter() {
-                    let key = key.reflect_clone()?.take().or_else(|_| {
-                        Err(ReflectCloneError::FailedDowncast {
+                    let key = key.reflect_clone()?.take().map_err(|_| {
+                        ReflectCloneError::FailedDowncast {
                             expected: Cow::Borrowed(<K as TypePath>::type_path()),
                             received: Cow::Owned(key.reflect_type_path().to_string()),
-                        })
+                        }
                     })?;
-                    let value = value.reflect_clone()?.take().or_else(|_| {
-                        Err(ReflectCloneError::FailedDowncast {
+                    let value = value.reflect_clone()?.take().map_err(|_| {
+                        ReflectCloneError::FailedDowncast {
                             expected: Cow::Borrowed(<V as TypePath>::type_path()),
                             received: Cow::Owned(value.reflect_type_path().to_string()),
-                        })
+                        }
                     })?;
                     map.insert(key, value);
                 }
@@ -1153,11 +1153,11 @@ macro_rules! impl_reflect_for_hashset {
             fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
                 let mut set = Self::with_capacity_and_hasher(self.len(), S::default());
                 for value in self.iter() {
-                    let value = value.reflect_clone()?.take().or_else(|_| {
-                        Err(ReflectCloneError::FailedDowncast {
+                    let value = value.reflect_clone()?.take().map_err(|_| {
+                        ReflectCloneError::FailedDowncast {
                             expected: Cow::Borrowed(<V as TypePath>::type_path()),
                             received: Cow::Owned(value.reflect_type_path().to_string()),
-                        })
+                        }
                     })?;
                     set.insert(value);
                 }
@@ -1414,18 +1414,21 @@ where
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
         let mut map = Self::new();
         for (key, value) in self.iter() {
-            let key = key.reflect_clone()?.take().or_else(|_| {
-                Err(ReflectCloneError::FailedDowncast {
-                    expected: Cow::Borrowed(<K as TypePath>::type_path()),
-                    received: Cow::Owned(key.reflect_type_path().to_string()),
-                })
-            })?;
-            let value = value.reflect_clone()?.take().or_else(|_| {
-                Err(ReflectCloneError::FailedDowncast {
-                    expected: Cow::Borrowed(<V as TypePath>::type_path()),
-                    received: Cow::Owned(value.reflect_type_path().to_string()),
-                })
-            })?;
+            let key =
+                key.reflect_clone()?
+                    .take()
+                    .map_err(|_| ReflectCloneError::FailedDowncast {
+                        expected: Cow::Borrowed(<K as TypePath>::type_path()),
+                        received: Cow::Owned(key.reflect_type_path().to_string()),
+                    })?;
+            let value =
+                value
+                    .reflect_clone()?
+                    .take()
+                    .map_err(|_| ReflectCloneError::FailedDowncast {
+                        expected: Cow::Borrowed(<V as TypePath>::type_path()),
+                        received: Cow::Owned(value.reflect_type_path().to_string()),
+                    })?;
             map.insert(key, value);
         }
 

@@ -234,10 +234,10 @@ where
     /// # Example
     ///
     /// ```
-    /// # use bevy_reflect::{Reflect, DynamicTuple};
+    /// # use bevy_reflect::{PartialReflect};
     /// let value = (1, true, 3.14);
     /// let cloned = value.clone_value();
-    /// assert!(cloned.is::<DynamicTuple>())
+    /// assert!(cloned.is_dynamic())
     /// ```
     ///
     /// [`List`]: crate::List
@@ -258,7 +258,7 @@ where
     /// # Example
     ///
     /// ```
-    /// # use bevy_reflect::Reflect;
+    /// # use bevy_reflect::PartialReflect;
     /// let value = (1, true, 3.14);
     /// let cloned = value.reflect_clone().unwrap();
     /// assert!(cloned.is::<(i32, bool, f64)>())
