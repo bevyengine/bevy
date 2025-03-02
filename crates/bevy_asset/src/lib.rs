@@ -1888,7 +1888,7 @@ mod tests {
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 
-    fn unapproved_path_setup(mode: UnapprovedPathMode) -> (App, GateOpener) {
+    fn unapproved_path_setup(mode: UnapprovedPathMode) -> App {
         let dir = Dir::default();
         let a_path = "../a.cool.ron";
         let a_ron = r#"
@@ -1902,7 +1902,7 @@ mod tests {
         dir.insert_asset_text(Path::new(a_path), a_ron);
 
         let mut app = App::new();
-        let (gated_memory_reader, gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
+        let (gated_memory_reader, _gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
         app.register_asset_source(
             AssetSourceId::Default,
             AssetSource::build().with_reader(move || Box::new(gated_memory_reader.clone())),
@@ -1917,7 +1917,7 @@ mod tests {
         ));
         app.init_asset::<CoolText>();
 
-        (app, gate_opener)
+        app
     }
 
     fn load_a_asset(assets: Res<AssetServer>) {
@@ -1937,46 +1937,42 @@ mod tests {
     #[test]
     #[should_panic]
     fn unapproved_path_forbid_should_panic() {
-        let (mut app, _gate) = unapproved_path_setup(UnapprovedPathMode::Forbid);
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Forbid);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         app.add_systems(Update, (uses_assets, load_a_asset_override));
 
         app.world_mut().run_schedule(Update);
-        drop(_gate);
     }
 
     #[test]
     #[should_panic]
     fn unapproved_path_deny_should_panic() {
-        let (mut app, _gate) = unapproved_path_setup(UnapprovedPathMode::Deny);
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         app.add_systems(Update, (uses_assets, load_a_asset));
 
         app.world_mut().run_schedule(Update);
-        drop(_gate);
     }
 
     #[test]
     fn unapproved_path_deny_should_finish() {
-        let (mut app, _gate) = unapproved_path_setup(UnapprovedPathMode::Deny);
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         app.add_systems(Update, (uses_assets, load_a_asset_override));
 
         app.world_mut().run_schedule(Update);
-        drop(_gate);
     }
 
     #[test]
     fn unapproved_path_allow_should_finish() {
-        let (mut app, _gate) = unapproved_path_setup(UnapprovedPathMode::Allow);
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Allow);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         app.add_systems(Update, (uses_assets, load_a_asset));
 
         app.world_mut().run_schedule(Update);
-        drop(_gate);
     }
 }
