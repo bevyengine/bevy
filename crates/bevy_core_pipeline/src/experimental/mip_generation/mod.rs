@@ -350,6 +350,7 @@ fn create_downsample_depth_pipelines(
         .get_downlevel_capabilities()
         .flags
         .contains(DownlevelFlags::COMPUTE_SHADERS)
+        || (render_device.limits().max_compute_workgroup_storage_size == 0)
     {
         return;
     }

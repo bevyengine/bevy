@@ -1,7 +1,9 @@
 use alloc::sync::Arc;
 use bevy_core_pipeline::{
     core_3d::ViewTransmissionTexture,
-    oit::{OitBuffers, OrderIndependentTransparencySettings},
+    oit::{
+        resolve::OIT_REQUIRED_STORAGE_BUFFERS, OitBuffers, OrderIndependentTransparencySettings,
+    },
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -388,6 +390,8 @@ fn layout_entries(
             .get_downlevel_capabilities()
             .flags
             .contains(DownlevelFlags::FRAGMENT_WRITABLE_STORAGE)
+            && (render_device.limits().max_storage_buffers_per_shader_stage
+                >= OIT_REQUIRED_STORAGE_BUFFERS)
         {
             entries = entries.extend_with_indices((
                 // oit_layers
