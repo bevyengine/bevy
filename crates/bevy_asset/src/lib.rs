@@ -1920,16 +1920,27 @@ mod tests {
         (app, gate_opener)
     }
 
+    fn load_a_asset(assets: Res<AssetServer>) {
+        let a = assets.load::<CoolText>("../a.cool.ron");
+        if a == Handle::default() {
+            panic!()
+        }
+    }
+
+    fn load_a_asset_override(assets: Res<AssetServer>) {
+        let a = assets.load_override::<CoolText>("../a.cool.ron");
+        if a == Handle::default() {
+            panic!()
+        }
+    }
+
     #[test]
     #[should_panic]
     fn unapproved_path_forbid_should_panic() {
         let (mut app, _gate) = unapproved_path_setup(UnapprovedPathMode::Forbid);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
-        fn load_assets(assets: Res<AssetServer>) {
-            let _ = assets.load_override::<CoolText>("../a.cool.ron");
-        }
-        app.add_systems(Update, (uses_assets, load_assets));
+        app.add_systems(Update, (uses_assets, load_a_asset_override));
 
         app.world_mut().run_schedule(Update);
         drop(_gate);
@@ -1941,10 +1952,7 @@ mod tests {
         let (mut app, _gate) = unapproved_path_setup(UnapprovedPathMode::Deny);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
-        fn load_assets(assets: Res<AssetServer>) {
-            let _ = assets.load::<CoolText>("../a.cool.ron");
-        }
-        app.add_systems(Update, (uses_assets, load_assets));
+        app.add_systems(Update, (uses_assets, load_a_asset));
 
         app.world_mut().run_schedule(Update);
         drop(_gate);
@@ -1955,10 +1963,7 @@ mod tests {
         let (mut app, _gate) = unapproved_path_setup(UnapprovedPathMode::Deny);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
-        fn load_assets(assets: Res<AssetServer>) {
-            let _ = assets.load_override::<CoolText>("../a.cool.ron");
-        }
-        app.add_systems(Update, (uses_assets, load_assets));
+        app.add_systems(Update, (uses_assets, load_a_asset_override));
 
         app.world_mut().run_schedule(Update);
         drop(_gate);
@@ -1969,10 +1974,7 @@ mod tests {
         let (mut app, _gate) = unapproved_path_setup(UnapprovedPathMode::Allow);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
-        fn load_assets(assets: Res<AssetServer>) {
-            let _ = assets.load::<CoolText>("../a.cool.ron");
-        }
-        app.add_systems(Update, (uses_assets, load_assets));
+        app.add_systems(Update, (uses_assets, load_a_asset));
 
         app.world_mut().run_schedule(Update);
         drop(_gate);
