@@ -1,7 +1,7 @@
 [package]
 name = "bevy"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
 exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.83.0"
+rust-version = "1.85.0"
 
 [workspace]
 resolver = "2"
@@ -19,7 +19,11 @@ members = [
   "crates/*",
   # Several crates with macros have "compile fail" tests nested inside them, also known as UI
   # tests, that verify diagnostic output does not accidentally change.
-  "crates/*/compile_fail",
+  # TODO: Use a glob pattern once they are fixed in `dependabot-core`
+  # TODO: See https://github.com/bevyengine/bevy/issues/17876 for context.
+  "crates/bevy_derive/compile_fail",
+  "crates/bevy_ecs/compile_fail",
+  "crates/bevy_reflect/compile_fail",
   # Examples of compiling Bevy for mobile platforms.
   "examples/mobile",
   # Benchmarks
@@ -46,6 +50,7 @@ undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 needless_lifetimes = "allow"
 too_many_arguments = "allow"
+nonstandard_macro_braces = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -91,6 +96,7 @@ undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 needless_lifetimes = "allow"
 too_many_arguments = "allow"
+nonstandard_macro_braces = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -464,9 +470,6 @@ meshlet = ["bevy_internal/meshlet"]
 # Enables processing meshes into meshlet meshes for bevy_pbr
 meshlet_processor = ["bevy_internal/meshlet_processor"]
 
-# Enable support for the ios_simulator by downgrading some rendering capabilities
-ios_simulator = ["bevy_internal/ios_simulator"]
-
 # Enable built in global state machines
 bevy_state = ["bevy_internal/bevy_state"]
 
@@ -475,6 +478,9 @@ track_location = ["bevy_internal/track_location"]
 
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
+
+# Enable documentation reflection
+reflect_documentation = ["bevy_internal/reflect_documentation"]
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
@@ -778,6 +784,17 @@ doc-scrape-examples = true
 [package.metadata.example.mesh2d_alpha_mode]
 name = "Mesh2d Alpha Mode"
 description = "Used to test alpha modes with mesh2d"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "mesh2d_repeated_texture"
+path = "examples/2d/mesh2d_repeated_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh2d_repeated_texture]
+name = "Mesh2d Repeated Texture"
+description = "Showcase of using `uv_transform` on the `ColorMaterial` of a `Mesh2d`"
 category = "2D Rendering"
 wasm = true
 
@@ -2170,6 +2187,7 @@ wasm = false
 name = "fallible_systems"
 path = "examples/ecs/fallible_systems.rs"
 doc-scrape-examples = true
+required-features = ["bevy_mesh_picking_backend"]
 
 [package.metadata.example.fallible_systems]
 name = "Fallible Systems"
@@ -4013,7 +4031,6 @@ name = "Sprite Picking"
 description = "Demonstrates picking sprites and sprite atlases"
 category = "Picking"
 wasm = true
-required-features = ["bevy_sprite_picking_backend"]
 
 [[example]]
 name = "debug_picking"
@@ -4113,7 +4130,15 @@ panic = "abort"
 # for details on why this is needed. Since dependencies don't expect to be built
 # with `--cfg docsrs` (and thus fail to compile) we use a different cfg.
 rustc-args = ["--cfg", "docsrs_dep"]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  # Embed tags to the top of documentation pages for common Bevy traits
+  # that are implemented by the current type, like `Component` or `Resource`.
+  # This makes it easier to see at a glance what types are used for.
+  "--html-after-content",
+  "docs-rs/trait-tags.html",
+]
 all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
 

@@ -330,7 +330,7 @@ mod tests {
             _query: Query<&mut MyComponent, AssetChanged<MyComponent>>,
             mut exit: EventWriter<AppExit>,
         ) {
-            exit.send(AppExit::Error(NonZero::<u8>::MIN));
+            exit.write(AppExit::Error(NonZero::<u8>::MIN));
         }
         run_app(compatible_filter);
     }

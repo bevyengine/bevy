@@ -41,20 +41,23 @@ use crate::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
         Components, Mutable, RequiredComponents, RequiredComponentsError, Tick,
     },
-    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
-    entity_disabling::{DefaultQueryFilters, Disabled},
+    entity::{
+        AllocAtWithoutReplacement, Entities, Entity, EntityDoesNotExistError, EntityLocation,
+    },
+    entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     resource::Resource,
-    result::Result,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Commands,
     world::{
         command_queue::RawCommandQueue,
-        error::{EntityFetchError, TryDespawnError, TryInsertBatchError, TryRunScheduleError},
+        error::{
+            EntityDespawnError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
+        },
     },
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -156,10 +159,8 @@ impl World {
         let on_despawn = OnDespawn::register_component_id(self);
         assert_eq!(ON_DESPAWN, on_despawn);
 
-        let disabled = self.register_component::<Disabled>();
-        let mut filters = DefaultQueryFilters::default();
-        filters.set_disabled(disabled);
-        self.insert_resource(filters);
+        // This sets up `Disabled` as a disabling component, via the FromWorld impl
+        self.init_resource::<DefaultQueryFilters>();
     }
     /// Creates a new empty [`World`].
     ///
@@ -246,8 +247,20 @@ impl World {
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// # Usage Notes
+    /// In most cases, you don't need to call this method directly since component registration
+    /// happens automatically during system initialization.
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
         self.components.register_component::<T>()
+    }
+
+    /// Registers a component type as "disabling",
+    /// using [default query filters](DefaultQueryFilters) to exclude entities with the component from queries.
+    pub fn register_disabling_component<C: Component>(&mut self) {
+        let component_id = self.register_component::<C>();
+        let mut dqf = self.resource_mut::<DefaultQueryFilters>();
+        dqf.register_disabling_component(component_id);
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
@@ -689,7 +702,7 @@ impl World {
 
         match self.get_entity(entities) {
             Ok(fetched) => fetched,
-            Err(entity) => panic_no_entity(self, entity),
+            Err(error) => panic_no_entity(self, error.entity),
         }
     }
 
@@ -816,7 +829,7 @@ impl World {
         #[inline(never)]
         #[cold]
         #[track_caller]
-        fn panic_on_err(e: EntityFetchError) -> ! {
+        fn panic_on_err(e: EntityMutableFetchError) -> ! {
             panic!("{e}");
         }
 
@@ -828,25 +841,23 @@ impl World {
 
     /// Returns the components of an [`Entity`] through [`ComponentInfo`].
     #[inline]
-    pub fn inspect_entity(&self, entity: Entity) -> impl Iterator<Item = &ComponentInfo> {
+    pub fn inspect_entity(
+        &self,
+        entity: Entity,
+    ) -> Result<impl Iterator<Item = &ComponentInfo>, EntityDoesNotExistError> {
         let entity_location = self
             .entities()
             .get(entity)
-            .unwrap_or_else(|| panic!("Entity {entity} does not exist"));
+            .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
 
         let archetype = self
             .archetypes()
             .get(entity_location.archetype_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Archetype {:?} does not exist",
-                    entity_location.archetype_id
-                )
-            });
+            .expect("ArchetypeId was retrieved from an EntityLocation and should correspond to an Archetype");
 
-        archetype
+        Ok(archetype
             .components()
-            .filter_map(|id| self.components().get_info(id))
+            .filter_map(|id| self.components().get_info(id)))
     }
 
     /// Returns [`EntityRef`]s that expose read-only operations for the given
@@ -864,7 +875,7 @@ impl World {
     /// # Errors
     ///
     /// If any of the given `entities` do not exist in the world, the first
-    /// [`Entity`] found to be missing will be returned in the [`Err`].
+    /// [`Entity`] found to be missing will return an [`EntityDoesNotExistError`].
     ///
     /// # Examples
     ///
@@ -872,7 +883,10 @@ impl World {
     ///
     /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
     #[inline]
-    pub fn get_entity<F: WorldEntityFetch>(&self, entities: F) -> Result<F::Ref<'_>, Entity> {
+    pub fn get_entity<F: WorldEntityFetch>(
+        &self,
+        entities: F,
+    ) -> Result<F::Ref<'_>, EntityDoesNotExistError> {
         let cell = self.as_unsafe_world_cell_readonly();
         // SAFETY: `&self` gives read access to the entire world, and prevents mutable access.
         unsafe { entities.fetch_ref(cell) }
@@ -900,9 +914,9 @@ impl World {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityFetchError::NoSuchEntity`] if any of the given `entities` do not exist in the world.
+    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
     ///     - Only the first entity found to be missing will be returned.
-    /// - Returns [`EntityFetchError::AliasedMutability`] if the same entity is requested multiple times.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
     ///
     /// # Examples
     ///
@@ -913,7 +927,7 @@ impl World {
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &mut self,
         entities: F,
-    ) -> Result<F::Mut<'_>, EntityFetchError> {
+    ) -> Result<F::Mut<'_>, EntityMutableFetchError> {
         let cell = self.as_unsafe_world_cell();
         // SAFETY: `&mut self` gives mutable access to the entire world,
         // and prevents any other access to the world.
@@ -1239,21 +1253,10 @@ impl World {
         &mut self,
         entity: Entity,
         f: impl FnOnce(&mut T) -> R,
-    ) -> Result<Option<R>, EntityFetchError> {
+    ) -> Result<Option<R>, EntityMutableFetchError> {
         let mut world = DeferredWorld::from(&mut *self);
 
-        let result = match world.modify_component(entity, f) {
-            Ok(result) => result,
-            Err(EntityFetchError::AliasedMutability(..)) => {
-                return Err(EntityFetchError::AliasedMutability(entity))
-            }
-            Err(EntityFetchError::NoSuchEntity(..)) => {
-                return Err(EntityFetchError::NoSuchEntity(
-                    entity,
-                    self.entities().entity_does_not_exist_error_details(entity),
-                ))
-            }
-        };
+        let result = world.modify_component(entity, f)?;
 
         self.flush();
         Ok(result)
@@ -1299,7 +1302,7 @@ impl World {
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
     /// [`Components`](Component).
     ///
-    /// Returns a [`TryDespawnError`] if the entity does not exist.
+    /// Returns an [`EntityDespawnError`] if the entity does not exist.
     ///
     /// # Note
     ///
@@ -1307,7 +1310,7 @@ impl World {
     /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     #[track_caller]
     #[inline]
-    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), TryDespawnError> {
+    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), EntityDespawnError> {
         self.despawn_with_caller(entity, MaybeLocation::caller())
     }
 
@@ -1316,17 +1319,11 @@ impl World {
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
-    ) -> Result<(), TryDespawnError> {
+    ) -> Result<(), EntityDespawnError> {
         self.flush();
-        if let Ok(entity) = self.get_entity_mut(entity) {
-            entity.despawn_with_caller(caller);
-            Ok(())
-        } else {
-            Err(TryDespawnError {
-                entity,
-                details: self.entities().entity_does_not_exist_error_details(entity),
-            })
-        }
+        let entity = self.get_entity_mut(entity)?;
+        entity.despawn_with_caller(caller);
+        Ok(())
     }
 
     /// Clears the internal component tracker state.
@@ -3602,7 +3599,7 @@ mod tests {
         entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,
         resource::Resource,
-        world::error::EntityFetchError,
+        world::error::EntityMutableFetchError,
     };
     use alloc::{
         borrow::ToOwned,
@@ -3987,39 +3984,39 @@ mod tests {
         let bar_id = TypeId::of::<Bar>();
         let baz_id = TypeId::of::<Baz>();
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent0).collect()),
+            to_type_ids(world.inspect_entity(ent0).unwrap().collect()),
             [Some(foo_id), Some(bar_id), Some(baz_id)]
                 .into_iter()
                 .collect::<HashSet<_>>()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent1).collect()),
+            to_type_ids(world.inspect_entity(ent1).unwrap().collect()),
             [Some(foo_id), Some(bar_id)]
                 .into_iter()
                 .collect::<HashSet<_>>()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent2).collect()),
+            to_type_ids(world.inspect_entity(ent2).unwrap().collect()),
             [Some(bar_id), Some(baz_id)]
                 .into_iter()
                 .collect::<HashSet<_>>()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent3).collect()),
+            to_type_ids(world.inspect_entity(ent3).unwrap().collect()),
             [Some(foo_id), Some(baz_id)]
                 .into_iter()
                 .collect::<HashSet<_>>()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent4).collect()),
+            to_type_ids(world.inspect_entity(ent4).unwrap().collect()),
             [Some(foo_id)].into_iter().collect::<HashSet<_>>()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent5).collect()),
+            to_type_ids(world.inspect_entity(ent5).unwrap().collect()),
             [Some(bar_id)].into_iter().collect::<HashSet<_>>()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent6).collect()),
+            to_type_ids(world.inspect_entity(ent6).unwrap().collect()),
             [Some(baz_id)].into_iter().collect::<HashSet<_>>()
         );
     }
@@ -4166,20 +4163,34 @@ mod tests {
 
         world.entity_mut(e1).despawn();
 
-        assert_eq!(Err(e1), world.get_entity(e1).map(|_| {}));
-        assert_eq!(Err(e1), world.get_entity([e1, e2]).map(|_| {}));
+        assert_eq!(
+            Err(e1),
+            world.get_entity(e1).map(|_| {}).map_err(|e| e.entity)
+        );
+        assert_eq!(
+            Err(e1),
+            world.get_entity([e1, e2]).map(|_| {}).map_err(|e| e.entity)
+        );
         assert_eq!(
             Err(e1),
             world
                 .get_entity(&[e1, e2] /* this is an array not a slice */)
                 .map(|_| {})
+                .map_err(|e| e.entity)
         );
-        assert_eq!(Err(e1), world.get_entity(&vec![e1, e2][..]).map(|_| {}));
+        assert_eq!(
+            Err(e1),
+            world
+                .get_entity(&vec![e1, e2][..])
+                .map(|_| {})
+                .map_err(|e| e.entity)
+        );
         assert_eq!(
             Err(e1),
             world
                 .get_entity(&EntityHashSet::from_iter([e1, e2]))
                 .map(|_| {})
+                .map_err(|e| e.entity)
         );
     }
 
@@ -4201,17 +4212,17 @@ mod tests {
             .is_ok());
 
         assert_eq!(
-            Err(EntityFetchError::AliasedMutability(e1)),
+            Err(EntityMutableFetchError::AliasedMutability(e1)),
             world.get_entity_mut([e1, e2, e1]).map(|_| {})
         );
         assert_eq!(
-            Err(EntityFetchError::AliasedMutability(e1)),
+            Err(EntityMutableFetchError::AliasedMutability(e1)),
             world
                 .get_entity_mut(&[e1, e2, e1] /* this is an array not a slice */)
                 .map(|_| {})
         );
         assert_eq!(
-            Err(EntityFetchError::AliasedMutability(e1)),
+            Err(EntityMutableFetchError::AliasedMutability(e1)),
             world.get_entity_mut(&vec![e1, e2, e1][..]).map(|_| {})
         );
         // Aliased mutability isn't allowed by HashSets
@@ -4223,25 +4234,25 @@ mod tests {
 
         assert!(matches!(
             world.get_entity_mut(e1).map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1
         ));
         assert!(matches!(
             world.get_entity_mut([e1, e2]).map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e,..)) if e == e1));
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
         assert!(matches!(
             world
                 .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
                 .map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1));
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
         assert!(matches!(
             world.get_entity_mut(&vec![e1, e2][..]).map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1,
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1,
         ));
         assert!(matches!(
             world
                 .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
                 .map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1));
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
     }
 
     #[test]

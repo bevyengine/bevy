@@ -85,25 +85,25 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ## Common points of confusion
 ///
 /// - UV maps in Bevy start at the top-left, see [`ATTRIBUTE_UV_0`](Mesh::ATTRIBUTE_UV_0),
-///     other APIs can have other conventions, `OpenGL` starts at bottom-left.
+///   other APIs can have other conventions, `OpenGL` starts at bottom-left.
 /// - It is possible and sometimes useful for multiple vertices to have the same
-///     [position attribute](Mesh::ATTRIBUTE_POSITION) value,
-///     it's a common technique in 3D modeling for complex UV mapping or other calculations.
+///   [position attribute](Mesh::ATTRIBUTE_POSITION) value,
+///   it's a common technique in 3D modeling for complex UV mapping or other calculations.
 /// - Bevy performs frustum culling based on the `Aabb` of meshes, which is calculated
-///     and added automatically for new meshes only. If a mesh is modified, the entity's `Aabb`
-///     needs to be updated manually or deleted so that it is re-calculated.
+///   and added automatically for new meshes only. If a mesh is modified, the entity's `Aabb`
+///   needs to be updated manually or deleted so that it is re-calculated.
 ///
 /// ## Use with `StandardMaterial`
 ///
 /// To render correctly with `StandardMaterial`, a mesh needs to have properly defined:
 /// - [`UVs`](Mesh::ATTRIBUTE_UV_0): Bevy needs to know how to map a texture onto the mesh
-///     (also true for `ColorMaterial`).
+///   (also true for `ColorMaterial`).
 /// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh.
-///     [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
-///     because simple meshes are smooth and they don't require complex light calculations.
+///   [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
+///   because simple meshes are smooth and they don't require complex light calculations.
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is `Some(Face::Back)`,
-///     which means that Bevy would *only* render the "front" of each triangle, which
-///     is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
+///   which means that Bevy would *only* render the "front" of each triangle, which
+///   is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 #[derive(Asset, Debug, Clone, Reflect)]
 pub struct Mesh {
     #[reflect(ignore)]
@@ -881,7 +881,7 @@ impl Mesh {
             "mesh transform scale cannot be zero on more than one axis"
         );
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply scale, rotation, and translation to vertex positions
@@ -898,7 +898,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
             self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
         {
             // Transform normals, taking into account non-uniform scaling and rotation
@@ -909,7 +909,7 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+        if let Some(VertexAttributeValues::Float32x3(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents, taking into account non-uniform scaling and rotation
@@ -936,7 +936,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply translation to vertex positions
@@ -958,7 +958,7 @@ impl Mesh {
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     pub fn rotate_by(&mut self, rotation: Quat) {
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply rotation to vertex positions
@@ -972,7 +972,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
             self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
         {
             // Transform normals
@@ -981,7 +981,7 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+        if let Some(VertexAttributeValues::Float32x3(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents
@@ -1010,7 +1010,7 @@ impl Mesh {
             "mesh transform scale cannot be zero on more than one axis"
         );
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply scale to vertex positions
@@ -1024,7 +1024,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
             self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
         {
             // Transform normals, taking into account non-uniform scaling
@@ -1033,7 +1033,7 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+        if let Some(VertexAttributeValues::Float32x3(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents, taking into account non-uniform scaling
@@ -1096,7 +1096,7 @@ impl Mesh {
     /// Normalize joint weights so they sum to 1.
     pub fn normalize_joint_weights(&mut self) {
         if let Some(joints) = self.attribute_mut(Self::ATTRIBUTE_JOINT_WEIGHT) {
-            let VertexAttributeValues::Float32x4(ref mut joints) = joints else {
+            let VertexAttributeValues::Float32x4(joints) = joints else {
                 panic!("unexpected joint weight format");
             };
 

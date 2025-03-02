@@ -58,7 +58,7 @@ pub mod prelude {
             geometry::*,
             ui_material::*,
             ui_node::*,
-            widget::{Button, ImageNode, Label},
+            widget::{Button, ImageNode, Label, NodeImageMode},
             Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing

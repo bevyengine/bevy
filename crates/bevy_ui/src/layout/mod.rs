@@ -127,12 +127,12 @@ pub fn ui_layout_system(
 
     computed_node_query
         .iter()
-        .for_each(|(entity, maybe_parent)| {
-            if let Some(parent) = maybe_parent {
+        .for_each(|(entity, maybe_child_of)| {
+            if let Some(child_of) = maybe_child_of {
                 // Note: This does not cover the case where a parent's Node component was removed.
                 // Users are responsible for fixing hierarchies if they do that (it is not recommended).
                 // Detecting it here would be a permanent perf burden on the hot path.
-                if parent.is_changed() && !ui_children.is_ui_node(parent.get()) {
+                if child_of.is_changed() && !ui_children.is_ui_node(child_of.parent) {
                     warn!(
                         "Node ({entity}) is in a non-UI entity hierarchy. You are using an entity \
 with UI components as a child of an entity without UI components, your UI layout may be broken."
@@ -355,7 +355,7 @@ mod tests {
     use bevy_render::{camera::ManualTextureViews, prelude::Camera};
     use bevy_transform::{
         prelude::GlobalTransform,
-        systems::{propagate_transforms, sync_simple_transforms},
+        systems::{compute_transform_leaves, propagate_parent_transforms, sync_simple_transforms},
     };
     use bevy_utils::prelude::default;
     use bevy_window::{
@@ -409,7 +409,8 @@ mod tests {
                 ApplyDeferred,
                 ui_layout_system,
                 sync_simple_transforms,
-                propagate_transforms,
+                propagate_parent_transforms,
+                compute_transform_leaves,
             )
                 .chain(),
         );

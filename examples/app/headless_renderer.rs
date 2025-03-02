@@ -535,7 +535,7 @@ fn update(
                     };
                 }
                 if scene_controller.single_image {
-                    app_exit_writer.send(AppExit::Success);
+                    app_exit_writer.write(AppExit::Success);
                 }
             }
         } else {

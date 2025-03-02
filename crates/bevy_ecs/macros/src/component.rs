@@ -9,8 +9,8 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Comma, Paren},
-    Data, DataStruct, DeriveInput, ExprClosure, ExprPath, Fields, Ident, Index, LitStr, Member,
-    Path, Result, Token, Visibility,
+    Data, DataStruct, DeriveInput, ExprClosure, ExprPath, Field, Fields, Ident, Index, LitStr,
+    Member, Path, Result, Token, Visibility,
 };
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
@@ -257,9 +257,21 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
 fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> TokenStream2 {
     match data {
-        Data::Struct(DataStruct { ref fields, .. }) => {
+        Data::Struct(DataStruct { fields, .. }) => {
             let mut visited_fields = Vec::new();
             let mut visited_indices = Vec::new();
+
+            if is_relationship {
+                let field = match relationship_field(fields, "VisitEntities", fields.span()) {
+                    Ok(f) => f,
+                    Err(e) => return e.to_compile_error(),
+                };
+
+                match field.ident {
+                    Some(ref ident) => visited_fields.push(ident.clone()),
+                    None => visited_indices.push(Index::from(0)),
+                }
+            }
             match fields {
                 Fields::Named(fields) => {
                     for field in &fields.named {
@@ -276,9 +288,7 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                 }
                 Fields::Unnamed(fields) => {
                     for (index, field) in fields.unnamed.iter().enumerate() {
-                        if index == 0 && is_relationship {
-                            visited_indices.push(Index::from(0));
-                        } else if field
+                        if field
                             .attrs
                             .iter()
                             .any(|a| a.meta.path().is_ident(ENTITIES_ATTR))
@@ -289,7 +299,6 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                 }
                 Fields::Unit => {}
             }
-
             if visited_fields.is_empty() && visited_indices.is_empty() {
                 TokenStream2::new()
             } else {
@@ -343,8 +352,8 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                         let field_member = ident_or_index(field.ident.as_ref(), index);
                         let field_ident = format_ident!("field_{}", field_member);
 
-                        variant_fields.push(quote!(#field_member: ref #field_ident));
-                        variant_fields_mut.push(quote!(#field_member: ref mut #field_ident));
+                        variant_fields.push(quote!(#field_member: #field_ident));
+                        variant_fields_mut.push(quote!(#field_member: #field_ident));
 
                         visit_variant_fields.push(quote!(#field_ident.visit_entities(&mut func);));
                         visit_variant_fields_mut
@@ -651,25 +660,24 @@ fn derive_relationship(
     let Some(relationship) = &attrs.relationship else {
         return Ok(None);
     };
-    const RELATIONSHIP_FORMAT_MESSAGE: &str = "Relationship derives must be a tuple struct with the only element being an EntityTargets type (ex: ChildOf(Entity))";
-    if let Data::Struct(DataStruct {
-        fields: Fields::Unnamed(unnamed_fields),
+    let Data::Struct(DataStruct {
+        fields,
         struct_token,
         ..
     }) = &ast.data
-    {
-        if unnamed_fields.unnamed.len() != 1 {
-            return Err(syn::Error::new(ast.span(), RELATIONSHIP_FORMAT_MESSAGE));
-        }
-        if unnamed_fields.unnamed.first().is_none() {
-            return Err(syn::Error::new(
-                struct_token.span(),
-                RELATIONSHIP_FORMAT_MESSAGE,
-            ));
-        }
-    } else {
-        return Err(syn::Error::new(ast.span(), RELATIONSHIP_FORMAT_MESSAGE));
+    else {
+        return Err(syn::Error::new(
+            ast.span(),
+            "Relationship can only be derived for structs.",
+        ));
     };
+    let field = relationship_field(fields, "Relationship", struct_token.span())?;
+
+    let relationship_member: Member = field.ident.clone().map_or(Member::from(0), Member::Named);
+
+    let members = fields
+        .members()
+        .filter(|member| member != &relationship_member);
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
@@ -682,12 +690,15 @@ fn derive_relationship(
 
             #[inline(always)]
             fn get(&self) -> #bevy_ecs_path::entity::Entity {
-                self.0
+                self.#relationship_member
             }
 
             #[inline]
             fn from(entity: #bevy_ecs_path::entity::Entity) -> Self {
-                Self(entity)
+                Self {
+                    #(#members: core::default::Default::default(),),*
+                    #relationship_member: entity
+                }
             }
         }
     }))
@@ -702,30 +713,29 @@ fn derive_relationship_target(
         return Ok(None);
     };
 
-    const RELATIONSHIP_TARGET_FORMAT_MESSAGE: &str = "RelationshipTarget derives must be a tuple struct with the first element being a private RelationshipSourceCollection (ex: Children(Vec<Entity>))";
-    let collection = if let Data::Struct(DataStruct {
-        fields: Fields::Unnamed(unnamed_fields),
+    let Data::Struct(DataStruct {
+        fields,
         struct_token,
         ..
     }) = &ast.data
-    {
-        if let Some(first) = unnamed_fields.unnamed.first() {
-            if first.vis != Visibility::Inherited {
-                return Err(syn::Error::new(first.span(), "The collection in RelationshipTarget must be private to prevent users from directly mutating it, which could invalidate the correctness of relationships."));
-            }
-            first.ty.clone()
-        } else {
-            return Err(syn::Error::new(
-                struct_token.span(),
-                RELATIONSHIP_TARGET_FORMAT_MESSAGE,
-            ));
-        }
-    } else {
+    else {
         return Err(syn::Error::new(
             ast.span(),
-            RELATIONSHIP_TARGET_FORMAT_MESSAGE,
+            "RelationshipTarget can only be derived for structs.",
         ));
     };
+    let field = relationship_field(fields, "RelationshipTarget", struct_token.span())?;
+
+    if field.vis != Visibility::Inherited {
+        return Err(syn::Error::new(field.span(), "The collection in RelationshipTarget must be private to prevent users from directly mutating it, which could invalidate the correctness of relationships."));
+    }
+    let collection = &field.ty;
+
+    let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
+
+    let members = fields
+        .members()
+        .filter(|member| member != &relationship_member);
 
     let relationship = &relationship_target.relationship;
     let struct_name = &ast.ident;
@@ -739,18 +749,56 @@ fn derive_relationship_target(
 
             #[inline]
             fn collection(&self) -> &Self::Collection {
-                &self.0
+                &self.#relationship_member
             }
 
             #[inline]
             fn collection_mut_risky(&mut self) -> &mut Self::Collection {
-                &mut self.0
+                &mut self.#relationship_member
             }
 
             #[inline]
             fn from_collection_risky(collection: Self::Collection) -> Self {
-                Self(collection)
+                Self {
+                    #(#members: core::default::Default::default(),),*
+                    #relationship_member: collection
+                }
             }
         }
     }))
+}
+
+/// Returns the field with the `#[relationship]` attribute, the only field if unnamed,
+/// or the only field in a [`Fields::Named`] with one field, otherwise `Err`.
+fn relationship_field<'a>(
+    fields: &'a Fields,
+    derive: &'static str,
+    span: Span,
+) -> Result<&'a Field> {
+    match fields {
+        Fields::Named(fields) if fields.named.len() == 1 => Ok(fields.named.first().unwrap()),
+        Fields::Named(fields) => fields.named.iter().find(|field| {
+            field
+                .attrs
+                .iter()
+                .any(|attr| attr.path().is_ident("relationship"))
+        }).ok_or(syn::Error::new(
+            span,
+            format!("{derive} derive expected named structs with a single field or with a field annotated with #[relationship].")
+        )),
+        Fields::Unnamed(fields) => fields
+            .unnamed
+            .len()
+            .eq(&1)
+            .then(|| fields.unnamed.first())
+            .flatten()
+            .ok_or(syn::Error::new(
+                span,
+                format!("{derive} derive expected unnamed structs with one field."),
+            )),
+        Fields::Unit => Err(syn::Error::new(
+            span,
+            format!("{derive} derive expected named or unnamed struct, found unit struct."),
+        )),
+    }
 }
