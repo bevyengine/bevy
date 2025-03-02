@@ -8,7 +8,7 @@ use std::{
     sync::LazyLock,
 };
 
-use nipper::Document;
+use dom_query::Document;
 use walkdir::WalkDir;
 
 fn main() {
@@ -26,29 +26,26 @@ fn main() {
         .expect("No crate name passed")
         .clone();
 
-    // Find target directory
+    // Find output directory
     let target_dir = std::env::args()
         .skip_while(|arg| (*arg != "-o") & (*arg != "--output"))
         .nth(1)
         .unwrap()
         .clone();
-    let target_dir = Path::new(&target_dir);
+    let package_dir = Path::new(&target_dir).join(package);
 
-    // Extra style sheet is shared between files
-    std::fs::write(
-        target_dir.join("static.files/bevy_style.css"),
-        STYLE.as_bytes(),
-    )
-    .unwrap();
+    // Extra style sheet is shared between files.
+    // It's not shared between docs.rs packages though, so don't put it in static.files
+    std::fs::write(package_dir.join("bevy_style.css"), STYLE.as_bytes()).unwrap();
 
     // Post-process HTML to apply our modifications
-    for entry in WalkDir::new(target_dir.join(package)) {
+    for entry in WalkDir::new(package_dir) {
         let entry = entry.unwrap();
         let path = entry.path();
         if path.extension() == Some(OsStr::new("html")) {
-            let mut doc = Document::from(&read_to_string(path).unwrap());
+            let mut doc = Document::from(&*read_to_string(path).unwrap());
             post_process_type(&mut doc);
-            let style_url = "../".repeat(entry.depth()) + "static.files/bevy_style.css";
+            let style_url = "../".repeat(entry.depth() - 1) + "bevy_style.css";
             doc.select("head")
                 .append_html(format!("<link rel=\"stylesheet\" href=\"{style_url}\">"));
             std::fs::write(path, doc.html().as_bytes()).unwrap();
@@ -66,9 +63,9 @@ fn post_process_type(doc: &mut Document) {
     let traits = implemented_bevy_traits(doc);
 
     // Tags sit below headline
-    let mut heading = doc.select("h1").first();
+    let heading = doc.select("h1").first();
     heading.append_html("<div class=\"bevy-tag-container\"/>");
-    let mut container = heading.select(".bevy-tag-container");
+    let container = heading.select(".bevy-tag-container");
 
     for (mut tag, url) in traits {
         if (tag == "Component")

@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-nipper = "0.1"
 walkdir = "2"
+kuchikiki = "0.8"
+dom_query = "0.15"
