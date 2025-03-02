@@ -466,7 +466,8 @@ impl AssetServer {
             match (&self.data.unapproved_path_mode, override_unapproved) {
                 (UnapprovedPathMode::Allow, _) | (UnapprovedPathMode::Deny, true) => {}
                 (UnapprovedPathMode::Deny, false) | (UnapprovedPathMode::Forbid, _) => {
-                    panic!("Asset path {path} is unapproved. See UnapprovedPathMode for details.")
+                    error!("Asset path {path} is unapproved. See UnapprovedPathMode for details.");
+                    return Handle::default();
                 }
             }
         }
