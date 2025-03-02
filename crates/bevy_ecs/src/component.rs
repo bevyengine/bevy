@@ -1348,7 +1348,7 @@ pub trait ComponentsReader {
     fn get_required_by(&self, id: ComponentId) -> Option<RequiredByRef>;
 }
 
-/// A trait that allows the user to read into a collection of registered Components.
+/// A trait that allows the user to write into a collection of registered Components.
 pub trait ComponentsWriter: ComponentsReader {
     /// Registers a [`Component`] of type `T` with this instance.
     /// If a component of this type has already been registered, this will return
