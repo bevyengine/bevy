@@ -491,7 +491,11 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         {
             let winit_windows = self.world().non_send_resource::<WinitWindows>();
             let headless = winit_windows.windows.is_empty();
-            if self.startup_forced_updates > 0 || headless {
+            let all_invisible = winit_windows
+                .windows
+                .iter()
+                .all(|(_, w)| !w.is_visible().unwrap_or(false));
+            if self.startup_forced_updates > 0 || headless || all_invisible {
                 self.redraw_requested(event_loop);
             }
         }
