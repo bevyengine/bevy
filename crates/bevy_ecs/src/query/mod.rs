@@ -763,8 +763,7 @@ mod tests {
         let _: Option<&Foo> = q.get(&world, e).ok();
         let _: Option<&Foo> = q.get_manual(&world, e).ok();
         let _: Option<[&Foo; 1]> = q.many(&world, [e]).ok();
-        let _: Option<&Foo> = q.get_single(&world).ok();
-        let _: &Foo = q.single(&world);
+        let _: Option<&Foo> = q.single(&world).ok();
 
         // system param
         let mut q = SystemState::<Query<&mut Foo>>::new(&mut world);
@@ -776,8 +775,7 @@ mod tests {
 
         let _: Option<&Foo> = q.get(e).ok();
         let _: Option<[&Foo; 1]> = q.many([e]).ok();
-        let _: Option<&Foo> = q.get_single().ok();
-        let _: &Foo = q.single();
+        let _: Option<&Foo> = q.single().ok();
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/8029

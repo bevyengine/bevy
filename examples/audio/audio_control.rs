@@ -35,7 +35,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 struct MyMusic;
 
 fn update_speed(music_controller: Query<&AudioSink, With<MyMusic>>, time: Res<Time>) {
-    let Ok(sink) = music_controller.get_single() else {
+    let Ok(sink) = music_controller.single() else {
         return;
     };
 
@@ -46,7 +46,7 @@ fn pause(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     music_controller: Query<&AudioSink, With<MyMusic>>,
 ) {
-    let Ok(sink) = music_controller.get_single() else {
+    let Ok(sink) = music_controller.single() else {
         return;
     };
 
@@ -59,7 +59,7 @@ fn mute(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut music_controller: Query<&mut AudioSink, With<MyMusic>>,
 ) {
-    let Ok(mut sink) = music_controller.get_single_mut() else {
+    let Ok(mut sink) = music_controller.single_mut() else {
         return;
     };
 
@@ -72,7 +72,7 @@ fn volume(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut music_controller: Query<&mut AudioSink, With<MyMusic>>,
 ) {
-    let Ok(mut sink) = music_controller.get_single_mut() else {
+    let Ok(mut sink) = music_controller.single_mut() else {
         return;
     };
 
