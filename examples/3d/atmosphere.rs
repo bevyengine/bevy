@@ -4,14 +4,19 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
-    input::mouse::{MouseButtonInput, MouseMotion, MouseWheel},
-    pbr::{light_consts::lux, Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
+    input::mouse::{MouseMotion, MouseWheel},
+    pbr::{
+        light_consts::lux, Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder,
+        DefaultOpaqueRendererMethod, FogVolume, ScreenSpaceAmbientOcclusion, VolumetricFog,
+        VolumetricLight,
+    },
     prelude::*,
     render::camera::Exposure,
 };
 
 fn main() {
     App::new()
+        // .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, (setup_camera_fog, setup_terrain_scene))
@@ -31,40 +36,52 @@ fn setup_camera_fog(mut commands: Commands) {
     let initial_transform =
         Transform::from_xyz(-initial_distance, 0.1, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
 
-    commands.spawn((
-        Camera3d::default(),
-        // HDR is required for atmospheric scattering to be properly applied to the scene
-        Camera {
-            hdr: true,
+    commands
+        .spawn((
+            Camera3d::default(),
+            // HDR is required for atmospheric scattering to be properly applied to the scene
+            Camera {
+                hdr: true,
+                ..default()
+            },
+            Msaa::Off,
+            initial_transform.clone(),
+            CameraOrbit {
+                target_transform: initial_transform,
+                distance: initial_distance,
+            },
+            // The directional light illuminance  used in this scene
+            // (the one recommended for use with this feature) is
+            // quite bright, so raising the exposure compensation helps
+            // bring the scene to a nicer brightness range.
+            Exposure { ev100: 14.0 },
+            // Tonemapper chosen just because it looked good with the scene, any
+            // tonemapper would be fine :)
+            Tonemapping::AcesFitted,
+            // Bloom gives the sun a much more natural look.
+            Bloom::NATURAL,
+        ))
+        // .insert(ScreenSpaceAmbientOcclusion {
+        //     constant_object_thickness: 4.0,
+        //     ..default()
+        // })
+        .insert((
+            // This is the component that enables atmospheric scattering for a camera
+            Atmosphere::EARTH,
+            // The scene is in units of 10km, so we need to scale up the
+            // aerial view lut distance and set the scene scale accordingly.
+            // Most usages of this feature will not need to adjust this.
+            AtmosphereSettings {
+                aerial_view_lut_max_distance: 3.2e5,
+                scene_units_to_m: 5e+3,
+                ..Default::default()
+            },
+        ))
+        .insert(VolumetricFog {
+            // This value is explicitly set to 0 since we have no environment map light
+            ambient_intensity: 0.0,
             ..default()
-        },
-        Msaa::Off,
-        initial_transform.clone(),
-        CameraOrbit {
-            target_transform: initial_transform,
-            distance: initial_distance,
-        },
-        // This is the component that enables atmospheric scattering for a camera
-        Atmosphere::EARTH,
-        // The scene is in units of 10km, so we need to scale up the
-        // aerial view lut distance and set the scene scale accordingly.
-        // Most usages of this feature will not need to adjust this.
-        AtmosphereSettings {
-            aerial_view_lut_max_distance: 3.2e5,
-            scene_units_to_m: 5e+3,
-            ..Default::default()
-        },
-        // The directional light illuminance  used in this scene
-        // (the one recommended for use with this feature) is
-        // quite bright, so raising the exposure compensation helps
-        // bring the scene to a nicer brightness range.
-        Exposure { ev100: 13.0 },
-        // Tonemapper chosen just because it looked good with the scene, any
-        // tonemapper would be fine :)
-        Tonemapping::AcesFitted,
-        // Bloom gives the sun a much more natural look.
-        Bloom::NATURAL,
-    ));
+        });
 
     let sun_transform = Transform::from_xyz(1.0, 1.0, -0.3).looking_at(Vec3::ZERO, Vec3::Y);
 
@@ -79,10 +96,17 @@ fn setup_camera_fog(mut commands: Commands) {
             illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
+        VolumetricLight,
         sun_transform.clone(),
         SunOrbit {
             target_transform: sun_transform,
         },
+    ));
+
+    // this breaks the pipeline
+    commands.spawn((
+        FogVolume::default(),
+        Transform::from_scale(Vec3::splat(35.0)),
     ));
 }
 
@@ -198,7 +222,7 @@ fn pan_camera(
 
     // Handle zoom with mouse wheel
     for ev in scroll_evr.read() {
-        let zoom_factor = camera_orbit.distance * 0.1; // Scale zoom speed with distance
+        let zoom_factor = camera_orbit.distance * 0.001; // Scale zoom speed with distance
         camera_orbit.distance = (camera_orbit.distance - ev.y * zoom_factor).clamp(0.5, 400.0);
 
         // Update target transform to maintain direction but change distance

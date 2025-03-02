@@ -370,6 +370,21 @@ impl Atmosphere {
         ozone_absorption: Vec3::new(0.650e-6, 1.881e-6, 0.085e-6),
     };
 
+    pub const MARS: Atmosphere = Atmosphere {
+        bottom_radius: 3_389_500.0,
+        top_radius: 3_509_500.0,
+        ground_albedo: Vec3::splat(0.1),
+        rayleigh_density_exp_scale: 1.0 / 10_430.0,
+        rayleigh_scattering: Vec3::new(0.019918e-03, 0.01357e-03, 0.00575e-03),
+        mie_density_exp_scale: 1.0 / 3_095.0,
+        mie_scattering: 5.361771e-05,
+        mie_absorption: 5.530838e-07,
+        mie_asymmetry: 0.85,
+        ozone_layer_altitude: 0.0,
+        ozone_layer_width: 0.0,
+        ozone_absorption: Vec3::ZERO,
+    };
+
     pub fn with_density_multiplier(mut self, mult: f32) -> Self {
         self.rayleigh_scattering *= mult;
         self.mie_scattering *= mult;

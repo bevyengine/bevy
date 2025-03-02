@@ -48,7 +48,7 @@ use bevy_utils::prelude::default;
 use bitflags::bitflags;
 
 use crate::{
-    FogVolume, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
+    Atmosphere, FogVolume, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset, VolumetricFog,
     VolumetricLight,
@@ -623,6 +623,7 @@ pub fn prepare_volumetric_fog_pipelines(
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
+            Has<Atmosphere>,
         ),
         With<VolumetricFog>,
     >,
@@ -641,6 +642,7 @@ pub fn prepare_volumetric_fog_pipelines(
         depth_prepass,
         motion_vector_prepass,
         deferred_prepass,
+        atmosphere,
     ) in view_targets.iter()
     {
         // Create a mesh pipeline view layout key corresponding to the view.
@@ -655,6 +657,7 @@ pub fn prepare_volumetric_fog_pipelines(
             MeshPipelineViewLayoutKey::DEFERRED_PREPASS,
             deferred_prepass,
         );
+        mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::ATMOSPHERE, atmosphere);
 
         let mut textureless_flags = VolumetricFogPipelineKeyFlags::empty();
         textureless_flags.set(VolumetricFogPipelineKeyFlags::HDR, view.hdr);
