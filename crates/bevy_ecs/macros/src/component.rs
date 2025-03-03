@@ -620,7 +620,7 @@ impl Parse for Relationship {
 
 impl Parse for RelationshipTarget {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        let mut relationship_ident: Option<Type> = None;
+        let mut relationship_type: Option<Type> = None;
         let mut linked_spawn_exists = false;
         syn::custom_keyword!(relationship);
         syn::custom_keyword!(linked_spawn);
@@ -629,7 +629,7 @@ impl Parse for RelationshipTarget {
             if input.peek(relationship) {
                 input.parse::<relationship>()?;
                 input.parse::<Token![=]>()?;
-                relationship_ident = Some(input.parse()?);
+                relationship_type = Some(input.parse()?);
             } else if input.peek(linked_spawn) {
                 input.parse::<linked_spawn>()?;
                 linked_spawn_exists = true;
