@@ -260,7 +260,7 @@ pub fn debug_draw(
             .map(|(entity, camera)| {
                 (
                     entity,
-                    camera.target.normalize(primary_window.get_single().ok()),
+                    camera.target.normalize(primary_window.single().ok()),
                 )
             })
             .filter_map(|(entity, target)| Some(entity).zip(target))
