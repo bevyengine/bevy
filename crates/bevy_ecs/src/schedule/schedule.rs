@@ -2263,6 +2263,63 @@ mod tests {
     }
 
     #[test]
+    fn do_not_consider_ignore_deferred_before_exclusive_system() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        // chain_ignore_deferred adds no sync points usually but an exception is made for exclusive systems
+        schedule.add_systems(
+            (
+                |_: Commands| {},
+                // <- no sync point is added here because the following system is not exclusive
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                // <- sync point is added here because the following system is exclusive which expects to see all commands to that point
+                |world: &mut World| assert!(world.contains_resource::<Resource1>()),
+                // <- no sync point is added here because the previous system has no deferred parameters
+                |_: &mut World| {},
+                // <- no sync point is added here because the following system is not exclusive
+                |_: Commands| {},
+            )
+                .chain_ignore_deferred(),
+        );
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 6); // 5 systems + 1 sync point
+    }
+
+    #[test]
+    fn bubble_sync_point_through_ignore_deferred_node() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+
+        let insert_resource_config = (
+            // the first system has deferred commands
+            |mut commands: Commands| commands.insert_resource(Resource1),
+            // the second system has no deferred commands
+            || {},
+        )
+            // the first two systems are chained without a sync point in between
+            .chain_ignore_deferred();
+
+        schedule.add_systems(
+            (
+                insert_resource_config,
+                // the third system would panic if the command of the first system was not applied
+                |_: Res<Resource1>| {},
+            )
+                // the third system is chained after the first two, possibly with a sync point in between
+                .chain(),
+        );
+
+        // To add a sync point between the second and third system despite the second having no commands,
+        // the first system has to signal the second system that there are unapplied commands.
+        // With that the second system will add a sync point after it so the third system will find the resource.
+
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 4); // 3 systems + 1 sync point
+    }
+
+    #[test]
     fn disable_auto_sync_points() {
         let mut schedule = Schedule::default();
         schedule.set_build_settings(ScheduleBuildSettings {
