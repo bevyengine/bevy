@@ -2,7 +2,7 @@ use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec2, vec4, FloatOrd, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
@@ -16,7 +16,6 @@ use bevy_window::{PrimaryWindow, WindowRef};
 use core::{f32, num::NonZero};
 use derive_more::derive::From;
 use smallvec::SmallVec;
-use std::{cmp::Reverse, f32::consts::PI};
 use thiserror::Error;
 use tracing::warn;
 
@@ -2812,19 +2811,10 @@ impl From<Color> for ColorStop {
     fn from(color: Color) -> Self {
         Self {
             color,
-            point: Val::ZERO,
+            point: Val::Auto,
         }
     }
 }
-
-/// A list of color stops defining a gradient
-#[derive(Component, Default, Clone, Debug)]
-#[require(ComputedColorStops)]
-pub struct ColorStops(pub Vec<ColorStop>);
-
-/// A sorted list of physical color stops
-#[derive(Component, Default)]
-pub struct ComputedColorStops(pub Vec<(Color, f32)>);
 
 #[derive(Component, Clone, Debug)]
 pub struct LinearGradient {
@@ -2835,6 +2825,9 @@ pub struct LinearGradient {
     // list of color stops
     pub stops: Vec<ColorStop>,
 }
+
+#[derive(Component, Clone, Debug)]
+pub struct LinearGradientBorder(pub LinearGradient);
 
 impl LinearGradient {
     pub fn gradient_line_endpoints(&self, width: f32, height: f32) -> (Vec2, Vec2) {
