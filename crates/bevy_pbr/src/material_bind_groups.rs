@@ -4,7 +4,7 @@
 //! allocator manages each bind group, assigning slots to materials as
 //! appropriate.
 
-use core::{marker::PhantomData, mem};
+use core::{iter, marker::PhantomData, mem};
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -1342,41 +1342,41 @@ where
                 &fallback_bindless_resources.comparison_sampler,
             ),
         ] {
+            let mut sampler_bindings = vec![];
+
             match self.samplers.get(&bindless_resource_type) {
                 Some(sampler_bindless_binding_array) => {
-                    let mut sampler_bindings: Vec<_> = sampler_bindless_binding_array
-                        .bindings
-                        .iter()
-                        .map(|maybe_bindless_binding| match *maybe_bindless_binding {
-                            Some(ref bindless_binding) => &bindless_binding.resource,
-                            None => &**fallback_sampler,
-                        })
-                        .collect();
-
-                    if let Some(required_binding_array_size) = required_binding_array_size {
-                        while sampler_bindings.len() < required_binding_array_size as usize {
-                            sampler_bindings.push(&**fallback_sampler);
+                    for maybe_bindless_binding in sampler_bindless_binding_array.bindings.iter() {
+                        match *maybe_bindless_binding {
+                            Some(ref bindless_binding) => {
+                                sampler_bindings.push(&*bindless_binding.resource);
+                            }
+                            None => sampler_bindings.push(&**fallback_sampler),
                         }
                     }
-
-                    binding_resource_arrays.push((
-                        &*sampler_bindless_binding_array.binding_number,
-                        BindingResourceArray::Samplers(sampler_bindings),
-                    ));
                 }
 
                 None => {
                     // Fill with a single fallback sampler.
-                    let binding_number = bindless_resource_type
-                        .binding_number()
-                        .expect("Sampler bindless resource type must have a binding number");
-
-                    binding_resource_arrays.push((
-                        &**binding_number,
-                        BindingResourceArray::Samplers(vec![&**fallback_sampler]),
-                    ));
+                    sampler_bindings.push(&**fallback_sampler);
                 }
             }
+
+            if let Some(required_binding_array_size) = required_binding_array_size {
+                sampler_bindings.extend(
+                    iter::repeat(&**fallback_sampler)
+                        .take(required_binding_array_size as usize - sampler_bindings.len()),
+                );
+            }
+
+            let binding_number = bindless_resource_type
+                .binding_number()
+                .expect("Sampler bindless resource type must have a binding number");
+
+            binding_resource_arrays.push((
+                &**binding_number,
+                BindingResourceArray::Samplers(sampler_bindings),
+            ));
         }
     }
 
@@ -1402,41 +1402,41 @@ where
                 &fallback_image.cube_array,
             ),
         ] {
+            let mut texture_bindings = vec![];
+
+            let binding_number = bindless_resource_type
+                .binding_number()
+                .expect("Texture bindless resource type must have a binding number");
+
             match self.textures.get(&bindless_resource_type) {
                 Some(texture_bindless_binding_array) => {
-                    let mut texture_bindings: Vec<_> = texture_bindless_binding_array
-                        .bindings
-                        .iter()
-                        .map(|maybe_bindless_binding| match *maybe_bindless_binding {
-                            Some(ref bindless_binding) => &*bindless_binding.resource,
-                            None => &*fallback_image.texture_view,
-                        })
-                        .collect();
-
-                    if let Some(required_binding_array_size) = required_binding_array_size {
-                        while texture_bindings.len() < required_binding_array_size as usize {
-                            texture_bindings.push(&*fallback_image.texture_view);
+                    for maybe_bindless_binding in texture_bindless_binding_array.bindings.iter() {
+                        match *maybe_bindless_binding {
+                            Some(ref bindless_binding) => {
+                                texture_bindings.push(&*bindless_binding.resource);
+                            }
+                            None => texture_bindings.push(&*fallback_image.texture_view),
                         }
                     }
-
-                    binding_resource_arrays.push((
-                        &*texture_bindless_binding_array.binding_number,
-                        BindingResourceArray::TextureViews(texture_bindings),
-                    ));
                 }
 
                 None => {
                     // Fill with a single fallback image.
-                    let binding_number = bindless_resource_type
-                        .binding_number()
-                        .expect("Texture bindless resource type must have a binding number");
-
-                    binding_resource_arrays.push((
-                        binding_number,
-                        BindingResourceArray::TextureViews(vec![&*fallback_image.texture_view]),
-                    ));
+                    texture_bindings.push(&*fallback_image.texture_view);
                 }
             }
+
+            if let Some(required_binding_array_size) = required_binding_array_size {
+                texture_bindings.extend(
+                    iter::repeat(&*fallback_image.texture_view)
+                        .take(required_binding_array_size as usize - texture_bindings.len()),
+                );
+            }
+
+            binding_resource_arrays.push((
+                binding_number,
+                BindingResourceArray::TextureViews(texture_bindings),
+            ));
         }
     }
 
@@ -1480,13 +1480,14 @@ where
                 .collect();
 
             if let Some(required_binding_array_size) = required_binding_array_size {
-                while buffer_bindings.len() < required_binding_array_size as usize {
-                    buffer_bindings.push(BufferBinding {
+                buffer_bindings.extend(
+                    iter::repeat(BufferBinding {
                         buffer: fallback_buffer,
                         offset: 0,
                         size: None,
-                    });
-                }
+                    })
+                    .take(required_binding_array_size as usize - buffer_bindings.len()),
+                );
             }
 
             binding_resource_arrays.push((
