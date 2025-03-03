@@ -131,11 +131,7 @@ fn antialias(distance: f32) -> f32 {
     return saturate(0.5 - distance);
 }
 
-fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
-    // Only use the color sampled from the texture if the `TEXTURED` flag is enabled. 
-    // This allows us to draw both textured and untextured shapes together in the same batch.
-    let color = vec4(1.);
-
+fn draw(in: VertexOutput, color: vec4<f32>) -> vec4<f32> {    
     // Signed distances. The magnitude is the distance of the point from the edge of the shape.
     // * Negative values indicate that the point is inside the shape.
     // * Zero values indicate the point is on the edge of the shape.
@@ -168,7 +164,7 @@ fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     return vec4(color.rgb, saturate(color.a * t));
 }
 
-fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
+fn draw_background(in: VertexOutput, color: vec4<f32>) -> vec4<f32> {
     // When drawing the background only draw the internal area and not the border.
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
 
@@ -178,53 +174,12 @@ fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     let t = 1.0 - step(0.0, internal_distance);
 #endif
 
-    return vec4(1., 1., 1., saturate(t));
+    return vec4(color.rgb, saturate(color.a * t));
 }
-
-// fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-//     let texture_color = vec4(1.);
-
-//     var color: vec4<f32>;
-//     if enabled(in.flags, BORDER) {
-//         color = draw(in, texture_color);
-//     } else {
-//         color = draw_background(in, texture_color);
-//     }
-
-//     var d: f32;
-
-
-//     let gradient_distance = distance(in.point, in.dir * dot(in.point, in.dir));
-//     let t = (gradient_distance - in.start_len) / in.end_len - in.start_len;
-
-//     var gradient_color: vec4<f32>;
-
-//     if t <= 0.0 || 1.0 < t {
-//         gradient_color = vec4(0.0);
-//     } else {
-//         gradient_color = mix(in.start_color, in.end_color, t);
-//     }
-
-//     let alpha_out = mix(0.0, gradient_color.a, 1.0 - saturate(d));
-//     let color_out = vec4(gradient_color.rgb, alpha_out);
-
-//     return texture_color * color_out;
-// }
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    // var color: vec4<f32>;
-    // var d: f32;
-
-    // let g_start = -0.5 * in.size;
-    // let g_end = g_start + vec2(in.size.x, 0.0);
-    // let g_len = distance(g_start, g_end);
-
-    // let g_dir = normalize(g_end - g_start);
-    // let g_distance = distance(g_start, g_dir * dot(in.point, g_dir));
-
-
-    return linear_gradient(
+    let gradient_color = linear_gradient(
         in.point,
         in.g_start,
         in.dir,
@@ -233,6 +188,12 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         in.end_color,
         in.end_len,
     );
+
+    if enabled(in.flags, BORDER) {
+        return draw(in, gradient_color);
+    } else {
+        return draw_background(in, gradient_color);
+    }
 }
 
 fn linear_gradient(

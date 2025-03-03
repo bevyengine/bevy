@@ -1,20 +1,13 @@
 //! Simple example demonstrating linear gradients.
 
-use std::f32::consts::PI;
-use std::f32::consts::TAU;
-
 use bevy::color::palettes::css::BLUE;
-use bevy::color::palettes::css::GREEN;
-use bevy::color::palettes::css::LIGHT_CYAN;
 use bevy::color::palettes::css::LIME;
 use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::YELLOW;
-use bevy::math::Rect;
-use bevy::math::Vec2;
 use bevy::prelude::*;
 use bevy::ui::ColorStop;
-use bevy::ui::ColorStops;
 use bevy::ui::LinearGradient;
+use std::f32::consts::TAU;
 
 fn main() {
     App::new()
@@ -37,11 +30,15 @@ fn setup(mut commands: Commands) {
                 vec![
                     ColorStop {
                         color: Color::WHITE,
-                        point: Val::Auto,
+                        point: Val::Percent(10.),
                     },
                     ColorStop {
                         color: Color::BLACK,
                         point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: Color::WHITE,
+                        point: Val::Percent(90.),
                     },
                 ],
                 vec![
@@ -80,6 +77,7 @@ fn setup(mut commands: Commands) {
                                     margin: UiRect::all(Val::Px(10.)),
                                     ..default()
                                 },
+                                BorderRadius::all(Val::Px(20.)),
                                 Outline {
                                     width: Val::Px(1.),
                                     offset: Val::Px(1.),
@@ -89,10 +87,56 @@ fn setup(mut commands: Commands) {
                                     angle,
                                     stops: stops.clone(),
                                 },
+                                LinearGradientBorder(LinearGradient {
+                                    angle: 3. * TAU / 8.,
+                                    stops: vec![
+                                        ColorStop {
+                                            color: YELLOW.into(),
+                                            point: Val::Auto,
+                                        },
+                                        Color::WHITE.into(),
+                                    ],
+                                }),
                             ));
                         }
                     });
                 }
             }
+        });
+}
+
+fn setup_border(mut commands: Commands) {
+    commands.spawn(Camera2d);
+
+    commands
+        .spawn(Node {
+            ..Default::default()
+        })
+        .with_children(|commands| {
+            commands.spawn((
+                Node {
+                    width: Val::Px(500.),
+                    height: Val::Px(500.),
+                    border: UiRect::all(Val::Px(50.)),
+                    margin: UiRect::all(Val::Px(10.)),
+                    ..default()
+                },
+                BorderRadius::all(Val::Px(20.)),
+                Outline {
+                    width: Val::Px(1.),
+                    offset: Val::Px(1.),
+                    color: Color::WHITE,
+                },
+                LinearGradientBorder(LinearGradient {
+                    angle: 3. * TAU / 8.,
+                    stops: vec![
+                        ColorStop {
+                            color: YELLOW.into(),
+                            point: Val::Auto,
+                        },
+                        Color::WHITE.into(),
+                    ],
+                }),
+            ));
         });
 }

@@ -113,6 +113,7 @@ impl FromWorld for LinearGradientPipeline {
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiTextureSlicePipelineKey {
+    anti_alias: bool,
     pub hdr: bool,
 }
 
@@ -151,7 +152,11 @@ impl SpecializedRenderPipeline for LinearGradientPipeline {
                 VertexFormat::Float32x4,
             ],
         );
-        let shader_defs = Vec::new();
+        let shader_defs = if key.anti_alias {
+            vec!["ANTI_ALIAS".into()]
+        } else {
+            Vec::new()
+        };
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -238,7 +243,7 @@ pub fn extract_linear_gradients(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &LinearGradient,
+            AnyOf<(&LinearGradient, &LinearGradientBorder)>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -246,8 +251,15 @@ pub fn extract_linear_gradients(
     let mut camera_mapper = camera_map.get_mapper();
     let mut sorted_stops = vec![];
 
-    for (entity, uinode, target, transform, inherited_visibility, clip, linear_gradient) in
-        &gradients_query
+    for (
+        entity,
+        uinode,
+        target,
+        transform,
+        inherited_visibility,
+        clip,
+        (linear_gradient, linear_gradient_border),
+    ) in &gradients_query
     {
         // Skip invisible images
         if !inherited_visibility.get() {
@@ -258,127 +270,140 @@ pub fn extract_linear_gradients(
             continue;
         };
 
-        if linear_gradient.stops.is_empty() {
-            continue;
-        }
+        for (linear_gradient, node_type) in [
+            //(linear_gradient, NodeType::Rect),
+            (
+                linear_gradient_border.map(|inner| &inner.0),
+                NodeType::Border,
+            ),
+        ]
+        .iter()
+        .filter_map(|g| g.0.map(|l| (l, g.1)))
+        {
+            if linear_gradient.stops.is_empty() {
+                continue;
+            }
 
-        if linear_gradient.stops.len() == 1 {
-            // With a single color stop there's no gradient, fill the node with the color
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                stack_index: uinode.stack_index,
-                color: linear_gradient.stops[0].color.into(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.size,
-                },
-                image: AssetId::default(),
-                clip: clip.map(|clip| clip.clip),
-                extracted_camera_entity,
-                item: ExtractedUiItem::Node {
-                    atlas_scaling: None,
-                    flip_x: false,
-                    flip_y: false,
-                    border_radius: uinode.border_radius,
-                    border: uinode.border,
-                    node_type: NodeType::Rect,
-                    transform: transform.compute_matrix(),
-                },
-                main_entity: entity.into(),
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            });
-            continue;
-        }
+            if linear_gradient.stops.len() == 1 {
+                // With a single color stop there's no gradient, fill the node with the color
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    stack_index: uinode.stack_index,
+                    color: linear_gradient.stops[0].color.into(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: uinode.size,
+                    },
+                    image: AssetId::default(),
+                    clip: clip.map(|clip| clip.clip),
+                    extracted_camera_entity,
+                    item: ExtractedUiItem::Node {
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border_radius: uinode.border_radius,
+                        border: uinode.border,
+                        node_type,
+                        transform: transform.compute_matrix(),
+                    },
+                    main_entity: entity.into(),
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                });
+                continue;
+            }
 
-        let length = linear_gradient.gradient_line_length(uinode.size.x, uinode.size.y);
-        let logical_length = length / target.scale_factor;
-        let logical_viewport_size = target.physical_size.as_vec2() / target.scale_factor;
+            let length = linear_gradient.gradient_line_length(uinode.size.x, uinode.size.y);
+            let logical_length = length / target.scale_factor;
+            let logical_viewport_size = target.physical_size.as_vec2() / target.scale_factor;
 
-        let range_start = extracted_color_stops.0.len();
+            let range_start = extracted_color_stops.0.len();
 
-        sorted_stops.extend(linear_gradient.stops.iter().filter_map(|stop| {
-            stop.point
-                .resolve(logical_length, logical_viewport_size)
-                .ok()
-                .map(|logical_point| (stop.color.to_linear(), logical_point * target.scale_factor))
-        }));
-
-        sorted_stops.sort_by_key(|(_, point)| Reverse(FloatOrd(*point)));
-
-        let min = sorted_stops
-            .last()
-            .map(|(_, min)| *min)
-            .unwrap_or(0.)
-            .min(0.);
-        let max = sorted_stops
-            .first()
-            .map(|(_, max)| *max)
-            .unwrap_or(length)
-            .max(length);
-
-        extracted_color_stops
-            .0
-            .extend(linear_gradient.stops.iter().map(|stop| {
-                if stop.point == Val::Auto {
-                    (stop.color.to_linear(), f32::NAN)
-                } else {
-                    sorted_stops.pop().unwrap()
-                }
+            sorted_stops.extend(linear_gradient.stops.iter().filter_map(|stop| {
+                stop.point
+                    .resolve(logical_length, logical_viewport_size)
+                    .ok()
+                    .map(|logical_point| {
+                        (stop.color.to_linear(), logical_point * target.scale_factor)
+                    })
             }));
 
-        let stops = &mut extracted_color_stops.0[range_start..];
+            sorted_stops.sort_by_key(|(_, point)| Reverse(FloatOrd(*point)));
 
-        if stops[0].1.is_nan() {
-            stops[0].1 = min;
-        }
+            let min = sorted_stops
+                .last()
+                .map(|(_, min)| *min)
+                .unwrap_or(0.)
+                .min(0.);
+            let max = sorted_stops
+                .first()
+                .map(|(_, max)| *max)
+                .unwrap_or(length)
+                .max(length);
 
-        if stops.last().unwrap().1.is_nan() {
-            stops.last_mut().unwrap().1 = max;
-        }
+            extracted_color_stops
+                .0
+                .extend(linear_gradient.stops.iter().map(|stop| {
+                    if stop.point == Val::Auto {
+                        (stop.color.to_linear(), f32::NAN)
+                    } else {
+                        sorted_stops.pop().unwrap()
+                    }
+                }));
 
-        // interpolate auto stops
-        let mut i = 1;
+            let stops = &mut extracted_color_stops.0[range_start..];
 
-        while i < stops.len() - 1 {
-            let point = stops[i].1;
-            if point.is_nan() {
-                let start = i;
-                let mut end = i + 1;
-                while end < stops.len() - 1 && stops[end].1.is_nan() {
-                    end += 1;
-                }
-                let start_point = stops[start - 1].1;
-                let end_point = stops[end].1;
-                let steps = end - start;
-                let step = (end_point - start_point) / (steps + 1) as f32;
-                for j in 0..steps {
-                    stops[i + j].1 = start_point + step * (j + 1) as f32;
-                }
-                i = end;
+            if stops[0].1.is_nan() {
+                stops[0].1 = min;
             }
-            i += 1;
+
+            if stops.last().unwrap().1.is_nan() {
+                stops.last_mut().unwrap().1 = max;
+            }
+
+            // interpolate auto stops
+            let mut i = 1;
+
+            while i < stops.len() - 1 {
+                let point = stops[i].1;
+                if point.is_nan() {
+                    let start = i;
+                    let mut end = i + 1;
+                    while end < stops.len() - 1 && stops[end].1.is_nan() {
+                        end += 1;
+                    }
+                    let start_point = stops[start - 1].1;
+                    let end_point = stops[end].1;
+                    let steps = end - start;
+                    let step = (end_point - start_point) / (steps + 1) as f32;
+                    for j in 0..steps {
+                        stops[i + j].1 = start_point + step * (j + 1) as f32;
+                    }
+                    i = end;
+                }
+                i += 1;
+            }
+
+            let stops_range = range_start..extracted_color_stops.0.len();
+
+            extracted_linear_gradients
+                .items
+                .push(ExtractedLinearGradient {
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    stack_index: uinode.stack_index,
+                    transform: transform.compute_matrix(),
+                    g_angle: linear_gradient.angle,
+                    stops_range,
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: uinode.size,
+                    },
+                    clip: clip.map(|clip| clip.clip),
+                    extracted_camera_entity,
+                    main_entity: entity.into(),
+                    node_type,
+                    border_radius: uinode.border_radius,
+                    border: uinode.border,
+                });
         }
-
-        let stops_range = range_start..extracted_color_stops.0.len();
-
-        extracted_linear_gradients
-            .items
-            .push(ExtractedLinearGradient {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                stack_index: uinode.stack_index,
-                transform: transform.compute_matrix(),
-                g_angle: linear_gradient.angle,
-                stops_range,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.size,
-                },
-                clip: clip.map(|clip| clip.clip),
-                extracted_camera_entity,
-                main_entity: entity.into(),
-                node_type: NodeType::Rect,
-                border_radius: uinode.border_radius,
-                border: uinode.border,
-            });
     }
 }
 
@@ -391,14 +416,16 @@ pub fn queue_linear_gradient(
     linear_gradients_pipeline: Res<LinearGradientPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LinearGradientPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut render_views: Query<&UiCameraView, With<ExtractedView>>,
+    mut render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
     camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawLinearGradientFns>();
     for (index, gradient) in extracted_gradients.items.iter().enumerate() {
-        let Ok(default_camera_view) = render_views.get_mut(gradient.extracted_camera_entity) else {
+        let Ok((default_camera_view, ui_anti_alias)) =
+            render_views.get_mut(gradient.extracted_camera_entity)
+        else {
             continue;
         };
 
@@ -414,7 +441,10 @@ pub fn queue_linear_gradient(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &linear_gradients_pipeline,
-            UiTextureSlicePipelineKey { hdr: view.hdr },
+            UiTextureSlicePipelineKey {
+                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+                hdr: view.hdr,
+            },
         );
 
         transparent_phase.add(TransparentUi {
