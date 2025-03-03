@@ -23,6 +23,7 @@ use bevy_render::{
         UnpreparedBindGroup, WgpuSampler, WgpuTextureView,
     },
     renderer::{RenderDevice, RenderQueue},
+    settings::WgpuFeatures,
     texture::FallbackImage,
 };
 use bevy_utils::default;
@@ -803,6 +804,7 @@ where
                 &self.fallback_buffers,
                 fallback_image,
                 &self.bindless_descriptor,
+                self.slab_capacity,
             );
         }
     }
@@ -1162,6 +1164,7 @@ where
         fallback_buffers: &HashMap<BindlessIndex, Buffer>,
         fallback_image: &FallbackImage,
         bindless_descriptor: &BindlessDescriptor,
+        slab_capacity: u32,
     ) {
         // Create the bindless index table buffer if needed.
         self.bindless_index_table.buffer.prepare(render_device);
@@ -1179,6 +1182,7 @@ where
             fallback_buffers,
             fallback_image,
             bindless_descriptor,
+            slab_capacity,
         );
     }
 
@@ -1192,17 +1196,30 @@ where
         fallback_buffers: &HashMap<BindlessIndex, Buffer>,
         fallback_image: &FallbackImage,
         bindless_descriptor: &BindlessDescriptor,
+        slab_capacity: u32,
     ) {
         // If the bind group is clean, then do nothing.
         if self.bind_group.is_some() {
             return;
         }
 
+        // Determine whether we need to pad out our binding arrays with dummy
+        // resources.
+        let required_binding_array_size = if render_device
+            .features()
+            .contains(WgpuFeatures::PARTIALLY_BOUND_BINDING_ARRAY)
+        {
+            None
+        } else {
+            Some(slab_capacity)
+        };
+
         let binding_resource_arrays = self.create_binding_resource_arrays(
             fallback_bindless_resources,
             fallback_buffers,
             fallback_image,
             bindless_descriptor,
+            required_binding_array_size,
         );
 
         let mut bind_group_entries = vec![BindGroupEntry {
@@ -1273,6 +1290,7 @@ where
         fallback_buffers: &'a HashMap<BindlessIndex, Buffer>,
         fallback_image: &'a FallbackImage,
         bindless_descriptor: &'a BindlessDescriptor,
+        required_binding_array_size: Option<u32>,
     ) -> Vec<(&'a u32, BindingResourceArray<'a>)> {
         let mut binding_resource_arrays = vec![];
 
@@ -1280,16 +1298,22 @@ where
         self.create_sampler_binding_resource_arrays(
             &mut binding_resource_arrays,
             fallback_bindless_resources,
+            required_binding_array_size,
         );
 
         // Build texture bindings.
-        self.create_texture_binding_resource_arrays(&mut binding_resource_arrays, fallback_image);
+        self.create_texture_binding_resource_arrays(
+            &mut binding_resource_arrays,
+            fallback_image,
+            required_binding_array_size,
+        );
 
         // Build buffer bindings.
         self.create_buffer_binding_resource_arrays(
             &mut binding_resource_arrays,
             fallback_buffers,
             bindless_descriptor,
+            required_binding_array_size,
         );
 
         binding_resource_arrays
@@ -1301,6 +1325,7 @@ where
         &'a self,
         binding_resource_arrays: &'b mut Vec<(&'a u32, BindingResourceArray<'a>)>,
         fallback_bindless_resources: &'a FallbackBindlessResources,
+        required_binding_array_size: Option<u32>,
     ) {
         // We have one binding resource array per sampler type.
         for (bindless_resource_type, fallback_sampler) in [
@@ -1319,7 +1344,7 @@ where
         ] {
             match self.samplers.get(&bindless_resource_type) {
                 Some(sampler_bindless_binding_array) => {
-                    let sampler_bindings = sampler_bindless_binding_array
+                    let mut sampler_bindings: Vec<_> = sampler_bindless_binding_array
                         .bindings
                         .iter()
                         .map(|maybe_bindless_binding| match *maybe_bindless_binding {
@@ -1327,6 +1352,13 @@ where
                             None => &**fallback_sampler,
                         })
                         .collect();
+
+                    if let Some(required_binding_array_size) = required_binding_array_size {
+                        while sampler_bindings.len() < required_binding_array_size as usize {
+                            sampler_bindings.push(&**fallback_sampler);
+                        }
+                    }
+
                     binding_resource_arrays.push((
                         &*sampler_bindless_binding_array.binding_number,
                         BindingResourceArray::Samplers(sampler_bindings),
@@ -1354,6 +1386,7 @@ where
         &'a self,
         binding_resource_arrays: &'b mut Vec<(&'a u32, BindingResourceArray<'a>)>,
         fallback_image: &'a FallbackImage,
+        required_binding_array_size: Option<u32>,
     ) {
         for (bindless_resource_type, fallback_image) in [
             (BindlessResourceType::Texture1d, &fallback_image.d1),
@@ -1371,7 +1404,7 @@ where
         ] {
             match self.textures.get(&bindless_resource_type) {
                 Some(texture_bindless_binding_array) => {
-                    let texture_bindings = texture_bindless_binding_array
+                    let mut texture_bindings: Vec<_> = texture_bindless_binding_array
                         .bindings
                         .iter()
                         .map(|maybe_bindless_binding| match *maybe_bindless_binding {
@@ -1379,6 +1412,13 @@ where
                             None => &*fallback_image.texture_view,
                         })
                         .collect();
+
+                    if let Some(required_binding_array_size) = required_binding_array_size {
+                        while texture_bindings.len() < required_binding_array_size as usize {
+                            texture_bindings.push(&*fallback_image.texture_view);
+                        }
+                    }
+
                     binding_resource_arrays.push((
                         &*texture_bindless_binding_array.binding_number,
                         BindingResourceArray::TextureViews(texture_bindings),
@@ -1407,6 +1447,7 @@ where
         binding_resource_arrays: &'b mut Vec<(&'a u32, BindingResourceArray<'a>)>,
         fallback_buffers: &'a HashMap<BindlessIndex, Buffer>,
         bindless_descriptor: &'a BindlessDescriptor,
+        required_binding_array_size: Option<u32>,
     ) {
         for bindless_buffer_descriptor in bindless_descriptor.buffers.iter() {
             let Some(buffer_bindless_binding_array) =
@@ -1417,14 +1458,17 @@ where
                 // `BindlessDescriptor::resources`.
                 continue;
             };
-            let buffer_bindings = buffer_bindless_binding_array
+
+            let fallback_buffer = fallback_buffers
+                .get(&bindless_buffer_descriptor.bindless_index)
+                .expect("Fallback buffer should exist");
+
+            let mut buffer_bindings: Vec<_> = buffer_bindless_binding_array
                 .bindings
                 .iter()
                 .map(|maybe_bindless_binding| {
                     let buffer = match *maybe_bindless_binding {
-                        None => fallback_buffers
-                            .get(&bindless_buffer_descriptor.bindless_index)
-                            .expect("Fallback buffer should exist"),
+                        None => fallback_buffer,
                         Some(ref bindless_binding) => &bindless_binding.resource,
                     };
                     BufferBinding {
@@ -1434,6 +1478,17 @@ where
                     }
                 })
                 .collect();
+
+            if let Some(required_binding_array_size) = required_binding_array_size {
+                while buffer_bindings.len() < required_binding_array_size as usize {
+                    buffer_bindings.push(BufferBinding {
+                        buffer: fallback_buffer,
+                        offset: 0,
+                        size: None,
+                    });
+                }
+            }
+
             binding_resource_arrays.push((
                 &*buffer_bindless_binding_array.binding_number,
                 BindingResourceArray::Buffers(buffer_bindings),
