@@ -401,7 +401,7 @@ impl Schedule {
 
     /// Set the error handler to use for systems that return a [`Result`](crate::error::Result).
     ///
-    /// See the [`result` module-level documentation](crate::result) for more information.
+    /// See the [`error` module-level documentation](crate::error) for more information.
     pub fn set_error_handler(&mut self, error_handler: fn(BevyError, SystemErrorContext)) {
         self.error_handler = Some(error_handler);
     }
