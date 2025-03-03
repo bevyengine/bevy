@@ -1,4 +1,5 @@
 use core::{hash::Hash, ops::Range};
+use std::f32::consts::TAU;
 
 use crate::*;
 use bevy_asset::*;
@@ -204,8 +205,7 @@ pub struct ExtractedLinearGradient {
     pub rect: Rect,
     pub clip: Option<Rect>,
     pub extracted_camera_entity: Entity,
-    pub g_start: Vec2,
-    pub g_dir: Vec2,
+    pub g_angle: f32,
     /// range into `ExtractedColorStops`
     pub stops_range: Range<usize>,
     pub node_type: NodeType,
@@ -247,6 +247,7 @@ pub fn extract_linear_gradients(
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
+    let mut sorted_stops = vec![];
 
     for (entity, uinode, target, transform, inherited_visibility, clip, linear_gradient, stops) in
         &gradients_query
@@ -291,6 +292,8 @@ pub fn extract_linear_gradients(
             continue;
         }
 
+        let length = linear_gradient.gradient_line_length(uinode.size.width, uinode.size.height);
+
         let start = extracted_color_stops.0.len();
         extracted_color_stops.0.extend(
             stops
@@ -298,6 +301,9 @@ pub fn extract_linear_gradients(
                 .iter()
                 .map(|(color, point)| (color.to_linear(), *point)),
         );
+
+        sorted_stops.clear();
+
         let stops_range = start..extracted_color_stops.0.len();
 
         extracted_linear_gradients
@@ -306,8 +312,7 @@ pub fn extract_linear_gradients(
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
-                g_start: Vec2::ZERO,
-                g_dir: Vec2::Y,
+                g_angle: linear_gradient.angle,
                 stops_range,
                 rect: Rect {
                     min: Vec2::ZERO,
@@ -502,8 +507,24 @@ pub fn prepare_linear_gradient(
                         0
                     };
 
+                    let angle = gradient.g_angle.rem_euclid(TAU);
+                    let corner_index = if angle < TAU / 4. {
+                        3
+                    } else if angle < TAU / 2. {
+                        0
+                    } else if angle < 3. * TAU / 4. {
+                        1
+                    } else {
+                        2
+                    };
+
+                    let dir = Vec2::new(angle.sin(), -angle.cos());
+
+                    let g_start = points[corner_index].into();
+
                     let range = gradient.stops_range.start..gradient.stops_range.end - 1;
                     let segment_count = range.len() as u32;
+
                     for stop_index in range {
                         let start_stop = extracted_color_stops.0[stop_index];
                         let end_stop = extracted_color_stops.0[stop_index + 1];
@@ -527,8 +548,8 @@ pub fn prepare_linear_gradient(
                                     gradient.border.bottom,
                                 ],
                                 size: rect_size.xy().into(),
-                                g_start: gradient.g_start.into(),
-                                g_dir: gradient.g_dir.into(),
+                                g_start,
+                                g_dir: dir.into(),
                                 point: points[i].into(),
                                 start_color,
                                 start_len: start_stop.1,
@@ -540,6 +561,7 @@ pub fn prepare_linear_gradient(
                         for &i in &QUAD_INDICES {
                             ui_meta.indices.push(indices_index + i as u32);
                         }
+                        indices_index += 4;
                     }
 
                     let vertices_count = 6 * segment_count;
@@ -552,7 +574,6 @@ pub fn prepare_linear_gradient(
                     ));
 
                     vertices_index += vertices_count;
-                    indices_index += 4 * segment_count;
                 }
             }
         }
