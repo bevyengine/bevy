@@ -55,23 +55,11 @@ fn setup(mut commands: Commands) {
                         point: Val::Auto,
                     },
                     ColorStop {
-                        color: RED.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: LIME.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: LIME.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
                         color: BLUE.into(),
                         point: Val::Auto,
                     },
                     ColorStop {
-                        color: BLUE.into(),
+                        color: LIME.into(),
                         point: Val::Auto,
                     },
                 ],
