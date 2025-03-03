@@ -14,6 +14,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
+        .add_systems(Update, update)
         .run();
 }
 
@@ -54,7 +55,19 @@ fn setup(mut commands: Commands) {
                         point: Val::Auto,
                     },
                     ColorStop {
+                        color: RED.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
                         color: LIME.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: LIME.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: BLUE.into(),
                         point: Val::Auto,
                     },
                     ColorStop {
@@ -99,4 +112,10 @@ fn setup(mut commands: Commands) {
                 }
             }
         });
+}
+
+fn update(time: Res<Time>, mut query: Query<&mut LinearGradient>) {
+    for mut gradient in query.iter_mut() {
+        gradient.angle += 0.5 * time.delta_secs();
+    }
 }
