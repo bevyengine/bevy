@@ -275,7 +275,7 @@ impl Slice {
     /// # Safety
     ///
     /// `slice` must stem from an [`IndexSet`] using [`EntityHash`].
-    /// 
+    ///
     /// [`entity::index_set::Slice`]: `crate::entity::index_set::Slice`
     pub const unsafe fn from_slice_unchecked(slice: &set::Slice<Entity>) -> &Self {
         // SAFETY: Slice is a transparent wrapper around indexmap::set::Slice.
@@ -287,7 +287,7 @@ impl Slice {
     /// # Safety
     ///
     /// `slice` must stem from an [`IndexSet`] using [`EntityHash`].
-    /// 
+    ///
     /// [`entity::index_set::Slice`]: `crate::entity::index_set::Slice`
     pub const unsafe fn from_slice_unchecked_mut(slice: &mut set::Slice<Entity>) -> &mut Self {
         // SAFETY: Slice is a transparent wrapper around indexmap::set::Slice.
@@ -304,7 +304,7 @@ impl Slice {
     /// # Safety
     ///
     /// `slice` must stem from an [`IndexSet`] using [`EntityHash`].
-    /// 
+    ///
     /// [`entity::index_set::Slice`]: `crate::entity::index_set::Slice`
     pub unsafe fn from_boxed_slice_unchecked(slice: Box<set::Slice<Entity>>) -> Box<Self> {
         // SAFETY: Slice is a transparent wrapper around indexmap::set::Slice.
