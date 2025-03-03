@@ -76,45 +76,89 @@ fn setup(mut commands: Commands) {
                     },
                 ],
             ] {
-                for (w, h) in [(100., 100.), (50., 100.), (100., 50.)] {
+                commands.spawn(Node::default()).with_children(|commands| {
+                    commands
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            ..Default::default()
+                        })
+                        .with_children(|commands| {
+                            for (w, h) in [(100., 100.), (50., 100.), (100., 50.)] {
+                                commands.spawn(Node::default()).with_children(|commands| {
+                                    for angle in (0..8).map(|i| i as f32 * TAU / 8.) {
+                                        commands.spawn((
+                                            Node {
+                                                width: Val::Px(w),
+                                                height: Val::Px(h),
+                                                border: UiRect::all(Val::Px(5.)),
+                                                margin: UiRect::all(Val::Px(10.)),
+                                                ..default()
+                                            },
+                                            BorderRadius::all(Val::Px(20.)),
+                                            LinearGradient {
+                                                angle,
+                                                stops: stops.clone(),
+                                            },
+                                            LinearGradientBorder(LinearGradient {
+                                                angle: 3. * TAU / 8.,
+                                                stops: vec![
+                                                    ColorStop {
+                                                        color: YELLOW.into(),
+                                                        point: Val::Auto,
+                                                    },
+                                                    Color::WHITE.into(),
+                                                    ColorStop {
+                                                        color: ORANGE.into(),
+                                                        point: Val::Auto,
+                                                    },
+                                                ],
+                                            }),
+                                        ));
+                                    }
+                                });
+                            }
+                        });
+
                     commands.spawn(Node::default()).with_children(|commands| {
-                        for angle in (0..8).map(|i| i as f32 * TAU / 8.) {
-                            commands.spawn((
-                                Node {
-                                    width: Val::Px(w),
-                                    height: Val::Px(h),
-                                    border: UiRect::all(Val::Px(5.)),
-                                    margin: UiRect::all(Val::Px(10.)),
-                                    ..default()
-                                },
-                                BorderRadius::all(Val::Px(20.)),
-                                LinearGradient {
-                                    angle,
-                                    stops: stops.clone(),
-                                },
-                                LinearGradientBorder(LinearGradient {
-                                    angle: 3. * TAU / 8.,
-                                    stops: vec![
-                                        ColorStop {
-                                            color: YELLOW.into(),
-                                            point: Val::Auto,
-                                        },
-                                        Color::WHITE.into(),
-                                        ColorStop {
-                                            color: ORANGE.into(),
-                                            point: Val::Auto,
-                                        },
-                                    ],
-                                }),
-                            ));
-                        }
+                        commands.spawn((
+                            Node {
+                                width: Val::Px(200.),
+                                height: Val::Px(200.),
+                                border: UiRect::all(Val::Px(5.)),
+                                margin: UiRect::all(Val::Px(10.)),
+                                ..default()
+                            },
+                            BorderRadius::all(Val::Px(20.)),
+                            LinearGradient {
+                                angle: 0.,
+                                stops: stops.clone(),
+                            },
+                            LinearGradientBorder(LinearGradient {
+                                angle: 3. * TAU / 8.,
+                                stops: vec![
+                                    ColorStop {
+                                        color: YELLOW.into(),
+                                        point: Val::Auto,
+                                    },
+                                    Color::WHITE.into(),
+                                    ColorStop {
+                                        color: ORANGE.into(),
+                                        point: Val::Auto,
+                                    },
+                                ],
+                            }),
+                            AnimateMarker,
+                        ));
                     });
-                }
+                });
             }
         });
 }
 
-fn update(time: Res<Time>, mut query: Query<&mut LinearGradient>) {
+#[derive(Component)]
+struct AnimateMarker;
+
+fn update(time: Res<Time>, mut query: Query<&mut LinearGradient, With<AnimateMarker>>) {
     for mut gradient in query.iter_mut() {
         gradient.angle += 0.5 * time.delta_secs();
     }
