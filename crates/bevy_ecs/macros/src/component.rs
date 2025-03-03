@@ -3,7 +3,14 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
 use std::collections::HashSet;
 use syn::{
-    parenthesized, parse::Parse, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::{Comma, Paren}, Data, DataStruct, DeriveInput, ExprClosure, ExprPath, Field, Fields, Ident, Index, LitStr, Member, Path, Result, Token, Type, Visibility
+    parenthesized,
+    parse::Parse,
+    parse_macro_input, parse_quote,
+    punctuated::Punctuated,
+    spanned::Spanned,
+    token::{Comma, Paren},
+    Data, DataStruct, DeriveInput, ExprClosure, ExprPath, Field, Fields, Ident, Index, LitStr,
+    Member, Path, Result, Token, Type, Visibility,
 };
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
