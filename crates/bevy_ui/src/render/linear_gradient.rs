@@ -615,7 +615,7 @@ pub fn prepare_linear_gradient(
                         2
                     };
 
-                    let dir = Vec2::new(sin(angle), cos(-angle));
+                    let dir = Vec2::new(sin(angle), -cos(angle));
 
                     let g_start = points[corner_index].into();
 

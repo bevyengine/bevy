@@ -2835,7 +2835,7 @@ pub struct LinearGradientBorder(pub LinearGradient);
 impl LinearGradient {
     pub fn gradient_line_endpoints(&self, width: f32, height: f32) -> (Vec2, Vec2) {
         let center = Vec2::new(width * 0.5, height * 0.5);
-        let v = Vec2::new(sin(self.angle), cos(-self.angle));
+        let v = Vec2::new(sin(self.angle), -cos(self.angle));
         let (pos_corner, neg_corner) = if v.x >= 0.0 && v.y <= 0.0 {
             (Vec2::new(width, 0.0), Vec2::new(0.0, height))
         } else if v.x >= 0.0 && v.y > 0.0 {
