@@ -12,7 +12,10 @@ use bevy_ecs::{
     },
 };
 use bevy_image::prelude::*;
-use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
+use bevy_math::{
+    ops::{cos, sin},
+    FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles,
+};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_phase::*,
@@ -613,7 +616,7 @@ pub fn prepare_linear_gradient(
                         2
                     };
 
-                    let dir = Vec2::new(angle.sin(), -angle.cos());
+                    let dir = Vec2::new(sin(angle), cos(-angle));
 
                     let g_start = points[corner_index].into();
 
