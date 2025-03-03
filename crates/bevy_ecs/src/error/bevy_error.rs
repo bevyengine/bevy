@@ -19,7 +19,7 @@ macro_rules! capture_backtrace {
     };
 }
 
-/// The built in "universal" Bevy error type. This has a blanket [`From`] impl for an type that implements Rust's [`Error`],
+/// The built in "universal" Bevy error type. This has a blanket [`From`] impl for any type that implements Rust's [`Error`],
 /// meaning it can be used as a "catch all" error.
 ///
 /// # Backtraces
