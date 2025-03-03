@@ -606,11 +606,15 @@ fn hook_register_function_call(
         }
     })
 }
+mod kw {
+    syn::custom_keyword!(relationship_target);
+    syn::custom_keyword!(relationship);
+    syn::custom_keyword!(linked_spawn);
+}
 
 impl Parse for Relationship {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        syn::custom_keyword!(relationship_target);
-        input.parse::<relationship_target>()?;
+        input.parse::<kw::relationship_target>()?;
         input.parse::<Token![=]>()?;
         Ok(Relationship {
             relationship_target: input.parse::<Type>()?,
@@ -620,19 +624,18 @@ impl Parse for Relationship {
 
 impl Parse for RelationshipTarget {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        let mut relationship_type: Option<Type> = None;
-        let mut linked_spawn_exists = false;
-        syn::custom_keyword!(relationship);
-        syn::custom_keyword!(linked_spawn);
+        let mut relationship: Option<Type> = None;
+        let mut linked_spawn = false;
+
         let mut done = false;
         loop {
-            if input.peek(relationship) {
-                input.parse::<relationship>()?;
+            if input.peek(kw::relationship) {
+                input.parse::<kw::relationship>()?;
                 input.parse::<Token![=]>()?;
-                relationship_type = Some(input.parse()?);
-            } else if input.peek(linked_spawn) {
-                input.parse::<linked_spawn>()?;
-                linked_spawn_exists = true;
+                relationship = Some(input.parse()?);
+            } else if input.peek(kw::linked_spawn) {
+                input.parse::<kw::linked_spawn>()?;
+                linked_spawn = true;
             } else {
                 done = true;
             }
@@ -644,10 +647,11 @@ impl Parse for RelationshipTarget {
             }
         }
 
-        let relationship = relationship_type.ok_or_else(|| syn::Error::new(input.span(), "RelationshipTarget derive must specify a relationship via #[relationship_target(relationship = X)"))?;
         Ok(RelationshipTarget {
-            relationship,
-            linked_spawn: linked_spawn_exists,
+            relationship: {
+                relationship.ok_or_else(|| syn::Error::new(input.span(), "RelationshipTarget derive must specify a relationship via #[relationship_target(relationship = X)"))?
+            },
+            linked_spawn,
         })
     }
 }
