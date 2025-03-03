@@ -271,7 +271,7 @@ pub fn extract_linear_gradients(
         };
 
         for (linear_gradient, node_type) in [
-            //(linear_gradient, NodeType::Rect),
+            (linear_gradient, NodeType::Rect),
             (
                 linear_gradient_border.map(|inner| &inner.0),
                 NodeType::Border,
@@ -328,11 +328,16 @@ pub fn extract_linear_gradients(
 
             sorted_stops.sort_by_key(|(_, point)| Reverse(FloatOrd(*point)));
 
-            let min = sorted_stops
-                .last()
-                .map(|(_, min)| *min)
-                .unwrap_or(0.)
-                .min(0.);
+            let min = sorted_stops.last().map(|(_, min)| *min).unwrap_or(0.);
+
+            if 0. < min && linear_gradient.stops[0].point != Val::Auto {
+                extracted_color_stops
+                    .0
+                    .push((linear_gradient.stops[0].color.to_linear(), 0.));
+            }
+
+            let min = min.min(0.);
+
             let max = sorted_stops
                 .first()
                 .map(|(_, max)| *max)
@@ -348,6 +353,12 @@ pub fn extract_linear_gradients(
                         sorted_stops.pop().unwrap()
                     }
                 }));
+
+            let last_stop = extracted_color_stops.0.last().unwrap();
+            if !last_stop.1.is_nan() && last_stop.1 < length {
+                let last_color = last_stop.0;
+                extracted_color_stops.0.push((last_color, length));
+            }
 
             let stops = &mut extracted_color_stops.0[range_start..];
 

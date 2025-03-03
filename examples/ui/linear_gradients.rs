@@ -2,6 +2,7 @@
 
 use bevy::color::palettes::css::BLUE;
 use bevy::color::palettes::css::LIME;
+use bevy::color::palettes::css::ORANGE;
 use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
@@ -30,15 +31,11 @@ fn setup(mut commands: Commands) {
                 vec![
                     ColorStop {
                         color: Color::WHITE,
-                        point: Val::Percent(10.),
+                        point: Val::Percent(15.),
                     },
                     ColorStop {
                         color: Color::BLACK,
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: Color::WHITE,
-                        point: Val::Percent(90.),
+                        point: Val::Percent(85.),
                     },
                 ],
                 vec![
@@ -54,7 +51,7 @@ fn setup(mut commands: Commands) {
                 vec![
                     ColorStop {
                         color: RED.into(),
-                        point: Val::Auto,
+                        point: Val::Percent(15.),
                     },
                     ColorStop {
                         color: LIME.into(),
@@ -62,7 +59,7 @@ fn setup(mut commands: Commands) {
                     },
                     ColorStop {
                         color: BLUE.into(),
-                        point: Val::Auto,
+                        point: Val::Percent(85.),
                     },
                 ],
             ] {
@@ -78,11 +75,6 @@ fn setup(mut commands: Commands) {
                                     ..default()
                                 },
                                 BorderRadius::all(Val::Px(20.)),
-                                Outline {
-                                    width: Val::Px(1.),
-                                    offset: Val::Px(1.),
-                                    color: Color::WHITE,
-                                },
                                 LinearGradient {
                                     angle,
                                     stops: stops.clone(),
@@ -95,6 +87,10 @@ fn setup(mut commands: Commands) {
                                             point: Val::Auto,
                                         },
                                         Color::WHITE.into(),
+                                        ColorStop {
+                                            color: ORANGE.into(),
+                                            point: Val::Auto,
+                                        },
                                     ],
                                 }),
                             ));
@@ -102,41 +98,5 @@ fn setup(mut commands: Commands) {
                     });
                 }
             }
-        });
-}
-
-fn setup_border(mut commands: Commands) {
-    commands.spawn(Camera2d);
-
-    commands
-        .spawn(Node {
-            ..Default::default()
-        })
-        .with_children(|commands| {
-            commands.spawn((
-                Node {
-                    width: Val::Px(500.),
-                    height: Val::Px(500.),
-                    border: UiRect::all(Val::Px(50.)),
-                    margin: UiRect::all(Val::Px(10.)),
-                    ..default()
-                },
-                BorderRadius::all(Val::Px(20.)),
-                Outline {
-                    width: Val::Px(1.),
-                    offset: Val::Px(1.),
-                    color: Color::WHITE,
-                },
-                LinearGradientBorder(LinearGradient {
-                    angle: 3. * TAU / 8.,
-                    stops: vec![
-                        ColorStop {
-                            color: YELLOW.into(),
-                            point: Val::Auto,
-                        },
-                        Color::WHITE.into(),
-                    ],
-                }),
-            ));
         });
 }
