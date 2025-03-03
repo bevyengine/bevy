@@ -883,11 +883,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// ```
     /// use bevy_ecs::prelude::*;
     /// #[derive(Component)]
-    /// struct ExampleComponent;
+    /// struct Health(f32);
     ///
-    /// fn example_system(query: Query<&ExampleComponent>) {
-    ///     for (entity, component) in query.iter().include_entity() {
-    ///         println!("entity {:?}", entity);
+    /// #[derive(Component)]
+    /// struct Damage(f32);
+    ///
+    /// fn example_system(query: Query<(&mut Health, &Damage)>) {
+    ///     for (entity, (health, damage)) in query.iter().include_entity() {
+    ///         if damage.0 > 0.0 {
+    ///             health.0 -= damage.0;
+    ///             println!("entity {:?} took damage", entity);
+    ///         }
     ///     }
     /// }
     /// ```
@@ -2629,7 +2635,7 @@ mod tests {
     use std::println;
 
     use crate::component::Component;
-    use crate::entity::Entity;
+    use crate::entity::{self, Entity};
     use crate::prelude::World;
 
     #[derive(Component, Debug, PartialEq, PartialOrd, Clone, Copy)]
@@ -2973,6 +2979,92 @@ mod tests {
                 .iter_many_mut(&mut world, [id, id])
                 .sort_by_cached_key::<&C, _>(|d| d.0);
             while query.fetch_next().is_some() {}
+        }
+    }
+
+    #[test]
+    fn query_iter_include_entity() {
+        let mut world = World::new();
+        world.spawn_batch([A(0.), A(1.), A(2.), A(3.), A(4.)]);
+        world.spawn_batch([
+            (A(0.), Sparse(100)),
+            (A(1.), Sparse(101)),
+            (A(2.), Sparse(102)),
+            (A(3.), Sparse(103)),
+            (A(4.), Sparse(104)),
+        ]);
+
+        {
+            // Read-only
+            let mut query_entity_a = world.query::<(Entity, &A)>();
+            let iter_plain = query_entity_a
+                .iter(&world)
+                .map(|(entity, a)| (entity, *a))
+                .collect::<Vec<_>>();
+
+            let mut query_a = world.query::<&A>();
+            let iter_include_entity = query_a
+                .iter(&world)
+                .include_entity()
+                .map(|(entity, a)| (entity, *a))
+                .collect::<Vec<_>>();
+
+            assert_eq!(iter_plain, iter_include_entity);
+        }
+
+        {
+            // Mut
+            let mut query_entity_a = world.query::<(Entity, &mut A)>();
+            let iter_plain = query_entity_a
+                .iter_mut(&mut world)
+                .map(|(entity, a)| (entity, *a))
+                .collect::<Vec<_>>();
+
+            let mut query_a = world.query::<&mut A>();
+            let iter_include_entity = query_a
+                .iter_mut(&mut world)
+                .include_entity()
+                .map(|(entity, a)| (entity, *a))
+                .collect::<Vec<_>>();
+
+            assert_eq!(iter_plain, iter_include_entity);
+        }
+
+        {
+            // With filter
+            let mut query_entity_a =
+                world.query_filtered::<(Entity, &A), crate::query::With<Sparse>>();
+            let iter_plain = query_entity_a
+                .iter(&world)
+                .map(|(entity, a)| (entity, *a))
+                .collect::<Vec<_>>();
+
+            let mut query_a = world.query_filtered::<&A, crate::query::With<Sparse>>();
+            let iter_include_entity = query_a
+                .iter(&world)
+                .include_entity()
+                .map(|(entity, a)| (entity, *a))
+                .collect::<Vec<_>>();
+
+            assert_eq!(iter_plain, iter_include_entity);
+        }
+
+        {
+            // Multiple components in a query
+            let mut query_entity_a = world.query::<(Entity, &A, &Sparse)>();
+            let iter_plain = query_entity_a
+                .iter(&world)
+                .map(|(entity, a, sparse)| (entity, *a, *sparse))
+                .collect::<Vec<_>>();
+
+            let mut query_a = world.query::<(&A, &Sparse)>();
+            let iter_include_entity = query_a
+                .iter(&world)
+                .include_entity()
+                .map(|(entity, (a, sparse))| (entity, *a, *sparse))
+                .collect::<Vec<_>>();
+
+            assert_eq!(iter_plain, iter_include_entity);
         }
     }
 }
