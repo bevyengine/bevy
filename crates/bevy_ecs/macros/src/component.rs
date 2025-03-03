@@ -10,7 +10,7 @@ use syn::{
     spanned::Spanned,
     token::{Comma, Paren},
     Data, DataEnum, DataStruct, DeriveInput, Expr, ExprClosure, ExprPath, Field, Fields, Ident,
-    LitStr, Member, Meta, Path, Result, Token, Visibility,
+    LitStr, Member, Meta, Path, Result, Token, Type, Visibility,
 };
 
 pub const EVENT: &str = "event";
@@ -454,11 +454,11 @@ enum RequireFunc {
 }
 
 struct Relationship {
-    relationship_target: Ident,
+    relationship_target: Type,
 }
 
 struct RelationshipTarget {
-    relationship: Ident,
+    relationship: Type,
     linked_spawn: bool,
 }
 
@@ -593,7 +593,7 @@ impl Parse for Relationship {
         input.parse::<relationship_target>()?;
         input.parse::<Token![=]>()?;
         Ok(Relationship {
-            relationship_target: input.parse::<Ident>()?,
+            relationship_target: input.parse::<Type>()?,
         })
     }
 }

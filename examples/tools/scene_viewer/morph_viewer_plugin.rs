@@ -188,7 +188,7 @@ fn update_text(
         return;
     };
 
-    let Ok(text) = texts.get_single() else {
+    let Ok(text) = texts.single() else {
         return;
     };
 

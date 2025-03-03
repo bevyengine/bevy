@@ -52,9 +52,9 @@ use log::warn;
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::new();
 /// let root = world.spawn_empty().id();
-/// let child1 = world.spawn(ChildOf {parent: root}).id();
-/// let child2 = world.spawn(ChildOf {parent: root}).id();
-/// let grandchild = world.spawn(ChildOf {parent: child1}).id();
+/// let child1 = world.spawn(ChildOf { parent: root }).id();
+/// let child2 = world.spawn(ChildOf { parent: root }).id();
+/// let grandchild = world.spawn(ChildOf { parent: child1 }).id();
 ///
 /// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
 /// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
@@ -97,22 +97,6 @@ use log::warn;
 pub struct ChildOf {
     /// The parent entity of this child entity.
     pub parent: Entity,
-}
-
-impl ChildOf {
-    /// Returns the parent entity, which is the "target" of this relationship.
-    pub fn get(&self) -> Entity {
-        self.parent
-    }
-}
-
-impl Deref for ChildOf {
-    type Target = Entity;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.parent
-    }
 }
 
 // TODO: We need to impl either FromWorld or Default so ChildOf can be registered as Reflect.
@@ -216,7 +200,10 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_mut.insert(ChildOf(entity))")]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use entity_mut.insert(ChildOf { parent: entity })"
+    )]
     pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
         self.insert(ChildOf { parent });
         self
@@ -262,7 +249,10 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_commands.insert(ChildOf(entity))")]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use entity_commands.insert(ChildOf { parent: entity })"
+    )]
     pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
         self.insert(ChildOf { parent });
         self
@@ -280,7 +270,7 @@ pub fn validate_parent_has_component<C: Component>(
         return;
     };
     if !world
-        .get_entity(child_of.get())
+        .get_entity(child_of.parent)
         .is_ok_and(|e| e.contains::<C>())
     {
         // TODO: print name here once Name lives in bevy_ecs
