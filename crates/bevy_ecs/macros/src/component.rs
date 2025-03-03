@@ -600,7 +600,7 @@ impl Parse for Relationship {
 
 impl Parse for RelationshipTarget {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        let mut relationship: Option<Ident> = None;
+        let mut relationship: Option<Type> = None;
         let mut linked_spawn: bool = false;
 
         let metas = input.parse_terminated(Meta::parse, Token![,])?;
@@ -610,9 +610,9 @@ impl Parse for RelationshipTarget {
                 Meta::Path(path) if path.is_ident(LINKED_SPAWN) => linked_spawn = true,
                 Meta::NameValue(nv) if nv.path.is_ident(RELATIONSHIP) => {
                     if let Expr::Path(ExprPath { path, .. }) = nv.value {
-                        relationship = Some(path.require_ident()?.to_owned());
+                        relationship = Some(Type::Path(syn::TypePath { qself: None, path }));
                     }
-                }
+                },
                 _ => return Err(syn::Error::new(meta.span(), "Invalid attribute")),
             };
         }
