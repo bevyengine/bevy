@@ -61,7 +61,7 @@ fn setup(
 
     // Create the parameters for mesh generation.
     commands.insert_resource(MeshGeneration {
-        height_interpolation: asset_server.load("heights.li.ron"),
+        height_interpolation: asset_server.load("arc_asset_heights.li.ron"),
         mesh,
         size: UVec2::new(30, 30),
     });
