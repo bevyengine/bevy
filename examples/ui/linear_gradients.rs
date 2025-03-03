@@ -51,7 +51,7 @@ fn setup(mut commands: Commands) {
                 vec![
                     ColorStop {
                         color: RED.into(),
-                        point: Val::Percent(15.),
+                        point: Val::Auto,
                     },
                     ColorStop {
                         color: LIME.into(),
@@ -59,7 +59,7 @@ fn setup(mut commands: Commands) {
                     },
                     ColorStop {
                         color: BLUE.into(),
-                        point: Val::Percent(85.),
+                        point: Val::Auto,
                     },
                 ],
             ] {
