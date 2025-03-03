@@ -275,6 +275,8 @@ impl Slice {
     /// # Safety
     ///
     /// `slice` must stem from an [`IndexSet`] using [`EntityHash`].
+    /// 
+    /// [`entity::index_set::Slice`]: `crate::entity::index_set::Slice`
     pub const unsafe fn from_slice_unchecked(slice: &set::Slice<Entity>) -> &Self {
         // SAFETY: Slice is a transparent wrapper around indexmap::set::Slice.
         unsafe { &*(ptr::from_ref(slice) as *const Self) }
@@ -285,6 +287,8 @@ impl Slice {
     /// # Safety
     ///
     /// `slice` must stem from an [`IndexSet`] using [`EntityHash`].
+    /// 
+    /// [`entity::index_set::Slice`]: `crate::entity::index_set::Slice`
     pub const unsafe fn from_slice_unchecked_mut(slice: &mut set::Slice<Entity>) -> &mut Self {
         // SAFETY: Slice is a transparent wrapper around indexmap::set::Slice.
         unsafe { &mut *(ptr::from_mut(slice) as *mut Self) }
@@ -295,11 +299,13 @@ impl Slice {
         &self.1
     }
 
-    /// Constructs a boxed [`entity::index_set::Slice>`] from a boxed [`indexmap::set::Slice`] unsafely.
+    /// Constructs a boxed [`entity::index_set::Slice`] from a boxed [`indexmap::set::Slice`] unsafely.
     ///
     /// # Safety
     ///
     /// `slice` must stem from an [`IndexSet`] using [`EntityHash`].
+    /// 
+    /// [`entity::index_set::Slice`]: `crate::entity::index_set::Slice`
     pub unsafe fn from_boxed_slice_unchecked(slice: Box<set::Slice<Entity>>) -> Box<Self> {
         // SAFETY: Slice is a transparent wrapper around indexmap::set::Slice.
         unsafe { Box::from_raw(Box::into_raw(slice) as *mut Self) }
