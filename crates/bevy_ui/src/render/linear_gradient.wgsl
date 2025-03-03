@@ -222,20 +222,15 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // let g_dir = normalize(g_end - g_start);
     // let g_distance = distance(g_start, g_dir * dot(in.point, g_dir));
 
-    if in.point.x > 150. {
-        return vec4(1.);
-    }
-    return vec4(0.);
-
-    // return linear_gradient(
-    //     in.point,
-    //     in.g_start,
-    //     in.dir,
-    //     in.start_color,
-    //     in.start_len,
-    //     in.end_color,
-    //     in.end_len,
-    // );
+    return linear_gradient(
+        in.point,
+        in.g_start,
+        in.dir,
+        in.start_color,
+        in.start_len,
+        in.end_color,
+        in.end_len,
+    );
 }
 
 fn linear_gradient(
@@ -247,9 +242,6 @@ fn linear_gradient(
     end_color: vec4<f32>,
     end_distance: f32,
 ) -> vec4<f32> {
-    if distance(point, g_start) < 10. {
-        return vec4(1.);
-    }
     let g_distance = dot(point - g_start, g_dir);
     let t = (g_distance - start_distance) / (end_distance - start_distance);
     if t <= 0.0 || 1.0 < t {

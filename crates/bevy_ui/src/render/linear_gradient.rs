@@ -374,9 +374,9 @@ struct UiGradientVertex {
     flags: u32,
     radius: [f32; 4],
     border: [f32; 4],
-    g_start: [f32; 2],
     size: [f32; 2],
     point: [f32; 2],
+    g_start: [f32; 2],
     g_dir: [f32; 2],
     start_color: [f32; 4],
     start_len: f32,
@@ -495,7 +495,7 @@ pub fn prepare_linear_gradient(
                     } else {
                         0
                     };
-
+                    
                     for i in 0..4 {
                         ui_meta.vertices.push(UiGradientVertex {
                             position: positions_clipped[i].into(),
@@ -516,7 +516,7 @@ pub fn prepare_linear_gradient(
                             size: rect_size.xy().into(),
                             g_start: gradient.g_start.into(),
                             g_dir: gradient.g_dir.into(),
-                            point: ((uvs[i] - Vec2::new(0.5, 0.5)) * rect_size.xy()).into(),
+                            point: points[i].into(),
                             start_color,
                             start_len: gradient.start,
                             end_len: gradient.end,
