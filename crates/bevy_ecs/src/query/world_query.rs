@@ -132,7 +132,7 @@ pub unsafe trait WorldQuery {
     ) -> bool;
 }
 
-/// A wrapper type around a data query `D` which will return the queried [`Entity`]
+/// A wrapper type around a data query `D` which will return the queried [`crate::entity::Entity`]
 /// alongside the results from `D`.
 ///
 /// This convenience wrapper can be used by calling [`super::iter::QueryIter::include_entity`] on

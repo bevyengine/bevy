@@ -322,7 +322,7 @@ unsafe impl<D: QueryData> QueryData for crate::query::IncludeEntity<D> {
         (item.0, D::shrink(item.1))
     }
 
-    /// Fetch [`Self::Item`](`WorldQuery::Item`) for either the given `entity` in the current [`Table`],
+    /// Fetch [`Self::Item`](`QueryData::Item`) for either the given `entity` in the current [`Table`],
     /// or for the given `entity` in the current [`Archetype`]. This must always be called after
     /// [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`] or after
     /// [`WorldQuery::set_archetype`]  with a `entity` in the current archetype.
