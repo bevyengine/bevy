@@ -205,6 +205,12 @@ debug_glam_assert = ["bevy_math/debug_glam_assert"]
 
 default_font = ["bevy_text?/default_font"]
 
+# Enables using assets from HTTP sources
+http_source = ["bevy_asset?/http_source"]
+
+# Assets downloaded from HTTP sources are cached
+http_source_cache = ["bevy_asset?/http_source_cache"]
+
 # Enables the built-in asset processor for processed assets.
 asset_processor = ["bevy_asset?/asset_processor"]
 
