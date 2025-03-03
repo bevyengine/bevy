@@ -697,6 +697,9 @@ impl Entities {
     ///
     /// Returns the location of the entity currently using the given ID, if any. Location should be
     /// written immediately.
+    #[deprecated(
+        note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity."
+    )]
     pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
         self.verify_flushed();
 
@@ -730,6 +733,9 @@ impl Entities {
     /// Allocate a specific entity ID, overwriting its generation.
     ///
     /// Returns the location of the entity currently using the given ID, if any.
+    #[deprecated(
+        note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity."
+    )]
     pub(crate) fn alloc_at_without_replacement(
         &mut self,
         entity: Entity,
