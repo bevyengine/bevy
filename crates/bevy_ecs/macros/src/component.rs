@@ -20,7 +20,7 @@ pub const TRAVERSAL: &str = "traversal";
 pub fn derive_event(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let mut auto_propagate = false;
-    let mut traversal: syn::Type = parse_quote!(());
+    let mut traversal: Type = parse_quote!(());
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
     ast.generics
@@ -609,8 +609,8 @@ impl Parse for RelationshipTarget {
             match meta {
                 Meta::Path(path) if path.is_ident(LINKED_SPAWN) => linked_spawn = true,
                 Meta::NameValue(nv) if nv.path.is_ident(RELATIONSHIP) => {
-                    if let Expr::Path(ExprPath { path, .. }) = nv.value {
-                        relationship = Some(Type::Path(syn::TypePath { qself: None, path }));
+                    if let Expr::Path(ExprPath { path, qself, .. }) = nv.value {
+                        relationship = Some(Type::Path(syn::TypePath { path, qself }));
                     }
                 },
                 _ => return Err(syn::Error::new(meta.span(), "Invalid attribute")),
