@@ -450,13 +450,13 @@ mod slice {
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, StateScoped(super::Scene::Slice)));
-        let image = asset_server.load("textures/fantasy_ui_borders/panel-border-010.png");
+        let image = asset_server.load("textures/fantasy_ui_borders/numbered_slices.png");
 
         let slicer = TextureSlicer {
-            border: BorderRect::all(22.0),
-            center_scale_mode: SliceScaleMode::Stretch,
-            sides_scale_mode: SliceScaleMode::Stretch,
-            max_corner_scale: 1.0,
+            border: BorderRect::all(16.0),
+            center_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
+            sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
+            ..default()
         };
         commands
             .spawn((
