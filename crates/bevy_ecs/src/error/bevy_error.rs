@@ -146,9 +146,10 @@ static SKIP_NORMAL_BACKTRACE: core::sync::atomic::AtomicUsize =
 
 /// When called, this will skip the currently configured panic hook when a [`BevyError`] backtrace has already been printed.
 #[cfg(feature = "std")]
-pub fn set_bevy_error_panic_hook() {
-    let hook = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |info| {
+pub fn bevy_error_panic_hook(
+    current_hook: impl Fn(&std::panic::PanicHookInfo),
+) -> impl Fn(&std::panic::PanicHookInfo) {
+    move |info| {
         if SKIP_NORMAL_BACKTRACE.load(core::sync::atomic::Ordering::Relaxed) > 0 {
             if let Some(payload) = info.payload().downcast_ref::<&str>() {
                 std::println!("{payload}");
@@ -159,8 +160,8 @@ pub fn set_bevy_error_panic_hook() {
             return;
         }
 
-        hook(info);
-    }));
+        current_hook(info);
+    }
 }
 
 /// An error containing a print-able message.

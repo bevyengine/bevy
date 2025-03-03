@@ -39,15 +39,27 @@ pub struct PanicHandlerPlugin;
 
 impl Plugin for PanicHandlerPlugin {
     fn build(&self, _app: &mut App) {
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(feature = "std")]
         {
-            console_error_panic_hook::set_once();
+            static SET_HOOK: std::sync::Once = std::sync::Once::new();
+            SET_HOOK.call_once(|| {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    std::panic::set_hook(alloc::boxed::Box::new(console_error_panic_hook::hook));
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    #[cfg(feature = "error_panic_hook")]
+                    {
+                        let current_hook = std::panic::take_hook();
+                        std::panic::set_hook(alloc::boxed::Box::new(
+                            bevy_ecs::error::bevy_error_panic_hook(current_hook),
+                        ));
+                    }
+
+                    // Otherwise use the default target panic hook - Do nothing.
+                }
+            });
         }
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            // Use the default target panic hook - Do nothing.
-        }
-        #[cfg(all(feature = "error_panic_hook", feature = "std"))]
-        bevy_ecs::error::set_bevy_error_panic_hook();
     }
 }
