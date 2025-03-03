@@ -24,7 +24,8 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(Node {
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.),
+            row_gap: Val::Px(30.),
+            margin: UiRect::all(Val::Px(30.)),
             ..Default::default()
         })
         .with_children(|commands| {
@@ -68,52 +69,57 @@ fn setup(mut commands: Commands) {
                     commands
                         .spawn(Node {
                             flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(10.),
                             ..Default::default()
                         })
                         .with_children(|commands| {
                             for (w, h) in [(100., 100.), (50., 100.), (100., 50.)] {
-                                commands.spawn(Node::default()).with_children(|commands| {
-                                    for angle in (0..8).map(|i| i as f32 * TAU / 8.) {
-                                        commands.spawn((
-                                            Node {
-                                                width: Val::Px(w),
-                                                height: Val::Px(h),
-                                                border: UiRect::all(Val::Px(5.)),
-                                                margin: UiRect::all(Val::Px(10.)),
-                                                ..default()
-                                            },
-                                            BorderRadius::all(Val::Px(20.)),
-                                            LinearGradient {
-                                                angle,
-                                                stops: stops.clone(),
-                                            },
-                                            LinearGradientBorder(LinearGradient {
-                                                angle: 3. * TAU / 8.,
-                                                stops: vec![
-                                                    ColorStop {
-                                                        color: YELLOW.into(),
-                                                        point: Val::Auto,
-                                                    },
-                                                    Color::WHITE.into(),
-                                                    ColorStop {
-                                                        color: ORANGE.into(),
-                                                        point: Val::Auto,
-                                                    },
-                                                ],
-                                            }),
-                                        ));
-                                    }
-                                });
+                                commands
+                                    .spawn(Node {
+                                        column_gap: Val::Px(10.),
+                                        ..Default::default()
+                                    })
+                                    .with_children(|commands| {
+                                        for angle in (0..8).map(|i| i as f32 * TAU / 8.) {
+                                            commands.spawn((
+                                                Node {
+                                                    width: Val::Px(w),
+                                                    height: Val::Px(h),
+                                                    border: UiRect::all(Val::Px(5.)),
+                                                    ..default()
+                                                },
+                                                BorderRadius::all(Val::Px(20.)),
+                                                LinearGradient {
+                                                    angle,
+                                                    stops: stops.clone(),
+                                                },
+                                                LinearGradientBorder(LinearGradient {
+                                                    angle: 3. * TAU / 8.,
+                                                    stops: vec![
+                                                        ColorStop {
+                                                            color: YELLOW.into(),
+                                                            point: Val::Auto,
+                                                        },
+                                                        Color::WHITE.into(),
+                                                        ColorStop {
+                                                            color: ORANGE.into(),
+                                                            point: Val::Auto,
+                                                        },
+                                                    ],
+                                                }),
+                                            ));
+                                        }
+                                    });
                             }
                         });
 
                     commands.spawn(Node::default()).with_children(|commands| {
                         commands.spawn((
                             Node {
-                                width: Val::Px(200.),
-                                height: Val::Px(200.),
+                                aspect_ratio: Some(1.),
+                                height: Val::Percent(100.),
                                 border: UiRect::all(Val::Px(5.)),
-                                margin: UiRect::all(Val::Px(10.)),
+                                margin: UiRect::left(Val::Px(30.)),
                                 ..default()
                             },
                             BorderRadius::all(Val::Px(20.)),
