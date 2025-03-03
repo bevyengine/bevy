@@ -42,8 +42,8 @@ trace = ["dep:tracing"]
 ## other debug operations which can help with diagnosing certain behaviors.
 bevy_debug_stepping = []
 
-## Will set the BevyError panic hook, which gives cleaner filtered backtraces when a BevyError
-## is hit.
+## Will set the BevyError panic hook, which gives cleaner filtered backtraces when
+## a BevyError is hit.
 error_panic_hook = []
 
 # Platform Compatibility
