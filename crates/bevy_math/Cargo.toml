@@ -34,7 +34,7 @@ variadics_please = "1.1"
 approx = "0.5"
 # Supply rngs for examples and tests
 rand = "0.8"
-rand_chacha = "0.3"
+rand_chacha = "0.9"
 # Enable the approx feature when testing.
 bevy_math = { path = ".", default-features = false, features = ["approx"] }
 glam = { version = "0.29", default-features = false, features = ["approx"] }
