@@ -2826,15 +2826,18 @@ pub struct ColorStops(pub Vec<ColorStop>);
 #[derive(Component, Default)]
 pub struct ComputedColorStops(pub Vec<(Color, f32)>);
 
-#[derive(Component, Copy, Clone, Debug)]
-#[require(ColorStops)]
+#[derive(Component, Clone, Debug)]
 pub struct LinearGradient {
     // angle of the gradient line in radians
+    // at 0 the gradient is drawn from bottom to top
+    // angle increases clockwise
     pub angle: f32,
+    // list of color stops
+    pub stops: Vec<ColorStop>,
 }
 
 impl LinearGradient {
-    pub fn gradient_line_endpoints(self, width: f32, height: f32) -> (Vec2, Vec2) {
+    pub fn gradient_line_endpoints(&self, width: f32, height: f32) -> (Vec2, Vec2) {
         let center = Vec2::new(width * 0.5, height * 0.5);
         let v = Vec2::new(self.angle.sin(), -self.angle.cos());
         let (pos_corner, neg_corner) = if v.x >= 0.0 && v.y <= 0.0 {
@@ -2859,106 +2862,6 @@ impl LinearGradient {
         let (start, end) = self.gradient_line_endpoints(width, height);
         start.distance(end)
     }
-}
-
-pub fn compute_color_stops(
-    mut color_stops_query: Query<(
-        &LinearGradient,
-        &ColorStops,
-        &mut ComputedColorStops,
-        &ComputedNode,
-        &ComputedNodeTarget,
-    )>,
-) {
-    for (gradient, stops, mut computed_stops, node, target) in color_stops_query.iter_mut() {
-        let (start, end) = gradient.gradient_line_endpoints(node.size.x, node.size.y);
-        let d = start.distance(end);
-        let stops = compute_stops(&stops.0, d, target.logical_size(), target.scale_factor());
-        computed_stops.0 = stops;
-    }
-}
-
-fn compute_stops(
-    logical_stops: &[ColorStop],
-    length: f32,
-    viewport_size: Vec2,
-    scale_factor: f32,
-) -> Vec<(Color, f32)> {
-    if logical_stops.is_empty() {
-        return vec![];
-    }
-
-    let logical_length = length / scale_factor;
-    let logical_viewport_size = viewport_size / scale_factor;
-
-    let mut sorted_stops: Vec<_> = logical_stops
-        .iter()
-        .cloned()
-        .filter_map(|stop| {
-            stop.point
-                .resolve(logical_length, logical_viewport_size)
-                .ok()
-                .map(|resolved_point| (stop.color, resolved_point * scale_factor))
-        })
-        .collect();
-
-    sorted_stops.sort_by_key(|(_, point)| Reverse(FloatOrd(*point)));
-
-    let min = sorted_stops
-        .last()
-        .map(|(_, min)| *min)
-        .unwrap_or(0.)
-        .min(0.);
-    let max = sorted_stops
-        .first()
-        .map(|(_, max)| *max)
-        .unwrap_or(length)
-        .max(length);
-
-    let mut out: Vec<_> = logical_stops
-        .iter()
-        .cloned()
-        .map(|stop| {
-            if stop.point != Val::Auto {
-                sorted_stops.pop().unwrap()
-            } else {
-                (stop.color, f32::NAN)
-            }
-        })
-        .collect();
-
-    if out[0].1.is_nan() {
-        out[0].1 = min;
-    }
-
-    if out.last().unwrap().1.is_nan() {
-        out.last_mut().unwrap().1 = max;
-    }
-
-    // interpolate stops
-    let mut i = 1;
-
-    while i < out.len() - 1 {
-        let point = out[i].1;
-        if point.is_nan() {
-            let start = i;
-            let mut end = i + 1;
-            while end < out.len() - 1 && out[end].1.is_nan() {
-                end += 1;
-            }
-            let start_point = out[start - 1].1;
-            let end_point = out[end].1;
-            let steps = end - start;
-            let step = (end_point - start_point) / (steps + 1) as f32;
-            for j in 0..steps {
-                out[i + j].1 = start_point + step * (j + 1) as f32;
-            }
-            i = end;
-        }
-        i += 1;
-    }
-
-    out
 }
 
 #[cfg(test)]
@@ -2989,123 +2892,5 @@ mod tests {
         assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
         assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
         assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
-    }
-
-    use bevy_color::palettes::css::BLUE;
-    use bevy_color::palettes::css::GREEN;
-    use bevy_color::palettes::css::RED;
-    use bevy_color::palettes::css::YELLOW;
-    use bevy_math::Vec2;
-
-    use crate::Val;
-
-    use super::compute_stops;
-    use super::ColorStop;
-
-    #[test]
-    fn test_compute_stops() {
-        let red = RED.into();
-        let green = GREEN.into();
-        let blue = BLUE.into();
-        let yellow = YELLOW.into();
-        let stops: [ColorStop; 2] = [(red, Val::Auto).into(), (red, Val::Auto).into()];
-        let out = compute_stops(&stops, 100., Vec2::ZERO, 1.);
-        assert_eq!(out[0].1, 0.);
-        assert_eq!(out[1].1, 100.);
-
-        let stops: [ColorStop; 3] = [
-            (red, Val::Auto).into(),
-            (red, Val::Auto).into(),
-            (red, Val::Auto).into(),
-        ];
-        let out = compute_stops(&stops, 100., Vec2::ZERO, 1.);
-        assert_eq!(out[0].1, 0.);
-        assert_eq!(out[1].1, 50.);
-        assert_eq!(out[2].1, 100.);
-
-        let stops: [ColorStop; 4] = [
-            (red, Val::Auto).into(),
-            (red, Val::Auto).into(),
-            (red, Val::Auto).into(),
-            (red, Val::Auto).into(),
-        ];
-        let out = compute_stops(&stops, 100., Vec2::ZERO, 1.);
-
-        assert_eq!(out[0].1, 0.);
-        assert_eq!(out[1].1.round(), 33.);
-        assert_eq!(out[2].1.round(), 67.);
-        assert_eq!(out[3].1, 100.);
-
-        let stops: [ColorStop; 2] = [(green, Val::Px(0.)).into(), (red, Val::Auto).into()];
-        let out = compute_stops(&stops, 100., Vec2::ZERO, 1.);
-        assert_eq!(out[0], (green, 0.));
-        assert_eq!(out[1], (red, 100.));
-
-        let stops: [ColorStop; 2] = [(green, Val::Auto).into(), (red, Val::Px(100.)).into()];
-        let out = compute_stops(&stops, 100., Vec2::ZERO, 1.);
-        assert_eq!(out[0], (green, 0.));
-        assert_eq!(out[1], (red, 100.));
-
-        let stops: [ColorStop; 4] = [
-            (green, Val::Px(10.)).into(),
-            (red, Val::Auto).into(),
-            (yellow, Val::Auto).into(),
-            (blue, Val::Auto).into(),
-        ];
-        let out = compute_stops(&stops, 100., Vec2::ZERO, 1.);
-        assert_eq!(out[0], (green, 10.));
-        assert_eq!(out[1], (red, 40.));
-        assert_eq!(out[2], (yellow, 70.));
-        assert_eq!(out[3], (blue, 100.));
-
-        let stops: [ColorStop; 3] = [
-            (green, Val::Auto).into(),
-            (red, Val::Px(-10.)).into(),
-            (blue, Val::Auto).into(),
-        ];
-        let out = compute_stops(&stops, 100., Vec2::ZERO, 1.);
-        assert_eq!(out[0], (green, -10.));
-        assert_eq!(out[1], (red, -10.));
-        assert_eq!(out[2], (blue, 100.));
-
-        let stops: [ColorStop; 4] = [
-            (green, Val::Px(-40.)).into(),
-            (red, Val::Auto).into(),
-            (yellow, Val::Auto).into(),
-            (blue, Val::Px(140.)).into(),
-        ];
-        let out = compute_stops(&stops, 100., Vec2::ZERO, 1.);
-        assert_eq!(out[0], (green, -40.));
-        assert_eq!(out[1], (red, 20.));
-        assert_eq!(out[2], (yellow, 80.));
-        assert_eq!(out[3], (blue, 140.));
-
-        let stops: [ColorStop; 4] = [
-            (green, Val::Px(10.)).into(),
-            (red, Val::Auto).into(),
-            (yellow, Val::Auto).into(),
-            (blue, Val::Auto).into(),
-        ];
-        let out = compute_stops(&stops, 100., Vec2::ZERO, 1.);
-        assert_eq!(out[0], (green, 10.));
-        assert_eq!(out[1], (red, 40.));
-        assert_eq!(out[2], (yellow, 70.));
-        assert_eq!(out[3], (blue, 100.));
-
-        let stops: [ColorStop; 6] = [
-            (green, Val::Px(10.)).into(),
-            (red, Val::Auto).into(),
-            (yellow, Val::Auto).into(),
-            (blue, Val::Auto).into(),
-            (yellow, Val::Px(50.)).into(),
-            (blue, Val::Auto).into(),
-        ];
-        let out = compute_stops(&stops, 100., Vec2::ZERO, 1.);
-        assert_eq!(out[0], (green, 10.));
-        assert_eq!(out[1], (red, 20.));
-        assert_eq!(out[2], (yellow, 30.));
-        assert_eq!(out[3], (blue, 40.));
-        assert_eq!(out[4], (yellow, 50.));
-        assert_eq!(out[5], (blue, 100.));
     }
 }

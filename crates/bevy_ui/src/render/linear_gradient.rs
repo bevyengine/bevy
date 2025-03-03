@@ -1,5 +1,5 @@
 use core::{hash::Hash, ops::Range};
-use std::f32::consts::TAU;
+use std::{cmp::Reverse, f32::consts::TAU};
 
 use crate::*;
 use bevy_asset::*;
@@ -33,8 +33,6 @@ pub struct LinearGradientPlugin;
 
 impl Plugin for LinearGradientPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, compute_color_stops.in_set(UiSystem::PostLayout));
-
         load_internal_asset!(
             app,
             UI_LINEAR_GRADIENT_SHADER_HANDLE,
@@ -241,7 +239,6 @@ pub fn extract_linear_gradients(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &LinearGradient,
-            &ComputedColorStops,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -249,7 +246,7 @@ pub fn extract_linear_gradients(
     let mut camera_mapper = camera_map.get_mapper();
     let mut sorted_stops = vec![];
 
-    for (entity, uinode, target, transform, inherited_visibility, clip, linear_gradient, stops) in
+    for (entity, uinode, target, transform, inherited_visibility, clip, linear_gradient) in
         &gradients_query
     {
         // Skip invisible images
@@ -261,15 +258,15 @@ pub fn extract_linear_gradients(
             continue;
         };
 
-        if stops.0.is_empty() {
+        if linear_gradient.stops.is_empty() {
             continue;
         }
 
-        if stops.0.len() == 1 {
+        if linear_gradient.stops.len() == 1 {
             // With a single color stop there's no gradient, fill the node with the color
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index: uinode.stack_index,
-                color: stops.0[0].0.into(),
+                color: linear_gradient.stops[0].color.into(),
                 rect: Rect {
                     min: Vec2::ZERO,
                     max: uinode.size,
@@ -292,19 +289,76 @@ pub fn extract_linear_gradients(
             continue;
         }
 
-        let length = linear_gradient.gradient_line_length(uinode.size.width, uinode.size.height);
+        let length = linear_gradient.gradient_line_length(uinode.size.x, uinode.size.y);
+        let logical_length = length / target.scale_factor;
+        let logical_viewport_size = target.physical_size.as_vec2() / target.scale_factor;
 
-        let start = extracted_color_stops.0.len();
-        extracted_color_stops.0.extend(
-            stops
-                .0
-                .iter()
-                .map(|(color, point)| (color.to_linear(), *point)),
-        );
+        let range_start = extracted_color_stops.0.len();
 
-        sorted_stops.clear();
+        sorted_stops.extend(linear_gradient.stops.iter().filter_map(|stop| {
+            stop.point
+                .resolve(logical_length, logical_viewport_size)
+                .ok()
+                .map(|logical_point| (stop.color.to_linear(), logical_point * target.scale_factor))
+        }));
 
-        let stops_range = start..extracted_color_stops.0.len();
+        sorted_stops.sort_by_key(|(_, point)| Reverse(FloatOrd(*point)));
+
+        let min = sorted_stops
+            .last()
+            .map(|(_, min)| *min)
+            .unwrap_or(0.)
+            .min(0.);
+        let max = sorted_stops
+            .first()
+            .map(|(_, max)| *max)
+            .unwrap_or(length)
+            .max(length);
+
+        extracted_color_stops
+            .0
+            .extend(linear_gradient.stops.iter().map(|stop| {
+                if stop.point == Val::Auto {
+                    (stop.color.to_linear(), f32::NAN)
+                } else {
+                    sorted_stops.pop().unwrap()
+                }
+            }));
+
+        let stops = &mut extracted_color_stops.0[range_start..];
+
+        if stops[0].1.is_nan() {
+            stops[0].1 = min;
+        }
+
+        if stops.last().unwrap().1.is_nan() {
+            stops.last_mut().unwrap().1 = max;
+        }
+
+        // interpolate auto stops
+        let mut i = 1;
+
+        while i < stops.len() - 1 {
+            let point = stops[i].1;
+            if point.is_nan() {
+                let start = i;
+                let mut end = i + 1;
+                while end < stops.len() - 1 && stops[end].1.is_nan() {
+                    end += 1;
+                }
+                let start_point = stops[start - 1].1;
+                let end_point = stops[end].1;
+                let steps = end - start;
+                let step = (end_point - start_point) / (steps + 1) as f32;
+                for j in 0..steps {
+                    stops[i + j].1 = start_point + step * (j + 1) as f32;
+                }
+                i = end;
+            }
+            i += 1;
+        }
+
+        let stops_range = range_start..extracted_color_stops.0.len();
 
         extracted_linear_gradients
             .items
