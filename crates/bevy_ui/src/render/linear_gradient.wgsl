@@ -210,26 +210,13 @@ fn linear_gradient(
     if t <= 0.0 || 1.0 < t {
         return vec4(0.0);
     } else {
-        return smooth_mix(start_color, end_color, t);
+        return srgb_mix(start_color, end_color, t);
     }
 }
 
 fn srgb_mix(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
-    let a_srgb = pow(a.rgb, vec3(2.2));
-    let b_srgb = pow(b.rgb, vec3(2.2));
+    let a_srgb = pow(a.rgb, vec3(1. / 2.2));
+    let b_srgb = pow(b.rgb, vec3(1. / 2.2));
     let mixed_srgb = mix(a_srgb, b_srgb, t);
-    return vec4(pow(mixed_srgb, vec3(1.0 / 2.2)), mix(a.a, b.a, t));
+    return vec4(pow(mixed_srgb, vec3(2.2)), mix(a.a, b.a, t));
 }
-
-fn smooth_srgb_mix(e: f32, a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
-    let a_srgb = pow(a.rgb, vec3(e));
-    let b_srgb = pow(b.rgb, vec3(e));
-    let mixed_srgb = mix(a_srgb, b_srgb, smoothstep(0.0, 1.0, t));
-    return vec4(pow(mixed_srgb, vec3(1.0 / e)), mix(a.a, b.a, t));
-}
-
-fn smooth_mix(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
-    let t_smooth = smoothstep(0.0, 1.0, t);
-    return vec4(mix(a.rgb, b.rgb, smoothstep(0.0, 1.0, t)), mix(a.a, b.a, t));
-}
-
