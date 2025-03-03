@@ -297,7 +297,10 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                         || relationship.is_some_and(|relationship| relationship == *field)
                 })
                 .for_each(|(index, field)| {
-                    let field_member = ident_or_index(field.ident.as_ref(), index);
+                    let field_member = field
+                        .ident
+                        .clone()
+                        .map_or(Member::from(index), Member::Named);
 
                     visit.push(quote!(this.#field_member.visit_entities(&mut func);));
                     visit_mut.push(quote!(this.#field_member.visit_entities_mut(&mut func);));
@@ -327,7 +330,12 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                     .iter()
                     .enumerate()
                     .filter(|(_, field)| field.attrs.iter().any(|a| a.path().is_ident(ENTITIES)))
-                    .map(|(index, field)| ident_or_index(field.ident.as_ref(), index))
+                    .map(|(index, field)| {
+                        field
+                            .ident
+                            .clone()
+                            .map_or(Member::from(index), Member::Named)
+                    })
                     .collect::<Vec<_>>();
 
                 let ident = &variant.ident;
@@ -371,13 +379,6 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
         }
         Data::Union(_) => quote!(),
     }
-}
-
-pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
-    ident.map_or_else(
-        || Member::Unnamed(index.into()),
-        |ident| Member::Named(ident.clone()),
-    )
 }
 
 pub fn document_required_components(attr: TokenStream, item: TokenStream) -> TokenStream {
