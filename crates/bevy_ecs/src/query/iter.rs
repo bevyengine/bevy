@@ -2635,7 +2635,7 @@ mod tests {
     use std::println;
 
     use crate::component::Component;
-    use crate::entity::{self, Entity};
+    use crate::entity::Entity;
     use crate::prelude::World;
 
     #[derive(Component, Debug, PartialEq, PartialOrd, Clone, Copy)]

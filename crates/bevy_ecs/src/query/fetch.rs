@@ -313,6 +313,31 @@ pub unsafe trait QueryData: WorldQuery {
 /// output.
 unsafe impl<D: QueryData> QueryData for crate::query::IncludeEntity<D> {
     type ReadOnly = crate::query::IncludeEntity<D::ReadOnly>;
+    /// The item is the same as `D`, but also includes the entity.
+    type Item<'a> = (Entity, D::Item<'a>);
+
+    /// This function manually implements subtyping for the query items.
+    /// The non-`Entity` part of the query is shrunk exactly how `D` specifies.
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        (item.0, D::shrink(item.1))
+    }
+
+    /// Fetch [`Self::Item`](`WorldQuery::Item`) for either the given `entity` in the current [`Table`],
+    /// or for the given `entity` in the current [`Archetype`]. This must always be called after
+    /// [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`] or after
+    /// [`WorldQuery::set_archetype`]  with a `entity` in the current archetype.
+    ///
+    /// # Safety
+    ///
+    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
+    /// `table_row` must be in the range of the current table and archetype.
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Self::Item<'w> {
+        (entity, D::fetch(fetch, entity, table_row))
+    }
 }
 
 /// A [`QueryData`] that is read only.
