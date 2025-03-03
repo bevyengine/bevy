@@ -151,17 +151,17 @@ impl<E: Event + Clone> Event for FocusedInput<E> {
 #[derive(QueryData)]
 /// These are for accessing components defined on the targeted entity
 pub struct WindowTraversal {
-    parent: Option<&'static ChildOf>,
+    child_of: Option<&'static ChildOf>,
     window: Option<&'static Window>,
 }
 
 impl<E: Event + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
     fn traverse(item: Self::Item<'_>, event: &FocusedInput<E>) -> Option<Entity> {
-        let WindowTraversalItem { parent, window } = item;
+        let WindowTraversalItem { child_of, window } = item;
 
         // Send event to parent, if it has one.
-        if let Some(parent) = parent {
-            return Some(parent.get());
+        if let Some(child_of) = child_of {
+            return Some(child_of.parent);
         };
 
         // Otherwise, send it to the window entity (unless this is a window entity).
@@ -226,7 +226,7 @@ pub fn dispatch_focused_input<E: Event + Clone>(
     windows: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
 ) {
-    if let Ok(window) = windows.get_single() {
+    if let Ok(window) = windows.single() {
         // If an element has keyboard focus, then dispatch the input event to that element.
         if let Some(focused_entity) = focus.0 {
             for ev in key_events.read() {
@@ -334,7 +334,7 @@ impl IsFocused for World {
             if e == entity {
                 return true;
             }
-            if let Some(parent) = self.entity(e).get::<ChildOf>().map(ChildOf::get) {
+            if let Some(parent) = self.entity(e).get::<ChildOf>().map(|c| c.parent) {
                 e = parent;
             } else {
                 return false;
