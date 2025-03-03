@@ -2,22 +2,7 @@ use alloc::boxed::Box;
 use core::{
     error::Error,
     fmt::{Debug, Display},
-    sync::atomic::AtomicUsize,
 };
-
-#[cfg(feature = "backtrace")]
-macro_rules! capture_backtrace {
-    () => {
-        Some(std::backtrace::Backtrace::capture())
-    };
-}
-
-#[cfg(not(feature = "backtrace"))]
-macro_rules! capture_backtrace {
-    () => {
-        None
-    };
-}
 
 /// The built in "universal" Bevy error type. This has a blanket [`From`] impl for any type that implements Rust's [`Error`],
 /// meaning it can be used as a "catch all" error.
@@ -49,7 +34,8 @@ impl BevyError {
     pub fn message<M: Display + Debug + Send + Sync + 'static>(message: M) -> Self {
         BevyError {
             inner: Box::new(ErrorImpl {
-                backtrace: capture_backtrace!(),
+                #[cfg(feature = "backtrace")]
+                backtrace: std::backtrace::Backtrace::capture(),
                 error: MessageError(message),
             }),
         }
@@ -63,20 +49,20 @@ impl BevyError {
 
 trait InnerError: Send + Sync + 'static {
     #[cfg(feature = "backtrace")]
-    fn backtrace(&self) -> Option<&std::backtrace::Backtrace>;
+    fn backtrace(&self) -> &std::backtrace::Backtrace;
     fn error(&self) -> &(dyn Error + Send + Sync + 'static);
 }
 
 struct ErrorImpl<E: Error + Send + Sync + 'static> {
     error: E,
     #[cfg(feature = "backtrace")]
-    backtrace: Option<std::backtrace::Backtrace>,
+    backtrace: std::backtrace::Backtrace,
 }
 
 impl<E: Error + Send + Sync + 'static> InnerError for ErrorImpl<E> {
     #[cfg(feature = "backtrace")]
-    fn backtrace(&self) -> Option<&std::backtrace::Backtrace> {
-        self.backtrace.as_ref()
+    fn backtrace(&self) -> &std::backtrace::Backtrace {
+        &self.backtrace
     }
 
     fn error(&self) -> &(dyn Error + Send + Sync + 'static) {
@@ -93,7 +79,8 @@ where
         BevyError {
             inner: Box::new(ErrorImpl {
                 error,
-                backtrace: capture_backtrace!(),
+                #[cfg(feature = "backtrace")]
+                backtrace: std::backtrace::Backtrace::capture(),
             }),
         }
     }
@@ -110,7 +97,8 @@ impl Debug for BevyError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "{:?}", self.inner.error())?;
         #[cfg(feature = "backtrace")]
-        if let Some(backtrace) = self.inner.backtrace() {
+        {
+            let backtrace = self.inner.backtrace();
             if let std::backtrace::BacktraceStatus::Captured = backtrace.status() {
                 let full_backtrace = std::env::var("BEVY_BACKTRACE").is_ok_and(|val| val == "full");
 
@@ -152,7 +140,9 @@ impl Debug for BevyError {
     }
 }
 
-static SKIP_NORMAL_BACKTRACE: AtomicUsize = AtomicUsize::new(0);
+#[cfg(feature = "backtrace")]
+static SKIP_NORMAL_BACKTRACE: core::sync::atomic::AtomicUsize =
+    core::sync::atomic::AtomicUsize::new(0);
 
 /// When called, this will skip the currently configured panic hook when a [`BevyError`] backtrace has already been printed.
 #[cfg(feature = "std")]
