@@ -2831,6 +2831,7 @@ impl Default for ColorStop {
     }
 }
 
+/// Draw the Node with a linear gradient
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[cfg_attr(
@@ -2847,6 +2848,7 @@ pub struct LinearGradient {
     pub stops: Vec<ColorStop>,
 }
 
+/// Draw the Node's border with a linear gradient
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[cfg_attr(
