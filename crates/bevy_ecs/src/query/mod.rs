@@ -881,6 +881,7 @@ mod tests {
 
     /// SAFETY: `Self` is the same as `Self::ReadOnly`
     unsafe impl QueryData for ReadsRData {
+        const IS_READ_ONLY: bool = true;
         type ReadOnly = Self;
         type Item<'w> = ();
 
