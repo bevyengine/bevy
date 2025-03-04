@@ -754,14 +754,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut fetch_state = NewD::get_state(world.components()).expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
         let filter_state = NewF::get_state(world.components()).expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
 
-        let mut self_access;
+        fn to_readonly(mut access: FilteredAccess<ComponentId>) -> FilteredAccess<ComponentId> {
+            access.access_mut().clear_writes();
+            access
+        }
+
         let self_access = if D::IS_READ_ONLY && self.component_access.access().has_any_write() {
             // The current state was transmuted from a mutable
             // `QueryData` to a read-only one.
             // Ignore any write access in the current state.
-            self_access = self.component_access.clone();
-            self_access.access_mut().clear_writes();
-            &self_access
+            &to_readonly(self.component_access.clone())
         } else {
             &self.component_access
         };
