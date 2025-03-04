@@ -27,7 +27,6 @@ use variadics_please::all_tuples;
 ///     - Each filter in that disjunction must be a conjunction of the corresponding element's filter with the previous `access`
 /// - For each resource readonly accessed by [`init_fetch`], [`update_component_access`] should add read access.
 /// - Mutable resource access is not allowed.
-/// - No structural ECS changes, such as [`World::register_component`] etc., may occur.
 ///
 /// When implementing [`update_component_access`], note that `add_read` and `add_write` both also add a `With` filter, whereas `extend_access` does not change the filters.
 ///
