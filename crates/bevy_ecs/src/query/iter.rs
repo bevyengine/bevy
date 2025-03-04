@@ -888,11 +888,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// #[derive(Component)]
     /// struct Damage(f32);
     ///
-    /// fn example_system(mut query: Query<(&mut Health, &Damage)>) {
-    ///     for (entity, (mut health, damage)) in query.iter_mut().include_entity() {
-    ///         if damage.0 > 0.0 {
-    ///             health.0 -= damage.0;
-    ///             println!("entity {:?} took damage", entity);
+    /// fn apply_damage_system(mut query: Query<(&mut Health, &Damage)>) {
+    ///     // Iterate over the input query:
+    ///     for (mut health, damage) in query.iter_mut() {
+    ///        health.0 -= damage.0;
+    ///     }
+    ///
+    ///     // Iterate again, this time including the entity:
+    ///     for (entity, (health, damage)) in query.iter().include_entity() {
+    ///         if health.0 <= 0.0 {
+    ///             println!("entity {:?} has been reduce to 0 health by {} damage", entity, damage.0);
     ///         }
     ///     }
     /// }
