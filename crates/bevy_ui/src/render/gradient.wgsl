@@ -228,7 +228,7 @@ fn radial_distance(
     center: vec2<f32>,
     ratio: f32,
 ) -> f32 {
-    return distance(center - vec2(point.x, point.y * ratio), vec2(0., 0.));
+    return length(center - vec2(point.x, point.y));
 }
 
 fn conic_distance(
@@ -236,7 +236,7 @@ fn conic_distance(
     center: vec2<f32>,
 ) -> f32 {
     let d = point - center;
-    return atan2(d.y, d.x);
+    return atan2(-d.x, d.y) + 3.1415926535;
 }
 
 fn interpolate_gradient(

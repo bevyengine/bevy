@@ -1,15 +1,10 @@
 //! Simple example demonstrating linear gradients.
 
 use bevy::color::palettes::css::BLUE;
-use bevy::color::palettes::css::DARK_CYAN;
-use bevy::color::palettes::css::DARK_GOLDENROD;
 use bevy::color::palettes::css::GREEN;
 use bevy::color::palettes::css::INDIGO;
-use bevy::color::palettes::css::LIGHT_CYAN;
 use bevy::color::palettes::css::LIME;
-use bevy::color::palettes::css::MAGENTA;
 use bevy::color::palettes::css::ORANGE;
-use bevy::color::palettes::css::PURPLE;
 use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::VIOLET;
 use bevy::color::palettes::css::YELLOW;
@@ -190,6 +185,81 @@ fn setup(mut commands: Commands) {
                             GradientNode(Gradient::Linear {
                                 angle: 0.,
                                 stops: stops.clone(),
+                            }),
+                            GradientBorder(Gradient::Linear {
+                                angle: 3. * TAU / 8.,
+                                stops: vec![
+                                    ColorStop {
+                                        color: YELLOW.into(),
+                                        point: Val::Auto,
+                                    },
+                                    Color::WHITE.into(),
+                                    ColorStop {
+                                        color: ORANGE.into(),
+                                        point: Val::Auto,
+                                    },
+                                ],
+                            }),
+                            AnimateMarker,
+                        ));
+
+                        commands.spawn((
+                            Node {
+                                aspect_ratio: Some(1.),
+                                height: Val::Percent(100.),
+                                border: UiRect::all(Val::Px(b)),
+                                margin: UiRect::left(Val::Px(30.)),
+                                ..default()
+                            },
+                            BorderRadius::all(Val::Px(20.)),
+                            GradientNode(Gradient::Radial {
+                                stops: stops.clone(),
+                                center: [
+                                    RelativePosition::Center(Val::ZERO),
+                                    RelativePosition::Center(Val::ZERO),
+                                ],
+                                shape: RadialGradientShape::Circle(
+                                    RadialGradientAxis::FarthestSide,
+                                ),
+                            }),
+                            GradientBorder(Gradient::Linear {
+                                angle: 3. * TAU / 8.,
+                                stops: vec![
+                                    ColorStop {
+                                        color: YELLOW.into(),
+                                        point: Val::Auto,
+                                    },
+                                    Color::WHITE.into(),
+                                    ColorStop {
+                                        color: ORANGE.into(),
+                                        point: Val::Auto,
+                                    },
+                                ],
+                            }),
+                            AnimateMarker,
+                        ));
+                        commands.spawn((
+                            Node {
+                                aspect_ratio: Some(1.),
+                                height: Val::Percent(100.),
+                                border: UiRect::all(Val::Px(b)),
+                                margin: UiRect::left(Val::Px(30.)),
+                                ..default()
+                            },
+                            BorderRadius::all(Val::Px(20.)),
+                            GradientNode(Gradient::Conic {
+                                stops: stops
+                                    .clone()
+                                    .into_iter()
+                                    .map(|stop| AngularColorStop {
+                                        color: stop.color,
+                                        angle: None,
+                                    })
+                                    .collect(),
+                                center: [
+                                    RelativePosition::Center(Val::ZERO),
+                                    RelativePosition::Center(Val::ZERO),
+                                ],
                             }),
                             GradientBorder(Gradient::Linear {
                                 angle: 3. * TAU / 8.,
