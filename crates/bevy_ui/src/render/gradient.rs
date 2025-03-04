@@ -1,4 +1,4 @@
-use core::{cmp::Reverse, f32::consts::TAU, hash::Hash, ops::Range};
+use core::{f32::consts::TAU, hash::Hash, ops::Range};
 
 use crate::*;
 use bevy_asset::*;
@@ -244,7 +244,6 @@ pub struct ExtractedGradient {
     pub rect: Rect,
     pub clip: Option<Rect>,
     pub extracted_camera_entity: Entity,
-    pub g_angle: f32,
     /// range into `ExtractedColorStops`
     pub stops_range: Range<usize>,
     pub node_type: NodeType,
@@ -435,7 +434,6 @@ pub fn extract_gradients(
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
                         stack_index: uinode.stack_index,
                         transform: transform.compute_matrix(),
-                        g_angle: *angle,
                         stops_range: range_start..extracted_color_stops.0.len(),
                         rect: Rect {
                             min: Vec2::ZERO,
@@ -467,6 +465,7 @@ pub fn extract_gradients(
                             target.physical_size.as_vec2(),
                         ),
                     );
+                    let range_start = extracted_color_stops.0.len();
                 }
                 Gradient::Conic { center, stops } => {
                     let g_start = Vec2::new(
@@ -487,7 +486,6 @@ pub fn extract_gradients(
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
                         stack_index: uinode.stack_index,
                         transform: transform.compute_matrix(),
-                        g_angle: 0.,
                         stops_range: range_start..extracted_color_stops.0.len(),
                         rect: Rect {
                             min: Vec2::ZERO,
