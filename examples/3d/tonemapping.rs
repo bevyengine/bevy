@@ -212,7 +212,7 @@ fn drag_drop_image(
             mat.base_color_texture = Some(new_image.clone());
 
             // Despawn the image viewer instructions
-            if let Ok(text_entity) = text.get_single() {
+            if let Ok(text_entity) = text.single() {
                 commands.entity(text_entity).despawn();
             }
         }
