@@ -140,6 +140,7 @@ impl Debug for BevyError {
     }
 }
 
+#[cfg(feature = "backtrace")]
 const FILTER_MESSAGE: &str = "note: Some \"noisy\" backtrace lines have been filtered out. Run with `BEVY_BACKTRACE=full` for a verbose backtrace.";
 
 #[cfg(feature = "backtrace")]
