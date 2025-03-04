@@ -10,7 +10,7 @@ use bevy_reflect::{PartialReflect, TypePath, TypeRegistry};
 
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
-use bevy_ecs::component::ComponentCloneBehavior;
+use bevy_ecs::component::{ComponentCloneBehavior, ComponentsReader};
 #[cfg(feature = "serialize")]
 use serde::Serialize;
 

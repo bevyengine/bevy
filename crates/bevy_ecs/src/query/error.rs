@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 use crate::{
+    component::ComponentsReader,
     entity::{Entity, EntityDoesNotExistError},
     world::unsafe_world_cell::UnsafeWorldCell,
 };

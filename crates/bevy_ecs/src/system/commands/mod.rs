@@ -2222,7 +2222,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        component::{require, Component},
+        component::{require, Component, ComponentsReader},
         resource::Resource,
         system::Commands,
         world::{CommandQueue, FromWorld, World},

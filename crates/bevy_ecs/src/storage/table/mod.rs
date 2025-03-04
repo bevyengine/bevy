@@ -1,6 +1,6 @@
 use crate::{
     change_detection::MaybeLocation,
-    component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
+    component::{ComponentId, ComponentInfo, ComponentTicks, Components, ComponentsReader, Tick},
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
@@ -822,7 +822,7 @@ impl Drop for Table {
 mod tests {
     use crate::{
         change_detection::MaybeLocation,
-        component::{Component, Components, Tick},
+        component::{Component, Components, ComponentsReader, ComponentsWriter, Tick},
         entity::Entity,
         ptr::OwningPtr,
         storage::{TableBuilder, TableId, TableRow, Tables},

@@ -1,4 +1,4 @@
-use crate::component::ComponentId;
+use crate::component::{ComponentId, ComponentsReader};
 use crate::storage::SparseSetIndex;
 use crate::world::World;
 use alloc::{format, string::String, vec, vec::Vec};

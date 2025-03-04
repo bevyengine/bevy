@@ -68,7 +68,7 @@
 //! [`Query` performance]: crate::prelude::Query#performance
 
 use crate::{
-    component::{ComponentId, Components, StorageType},
+    component::{ComponentId, Components, ComponentsReader, StorageType},
     query::FilteredAccess,
     world::{FromWorld, World},
 };

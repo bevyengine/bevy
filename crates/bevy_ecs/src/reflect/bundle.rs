@@ -9,6 +9,7 @@ use core::any::{Any, TypeId};
 
 use crate::{
     bundle::BundleFromComponents,
+    component::ComponentsReader,
     entity::EntityMapper,
     prelude::Bundle,
     world::{EntityMut, EntityWorldMut},

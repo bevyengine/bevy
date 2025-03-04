@@ -39,7 +39,8 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, Mutable, RequiredComponents, RequiredComponentsError, Tick,
+        Components, ComponentsInternalWriter, ComponentsReader, ComponentsWriter, Mutable,
+        RequiredComponentsError, RequiredComponentsRef, Tick,
     },
     entity::{
         AllocAtWithoutReplacement, Entities, Entity, EntityDoesNotExistError, EntityLocation,
@@ -510,17 +511,15 @@ impl World {
         }
     }
 
-    /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
-    pub fn get_required_components<C: Component>(&self) -> Option<&RequiredComponents> {
+    /// Retrieves the [required components](RequiredComponentsRef) for the given component type, if it is registered.
+    pub fn get_required_components<C: Component>(&self) -> Option<RequiredComponentsRef> {
         let id = self.components().component_id::<C>()?;
-        let component_info = self.components().get_info(id)?;
-        Some(component_info.required_components())
+        self.get_required_components_by_id(id)
     }
 
-    /// Retrieves the [required components](RequiredComponents) for the component of the given [`ComponentId`], if it exists.
-    pub fn get_required_components_by_id(&self, id: ComponentId) -> Option<&RequiredComponents> {
-        let component_info = self.components().get_info(id)?;
-        Some(component_info.required_components())
+    /// Retrieves the [required components](RequiredComponentsRef) for the component of the given [`ComponentId`], if it is registered.
+    pub fn get_required_components_by_id(&self, id: ComponentId) -> Option<RequiredComponentsRef> {
+        self.components().get_required_components(id)
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -3594,7 +3593,10 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::{DetectChangesMut, MaybeLocation},
-        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
+        component::{
+            ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, ComponentsReader,
+            StorageType,
+        },
         entity::hash_set::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,
