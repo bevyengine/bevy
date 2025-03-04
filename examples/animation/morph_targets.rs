@@ -19,10 +19,6 @@ fn main() {
             }),
             ..default()
         }))
-        .insert_resource(AmbientLight {
-            brightness: 150.0,
-            ..default()
-        })
         .add_systems(Startup, setup)
         .add_systems(Update, (name_morphs, setup_animations))
         .run();
@@ -34,7 +30,11 @@ struct MorphData {
     mesh: Handle<Mesh>,
 }
 
-fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
+fn setup(
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+) {
     commands.insert_resource(MorphData {
         the_wave: asset_server
             .load(GltfAssetLabel::Animation(2).from_asset("models/animated/MorphStressTest.gltf")),
@@ -46,19 +46,21 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
             .from_asset("models/animated/MorphStressTest.gltf"),
         ),
     });
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/animated/MorphStressTest.gltf")),
-        ..default()
-    });
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
-        ..default()
-    });
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(3.0, 2.1, 10.2).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/animated/MorphStressTest.gltf"),
+    )));
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
+    ));
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(3.0, 2.1, 10.2).looking_at(Vec3::ZERO, Vec3::Y),
+        EnvironmentMapLight {
+            intensity: 150.0,
+            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
+        },
+    ));
 }
 
 /// Plays an [`AnimationClip`] from the loaded [`Gltf`] on the [`AnimationPlayer`] created by the spawned scene.
@@ -79,7 +81,9 @@ fn setup_animations(
         }
 
         let (graph, animation) = AnimationGraph::from_clip(morph_data.the_wave.clone());
-        commands.entity(entity).insert(graphs.add(graph));
+        commands
+            .entity(entity)
+            .insert(AnimationGraphHandle(graphs.add(graph)));
 
         player.play(animation).repeat();
         *has_setup = true;
@@ -103,8 +107,10 @@ fn name_morphs(
     let Some(names) = mesh.morph_target_names() else {
         return;
     };
+
+    info!("Target names:");
     for name in names {
-        println!("  {name}");
+        info!("  {name}");
     }
     *has_printed = true;
 }

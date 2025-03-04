@@ -7,28 +7,30 @@
 use bevy_reflect::Reflect;
 
 use self::{error::IdentifierError, kinds::IdKind, masks::IdentifierMask};
-use std::{hash::Hash, num::NonZeroU32};
+use core::{hash::Hash, num::NonZero};
 
 pub mod error;
 pub(crate) mod kinds;
 pub(crate) mod masks;
 
 /// A unified identifier for all entity and similar IDs.
+///
 /// Has the same size as a `u64` integer, but the layout is split between a 32-bit low
 /// segment, a 31-bit high segment, and the significant bit reserved as type flags to denote
 /// entity kinds.
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect_value(Debug, Hash, PartialEq))]
+#[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Debug, Hash, PartialEq))]
 // Alignment repr necessary to allow LLVM to better output
-// optimised codegen for `to_bits`, `PartialEq` and `Ord`.
+// optimized codegen for `to_bits`, `PartialEq` and `Ord`.
 #[repr(C, align(8))]
 pub struct Identifier {
     // Do not reorder the fields here. The ordering is explicitly used by repr(C)
     // to make this struct equivalent to a u64.
     #[cfg(target_endian = "little")]
     low: u32,
-    high: NonZeroU32,
+    high: NonZero<u32>,
     #[cfg(target_endian = "big")]
     low: u32,
 }
@@ -47,7 +49,7 @@ impl Identifier {
         let packed_high = IdentifierMask::pack_kind_into_high(masked_value, kind);
 
         // If the packed high component ends up being zero, that means that we tried
-        // to initialise an Identifier into an invalid state.
+        // to initialize an Identifier into an invalid state.
         if packed_high == 0 {
             Err(IdentifierError::InvalidIdentifier)
         } else {
@@ -56,7 +58,7 @@ impl Identifier {
             unsafe {
                 Ok(Self {
                     low,
-                    high: NonZeroU32::new_unchecked(packed_high),
+                    high: NonZero::<u32>::new_unchecked(packed_high),
                 })
             }
         }
@@ -71,7 +73,7 @@ impl Identifier {
     /// Returns the value of the high segment of the [`Identifier`]. This
     /// does not apply any masking.
     #[inline(always)]
-    pub const fn high(self) -> NonZeroU32 {
+    pub const fn high(self) -> NonZero<u32> {
         self.high
     }
 
@@ -105,7 +107,7 @@ impl Identifier {
 
         match id {
             Ok(id) => id,
-            Err(_) => panic!("Attempted to initialise invalid bits as an id"),
+            Err(_) => panic!("Attempted to initialize invalid bits as an id"),
         }
     }
 
@@ -114,7 +116,7 @@ impl Identifier {
     /// This method is the fallible counterpart to [`Identifier::from_bits`].
     #[inline(always)]
     pub const fn try_from_bits(value: u64) -> Result<Self, IdentifierError> {
-        let high = NonZeroU32::new(IdentifierMask::get_high(value));
+        let high = NonZero::<u32>::new(IdentifierMask::get_high(value));
 
         match high {
             Some(high) => Ok(Self {
@@ -131,7 +133,7 @@ impl Identifier {
 impl PartialEq for Identifier {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        // By using `to_bits`, the codegen can be optimised out even
+        // By using `to_bits`, the codegen can be optimized out even
         // further potentially. Relies on the correct alignment/field
         // order of `Entity`.
         self.to_bits() == other.to_bits()
@@ -140,29 +142,29 @@ impl PartialEq for Identifier {
 
 impl Eq for Identifier {}
 
-// The derive macro codegen output is not optimal and can't be optimised as well
+// The derive macro codegen output is not optimal and can't be optimized as well
 // by the compiler. This impl resolves the issue of non-optimal codegen by relying
 // on comparing against the bit representation of `Entity` instead of comparing
-// the fields. The result is then LLVM is able to optimise the codegen for Entity
+// the fields. The result is then LLVM is able to optimize the codegen for Entity
 // far beyond what the derive macro can.
 // See <https://github.com/rust-lang/rust/issues/106107>
 impl PartialOrd for Identifier {
     #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         // Make use of our `Ord` impl to ensure optimal codegen output
         Some(self.cmp(other))
     }
 }
 
-// The derive macro codegen output is not optimal and can't be optimised as well
+// The derive macro codegen output is not optimal and can't be optimized as well
 // by the compiler. This impl resolves the issue of non-optimal codegen by relying
 // on comparing against the bit representation of `Entity` instead of comparing
-// the fields. The result is then LLVM is able to optimise the codegen for Entity
+// the fields. The result is then LLVM is able to optimize the codegen for Entity
 // far beyond what the derive macro can.
 // See <https://github.com/rust-lang/rust/issues/106107>
 impl Ord for Identifier {
     #[inline]
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         // This will result in better codegen for ordering comparisons, plus
         // avoids pitfalls with regards to macro codegen relying on property
         // position when we want to compare against the bit representation.
@@ -172,7 +174,7 @@ impl Ord for Identifier {
 
 impl Hash for Identifier {
     #[inline]
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.to_bits().hash(state);
     }
 }
@@ -199,7 +201,7 @@ mod tests {
         // and also Entity flag.
         let high = 0x7FFFFFFF;
         let low = 0xC;
-        let bits: u64 = high << u32::BITS | low;
+        let bits: u64 = (high << u32::BITS) | low;
 
         let id = Identifier::try_from_bits(bits).unwrap();
 
@@ -214,7 +216,10 @@ mod tests {
 
     #[rustfmt::skip]
     #[test]
-    #[allow(clippy::nonminimal_bool)] // This is intentionally testing `lt` and `ge` as separate functions.
+    #[expect(
+        clippy::nonminimal_bool,
+        reason = "This intentionally tests all possible comparison operators as separate functions; thus, we don't want to rewrite these comparisons to use different operators."
+    )]
     fn id_comparison() {
         assert!(Identifier::new(123, 456, IdKind::Entity).unwrap() == Identifier::new(123, 456, IdKind::Entity).unwrap());
         assert!(Identifier::new(123, 456, IdKind::Placeholder).unwrap() == Identifier::new(123, 456, IdKind::Placeholder).unwrap());

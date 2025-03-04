@@ -33,10 +33,10 @@ impl ViewNode for MotionBlurNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, pipeline_id, prepass_textures, settings, msaa): QueryItem<Self::ViewQuery>,
+        (view_target, pipeline_id, prepass_textures, motion_blur, msaa): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        if settings.samples == 0 || settings.shutter_angle <= 0.0 {
+        if motion_blur.samples == 0 || motion_blur.shutter_angle <= 0.0 {
             return Ok(()); // We can skip running motion blur in these cases.
         }
 

@@ -2,11 +2,11 @@ use crate::{
     render_graph::{NodeState, RenderGraph, SlotInfos, SlotLabel, SlotType, SlotValue},
     render_resource::{Buffer, Sampler, TextureView},
 };
-use bevy_ecs::entity::Entity;
-use std::borrow::Cow;
+use alloc::borrow::Cow;
+use bevy_ecs::{entity::Entity, intern::Interned};
 use thiserror::Error;
 
-use super::{InternedRenderSubGraph, RenderSubGraph};
+use super::{InternedRenderSubGraph, RenderLabel, RenderSubGraph};
 
 /// A command that signals the graph runner to run the sub graph corresponding to the `sub_graph`
 /// with the specified `inputs` next.
@@ -222,6 +222,11 @@ impl<'a> RenderGraphContext<'a> {
         });
 
         Ok(())
+    }
+
+    /// Returns a human-readable label for this node, for debugging purposes.
+    pub fn label(&self) -> Interned<dyn RenderLabel> {
+        self.node.label
     }
 
     /// Finishes the context for this [`Node`](super::Node) by

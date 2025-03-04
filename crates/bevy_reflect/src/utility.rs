@@ -1,11 +1,15 @@
 //! Helpers for working with Bevy reflection.
 
 use crate::TypeInfo;
-use bevy_utils::{FixedState, NoOpHash, TypeIdMap};
-use std::{
+use alloc::boxed::Box;
+use bevy_platform_support::{
+    hash::{DefaultHasher, FixedHasher, NoOpHash},
+    sync::{OnceLock, PoisonError, RwLock},
+};
+use bevy_utils::TypeIdMap;
+use core::{
     any::{Any, TypeId},
     hash::BuildHasher,
-    sync::{OnceLock, PoisonError, RwLock},
 };
 
 /// A type that can be stored in a ([`Non`])[`GenericTypeCell`].
@@ -18,10 +22,12 @@ pub trait TypedProperty: sealed::Sealed {
 /// Used to store a [`String`] in a [`GenericTypePathCell`] as part of a [`TypePath`] implementation.
 ///
 /// [`TypePath`]: crate::TypePath
+/// [`String`]: alloc::string::String
 pub struct TypePathComponent;
 
 mod sealed {
     use super::{TypeInfo, TypePathComponent, TypedProperty};
+    use alloc::string::String;
 
     pub trait Sealed {}
 
@@ -48,7 +54,7 @@ mod sealed {
 /// ## Example
 ///
 /// ```
-/// # use std::any::Any;
+/// # use core::any::Any;
 /// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath, ApplyError};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
@@ -137,8 +143,8 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// Implementing [`TypeInfo`] with generics.
 ///
 /// ```
-/// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError};
+/// # use core::any::Any;
+/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError, Generics, TypeParamInfo};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T>(T);
@@ -148,7 +154,8 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
 ///             let fields = [UnnamedField::new::<T>(0)];
-///             let info = TupleStructInfo::new::<Self>(&fields);
+///             let info = TupleStructInfo::new::<Self>(&fields)
+///                 .with_generics(Generics::from_iter([TypeParamInfo::new::<T>("T")]));
 ///             TypeInfo::TupleStruct(info)
 ///         })
 ///     }
@@ -171,7 +178,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
-/// # impl<T: Reflect + TypePath> Reflect for Foo<T> {
+/// # impl<T: Reflect + Typed + TypePath> Reflect for Foo<T> {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
 /// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
@@ -185,7 +192,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///  Implementing [`TypePath`] with generics.
 ///
 /// ```
-/// # use std::any::Any;
+/// # use core::any::Any;
 /// # use bevy_reflect::TypePath;
 /// use bevy_reflect::utility::GenericTypePathCell;
 ///
@@ -239,22 +246,38 @@ impl<T: TypedProperty> GenericTypeCell<T> {
         G: Any + ?Sized,
         F: FnOnce() -> T::Stored,
     {
-        let type_id = TypeId::of::<G>();
+        self.get_or_insert_by_type_id(TypeId::of::<G>(), f)
+    }
 
-        // Put in a separate scope, so `mapping` is dropped before `f`,
-        // since `f` might want to call `get_or_insert` recursively
-        // and we don't want a deadlock!
-        {
-            let mapping = self.0.read().unwrap_or_else(PoisonError::into_inner);
-            if let Some(info) = mapping.get(&type_id) {
-                return info;
-            }
+    /// Returns a reference to the [`TypedProperty`] stored in the cell, if any.
+    ///
+    /// This method will then return the correct [`TypedProperty`] reference for the given type `T`.
+    fn get_by_type_id(&self, type_id: TypeId) -> Option<&T::Stored> {
+        self.0
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&type_id)
+            .copied()
+    }
+
+    /// Returns a reference to the [`TypedProperty`] stored in the cell.
+    ///
+    /// This method will then return the correct [`TypedProperty`] reference for the given type `T`.
+    /// If there is no entry found, a new one will be generated from the given function.
+    fn get_or_insert_by_type_id<F>(&self, type_id: TypeId, f: F) -> &T::Stored
+    where
+        F: FnOnce() -> T::Stored,
+    {
+        match self.get_by_type_id(type_id) {
+            Some(info) => info,
+            None => self.insert_by_type_id(type_id, f()),
         }
+    }
 
-        let value = f();
+    fn insert_by_type_id(&self, type_id: TypeId, value: T::Stored) -> &T::Stored {
+        let mut write_lock = self.0.write().unwrap_or_else(PoisonError::into_inner);
 
-        let mut mapping = self.0.write().unwrap_or_else(PoisonError::into_inner);
-        mapping
+        write_lock
             .entry(type_id)
             .insert({
                 // We leak here in order to obtain a `&'static` reference.
@@ -281,6 +304,6 @@ impl<T: TypedProperty> Default for GenericTypeCell<T> {
 ///
 /// [`Reflect::reflect_hash`]: crate::Reflect
 #[inline]
-pub fn reflect_hasher() -> bevy_utils::AHasher {
-    FixedState.build_hasher()
+pub fn reflect_hasher() -> DefaultHasher {
+    FixedHasher.build_hasher()
 }

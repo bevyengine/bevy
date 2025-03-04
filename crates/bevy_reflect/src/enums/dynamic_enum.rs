@@ -1,15 +1,17 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, ApplyError, DynamicStruct,
-    DynamicTuple, Enum, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
-    Struct, Tuple, TypeInfo, VariantFieldIter, VariantType,
+    enum_debug, enum_hash, enum_partial_eq, ApplyError, DynamicStruct, DynamicTuple, Enum,
+    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple,
+    TypeInfo, VariantFieldIter, VariantType,
 };
 
-use std::fmt::Formatter;
+use alloc::{boxed::Box, string::String};
+use core::fmt::Formatter;
+use derive_more::derive::From;
 
 /// A dynamic representation of an enum variant.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, From)]
 pub enum DynamicVariant {
     #[default]
     Unit,
@@ -24,18 +26,6 @@ impl Clone for DynamicVariant {
             DynamicVariant::Tuple(data) => DynamicVariant::Tuple(data.clone_dynamic()),
             DynamicVariant::Struct(data) => DynamicVariant::Struct(data.clone_dynamic()),
         }
-    }
-}
-
-impl From<DynamicTuple> for DynamicVariant {
-    fn from(dyn_tuple: DynamicTuple) -> Self {
-        Self::Tuple(dyn_tuple)
-    }
-}
-
-impl From<DynamicStruct> for DynamicVariant {
-    fn from(dyn_struct: DynamicStruct) -> Self {
-        Self::Struct(dyn_struct)
     }
 }
 
@@ -84,7 +74,6 @@ impl DynamicEnum {
     ///
     /// * `variant_name`: The name of the variant to set
     /// * `variant`: The variant data
-    ///
     pub fn new<I: Into<String>, V: Into<DynamicVariant>>(variant_name: I, variant: V) -> Self {
         Self {
             represented_type: None,
@@ -101,7 +90,6 @@ impl DynamicEnum {
     /// * `variant_index`: The index of the variant to set
     /// * `variant_name`: The name of the variant to set
     /// * `variant`: The variant data
-    ///
     pub fn new_with_index<I: Into<String>, V: Into<DynamicVariant>>(
         variant_index: usize,
         variant_name: I,
@@ -322,55 +310,50 @@ impl PartialReflect for DynamicEnum {
 
     #[inline]
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let ReflectRef::Enum(value) = value.reflect_ref() {
-            if Enum::variant_name(self) == value.variant_name() {
-                // Same variant -> just update fields
-                match value.variant_type() {
-                    VariantType::Struct => {
-                        for field in value.iter_fields() {
-                            let name = field.name().unwrap();
-                            if let Some(v) = Enum::field_mut(self, name) {
-                                v.try_apply(field.value())?;
-                            }
+        let value = value.reflect_ref().as_enum()?;
+
+        if Enum::variant_name(self) == value.variant_name() {
+            // Same variant -> just update fields
+            match value.variant_type() {
+                VariantType::Struct => {
+                    for field in value.iter_fields() {
+                        let name = field.name().unwrap();
+                        if let Some(v) = Enum::field_mut(self, name) {
+                            v.try_apply(field.value())?;
                         }
                     }
-                    VariantType::Tuple => {
-                        for (index, field) in value.iter_fields().enumerate() {
-                            if let Some(v) = Enum::field_at_mut(self, index) {
-                                v.try_apply(field.value())?;
-                            }
-                        }
-                    }
-                    _ => {}
                 }
-            } else {
-                // New variant -> perform a switch
-                let dyn_variant = match value.variant_type() {
-                    VariantType::Unit => DynamicVariant::Unit,
-                    VariantType::Tuple => {
-                        let mut dyn_tuple = DynamicTuple::default();
-                        for field in value.iter_fields() {
-                            dyn_tuple.insert_boxed(field.value().clone_value());
+                VariantType::Tuple => {
+                    for (index, field) in value.iter_fields().enumerate() {
+                        if let Some(v) = Enum::field_at_mut(self, index) {
+                            v.try_apply(field.value())?;
                         }
-                        DynamicVariant::Tuple(dyn_tuple)
                     }
-                    VariantType::Struct => {
-                        let mut dyn_struct = DynamicStruct::default();
-                        for field in value.iter_fields() {
-                            dyn_struct
-                                .insert_boxed(field.name().unwrap(), field.value().clone_value());
-                        }
-                        DynamicVariant::Struct(dyn_struct)
-                    }
-                };
-                self.set_variant(value.variant_name(), dyn_variant);
+                }
+                _ => {}
             }
         } else {
-            return Err(ApplyError::MismatchedKinds {
-                from_kind: value.reflect_kind(),
-                to_kind: ReflectKind::Enum,
-            });
+            // New variant -> perform a switch
+            let dyn_variant = match value.variant_type() {
+                VariantType::Unit => DynamicVariant::Unit,
+                VariantType::Tuple => {
+                    let mut dyn_tuple = DynamicTuple::default();
+                    for field in value.iter_fields() {
+                        dyn_tuple.insert_boxed(field.value().clone_value());
+                    }
+                    DynamicVariant::Tuple(dyn_tuple)
+                }
+                VariantType::Struct => {
+                    let mut dyn_struct = DynamicStruct::default();
+                    for field in value.iter_fields() {
+                        dyn_struct.insert_boxed(field.name().unwrap(), field.value().clone_value());
+                    }
+                    DynamicVariant::Struct(dyn_struct)
+                }
+            };
+            self.set_variant(value.variant_name(), dyn_variant);
         }
+
         Ok(())
     }
 
@@ -410,7 +393,7 @@ impl PartialReflect for DynamicEnum {
     }
 
     #[inline]
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicEnum(")?;
         enum_debug(self, f)?;
         write!(f, ")")

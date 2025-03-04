@@ -1,32 +1,40 @@
 //! Contains APIs for ordering systems and executing them on a [`World`](crate::world::World)
 
+mod auto_insert_apply_deferred;
 mod condition;
 mod config;
 mod executor;
-mod graph_utils;
-#[allow(clippy::module_inception)]
+mod pass;
 mod schedule;
 mod set;
 mod stepping;
 
-pub use self::condition::*;
-pub use self::config::*;
-pub use self::executor::*;
-use self::graph_utils::*;
-pub use self::schedule::*;
-pub use self::set::*;
+use self::graph::*;
+pub use self::{condition::*, config::*, executor::*, schedule::*, set::*};
+pub use pass::ScheduleBuildPass;
 
-pub use self::graph_utils::NodeId;
+pub use self::graph::NodeId;
+
+/// An implementation of a graph data structure.
+pub mod graph;
+
+/// Included optional schedule build passes.
+pub mod passes {
+    pub use crate::schedule::auto_insert_apply_deferred::*;
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU32, Ordering};
+    use alloc::{string::ToString, vec, vec::Vec};
+    use core::sync::atomic::{AtomicU32, Ordering};
 
-    pub use crate as bevy_ecs;
-    pub use crate::schedule::{Schedule, SystemSet};
-    pub use crate::system::{Res, ResMut};
-    pub use crate::{prelude::World, system::Resource};
+    pub use crate::{
+        prelude::World,
+        resource::Resource,
+        schedule::{Schedule, SystemSet},
+        system::{Res, ResMut},
+    };
 
     #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
     enum TestSet {
@@ -98,8 +106,9 @@ mod tests {
         #[test]
         #[cfg(not(miri))]
         fn parallel_execution() {
+            use alloc::sync::Arc;
             use bevy_tasks::{ComputeTaskPool, TaskPool};
-            use std::sync::{Arc, Barrier};
+            use std::sync::Barrier;
 
             let mut world = World::default();
             let mut schedule = Schedule::default();
@@ -717,11 +726,9 @@ mod tests {
     }
 
     mod system_ambiguity {
-        use std::collections::BTreeSet;
+        use alloc::collections::BTreeSet;
 
         use super::*;
-        // Required to make the derive macro behave
-        use crate as bevy_ecs;
         use crate::prelude::*;
 
         #[derive(Resource)]
@@ -1082,7 +1089,7 @@ mod tests {
 
             schedule.graph_mut().initialize(&mut world);
             let _ = schedule.graph_mut().build_schedule(
-                world.components(),
+                &mut world,
                 TestSchedule.intern(),
                 &BTreeSet::new(),
             );
@@ -1131,7 +1138,7 @@ mod tests {
             let mut world = World::new();
             schedule.graph_mut().initialize(&mut world);
             let _ = schedule.graph_mut().build_schedule(
-                world.components(),
+                &mut world,
                 TestSchedule.intern(),
                 &BTreeSet::new(),
             );
@@ -1158,7 +1165,7 @@ mod tests {
             world.allow_ambiguous_resource::<R>();
             let mut schedule = Schedule::new(TestSchedule);
 
-            //check resource
+            // check resource
             schedule.add_systems((resmut_system, res_system));
             schedule.initialize(&mut world).unwrap();
             assert!(schedule.graph().conflicting_systems().is_empty());
@@ -1185,7 +1192,7 @@ mod tests {
                 let mut schedule = Schedule::new(TestSchedule);
                 schedule
                     .set_executor_kind($executor)
-                    .add_systems(|| panic!("Executor ignored Stepping"));
+                    .add_systems(|| -> () { panic!("Executor ignored Stepping") });
 
                 // Add our schedule to stepping & and enable stepping; this should
                 // prevent any systems in the schedule from running

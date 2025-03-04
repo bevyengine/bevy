@@ -4,7 +4,7 @@ use bevy::reflect::{
     reflect_trait, serde::TypedReflectDeserializer, std_traits::ReflectDefault, DynamicArray,
     DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple,
     DynamicTupleStruct, DynamicVariant, FromReflect, PartialReflect, Reflect, ReflectFromReflect,
-    ReflectRef, Set, TypeRegistry, Typed,
+    Set, TypeRegistry, Typed,
 };
 use serde::de::DeserializeSeed;
 use std::collections::{HashMap, HashSet};
@@ -56,9 +56,7 @@ fn main() {
 
     // This dynamic type is used to represent (or "proxy") the original type,
     // so that we can continue to access its fields and overall structure.
-    let ReflectRef::Struct(cloned_ref) = cloned.reflect_ref() else {
-        panic!("expected struct")
-    };
+    let cloned_ref = cloned.reflect_ref().as_struct().unwrap();
     let id = cloned_ref.field("id").unwrap().try_downcast_ref::<u32>();
     assert_eq!(id, Some(&123));
 
@@ -197,7 +195,7 @@ fn main() {
 
         dynamic_set.remove(&"y");
 
-        let mut my_set: HashSet<&str> = HashSet::new();
+        let mut my_set: HashSet<&str> = HashSet::default();
         my_set.apply(&dynamic_set);
         assert_eq!(my_set, HashSet::from_iter(["x", "z"]));
     }
@@ -206,7 +204,7 @@ fn main() {
     {
         let dynamic_map = DynamicMap::from_iter([("x", 1u32), ("y", 2u32), ("z", 3u32)]);
 
-        let mut my_map: HashMap<&str, u32> = HashMap::new();
+        let mut my_map: HashMap<&str, u32> = HashMap::default();
         my_map.apply(&dynamic_map);
         assert_eq!(my_map.get("x"), Some(&1));
         assert_eq!(my_map.get("y"), Some(&2));

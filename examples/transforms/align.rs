@@ -1,8 +1,11 @@
 //! This example shows how to align the orientations of objects in 3D space along two axes using the `Transform::align` API.
 
-use bevy::color::palettes::basic::{GRAY, RED, WHITE};
-use bevy::input::mouse::{AccumulatedMouseMotion, MouseButtonInput};
-use bevy::prelude::*;
+use bevy::{
+    color::palettes::basic::{GRAY, RED, WHITE},
+    input::mouse::{AccumulatedMouseMotion, MouseButtonInput},
+    math::StableInterpolate,
+    prelude::*,
+};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -18,14 +21,8 @@ fn main() {
 /// This struct stores metadata for a single rotational move of the ship
 #[derive(Component, Default)]
 struct Ship {
-    /// The initial transform of the ship move, the starting point of interpolation
-    initial_transform: Transform,
-
     /// The target transform of the ship move, the endpoint of interpolation
     target_transform: Transform,
-
-    /// The progress of the ship move in percentage points
-    progress: u16,
 
     /// Whether the ship is currently in motion; allows motion to be paused
     in_motion: bool,
@@ -56,43 +53,39 @@ fn setup(
     let mut seeded_rng = ChaCha8Rng::seed_from_u64(19878367467712);
 
     // A camera looking at the origin
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(3., 2.5, 4.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(3., 2.5, 4.).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // A plane that we can sit on top of
-    commands.spawn(PbrBundle {
-        transform: Transform::from_xyz(0., -2., 0.),
-        mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Transform::from_xyz(0., -2., 0.),
+    ));
 
     // A light source
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 7.0, -4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 7.0, -4.0),
+    ));
 
     // Initialize random axes
-    let first = seeded_rng.gen();
-    let second = seeded_rng.gen();
+    let first = seeded_rng.r#gen();
+    let second = seeded_rng.r#gen();
     commands.spawn(RandomAxes(first, second));
 
     // Finally, our ship that is going to rotate
     commands.spawn((
-        SceneBundle {
-            scene: asset_server
+        SceneRoot(
+            asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/ship/craft_speederD.gltf")),
-            ..default()
-        },
+        ),
         Ship {
-            initial_transform: Transform::IDENTITY,
             target_transform: random_axes_target_alignment(&RandomAxes(first, second)),
             ..default()
         },
@@ -100,7 +93,7 @@ fn setup(
 
     // Instructions for the example
     commands.spawn((
-        TextBundle::from_section(
+        Text::new(
             "The bright red axis is the primary alignment axis, and it will always be\n\
             made to coincide with the primary target direction (white) exactly.\n\
             The fainter red axis is the secondary alignment axis, and it is made to\n\
@@ -109,14 +102,13 @@ fn setup(
             Press 'T' to align the ship to those directions.\n\
             Click and drag the mouse to rotate the camera.\n\
             Press 'H' to hide/show these instructions.",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+        ),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
+        },
         Instructions,
     ));
 
@@ -127,70 +119,59 @@ fn setup(
 // Update systems
 
 // Draw the main and secondary axes on the rotating ship
-fn draw_ship_axes(mut gizmos: Gizmos, query: Query<&Transform, With<Ship>>) {
-    let ship_transform = query.single();
-
+fn draw_ship_axes(mut gizmos: Gizmos, ship_transform: Single<&Transform, With<Ship>>) {
     // Local Z-axis arrow, negative direction
-    let z_ends = arrow_ends(ship_transform, Vec3::NEG_Z, 1.5);
+    let z_ends = arrow_ends(*ship_transform, Vec3::NEG_Z, 1.5);
     gizmos.arrow(z_ends.0, z_ends.1, RED);
 
     // local X-axis arrow
-    let x_ends = arrow_ends(ship_transform, Vec3::X, 1.5);
+    let x_ends = arrow_ends(*ship_transform, Vec3::X, 1.5);
     gizmos.arrow(x_ends.0, x_ends.1, Color::srgb(0.65, 0., 0.));
 }
 
 // Draw the randomly generated axes
-fn draw_random_axes(mut gizmos: Gizmos, query: Query<&RandomAxes>) {
-    let RandomAxes(v1, v2) = query.single();
+fn draw_random_axes(mut gizmos: Gizmos, random_axes: Single<&RandomAxes>) {
+    let RandomAxes(v1, v2) = *random_axes;
     gizmos.arrow(Vec3::ZERO, 1.5 * *v1, WHITE);
     gizmos.arrow(Vec3::ZERO, 1.5 * *v2, GRAY);
 }
 
 // Actually update the ship's transform according to its initial source and target
-fn rotate_ship(mut ship: Query<(&mut Ship, &mut Transform)>) {
-    let (mut ship, mut ship_transform) = ship.single_mut();
+fn rotate_ship(ship: Single<(&mut Ship, &mut Transform)>, time: Res<Time>) {
+    let (mut ship, mut ship_transform) = ship.into_inner();
 
     if !ship.in_motion {
         return;
     }
 
-    let start = ship.initial_transform.rotation;
-    let end = ship.target_transform.rotation;
+    let target_rotation = ship.target_transform.rotation;
 
-    let p: f32 = ship.progress.into();
-    let t = p / 100.;
+    ship_transform
+        .rotation
+        .smooth_nudge(&target_rotation, 3.0, time.delta_secs());
 
-    *ship_transform = Transform::from_rotation(start.slerp(end, t));
-
-    if ship.progress == 100 {
+    if ship_transform.rotation.angle_between(target_rotation) <= f32::EPSILON {
         ship.in_motion = false;
-    } else {
-        ship.progress += 1;
     }
 }
 
 // Handle user inputs from the keyboard for dynamically altering the scenario
 fn handle_keypress(
-    mut ship: Query<(&mut Ship, &Transform)>,
-    mut random_axes: Query<&mut RandomAxes>,
-    mut instructions: Query<&mut Visibility, With<Instructions>>,
+    mut ship: Single<&mut Ship>,
+    mut random_axes: Single<&mut RandomAxes>,
+    mut instructions_viz: Single<&mut Visibility, With<Instructions>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut seeded_rng: ResMut<SeededRng>,
 ) {
-    let (mut ship, ship_transform) = ship.single_mut();
-    let mut random_axes = random_axes.single_mut();
-
     if keyboard.just_pressed(KeyCode::KeyR) {
         // Randomize the target axes
-        let first = seeded_rng.0.gen();
-        let second = seeded_rng.0.gen();
-        *random_axes = RandomAxes(first, second);
+        let first = seeded_rng.0.r#gen();
+        let second = seeded_rng.0.r#gen();
+        **random_axes = RandomAxes(first, second);
 
         // Stop the ship and set it up to transform from its present orientation to the new one
         ship.in_motion = false;
-        ship.initial_transform = *ship_transform;
         ship.target_transform = random_axes_target_alignment(&random_axes);
-        ship.progress = 0;
     }
 
     if keyboard.just_pressed(KeyCode::KeyT) {
@@ -198,11 +179,10 @@ fn handle_keypress(
     }
 
     if keyboard.just_pressed(KeyCode::KeyH) {
-        let mut instructions_viz = instructions.single_mut();
-        if *instructions_viz == Visibility::Hidden {
-            *instructions_viz = Visibility::Visible;
+        if *instructions_viz.as_ref() == Visibility::Hidden {
+            **instructions_viz = Visibility::Visible;
         } else {
-            *instructions_viz = Visibility::Hidden;
+            **instructions_viz = Visibility::Hidden;
         }
     }
 }
@@ -211,7 +191,7 @@ fn handle_keypress(
 fn handle_mouse(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut button_events: EventReader<MouseButtonInput>,
-    mut camera: Query<&mut Transform, With<Camera>>,
+    mut camera_transform: Single<&mut Transform, With<Camera>>,
     mut mouse_pressed: ResMut<MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource
@@ -228,7 +208,6 @@ fn handle_mouse(
     }
     if accumulated_mouse_motion.delta != Vec2::ZERO {
         let displacement = accumulated_mouse_motion.delta.x;
-        let mut camera_transform = camera.single_mut();
         camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(-displacement / 75.));
     }
 }

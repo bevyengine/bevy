@@ -1,10 +1,11 @@
 //! An example that illustrates how Time is handled in ECS.
 
-use bevy::app::AppExit;
-use bevy::prelude::*;
+use bevy::{app::AppExit, prelude::*};
 
-use std::io::{self, BufRead};
-use std::time::Duration;
+use std::{
+    io::{self, BufRead},
+    time::Duration,
+};
 
 fn banner() {
     println!("This example is meant to intuitively demonstrate how Time works in Bevy.");
@@ -37,7 +38,7 @@ fn runner(mut app: App) -> AppExit {
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
         if let Err(err) = line {
-            println!("read err: {:#}", err);
+            println!("read err: {err:#}");
             break;
         }
         match line.unwrap().as_str() {

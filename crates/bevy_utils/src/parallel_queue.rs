@@ -1,4 +1,5 @@
-use std::{cell::RefCell, ops::DerefMut};
+use alloc::vec::Vec;
+use core::{cell::RefCell, ops::DerefMut};
 use thread_local::ThreadLocal;
 
 /// A cohesive set of thread-local values of a given type.
@@ -56,6 +57,7 @@ where
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: Send> Parallel<Vec<T>> {
     /// Collect all enqueued items from all threads and appends them to the end of a
     /// single Vec.

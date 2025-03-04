@@ -10,9 +10,9 @@ use bevy_reflect::Reflect;
 /// sections will be scaled or tiled.
 ///
 /// See [9-sliced](https://en.wikipedia.org/wiki/9-slice_scaling) textures.
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
 pub struct TextureSlicer {
-    /// The sprite borders, defining the 9 sections of the image
+    /// Inset values in pixels that define the four slicing lines dividing the texture into nine sections.
     pub border: BorderRect,
     /// Defines how the center part of the 9 slices will scale
     pub center_scale_mode: SliceScaleMode,
@@ -23,7 +23,7 @@ pub struct TextureSlicer {
 }
 
 /// Defines how a texture slice scales when resized
-#[derive(Debug, Copy, Clone, Default, Reflect)]
+#[derive(Debug, Copy, Clone, Default, Reflect, PartialEq)]
 pub enum SliceScaleMode {
     /// The slice will be stretched to fit the area
     #[default]
@@ -210,16 +210,14 @@ impl TextureSlicer {
     ///
     /// * `rect` - The section of the texture to slice in 9 parts
     /// * `render_size` - The optional draw size of the texture. If not set the `rect` size will be used.
-    //
     // TODO: Support `URect` and `UVec2` instead (See `https://github.com/bevyengine/bevy/pull/11698`)
-    //
     #[must_use]
     pub fn compute_slices(&self, rect: Rect, render_size: Option<Vec2>) -> Vec<TextureSlice> {
         let render_size = render_size.unwrap_or_else(|| rect.size());
         if self.border.left + self.border.right >= rect.size().x
             || self.border.top + self.border.bottom >= rect.size().y
         {
-            bevy_utils::tracing::error!(
+            tracing::error!(
                 "TextureSlicer::border has out of bounds values. No slicing will be applied"
             );
             return vec![TextureSlice {
@@ -390,7 +388,7 @@ mod test {
             }
         );
         assert_eq!(
-            vertical_sides[0], /* top */
+            vertical_sides[0], // top
             TextureSlice {
                 texture_rect: Rect {
                     min: Vec2::new(5.0, 0.0),

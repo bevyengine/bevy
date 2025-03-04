@@ -1,33 +1,36 @@
-use std::any::{Any, TypeId};
-use std::fmt::{Debug, Formatter};
+use core::fmt::{Debug, Formatter};
 
+use bevy_platform_support::collections::HashTable;
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::{Entry, HashMap};
 
 use crate::{
-    self as bevy_reflect, ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
+    generics::impl_generic_info_methods, type_info::impl_type_methods, ApplyError, Generics,
+    MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
+    TypeInfo, TypePath,
 };
+use alloc::{boxed::Box, format, vec::Vec};
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
 /// Maps contain zero or more entries of a key and its associated value,
-/// and correspond to types like [`HashMap`].
+/// and correspond to types like [`HashMap`] and [`BTreeMap`].
 /// The order of these entries is not guaranteed by this trait.
 ///
-/// # Hashing
+/// # Hashing and equality
 ///
-/// All keys are expected to return a valid hash value from [`PartialReflect::reflect_hash`].
-/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding `#[reflect(Hash)]`
-/// to the entire struct or enum.
-/// This is true even for manual implementors who do not use the hashed value,
+/// All keys are expected to return a valid hash value from [`PartialReflect::reflect_hash`] and be
+/// comparable using [`PartialReflect::reflect_partial_eq`].
+/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding
+/// `#[reflect(Hash, PartialEq)]` to the entire struct or enum.
+/// The ordering is expected to be total, that is as if the reflected type implements the [`Eq`] trait.
+/// This is true even for manual implementors who do not hash or compare values,
 /// as it is still relied on by [`DynamicMap`].
 ///
 /// # Example
 ///
 /// ```
 /// use bevy_reflect::{PartialReflect, Reflect, Map};
-/// use bevy_utils::HashMap;
+/// use std::collections::HashMap;
 ///
 ///
 /// let foo: &mut dyn Map = &mut HashMap::<u32, bool>::new();
@@ -38,6 +41,8 @@ use crate::{
 /// assert_eq!(field.try_downcast_ref::<bool>(), Some(&true));
 /// ```
 ///
+/// [`HashMap`]: std::collections::HashMap
+/// [`BTreeMap`]: alloc::collections::BTreeMap
 /// [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
 /// [reflection]: crate
 pub trait Map: PartialReflect {
@@ -72,7 +77,9 @@ pub trait Map: PartialReflect {
     fn iter(&self) -> MapIter;
 
     /// Drain the key-value pairs of this map to get a vector of owned values.
-    fn drain(self: Box<Self>) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)>;
+    ///
+    /// After calling this function, `self` will be empty.
+    fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)>;
 
     /// Clones the map, producing a [`DynamicMap`].
     fn clone_dynamic(&self) -> DynamicMap;
@@ -92,19 +99,22 @@ pub trait Map: PartialReflect {
     /// If the map did not have this key present, `None` is returned.
     /// If the map did have this key present, the removed value is returned.
     fn remove(&mut self, key: &dyn PartialReflect) -> Option<Box<dyn PartialReflect>>;
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_map_info(&self) -> Option<&'static MapInfo> {
+        self.get_represented_type_info()?.as_map().ok()
+    }
 }
 
 /// A container for compile-time map info.
 #[derive(Clone, Debug)]
 pub struct MapInfo {
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
+    generics: Generics,
     key_info: fn() -> Option<&'static TypeInfo>,
-    key_type_path: TypePathTable,
-    key_type_id: TypeId,
+    key_ty: Type,
     value_info: fn() -> Option<&'static TypeInfo>,
-    value_type_path: TypePathTable,
-    value_type_id: TypeId,
+    value_ty: Type,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -117,14 +127,12 @@ impl MapInfo {
         TValue: Reflect + MaybeTyped + TypePath,
     >() -> Self {
         Self {
-            type_path: TypePathTable::of::<TMap>(),
-            type_id: TypeId::of::<TMap>(),
+            ty: Type::of::<TMap>(),
+            generics: Generics::new(),
             key_info: TKey::maybe_type_info,
-            key_type_path: TypePathTable::of::<TKey>(),
-            key_type_id: TypeId::of::<TKey>(),
+            key_ty: Type::of::<TKey>(),
             value_info: TValue::maybe_type_info,
-            value_type_path: TypePathTable::of::<TValue>(),
-            value_type_id: TypeId::of::<TValue>(),
+            value_ty: Type::of::<TValue>(),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -136,32 +144,7 @@ impl MapInfo {
         Self { docs, ..self }
     }
 
-    /// A representation of the type path of the map.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the map.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the map.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the map type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// The [`TypeInfo`] of the key type.
     ///
@@ -171,21 +154,11 @@ impl MapInfo {
         (self.key_info)()
     }
 
-    /// A representation of the type path of the key type.
+    /// The [type] of the key type.
     ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn key_type_path_table(&self) -> &TypePathTable {
-        &self.key_type_path
-    }
-
-    /// The [`TypeId`] of the key.
-    pub fn key_type_id(&self) -> TypeId {
-        self.key_type_id
-    }
-
-    /// Check if the given type matches the key type.
-    pub fn key_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.key_type_id
+    /// [type]: Type
+    pub fn key_ty(&self) -> Type {
+        self.key_ty
     }
 
     /// The [`TypeInfo`] of the value type.
@@ -196,21 +169,11 @@ impl MapInfo {
         (self.value_info)()
     }
 
-    /// A representation of the type path of the value type.
+    /// The [type] of the value type.
     ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn value_type_path_table(&self) -> &TypePathTable {
-        &self.value_type_path
-    }
-
-    /// The [`TypeId`] of the value.
-    pub fn value_type_id(&self) -> TypeId {
-        self.value_type_id
-    }
-
-    /// Check if the given type matches the value type.
-    pub fn value_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.value_type_id
+    /// [type]: Type
+    pub fn value_ty(&self) -> Type {
+        self.value_ty
     }
 
     /// The docstring of this map, if any.
@@ -218,6 +181,8 @@ impl MapInfo {
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_generic_info_methods!(generics);
 }
 
 #[macro_export]
@@ -241,7 +206,6 @@ macro_rules! hash_error {
                 ),
             }
         }
-        .as_str()
     }}
 }
 
@@ -250,7 +214,7 @@ macro_rules! hash_error {
 pub struct DynamicMap {
     represented_type: Option<&'static TypeInfo>,
     values: Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)>,
-    indices: HashMap<u64, usize>,
+    indices: HashTable<usize>,
 }
 
 impl DynamicMap {
@@ -277,20 +241,38 @@ impl DynamicMap {
     pub fn insert<K: PartialReflect, V: PartialReflect>(&mut self, key: K, value: V) {
         self.insert_boxed(Box::new(key), Box::new(value));
     }
+
+    fn internal_hash(value: &dyn PartialReflect) -> u64 {
+        value.reflect_hash().expect(&hash_error!(value))
+    }
+
+    fn internal_eq<'a>(
+        value: &'a dyn PartialReflect,
+        values: &'a [(Box<dyn PartialReflect>, Box<dyn PartialReflect>)],
+    ) -> impl FnMut(&usize) -> bool + 'a {
+        |&index| {
+            value
+            .reflect_partial_eq(&*values[index].0)
+            .expect("underlying type does not reflect `PartialEq` and hence doesn't support equality checks")
+        }
+    }
 }
 
 impl Map for DynamicMap {
     fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
+        let hash = Self::internal_hash(key);
+        let eq = Self::internal_eq(key, &self.values);
         self.indices
-            .get(&key.reflect_hash().expect(hash_error!(key)))
-            .map(|index| &*self.values.get(*index).unwrap().1)
+            .find(hash, eq)
+            .map(|&index| &*self.values[index].1)
     }
 
     fn get_mut(&mut self, key: &dyn PartialReflect) -> Option<&mut dyn PartialReflect> {
+        let hash = Self::internal_hash(key);
+        let eq = Self::internal_eq(key, &self.values);
         self.indices
-            .get(&key.reflect_hash().expect(hash_error!(key)))
-            .cloned()
-            .map(move |index| &mut *self.values.get_mut(index).unwrap().1)
+            .find(hash, eq)
+            .map(|&index| &mut *self.values[index].1)
     }
 
     fn get_at(&self, index: usize) -> Option<(&dyn PartialReflect, &dyn PartialReflect)> {
@@ -316,8 +298,8 @@ impl Map for DynamicMap {
         MapIter::new(self)
     }
 
-    fn drain(self: Box<Self>) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
-        self.values
+    fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
+        self.values.drain(..).collect()
     }
 
     fn clone_dynamic(&self) -> DynamicMap {
@@ -335,31 +317,60 @@ impl Map for DynamicMap {
     fn insert_boxed(
         &mut self,
         key: Box<dyn PartialReflect>,
-        mut value: Box<dyn PartialReflect>,
+        value: Box<dyn PartialReflect>,
     ) -> Option<Box<dyn PartialReflect>> {
-        match self
-            .indices
-            .entry(key.reflect_hash().expect(hash_error!(key)))
-        {
-            Entry::Occupied(entry) => {
-                let (_old_key, old_value) = self.values.get_mut(*entry.get()).unwrap();
-                std::mem::swap(old_value, &mut value);
-                Some(value)
+        assert_eq!(
+            key.reflect_partial_eq(&*key),
+            Some(true),
+            "keys inserted in `Map`-like types are expected to reflect `PartialEq`"
+        );
+
+        let hash = Self::internal_hash(&*key);
+        let eq = Self::internal_eq(&*key, &self.values);
+        match self.indices.find(hash, eq) {
+            Some(&index) => {
+                let (key_ref, value_ref) = &mut self.values[index];
+                *key_ref = key;
+                let old_value = core::mem::replace(value_ref, value);
+                Some(old_value)
             }
-            Entry::Vacant(entry) => {
-                entry.insert(self.values.len());
+            None => {
+                let index = self.values.len();
                 self.values.push((key, value));
+                self.indices.insert_unique(hash, index, |&index| {
+                    Self::internal_hash(&*self.values[index].0)
+                });
                 None
             }
         }
     }
 
     fn remove(&mut self, key: &dyn PartialReflect) -> Option<Box<dyn PartialReflect>> {
-        let index = self
-            .indices
-            .remove(&key.reflect_hash().expect(hash_error!(key)))?;
-        let (_key, value) = self.values.remove(index);
-        Some(value)
+        let hash = Self::internal_hash(key);
+        let eq = Self::internal_eq(key, &self.values);
+        match self.indices.find_entry(hash, eq) {
+            Ok(entry) => {
+                let (index, _) = entry.remove();
+                let (_, old_value) = self.values.swap_remove(index);
+
+                // The `swap_remove` might have moved the last element of `values`
+                // to `index`, so we might need to fix up its index in `indices`.
+                // If the removed element was also the last element there's nothing to
+                // fixup and this will return `None`, otherwise it returns the key
+                // whose index needs to be fixed up.
+                if let Some((moved_key, _)) = self.values.get(index) {
+                    let hash = Self::internal_hash(&**moved_key);
+                    let moved_index = self
+                        .indices
+                        .find_mut(hash, |&moved_index| moved_index == self.values.len())
+                        .expect("key inserted in a `DynamicMap` is no longer present, this means its reflected `Hash` might be incorrect");
+                    *moved_index = index;
+                }
+
+                Some(old_value)
+            }
+            Err(_) => None,
+        }
     }
 }
 
@@ -428,7 +439,7 @@ impl PartialReflect for DynamicMap {
         map_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicMap(")?;
         map_debug(self, f)?;
         write!(f, ")")
@@ -443,7 +454,7 @@ impl PartialReflect for DynamicMap {
 impl_type_path!((in bevy_reflect) DynamicMap);
 
 impl Debug for DynamicMap {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -454,10 +465,10 @@ pub struct MapIter<'a> {
     index: usize,
 }
 
-impl<'a> MapIter<'a> {
+impl MapIter<'_> {
     /// Creates a new [`MapIter`].
     #[inline]
-    pub const fn new(map: &'a dyn Map) -> MapIter {
+    pub const fn new(map: &dyn Map) -> MapIter {
         MapIter { map, index: 0 }
     }
 }
@@ -501,7 +512,7 @@ impl<K: Reflect, V: Reflect> FromIterator<(K, V)> for DynamicMap {
 
 impl IntoIterator for DynamicMap {
     type Item = (Box<dyn PartialReflect>, Box<dyn PartialReflect>);
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_iter()
@@ -556,7 +567,7 @@ pub fn map_partial_eq<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<
 ///
 /// # Example
 /// ```
-/// # use bevy_utils::HashMap;
+/// # use std::collections::HashMap;
 /// use bevy_reflect::Reflect;
 ///
 /// let mut my_map = HashMap::new();
@@ -570,7 +581,7 @@ pub fn map_partial_eq<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<
 /// // }
 /// ```
 #[inline]
-pub fn map_debug(dyn_map: &dyn Map, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn map_debug(dyn_map: &dyn Map, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_map();
     for (key, value) in dyn_map.iter() {
         debug.entry(&key as &dyn Debug, &value as &dyn Debug);
@@ -603,27 +614,26 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) {
 /// applying elements to each other fails.
 #[inline]
 pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    if let ReflectRef::Map(map_value) = b.reflect_ref() {
-        for (key, b_value) in map_value.iter() {
-            if let Some(a_value) = a.get_mut(key) {
-                a_value.try_apply(b_value)?;
-            } else {
-                a.insert_boxed(key.clone_value(), b_value.clone_value());
-            }
+    let map_value = b.reflect_ref().as_map()?;
+
+    for (key, b_value) in map_value.iter() {
+        if let Some(a_value) = a.get_mut(key) {
+            a_value.try_apply(b_value)?;
+        } else {
+            a.insert_boxed(key.clone_value(), b_value.clone_value());
         }
-    } else {
-        return Err(ApplyError::MismatchedKinds {
-            from_kind: b.reflect_kind(),
-            to_kind: ReflectKind::Map,
-        });
     }
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::DynamicMap;
-    use super::Map;
+    use super::{DynamicMap, Map};
+    use alloc::{
+        borrow::ToOwned,
+        string::{String, ToString},
+    };
 
     #[test]
     fn test_into_iter() {
@@ -723,5 +733,22 @@ mod tests {
             assert!(iter.next().is_none());
             assert_eq!(size, iter.index);
         }
+    }
+
+    #[test]
+    fn remove() {
+        let mut map = DynamicMap::default();
+        map.insert(0, 0);
+        map.insert(1, 1);
+
+        assert_eq!(map.remove(&0).unwrap().try_downcast_ref(), Some(&0));
+        assert!(map.get(&0).is_none());
+        assert_eq!(map.get(&1).unwrap().try_downcast_ref(), Some(&1));
+
+        assert_eq!(map.remove(&1).unwrap().try_downcast_ref(), Some(&1));
+        assert!(map.get(&1).is_none());
+
+        assert!(map.remove(&1).is_none());
+        assert!(map.get(&1).is_none());
     }
 }

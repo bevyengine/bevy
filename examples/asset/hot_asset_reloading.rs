@@ -23,19 +23,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // You should see the changes immediately show up in your app.
 
     // mesh
-    commands.spawn(SceneBundle {
-        scene: scene_handle,
-        ..default()
-    });
+    commands.spawn(SceneRoot(scene_handle));
     // light
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight::default(),
-        transform: Transform::from_xyz(4.0, 5.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_xyz(4.0, 5.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(2.0, 2.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(2.0, 2.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }

@@ -17,9 +17,13 @@ struct Mesh {
     lightmap_uv_rect: vec2<u32>,
     // The index of the mesh's first vertex in the vertex buffer.
     first_vertex_index: u32,
-    pad_a: u32,
-    pad_b: u32,
-    pad_c: u32,
+    current_skin_index: u32,
+    // Low 16 bits: index of the material inside the bind group data.
+    // High 16 bits: index of the lightmap in the binding array.
+    material_and_lightmap_bind_group_slot: u32,
+    // User supplied index to identify the mesh instance
+    tag: u32,
+    pad: u32,
 };
 
 #ifdef SKINNED
@@ -36,6 +40,8 @@ struct MorphWeights {
 
 // [2^0, 2^16)
 const MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS: u32 = 65535u;
+// 2^28
+const MESH_FLAGS_NO_FRUSTUM_CULLING_BIT: u32 = 268435456u;
 // 2^29
 const MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 536870912u;
 // 2^30

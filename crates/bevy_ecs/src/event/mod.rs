@@ -31,7 +31,7 @@ pub use writer::EventWriter;
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
+    use alloc::{vec, vec::Vec};
     use bevy_ecs::{event::*, system::assert_is_read_only_system};
     use bevy_ecs_macros::Event;
 
@@ -421,7 +421,7 @@ mod tests {
     #[test]
     fn test_event_cursor_par_read() {
         use crate::prelude::*;
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use core::sync::atomic::{AtomicUsize, Ordering};
 
         #[derive(Resource)]
         struct Counter(AtomicUsize);
@@ -463,7 +463,7 @@ mod tests {
     #[test]
     fn test_event_cursor_par_read_mut() {
         use crate::prelude::*;
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use core::sync::atomic::{AtomicUsize, Ordering};
 
         #[derive(Resource)]
         struct Counter(AtomicUsize);
@@ -567,7 +567,6 @@ mod tests {
         assert!(last.is_none(), "EventMutator should be empty");
     }
 
-    #[allow(clippy::iter_nth_zero)]
     #[test]
     fn test_event_reader_iter_nth() {
         use bevy_ecs::prelude::*;
@@ -594,7 +593,6 @@ mod tests {
         schedule.run(&mut world);
     }
 
-    #[allow(clippy::iter_nth_zero)]
     #[test]
     fn test_event_mutator_iter_nth() {
         use bevy_ecs::prelude::*;

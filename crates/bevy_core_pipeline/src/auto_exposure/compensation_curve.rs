@@ -136,7 +136,10 @@ impl AutoExposureCompensationCurve {
                 let lut_inv_range = 1.0 / (lut_end - lut_begin);
 
                 // Iterate over all LUT entries whose pixel centers fall within the current segment.
-                #[allow(clippy::needless_range_loop)]
+                #[expect(
+                    clippy::needless_range_loop,
+                    reason = "This for-loop also uses `i` to calculate a value `t`."
+                )]
                 for i in lut_begin.ceil() as usize..=lut_end.floor() as usize {
                     let t = (i as f32 - lut_begin) * lut_inv_range;
                     lut[i] = previous.y.lerp(current.y, t);
@@ -191,6 +194,7 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
 
     fn prepare_asset(
         source: Self::SourceAsset,
+        _: AssetId<Self::SourceAsset>,
         (render_device, render_queue): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, bevy_render::render_asset::PrepareAssetError<Self::SourceAsset>> {
         let texture = render_device.create_texture_with_data(

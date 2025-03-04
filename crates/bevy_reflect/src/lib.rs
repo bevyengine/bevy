@@ -1,7 +1,11 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
-// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
-#![allow(internal_features)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    expect(
+        internal_features,
+        reason = "rustdoc_internals is needed for fake_variadic"
+    )
+)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -51,7 +55,7 @@
 //! `dyn Reflect` trait objects can be used similarly to `dyn PartialReflect`,
 //! but `Reflect` is also often used in trait bounds (like `T: Reflect`).
 //!
-//! The distinction between `PartialReflect` and `Reflect` is summarised in the following:
+//! The distinction between `PartialReflect` and `Reflect` is summarized in the following:
 //! * `PartialReflect` is a trait for interacting with values under `bevy_reflect`'s data model.
 //!   This means values implementing `PartialReflect` can be dynamically constructed and introspected.
 //! * The `Reflect` trait, however, ensures that the interface exposed by `PartialReflect`
@@ -108,7 +112,7 @@
 //!
 //! Additionally, using the derive macro on enums requires a third condition to be met:
 //! * All fields and sub-elements must implement [`FromReflect`]—
-//!     another important reflection trait discussed in a later section.
+//!   another important reflection trait discussed in a later section.
 //!
 //! # The Reflection Subtraits
 //!
@@ -119,10 +123,12 @@
 //! * [`Tuple`]
 //! * [`Array`]
 //! * [`List`]
+//! * [`Set`]
 //! * [`Map`]
 //! * [`Struct`]
 //! * [`TupleStruct`]
 //! * [`Enum`]
+//! * [`Function`] (requires the `functions` feature)
 //!
 //! As mentioned previously, the last three are automatically implemented by the [derive macro].
 //!
@@ -154,7 +160,7 @@
 //! ```
 //! # use bevy_reflect::{PartialReflect, ReflectRef};
 //! let my_tuple: Box<dyn PartialReflect> = Box::new((1, 2, 3));
-//! let ReflectRef::Tuple(my_tuple) = my_tuple.reflect_ref() else { unreachable!() };
+//! let my_tuple = my_tuple.reflect_ref().as_tuple().unwrap();
 //! assert_eq!(3, my_tuple.field_len());
 //! ```
 //!
@@ -162,15 +168,17 @@
 //! we can just use the matching [`PartialReflect::as_partial_reflect`], [`PartialReflect::as_partial_reflect_mut`],
 //! or [`PartialReflect::into_partial_reflect`] methods.
 //!
-//! ## Value Types
+//! ## Opaque Types
 //!
-//! Types that do not fall under one of the above subtraits,
-//! such as for primitives (e.g. `bool`, `usize`, etc.)
-//! and simple types (e.g. `String`, `Duration`),
-//! are referred to as _value_ types
-//! since methods like [`PartialReflect::reflect_ref`] return a [`ReflectRef::Value`] variant.
-//! While most other types contain their own `dyn Reflect` fields and data,
-//! these types generally cannot be broken down any further.
+//! Some types don't fall under a particular subtrait.
+//!
+//! These types hide their internal structure to reflection,
+//! either because it is not possible, difficult, or not useful to reflect its internals.
+//! Such types are known as _opaque_ types.
+//!
+//! This includes truly opaque types like `String` or `Instant`,
+//! but also includes all the primitive types (e.g.  `bool`, `usize`, etc.)
+//! since they can't be broken down any further.
 //!
 //! # Dynamic Types
 //!
@@ -196,7 +204,7 @@
 //!
 //! They are most commonly used as "proxies" for other types,
 //! where they contain the same data as— and therefore, represent— a concrete type.
-//! The [`PartialReflect::clone_value`] method will return a dynamic type for all non-value types,
+//! The [`PartialReflect::clone_value`] method will return a dynamic type for all non-opaque types,
 //! allowing all types to essentially be "cloned".
 //! And since dynamic types themselves implement [`PartialReflect`],
 //! we may pass them around just like most other reflected types.
@@ -329,7 +337,7 @@
 //! registry.register::<MyStruct>();
 //! registry.register_type_data::<MyStruct, ReflectDefault>();
 //!
-//! let registration = registry.get(std::any::TypeId::of::<MyStruct>()).unwrap();
+//! let registration = registry.get(core::any::TypeId::of::<MyStruct>()).unwrap();
 //! let reflect_default = registration.data::<ReflectDefault>().unwrap();
 //!
 //! let new_value: Box<dyn Reflect> = reflect_default.default();
@@ -370,7 +378,7 @@
 //! ```
 //!
 //! The generated type data can be used to convert a valid `dyn Reflect` into a `dyn MyTrait`.
-//! See the [trait reflection example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/trait_reflection.rs)
+//! See the [dynamic types example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/dynamic_types.rs)
 //! for more information and usage details.
 //!
 //! # Serialization
@@ -396,7 +404,7 @@
 //! The `TypedReflectSerializer` will simply output the serialized data.
 //!
 //! The `ReflectDeserializer` can be used to deserialize this map and return a `Box<dyn Reflect>`,
-//! where the underlying type will be a dynamic type representing some concrete type (except for value types).
+//! where the underlying type will be a dynamic type representing some concrete type (except for opaque types).
 //!
 //! Again, it's important to remember that dynamic types may need to be converted to their concrete counterparts
 //! in order to be used in certain cases.
@@ -450,15 +458,11 @@
 //! but [`Reflect`] requires all types to have a `'static` lifetime.
 //! This makes it impossible to reflect any type with non-static borrowed data.
 //!
-//! ## Function Reflection
+//! ## Generic Function Reflection
 //!
-//! Another limitation is the inability to fully reflect functions and methods.
-//! Most languages offer some way of calling methods dynamically,
-//! but Rust makes this very difficult to do.
-//! For non-generic methods, this can be done by registering custom [type data] that
-//! contains function pointers.
-//! For generic methods, the same can be done but will typically require manual monomorphization
-//! (i.e. manually specifying the types the generic method can take).
+//! Another limitation is the inability to reflect over generic functions directly. It can be done, but will
+//! typically require manual monomorphization (i.e. manually specifying the types the generic method can
+//! take).
 //!
 //! ## Manual Registration
 //!
@@ -473,13 +477,24 @@
 //!
 //! | Default | Dependencies                              |
 //! | :-----: | :---------------------------------------: |
-//! | ❌      | [`bevy_math`], [`glam`], [`smallvec`] |
+//! | ❌      | [`bevy_math`], [`glam`], [`smallvec`]     |
 //!
 //! This feature makes it so that the appropriate reflection traits are implemented on all the types
 //! necessary for the [Bevy] game engine.
 //! enables the optional dependencies: [`bevy_math`], [`glam`], and [`smallvec`].
 //! These dependencies are used by the [Bevy] game engine and must define their reflection implementations
 //! within this crate due to Rust's [orphan rule].
+//!
+//! ## `functions`
+//!
+//! | Default | Dependencies                      |
+//! | :-----: | :-------------------------------: |
+//! | ❌      | [`bevy_reflect_derive/functions`] |
+//!
+//! This feature allows creating a [`DynamicFunction`] or [`DynamicFunctionMut`] from Rust functions. Dynamic
+//! functions can then be called with valid [`ArgList`]s.
+//!
+//! For more information, read the [`func`] module docs.
 //!
 //! ## `documentation`
 //!
@@ -493,6 +508,18 @@
 //! This can be useful for generating documentation for scripting language interop or
 //! for displaying tooltips in an editor.
 //!
+//! ## `debug`
+//!
+//! | Default | Dependencies                                  |
+//! | :-----: | :-------------------------------------------: |
+//! | ✅      | `debug_stack`                                 |
+//!
+//! This feature enables useful debug features for reflection.
+//!
+//! This includes the `debug_stack` feature,
+//! which enables capturing the type stack when serializing or deserializing a type
+//! and displaying it in error messages.
+//!
 //! [Reflection]: https://en.wikipedia.org/wiki/Reflective_programming
 //! [Bevy]: https://bevyengine.org/
 //! [limitations]: #limitations
@@ -504,6 +531,7 @@
 //! [the language feature for dyn upcasting coercion]: https://github.com/rust-lang/rust/issues/65991
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
+//! [`Function`]: crate::func::Function
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
 //! [type data]: TypeData
@@ -523,17 +551,33 @@
 //! [`smallvec`]: https://docs.rs/smallvec/latest/smallvec/
 //! [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type:~:text=But%20we%20can%E2%80%99t,implementation%20to%20use.
 //! [`bevy_reflect_derive/documentation`]: bevy_reflect_derive
+//! [`bevy_reflect_derive/functions`]: bevy_reflect_derive
+//! [`DynamicFunction`]: crate::func::DynamicFunction
+//! [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
+//! [`ArgList`]: crate::func::ArgList
 //! [derive `Reflect`]: derive@crate::Reflect
+
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
+
+extern crate alloc;
+
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_reflect;
 
 mod array;
 mod fields;
 mod from_reflect;
 #[cfg(feature = "functions")]
 pub mod func;
+mod kind;
 mod list;
 mod map;
 mod path;
 mod reflect;
+mod reflectable;
 mod remote;
 mod set;
 mod struct_trait;
@@ -544,6 +588,9 @@ mod type_path;
 mod type_registry;
 
 mod impls {
+    mod foldhash;
+    mod std;
+
     #[cfg(feature = "glam")]
     mod glam;
     #[cfg(feature = "petgraph")]
@@ -552,20 +599,27 @@ mod impls {
     mod smallvec;
     #[cfg(feature = "smol_str")]
     mod smol_str;
-
-    mod std;
     #[cfg(feature = "uuid")]
     mod uuid;
+    #[cfg(feature = "wgpu-types")]
+    mod wgpu_types;
 }
 
 pub mod attributes;
 mod enums;
+mod generics;
 pub mod serde;
 pub mod std_traits;
+#[cfg(feature = "debug_stack")]
+mod type_info_stack;
 pub mod utility;
 
+/// The reflect prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use crate::std_traits::*;
+
     #[doc(hidden)]
     pub use crate::{
         reflect_trait, FromReflect, GetField, GetPath, GetTupleStructField, PartialReflect,
@@ -574,17 +628,20 @@ pub mod prelude {
     };
 
     #[cfg(feature = "functions")]
-    pub use crate::func::IntoFunction;
+    pub use crate::func::{Function, IntoFunction, IntoFunctionMut};
 }
 
 pub use array::*;
 pub use enums::*;
 pub use fields::*;
 pub use from_reflect::*;
+pub use generics::*;
+pub use kind::*;
 pub use list::*;
 pub use map::*;
 pub use path::*;
 pub use reflect::*;
+pub use reflectable::*;
 pub use remote::*;
 pub use set::*;
 pub use struct_trait::*;
@@ -597,8 +654,6 @@ pub use type_registry::*;
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
 
-extern crate alloc;
-
 /// Exports used by the reflection macros.
 ///
 /// These are not meant to be used directly and are subject to breaking changes.
@@ -609,6 +664,18 @@ pub mod __macro_exports {
         DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
     };
 
+    /// Re-exports of items from the [`alloc`] crate.
+    ///
+    /// This is required because in `std` environments (e.g., the `std` feature is enabled)
+    /// the `alloc` crate may not have been included, making its namespace unreliable.
+    pub mod alloc_utils {
+        pub use ::alloc::{
+            borrow::{Cow, ToOwned},
+            boxed::Box,
+            string::ToString,
+        };
+    }
+
     /// A wrapper trait around [`GetTypeRegistration`].
     ///
     /// This trait is used by the derive macro to recursively register all type dependencies.
@@ -617,8 +684,15 @@ pub mod __macro_exports {
     ///
     /// This trait has a blanket implementation for all types that implement `GetTypeRegistration`
     /// and manual implementations for all dynamic types (which simply do nothing).
+    #[diagnostic::on_unimplemented(
+        message = "`{Self}` does not implement `GetTypeRegistration` so cannot be registered for reflection",
+        note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+    )]
     pub trait RegisterForReflection {
-        #[allow(unused_variables)]
+        #[expect(
+            unused_variables,
+            reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+        )]
         fn __register(registry: &mut TypeRegistry) {}
     }
 
@@ -644,28 +718,39 @@ pub mod __macro_exports {
 }
 
 #[cfg(test)]
-#[allow(clippy::disallowed_types, clippy::approx_constant)]
+#[expect(
+    clippy::approx_constant,
+    reason = "We don't need the exact value of Pi here."
+)]
 mod tests {
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
-    use bevy_utils::HashMap;
+    use alloc::{
+        borrow::Cow,
+        boxed::Box,
+        format,
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
+    use bevy_platform_support::collections::HashMap;
+    use core::{
+        any::TypeId,
+        fmt::{Debug, Formatter},
+        hash::Hash,
+        marker::PhantomData,
+    };
+    use disqualified::ShortName;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
     use static_assertions::{assert_impl_all, assert_not_impl_all};
-    use std::{
-        any::TypeId,
-        borrow::Cow,
-        fmt::{Debug, Formatter},
-        hash::Hash,
-        marker::PhantomData,
-    };
 
-    use super::prelude::*;
-    use super::*;
-    use crate as bevy_reflect;
-    use crate::serde::{ReflectDeserializer, ReflectSerializer};
-    use crate::utility::GenericTypePathCell;
+    use super::{prelude::*, *};
+    use crate::{
+        serde::{ReflectDeserializer, ReflectSerializer},
+        utility::GenericTypePathCell,
+    };
 
     #[test]
     fn try_apply_should_detect_kinds() {
@@ -745,11 +830,8 @@ mod tests {
 
         // nested retrieval
         let c = foo.field("c").unwrap();
-        if let ReflectRef::Struct(value) = c.reflect_ref() {
-            assert_eq!(*value.get_field::<u32>("x").unwrap(), 1);
-        } else {
-            panic!("Expected a struct.");
-        }
+        let value = c.reflect_ref().as_struct().unwrap();
+        assert_eq!(*value.get_field::<u32>("x").unwrap(), 1);
 
         // patch Foo with a dynamic struct
         let mut dynamic_struct = DynamicStruct::default();
@@ -802,7 +884,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::disallowed_types)]
     fn reflect_unit_struct() {
         #[derive(Reflect)]
         struct Foo(u32, u64);
@@ -1099,11 +1180,11 @@ mod tests {
         #[derive(Reflect, Eq, PartialEq, Debug)]
         struct Baz(String);
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 2);
 
-        let mut hash_map_baz = HashMap::default();
+        let mut hash_map_baz = <HashMap<_, _>>::default();
         hash_map_baz.insert(1, Bar { x: 0 });
 
         let mut foo = Foo {
@@ -1168,12 +1249,12 @@ mod tests {
 
         foo.apply(&foo_patch);
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 3);
         hash_map.insert(3, 4);
 
-        let mut hash_map_baz = HashMap::default();
+        let mut hash_map_baz = <HashMap<_, _>>::default();
         hash_map_baz.insert(1, Bar { x: 7 });
 
         let expected_foo = Foo {
@@ -1192,7 +1273,7 @@ mod tests {
         let new_foo = Foo::from_reflect(&foo_patch)
             .expect("error while creating a concrete type from a dynamic type");
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(2, 3);
         hash_map.insert(3, 4);
 
@@ -1349,7 +1430,7 @@ mod tests {
             x: u32,
         }
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 2);
         let foo = Foo {
@@ -1428,7 +1509,7 @@ mod tests {
         assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
 
-        let list_value: Box<dyn List> = Box::new(vec![123_i32, 321_i32]);
+        let mut list_value: Box<dyn List> = Box::new(vec![123_i32, 321_i32]);
         let fields = list_value.drain();
         assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
@@ -1438,7 +1519,8 @@ mod tests {
         assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
 
-        let map_value: Box<dyn Map> = Box::new(HashMap::from([(123_i32, 321_i32)]));
+        let mut map_value: Box<dyn Map> =
+            Box::new([(123_i32, 321_i32)].into_iter().collect::<HashMap<_, _>>());
         let fields = map_value.drain();
         assert!(fields[0].0.reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[0].1.reflect_partial_eq(&321_i32).unwrap_or_default());
@@ -1611,7 +1693,7 @@ mod tests {
 
         // TypeInfo (instance)
         let value: &dyn Reflect = &123_i32;
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<i32>());
 
         // Struct
@@ -1632,7 +1714,7 @@ mod tests {
         assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
 
         let value: &dyn Reflect = &MyStruct { foo: 123, bar: 321 };
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyStruct>());
 
         // Struct (generic)
@@ -1654,7 +1736,7 @@ mod tests {
             foo: String::from("Hello!"),
             bar: 321,
         };
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyGenericStruct<String>>());
 
         // Struct (dynamic field)
@@ -1684,7 +1766,7 @@ mod tests {
             foo: DynamicStruct::default(),
             bar: 321,
         };
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyDynamicStruct>());
 
         // Tuple Struct
@@ -1710,7 +1792,7 @@ mod tests {
         assert!(info.field_at(1).unwrap().type_info().unwrap().is::<f32>());
 
         let value: &dyn Reflect = &(123_u32, 1.23_f32, String::from("Hello!"));
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyTuple>());
 
         // List
@@ -1719,13 +1801,13 @@ mod tests {
         let info = MyList::type_info().as_list().unwrap();
 
         assert!(info.is::<MyList>());
-        assert!(info.item_is::<usize>());
+        assert!(info.item_ty().is::<usize>());
         assert!(info.item_info().unwrap().is::<usize>());
         assert_eq!(MyList::type_path(), info.type_path());
-        assert_eq!(usize::type_path(), info.item_type_path_table().path());
+        assert_eq!(usize::type_path(), info.item_ty().path());
 
         let value: &dyn Reflect = &vec![123_usize];
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyList>());
 
         // List (SmallVec)
@@ -1735,14 +1817,14 @@ mod tests {
 
             let info = MySmallVec::type_info().as_list().unwrap();
             assert!(info.is::<MySmallVec>());
-            assert!(info.item_is::<String>());
+            assert!(info.item_ty().is::<String>());
             assert!(info.item_info().unwrap().is::<String>());
             assert_eq!(MySmallVec::type_path(), info.type_path());
-            assert_eq!(String::type_path(), info.item_type_path_table().path());
+            assert_eq!(String::type_path(), info.item_ty().path());
 
             let value: MySmallVec = smallvec::smallvec![String::default(); 2];
             let value: &dyn Reflect = &value;
-            let info = value.get_represented_type_info().unwrap();
+            let info = value.reflect_type_info();
             assert!(info.is::<MySmallVec>());
         }
 
@@ -1751,26 +1833,26 @@ mod tests {
 
         let info = MyArray::type_info().as_array().unwrap();
         assert!(info.is::<MyArray>());
-        assert!(info.item_is::<usize>());
+        assert!(info.item_ty().is::<usize>());
         assert!(info.item_info().unwrap().is::<usize>());
         assert_eq!(MyArray::type_path(), info.type_path());
-        assert_eq!(usize::type_path(), info.item_type_path_table().path());
+        assert_eq!(usize::type_path(), info.item_ty().path());
         assert_eq!(3, info.capacity());
 
         let value: &dyn Reflect = &[1usize, 2usize, 3usize];
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyArray>());
 
         // Cow<'static, str>
         type MyCowStr = Cow<'static, str>;
 
-        let info = MyCowStr::type_info().as_value().unwrap();
+        let info = MyCowStr::type_info().as_opaque().unwrap();
 
         assert!(info.is::<MyCowStr>());
-        assert_eq!(std::any::type_name::<MyCowStr>(), info.type_path());
+        assert_eq!(core::any::type_name::<MyCowStr>(), info.type_path());
 
         let value: &dyn Reflect = &Cow::<'static, str>::Owned("Hello!".to_string());
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyCowStr>());
 
         // Cow<'static, [u8]>
@@ -1779,16 +1861,13 @@ mod tests {
         let info = MyCowSlice::type_info().as_list().unwrap();
 
         assert!(info.is::<MyCowSlice>());
-        assert!(info.item_is::<u8>());
+        assert!(info.item_ty().is::<u8>());
         assert!(info.item_info().unwrap().is::<u8>());
-        assert_eq!(std::any::type_name::<MyCowSlice>(), info.type_path());
-        assert_eq!(
-            std::any::type_name::<u8>(),
-            info.item_type_path_table().path()
-        );
+        assert_eq!(core::any::type_name::<MyCowSlice>(), info.type_path());
+        assert_eq!(core::any::type_name::<u8>(), info.item_ty().path());
 
         let value: &dyn Reflect = &Cow::<'static, [u8]>::Owned(vec![0, 1, 2, 3]);
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyCowSlice>());
 
         // Map
@@ -1797,29 +1876,64 @@ mod tests {
         let info = MyMap::type_info().as_map().unwrap();
 
         assert!(info.is::<MyMap>());
-        assert!(info.key_is::<usize>());
-        assert!(info.value_is::<f32>());
+        assert!(info.key_ty().is::<usize>());
+        assert!(info.value_ty().is::<f32>());
         assert!(info.key_info().unwrap().is::<usize>());
         assert!(info.value_info().unwrap().is::<f32>());
         assert_eq!(MyMap::type_path(), info.type_path());
-        assert_eq!(usize::type_path(), info.key_type_path_table().path());
-        assert_eq!(f32::type_path(), info.value_type_path_table().path());
+        assert_eq!(usize::type_path(), info.key_ty().path());
+        assert_eq!(f32::type_path(), info.value_ty().path());
 
-        let value: &dyn Reflect = &MyMap::new();
-        let info = value.get_represented_type_info().unwrap();
+        let value: &dyn Reflect = &MyMap::default();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyMap>());
 
         // Value
         type MyValue = String;
 
-        let info = MyValue::type_info().as_value().unwrap();
+        let info = MyValue::type_info().as_opaque().unwrap();
 
         assert!(info.is::<MyValue>());
         assert_eq!(MyValue::type_path(), info.type_path());
 
         let value: &dyn Reflect = &String::from("Hello!");
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyValue>());
+    }
+
+    #[test]
+    fn get_represented_kind_info() {
+        #[derive(Reflect)]
+        struct SomeStruct;
+
+        #[derive(Reflect)]
+        struct SomeTupleStruct(f32);
+
+        #[derive(Reflect)]
+        enum SomeEnum {
+            Foo,
+            Bar,
+        }
+
+        let dyn_struct: &dyn Struct = &SomeStruct;
+        let _: &StructInfo = dyn_struct.get_represented_struct_info().unwrap();
+
+        let dyn_map: &dyn Map = &HashMap::<(), ()>::default();
+        let _: &MapInfo = dyn_map.get_represented_map_info().unwrap();
+
+        let dyn_array: &dyn Array = &[1, 2, 3];
+        let _: &ArrayInfo = dyn_array.get_represented_array_info().unwrap();
+
+        let dyn_list: &dyn List = &vec![1, 2, 3];
+        let _: &ListInfo = dyn_list.get_represented_list_info().unwrap();
+
+        let dyn_tuple_struct: &dyn TupleStruct = &SomeTupleStruct(5.0);
+        let _: &TupleStructInfo = dyn_tuple_struct
+            .get_represented_tuple_struct_info()
+            .unwrap();
+
+        let dyn_enum: &dyn Enum = &SomeEnum::Foo;
+        let _: &EnumInfo = dyn_enum.get_represented_enum_info().unwrap();
     }
 
     #[test]
@@ -1872,10 +1986,8 @@ mod tests {
             let info = <SomeStruct as Typed>::type_info();
             assert_eq!(None, info.docs());
 
-            /*
-             * Block comments do not count as doc comments,
-             * and are therefore not reflected.
-             */
+            // Block comments do not count as doc comments,
+            // and are therefore not reflected.
             #[derive(Reflect)]
             struct SomeOtherStruct;
 
@@ -1931,7 +2043,7 @@ mod tests {
 
             #[derive(Clone)]
             struct SomePrimitive;
-            impl_reflect_value!(
+            impl_reflect_opaque!(
                 /// Some primitive for which we have attributed custom documentation.
                 (in bevy_reflect::tests) SomePrimitive
             );
@@ -2043,7 +2155,7 @@ mod tests {
             enum_struct: SomeEnum,
             custom: CustomDebug,
             #[reflect(ignore)]
-            #[allow(dead_code)]
+            #[expect(dead_code, reason = "This value is intended to not be reflected.")]
             ignored: isize,
         }
 
@@ -2066,12 +2178,12 @@ mod tests {
         #[reflect(Debug)]
         struct CustomDebug;
         impl Debug for CustomDebug {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
                 f.write_str("Cool debug!")
             }
         }
 
-        let mut map = HashMap::new();
+        let mut map = <HashMap<_, _>>::default();
         map.insert(123, 1.23);
 
         let test = Test {
@@ -2134,28 +2246,7 @@ bevy_reflect::tests::Test {
         struct Foo(i32);
 
         impl Debug for Foo {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-                write!(f, "Foo")
-            }
-        }
-
-        let foo = Foo(123);
-        let foo: &dyn PartialReflect = &foo;
-
-        assert!(foo.reflect_hash().is_some());
-        assert_eq!(Some(true), foo.reflect_partial_eq(foo));
-        assert_eq!("Foo".to_string(), format!("{foo:?}"));
-    }
-
-    #[test]
-    fn multiple_reflect_value_lists() {
-        #[derive(Clone, Hash, PartialEq, Reflect)]
-        #[reflect_value(Debug, Hash)]
-        #[reflect_value(PartialEq)]
-        struct Foo(i32);
-
-        impl Debug for Foo {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
                 write!(f, "Foo")
             }
         }
@@ -2176,7 +2267,7 @@ bevy_reflect::tests::Test {
             a: u32,
         }
 
-        fn custom_debug(_x: &Foo, f: &mut Formatter<'_>) -> std::fmt::Result {
+        fn custom_debug(_x: &Foo, f: &mut Formatter<'_>) -> core::fmt::Result {
             write!(f, "123")
         }
 
@@ -2218,7 +2309,7 @@ bevy_reflect::tests::Test {
     fn should_allow_multiple_custom_where() {
         #[derive(Reflect)]
         #[reflect(where T: Default)]
-        #[reflect(where U: std::ops::Add<T>)]
+        #[reflect(where U: core::ops::Add<T>)]
         struct Foo<T, U>(T, U);
 
         #[derive(Reflect)]
@@ -2341,14 +2432,12 @@ bevy_reflect::tests::Test {
 
         impl<T: 'static> TypePath for Foo<T> {
             fn type_path() -> &'static str {
-                std::any::type_name::<Self>()
+                core::any::type_name::<Self>()
             }
 
             fn short_type_path() -> &'static str {
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
-                CELL.get_or_insert::<Self, _>(|| {
-                    bevy_utils::get_short_name(std::any::type_name::<Self>())
-                })
+                CELL.get_or_insert::<Self, _>(|| ShortName::of::<Self>().to_string())
             }
 
             fn type_ident() -> Option<&'static str> {
@@ -2408,7 +2497,7 @@ bevy_reflect::tests::Test {
             // test reflected value
             value: u32,
         }
-        let mut map = HashMap::new();
+        let mut map = <HashMap<_, _>>::default();
         map.insert(9, 10);
         let mut test_struct: DynamicStruct = TestStruct {
             tuple: (0, 1),
@@ -2484,6 +2573,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_remote_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, Default)]
             pub struct TheirType {
                 pub value: String,
@@ -2559,6 +2650,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_remote_value_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Clone, Debug, Default)]
             pub struct TheirType {
                 pub value: String,
@@ -2568,7 +2661,8 @@ bevy_reflect::tests::Test {
         // === Remote Wrapper === //
         #[reflect_remote(external_crate::TheirType)]
         #[derive(Clone, Debug, Default)]
-        #[reflect_value(Debug, Default)]
+        #[reflect(opaque)]
+        #[reflect(Debug, Default)]
         struct MyType {
             pub value: String,
         }
@@ -2641,6 +2735,8 @@ bevy_reflect::tests::Test {
             // error[E0433]: failed to resolve: use of undeclared crate or module `external_crate`
             // ```
             pub mod external_crate {
+                use alloc::string::String;
+
                 pub struct TheirType {
                     pub value: String,
                 }
@@ -2662,6 +2758,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_remote_enum() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, PartialEq, Eq)]
             pub enum TheirType {
                 Unit,
@@ -2738,7 +2836,7 @@ bevy_reflect::tests::Test {
         }
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
-        struct MyOuter<T: FromReflect + Typed + GetTypeRegistration> {
+        struct MyOuter<T: FromReflect + Reflectable> {
             #[reflect(remote = MyInner<T>)]
             pub a: external_crate::TheirInner<T>,
             #[reflect(remote = MyInner<bool>)]
@@ -2768,7 +2866,7 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_nested_remote_enum() {
         mod external_crate {
-            use std::fmt::Debug;
+            use core::fmt::Debug;
 
             #[derive(Debug)]
             pub enum TheirOuter<T: Debug> {
@@ -2786,7 +2884,7 @@ bevy_reflect::tests::Test {
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
         #[derive(Debug)]
-        enum MyOuter<T: FromReflect + Typed + Debug + GetTypeRegistration> {
+        enum MyOuter<T: FromReflect + Reflectable + Debug> {
             Unit,
             Tuple(#[reflect(remote = MyInner<T>)] external_crate::TheirInner<T>),
             Struct {
@@ -2826,6 +2924,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_take_remote_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, Default, PartialEq, Eq)]
             pub struct TheirType {
                 pub value: String,
@@ -2858,6 +2958,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_try_take_remote_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, Default, PartialEq, Eq)]
             pub struct TheirType {
                 pub value: String,
@@ -2899,7 +3001,7 @@ bevy_reflect::tests::Test {
         }
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
-        struct MyOuter<T: FromReflect + Typed + GetTypeRegistration> {
+        struct MyOuter<T: FromReflect + Reflectable> {
             #[reflect(remote = MyInner<T>)]
             pub inner: external_crate::TheirInner<T>,
         }
@@ -2920,26 +3022,6 @@ bevy_reflect::tests::Test {
             },
             output
         );
-    }
-
-    #[test]
-    fn should_reflect_external_crate_type() {
-        // This test relies on the external type not implementing `Reflect`,
-        // so let's just double-check that it does not
-        assert_not_impl_all!(std::collections::Bound<i32>: Reflect);
-
-        #[reflect_remote(std::collections::Bound<T>)]
-        enum MyBound<T> {
-            Included(T),
-            Excluded(T),
-            Unbounded,
-        }
-
-        #[derive(Reflect)]
-        struct MyType {
-            #[reflect(remote = MyBound<String>)]
-            bound: std::collections::Bound<String>,
-        }
     }
 
     #[cfg(feature = "glam")]
@@ -2963,12 +3045,7 @@ bevy_reflect::tests::Test {
             let output = to_string_pretty(&ser, config).unwrap();
             let expected = r#"
 {
-    "glam::Quat": (
-        x: 1.0,
-        y: 2.0,
-        z: 3.0,
-        w: 4.0,
-    ),
+    "glam::Quat": (1.0, 2.0, 3.0, 4.0),
 }"#;
 
             assert_eq!(expected, format!("\n{output}"));
@@ -2978,12 +3055,7 @@ bevy_reflect::tests::Test {
         fn quat_deserialization() {
             let data = r#"
 {
-    "glam::Quat": (
-        x: 1.0,
-        y: 2.0,
-        z: 3.0,
-        w: 4.0,
-    ),
+    "glam::Quat": (1.0, 2.0, 3.0, 4.0),
 }"#;
 
             let mut registry = TypeRegistry::default();
@@ -3022,11 +3094,7 @@ bevy_reflect::tests::Test {
             let output = to_string_pretty(&ser, config).unwrap();
             let expected = r#"
 {
-    "glam::Vec3": (
-        x: 12.0,
-        y: 3.0,
-        z: -6.9,
-    ),
+    "glam::Vec3": (12.0, 3.0, -6.9),
 }"#;
 
             assert_eq!(expected, format!("\n{output}"));
@@ -3036,11 +3104,7 @@ bevy_reflect::tests::Test {
         fn vec3_deserialization() {
             let data = r#"
 {
-    "glam::Vec3": (
-        x: 12.0,
-        y: 3.0,
-        z: -6.9,
-    ),
+    "glam::Vec3": (12.0, 3.0, -6.9),
 }"#;
 
             let mut registry = TypeRegistry::default();

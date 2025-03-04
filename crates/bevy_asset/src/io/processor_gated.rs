@@ -3,19 +3,19 @@ use crate::{
     processor::{AssetProcessorData, ProcessStatus},
     AssetPath,
 };
+use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
 use async_lock::RwLockReadGuardArc;
-use bevy_utils::tracing::trace;
-use futures_io::{AsyncRead, AsyncSeek};
-use std::io::SeekFrom;
-use std::task::Poll;
-use std::{path::Path, pin::Pin, sync::Arc};
+use core::{pin::Pin, task::Poll};
+use futures_io::AsyncRead;
+use std::path::Path;
+use tracing::trace;
 
-use super::ErasedAssetReader;
+use super::{AsyncSeekForward, ErasedAssetReader};
 
 /// An [`AssetReader`] that will prevent asset (and asset metadata) read futures from returning for a
 /// given path until that path has been processed by [`AssetProcessor`].
 ///
-/// [`AssetProcessor`]: crate::processor::AssetProcessor   
+/// [`AssetProcessor`]: crate::processor::AssetProcessor
 pub struct ProcessorGatedReader {
     reader: Box<dyn ErasedAssetReader>,
     source: AssetSourceId<'static>,
@@ -135,20 +135,20 @@ impl<'a> TransactionLockedReader<'a> {
 impl AsyncRead for TransactionLockedReader<'_> {
     fn poll_read(
         mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        cx: &mut core::task::Context<'_>,
         buf: &mut [u8],
-    ) -> std::task::Poll<futures_io::Result<usize>> {
+    ) -> Poll<futures_io::Result<usize>> {
         Pin::new(&mut self.reader).poll_read(cx, buf)
     }
 }
 
-impl AsyncSeek for TransactionLockedReader<'_> {
-    fn poll_seek(
+impl AsyncSeekForward for TransactionLockedReader<'_> {
+    fn poll_seek_forward(
         mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-        pos: SeekFrom,
+        cx: &mut core::task::Context<'_>,
+        offset: u64,
     ) -> Poll<std::io::Result<u64>> {
-        Pin::new(&mut self.reader).poll_seek(cx, pos)
+        Pin::new(&mut self.reader).poll_seek_forward(cx, offset)
     }
 }
 

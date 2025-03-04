@@ -6,10 +6,10 @@
 //! detail.
 //!
 //! Because `bevy_picking` is very loosely coupled with its backends, you can mix and match as
-//! many backends as you want. For example, You could use the `rapier` backend to raycast against
+//! many backends as you want. For example, you could use the `rapier` backend to raycast against
 //! physics objects, a picking shader backend to pick non-physics meshes, and the `bevy_ui` backend
-//! for your UI. The [`PointerHits`]s produced by these various backends will be combined, sorted,
-//! and used as a homogeneous input for the picking systems that consume these events.
+//! for your UI. The [`PointerHits`] instances produced by these various backends will be combined,
+//! sorted, and used as a homogeneous input for the picking systems that consume these events.
 //!
 //! ## Implementation
 //!
@@ -22,7 +22,7 @@
 //!
 //! - Backends do not need to consider the [`Pickable`](crate::Pickable) component, though they may
 //!   use it for optimization purposes. For example, a backend that traverses a spatial hierarchy
-//!   may want to early exit if it intersects an entity that blocks lower entities from being
+//!   may want to exit early if it intersects an entity that blocks lower entities from being
 //!   picked.
 //!
 //! ### Raycasting Backends
@@ -35,7 +35,9 @@ use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
 use bevy_reflect::Reflect;
 
-/// Common imports for implementing a picking backend.
+/// The picking backend prelude.
+///
+/// This includes the most common types in this module, re-exported for your convenience.
 pub mod prelude {
     pub use super::{ray::RayMap, HitData, PointerHits};
     pub use crate::{
@@ -47,10 +49,14 @@ pub mod prelude {
 /// An event produced by a picking backend after it has run its hit tests, describing the entities
 /// under a pointer.
 ///
-/// Some backends may only support providing the topmost entity; this is a valid limitation of some
-/// backends. For example, a picking shader might only have data on the topmost rendered output from
-/// its buffer.
-#[derive(Event, Debug, Clone)]
+/// Some backends may only support providing the topmost entity; this is a valid limitation. For
+/// example, a picking shader might only have data on the topmost rendered output from its buffer.
+///
+/// Note that systems reading these events in [`PreUpdate`](bevy_app::PreUpdate) will not report ordering
+/// ambiguities with picking backends. Take care to ensure such systems are explicitly ordered
+/// against [`PickSet::Backend`](crate::PickSet::Backend), or better, avoid reading `PointerHits` in `PreUpdate`.
+#[derive(Event, Debug, Clone, Reflect)]
+#[reflect(Debug)]
 pub struct PointerHits {
     /// The pointer associated with this hit test.
     pub pointer: prelude::PointerId,
@@ -78,7 +84,7 @@ pub struct PointerHits {
 }
 
 impl PointerHits {
-    #[allow(missing_docs)]
+    #[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
     pub fn new(pointer: prelude::PointerId, picks: Vec<(Entity, HitData)>, order: f32) -> Self {
         Self {
             pointer,
@@ -99,14 +105,15 @@ pub struct HitData {
     /// distance from the pointer to the hit, measured from the near plane of the camera, to the
     /// point, in world space.
     pub depth: f32,
-    /// The position of the intersection in the world, if the data is available from the backend.
+    /// The position reported by the backend, if the data is available. Position data may be in any
+    /// space (e.g. World space, Screen space, Local space), specified by the backend providing it.
     pub position: Option<Vec3>,
     /// The normal vector of the hit test, if the data is available from the backend.
     pub normal: Option<Vec3>,
 }
 
 impl HitData {
-    #[allow(missing_docs)]
+    #[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
     pub fn new(camera: Entity, depth: f32, position: Option<Vec3>, normal: Option<Vec3>) -> Self {
         Self {
             camera,
@@ -123,10 +130,10 @@ pub mod ray {
     use crate::backend::prelude::{PointerId, PointerLocation};
     use bevy_ecs::prelude::*;
     use bevy_math::Ray3d;
+    use bevy_platform_support::collections::{hash_map::Iter, HashMap};
     use bevy_reflect::Reflect;
     use bevy_render::camera::Camera;
     use bevy_transform::prelude::GlobalTransform;
-    use bevy_utils::{hashbrown::hash_map::Iter, HashMap};
     use bevy_window::PrimaryWindow;
 
     /// Identifies a ray constructed from some (pointer, camera) combination. A pointer can be over
@@ -227,6 +234,6 @@ pub mod ray {
             let viewport_logical = camera.to_logical(viewport.physical_position)?;
             viewport_pos -= viewport_logical;
         }
-        camera.viewport_to_world(camera_tfm, viewport_pos)
+        camera.viewport_to_world(camera_tfm, viewport_pos).ok()
     }
 }

@@ -1,7 +1,12 @@
 use crate::{App, Plugin};
+use alloc::{vec, vec::Vec};
 use bevy_ecs::{
-    schedule::{ExecutorKind, InternedScheduleLabel, Schedule, ScheduleLabel},
-    system::{Local, Resource},
+    resource::Resource,
+    schedule::{
+        ExecutorKind, InternedScheduleLabel, IntoSystemSetConfigs, Schedule, ScheduleLabel,
+        SystemSet,
+    },
+    system::Local,
     world::{Mut, World},
 };
 
@@ -76,6 +81,12 @@ pub struct PreUpdate;
 
 /// Runs the [`FixedMain`] schedule in a loop according until all relevant elapsed time has been "consumed".
 ///
+/// If you need to order your variable timestep systems
+/// before or after the fixed update logic, use the [`RunFixedMainLoopSystem`] system set.
+///
+/// Note that in contrast to most other Bevy schedules, systems added directly to
+/// [`RunFixedMainLoop`] will *not* be parallelized between each other.
+///
 /// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RunFixedMainLoop;
@@ -126,8 +137,8 @@ pub struct FixedLast;
 
 /// The schedule that contains systems which only run after a fixed period of time has elapsed.
 ///
-/// The exclusive `run_fixed_main_schedule` system runs this schedule.
-/// This is run by the [`RunFixedMainLoop`] schedule.
+/// This is run by the [`RunFixedMainLoop`] schedule. If you need to order your variable timestep systems
+/// before or after the fixed update logic, use the [`RunFixedMainLoopSystem`] system set.
 ///
 /// Frequency of execution is configured by inserting `Time<Fixed>` resource, 64 Hz by default.
 /// See [this example](https://github.com/bevyengine/bevy/blob/latest/examples/time/time.rs).
@@ -171,6 +182,10 @@ pub struct PostUpdate;
 /// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Last;
+
+/// Animation system set. This exists in [`PostUpdate`].
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Animation;
 
 /// Defines the schedules to be run for the [`Main`] schedule, including
 /// their order.
@@ -288,7 +303,16 @@ impl Plugin for MainSchedulePlugin {
             .init_resource::<MainScheduleOrder>()
             .init_resource::<FixedMainScheduleOrder>()
             .add_systems(Main, Main::run_main)
-            .add_systems(FixedMain, FixedMain::run_fixed_main);
+            .add_systems(FixedMain, FixedMain::run_fixed_main)
+            .configure_sets(
+                RunFixedMainLoop,
+                (
+                    RunFixedMainLoopSystem::BeforeFixedMainLoop,
+                    RunFixedMainLoopSystem::FixedMainLoop,
+                    RunFixedMainLoopSystem::AfterFixedMainLoop,
+                )
+                    .chain(),
+            );
 
         #[cfg(feature = "bevy_debug_stepping")]
         {
@@ -351,4 +375,97 @@ impl FixedMain {
             }
         });
     }
+}
+
+/// Set enum for the systems that want to run inside [`RunFixedMainLoop`],
+/// but before or after the fixed update logic. Systems in this set
+/// will run exactly once per frame, regardless of the number of fixed updates.
+/// They will also run under a variable timestep.
+///
+/// This is useful for handling things that need to run every frame, but
+/// also need to be read by the fixed update logic. See the individual variants
+/// for examples of what kind of systems should be placed in each.
+///
+/// Note that in contrast to most other Bevy schedules, systems added directly to
+/// [`RunFixedMainLoop`] will *not* be parallelized between each other.
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone, SystemSet)]
+pub enum RunFixedMainLoopSystem {
+    /// Runs before the fixed update logic.
+    ///
+    /// A good example of a system that fits here
+    /// is camera movement, which needs to be updated in a variable timestep,
+    /// as you want the camera to move with as much precision and updates as
+    /// the frame rate allows. A physics system that needs to read the camera
+    /// position and orientation, however, should run in the fixed update logic,
+    /// as it needs to be deterministic and run at a fixed rate for better stability.
+    /// Note that we are not placing the camera movement system in `Update`, as that
+    /// would mean that the physics system already ran at that point.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// App::new()
+    ///   .add_systems(
+    ///     RunFixedMainLoop,
+    ///     update_camera_rotation.in_set(RunFixedMainLoopSystem::BeforeFixedMainLoop))
+    ///   .add_systems(FixedUpdate, update_physics);
+    ///
+    /// # fn update_camera_rotation() {}
+    /// # fn update_physics() {}
+    /// ```
+    BeforeFixedMainLoop,
+    /// Contains the fixed update logic.
+    /// Runs [`FixedMain`] zero or more times based on delta of
+    /// [`Time<Virtual>`] and [`Time::overstep`].
+    ///
+    /// Don't place systems here, use [`FixedUpdate`] and friends instead.
+    /// Use this system instead to order your systems to run specifically inbetween the fixed update logic and all
+    /// other systems that run in [`RunFixedMainLoopSystem::BeforeFixedMainLoop`] or [`RunFixedMainLoopSystem::AfterFixedMainLoop`].
+    ///
+    /// [`Time<Virtual>`]: https://docs.rs/bevy/latest/bevy/prelude/struct.Virtual.html
+    /// [`Time::overstep`]: https://docs.rs/bevy/latest/bevy/time/struct.Time.html#method.overstep
+    /// # Example
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// App::new()
+    ///   .add_systems(FixedUpdate, update_physics)
+    ///   .add_systems(
+    ///     RunFixedMainLoop,
+    ///     (
+    ///       // This system will be called before all interpolation systems
+    ///       // that third-party plugins might add.
+    ///       prepare_for_interpolation
+    ///         .after(RunFixedMainLoopSystem::FixedMainLoop)
+    ///         .before(RunFixedMainLoopSystem::AfterFixedMainLoop),
+    ///     )
+    ///   );
+    ///
+    /// # fn prepare_for_interpolation() {}
+    /// # fn update_physics() {}
+    /// ```
+    FixedMainLoop,
+    /// Runs after the fixed update logic.
+    ///
+    /// A good example of a system that fits here
+    /// is a system that interpolates the transform of an entity between the last and current fixed update.
+    /// See the [fixed timestep example] for more details.
+    ///
+    /// [fixed timestep example]: https://github.com/bevyengine/bevy/blob/main/examples/movement/physics_in_fixed_timestep.rs
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// App::new()
+    ///   .add_systems(FixedUpdate, update_physics)
+    ///   .add_systems(
+    ///     RunFixedMainLoop,
+    ///     interpolate_transforms.in_set(RunFixedMainLoopSystem::AfterFixedMainLoop));
+    ///
+    /// # fn interpolate_transforms() {}
+    /// # fn update_physics() {}
+    /// ```
+    AfterFixedMainLoop,
 }

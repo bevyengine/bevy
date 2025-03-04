@@ -1,36 +1,47 @@
-//! Additional [`Gizmos`] Functions -- Rounded cuboids and rectangles
+//! Additional [`GizmoBuffer`] Functions -- Rounded cuboids and rectangles
 //!
-//! Includes the implementation of [`Gizmos::rounded_rect`], [`Gizmos::rounded_rect_2d`] and [`Gizmos::rounded_cuboid`].
+//! Includes the implementation of [`GizmoBuffer::rounded_rect`], [`GizmoBuffer::rounded_rect_2d`] and [`GizmoBuffer::rounded_cuboid`].
 //! and assorted support items.
 
-use std::f32::consts::FRAC_PI_2;
+use core::f32::consts::FRAC_PI_2;
 
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
-use bevy_math::{Quat, Vec2, Vec3};
+use bevy_math::{Isometry2d, Isometry3d, Quat, Vec2, Vec3};
 use bevy_transform::components::Transform;
 
-/// A builder returned by [`Gizmos::rounded_rect`] and [`Gizmos::rounded_rect_2d`]
-pub struct RoundedRectBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+/// A builder returned by [`GizmoBuffer::rounded_rect`] and [`GizmoBuffer::rounded_rect_2d`]
+pub struct RoundedRectBuilder<'a, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     size: Vec2,
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
     config: RoundedBoxConfig,
 }
-/// A builder returned by [`Gizmos::rounded_cuboid`]
-pub struct RoundedCuboidBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
+/// A builder returned by [`GizmoBuffer::rounded_cuboid`]
+pub struct RoundedCuboidBuilder<'a, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     size: Vec3,
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
     config: RoundedBoxConfig,
 }
 struct RoundedBoxConfig {
-    position: Vec3,
-    rotation: Quat,
+    isometry: Isometry3d,
     color: Color,
     corner_radius: f32,
     arc_resolution: u32,
 }
 
-impl<T: GizmoConfigGroup> RoundedRectBuilder<'_, '_, '_, T> {
+impl<Config, Clear> RoundedRectBuilder<'_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Change the radius of the corners to be `corner_radius`.
     /// The default corner radius is [min axis of size] / 10.0
     pub fn corner_radius(mut self, corner_radius: f32) -> Self {
@@ -45,7 +56,12 @@ impl<T: GizmoConfigGroup> RoundedRectBuilder<'_, '_, '_, T> {
         self
     }
 }
-impl<T: GizmoConfigGroup> RoundedCuboidBuilder<'_, '_, '_, T> {
+
+impl<Config, Clear> RoundedCuboidBuilder<'_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Change the radius of the edges to be `edge_radius`.
     /// The default edge radius is [min axis of size] / 10.0
     pub fn edge_radius(mut self, edge_radius: f32) -> Self {
@@ -61,7 +77,11 @@ impl<T: GizmoConfigGroup> RoundedCuboidBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for RoundedRectBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for RoundedRectBuilder<'_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
@@ -76,21 +96,20 @@ impl<T: GizmoConfigGroup> Drop for RoundedRectBuilder<'_, '_, '_, T> {
         let mut inner_half_size = outer_half_size - Vec2::splat(corner_radius);
 
         if config.corner_radius < 0. {
-            std::mem::swap(&mut outer_half_size, &mut inner_half_size);
+            core::mem::swap(&mut outer_half_size, &mut inner_half_size);
         }
 
         // Handle cases where the rectangle collapses into simpler shapes
         if outer_half_size.x * outer_half_size.y == 0. {
             self.gizmos.line(
-                config.position + config.rotation * -outer_half_size.extend(0.),
-                config.position + config.rotation * outer_half_size.extend(0.),
+                config.isometry * -outer_half_size.extend(0.),
+                config.isometry * outer_half_size.extend(0.),
                 config.color,
             );
             return;
         }
         if corner_radius == 0. {
-            self.gizmos
-                .rect(config.position, config.rotation, self.size, config.color);
+            self.gizmos.rect(config.isometry, self.size, config.color);
             return;
         }
 
@@ -112,7 +131,7 @@ impl<T: GizmoConfigGroup> Drop for RoundedRectBuilder<'_, '_, '_, T> {
             Vec3::new(-inner_half_size.x, inner_half_size.y, 0.),
             Vec3::new(-inner_half_size.x, outer_half_size.y, 0.),
         ]
-        .map(|v| config.position + config.rotation * v);
+        .map(|vec3| config.isometry * vec3);
 
         for chunk in vertices.chunks_exact(3) {
             self.gizmos
@@ -142,7 +161,11 @@ impl<T: GizmoConfigGroup> Drop for RoundedRectBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for RoundedCuboidBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for RoundedCuboidBuilder<'_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
@@ -159,8 +182,8 @@ impl<T: GizmoConfigGroup> Drop for RoundedCuboidBuilder<'_, '_, '_, T> {
 
         // Handle cases where the rounded cuboid collapses into simpler shapes
         if edge_radius == 0.0 {
-            let transform = Transform::from_translation(config.position)
-                .with_rotation(config.rotation)
+            let transform = Transform::from_translation(config.isometry.translation.into())
+                .with_rotation(config.isometry.rotation)
                 .with_scale(self.size);
             self.gizmos.cuboid(transform, config.color);
             return;
@@ -181,12 +204,10 @@ impl<T: GizmoConfigGroup> Drop for RoundedCuboidBuilder<'_, '_, '_, T> {
         ];
 
         for (position, size, rotation) in rects {
-            let world_rotation = config.rotation * rotation;
-            let local_position = config.rotation * (position * inner_half_size);
+            let local_position = position * inner_half_size;
             self.gizmos
                 .rounded_rect(
-                    config.position + local_position,
-                    world_rotation,
+                    config.isometry * Isometry3d::new(local_position, rotation),
                     size,
                     config.color,
                 )
@@ -195,8 +216,7 @@ impl<T: GizmoConfigGroup> Drop for RoundedCuboidBuilder<'_, '_, '_, T> {
 
             self.gizmos
                 .rounded_rect(
-                    config.position - local_position,
-                    world_rotation,
+                    config.isometry * Isometry3d::new(-local_position, rotation),
                     size,
                     config.color,
                 )
@@ -206,15 +226,21 @@ impl<T: GizmoConfigGroup> Drop for RoundedCuboidBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+impl<Config, Clear> GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Draw a wireframe rectangle with rounded corners in 3D.
     ///
     /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Arguments
     ///
-    /// - `position`: The center point of the rectangle.
-    /// - `rotation`: defines orientation of the rectangle, by default we assume the rectangle is contained in a plane parallel to the XY plane.
+    /// - `isometry` defines the translation and rotation of the rectangle.
+    ///   - the translation specifies the center of the rectangle
+    ///   - defines orientation of the rectangle, by default we assume the rectangle is contained in
+    ///     a plane parallel to the XY plane.
     /// - `size`: defines the size of the rectangle. This refers to the 'outer size', similar to a bounding box.
     /// - `color`: color of the rectangle
     ///
@@ -222,18 +248,16 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// - The corner radius can be adjusted with the `.corner_radius(...)` method.
     /// - The resolution of the arcs at each corner (i.e. the level of detail) can be adjusted with the
-    ///     `.arc_resolution(...)` method.
+    ///   `.arc_resolution(...)` method.
     ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::css::GREEN;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.rounded_rect(
-    ///         Vec3::ZERO,
-    ///         Quat::IDENTITY,
+    ///         Isometry3d::IDENTITY,
     ///         Vec2::ONE,
     ///         GREEN
     ///         )
@@ -244,17 +268,15 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// ```
     pub fn rounded_rect(
         &mut self,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         size: Vec2,
         color: impl Into<Color>,
-    ) -> RoundedRectBuilder<'_, 'w, 's, T> {
+    ) -> RoundedRectBuilder<'_, Config, Clear> {
         let corner_radius = size.min_element() * DEFAULT_CORNER_RADIUS;
         RoundedRectBuilder {
             gizmos: self,
             config: RoundedBoxConfig {
-                position,
-                rotation,
+                isometry: isometry.into(),
                 color: color.into(),
                 corner_radius,
                 arc_resolution: DEFAULT_ARC_RESOLUTION,
@@ -269,8 +291,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// # Arguments
     ///
-    /// - `position`: The center point of the rectangle.
-    /// - `rotation`: defines orientation of the rectangle.
+    /// - `isometry` defines the translation and rotation of the rectangle.
+    ///   - the translation specifies the center of the rectangle
+    ///   - defines orientation of the rectangle, by default we assume the rectangle aligned with all axes.
     /// - `size`: defines the size of the rectangle. This refers to the 'outer size', similar to a bounding box.
     /// - `color`: color of the rectangle
     ///
@@ -278,18 +301,16 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// - The corner radius can be adjusted with the `.corner_radius(...)` method.
     /// - The resolution of the arcs at each corner (i.e. the level of detail) can be adjusted with the
-    ///     `.arc_resolution(...)` method.
+    ///   `.arc_resolution(...)` method.
     ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::css::GREEN;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.rounded_rect_2d(
-    ///         Vec2::ZERO,
-    ///         0.,
+    ///         Isometry2d::IDENTITY,
     ///         Vec2::ONE,
     ///         GREEN
     ///         )
@@ -300,17 +321,19 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// ```
     pub fn rounded_rect_2d(
         &mut self,
-        position: Vec2,
-        rotation: f32,
+        isometry: impl Into<Isometry2d>,
         size: Vec2,
         color: impl Into<Color>,
-    ) -> RoundedRectBuilder<'_, 'w, 's, T> {
+    ) -> RoundedRectBuilder<'_, Config, Clear> {
+        let isometry = isometry.into();
         let corner_radius = size.min_element() * DEFAULT_CORNER_RADIUS;
         RoundedRectBuilder {
             gizmos: self,
             config: RoundedBoxConfig {
-                position: position.extend(0.),
-                rotation: Quat::from_rotation_z(rotation),
+                isometry: Isometry3d::new(
+                    isometry.translation.extend(0.0),
+                    Quat::from_rotation_z(isometry.rotation.as_radians()),
+                ),
                 color: color.into(),
                 corner_radius,
                 arc_resolution: DEFAULT_ARC_RESOLUTION,
@@ -325,8 +348,9 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// # Arguments
     ///
-    /// - `position`: The center point of the cuboid.
-    /// - `rotation`: defines orientation of the cuboid.
+    /// - `isometry` defines the translation and rotation of the cuboid.
+    ///   - the translation specifies the center of the cuboid
+    ///   - defines orientation of the cuboid, by default we assume the cuboid aligned with all axes.
     /// - `size`: defines the size of the cuboid. This refers to the 'outer size', similar to a bounding box.
     /// - `color`: color of the cuboid
     ///
@@ -334,18 +358,16 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// - The edge radius can be adjusted with the `.edge_radius(...)` method.
     /// - The resolution of the arcs at each edge (i.e. the level of detail) can be adjusted with the
-    ///     `.arc_resolution(...)` method.
+    ///   `.arc_resolution(...)` method.
     ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::css::GREEN;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.rounded_cuboid(
-    ///         Vec3::ZERO,
-    ///         Quat::IDENTITY,
+    ///         Isometry3d::IDENTITY,
     ///         Vec3::ONE,
     ///         GREEN
     ///         )
@@ -356,17 +378,15 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// ```
     pub fn rounded_cuboid(
         &mut self,
-        position: Vec3,
-        rotation: Quat,
+        isometry: impl Into<Isometry3d>,
         size: Vec3,
         color: impl Into<Color>,
-    ) -> RoundedCuboidBuilder<'_, 'w, 's, T> {
+    ) -> RoundedCuboidBuilder<'_, Config, Clear> {
         let corner_radius = size.min_element() * DEFAULT_CORNER_RADIUS;
         RoundedCuboidBuilder {
             gizmos: self,
             config: RoundedBoxConfig {
-                position,
-                rotation,
+                isometry: isometry.into(),
                 color: color.into(),
                 corner_radius,
                 arc_resolution: DEFAULT_ARC_RESOLUTION,

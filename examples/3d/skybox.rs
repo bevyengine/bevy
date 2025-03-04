@@ -4,13 +4,12 @@
 mod camera_controller;
 
 use bevy::{
-    asset::LoadState,
     core_pipeline::Skybox,
+    image::CompressedImageFormats,
     prelude::*,
     render::{
         render_resource::{TextureViewDescriptor, TextureViewDimension},
         renderer::RenderDevice,
-        texture::CompressedImageFormats,
     },
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
@@ -58,40 +57,39 @@ struct Cubemap {
     image_handle: Handle<Image>,
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut images: ResMut<Assets<Image>>,
+) {
     // directional 'sun' light
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 32000.0,
             ..default()
         },
-        transform: Transform::from_xyz(0.0, 2.0, 0.0)
-            .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-        ..default()
-    });
+        Transform::from_xyz(0.0, 2.0, 0.0).with_rotation(Quat::from_rotation_x(-PI / 4.)),
+    ));
 
     let skybox_handle = asset_server.load(CUBEMAPS[0].0);
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         CameraController::default(),
         Skybox {
             image: skybox_handle.clone(),
             brightness: 1000.0,
             ..default()
         },
+        // This should ideally be using a convolved environment map for diffuse, but for simplicity
+        // we're just using a solid color here.
+        EnvironmentMapLight {
+            intensity: 1.0,
+            specular_map: skybox_handle.clone(),
+            ..EnvironmentMapLight::solid_color(&mut images, Color::srgb_u8(210, 220, 240))
+        },
     ));
-
-    // ambient light
-    // NOTE: The ambient light is used to scale how bright the environment map is so with a bright
-    // environment map, use an appropriate color and brightness to match
-    commands.insert_resource(AmbientLight {
-        color: Color::srgb_u8(210, 220, 240),
-        brightness: 1.0,
-    });
 
     commands.insert_resource(Cubemap {
         is_loaded: false,
@@ -109,7 +107,7 @@ fn cycle_cubemap_asset(
     asset_server: Res<AssetServer>,
     render_device: Res<RenderDevice>,
 ) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     if *next_swap == 0.0 {
         *next_swap = now + CUBEMAP_SWAP_DELAY;
         return;
@@ -127,7 +125,10 @@ fn cycle_cubemap_asset(
         if supported_compressed_formats.contains(CUBEMAPS[new_index].1) {
             break;
         }
-        info!("Skipping unsupported format: {:?}", CUBEMAPS[new_index]);
+        info!(
+            "Skipping format which is not supported by current hardware: {:?}",
+            CUBEMAPS[new_index]
+        );
     }
 
     // Skip swapping to the same texture. Useful for when ktx2, zstd, or compressed texture support
@@ -147,7 +148,7 @@ fn asset_loaded(
     mut cubemap: ResMut<Cubemap>,
     mut skyboxes: Query<&mut Skybox>,
 ) {
-    if !cubemap.is_loaded && asset_server.load_state(&cubemap.image_handle) == LoadState::Loaded {
+    if !cubemap.is_loaded && asset_server.load_state(&cubemap.image_handle).is_loaded() {
         info!("Swapping to {}...", CUBEMAPS[cubemap.index].0);
         let image = images.get_mut(&cubemap.image_handle).unwrap();
         // NOTE: PNGs do not have any metadata that could indicate they contain a cubemap texture,
@@ -173,6 +174,6 @@ fn animate_light_direction(
     mut query: Query<&mut Transform, With<DirectionalLight>>,
 ) {
     for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() * 0.5);
+        transform.rotate_y(time.delta_secs() * 0.5);
     }
 }

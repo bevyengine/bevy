@@ -1,5 +1,7 @@
-use crate::commands::{DocCheckCommand, DocTestCommand};
-use crate::{Flag, Prepare, PreparedCommand};
+use crate::{
+    commands::{DocCheckCommand, DocTestCommand},
+    Flag, Prepare, PreparedCommand,
+};
 use argh::FromArgs;
 
 /// Alias for running the `doc-test` and `doc-check` subcommands.

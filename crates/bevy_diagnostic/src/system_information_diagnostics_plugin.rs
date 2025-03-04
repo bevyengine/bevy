@@ -1,6 +1,7 @@
 use crate::DiagnosticPath;
+use alloc::string::String;
 use bevy_app::prelude::*;
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
@@ -56,19 +57,23 @@ pub struct SystemInfo {
         target_os = "android",
         target_os = "macos"
     ),
-    not(feature = "dynamic_linking")
+    not(feature = "dynamic_linking"),
+    feature = "std",
 ))]
 pub mod internal {
-    use bevy_ecs::{prelude::ResMut, system::Local};
-    use std::{
-        sync::{Arc, Mutex},
-        time::Instant,
+    use alloc::{
+        format,
+        string::{String, ToString},
+        sync::Arc,
+        vec::Vec,
     };
-
     use bevy_app::{App, First, Startup, Update};
-    use bevy_ecs::system::Resource;
+    use bevy_ecs::resource::Resource;
+    use bevy_ecs::{prelude::ResMut, system::Local};
+    use bevy_platform_support::time::Instant;
     use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
-    use bevy_utils::tracing::info;
+    use log::info;
+    use std::sync::Mutex;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
     use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
@@ -110,8 +115,8 @@ pub mod internal {
     ) {
         let sysinfo = sysinfo.get_or_insert_with(|| {
             Arc::new(Mutex::new(System::new_with_specifics(
-                RefreshKind::new()
-                    .with_cpu(CpuRefreshKind::new().with_cpu_usage())
+                RefreshKind::nothing()
+                    .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
                     .with_memory(MemoryRefreshKind::everything()),
             )))
         });
@@ -121,7 +126,7 @@ pub mod internal {
         let thread_pool = AsyncComputeTaskPool::get();
 
         // Only queue a new system refresh task when necessary
-        // Queueing earlier than that will not give new data
+        // Queuing earlier than that will not give new data
         if last_refresh.elapsed() > sysinfo::MINIMUM_CPU_UPDATE_INTERVAL
             // These tasks don't yield and will take up all of the task pool's
             // threads if we don't limit their amount.
@@ -131,7 +136,7 @@ pub mod internal {
             let task = thread_pool.spawn(async move {
                 let mut sys = sys.lock().unwrap();
 
-                sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
+                sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
                 sys.refresh_memory();
                 let current_cpu_usage = sys.global_cpu_usage().into();
                 // `memory()` fns return a value in bytes
@@ -168,9 +173,9 @@ pub mod internal {
     impl Default for SystemInfo {
         fn default() -> Self {
             let sys = System::new_with_specifics(
-                RefreshKind::new()
-                    .with_cpu(CpuRefreshKind::new())
-                    .with_memory(MemoryRefreshKind::new().with_ram()),
+                RefreshKind::nothing()
+                    .with_cpu(CpuRefreshKind::nothing())
+                    .with_memory(MemoryRefreshKind::nothing().with_ram()),
             );
 
             let system_info = SystemInfo {
@@ -202,9 +207,11 @@ pub mod internal {
         target_os = "android",
         target_os = "macos"
     ),
-    not(feature = "dynamic_linking")
+    not(feature = "dynamic_linking"),
+    feature = "std",
 )))]
 pub mod internal {
+    use alloc::string::ToString;
     use bevy_app::{App, Startup};
 
     pub(super) fn setup_plugin(app: &mut App) {
@@ -212,7 +219,7 @@ pub mod internal {
     }
 
     fn setup_system() {
-        bevy_utils::tracing::warn!("This platform and/or configuration is not supported!");
+        log::warn!("This platform and/or configuration is not supported!");
     }
 
     impl Default for super::SystemInfo {

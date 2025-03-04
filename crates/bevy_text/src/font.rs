@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use bevy_asset::Asset;
 use bevy_reflect::TypePath;

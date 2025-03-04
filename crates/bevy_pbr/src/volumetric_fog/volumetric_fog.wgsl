@@ -15,9 +15,20 @@
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 #import bevy_pbr::mesh_functions::{get_world_from_local, mesh_position_local_to_clip}
-#import bevy_pbr::mesh_view_bindings::{globals, lights, view}
-#import bevy_pbr::mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT
-#import bevy_pbr::shadow_sampling::sample_shadow_map_hardware
+#import bevy_pbr::mesh_view_bindings::{globals, lights, view, clusterable_objects}
+#import bevy_pbr::mesh_view_types::{
+    DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT, 
+    POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT, 
+    POINT_LIGHT_FLAGS_VOLUMETRIC_BIT,
+    POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
+    ClusterableObject
+}
+#import bevy_pbr::shadow_sampling::{
+    sample_shadow_map_hardware, 
+    sample_shadow_cubemap,
+    sample_shadow_map,
+    SPOT_SHADOW_TEXEL_SIZE
+}
 #import bevy_pbr::shadows::{get_cascade_index, world_to_directional_light_local}
 #import bevy_pbr::utils::interleaved_gradient_noise
 #import bevy_pbr::view_transformations::{
@@ -27,8 +38,10 @@
     position_ndc_to_world,
     position_view_to_world
 }
+#import bevy_pbr::clustered_forward as clustering
+#import bevy_pbr::lighting::getDistanceAttenuation;
 
-// The GPU version of [`VolumetricFogSettings`]. See the comments in
+// The GPU version of [`VolumetricFog`]. See the comments in
 // `volumetric_fog/mod.rs` for descriptions of the fields here.
 struct VolumetricFog {
     clip_from_local: mat4x4<f32>,
@@ -43,6 +56,7 @@ struct VolumetricFog {
     absorption: f32,
     scattering: f32,
     density_factor: f32,
+    density_texture_offset: vec3<f32>,
     scattering_asymmetry: f32,
     light_intensity: f32,
     jitter_strength: f32,
@@ -101,6 +115,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let absorption = volumetric_fog.absorption;
     let scattering = volumetric_fog.scattering;
     let density_factor = volumetric_fog.density_factor;
+    let density_texture_offset = volumetric_fog.density_texture_offset;
     let light_tint = volumetric_fog.light_tint;
     let light_intensity = volumetric_fog.light_intensity;
     let jitter_strength = volumetric_fog.jitter_strength;
@@ -236,7 +251,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             // case.
             let P_uvw = Ro_uvw + Rd_step_uvw * f32(step);
             if (all(P_uvw >= vec3(0.0)) && all(P_uvw <= vec3(1.0))) {
-                density *= textureSample(density_texture, density_sampler, P_uvw).r;
+                density *= textureSample(density_texture, density_sampler, P_uvw + density_texture_offset).r;
             } else {
                 density = 0.0;
             }
@@ -290,7 +305,182 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         }
     }
 
+    // Point lights and Spot lights
+    let view_z = view_start_pos.z;
+    let is_orthographic = view.clip_from_view[3].w == 1.0;
+    let cluster_index = clustering::fragment_cluster_index(frag_coord.xy, view_z, is_orthographic);
+    var clusterable_object_index_ranges =
+        clustering::unpack_clusterable_object_index_ranges(cluster_index);
+    for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
+            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
+            i = i + 1u) {
+        let light_id = clustering::get_clusterable_object_id(i);
+        let light = &clusterable_objects.data[light_id];
+        if (((*light).flags & POINT_LIGHT_FLAGS_VOLUMETRIC_BIT) == 0) {
+            continue;
+        }
+
+        // Reset `background_alpha` for a new raymarch.
+        background_alpha = 1.0;
+
+        // Start raymarching.
+        for (var step = 0u; step < step_count; step += 1u) {
+            // As an optimization, break if we've gotten too dark.
+            if (background_alpha < 0.001) {
+                break;
+            }
+
+            // Calculate where we are in the ray.
+            let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
+            let P_view = Rd_view * f32(step) * step_size_world;
+
+            var density = density_factor;
+
+            let light_to_frag = (*light).position_radius.xyz - P_world;
+            let V = Rd_world;
+            let L = normalize(light_to_frag);
+            let distance_square = dot(light_to_frag, light_to_frag);
+            let distance_atten = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
+            var local_light_attenuation = distance_atten;
+            if (i < clusterable_object_index_ranges.first_spot_light_index_offset) {
+                var shadow: f32 = 1.0;
+                if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                    shadow = fetch_point_shadow_without_normal(light_id, vec4(P_world, 1.0));
+                }
+                local_light_attenuation *= shadow;
+            } else {
+                // spot light attenuation
+                // reconstruct spot dir from x/z and y-direction flag
+                var spot_dir = vec3<f32>((*light).light_custom_data.x, 0.0, (*light).light_custom_data.y);
+                spot_dir.y = sqrt(max(0.0, 1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z));
+                if ((*light).flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u {
+                    spot_dir.y = -spot_dir.y;
+                }
+                let light_to_frag = (*light).position_radius.xyz - P_world;
+
+                // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
+                // spot_scale and spot_offset have been precomputed
+                // note we normalize here to get "l" from the filament listing. spot_dir is already normalized
+                let cd = dot(-spot_dir, normalize(light_to_frag));
+                let attenuation = saturate(cd * (*light).light_custom_data.z + (*light).light_custom_data.w);
+                let spot_attenuation = attenuation * attenuation;
+
+                var shadow: f32 = 1.0;
+                if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                    shadow = fetch_spot_shadow_without_normal(light_id, vec4(P_world, 1.0));
+                }
+                local_light_attenuation *= spot_attenuation * shadow;
+            }
+            
+            // Calculate absorption (amount of light absorbed by the fog) and
+            // out-scattering (amount of light the fog scattered away).
+            let sample_attenuation = exp(-step_size_world * density * (absorption + scattering));
+
+            // Process absorption and out-scattering.
+            background_alpha *= sample_attenuation;
+
+            let light_attenuation = exp(-density * bounding_radius * (absorption + scattering));
+            let light_factors_per_step = fog_color * light_tint * light_attenuation *
+                scattering * density * step_size_world * light_intensity * 0.1;
+
+            // Modulate the factor we calculated above by the phase, fog color,
+            // light color, light tint.
+            let light_color_per_step = (*light).color_inverse_square_range.rgb * light_factors_per_step;
+
+            // Accumulate the light.
+            accumulated_color += light_color_per_step * local_light_attenuation *
+                background_alpha;
+        }
+    }
+
     // We're done! Return the color with alpha so it can be blended onto the
     // render target.
     return vec4(accumulated_color, 1.0 - background_alpha);
+}
+
+fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> f32 {
+    let light = &clusterable_objects.data[light_id];
+
+    // because the shadow maps align with the axes and the frustum planes are at 45 degrees
+    // we can get the worldspace depth by taking the largest absolute axis
+    let surface_to_light = (*light).position_radius.xyz - frag_position.xyz;
+    let surface_to_light_abs = abs(surface_to_light);
+    let distance_to_light = max(surface_to_light_abs.x, max(surface_to_light_abs.y, surface_to_light_abs.z));
+
+    // The normal bias here is already scaled by the texel size at 1 world unit from the light.
+    // The texel size increases proportionally with distance from the light so multiplying by
+    // distance to light scales the normal bias to the texel size at the fragment distance.
+    let depth_offset = (*light).shadow_depth_bias * normalize(surface_to_light.xyz);
+    let offset_position = frag_position.xyz + depth_offset;
+
+    // similar largest-absolute-axis trick as above, but now with the offset fragment position
+    let frag_ls = offset_position.xyz - (*light).position_radius.xyz ;
+    let abs_position_ls = abs(frag_ls);
+    let major_axis_magnitude = max(abs_position_ls.x, max(abs_position_ls.y, abs_position_ls.z));
+
+    // NOTE: These simplifications come from multiplying:
+    // projection * vec4(0, 0, -major_axis_magnitude, 1.0)
+    // and keeping only the terms that have any impact on the depth.
+    // Projection-agnostic approach:
+    let zw = -major_axis_magnitude * (*light).light_custom_data.xy + (*light).light_custom_data.zw;
+    let depth = zw.x / zw.y;
+
+    // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed coordinate space,
+    // so we have to flip the z-axis when sampling.
+    let flip_z = vec3(1.0, 1.0, -1.0);
+    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id);
+}
+
+fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> f32 {
+    let light = &clusterable_objects.data[light_id];
+
+    let surface_to_light = (*light).position_radius.xyz - frag_position.xyz;
+
+    // construct the light view matrix
+    var spot_dir = vec3<f32>((*light).light_custom_data.x, 0.0, (*light).light_custom_data.y);
+    // reconstruct spot dir from x/z and y-direction flag
+    spot_dir.y = sqrt(max(0.0, 1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z));
+    if (((*light).flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u) {
+        spot_dir.y = -spot_dir.y;
+    }
+
+    // view matrix z_axis is the reverse of transform.forward()
+    let fwd = -spot_dir;
+    let offset_position =
+        -surface_to_light
+        + ((*light).shadow_depth_bias * normalize(surface_to_light));
+
+    // the construction of the up and right vectors needs to precisely mirror the code
+    // in render/light.rs:spot_light_view_matrix
+    var sign = -1.0;
+    if (fwd.z >= 0.0) {
+        sign = 1.0;
+    }
+    let a = -1.0 / (fwd.z + sign);
+    let b = fwd.x * fwd.y * a;
+    let up_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
+    let right_dir = vec3<f32>(-b, -sign - fwd.y * fwd.y * a, fwd.y);
+    let light_inv_rot = mat3x3<f32>(right_dir, up_dir, fwd);
+
+    // because the matrix is a pure rotation matrix, the inverse is just the transpose, and to calculate
+    // the product of the transpose with a vector we can just post-multiply instead of pre-multiplying.
+    // this allows us to keep the matrix construction code identical between CPU and GPU.
+    let projected_position = offset_position * light_inv_rot;
+
+    // divide xy by perspective matrix "f" and by -projected.z (projected.z is -projection matrix's w)
+    // to get ndc coordinates
+    let f_div_minus_z = 1.0 / ((*light).spot_light_tan_angle * -projected_position.z);
+    let shadow_xy_ndc = projected_position.xy * f_div_minus_z;
+    // convert to uv coordinates
+    let shadow_uv = shadow_xy_ndc * vec2<f32>(0.5, -0.5) + vec2<f32>(0.5, 0.5);
+
+    // 0.1 must match POINT_LIGHT_NEAR_Z
+    let depth = 0.1 / -projected_position.z;
+
+    return sample_shadow_map(
+        shadow_uv,
+        depth,
+        i32(light_id) + lights.spot_light_shadowmap_offset,
+        SPOT_SHADOW_TEXEL_SIZE
+    );
 }

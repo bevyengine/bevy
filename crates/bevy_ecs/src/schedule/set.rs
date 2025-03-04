@@ -1,7 +1,10 @@
-use std::any::TypeId;
-use std::fmt::Debug;
-use std::hash::{Hash, Hasher};
-use std::marker::PhantomData;
+use alloc::boxed::Box;
+use core::{
+    any::TypeId,
+    fmt::Debug,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+};
 
 pub use crate::label::DynEq;
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
@@ -17,12 +20,18 @@ use crate::{
 
 define_label!(
     /// A strongly-typed class of labels used to identify a [`Schedule`](crate::schedule::Schedule).
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(ScheduleLabel)]`"
+    )]
     ScheduleLabel,
     SCHEDULE_LABEL_INTERNER
 );
 
 define_label!(
     /// Types that identify logical groups of systems.
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(SystemSet)]`"
+    )]
     SystemSet,
     SYSTEM_SET_INTERNER,
     extra_methods: {
@@ -67,9 +76,9 @@ impl<T: 'static> SystemTypeSet<T> {
 }
 
 impl<T> Debug for SystemTypeSet<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("SystemTypeSet")
-            .field(&format_args!("fn {}()", &std::any::type_name::<T>()))
+            .field(&format_args!("fn {}()", &core::any::type_name::<T>()))
             .finish()
     }
 }
@@ -149,6 +158,12 @@ impl SystemSet for AnonymousSet {
 }
 
 /// Types that can be converted into a [`SystemSet`].
+///
+/// # Usage notes
+///
+/// This trait should only be used as a bound for trait implementations or as an
+/// argument to a function. If a system set needs to be returned from a function
+/// or stored somewhere, use [`SystemSet`] instead of this trait.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a system set",
     label = "invalid system set"
@@ -202,15 +217,15 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
+        resource::Resource,
         schedule::{tests::ResMut, Schedule},
-        system::Resource,
     };
 
     use super::*;
 
     #[test]
     fn test_schedule_label() {
-        use crate::{self as bevy_ecs, world::World};
+        use crate::world::World;
 
         #[derive(Resource)]
         struct Flag(bool);
@@ -242,8 +257,6 @@ mod tests {
 
     #[test]
     fn test_derive_schedule_label() {
-        use crate::{self as bevy_ecs};
-
         #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct UnitLabel;
 
@@ -344,8 +357,6 @@ mod tests {
 
     #[test]
     fn test_derive_system_set() {
-        use crate::{self as bevy_ecs};
-
         #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct UnitSet;
 

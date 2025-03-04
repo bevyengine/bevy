@@ -6,33 +6,35 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
-use bevy_utils::tracing::{error, info, warn};
+use bevy_input::keyboard::KeyboardFocusLost;
 use bevy_window::{
     ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
-    WindowClosing, WindowCreated, WindowMode, WindowResized, WindowWrapper,
+    WindowClosing, WindowCreated, WindowFocused, WindowMode, WindowResized, WindowWrapper,
+};
+use tracing::{error, info, warn};
+
+use winit::{
+    dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
+    event_loop::ActiveEventLoop,
 };
 
-use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
-use winit::event_loop::ActiveEventLoop;
-
 use bevy_app::AppExit;
-use bevy_ecs::prelude::EventReader;
-use bevy_ecs::query::With;
-use bevy_ecs::system::Res;
+use bevy_ecs::{prelude::EventReader, query::With, system::Res};
 use bevy_math::{IVec2, UVec2};
 #[cfg(target_os = "ios")]
 use winit::platform::ios::WindowExtIOS;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
-use crate::state::react_to_resize;
-use crate::winit_monitors::WinitMonitors;
 use crate::{
     converters::{
-        convert_enabled_buttons, convert_window_level, convert_window_theme, convert_winit_theme,
+        convert_enabled_buttons, convert_resize_direction, convert_window_level,
+        convert_window_theme, convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, select_monitor, CreateMonitorParams,
-    CreateWindowParams, WinitWindows,
+    get_best_videomode, get_fitting_videomode, select_monitor,
+    state::react_to_resize,
+    winit_monitors::WinitMonitors,
+    CreateMonitorParams, CreateWindowParams, WinitWindows,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
@@ -40,7 +42,6 @@ use crate::{
 ///
 /// If any of these entities are missing required components, those will be added with their
 /// default values.
-#[allow(clippy::too_many_arguments)]
 pub fn create_windows<F: QueryFilter + 'static>(
     event_loop: &ActiveEventLoop,
     (
@@ -59,11 +60,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
             continue;
         }
 
-        info!(
-            "Creating new window {:?} ({:?})",
-            window.title.as_str(),
-            entity
-        );
+        info!("Creating new window {} ({})", window.title.as_str(), entity);
 
         let winit_window = winit_windows.create_window(
             event_loop,
@@ -88,8 +85,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
         });
 
         if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
-            let mut entity = commands.entity(entity);
-            entity.insert(handle_wrapper.clone());
+            commands.entity(entity).insert(handle_wrapper.clone());
             if let Some(handle_holder) = handle_holder {
                 *handle_holder.0.lock().unwrap() = Some(handle_wrapper);
             }
@@ -119,7 +115,27 @@ pub fn create_windows<F: QueryFilter + 'static>(
             }
         }
 
-        window_created_events.send(WindowCreated { window: entity });
+        window_created_events.write(WindowCreated { window: entity });
+    }
+}
+
+/// Check whether keyboard focus was lost. This is different from window
+/// focus in that swapping between Bevy windows keeps window focus.
+pub(crate) fn check_keyboard_focus_lost(
+    mut focus_events: EventReader<WindowFocused>,
+    mut keyboard_focus: EventWriter<KeyboardFocusLost>,
+) {
+    let mut focus_lost = false;
+    let mut focus_gained = false;
+    for e in focus_events.read() {
+        if e.focused {
+            focus_gained = true;
+        } else {
+            focus_lost = true;
+        }
+    }
+    if focus_lost & !focus_gained {
+        keyboard_focus.write(KeyboardFocusLost);
     }
 }
 
@@ -178,7 +194,7 @@ pub fn create_monitors(
             idx += 1;
             true
         } else {
-            info!("Monitor removed {:?}", entity);
+            info!("Monitor removed {}", entity);
             commands.entity(*entity).despawn();
             idx += 1;
             false
@@ -186,7 +202,6 @@ pub fn create_monitors(
     });
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn despawn_windows(
     closing: Query<Entity, With<ClosingWindow>>,
     mut closed: RemovedComponents<Window>,
@@ -200,10 +215,10 @@ pub(crate) fn despawn_windows(
     // Drop all the windows that are waiting to be closed
     windows_to_drop.clear();
     for window in closing.iter() {
-        closing_events.send(WindowClosing { window });
+        closing_events.write(WindowClosing { window });
     }
     for window in closed.read() {
-        info!("Closing window {:?}", window);
+        info!("Closing window {}", window);
         // Guard to verify that the window is in fact actually gone,
         // rather than having the component added
         // and removed in the same frame.
@@ -215,7 +230,7 @@ pub(crate) fn despawn_windows(
                 // Keeping the wrapper and dropping it next frame in this system ensure its dropped in the main thread
                 windows_to_drop.push(window);
             }
-            closed_events.send(WindowClosed { window });
+            closed_events.write(WindowClosed { window });
         }
     }
 
@@ -224,7 +239,7 @@ pub(crate) fn despawn_windows(
     if !exit_events.is_empty() {
         exit_events.clear();
         for window in window_entities.iter() {
-            closing_events.send(WindowClosing { window });
+            closing_events.write(WindowClosing { window });
         }
     }
 }
@@ -359,13 +374,16 @@ pub(crate) fn changed_windows(
                 let position = PhysicalPosition::new(physical_position.x, physical_position.y);
 
                 if let Err(err) = winit_window.set_cursor_position(position) {
-                    error!("could not set cursor position: {:?}", err);
+                    error!("could not set cursor position: {}", err);
                 }
             }
         }
 
-        if window.cursor_options.grab_mode != cache.window.cursor_options.grab_mode {
-            crate::winit_windows::attempt_grab(winit_window, window.cursor_options.grab_mode);
+        if window.cursor_options.grab_mode != cache.window.cursor_options.grab_mode
+            && crate::winit_windows::attempt_grab(winit_window, window.cursor_options.grab_mode)
+                .is_err()
+        {
+            window.cursor_options.grab_mode = cache.window.cursor_options.grab_mode;
         }
 
         if window.cursor_options.visible != cache.window.cursor_options.visible {
@@ -376,7 +394,7 @@ pub(crate) fn changed_windows(
             if let Err(err) = winit_window.set_cursor_hittest(window.cursor_options.hit_test) {
                 window.cursor_options.hit_test = cache.window.cursor_options.hit_test;
                 warn!(
-                    "Could not set cursor hit test for window {:?}: {:?}",
+                    "Could not set cursor hit test for window {}: {}",
                     window.title, err
                 );
             }
@@ -440,6 +458,20 @@ pub(crate) fn changed_windows(
 
         if let Some(minimized) = window.internal.take_minimize_request() {
             winit_window.set_minimized(minimized);
+        }
+
+        if window.internal.take_move_request() {
+            if let Err(e) = winit_window.drag_window() {
+                warn!("Winit returned an error while attempting to drag the window: {e}");
+            }
+        }
+
+        if let Some(resize_direction) = window.internal.take_resize_request() {
+            if let Err(e) =
+                winit_window.drag_resize_window(convert_resize_direction(resize_direction))
+            {
+                warn!("Winit returned an error while attempting to drag resize the window: {e}");
+            }
         }
 
         if window.focused != cache.window.focused && window.focused {
@@ -506,8 +538,15 @@ pub(crate) fn changed_windows(
                     _ => winit_window.recognize_pan_gesture(false, 0, 0),
                 }
             }
-        }
 
+            if window.prefers_home_indicator_hidden != cache.window.prefers_home_indicator_hidden {
+                winit_window
+                    .set_prefers_home_indicator_hidden(window.prefers_home_indicator_hidden);
+            }
+            if window.prefers_status_bar_hidden != cache.window.prefers_status_bar_hidden {
+                winit_window.set_prefers_status_bar_hidden(window.prefers_status_bar_hidden);
+            }
+        }
         cache.window = window.clone();
     }
 }

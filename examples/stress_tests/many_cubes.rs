@@ -20,7 +20,7 @@ use bevy::{
         batching::NoAutomaticBatching,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        view::{GpuCulling, NoCpuCulling, NoFrustumCulling},
+        view::{NoCpuCulling, NoFrustumCulling, NoIndirectDrawing},
     },
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -59,9 +59,9 @@ struct Args {
     #[argh(switch)]
     no_automatic_batching: bool,
 
-    /// whether to enable GPU culling.
+    /// whether to disable indirect drawing.
     #[argh(switch)]
-    gpu_culling: bool,
+    no_indirect_drawing: bool,
 
     /// whether to disable CPU culling.
     #[argh(switch)]
@@ -70,6 +70,10 @@ struct Args {
     /// whether to enable directional light cascaded shadow mapping.
     #[argh(switch)]
     shadows: bool,
+
+    /// animate the cube materials by updating the material from the cpu each frame
+    #[argh(switch)]
+    animate_materials: bool,
 }
 
 #[derive(Default, Clone)]
@@ -87,8 +91,7 @@ impl FromStr for Layout {
             "cube" => Ok(Self::Cube),
             "sphere" => Ok(Self::Sphere),
             _ => Err(format!(
-                "Unknown layout value: '{}', valid options: 'cube', 'sphere'",
-                s
+                "Unknown layout value: '{s}', valid options: 'cube', 'sphere'"
             )),
         }
     }
@@ -101,28 +104,31 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     let args = Args::from_args(&[], &[]).unwrap();
 
-    App::new()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    present_mode: PresentMode::AutoNoVsync,
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
-                    ..default()
-                }),
+    let mut app = App::new();
+    app.add_plugins((
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: PresentMode::AutoNoVsync,
+                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
-            LogDiagnosticsPlugin::default(),
-        ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
-        .insert_resource(args)
-        .add_systems(Startup, setup)
-        .add_systems(Update, (move_camera, print_mesh_count))
-        .run();
+            ..default()
+        }),
+        FrameTimeDiagnosticsPlugin::default(),
+        LogDiagnosticsPlugin::default(),
+    ))
+    .insert_resource(WinitSettings {
+        focused_mode: UpdateMode::Continuous,
+        unfocused_mode: UpdateMode::Continuous,
+    })
+    .add_systems(Startup, setup)
+    .add_systems(Update, (move_camera, print_mesh_count));
+
+    if args.animate_materials {
+        app.add_systems(Update, update_materials);
+    }
+
+    app.insert_resource(args).run();
 }
 
 const WIDTH: usize = 200;
@@ -163,26 +169,22 @@ fn setup(
                     fibonacci_spiral_on_sphere(golden_ratio, i, N_POINTS);
                 let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
                 let (mesh, transform) = meshes.choose(&mut material_rng).unwrap();
-                let mut cube = commands.spawn(PbrBundle {
-                    mesh: mesh.clone(),
-                    material: materials.choose(&mut material_rng).unwrap().clone(),
-                    transform: Transform::from_translation((radius * unit_sphere_p).as_vec3())
-                        .looking_at(Vec3::ZERO, Vec3::Y)
-                        .mul_transform(*transform),
-                    ..default()
-                });
-                if args.no_frustum_culling {
-                    cube.insert(NoFrustumCulling);
-                }
-                if args.no_automatic_batching {
-                    cube.insert(NoAutomaticBatching);
-                }
+                commands
+                    .spawn((
+                        Mesh3d(mesh.clone()),
+                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        Transform::from_translation((radius * unit_sphere_p).as_vec3())
+                            .looking_at(Vec3::ZERO, Vec3::Y)
+                            .mul_transform(*transform),
+                    ))
+                    .insert_if(NoFrustumCulling, || args.no_frustum_culling)
+                    .insert_if(NoAutomaticBatching, || args.no_automatic_batching);
             }
 
             // camera
-            let mut camera = commands.spawn(Camera3dBundle::default());
-            if args.gpu_culling {
-                camera.insert(GpuCulling);
+            let mut camera = commands.spawn(Camera3d::default());
+            if args.no_indirect_drawing {
+                camera.insert(NoIndirectDrawing);
             }
             if args.no_cpu_culling {
                 camera.insert(NoCpuCulling);
@@ -190,12 +192,9 @@ fn setup(
 
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
-                PbrBundle {
-                    mesh: mesh_assets.add(Cuboid::from_size(Vec3::splat(radius as f32 * 2.2))),
-                    material: material_assets.add(StandardMaterial::from(Color::WHITE)),
-                    transform: Transform::from_scale(-Vec3::ONE),
-                    ..default()
-                },
+                Mesh3d(mesh_assets.add(Cuboid::from_size(Vec3::splat(radius as f32 * 2.2)))),
+                MeshMaterial3d(material_assets.add(StandardMaterial::from(Color::WHITE))),
+                Transform::from_scale(-Vec3::ONE),
                 NotShadowCaster,
             ));
         }
@@ -210,63 +209,52 @@ fn setup(
                         continue;
                     }
                     // cube
-                    commands.spawn(PbrBundle {
-                        mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
-                        material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz((x as f32) * scale, (y as f32) * scale, 0.0),
-                        ..default()
-                    });
-                    commands.spawn(PbrBundle {
-                        mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
-                        material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz(
+                    commands.spawn((
+                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        Transform::from_xyz((x as f32) * scale, (y as f32) * scale, 0.0),
+                    ));
+                    commands.spawn((
+                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        Transform::from_xyz(
                             (x as f32) * scale,
                             HEIGHT as f32 * scale,
                             (y as f32) * scale,
                         ),
-                        ..default()
-                    });
-                    commands.spawn(PbrBundle {
-                        mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
-                        material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz((x as f32) * scale, 0.0, (y as f32) * scale),
-                        ..default()
-                    });
-                    commands.spawn(PbrBundle {
-                        mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
-                        material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz(0.0, (x as f32) * scale, (y as f32) * scale),
-                        ..default()
-                    });
+                    ));
+                    commands.spawn((
+                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        Transform::from_xyz((x as f32) * scale, 0.0, (y as f32) * scale),
+                    ));
+                    commands.spawn((
+                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        Transform::from_xyz(0.0, (x as f32) * scale, (y as f32) * scale),
+                    ));
                 }
             }
             // camera
             let center = 0.5 * scale * Vec3::new(WIDTH as f32, HEIGHT as f32, WIDTH as f32);
-            commands.spawn(Camera3dBundle {
-                transform: Transform::from_translation(center),
-                ..default()
-            });
+            commands.spawn((Camera3d::default(), Transform::from_translation(center)));
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
-                PbrBundle {
-                    mesh: mesh_assets.add(Cuboid::from_size(2.0 * 1.1 * center)),
-                    material: material_assets.add(StandardMaterial::from(Color::WHITE)),
-                    transform: Transform::from_scale(-Vec3::ONE).with_translation(center),
-                    ..default()
-                },
+                Mesh3d(mesh_assets.add(Cuboid::from_size(2.0 * 1.1 * center))),
+                MeshMaterial3d(material_assets.add(StandardMaterial::from(Color::WHITE))),
+                Transform::from_scale(-Vec3::ONE).with_translation(center),
                 NotShadowCaster,
             ));
         }
     }
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             shadows_enabled: args.shadows,
             ..default()
         },
-        transform: Transform::IDENTITY.looking_at(Vec3::new(0.0, -1.0, -1.0), Vec3::Y),
-        ..default()
-    });
+        Transform::IDENTITY.looking_at(Vec3::new(0.0, -1.0, -1.0), Vec3::Y),
+    ));
 }
 
 fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> {
@@ -274,7 +262,7 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
     // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut color_rng = ChaCha8Rng::seed_from_u64(42);
     let color_bytes: Vec<u8> = (0..(args.material_texture_count * 4))
-        .map(|i| if (i % 4) == 3 { 255 } else { color_rng.gen() })
+        .map(|i| if (i % 4) == 3 { 255 } else { color_rng.r#gen() })
         .collect();
     color_bytes
         .chunks(4)
@@ -323,7 +311,7 @@ fn init_materials(
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(StandardMaterial {
-                base_color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
+                base_color: Color::srgb_u8(color_rng.r#gen(), color_rng.r#gen(), color_rng.r#gen()),
                 base_color_texture: textures.choose(&mut texture_rng).cloned(),
                 ..default()
             })
@@ -365,7 +353,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 let mut vertices = [Vec2::ZERO; 3];
                 let dtheta = std::f32::consts::TAU / 3.0;
                 for (i, vertex) in vertices.iter_mut().enumerate() {
-                    let (s, c) = (i as f32 * dtheta).sin_cos();
+                    let (s, c) = ops::sin_cos(i as f32 * dtheta);
                     *vertex = Vec2::new(c, s) * radius;
                 }
                 (
@@ -443,7 +431,7 @@ const EPSILON: f64 = 0.36;
 fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
     DVec2::new(
         PI * 2. * (i as f64 / golden_ratio),
-        (1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)).acos(),
+        f64::acos(1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)),
     )
 }
 
@@ -457,14 +445,13 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 fn move_camera(
     time: Res<Time>,
     args: Res<Args>,
-    mut camera_query: Query<&mut Transform, With<Camera>>,
+    mut camera_transform: Single<&mut Transform, With<Camera>>,
 ) {
-    let mut camera_transform = camera_query.single_mut();
     let delta = 0.15
         * if args.benchmark {
             1.0 / 60.0
         } else {
-            time.delta_seconds()
+            time.delta_secs()
         };
     camera_transform.rotate_z(delta);
     camera_transform.rotate_x(delta);
@@ -474,7 +461,7 @@ fn move_camera(
 fn print_mesh_count(
     time: Res<Time>,
     mut timer: Local<PrintingTimer>,
-    sprites: Query<(&Handle<Mesh>, &ViewVisibility)>,
+    sprites: Query<(&Mesh3d, &ViewVisibility)>,
 ) {
     timer.tick(time.delta());
 
@@ -494,4 +481,19 @@ impl Default for PrintingTimer {
     fn default() -> Self {
         Self(Timer::from_seconds(1.0, TimerMode::Repeating))
     }
+}
+
+fn update_materials(mut materials: ResMut<Assets<StandardMaterial>>, time: Res<Time>) {
+    let elapsed = time.elapsed_secs();
+    for (i, (_, material)) in materials.iter_mut().enumerate() {
+        let hue = (elapsed + i as f32 * 0.005).rem_euclid(1.0);
+        // This is much faster than using base_color.set_hue(hue), and in a tight loop it shows.
+        let color = fast_hue_to_rgb(hue);
+        material.base_color = Color::linear_rgb(color.x, color.y, color.z);
+    }
+}
+
+#[inline]
+fn fast_hue_to_rgb(hue: f32) -> Vec3 {
+    (hue * 6.0 - vec3(3.0, 2.0, 4.0)).abs() * vec3(1.0, -1.0, -1.0) + vec3(-1.0, 2.0, 2.0)
 }

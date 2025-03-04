@@ -4,9 +4,10 @@ use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_reflect::Reflect;
+use bevy_image::BevyDefault as _;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     prelude::Camera,
@@ -16,7 +17,6 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -34,10 +34,10 @@ pub use node::CasNode;
 /// based on the local contrast. This can help avoid over-sharpening areas with high contrast
 /// and under-sharpening areas with low contrast.
 ///
-/// To use this, add the [`ContrastAdaptiveSharpeningSettings`] component to a 2D or 3D camera.
+/// To use this, add the [`ContrastAdaptiveSharpening`] component to a 2D or 3D camera.
 #[derive(Component, Reflect, Clone)]
-#[reflect(Component)]
-pub struct ContrastAdaptiveSharpeningSettings {
+#[reflect(Component, Default)]
+pub struct ContrastAdaptiveSharpening {
     /// Enable or disable sharpening.
     pub enabled: bool,
     /// Adjusts sharpening strength. Higher values increase the amount of sharpening.
@@ -54,9 +54,9 @@ pub struct ContrastAdaptiveSharpeningSettings {
     pub denoise: bool,
 }
 
-impl Default for ContrastAdaptiveSharpeningSettings {
+impl Default for ContrastAdaptiveSharpening {
     fn default() -> Self {
-        ContrastAdaptiveSharpeningSettings {
+        ContrastAdaptiveSharpening {
             enabled: true,
             sharpening_strength: 0.6,
             denoise: false,
@@ -65,10 +65,10 @@ impl Default for ContrastAdaptiveSharpeningSettings {
 }
 
 #[derive(Component, Default, Reflect, Clone)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct DenoiseCas(bool);
 
-/// The uniform struct extracted from [`ContrastAdaptiveSharpeningSettings`] attached to a [`Camera`].
+/// The uniform struct extracted from [`ContrastAdaptiveSharpening`] attached to a [`Camera`].
 /// Will be available for use in the CAS shader.
 #[doc(hidden)]
 #[derive(Component, ShaderType, Clone)]
@@ -76,7 +76,7 @@ pub struct CasUniform {
     sharpness: f32,
 }
 
-impl ExtractComponent for ContrastAdaptiveSharpeningSettings {
+impl ExtractComponent for ContrastAdaptiveSharpening {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
     type Out = (DenoiseCas, CasUniform);
@@ -96,7 +96,7 @@ impl ExtractComponent for ContrastAdaptiveSharpeningSettings {
 }
 
 const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(6925381244141981602);
+    weak_handle!("ef83f0a5-51df-4b51-9ab7-b5fd1ae5a397");
 
 /// Adds Support for Contrast Adaptive Sharpening (CAS).
 pub struct CasPlugin;
@@ -110,9 +110,9 @@ impl Plugin for CasPlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<ContrastAdaptiveSharpeningSettings>();
+        app.register_type::<ContrastAdaptiveSharpening>();
         app.add_plugins((
-            ExtractComponentPlugin::<ContrastAdaptiveSharpeningSettings>::default(),
+            ExtractComponentPlugin::<ContrastAdaptiveSharpening>::default(),
             UniformComponentPlugin::<CasUniform>::default(),
         ));
 
@@ -230,6 +230,7 @@ impl SpecializedRenderPipeline for CasPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -239,14 +240,22 @@ fn prepare_cas_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<CasPipeline>>,
     sharpening_pipeline: Res<CasPipeline>,
-    views: Query<(Entity, &ExtractedView, &DenoiseCas), With<CasUniform>>,
+    views: Query<
+        (Entity, &ExtractedView, &DenoiseCas),
+        Or<(Added<CasUniform>, Changed<DenoiseCas>)>,
+    >,
+    mut removals: RemovedComponents<CasUniform>,
 ) {
-    for (entity, view, cas_settings) in &views {
+    for entity in removals.read() {
+        commands.entity(entity).remove::<ViewCasPipeline>();
+    }
+
+    for (entity, view, denoise_cas) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &sharpening_pipeline,
             CasPipelineKey {
-                denoise: cas_settings.0,
+                denoise: denoise_cas.0,
                 texture_format: if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {

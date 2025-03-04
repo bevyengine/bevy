@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::event::EventMutParIter;
 use bevy_ecs::{
@@ -96,7 +95,6 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// // all events were processed
     /// assert_eq!(counter.into_inner(), 4950);
     /// ```
-    ///
     #[cfg(feature = "multi_threaded")]
     pub fn par_read(&mut self) -> EventMutParIter<'_, E> {
         self.reader.par_read_mut(&mut self.events)

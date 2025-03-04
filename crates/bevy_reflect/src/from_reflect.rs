@@ -1,4 +1,5 @@
 use crate::{FromType, PartialReflect, Reflect};
+use alloc::boxed::Box;
 
 /// A trait that enables types to be dynamically constructed from reflected data.
 ///
@@ -22,8 +23,8 @@ use crate::{FromType, PartialReflect, Reflect};
 /// [`DynamicStruct`]: crate::DynamicStruct
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be created through reflection",
-    note = "consider annotating `{Self}` with `#[derive(FromReflect)]`"
+    message = "`{Self}` does not implement `FromReflect` so cannot be created through reflection",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait FromReflect: Reflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
@@ -111,7 +112,6 @@ impl ReflectFromReflect {
     ///
     /// This will convert the object to a concrete type if it wasn't already, and return
     /// the value as `Box<dyn Reflect>`.
-    #[allow(clippy::wrong_self_convention)]
     pub fn from_reflect(&self, reflect_value: &dyn PartialReflect) -> Option<Box<dyn Reflect>> {
         (self.from_reflect)(reflect_value)
     }

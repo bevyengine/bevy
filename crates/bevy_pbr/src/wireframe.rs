@@ -1,15 +1,18 @@
-use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
+use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin, MeshMaterial3d};
 use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_resource::ExtractResource, mesh::MeshVertexBufferLayoutRef, prelude::*,
+    extract_resource::ExtractResource,
+    mesh::{Mesh3d, MeshVertexBufferLayoutRef},
+    prelude::*,
     render_resource::*,
 };
 
-pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
+pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("2646a633-f8e3-4380-87ae-b44d881abbce");
 
 /// A [`Plugin`] that draws wireframes.
 ///
@@ -37,6 +40,7 @@ impl Plugin for WireframePlugin {
             .register_type::<WireframeColor>()
             .init_resource::<WireframeConfig>()
             .add_plugins(MaterialPlugin::<WireframeMaterial>::default())
+            .register_asset_reflect::<WireframeMaterial>()
             .add_systems(Startup, setup_global_wireframe_material)
             .add_systems(
                 Update,
@@ -56,20 +60,20 @@ impl Plugin for WireframePlugin {
 ///
 /// This requires the [`WireframePlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct Wireframe;
 
 /// Sets the color of the [`Wireframe`] of the entity it is attached to.
+///
 /// If this component is present but there's no [`Wireframe`] component,
 /// it will still affect the color of the wireframe when [`WireframeConfig::global`] is set to true.
 ///
 /// This overrides the [`WireframeConfig::default_color`].
-//
 // TODO: consider caching materials based on this color.
 // This could blow up in size if people use random colored wireframes for each mesh.
 // It will also be important to remove unused materials from the cache.
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct WireframeColor {
     pub color: Color,
 }
@@ -79,11 +83,11 @@ pub struct WireframeColor {
 ///
 /// This requires the [`WireframePlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct NoWireframe;
 
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
-#[reflect(Resource)]
+#[reflect(Resource, Debug, Default)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes.
     /// Can be overridden for individual meshes by adding a [`Wireframe`] or [`NoWireframe`] component.
@@ -125,16 +129,15 @@ fn global_color_changed(
 }
 
 /// Updates the wireframe material when the color in [`WireframeColor`] changes
-#[allow(clippy::type_complexity)]
 fn wireframe_color_changed(
     mut materials: ResMut<Assets<WireframeMaterial>>,
     mut colors_changed: Query<
-        (&mut Handle<WireframeMaterial>, &WireframeColor),
+        (&mut MeshMaterial3d<WireframeMaterial>, &WireframeColor),
         (With<Wireframe>, Changed<WireframeColor>),
     >,
 ) {
     for (mut handle, wireframe_color) in &mut colors_changed {
-        *handle = materials.add(WireframeMaterial {
+        handle.0 = materials.add(WireframeMaterial {
             color: wireframe_color.color.into(),
         });
     }
@@ -147,27 +150,27 @@ fn apply_wireframe_material(
     mut materials: ResMut<Assets<WireframeMaterial>>,
     wireframes: Query<
         (Entity, Option<&WireframeColor>),
-        (With<Wireframe>, Without<Handle<WireframeMaterial>>),
+        (With<Wireframe>, Without<MeshMaterial3d<WireframeMaterial>>),
     >,
-    no_wireframes: Query<Entity, (With<NoWireframe>, With<Handle<WireframeMaterial>>)>,
+    no_wireframes: Query<Entity, (With<NoWireframe>, With<MeshMaterial3d<WireframeMaterial>>)>,
     mut removed_wireframes: RemovedComponents<Wireframe>,
     global_material: Res<GlobalWireframeMaterial>,
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
-        if let Some(mut commands) = commands.get_entity(e) {
-            commands.remove::<Handle<WireframeMaterial>>();
+        if let Ok(mut commands) = commands.get_entity(e) {
+            commands.remove::<MeshMaterial3d<WireframeMaterial>>();
         }
     }
 
     let mut material_to_spawn = vec![];
     for (e, maybe_color) in &wireframes {
         let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
-        material_to_spawn.push((e, material));
+        material_to_spawn.push((e, MeshMaterial3d(material)));
     }
     commands.insert_or_spawn_batch(material_to_spawn);
 }
 
-type WireframeFilter = (With<Handle<Mesh>>, Without<Wireframe>, Without<NoWireframe>);
+type WireframeFilter = (With<Mesh3d>, Without<Wireframe>, Without<NoWireframe>);
 
 /// Applies or removes a wireframe material on any mesh without a [`Wireframe`] or [`NoWireframe`] component.
 fn apply_global_wireframe_material(
@@ -175,9 +178,12 @@ fn apply_global_wireframe_material(
     config: Res<WireframeConfig>,
     meshes_without_material: Query<
         (Entity, Option<&WireframeColor>),
-        (WireframeFilter, Without<Handle<WireframeMaterial>>),
+        (WireframeFilter, Without<MeshMaterial3d<WireframeMaterial>>),
     >,
-    meshes_with_global_material: Query<Entity, (WireframeFilter, With<Handle<WireframeMaterial>>)>,
+    meshes_with_global_material: Query<
+        Entity,
+        (WireframeFilter, With<MeshMaterial3d<WireframeMaterial>>),
+    >,
     global_material: Res<GlobalWireframeMaterial>,
     mut materials: ResMut<Assets<WireframeMaterial>>,
 ) {
@@ -187,17 +193,19 @@ fn apply_global_wireframe_material(
             let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
             // We only add the material handle but not the Wireframe component
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
-            material_to_spawn.push((e, material));
+            material_to_spawn.push((e, MeshMaterial3d(material)));
         }
         commands.insert_or_spawn_batch(material_to_spawn);
     } else {
         for e in &meshes_with_global_material {
-            commands.entity(e).remove::<Handle<WireframeMaterial>>();
+            commands
+                .entity(e)
+                .remove::<MeshMaterial3d<WireframeMaterial>>();
         }
     }
 }
 
-/// Gets an handle to a wireframe material with a fallback on the default material
+/// Gets a handle to a wireframe material with a fallback on the default material
 fn get_wireframe_material(
     maybe_color: Option<&WireframeColor>,
     wireframe_materials: &mut Assets<WireframeMaterial>,
@@ -213,7 +221,7 @@ fn get_wireframe_material(
     }
 }
 
-#[derive(Default, AsBindGroup, TypePath, Debug, Clone, Asset)]
+#[derive(Default, AsBindGroup, Debug, Clone, Asset, Reflect)]
 pub struct WireframeMaterial {
     #[uniform(0)]
     pub color: LinearRgba,

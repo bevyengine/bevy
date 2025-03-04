@@ -27,8 +27,8 @@
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
     prelude::*,
-    utils::Duration,
 };
+use core::time::Duration;
 use rand::random;
 use std::fmt;
 
@@ -168,10 +168,10 @@ fn game_over_system(
 ) {
     if let Some(ref player) = game_state.winning_player {
         println!("{player} won the game!");
-        app_exit_events.send(AppExit::Success);
+        app_exit_events.write(AppExit::Success);
     } else if game_state.current_round == game_rules.max_rounds {
         println!("Ran out of rounds. Nobody wins!");
-        app_exit_events.send(AppExit::Success);
+        app_exit_events.write(AppExit::Success);
     }
 }
 

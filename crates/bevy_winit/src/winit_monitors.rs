@@ -1,7 +1,6 @@
 use winit::monitor::MonitorHandle;
 
-use bevy_ecs::entity::Entity;
-use bevy_ecs::system::Resource;
+use bevy_ecs::{entity::Entity, resource::Resource};
 
 /// Stores [`winit`] monitors and their corresponding entities
 ///

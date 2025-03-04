@@ -4,7 +4,8 @@
 
 pub(crate) mod internal;
 
-use std::{borrow::Cow, marker::PhantomData, sync::Arc};
+use alloc::{borrow::Cow, sync::Arc};
+use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin, PreUpdate};
 
@@ -42,7 +43,6 @@ use super::{RenderDevice, RenderQueue};
 /// # Supported platforms
 /// Timestamp queries and pipeline statistics are currently supported only on Vulkan and DX12.
 /// On other platforms (Metal, WebGPU, WebGL2) only CPU time will be recorded.
-#[allow(clippy::doc_markdown)]
 #[derive(Default)]
 pub struct RenderDiagnosticsPlugin;
 
@@ -126,7 +126,7 @@ impl<R: RecordDiagnostics + ?Sized, E: WriteTimestamp> TimeSpanGuard<'_, R, E> {
     /// End the span. You have to provide the same encoder which was used to begin the span.
     pub fn end(self, encoder: &mut E) {
         self.recorder.end_time_span(encoder);
-        std::mem::forget(self);
+        core::mem::forget(self);
     }
 }
 
@@ -148,7 +148,7 @@ impl<R: RecordDiagnostics + ?Sized, P: Pass> PassSpanGuard<'_, R, P> {
     /// End the span. You have to provide the same encoder which was used to begin the span.
     pub fn end(self, pass: &mut P) {
         self.recorder.end_pass_span(pass);
-        std::mem::forget(self);
+        core::mem::forget(self);
     }
 }
 

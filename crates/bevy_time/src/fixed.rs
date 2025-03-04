@@ -2,7 +2,7 @@ use bevy_app::FixedMain;
 use bevy_ecs::world::World;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::Duration;
+use core::time::Duration;
 
 use crate::{time::Time, virt::Virtual};
 
@@ -233,8 +233,10 @@ impl Default for Fixed {
 }
 
 /// Runs [`FixedMain`] zero or more times based on delta of
-/// [`Time<Virtual>`](Virtual) and [`Time::overstep`]
-pub fn run_fixed_main_schedule(world: &mut World) {
+/// [`Time<Virtual>`](Virtual) and [`Time::overstep`].
+/// You can order your systems relative to this by using
+/// [`RunFixedMainLoopSystem`](bevy_app::prelude::RunFixedMainLoopSystem).
+pub(super) fn run_fixed_main_schedule(world: &mut World) {
     let delta = world.resource::<Time<Virtual>>().delta();
     world.resource_mut::<Time<Fixed>>().accumulate(delta);
 

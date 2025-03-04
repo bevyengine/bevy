@@ -17,13 +17,11 @@ pub use transitions::*;
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::event::EventRegistry;
-    use bevy_ecs::prelude::*;
-    use bevy_state_macros::States;
-    use bevy_state_macros::SubStates;
+    use alloc::vec::Vec;
+    use bevy_ecs::{event::EventRegistry, prelude::*};
+    use bevy_state_macros::{States, SubStates};
 
     use super::*;
-    use crate as bevy_state;
 
     #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
     enum SimpleState {

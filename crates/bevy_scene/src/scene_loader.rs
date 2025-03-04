@@ -1,10 +1,11 @@
-use crate::ron;
 #[cfg(feature = "serialize")]
 use crate::serde::SceneDeserializer;
-use crate::DynamicScene;
+use crate::{ron, DynamicScene};
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
-use bevy_ecs::reflect::AppTypeRegistry;
-use bevy_ecs::world::{FromWorld, World};
+use bevy_ecs::{
+    reflect::AppTypeRegistry,
+    world::{FromWorld, World},
+};
 use bevy_reflect::TypeRegistryArc;
 #[cfg(feature = "serialize")]
 use serde::de::DeserializeSeed;
@@ -45,11 +46,11 @@ impl AssetLoader for SceneLoader {
     type Settings = ();
     type Error = SceneLoaderError;
 
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn Reader,
-        _settings: &'a (),
-        _load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;

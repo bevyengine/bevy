@@ -6,13 +6,14 @@ use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
-use bevy_core::FrameCount;
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_diagnostic::FrameCount;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_time::Time;
 
-pub const GLOBALS_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(17924628719070609599);
+pub const GLOBALS_TYPE_HANDLE: Handle<Shader> =
+    weak_handle!("9e22a765-30ca-4070-9a4c-34ac08f1c0e7");
 
 pub struct GlobalsPlugin;
 
@@ -74,8 +75,8 @@ fn prepare_globals_buffer(
     frame_count: Res<FrameCount>,
 ) {
     let buffer = globals_buffer.buffer.get_mut();
-    buffer.time = time.elapsed_seconds_wrapped();
-    buffer.delta_time = time.delta_seconds();
+    buffer.time = time.elapsed_secs_wrapped();
+    buffer.delta_time = time.delta_secs();
     buffer.frame_count = frame_count.0;
 
     globals_buffer

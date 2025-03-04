@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_math::{Vec3, Vec4};
@@ -11,7 +11,7 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 
-use crate::{FogFalloff, FogSettings};
+use crate::{DistanceFog, FogFalloff};
 
 /// The GPU-side representation of the fog configuration that's sent as a uniform to the shader
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
@@ -51,7 +51,7 @@ pub fn prepare_fog(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut fog_meta: ResMut<FogMeta>,
-    views: Query<(Entity, Option<&FogSettings>), With<ExtractedView>>,
+    views: Query<(Entity, Option<&DistanceFog>), With<ExtractedView>>,
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();
@@ -127,7 +127,7 @@ pub struct ViewFogUniformOffset {
 }
 
 /// Handle for the fog WGSL Shader internal asset
-pub const FOG_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4913569193382610166);
+pub const FOG_SHADER_HANDLE: Handle<Shader> = weak_handle!("e943f446-2856-471c-af5e-68dd276eec42");
 
 /// A plugin that consolidates fog extraction, preparation and related resources/assets
 pub struct FogPlugin;
@@ -136,8 +136,8 @@ impl Plugin for FogPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, FOG_SHADER_HANDLE, "fog.wgsl", Shader::from_wgsl);
 
-        app.register_type::<FogSettings>();
-        app.add_plugins(ExtractComponentPlugin::<FogSettings>::default());
+        app.register_type::<DistanceFog>();
+        app.add_plugins(ExtractComponentPlugin::<DistanceFog>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

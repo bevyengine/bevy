@@ -1,8 +1,9 @@
-use std::borrow::Cow;
-use std::ops::Not;
+use alloc::{borrow::Cow, boxed::Box, format};
+use core::ops::Not;
 
 use crate::system::{
-    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System,
+    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System, SystemIn,
+    SystemInput,
 };
 
 /// A type-erased run condition stored in a [`Box`].
@@ -57,7 +58,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// fn identity() -> impl Condition<(), bool> {
+/// fn identity() -> impl Condition<(), In<bool>> {
 ///     IntoSystem::into_system(|In(x)| x)
 /// }
 ///
@@ -70,7 +71,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # world.insert_resource(DidRun(false));
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
-pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
+pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In> {
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and` return `true`.
     ///
@@ -120,57 +121,6 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
         let b = IntoSystem::into_system(and);
         let name = format!("{} && {}", a.name(), b.name());
         CombinatorSystem::new(a, b, Cow::Owned(name))
-    }
-
-    /// Returns a new run condition that only returns `true`
-    /// if both this one and the passed `and_then` return `true`.
-    ///
-    /// The returned run condition is short-circuiting, meaning
-    /// `and_then` will only be invoked if `self` returns `true`.
-    ///
-    /// # Examples
-    ///
-    /// ```should_panic
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Resource, PartialEq)]
-    /// struct R(u32);
-    ///
-    /// # let mut app = Schedule::default();
-    /// # let mut world = World::new();
-    /// # fn my_system() {}
-    /// app.add_systems(
-    ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
-    ///     // just like if we used `Res<R>` in a system.
-    ///     my_system.run_if(resource_equals(R(0))),
-    /// );
-    /// # app.run(&mut world);
-    /// ```
-    ///
-    /// Use `.and_then()` to avoid checking the condition.
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # #[derive(Resource, PartialEq)]
-    /// # struct R(u32);
-    /// # let mut app = Schedule::default();
-    /// # let mut world = World::new();
-    /// # fn my_system() {}
-    /// app.add_systems(
-    ///     // `resource_equals` will only get run if the resource `R` exists.
-    ///     my_system.run_if(resource_exists::<R>.and_then(resource_equals(R(0)))),
-    /// );
-    /// # app.run(&mut world);
-    /// ```
-    ///
-    /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
-    ///
-    /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
-    #[deprecated(
-        note = "Users should use the `.and(condition)` method in lieu of `.and_then(condition)`"
-    )]
-    fn and_then<M, C: Condition<M, In>>(self, and_then: C) -> And<Self::System, C::System> {
-        self.and(and_then)
     }
 
     /// Returns a new run condition that only returns `false`
@@ -324,53 +274,6 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
 
-    /// Returns a new run condition that returns `true`
-    /// if either this one or the passed `or` return `true`.
-    ///
-    /// The returned run condition is short-circuiting, meaning
-    /// `or` will only be invoked if `self` returns `false`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Resource, PartialEq)]
-    /// struct A(u32);
-    ///
-    /// #[derive(Resource, PartialEq)]
-    /// struct B(u32);
-    ///
-    /// # let mut app = Schedule::default();
-    /// # let mut world = World::new();
-    /// # #[derive(Resource)] struct C(bool);
-    /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
-    /// app.add_systems(
-    ///     // Only run the system if either `A` or `B` exist.
-    ///     my_system.run_if(resource_exists::<A>.or(resource_exists::<B>)),
-    /// );
-    /// #
-    /// # world.insert_resource(C(false));
-    /// # app.run(&mut world);
-    /// # assert!(!world.resource::<C>().0);
-    /// #
-    /// # world.insert_resource(A(0));
-    /// # app.run(&mut world);
-    /// # assert!(world.resource::<C>().0);
-    /// #
-    /// # world.remove_resource::<A>();
-    /// # world.insert_resource(B(0));
-    /// # world.insert_resource(C(false));
-    /// # app.run(&mut world);
-    /// # assert!(world.resource::<C>().0);
-    /// ```
-    #[deprecated(
-        note = "Users should use the `.or(condition)` method in lieu of `.or_else(condition)`"
-    )]
-    fn or_else<M, C: Condition<M, In>>(self, or_else: C) -> Or<Self::System, C::System> {
-        self.or(or_else)
-    }
-
     /// Returns a new run condition that only returns `true`
     /// if `self` and `xnor` **both** return `false` or **both** return `true`.
     ///
@@ -466,12 +369,12 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     }
 }
 
-impl<Marker, In, F> Condition<Marker, In> for F where F: sealed::Condition<Marker, In> {}
+impl<Marker, In: SystemInput, F> Condition<Marker, In> for F where F: sealed::Condition<Marker, In> {}
 
 mod sealed {
-    use crate::system::{IntoSystem, ReadOnlySystem};
+    use crate::system::{IntoSystem, ReadOnlySystem, SystemInput};
 
-    pub trait Condition<Marker, In>:
+    pub trait Condition<Marker, In: SystemInput>:
         IntoSystem<In, bool, Marker, System = Self::ReadOnlySystem>
     {
         // This associated type is necessary to let the compiler
@@ -479,7 +382,7 @@ mod sealed {
         type ReadOnlySystem: ReadOnlySystem<In = In, Out = bool>;
     }
 
-    impl<Marker, In, F> Condition<Marker, In> for F
+    impl<Marker, In: SystemInput, F> Condition<Marker, In> for F
     where
         F: IntoSystem<In, bool, Marker>,
         F::System: ReadOnlySystem,
@@ -490,16 +393,19 @@ mod sealed {
 
 /// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
-    use super::NotSystem;
+    use super::{Condition, NotSystem};
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
         prelude::{Component, Query, With},
+        query::QueryFilter,
         removal_detection::RemovedComponents,
-        system::{IntoSystem, Local, Res, Resource, System},
+        resource::Resource,
+        system::{In, IntoSystem, Local, Res, System, SystemInput},
     };
+    use alloc::format;
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// on the first time the condition is run and false every time after.
     ///
     /// # Example
@@ -537,7 +443,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if the resource exists.
     ///
     /// # Example
@@ -572,7 +478,7 @@ pub mod common_conditions {
         res.is_some()
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the resource is equal to `value`.
     ///
     /// # Panics
@@ -612,7 +518,7 @@ pub mod common_conditions {
         move |res: Res<T>| *res == value
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the resource exists and is equal to `value`.
     ///
     /// The condition will return `false` if the resource does not exist.
@@ -657,7 +563,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if the resource of the given type has been added since the condition was last checked.
     ///
     /// # Example
@@ -698,7 +604,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -752,7 +658,7 @@ pub mod common_conditions {
         res.is_changed()
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -812,7 +718,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -889,7 +795,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if the resource of the given type has been removed since the condition was last checked.
     ///
     /// # Example
@@ -941,7 +847,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if there are any new events of the given type since it was last called.
     ///
     /// # Example
@@ -985,7 +891,7 @@ pub mod common_conditions {
         reader.read().count() > 0
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if there are any entities with the given component type.
     ///
     /// # Example
@@ -1022,7 +928,7 @@ pub mod common_conditions {
         !query.is_empty()
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if there are any entity with a component of the given type removed.
     pub fn any_component_removed<T: Component>(mut removals: RemovedComponents<T>) -> bool {
         // `RemovedComponents` based on events and therefore events need to be consumed,
@@ -1033,7 +939,13 @@ pub mod common_conditions {
         removals.read().count() > 0
     }
 
-    /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.
+    /// A [`Condition`]-satisfying system that returns `true`
+    /// if there are any entities that match the given [`QueryFilter`].
+    pub fn any_match_filter<F: QueryFilter>(query: Query<(), F>) -> bool {
+        !query.is_empty()
+    }
+
+    /// Generates a [`Condition`] that inverses the result of passed one.
     ///
     /// # Example
     ///
@@ -1064,33 +976,142 @@ pub mod common_conditions {
     /// ```
     pub fn not<Marker, TOut, T>(condition: T) -> NotSystem<T::System>
     where
-        TOut: std::ops::Not,
+        TOut: core::ops::Not,
         T: IntoSystem<(), TOut, Marker>,
     {
         let condition = IntoSystem::into_system(condition);
         let name = format!("!{}", condition.name());
         NotSystem::new(super::NotMarker, condition, name.into())
     }
+
+    /// Generates a [`Condition`] that returns true when the passed one changes.
+    ///
+    /// The first time this is called, the passed condition is assumed to have been previously false.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_resource::<Counter>();
+    /// app.add_systems(
+    ///     my_system.run_if(condition_changed(resource_exists::<MyResource>)),
+    /// );
+    ///
+    /// #[derive(Resource)]
+    /// struct MyResource;
+    ///
+    /// fn my_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // `MyResource` is initially there, the inner condition is true, the system runs once
+    /// world.insert_resource(MyResource);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    ///
+    /// // We remove `MyResource`, the inner condition is now false, the system runs one more time.
+    /// world.remove_resource::<MyResource>();
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
+    /// ```
+    pub fn condition_changed<Marker, CIn, C>(condition: C) -> impl Condition<(), CIn>
+    where
+        CIn: SystemInput,
+        C: Condition<Marker, CIn>,
+    {
+        IntoSystem::into_system(condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| {
+            let changed = *prev != new;
+            *prev = new;
+            changed
+        }))
+    }
+
+    /// Generates a [`Condition`] that returns true when the result of
+    /// the passed one went from false to true since the last time this was called.
+    ///
+    /// The first time this is called, the passed condition is assumed to have been previously false.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_resource::<Counter>();
+    /// app.add_systems(
+    ///     my_system.run_if(condition_changed_to(true, resource_exists::<MyResource>)),
+    /// );
+    ///
+    /// #[derive(Resource)]
+    /// struct MyResource;
+    ///
+    /// fn my_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // `MyResource` is initially there, the inner condition is true, the system runs once
+    /// world.insert_resource(MyResource);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    ///
+    /// // We remove `MyResource`, the inner condition is now false, the system doesn't run.
+    /// world.remove_resource::<MyResource>();
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    ///
+    /// // We reinsert `MyResource` again, so the system will run one more time
+    /// world.insert_resource(MyResource);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
+    /// ```
+    pub fn condition_changed_to<Marker, CIn, C>(to: bool, condition: C) -> impl Condition<(), CIn>
+    where
+        CIn: SystemInput,
+        C: Condition<Marker, CIn>,
+    {
+        IntoSystem::into_system(condition.pipe(
+            move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
+                let now_true = *prev != new && new == to;
+                *prev = new;
+                now_true
+            },
+        ))
+    }
 }
 
 /// Invokes [`Not`] with the output of another system.
 ///
 /// See [`common_conditions::not`] for examples.
-pub type NotSystem<T> = AdapterSystem<NotMarker, T>;
+pub type NotSystem<S> = AdapterSystem<NotMarker, S>;
 
 /// Used with [`AdapterSystem`] to negate the output of a system via the [`Not`] operator.
 #[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct NotMarker;
 
-impl<T: System> Adapt<T> for NotMarker
-where
-    T::Out: Not,
-{
-    type In = T::In;
-    type Out = <T::Out as Not>::Output;
+impl<S: System<Out: Not>> Adapt<S> for NotMarker {
+    type In = S::In;
+    type Out = <S::Out as Not>::Output;
 
-    fn adapt(&mut self, input: Self::In, run_system: impl FnOnce(T::In) -> T::Out) -> Self::Out {
+    fn adapt(
+        &mut self,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
+    ) -> Self::Out {
         !run_system(input)
     }
 }
@@ -1118,7 +1139,7 @@ pub struct AndMarker;
 
 impl<In, A, B> Combine<A, B> for AndMarker
 where
-    In: Copy,
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
     B: System<In = In, Out = bool>,
 {
@@ -1126,9 +1147,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
+        b: impl FnOnce(SystemIn<'_, A>) -> B::Out,
     ) -> Self::Out {
         a(input) && b(input)
     }
@@ -1139,7 +1160,7 @@ pub struct NandMarker;
 
 impl<In, A, B> Combine<A, B> for NandMarker
 where
-    In: Copy,
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
     B: System<In = In, Out = bool>,
 {
@@ -1147,9 +1168,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
+        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
     ) -> Self::Out {
         !(a(input) && b(input))
     }
@@ -1160,7 +1181,7 @@ pub struct NorMarker;
 
 impl<In, A, B> Combine<A, B> for NorMarker
 where
-    In: Copy,
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
     B: System<In = In, Out = bool>,
 {
@@ -1168,9 +1189,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
+        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
     ) -> Self::Out {
         !(a(input) || b(input))
     }
@@ -1181,7 +1202,7 @@ pub struct OrMarker;
 
 impl<In, A, B> Combine<A, B> for OrMarker
 where
-    In: Copy,
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
     B: System<In = In, Out = bool>,
 {
@@ -1189,9 +1210,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
+        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
     ) -> Self::Out {
         a(input) || b(input)
     }
@@ -1202,7 +1223,7 @@ pub struct XnorMarker;
 
 impl<In, A, B> Combine<A, B> for XnorMarker
 where
-    In: Copy,
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
     B: System<In = In, Out = bool>,
 {
@@ -1210,9 +1231,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
+        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
     ) -> Self::Out {
         !(a(input) ^ b(input))
     }
@@ -1223,7 +1244,7 @@ pub struct XorMarker;
 
 impl<In, A, B> Combine<A, B> for XorMarker
 where
-    In: Copy,
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
     B: System<In = In, Out = bool>,
 {
@@ -1231,9 +1252,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
+        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
     ) -> Self::Out {
         a(input) ^ b(input)
     }
@@ -1242,13 +1263,15 @@ where
 #[cfg(test)]
 mod tests {
     use super::{common_conditions::*, Condition};
-    use crate as bevy_ecs;
-    use crate::component::Component;
-    use crate::schedule::IntoSystemConfigs;
-    use crate::system::Local;
-    use crate::{change_detection::ResMut, schedule::Schedule, world::World};
-    use bevy_ecs_macros::Event;
-    use bevy_ecs_macros::Resource;
+    use crate::query::With;
+    use crate::{
+        change_detection::ResMut,
+        component::Component,
+        schedule::{IntoSystemConfigs, Schedule},
+        system::Local,
+        world::World,
+    };
+    use bevy_ecs_macros::{Event, Resource};
 
     #[derive(Resource, Default)]
     struct Counter(usize);
@@ -1294,7 +1317,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn run_condition_combinators() {
         let mut world = World::new();
         world.init_resource::<Counter>();
@@ -1303,23 +1325,21 @@ mod tests {
         schedule.add_systems(
             (
                 increment_counter.run_if(every_other_time.and(|| true)), // Run every odd cycle.
-                increment_counter.run_if(every_other_time.and_then(|| true)), // Run every odd cycle.
-                increment_counter.run_if(every_other_time.nand(|| false)),    // Always run.
-                double_counter.run_if(every_other_time.nor(|| false)), // Run every even cycle.
-                increment_counter.run_if(every_other_time.or(|| true)), // Always run.
-                increment_counter.run_if(every_other_time.or_else(|| true)), // Always run.
+                increment_counter.run_if(every_other_time.nand(|| false)), // Always run.
+                double_counter.run_if(every_other_time.nor(|| false)),   // Run every even cycle.
+                increment_counter.run_if(every_other_time.or(|| true)),  // Always run.
                 increment_counter.run_if(every_other_time.xnor(|| true)), // Run every odd cycle.
-                double_counter.run_if(every_other_time.xnor(|| false)), // Run every even cycle.
+                double_counter.run_if(every_other_time.xnor(|| false)),  // Run every even cycle.
                 increment_counter.run_if(every_other_time.xor(|| false)), // Run every odd cycle.
-                double_counter.run_if(every_other_time.xor(|| true)),  // Run every even cycle.
+                double_counter.run_if(every_other_time.xor(|| true)),    // Run every even cycle.
             )
                 .chain(),
         );
 
         schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 7);
+        assert_eq!(world.resource::<Counter>().0, 5);
         schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 72);
+        assert_eq!(world.resource::<Counter>().0, 52);
     }
 
     #[test]
@@ -1384,6 +1404,7 @@ mod tests {
                 .distributive_run_if(resource_removed::<TestResource>)
                 .distributive_run_if(on_event::<TestEvent>)
                 .distributive_run_if(any_with_component::<TestComponent>)
+                .distributive_run_if(any_match_filter::<With<TestComponent>>)
                 .distributive_run_if(not(run_once)),
         );
     }

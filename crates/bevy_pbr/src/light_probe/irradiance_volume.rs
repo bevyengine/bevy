@@ -81,17 +81,17 @@
 //! less ideal for this use case:
 //!
 //! 1. The level 1 spherical harmonic coefficients can be negative. That
-//!     prevents the use of the efficient [RGB9E5 texture format], which only
-//!     encodes unsigned floating point numbers, and forces the use of the
-//!     less-efficient [RGBA16F format] if hardware interpolation is desired.
+//!    prevents the use of the efficient [RGB9E5 texture format], which only
+//!    encodes unsigned floating point numbers, and forces the use of the
+//!    less-efficient [RGBA16F format] if hardware interpolation is desired.
 //!
 //! 2. As an alternative to RGBA16F, level 1 spherical harmonics can be
-//!     normalized and scaled to the SH0 base color, as [Frostbite] does. This
-//!     allows them to be packed in standard LDR RGBA8 textures. However, this
-//!     prevents the use of hardware trilinear filtering, as the nonuniform scale
-//!     factor means that hardware interpolation no longer produces correct results.
-//!     The 8 texture fetches needed to interpolate between voxels can be upwards of
-//!     twice as slow as the hardware interpolation.
+//!    normalized and scaled to the SH0 base color, as [Frostbite] does. This
+//!    allows them to be packed in standard LDR RGBA8 textures. However, this
+//!    prevents the use of hardware trilinear filtering, as the nonuniform scale
+//!    factor means that hardware interpolation no longer produces correct results.
+//!    The 8 texture fetches needed to interpolate between voxels can be upwards of
+//!    twice as slow as the hardware interpolation.
 //!
 //! The following chart summarizes the costs and benefits of ambient cubes,
 //! level 1 spherical harmonics, and level 2 spherical harmonics:
@@ -132,20 +132,22 @@
 //!
 //! [Why ambient cubes?]: #why-ambient-cubes
 
-use bevy_ecs::component::Component;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_image::Image;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
         TextureSampleType, TextureView,
     },
-    renderer::RenderDevice,
-    texture::{FallbackImage, GpuImage, Image},
+    renderer::{RenderAdapter, RenderDevice},
+    texture::{FallbackImage, GpuImage},
 };
-use std::{num::NonZeroU32, ops::Deref};
+use bevy_utils::default;
+use core::{num::NonZero, ops::Deref};
 
-use bevy_asset::{AssetId, Handle};
-use bevy_reflect::Reflect;
+use bevy_asset::{weak_handle, AssetId, Handle};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use crate::{
     add_cubemap_texture_view, binding_arrays_are_usable, RenderViewLightProbes,
@@ -155,7 +157,7 @@ use crate::{
 use super::LightProbeComponent;
 
 pub const IRRADIANCE_VOLUME_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(160299515939076705258408299184317675488);
+    weak_handle!("7fc7dcd8-3f90-4124-b093-be0e53e08205");
 
 /// On WebGL and WebGPU, we must disable irradiance volumes, as otherwise we can
 /// overflow the number of texture bindings when deferred rendering is in use
@@ -165,7 +167,8 @@ pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "w
 /// The component that defines an irradiance volume.
 ///
 /// See [`crate::irradiance_volume`] for detailed information.
-#[derive(Clone, Default, Reflect, Component, Debug)]
+#[derive(Clone, Reflect, Component, Debug)]
+#[reflect(Component, Default, Debug)]
 pub struct IrradianceVolume {
     /// The 3D texture that represents the ambient cubes, encoded in the format
     /// described in [`crate::irradiance_volume`].
@@ -178,6 +181,30 @@ pub struct IrradianceVolume {
     ///
     /// See also <https://google.github.io/filament/Filament.html#lighting/imagebasedlights/iblunit>.
     pub intensity: f32,
+
+    /// Whether the light from this irradiance volume has an effect on meshes
+    /// with lightmaps.
+    ///
+    /// Set this to false if your lightmap baking tool bakes the light from this
+    /// irradiance volume into the lightmaps in order to avoid counting the
+    /// irradiance twice. Frequently, applications use irradiance volumes as a
+    /// lower-quality alternative to lightmaps for capturing indirect
+    /// illumination on dynamic objects, and such applications will want to set
+    /// this value to false.
+    ///
+    /// By default, this is set to true.
+    pub affects_lightmapped_meshes: bool,
+}
+
+impl Default for IrradianceVolume {
+    #[inline]
+    fn default() -> Self {
+        IrradianceVolume {
+            voxels: default(),
+            intensity: 0.0,
+            affects_lightmapped_meshes: true,
+        }
+    }
 }
 
 /// All the bind group entries necessary for PBR shaders to access the
@@ -215,15 +242,16 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
         render_device: &RenderDevice,
+        render_adapter: &RenderAdapter,
     ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
-        if binding_arrays_are_usable(render_device) {
+        if binding_arrays_are_usable(render_device, render_adapter) {
             RenderViewIrradianceVolumeBindGroupEntries::get_multiple(
                 render_view_irradiance_volumes,
                 images,
                 fallback_image,
             )
         } else {
-            RenderViewIrradianceVolumeBindGroupEntries::get_single(
+            RenderViewIrradianceVolumeBindGroupEntries::single(
                 render_view_irradiance_volumes,
                 images,
                 fallback_image,
@@ -267,7 +295,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
     /// Looks up and returns the bindings for any irradiance volumes visible in
     /// the view, as well as the sampler. This is the version used when binding
     /// arrays aren't available on the current platform.
-    fn get_single(
+    fn single(
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
@@ -301,12 +329,13 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
 /// respectively.
 pub(crate) fn get_bind_group_layout_entries(
     render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
 ) -> [BindGroupLayoutEntryBuilder; 2] {
     let mut texture_3d_binding =
         binding_types::texture_3d(TextureSampleType::Float { filterable: true });
-    if binding_arrays_are_usable(render_device) {
+    if binding_arrays_are_usable(render_device, render_adapter) {
         texture_3d_binding =
-            texture_3d_binding.count(NonZeroU32::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
+            texture_3d_binding.count(NonZero::<u32>::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
     }
 
     [
@@ -332,6 +361,10 @@ impl LightProbeComponent for IrradianceVolume {
 
     fn intensity(&self) -> f32 {
         self.intensity
+    }
+
+    fn affects_lightmapped_mesh_diffuse(&self) -> bool {
+        self.affects_lightmapped_meshes
     }
 
     fn create_render_view_light_probes(

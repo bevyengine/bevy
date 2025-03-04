@@ -4,14 +4,15 @@ use crate::{
     query::Access,
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, In, IntoSystem,
-        System, SystemMeta,
+        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
+        System, SystemIn, SystemInput, SystemMeta,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
-use bevy_utils::all_tuples;
-use std::{borrow::Cow, marker::PhantomData};
+use alloc::{borrow::Cow, vec, vec::Vec};
+use core::marker::PhantomData;
+use variadics_please::all_tuples;
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -108,11 +109,15 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, _input: Self::In, _world: UnsafeWorldCell) -> Self::Out {
+    unsafe fn run_unsafe(
+        &mut self,
+        _input: SystemIn<'_, Self>,
+        _world: UnsafeWorldCell,
+    ) -> Self::Out {
         panic!("Cannot run exclusive systems with a shared World reference");
     }
 
-    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
         world.last_change_tick_scope(self.system_meta.last_run, |world| {
             #[cfg(feature = "trace")]
             let _span_guard = self.system_meta.system_span.enter();
@@ -142,6 +147,12 @@ where
         // "pure" exclusive systems do not have any buffers to apply.
         // Systems made by piping a normal system with an exclusive system
         // might have buffers to apply, but this is handled by `PipeSystem`.
+    }
+
+    #[inline]
+    unsafe fn validate_param_unsafe(&mut self, _world: UnsafeWorldCell) -> bool {
+        // All exclusive system params are always available.
+        true
     }
 
     #[inline]
@@ -185,7 +196,7 @@ where
 )]
 pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
     /// The input type to this system. See [`System::In`].
-    type In;
+    type In: SystemInput;
 
     /// The return type of this system. See [`System::Out`].
     type Out;
@@ -197,17 +208,29 @@ pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
     fn run(
         &mut self,
         world: &mut World,
-        input: Self::In,
+        input: <Self::In as SystemInput>::Inner<'_>,
         param_value: ExclusiveSystemParamItem<Self::Param>,
     ) -> Self::Out;
 }
 
+/// A marker type used to distinguish exclusive function systems with and without input.
+#[doc(hidden)]
+pub struct HasExclusiveSystemInput;
+
 macro_rules! impl_exclusive_system_function {
     ($($param: ident),*) => {
-        #[allow(non_snake_case)]
-        impl<Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn($($param,)*) -> Out> for Func
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
+        impl<Out, Func, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn($($param,)*) -> Out> for Func
         where
-        for <'a> &'a mut Func:
+            Func: Send + Sync + 'static,
+            for <'a> &'a mut Func:
                 FnMut(&mut World, $($param),*) -> Out +
                 FnMut(&mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
             Out: 'static,
@@ -220,7 +243,6 @@ macro_rules! impl_exclusive_system_function {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
-                #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(
                     mut f: impl FnMut(&mut World, $($param,)*) -> Out,
                     world: &mut World,
@@ -232,30 +254,39 @@ macro_rules! impl_exclusive_system_function {
                 call_inner(self, world, $($param),*)
             }
         }
-        #[allow(non_snake_case)]
-        impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn(In<Input>, $($param,)*) -> Out> for Func
+
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
+        impl<In, Out, Func, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<(HasExclusiveSystemInput, fn(In, $($param,)*) -> Out)> for Func
         where
-        for <'a> &'a mut Func:
-                FnMut(In<Input>, &mut World, $($param),*) -> Out +
-                FnMut(In<Input>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
+            Func: Send + Sync + 'static,
+            for <'a> &'a mut Func:
+                FnMut(In, &mut World, $($param),*) -> Out +
+                FnMut(In::Param<'_>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
+            In: SystemInput + 'static,
             Out: 'static,
         {
-            type In = Input;
+            type In = In;
             type Out = Out;
             type Param = ($($param,)*);
             #[inline]
-            fn run(&mut self, world: &mut World, input: Input, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
+            fn run(&mut self, world: &mut World, input: In::Inner<'_>, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
-                #[allow(clippy::too_many_arguments)]
-                fn call_inner<Input, Out, $($param,)*>(
-                    mut f: impl FnMut(In<Input>, &mut World, $($param,)*) -> Out,
-                    input: Input,
+                fn call_inner<In: SystemInput, Out, $($param,)*>(
+                    mut f: impl FnMut(In::Param<'_>, &mut World, $($param,)*) -> Out,
+                    input: In::Inner<'_>,
                     world: &mut World,
                     $($param: $param,)*
                 ) -> Out {
-                    f(In(input), world, $($param,)*)
+                    f(In::wrap(input), world, $($param,)*)
                 }
                 let ($($param,)*) = param_value;
                 call_inner(self, input, world, $($param),*)
@@ -269,17 +300,19 @@ all_tuples!(impl_exclusive_system_function, 0, 16, F);
 
 #[cfg(test)]
 mod tests {
+    use crate::system::input::SystemInput;
+
     use super::*;
 
     #[test]
     fn into_system_type_id_consistency() {
-        fn test<T, In, Out, Marker>(function: T)
+        fn test<T, In: SystemInput, Out, Marker>(function: T)
         where
             T: IntoSystem<In, Out, Marker> + Copy,
         {
             fn reference_system(_world: &mut World) {}
 
-            use std::any::TypeId;
+            use core::any::TypeId;
 
             let system = IntoSystem::into_system(function);
 

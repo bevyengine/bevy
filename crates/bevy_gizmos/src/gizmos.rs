@@ -1,20 +1,26 @@
 //! A module for the [`Gizmos`] [`SystemParam`].
 
-use std::{iter, marker::PhantomData, mem};
+use core::{
+    iter,
+    marker::PhantomData,
+    mem,
+    ops::{Deref, DerefMut},
+};
 
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     component::Tick,
-    system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
+    resource::Resource,
+    system::{Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_math::{Quat, Rot2, Vec2, Vec3};
+use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
+use bevy_reflect::Reflect;
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
 use crate::{
-    config::GizmoConfigGroup,
-    config::{DefaultGizmoConfigGroup, GizmoConfigStore},
+    config::{DefaultGizmoConfigGroup, GizmoConfigGroup, GizmoConfigStore},
     prelude::GizmoConfig,
 };
 
@@ -136,11 +142,32 @@ where
     Clear: 'static + Send + Sync,
 {
     buffer: Deferred<'s, GizmoBuffer<Config, Clear>>,
-    pub(crate) enabled: bool,
     /// The currently used [`GizmoConfig`]
     pub config: &'w GizmoConfig,
     /// The currently used [`GizmoConfigGroup`]
     pub config_ext: &'w Config,
+}
+
+impl<'w, 's, Config, Clear> Deref for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Target = GizmoBuffer<Config, Clear>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.buffer
+    }
+}
+
+impl<'w, 's, Config, Clear> DerefMut for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.buffer
+    }
 }
 
 type GizmosState<Config, Clear> = (
@@ -156,7 +183,10 @@ where
     state: <GizmosState<Config, Clear> as SystemParam>::State,
 }
 
-#[allow(unsafe_code)]
+#[expect(
+    unsafe_code,
+    reason = "We cannot implement SystemParam without using unsafe code."
+)]
 // SAFETY: All methods are delegated to existing `SystemParam` implementations
 unsafe impl<Config, Clear> SystemParam for Gizmos<'_, '_, Config, Clear>
 where
@@ -187,14 +217,25 @@ where
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
 
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        // SAFETY: Delegated to existing `SystemParam` implementations.
+        unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }
+    }
+
+    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        // SAFETY: Delegated to existing `SystemParam` implementations
-        let (f0, f1) = unsafe {
+        // SAFETY: Delegated to existing `SystemParam` implementations.
+        let (mut f0, f1) = unsafe {
             GizmosState::<Config, Clear>::get_param(
                 &mut state.state,
                 system_meta,
@@ -202,20 +243,25 @@ where
                 change_tick,
             )
         };
-        // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
-        // Implementing SystemParam manually allows us to do it to here
-        // Having config available allows for early returns when gizmos are disabled
+
+        // Accessing the GizmoConfigStore in every API call reduces performance significantly.
+        // Implementing SystemParam manually allows us to cache whether the config is currently enabled.
+        // Having this available allows for cheap early returns when gizmos are disabled.
         let (config, config_ext) = f1.into_inner().config::<Config>();
+        f0.enabled = config.enabled;
+
         Gizmos {
             buffer: f0,
-            enabled: config.enabled,
             config,
             config_ext,
         }
     }
 }
 
-#[allow(unsafe_code)]
+#[expect(
+    unsafe_code,
+    reason = "We cannot implement ReadOnlySystemParam without using unsafe code."
+)]
 // Safety: Each field is `ReadOnlySystemParam`, and Gizmos SystemParam does not mutate world
 unsafe impl<'w, 's, Config, Clear> ReadOnlySystemParam for Gizmos<'w, 's, Config, Clear>
 where
@@ -226,16 +272,20 @@ where
 {
 }
 
-struct GizmoBuffer<Config, Clear>
+/// Buffer for gizmo vertex data.
+#[derive(Debug, Clone, Reflect)]
+pub struct GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    list_positions: Vec<Vec3>,
-    list_colors: Vec<LinearRgba>,
-    strip_positions: Vec<Vec3>,
-    strip_colors: Vec<LinearRgba>,
-    marker: PhantomData<(Config, Clear)>,
+    pub(crate) enabled: bool,
+    pub(crate) list_positions: Vec<Vec3>,
+    pub(crate) list_colors: Vec<LinearRgba>,
+    pub(crate) strip_positions: Vec<Vec3>,
+    pub(crate) strip_colors: Vec<LinearRgba>,
+    #[reflect(ignore)]
+    pub(crate) marker: PhantomData<(Config, Clear)>,
 }
 
 impl<Config, Clear> Default for GizmoBuffer<Config, Clear>
@@ -244,14 +294,27 @@ where
     Clear: 'static + Send + Sync,
 {
     fn default() -> Self {
-        Self {
-            list_positions: default(),
-            list_colors: default(),
-            strip_positions: default(),
-            strip_colors: default(),
+        GizmoBuffer {
+            enabled: true,
+            list_positions: Vec::new(),
+            list_colors: Vec::new(),
+            strip_positions: Vec::new(),
+            strip_colors: Vec::new(),
             marker: PhantomData,
         }
     }
+}
+
+/// Read-only view into [`GizmoBuffer`] data.
+pub struct GizmoBufferView<'a> {
+    /// Vertex positions for line-list topology.
+    pub list_positions: &'a Vec<Vec3>,
+    /// Vertex colors for line-list topology.
+    pub list_colors: &'a Vec<LinearRgba>,
+    /// Vertex positions for line-strip topology.
+    pub strip_positions: &'a Vec<Vec3>,
+    /// Vertex colors for line-strip topology.
+    pub strip_colors: &'a Vec<LinearRgba>,
 }
 
 impl<Config, Clear> SystemBuffer for GizmoBuffer<Config, Clear>
@@ -268,11 +331,35 @@ where
     }
 }
 
-impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
+    /// Clear all data.
+    pub fn clear(&mut self) {
+        self.list_positions.clear();
+        self.list_colors.clear();
+        self.strip_positions.clear();
+        self.strip_colors.clear();
+    }
+
+    /// Read-only view into the buffers data.
+    pub fn buffer(&self) -> GizmoBufferView {
+        let GizmoBuffer {
+            list_positions,
+            list_colors,
+            strip_positions,
+            strip_colors,
+            ..
+        } = self;
+        GizmoBufferView {
+            list_positions,
+            list_colors,
+            strip_positions,
+            strip_colors,
+        }
+    }
     /// Draw a line in 3D from `start` to `end`.
     ///
     /// This should be called for each frame the line needs to be rendered.
@@ -280,7 +367,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -304,7 +390,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
@@ -334,7 +419,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -357,7 +441,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
@@ -386,7 +469,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -404,10 +486,10 @@ where
             return;
         }
         self.extend_strip_positions(positions);
-        let len = self.buffer.strip_positions.len();
+        let len = self.strip_positions.len();
         let linear_color = LinearRgba::from(color.into());
-        self.buffer.strip_colors.resize(len - 1, linear_color);
-        self.buffer.strip_colors.push(LinearRgba::NAN);
+        self.strip_colors.resize(len - 1, linear_color);
+        self.strip_colors.push(LinearRgba::NAN);
     }
 
     /// Draw a line in 3D made of straight segments between the points, with a color gradient.
@@ -417,7 +499,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{BLUE, GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
@@ -443,7 +524,7 @@ where
             strip_positions,
             strip_colors,
             ..
-        } = &mut *self.buffer;
+        } = self;
 
         let (min, _) = points.size_hint();
         strip_positions.reserve(min);
@@ -458,27 +539,32 @@ where
         strip_colors.push(LinearRgba::NAN);
     }
 
-    /// Draw a wireframe rectangle in 3D.
+    /// Draw a wireframe rectangle in 3D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry3d::IDENTITY` then
+    ///
+    /// - the center is at `Vec3::ZERO`
+    /// - the sizes are aligned with the `Vec3::X` and `Vec3::Y` axes.
     ///
     /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect(Vec3::ZERO, Quat::IDENTITY, Vec2::ONE, GREEN);
+    ///     gizmos.rect(Isometry3d::IDENTITY, Vec2::ONE, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect(&mut self, position: Vec3, rotation: Quat, size: Vec2, color: impl Into<Color>) {
+    pub fn rect(&mut self, isometry: impl Into<Isometry3d>, size: Vec2, color: impl Into<Color>) {
         if !self.enabled {
             return;
         }
-        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2.extend(0.));
+        let isometry = isometry.into();
+        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2.extend(0.));
         self.linestrip([tl, tr, br, bl, tl], color);
     }
 
@@ -489,7 +575,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_transform::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -530,7 +615,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -553,7 +637,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
@@ -582,7 +665,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -609,7 +691,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN, BLUE};
     /// fn system(mut gizmos: Gizmos) {
@@ -643,7 +724,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -666,7 +746,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
@@ -688,45 +767,48 @@ where
         self.line_gradient_2d(start, start + vector, start_color, end_color);
     }
 
-    /// Draw a wireframe rectangle in 2D.
+    /// Draw a wireframe rectangle in 2D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry2d::IDENTITY` then
+    ///
+    /// - the center is at `Vec2::ZERO`
+    /// - the sizes are aligned with the `Vec2::X` and `Vec2::Y` axes.
     ///
     /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::ONE, GREEN);
+    ///     gizmos.rect_2d(Isometry2d::IDENTITY, Vec2::ONE, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
     pub fn rect_2d(
         &mut self,
-        position: Vec2,
-        rotation: impl Into<Rot2>,
+        isometry: impl Into<Isometry2d>,
         size: Vec2,
         color: impl Into<Color>,
     ) {
         if !self.enabled {
             return;
         }
-        let rotation: Rot2 = rotation.into();
-        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2);
+        let isometry = isometry.into();
+        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
     }
 
     #[inline]
     fn extend_list_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
-        self.buffer.list_positions.extend(positions);
+        self.list_positions.extend(positions);
     }
 
     #[inline]
     fn extend_list_colors(&mut self, colors: impl IntoIterator<Item = impl Into<Color>>) {
-        self.buffer.list_colors.extend(
+        self.list_colors.extend(
             colors
                 .into_iter()
                 .map(|color| LinearRgba::from(color.into())),
@@ -738,15 +820,13 @@ where
         let polymorphic_color: Color = color.into();
         let linear_color = LinearRgba::from(polymorphic_color);
 
-        self.buffer
-            .list_colors
-            .extend(iter::repeat(linear_color).take(count));
+        self.list_colors.extend(iter::repeat_n(linear_color, count));
     }
 
     #[inline]
     fn extend_strip_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
-        self.buffer.strip_positions.extend(positions);
-        self.buffer.strip_positions.push(Vec3::NAN);
+        self.strip_positions.extend(positions);
+        self.strip_positions.push(Vec3::NAN);
     }
 }
 

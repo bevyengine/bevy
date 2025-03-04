@@ -1,12 +1,20 @@
-use crate::transformer::TransformedAsset;
-use crate::{io::Writer, meta::Settings, Asset, ErasedLoadedAsset};
-use crate::{AssetLoader, Handle, LabeledAsset, UntypedHandle};
-use bevy_utils::{BoxedFuture, ConditionalSendFuture, CowArc, HashMap};
+use crate::{
+    io::Writer, meta::Settings, transformer::TransformedAsset, Asset, AssetLoader,
+    CompleteErasedLoadedAsset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle,
+};
+use alloc::boxed::Box;
+use atomicow::CowArc;
+use bevy_platform_support::collections::HashMap;
+use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
+use core::{borrow::Borrow, hash::Hash, ops::Deref};
 use serde::{Deserialize, Serialize};
-use std::{borrow::Borrow, hash::Hash, ops::Deref};
 
 /// Saves an [`Asset`] of a given [`AssetSaver::Asset`] type. [`AssetSaver::OutputLoader`] will then be used to load the saved asset
 /// in the final deployed application. The saver should produce asset bytes in a format that [`AssetSaver::OutputLoader`] can read.
+///
+/// This trait is generally used in concert with [`AssetWriter`](crate::io::AssetWriter) to write assets as bytes.
+///
+/// For a complementary version of this trait that can load assets, see [`AssetLoader`].
 pub trait AssetSaver: Send + Sync + 'static {
     /// The top level [`Asset`] saved by this [`AssetSaver`].
     type Asset: Asset;
@@ -15,15 +23,15 @@ pub trait AssetSaver: Send + Sync + 'static {
     /// The type of [`AssetLoader`] used to load this [`Asset`]
     type OutputLoader: AssetLoader;
     /// The type of [error](`std::error::Error`) which could be encountered by this saver.
-    type Error: Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
+    type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
 
     /// Saves the given runtime [`Asset`] by writing it to a byte format using `writer`. The passed in `settings` can influence how the
-    /// `asset` is saved.  
-    fn save<'a>(
-        &'a self,
-        writer: &'a mut Writer,
-        asset: SavedAsset<'a, Self::Asset>,
-        settings: &'a Self::Settings,
+    /// `asset` is saved.
+    fn save(
+        &self,
+        writer: &mut Writer,
+        asset: SavedAsset<'_, Self::Asset>,
+        settings: &Self::Settings,
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error>,
     >;
@@ -32,13 +40,13 @@ pub trait AssetSaver: Send + Sync + 'static {
 /// A type-erased dynamic variant of [`AssetSaver`] that allows callers to save assets without knowing the actual type of the [`AssetSaver`].
 pub trait ErasedAssetSaver: Send + Sync + 'static {
     /// Saves the given runtime [`ErasedLoadedAsset`] by writing it to a byte format using `writer`. The passed in `settings` can influence how the
-    /// `asset` is saved.  
+    /// `asset` is saved.
     fn save<'a>(
         &'a self,
         writer: &'a mut Writer,
-        asset: &'a ErasedLoadedAsset,
+        complete_asset: &'a CompleteErasedLoadedAsset,
         settings: &'a dyn Settings,
-    ) -> BoxedFuture<'a, Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>>;
+    ) -> BoxedFuture<'a, Result<(), Box<dyn core::error::Error + Send + Sync + 'static>>>;
 
     /// The type name of the [`AssetSaver`].
     fn type_name(&self) -> &'static str;
@@ -48,14 +56,14 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
     fn save<'a>(
         &'a self,
         writer: &'a mut Writer,
-        asset: &'a ErasedLoadedAsset,
+        complete_asset: &'a CompleteErasedLoadedAsset,
         settings: &'a dyn Settings,
-    ) -> BoxedFuture<'a, Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>> {
+    ) -> BoxedFuture<'a, Result<(), Box<dyn core::error::Error + Send + Sync + 'static>>> {
         Box::pin(async move {
             let settings = settings
                 .downcast_ref::<S::Settings>()
                 .expect("AssetLoader settings should match the loader type");
-            let saved_asset = SavedAsset::<S::Asset>::from_loaded(asset).unwrap();
+            let saved_asset = SavedAsset::<S::Asset>::from_loaded(complete_asset).unwrap();
             if let Err(err) = self.save(writer, saved_asset, settings).await {
                 return Err(err.into());
             }
@@ -63,7 +71,7 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
         })
     }
     fn type_name(&self) -> &'static str {
-        std::any::type_name::<S>()
+        core::any::type_name::<S>()
     }
 }
 
@@ -83,11 +91,11 @@ impl<'a, A: Asset> Deref for SavedAsset<'a, A> {
 
 impl<'a, A: Asset> SavedAsset<'a, A> {
     /// Creates a new [`SavedAsset`] from `asset` if its internal value matches `A`.
-    pub fn from_loaded(asset: &'a ErasedLoadedAsset) -> Option<Self> {
-        let value = asset.value.downcast_ref::<A>()?;
+    pub fn from_loaded(complete_asset: &'a CompleteErasedLoadedAsset) -> Option<Self> {
+        let value = complete_asset.asset.value.downcast_ref::<A>()?;
         Some(SavedAsset {
             value,
-            labeled_assets: &asset.labeled_assets,
+            labeled_assets: &complete_asset.labeled_assets,
         })
     }
 
@@ -106,17 +114,13 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the labeled asset, if it exists and matches this type.
-    pub fn get_labeled<B: Asset, Q>(&self, label: &Q) -> Option<SavedAsset<B>>
+    pub fn get_labeled<B: Asset, Q>(&self, label: &Q) -> Option<&B>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
         let labeled = self.labeled_assets.get(label)?;
-        let value = labeled.asset.value.downcast_ref::<B>()?;
-        Some(SavedAsset {
-            value,
-            labeled_assets: &labeled.asset.labeled_assets,
-        })
+        labeled.asset.value.downcast_ref::<B>()
     }
 
     /// Returns the type-erased labeled asset, if it exists and matches this type.

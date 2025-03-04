@@ -5,8 +5,8 @@ use std::f32::consts::PI;
 use bevy::{
     color::palettes::css::{GOLD, WHITE},
     core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
+    image::ImageLoaderSettings,
     prelude::*,
-    render::texture::ImageLoaderSettings,
 };
 
 /// Entry point.
@@ -36,7 +36,7 @@ fn rotate_skybox_and_environment_map(
     mut environments: Query<(&mut Skybox, &mut EnvironmentMapLight)>,
     time: Res<Time>,
 ) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     let rotation = Quat::from_rotation_y(0.2 * now);
     for (mut skybox, mut environment_map) in environments.iter_mut() {
         skybox.rotation = rotation;
@@ -63,9 +63,9 @@ fn spawn_sphere(
     asset_server: &AssetServer,
     sphere_mesh: &Handle<Mesh>,
 ) {
-    commands.spawn(PbrBundle {
-        mesh: sphere_mesh.clone(),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(sphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
             clearcoat: 1.0,
             clearcoat_perceptual_roughness: 0.3,
             clearcoat_normal_texture: Some(asset_server.load_with_settings(
@@ -76,20 +76,16 @@ fn spawn_sphere(
             perceptual_roughness: 0.1,
             base_color: GOLD.into(),
             ..default()
-        }),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(1.25)),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(1.25)),
+    ));
 }
 
 /// Spawns a light.
 fn spawn_light(commands: &mut Commands) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            color: WHITE.into(),
-            intensity: 100000.0,
-            ..default()
-        },
+    commands.spawn(PointLight {
+        color: WHITE.into(),
+        intensity: 100000.0,
         ..default()
     });
 }
@@ -97,19 +93,19 @@ fn spawn_light(commands: &mut Commands) {
 /// Spawns a camera with associated skybox and environment map.
 fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands
-        .spawn(Camera3dBundle {
-            camera: Camera {
+        .spawn((
+            Camera3d::default(),
+            Camera {
                 hdr: true,
                 ..default()
             },
-            projection: Projection::Perspective(PerspectiveProjection {
+            Projection::Perspective(PerspectiveProjection {
                 fov: 27.0 / 180.0 * PI,
                 ..default()
             }),
-            transform: Transform::from_xyz(0.0, 0.0, 10.0),
-            tonemapping: AcesFitted,
-            ..default()
-        })
+            Transform::from_xyz(0.0, 0.0, 10.0),
+            AcesFitted,
+        ))
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
