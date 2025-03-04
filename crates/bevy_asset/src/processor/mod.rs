@@ -277,7 +277,10 @@ impl AssetProcessor {
             .get_full_extension()
             .and_then(|extension| self.get_default_processor(&extension))
         else {
-            return self.server.write_default_meta_file_for_path(path).await;
+            return self
+                .server
+                .write_default_loader_meta_file_for_path(path)
+                .await;
         };
 
         let meta = processor.default_meta();

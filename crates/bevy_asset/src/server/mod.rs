@@ -1481,11 +1481,17 @@ impl AssetServer {
         }
     }
 
-    /// Writes the default meta file for the provided `path`.
+    /// Writes the default loader meta file for the provided `path`.
+    ///
+    /// This function only generates meta files that simply load the path directly. To generate a
+    /// meta file that will use the default asset processor for the path, see
+    /// [`AssetProcessor::write_default_meta_file_for_path`].
     ///
     /// Note if there is already a meta file for `path`, this function returns
     /// `Err(WriteDefaultMetaError::MetaAlreadyExists)`.
-    pub async fn write_default_meta_file_for_path(
+    ///
+    /// [`AssetProcessor::write_default_meta_file_for_path`]:  crate::AssetProcessor::write_default_meta_file_for_path
+    pub async fn write_default_loader_meta_file_for_path(
         &self,
         path: impl Into<AssetPath<'_>>,
     ) -> Result<(), WriteDefaultMetaError> {
