@@ -441,10 +441,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns another `Query` from this does not return any data, which can be faster.
-    fn as_nop(&self) -> Query<'w, 's, NopWorldQuery<D>, F> {
+    fn as_nop(&self) -> Query<'_, 's, NopWorldQuery<D>, F> {
         let new_state = self.state.as_nop();
         // SAFETY:
-        // - This is memory safe because it performs no access.
+        // - The reborrowed query is converted to read-only, so it cannot perform mutable access,
+        //   and the original query is held with a shared borrow, so it cannot perform mutable access either.
+        //   Note that although `NopWorldQuery` itself performs *no* access and could soundly alias a mutable query,
+        //   it has the original `QueryState::component_access` and could be `transmute`d to a read-only query.
         // - The world matches because it was the same one used to construct self.
         unsafe { Query::new(self.world, new_state, self.last_run, self.this_run) }
     }
