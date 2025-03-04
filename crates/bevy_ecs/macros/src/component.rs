@@ -615,7 +615,7 @@ impl Parse for RelationshipTarget {
             } else if lookahead.peek(kw::relationship) {
                 input.parse::<kw::relationship>()?;
                 input.parse::<Token![=]>()?;
-                relationship = Some(input.parse()?)
+                relationship = Some(input.parse()?);
             } else {
                 return Err(lookahead.error());
             }
