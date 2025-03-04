@@ -3,14 +3,7 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
 use std::collections::HashSet;
 use syn::{
-    parenthesized,
-    parse::Parse,
-    parse_macro_input, parse_quote,
-    punctuated::Punctuated,
-    spanned::Spanned,
-    token::{Comma, Paren},
-    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprClosure, ExprPath, Field, Fields, Ident,
-    LitStr, Member, Meta, Path, Result, Token, Type, Visibility,
+    parenthesized, parse::Parse, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::{Comma, Paren}, Data, DataEnum, DataStruct, DeriveInput, Expr, ExprClosure, ExprPath, Field, Fields, Ident, LitBool, LitStr, Member, Meta, Path, Result, Token, Type, Visibility
 };
 
 pub const EVENT: &str = "event";
@@ -587,10 +580,15 @@ fn hook_register_function_call(
     })
 }
 
+mod kw {
+    syn::custom_keyword!(relationship_target);
+    syn::custom_keyword!(relationship);
+    syn::custom_keyword!(linked_spawn);
+}
+
 impl Parse for Relationship {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        syn::custom_keyword!(relationship_target);
-        input.parse::<relationship_target>()?;
+        input.parse::<kw::relationship_target>()?;
         input.parse::<Token![=]>()?;
         Ok(Relationship {
             relationship_target: input.parse::<Type>()?,
@@ -603,20 +601,22 @@ impl Parse for RelationshipTarget {
         let mut relationship: Option<Type> = None;
         let mut linked_spawn: bool = false;
 
-        let metas = input.parse_terminated(Meta::parse, Token![,])?;
-
-        for meta in metas {
-            match meta {
-                Meta::Path(path) if path.is_ident(LINKED_SPAWN) => linked_spawn = true,
-                Meta::NameValue(nv) if nv.path.is_ident(RELATIONSHIP) => {
-                    if let Expr::Path(ExprPath { path, qself, .. }) = nv.value {
-                        relationship = Some(Type::Path(syn::TypePath { path, qself }));
-                    }
-                },
-                _ => return Err(syn::Error::new(meta.span(), "Invalid attribute")),
-            };
+        while !input.is_empty() {
+            let lookahead = input.lookahead1();
+            if lookahead.peek(kw::linked_spawn) {
+                input.parse::<kw::linked_spawn>()?;
+                linked_spawn = true;
+            } else if lookahead.peek(kw::relationship) {
+                input.parse::<kw::relationship>()?;
+                input.parse::<Token![=]>()?;
+                relationship = Some(input.parse()?)
+            } else {
+                return Err(lookahead.error());
+            }
+            if !input.is_empty() {
+                input.parse::<Token![,]>()?;
+            }
         }
-
         Ok(RelationshipTarget {
             relationship: relationship.ok_or_else(|| {
                 syn::Error::new(input.span(), "Missing `relationship = X` attribute")
