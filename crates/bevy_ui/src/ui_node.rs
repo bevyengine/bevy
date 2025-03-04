@@ -2834,32 +2834,18 @@ impl Default for ColorStop {
     }
 }
 
-/// Draw the Node with a linear gradient
-#[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
+/// An angular color stop for a conic gradient
+#[derive(Default, Debug, Copy, Clone, PartialEq, Reflect)]
+#[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct LinearGradient {
-    // angle of the gradient line in radians
-    // at 0 the gradient is drawn from bottom to top
-    // angle increases clockwise
-    pub angle: f32,
-    // list of color stops
-    pub stops: Vec<ColorStop>,
+pub struct AngularColorStop {
+    pub color: Color,
+    pub angle: Option<f32>,
 }
-
-/// Draw the Node's border with a linear gradient
-#[derive(Component, Clone, Default, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub struct LinearGradientBorder(pub LinearGradient);
 
 #[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq, Default)]
@@ -2922,19 +2908,6 @@ impl Default for RelativePosition {
         RelativePosition::Center(Val::Auto)
     }
 }
-#[derive(Clone, PartialEq, Debug, Reflect, Component, Default)]
-#[reflect(PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub struct RadialGradient {
-    pub center: [RelativePosition; 2],
-    pub shape: RadialGradientShape,
-    pub stops: Vec<ColorStop>,
-}
-
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 #[cfg_attr(
@@ -2942,19 +2915,45 @@ pub struct RadialGradient {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum GradientStyle {
+pub enum Gradient {
     Linear {
         angle: f32,
+        stops: Vec<ColorStop>,
     },
     Radial {
-        center: RelativePosition,
+        center: [RelativePosition; 2],
         shape: RadialGradientShape,
+        stops: Vec<ColorStop>,
+    },
+    Conic {
+        center: [RelativePosition; 2],
+        stops: Vec<AngularColorStop>,
     },
 }
 
-impl Default for GradientStyle {
-    fn default() -> Self {
-        Self::Linear { angle: 0. }
+impl Gradient {
+    /// Returns true if the gradient has no stops.
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Gradient::Linear { stops, .. } => stops.is_empty(),
+            Gradient::Radial { stops, .. } => stops.is_empty(),
+            Gradient::Conic { stops, .. } => stops.is_empty(),
+        }
+    }
+
+    /// If the gradient has only a single stop returns its color.
+    pub fn get_single(&self) -> Option<Color> {
+        match self {
+            Gradient::Linear { stops, .. } => stops
+                .first()
+                .and_then(|stop| (stops.len() == 1).then_some(stop.color)),
+            Gradient::Radial { stops, .. } => stops
+                .first()
+                .and_then(|stop| (stops.len() == 1).then_some(stop.color)),
+            Gradient::Conic { stops, .. } => stops
+                .first()
+                .and_then(|stop| (stops.len() == 1).then_some(stop.color)),
+        }
     }
 }
 
@@ -2965,10 +2964,7 @@ impl Default for GradientStyle {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct GradientNode {
-    pub style: GradientStyle,
-    pub stops: Vec<ColorStop>,
-}
+pub struct GradientNode(pub Gradient);
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
@@ -2977,10 +2973,7 @@ pub struct GradientNode {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct GradientBorder {
-    pub style: GradientStyle,
-    pub stops: Vec<ColorStop>,
-}
+pub struct GradientBorder(pub Gradient);
 
 #[cfg(test)]
 mod tests {

@@ -1,13 +1,17 @@
 //! Simple example demonstrating linear gradients.
 
 use bevy::color::palettes::css::BLUE;
+use bevy::color::palettes::css::DARK_CYAN;
+use bevy::color::palettes::css::DARK_GOLDENROD;
+use bevy::color::palettes::css::LIGHT_CYAN;
 use bevy::color::palettes::css::LIME;
+use bevy::color::palettes::css::MAGENTA;
 use bevy::color::palettes::css::ORANGE;
+use bevy::color::palettes::css::PURPLE;
 use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy::ui::ColorStop;
-use bevy::ui::LinearGradient;
 use std::f32::consts::TAU;
 
 fn main() {
@@ -49,10 +53,22 @@ fn setup(mut commands: Commands) {
                         color: BLUE.into(),
                         point: Val::Auto,
                     },
+                    ColorStop {
+                        color: LIME.into(),
+                        point: Val::Auto,
+                    },
                 ],
                 vec![
                     ColorStop {
-                        color: RED.into(),
+                        color: PURPLE.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: DARK_GOLDENROD.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: YELLOW.into(),
                         point: Val::Auto,
                     },
                     ColorStop {
@@ -60,7 +76,15 @@ fn setup(mut commands: Commands) {
                         point: Val::Auto,
                     },
                     ColorStop {
-                        color: LIME.into(),
+                        color: MAGENTA.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: LIGHT_CYAN.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: DARK_CYAN.into(),
                         point: Val::Auto,
                     },
                 ],
@@ -89,14 +113,12 @@ fn setup(mut commands: Commands) {
                                                     ..default()
                                                 },
                                                 BorderRadius::all(Val::Px(20.)),
-                                                GradientNode {
-                                                    style: GradientStyle::Linear { angle },
+                                                GradientNode(Gradient::Linear {
+                                                    angle,
                                                     stops: stops.clone(),
-                                                },
-                                                GradientBorder {
-                                                    style: GradientStyle::Linear {
-                                                        angle: 3. * TAU / 8.,
-                                                    },
+                                                }),
+                                                GradientBorder(Gradient::Linear {
+                                                    angle: 3. * TAU / 8.,
                                                     stops: vec![
                                                         ColorStop {
                                                             color: YELLOW.into(),
@@ -108,7 +130,7 @@ fn setup(mut commands: Commands) {
                                                             point: Val::Auto,
                                                         },
                                                     ],
-                                                },
+                                                }),
                                             ));
                                         }
                                     });
@@ -125,14 +147,12 @@ fn setup(mut commands: Commands) {
                                 ..default()
                             },
                             BorderRadius::all(Val::Px(20.)),
-                            GradientNode {
-                                style: GradientStyle::Linear { angle: 0. },
+                            GradientNode(Gradient::Linear {
+                                angle: 0.,
                                 stops: stops.clone(),
-                            },
-                            GradientBorder {
-                                style: GradientStyle::Linear {
-                                    angle: 3. * TAU / 8.,
-                                },
+                            }),
+                            GradientBorder(Gradient::Linear {
+                                angle: 3. * TAU / 8.,
                                 stops: vec![
                                     ColorStop {
                                         color: YELLOW.into(),
@@ -144,7 +164,7 @@ fn setup(mut commands: Commands) {
                                         point: Val::Auto,
                                     },
                                 ],
-                            },
+                            }),
                             AnimateMarker,
                         ));
                     });
@@ -156,8 +176,10 @@ fn setup(mut commands: Commands) {
 #[derive(Component)]
 struct AnimateMarker;
 
-fn update(time: Res<Time>, mut query: Query<&mut LinearGradient, With<AnimateMarker>>) {
+fn update(time: Res<Time>, mut query: Query<&mut GradientNode, With<AnimateMarker>>) {
     for mut gradient in query.iter_mut() {
-        gradient.angle += 0.5 * time.delta_secs();
+        if let Gradient::Linear { angle, .. } = &mut gradient.0 {
+            *angle += 0.5 * time.delta_secs();
+        }
     }
 }

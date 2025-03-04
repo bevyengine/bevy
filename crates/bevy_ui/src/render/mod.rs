@@ -950,6 +950,10 @@ pub mod shader_flags {
     /// Ordering: top left, top right, bottom right, bottom left.
     pub const CORNERS: [u32; 4] = [0, 2, 2 | 4, 4];
     pub const BORDER: u32 = 8;
+    pub const RADIAL: u32 = 16;
+    pub const FILL_START: u32 = 32;
+    pub const FILL_END: u32 = 64;
+    pub const CONIC: u32 = 128;
 }
 
 pub fn queue_uinodes(

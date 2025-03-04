@@ -7,6 +7,7 @@ const BORDER: u32 = 8u;
 const RADIAL: u32 = 16u;
 const FILL_START: u32 = 32u;
 const FILL_END: u32 = 64u;
+const CONIC: u32 = 128u;
 
 fn enabled(flags: u32, mask: u32) -> bool {
     return (flags & mask) != 0u;
@@ -185,6 +186,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var g_distance: f32;
     if enabled(in.flags, RADIAL) {
         g_distance = radial_distance(in.point, in.g_start, in.dir.x);
+    } else if enabled(in.flags, CONIC) {
+        g_distance = conic_distance(in.point, in.g_start);
     } else {
         g_distance = linear_distance(in.point, in.g_start, in.dir);
     }
@@ -226,6 +229,14 @@ fn radial_distance(
     ratio: f32,
 ) -> f32 {
     return distance(center - vec2(point.x, point.y * ratio), vec2(0., 0.));
+}
+
+fn conic_distance(
+    point: vec2<f32>,
+    center: vec2<f32>,
+) -> f32 {
+    let d = point - center;
+    return atan2(d.y, d.x);
 }
 
 fn interpolate_gradient(

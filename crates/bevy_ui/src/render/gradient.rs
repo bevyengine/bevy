@@ -28,6 +28,8 @@ use bevy_sprite::BorderRect;
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
+use super::shader_flags::{FILL_END, FILL_START};
+
 pub const UI_GRADIENT_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("10cd61e3-bbf7-47fa-91c8-16cbe806378c");
 
@@ -230,6 +232,12 @@ impl SpecializedRenderPipeline for GradientPipeline {
     }
 }
 
+pub enum ResolvedGradient {
+    Linear { angle: f32 },
+    Conic { center: Vec2 },
+    Radial { center: Vec2, size: Vec2 },
+}
+
 pub struct ExtractedGradient {
     pub stack_index: u32,
     pub transform: Mat4,
@@ -244,10 +252,11 @@ pub struct ExtractedGradient {
     pub render_entity: Entity,
     /// Border radius of the UI node.
     /// Ordering: top left, top right, bottom right, bottom left.
-    border_radius: ResolvedBorderRadius,
+    pub border_radius: ResolvedBorderRadius,
     /// Border thickness of the UI node.
     /// Ordering: left, top, right, bottom.
-    border: BorderRect,
+    pub border: BorderRect,
+    pub resolved_gradient: ResolvedGradient,
 }
 
 #[derive(Resource, Default)]
@@ -298,26 +307,17 @@ pub fn extract_gradients(
             continue;
         };
 
-        for (gradient_style, stops, node_type) in [
-            (
-                gradient.map(|g| &g.style),
-                gradient.map(|g| &g.stops),
-                NodeType::Rect,
-            ),
-            (
-                gradient_border.map(|g| &g.style),
-                gradient_border.map(|g| &g.stops),
-                NodeType::Border,
-            ),
+        for (gradient, node_type) in [
+            (gradient.map(|g| &g.0), NodeType::Rect),
+            (gradient_border.map(|g| &g.0), NodeType::Border),
         ]
         .iter()
-        .filter_map(|g| g.0.map(|l| (l, g.1.unwrap(), g.2)))
+        .filter_map(|(g, n)| g.map(|g| (g, *n)))
         {
-            if stops.is_empty() {
+            if gradient.is_empty() {
                 continue;
             }
-
-            if let &[ColorStop { color, .. }] = &stops[..] {
+            if let Some(color) = gradient.get_single() {
                 // With a single color stop there's no gradient, fill the node with the color
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index: uinode.stack_index,
@@ -343,119 +343,164 @@ pub fn extract_gradients(
                 });
                 continue;
             }
+            match gradient {
+                Gradient::Linear { angle, stops } => {
+                    let length =
+                        compute_gradient_line_length(*angle, uinode.size * transform.scale().xy());
 
-            // compute the length of the gradient line for color stop resolution
-            let length = match gradient_style {
-                &GradientStyle::Linear { angle } => {
-                    compute_gradient_line_length(angle, uinode.size * transform.scale().xy())
-                }
-                _ => {
-                    continue;
-                }
-            };
-            let logical_length = length / target.scale_factor;
-            let logical_viewport_size = target.physical_size.as_vec2() / target.scale_factor;
+                    let logical_length = length / target.scale_factor;
+                    let logical_viewport_size =
+                        target.physical_size.as_vec2() / target.scale_factor;
 
-            let range_start = extracted_color_stops.0.len();
+                    let range_start = extracted_color_stops.0.len();
 
-            // resolve the physical distances of explicit stops and sort them high to low
-            sorted_stops.extend(stops.iter().filter_map(|stop| {
-                stop.point
-                    .resolve(logical_length, logical_viewport_size)
-                    .ok()
-                    .map(|logical_point| {
-                        (stop.color.to_linear(), logical_point * target.scale_factor)
-                    })
-            }));
-            sorted_stops.sort_by_key(|(_, point)| Reverse(FloatOrd(*point)));
+                    // resolve the physical distances of explicit stops and sort them high to low
+                    sorted_stops.extend(stops.iter().filter_map(|stop| {
+                        stop.point
+                            .resolve(logical_length, logical_viewport_size)
+                            .ok()
+                            .map(|logical_point| {
+                                (stop.color.to_linear(), logical_point * target.scale_factor)
+                            })
+                    }));
+                    sorted_stops.sort_by_key(|(_, point)| Reverse(FloatOrd(*point)));
 
-            let min = sorted_stops.last().map(|(_, min)| *min).unwrap_or(0.);
-            if 0. < min && stops[0].point != Val::Auto {
-                extracted_color_stops
-                    .0
-                    .push((stops[0].color.to_linear(), 0.));
-            }
-            let min = min.min(0.);
-
-            // get the position of the last explicit stop and use the full length of the gradient if no explicit stops
-            let max = sorted_stops
-                .first()
-                .map(|(_, max)| *max)
-                .unwrap_or(length)
-                .max(length);
-
-            // Fill the extracted color stops buffer
-            extracted_color_stops.0.extend(stops.iter().map(|stop| {
-                if stop.point == Val::Auto {
-                    (stop.color.to_linear(), f32::NAN)
-                } else {
-                    sorted_stops.pop().unwrap()
-                }
-            }));
-
-            let last_stop = extracted_color_stops.0.last().unwrap();
-            if !last_stop.1.is_nan() && last_stop.1 < length {
-                let last_color = last_stop.0;
-                extracted_color_stops.0.push((last_color, length));
-            }
-
-            let stops_out = &mut extracted_color_stops.0[range_start..];
-
-            // Interpolate implicit stops (where position is `f32::NAN`)
-            // If the first and last stops are implicit set them to the `min` and `max` values
-            // so that we always have explicit start and end points to interpolate between.
-            if stops_out[0].1.is_nan() {
-                stops_out[0].1 = min;
-            }
-            if stops_out.last().unwrap().1.is_nan() {
-                stops_out.last_mut().unwrap().1 = max;
-            }
-
-            let mut i = 1;
-
-            while i < stops_out.len() - 1 {
-                let point = stops_out[i].1;
-                if point.is_nan() {
-                    let start = i;
-                    let mut end = i + 1;
-                    while end < stops_out.len() - 1 && stops_out[end].1.is_nan() {
-                        end += 1;
+                    let min = sorted_stops.last().map(|(_, min)| *min).unwrap_or(0.);
+                    if 0. < min && stops[0].point != Val::Auto {
+                        extracted_color_stops
+                            .0
+                            .push((stops[0].color.to_linear(), 0.));
                     }
-                    let start_point = stops_out[start - 1].1;
-                    let end_point = stops_out[end].1;
-                    let steps = end - start;
-                    let step = (end_point - start_point) / (steps + 1) as f32;
-                    for j in 0..steps {
-                        stops_out[i + j].1 = start_point + step * (j + 1) as f32;
-                    }
-                    i = end;
-                }
-                i += 1;
-            }
-            let angle = match gradient_style {
-                GradientStyle::Linear { angle } => *angle,
-                GradientStyle::Radial { shape, center } => {
-                    continue;
-                }
-            };
+                    let min = min.min(0.);
 
-            extracted_linear_gradients.items.push(ExtractedGradient {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                stack_index: uinode.stack_index,
-                transform: transform.compute_matrix(),
-                g_angle: angle,
-                stops_range: range_start..extracted_color_stops.0.len(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.size,
-                },
-                clip: clip.map(|clip| clip.clip),
-                extracted_camera_entity,
-                main_entity: entity.into(),
-                node_type,
-                border_radius: uinode.border_radius,
-                border: uinode.border,
-            });
+                    // get the position of the last explicit stop and use the full length of the gradient if no explicit stops
+                    let max = sorted_stops
+                        .first()
+                        .map(|(_, max)| *max)
+                        .unwrap_or(length)
+                        .max(length);
+
+                    // Fill the extracted color stops buffer
+                    extracted_color_stops.0.extend(stops.iter().map(|stop| {
+                        if stop.point == Val::Auto {
+                            (stop.color.to_linear(), f32::NAN)
+                        } else {
+                            sorted_stops.pop().unwrap()
+                        }
+                    }));
+
+                    let last_stop = extracted_color_stops.0.last().unwrap();
+                    if !last_stop.1.is_nan() && last_stop.1 < length {
+                        let last_color = last_stop.0;
+                        extracted_color_stops.0.push((last_color, length));
+                    }
+
+                    let stops_out = &mut extracted_color_stops.0[range_start..];
+
+                    // Interpolate implicit stops (where position is `f32::NAN`)
+                    // If the first and last stops are implicit set them to the `min` and `max` values
+                    // so that we always have explicit start and end points to interpolate between.
+                    if stops_out[0].1.is_nan() {
+                        stops_out[0].1 = min;
+                    }
+                    if stops_out.last().unwrap().1.is_nan() {
+                        stops_out.last_mut().unwrap().1 = max;
+                    }
+
+                    let mut i = 1;
+
+                    while i < stops_out.len() - 1 {
+                        let point = stops_out[i].1;
+                        if point.is_nan() {
+                            let start = i;
+                            let mut end = i + 1;
+                            while end < stops_out.len() - 1 && stops_out[end].1.is_nan() {
+                                end += 1;
+                            }
+                            let start_point = stops_out[start - 1].1;
+                            let end_point = stops_out[end].1;
+                            let steps = end - start;
+                            let step = (end_point - start_point) / (steps + 1) as f32;
+                            for j in 0..steps {
+                                stops_out[i + j].1 = start_point + step * (j + 1) as f32;
+                            }
+                            i = end;
+                        }
+                        i += 1;
+                    }
+
+                    extracted_linear_gradients.items.push(ExtractedGradient {
+                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        stack_index: uinode.stack_index,
+                        transform: transform.compute_matrix(),
+                        g_angle: *angle,
+                        stops_range: range_start..extracted_color_stops.0.len(),
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: uinode.size,
+                        },
+                        clip: clip.map(|clip| clip.clip),
+                        extracted_camera_entity,
+                        main_entity: entity.into(),
+                        node_type,
+                        border_radius: uinode.border_radius,
+                        border: uinode.border,
+                        resolved_gradient: ResolvedGradient::Linear { angle: *angle },
+                    });
+                }
+                Gradient::Radial {
+                    center,
+                    shape,
+                    stops,
+                } => {
+                    let g_start = Vec2::new(
+                        center[0].resolve(
+                            target.scale_factor,
+                            uinode.size.x,
+                            target.physical_size.as_vec2(),
+                        ),
+                        center[1].resolve(
+                            target.scale_factor,
+                            uinode.size.y,
+                            target.physical_size.as_vec2(),
+                        ),
+                    );
+                }
+                Gradient::Conic { center, stops } => {
+                    let g_start = Vec2::new(
+                        center[0].resolve(
+                            target.scale_factor,
+                            uinode.size.x,
+                            target.physical_size.as_vec2(),
+                        ),
+                        center[1].resolve(
+                            target.scale_factor,
+                            uinode.size.y,
+                            target.physical_size.as_vec2(),
+                        ),
+                    );
+                    let range_start = extracted_color_stops.0.len();
+
+                    extracted_linear_gradients.items.push(ExtractedGradient {
+                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        stack_index: uinode.stack_index,
+                        transform: transform.compute_matrix(),
+                        g_angle: 0.,
+                        stops_range: range_start..extracted_color_stops.0.len(),
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: uinode.size,
+                        },
+                        clip: clip.map(|clip| clip.clip),
+                        extracted_camera_entity,
+                        main_entity: entity.into(),
+                        node_type,
+                        border_radius: uinode.border_radius,
+                        border: uinode.border,
+                        resolved_gradient: ResolvedGradient::Conic { center: g_start },
+                    });
+                }
+            }
         }
     }
 }
@@ -638,26 +683,41 @@ pub fn prepare_linear_gradient(
 
                     let uvs = { [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y] };
 
-                    let flags = if gradient.node_type == NodeType::Border {
+                    let mut flags = if gradient.node_type == NodeType::Border {
                         shader_flags::BORDER
                     } else {
                         0
                     };
 
-                    let angle = gradient.g_angle.rem_euclid(TAU);
-                    let g_start = points[if angle < TAU / 4. {
-                        3
-                    } else if angle < TAU / 2. {
-                        0
-                    } else if angle < 3. * TAU / 4. {
-                        1
-                    } else {
-                        2
-                    }]
-                    .into();
+                    let (g_start, g_dir, g_flags) = match gradient.resolved_gradient {
+                        ResolvedGradient::Linear { angle } => {
+                            let angle = angle.rem_euclid(TAU);
+                            (
+                                points[if angle < TAU / 4. {
+                                    3
+                                } else if angle < TAU / 2. {
+                                    0
+                                } else if angle < 3. * TAU / 4. {
+                                    1
+                                } else {
+                                    2
+                                }]
+                                .into(),
+                                // CSS angles increase in a clockwise direction
+                                [sin(angle), -cos(angle)],
+                                0,
+                            )
+                        }
+                        ResolvedGradient::Conic { center } => {
+                            (center.into(), Vec2::ZERO.into(), shader_flags::CONIC)
+                        }
+                        ResolvedGradient::Radial { center, size } => {
+                            (center.into(), size.into(), shader_flags::RADIAL)
+                        }
+                    };
 
-                    // CSS angles increase in a clockwise direction
-                    let dir = Vec2::new(sin(angle), -cos(angle));
+                    flags |= g_flags;
+
                     let range = gradient.stops_range.start..gradient.stops_range.end - 1;
                     let segment_count = range.len() as u32;
 
@@ -666,11 +726,18 @@ pub fn prepare_linear_gradient(
                         let end_stop = extracted_color_stops.0[stop_index + 1];
                         let start_color = start_stop.0.to_f32_array();
                         let end_color = end_stop.0.to_f32_array();
+                        let mut stop_flags = flags;
+                        if stop_index == gradient.stops_range.start {
+                            stop_flags |= FILL_START
+                        }
+                        if stop_index == gradient.stops_range.end - 1 {
+                            stop_flags |= FILL_END
+                        }
                         for i in 0..4 {
                             ui_meta.vertices.push(UiGradientVertex {
                                 position: positions_clipped[i].into(),
                                 uv: uvs[i].into(),
-                                flags: flags | shader_flags::CORNERS[i],
+                                flags: stop_flags | shader_flags::CORNERS[i],
                                 radius: [
                                     gradient.border_radius.top_left,
                                     gradient.border_radius.top_right,
@@ -685,7 +752,7 @@ pub fn prepare_linear_gradient(
                                 ],
                                 size: rect_size.xy().into(),
                                 g_start,
-                                g_dir: dir.into(),
+                                g_dir,
                                 point: points[i].into(),
                                 start_color,
                                 start_len: start_stop.1,

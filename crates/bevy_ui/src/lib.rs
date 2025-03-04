@@ -170,8 +170,9 @@ impl Plugin for UiPlugin {
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
             .register_type::<TextShadow>()
-            .register_type::<LinearGradient>()
-            .register_type::<LinearGradientBorder>()
+            .register_type::<Gradient>()
+            .register_type::<GradientNode>()
+            .register_type::<GradientBorder>()
             .configure_sets(
                 PostUpdate,
                 (
