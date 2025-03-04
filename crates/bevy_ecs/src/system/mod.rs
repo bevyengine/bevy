@@ -1648,7 +1648,10 @@ mod tests {
     #[should_panic]
     fn panic_inside_system() {
         let mut world = World::new();
-        run_system(&mut world, || panic!("this system panics"));
+        let system: fn() = || {
+            panic!("this system panics");
+        };
+        run_system(&mut world, system);
     }
 
     #[test]

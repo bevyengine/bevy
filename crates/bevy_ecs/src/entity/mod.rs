@@ -70,6 +70,10 @@ mod unique_slice;
 
 pub use unique_slice::*;
 
+mod unique_array;
+
+pub use unique_array::UniqueEntityArray;
+
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     change_detection::MaybeLocation,
