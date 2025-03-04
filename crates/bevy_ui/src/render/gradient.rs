@@ -343,6 +343,7 @@ pub fn extract_gradients(
                 });
                 continue;
             }
+
             // compute the length of the gradient line for color stop resolution
             let length = match gradient_style {
                 &GradientStyle::Linear { angle } => {
@@ -433,7 +434,9 @@ pub fn extract_gradients(
             }
             let angle = match gradient_style {
                 GradientStyle::Linear { angle } => *angle,
-                GradientStyle::Radial { center, shape } => 0.,
+                GradientStyle::Radial { shape, center } => {
+                    continue;
+                }
             };
 
             extracted_linear_gradients.items.push(ExtractedGradient {

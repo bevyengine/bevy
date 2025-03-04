@@ -2897,30 +2897,31 @@ pub enum RadialGradientShape {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum RelativePositionAxis {
+pub enum RelativePosition {
     Start(Val),
     Center(Val),
     End(Val),
 }
 
-impl Default for RelativePositionAxis {
-    fn default() -> Self {
-        RelativePositionAxis::Center(Val::Auto)
+impl RelativePosition {
+    pub fn resolve(self, scale_factor: f32, length: f32, viewport_size: Vec2) -> f32 {
+        let (mut val, point) = match self {
+            Self::Start(val) => (val, -0.5 * length),
+            Self::Center(val) => (val, 0.),
+            Self::End(val) => (-val, 0.5 * length),
+        };
+        if let Val::Px(px) = val {
+            val = Val::Px(px * scale_factor);
+        }
+        point + val.resolve(length, viewport_size).unwrap_or(0.)
     }
 }
 
-#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Default, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub struct RelativePosition {
-    pub x: RelativePositionAxis,
-    pub y: RelativePositionAxis,
+impl Default for RelativePosition {
+    fn default() -> Self {
+        RelativePosition::Center(Val::Auto)
+    }
 }
-
 #[derive(Clone, PartialEq, Debug, Reflect, Component, Default)]
 #[reflect(PartialEq)]
 #[cfg_attr(
@@ -2929,7 +2930,7 @@ pub struct RelativePosition {
     reflect(Serialize, Deserialize)
 )]
 pub struct RadialGradient {
-    pub center: RelativePosition,
+    pub center: [RelativePosition; 2],
     pub shape: RadialGradientShape,
     pub stops: Vec<ColorStop>,
 }
