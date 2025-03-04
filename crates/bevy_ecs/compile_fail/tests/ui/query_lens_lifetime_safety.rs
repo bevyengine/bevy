@@ -26,8 +26,8 @@ fn main() {
         {
             let mut join: QueryLens<(&mut Foo, &mut Bar)> = foo_query.join(&mut bar_query);
             let mut query = join.query();
-            let (_, mut data) = query.single_mut();
-            let mut data2 = bar_query.single_mut();
+            let (_, mut data) = query.single_mut().unwrap();
+            let mut data2 = bar_query.single_mut().unwrap();
             //~^ E0499
             assert_eq!(&mut *data, &mut *data2); // oops UB
         }
@@ -36,8 +36,8 @@ fn main() {
             let mut join: QueryLens<(&mut Foo, &mut Bar)> =
                 foo_query.join_inner(bar_query.reborrow());
             let mut query = join.query();
-            let (_, mut data) = query.single_mut();
-            let mut data2 = bar_query.single_mut();
+            let (_, mut data) = query.single_mut().unwrap();
+            let mut data2 = bar_query.single_mut().unwrap();
             //~^ E0499
             assert_eq!(&mut *data, &mut *data2); // oops UB
         }
