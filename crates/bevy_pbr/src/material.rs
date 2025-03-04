@@ -651,7 +651,10 @@ pub const fn screen_space_specular_transmission_pipeline_key(
 /// [`crate::render::mesh::extract_meshes_for_gpu_building`] re-extracts a mesh
 /// is to mark its [`Mesh3d`] as changed, so that's what this system does.
 fn mark_meshes_as_changed_if_their_materials_changed<M>(
-    mut changed_meshes_query: Query<&mut Mesh3d, Changed<MeshMaterial3d<M>>>,
+    mut changed_meshes_query: Query<
+        &mut Mesh3d,
+        Or<(Changed<MeshMaterial3d<M>>, AssetChanged<MeshMaterial3d<M>>)>,
+    >,
 ) where
     M: Material,
 {
@@ -1036,6 +1039,11 @@ pub fn queue_material_meshes<M: Material>(
                 }
                 RenderPhaseType::Opaque => {
                     if material.properties.render_method == OpaqueRendererMethod::Deferred {
+                        // Even though we aren't going to insert the entity into
+                        // a bin, we still want to update its cache entry. That
+                        // way, we know we don't need to re-examine it in future
+                        // frames.
+                        opaque_phase.update_cache(*visible_entity, None, current_change_tick);
                         continue;
                     }
                     let batch_set_key = Opaque3dBatchSetKey {

@@ -51,7 +51,7 @@ fn main() {
         }),
     );
 
-    // Fallible observers are also sypported.
+    // Fallible observers are also supported.
     app.add_observer(fallible_observer);
 
     // If we run the app, we'll see the following output at startup:
