@@ -15,6 +15,7 @@ pub struct ObservedBy(pub(crate) Vec<Entity>);
 
 impl Component for ObservedBy {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    const UNSTABLE_TYPE_ID: u128 = 1;
     type Mutability = Mutable;
 
     fn on_remove() -> Option<ComponentHook> {

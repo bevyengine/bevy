@@ -386,6 +386,18 @@ pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
 
+    /// A randomly generated u128 that is consistent per component type, used to uniquely identify
+    /// components in const contexts.
+    /// This enables compile-time validation of component access patterns
+    /// for both inter-query and intra-query correctness.
+    const UNSTABLE_TYPE_ID: u128;
+
+    /// The name of the component's struct, if available.
+    /// This is used to provide more helpful error messages when component access conflicts
+    /// are detected at compile-time. Will be None if the component isn't derived automatically
+    /// or if the name isn't available.
+    #[cfg(feature = "diagnostic_component_names")]
+    const STRUCT_NAME: &'static str = "";
     /// A marker type to assist Bevy with determining if this component is
     /// mutable, or immutable. Mutable components will have [`Component<Mutability = Mutable>`],
     /// while immutable components will instead have [`Component<Mutability = Immutable>`].

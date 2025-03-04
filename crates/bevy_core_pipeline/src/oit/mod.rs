@@ -68,6 +68,7 @@ impl Default for OrderIndependentTransparencySettings {
 // we can hook on_add to issue a warning in case `layer_count` is seemingly too high.
 impl Component for OrderIndependentTransparencySettings {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    const UNSTABLE_TYPE_ID: u128 = 28539417283523;
     type Mutability = Mutable;
 
     fn on_add() -> Option<ComponentHook> {
