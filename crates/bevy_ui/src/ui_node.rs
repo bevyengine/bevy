@@ -2861,6 +2861,114 @@ pub struct LinearGradient {
 )]
 pub struct LinearGradientBorder(pub LinearGradient);
 
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum RadialGradientAxis {
+    #[default]
+    ClosestSide,
+    FarthestSide,
+    Length(Val),
+}
+
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum RadialGradientShape {
+    #[default]
+    FarthestCorner,
+    Circle(RadialGradientAxis),
+    ClosestCorner,
+    Ellipse(RadialGradientAxis, RadialGradientAxis),
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum RelativePositionAxis {
+    Start(Val),
+    Center(Val),
+    End(Val),
+}
+
+impl Default for RelativePositionAxis {
+    fn default() -> Self {
+        RelativePositionAxis::Center(Val::Auto)
+    }
+}
+
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct RelativePosition {
+    pub x: RelativePositionAxis,
+    pub y: RelativePositionAxis,
+}
+
+#[derive(Clone, PartialEq, Debug, Reflect, Component, Default)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct RadialGradient {
+    pub center: RelativePosition,
+    pub shape: RadialGradientShape,
+    pub stops: Vec<ColorStop>,
+}
+
+#[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum GradientStyle {
+    Linear {
+        angle: f32,
+    },
+    Radial {
+        center: RelativePosition,
+        shape: RadialGradientShape,
+    },
+}
+
+impl Default for GradientStyle {
+    fn default() -> Self {
+        Self::Linear { angle: 0. }
+    }
+}
+
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct Gradient {
+    style: GradientStyle,
+    stops: Vec<ColorStop>,
+}
+
 #[cfg(test)]
 mod tests {
     use crate::GridPlacement;
