@@ -66,6 +66,7 @@ impl ViewNode for LatePrepassNode {
         Option<&'static PreviousViewUniformOffset>,
         Has<OcclusionCulling>,
         Has<NoIndirectDrawing>,
+        Has<DeferredPrepass>,
     );
 
     fn run<'w>(
@@ -77,7 +78,7 @@ impl ViewNode for LatePrepassNode {
     ) -> Result<(), NodeRunError> {
         // We only need a late prepass if we have occlusion culling and indirect
         // drawing.
-        let (_, _, _, _, _, _, _, _, _, occlusion_culling, no_indirect_drawing) = query;
+        let (_, _, _, _, _, _, _, _, _, occlusion_culling, no_indirect_drawing, _) = query;
         if !occlusion_culling || no_indirect_drawing {
             return Ok(());
         }
@@ -110,10 +111,18 @@ fn run_prepass<'w>(
         view_prev_uniform_offset,
         _,
         _,
+        has_deferred,
     ): QueryItem<'w, <LatePrepassNode as ViewNode>::ViewQuery>,
     world: &'w World,
     label: &'static str,
 ) -> Result<(), NodeRunError> {
+    // If we're using deferred rendering, there will be a deferred prepass
+    // instead of this one. Just bail out so we don't have to bother looking at
+    // the empty bins.
+    if has_deferred {
+        return Ok(());
+    }
+
     let (Some(opaque_prepass_phases), Some(alpha_mask_prepass_phases)) = (
         world.get_resource::<ViewBinnedRenderPhases<Opaque3dPrepass>>(),
         world.get_resource::<ViewBinnedRenderPhases<AlphaMask3dPrepass>>(),

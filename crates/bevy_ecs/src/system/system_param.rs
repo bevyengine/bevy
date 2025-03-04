@@ -408,7 +408,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
             state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
         };
         let single = query
-            .get_single_inner()
+            .single_inner()
             .expect("The query was expected to contain exactly one matching entity.");
         Single {
             item: single,
@@ -432,7 +432,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
                 world.change_tick(),
             )
         };
-        let is_valid = query.get_single_inner().is_ok();
+        let is_valid = query.single_inner().is_ok();
         if !is_valid {
             system_meta.try_warn_param::<Self>();
         }
@@ -474,7 +474,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         let query = unsafe {
             state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
         };
-        match query.get_single_inner() {
+        match query.single_inner() {
             Ok(single) => Some(Single {
                 item: single,
                 _filter: PhantomData,
@@ -500,7 +500,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
                 world.change_tick(),
             )
         };
-        let result = query.get_single_inner();
+        let result = query.single_inner();
         let is_valid = !matches!(result, Err(QuerySingleError::MultipleEntities(_)));
         if !is_valid {
             system_meta.try_warn_param::<Self>();
@@ -685,7 +685,7 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 ///         // ...
 ///         # let _event = event;
 ///     }
-///     set.p1().send(MyEvent::new());
+///     set.p1().write(MyEvent::new());
 ///
 ///     let entities = set.p2().entities();
 ///     // ...

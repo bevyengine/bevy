@@ -21,8 +21,8 @@ use log::warn;
 use tracing::Span;
 
 use super::{
-    NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
-    QueryManyUniqueIter, QuerySingleError, ROQueryItem, ReadOnlyQueryData,
+    ComponentAccessKind, NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter,
+    QueryManyIter, QueryManyUniqueIter, QuerySingleError, ROQueryItem, ReadOnlyQueryData,
 };
 
 /// An ID for either a table or an archetype. Used for Query iteration.
@@ -51,9 +51,9 @@ pub(super) union StorageId {
 ///
 /// This data is cached between system runs, and is used to:
 /// - store metadata about which [`Table`] or [`Archetype`] are matched by the query. "Matched" means
-///     that the query will iterate over the data in the matched table/archetype.
+///   that the query will iterate over the data in the matched table/archetype.
 /// - cache the [`State`] needed to compute the [`Fetch`] struct used to retrieve data
-///     from a specific [`Table`] or [`Archetype`]
+///   from a specific [`Table`] or [`Archetype`]
 /// - build iterators that can iterate over the query results
 ///
 /// [`State`]: crate::query::world_query::WorldQuery::State
@@ -684,23 +684,22 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         access: &mut Access<ArchetypeComponentId>,
     ) {
         // As a fast path, we can iterate directly over the components involved
-        // if the `access` isn't inverted.
-        let (component_reads_and_writes, component_reads_and_writes_inverted) =
-            self.component_access.access.component_reads_and_writes();
-        let (component_writes, component_writes_inverted) =
-            self.component_access.access.component_writes();
+        // if the `access` is finite.
+        if let Ok(iter) = self.component_access.access.try_iter_component_access() {
+            iter.for_each(|component_access| {
+                if let Some(id) = archetype.get_archetype_component_id(*component_access.index()) {
+                    match component_access {
+                        ComponentAccessKind::Archetypal(_) => {}
+                        ComponentAccessKind::Shared(_) => {
+                            access.add_component_read(id);
+                        }
+                        ComponentAccessKind::Exclusive(_) => {
+                            access.add_component_write(id);
+                        }
+                    }
+                }
+            });
 
-        if !component_reads_and_writes_inverted && !component_writes_inverted {
-            component_reads_and_writes.for_each(|id| {
-                if let Some(id) = archetype.get_archetype_component_id(id) {
-                    access.add_component_read(id);
-                }
-            });
-            component_writes.for_each(|id| {
-                if let Some(id) = archetype.get_archetype_component_id(id) {
-                    access.add_component_write(id);
-                }
-            });
             return;
         }
 
@@ -1635,43 +1634,88 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This can only be called for read-only queries,
     /// see [`single_mut`](Self::single_mut) for write-queries.
     ///
-    /// # Panics
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
     ///
-    /// Panics if the number of query results is not exactly one. Use
-    /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
-    #[track_caller]
+    /// # Example
+    ///
+    /// Sometimes, you might want to handle the error in a specific way,
+    /// generally by spawning the missing entity.
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    /// use bevy_ecs::query::QuerySingleError;
+    ///
+    /// #[derive(Component)]
+    /// struct A(usize);
+    ///
+    /// fn my_system(query: Query<&A>, mut commands: Commands) {
+    ///     match query.single() {
+    ///         Ok(a) => (), // Do something with `a`
+    ///         Err(err) => match err {
+    ///             QuerySingleError::NoEntities(_) => {
+    ///                 commands.spawn(A(0));
+    ///             }
+    ///             QuerySingleError::MultipleEntities(_) => panic!("Multiple entities found!"),
+    ///         },
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// However in most cases, this error can simply be handled with a graceful early return.
+    /// If this is an expected failure mode, you can do this using the `let else` pattern like so:
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct A(usize);
+    ///
+    /// fn my_system(query: Query<&A>) {
+    ///   let Ok(a) = query.single() else {
+    ///     return;
+    ///   };
+    ///
+    ///   // Do something with `a`
+    /// }
+    /// ```
+    ///
+    /// If this is unexpected though, you should probably use the `?` operator
+    /// in combination with Bevy's error handling apparatus.
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct A(usize);
+    ///
+    /// fn my_system(query: Query<&A>) -> Result {
+    ///  let a = query.single()?;
+    ///  
+    ///  // Do something with `a`
+    ///  Ok(())
+    /// }
+    /// ```
+    ///
+    /// This allows you to globally control how errors are handled in your application,
+    /// by setting up a custom error handler.
+    /// See the [`bevy_ecs::result`] module docs for more information!
+    /// Commonly, you might want to panic on an error during development, but log the error and continue
+    /// execution in production.
+    ///
+    /// Simply unwrapping the [`Result`] also works, but should generally be reserved for tests.
     #[inline]
-    pub fn single<'w>(&mut self, world: &'w World) -> ROQueryItem<'w, D> {
+    pub fn single<'w>(&mut self, world: &'w World) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
         self.query(world).single_inner()
     }
 
-    /// Returns a single immutable query result when there is exactly one entity matching
-    /// the query.
-    ///
-    /// This can only be called for read-only queries,
-    /// see [`get_single_mut`](Self::get_single_mut) for write-queries.
-    ///
-    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
-    /// instead.
+    /// A deprecated alias for [`QueryState::single`].
+    #[deprecated(since = "0.16.0", note = "Please use `single` instead.")]
     #[inline]
     pub fn get_single<'w>(
         &mut self,
         world: &'w World,
     ) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
-        self.query(world).get_single_inner()
-    }
-
-    /// Returns a single mutable query result when there is exactly one entity matching
-    /// the query.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the number of query results is not exactly one. Use
-    /// [`get_single_mut`](Self::get_single_mut) to return a `Result` instead of panicking.
-    #[track_caller]
-    #[inline]
-    pub fn single_mut<'w>(&mut self, world: &'w mut World) -> D::Item<'w> {
-        self.query_mut(world).single_inner()
+        self.single(world)
     }
 
     /// Returns a single mutable query result when there is exactly one entity matching
@@ -1679,12 +1723,25 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
     /// instead.
+    ///
+    /// # Examples
+    ///
+    /// Please see [`Query::single`] for advice on handling the error.
     #[inline]
+    pub fn single_mut<'w>(
+        &mut self,
+        world: &'w mut World,
+    ) -> Result<D::Item<'w>, QuerySingleError> {
+        self.query_mut(world).single_inner()
+    }
+
+    /// A deprecated alias for [`QueryState::single_mut`].
+    #[deprecated(since = "0.16.0", note = "Please use `single` instead.")]
     pub fn get_single_mut<'w>(
         &mut self,
         world: &'w mut World,
     ) -> Result<D::Item<'w>, QuerySingleError> {
-        self.query_mut(world).get_single_inner()
+        self.single_mut(world)
     }
 
     /// Returns a query result when there is exactly one entity matching the query.
@@ -1697,11 +1754,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn get_single_unchecked<'w>(
+    pub unsafe fn single_unchecked<'w>(
         &mut self,
         world: UnsafeWorldCell<'w>,
     ) -> Result<D::Item<'w>, QuerySingleError> {
-        self.query_unchecked(world).get_single_inner()
+        self.query_unchecked(world).single_inner()
     }
 
     /// Returns a query result when there is exactly one entity matching the query,
@@ -1717,7 +1774,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`] is unsound.
     #[inline]
-    pub unsafe fn get_single_unchecked_manual<'w>(
+    pub unsafe fn single_unchecked_manual<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
@@ -1727,7 +1784,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // - The caller ensured we have the correct access to the world.
         // - The caller ensured that the world matches.
         self.query_unchecked_manual_with_ticks(world, last_run, this_run)
-            .get_single_inner()
+            .single_inner()
     }
 }
 
@@ -1794,7 +1851,7 @@ mod tests {
         let query_state = world.query::<(&A, &B)>();
         let mut new_query_state = query_state.transmute::<&A>(&world);
         assert_eq!(new_query_state.iter(&world).len(), 1);
-        let a = new_query_state.single(&world);
+        let a = new_query_state.single(&world).unwrap();
 
         assert_eq!(a.0, 1);
     }
@@ -1808,7 +1865,7 @@ mod tests {
         let query_state = world.query_filtered::<(&A, &B), Without<C>>();
         let mut new_query_state = query_state.transmute::<&A>(&world);
         // even though we change the query to not have Without<C>, we do not get the component with C.
-        let a = new_query_state.single(&world);
+        let a = new_query_state.single(&world).unwrap();
 
         assert_eq!(a.0, 0);
     }
@@ -1821,7 +1878,7 @@ mod tests {
 
         let q = world.query::<()>();
         let mut q = q.transmute::<Entity>(&world);
-        assert_eq!(q.single(&world), entity);
+        assert_eq!(q.single(&world).unwrap(), entity);
     }
 
     #[test]
@@ -1831,7 +1888,7 @@ mod tests {
 
         let q = world.query::<&A>();
         let mut new_q = q.transmute::<Ref<A>>(&world);
-        assert!(new_q.single(&world).is_added());
+        assert!(new_q.single(&world).unwrap().is_added());
 
         let q = world.query::<Ref<A>>();
         let _ = q.transmute::<&A>(&world);
@@ -1902,7 +1959,7 @@ mod tests {
 
         let query_state = world.query::<Option<&A>>();
         let mut new_query_state = query_state.transmute::<&A>(&world);
-        let x = new_query_state.single(&world);
+        let x = new_query_state.single(&world).unwrap();
         assert_eq!(x.0, 1234);
     }
 
@@ -1927,7 +1984,7 @@ mod tests {
 
         let mut query = query;
         // Our result is completely untyped
-        let entity_ref = query.single(&world);
+        let entity_ref = query.single(&world).unwrap();
 
         assert_eq!(entity, entity_ref.id());
         assert_eq!(0, entity_ref.get::<A>().unwrap().0);
@@ -1942,16 +1999,16 @@ mod tests {
         let mut query = QueryState::<(Entity, &A, Has<B>)>::new(&mut world)
             .transmute_filtered::<(Entity, Has<B>), Added<A>>(&world);
 
-        assert_eq!((entity_a, false), query.single(&world));
+        assert_eq!((entity_a, false), query.single(&world).unwrap());
 
         world.clear_trackers();
 
         let entity_b = world.spawn((A(0), B(0))).id();
-        assert_eq!((entity_b, true), query.single(&world));
+        assert_eq!((entity_b, true), query.single(&world).unwrap());
 
         world.clear_trackers();
 
-        assert!(query.get_single(&world).is_err());
+        assert!(query.single(&world).is_err());
     }
 
     #[test]
@@ -1963,15 +2020,15 @@ mod tests {
             .transmute_filtered::<Entity, Changed<A>>(&world);
 
         let mut change_query = QueryState::<&mut A>::new(&mut world);
-        assert_eq!(entity_a, detection_query.single(&world));
+        assert_eq!(entity_a, detection_query.single(&world).unwrap());
 
         world.clear_trackers();
 
-        assert!(detection_query.get_single(&world).is_err());
+        assert!(detection_query.single(&world).is_err());
 
-        change_query.single_mut(&mut world).0 = 1;
+        change_query.single_mut(&mut world).unwrap().0 = 1;
 
-        assert_eq!(entity_a, detection_query.single(&world));
+        assert_eq!(entity_a, detection_query.single(&world).unwrap());
     }
 
     #[test]
@@ -2075,7 +2132,7 @@ mod tests {
         let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
         let mut new_query: QueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
 
-        assert_eq!(new_query.single(&world), entity_ab);
+        assert_eq!(new_query.single(&world).unwrap(), entity_ab);
     }
 
     #[test]

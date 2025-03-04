@@ -35,27 +35,28 @@ use bevy::{
     },
 };
 
-#[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+#[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
 use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing};
 use rand::random;
 
 fn main() {
     let mut app = App::new();
 
+    #[expect(
+        deprecated,
+        reason = "Once AmbientLight is removed, the resource can be removed"
+    )]
     app.add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })
-        .insert_resource(AmbientLight {
-            brightness: 0.0,
-            ..default()
-        })
+        .insert_resource(AmbientLight::NONE)
         .add_systems(Startup, setup)
         .add_systems(Update, (example_control_system, flicker_system));
 
     // *Note:* TAA is not _required_ for specular transmission, but
     // it _greatly enhances_ the look of the resulting blur effects.
     // Sadly, it's not available under WebGL.
-    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+    #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
     app.add_plugins(TemporalAntiAliasPlugin);
 
     app.run();
@@ -317,9 +318,9 @@ fn setup(
         },
         Tonemapping::TonyMcMapface,
         Exposure { ev100: 6.0 },
-        #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+        #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
         Msaa::Off,
-        #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+        #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
         TemporalAntiAliasing::default(),
         EnvironmentMapLight {
             intensity: 25.0,
@@ -471,7 +472,7 @@ fn example_control_system(
         camera.hdr = !camera.hdr;
     }
 
-    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+    #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::KeyD) {
         if depth_prepass.is_none() {
             commands.entity(camera_entity).insert(DepthPrepass);
@@ -480,7 +481,7 @@ fn example_control_system(
         }
     }
 
-    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+    #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::KeyT) {
         if temporal_jitter.is_none() {
             commands
@@ -572,7 +573,7 @@ fn example_control_system(
         state.perceptual_roughness,
         state.reflectance,
         if camera.hdr { "ON " } else { "OFF" },
-        if cfg!(any(not(feature = "webgl2"), not(target_arch = "wasm32"))) {
+        if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) {
             if depth_prepass.is_some() {
                 "ON "
             } else {
@@ -581,7 +582,7 @@ fn example_control_system(
         } else {
             "N/A (WebGL)"
         },
-        if cfg!(any(not(feature = "webgl2"), not(target_arch = "wasm32"))) {
+        if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) {
             if temporal_jitter.is_some() {
                 if depth_prepass.is_some() {
                     "ON "

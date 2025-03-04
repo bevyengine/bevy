@@ -1,7 +1,7 @@
 [package]
 name = "bevy_internal"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "An internal Bevy crate used to facilitate optional dynamic linking via the 'dynamic_linking' feature"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -265,6 +265,9 @@ reflect_functions = [
   "bevy_app/reflect_functions",
   "bevy_ecs/reflect_functions",
 ]
+
+# Enable documentation reflection
+reflect_documentation = ["bevy_reflect/documentation"]
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_winit/custom_cursor"]
