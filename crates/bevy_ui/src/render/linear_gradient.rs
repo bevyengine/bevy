@@ -113,6 +113,32 @@ impl FromWorld for LinearGradientPipeline {
     }
 }
 
+pub fn compute_gradient_line_length(angle: f32, size: Vec2) -> f32 {
+    let Vec2 {
+        x: width,
+        y: height,
+    } = size;
+
+    let center = Vec2::new(width * 0.5, height * 0.5);
+    let v = Vec2::new(sin(angle), -cos(angle));
+    let (pos_corner, neg_corner) = if v.x >= 0.0 && v.y <= 0.0 {
+        (Vec2::new(width, 0.0), Vec2::new(0.0, height))
+    } else if v.x >= 0.0 && v.y > 0.0 {
+        (Vec2::new(width, height), Vec2::new(0.0, 0.0))
+    } else if v.x < 0.0 && v.y <= 0.0 {
+        (Vec2::new(0.0, 0.0), Vec2::new(width, height))
+    } else {
+        (Vec2::new(0.0, height), Vec2::new(width, 0.0))
+    };
+    let t_pos = (pos_corner - center).dot(v);
+    let t_neg = (neg_corner - center).dot(v);
+
+    let start = center + v * t_neg;
+    let end = center + v * t_pos;
+
+    start.distance(end)
+}
+
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiTextureSlicePipelineKey {
     anti_alias: bool,
@@ -313,12 +339,17 @@ pub fn extract_linear_gradients(
                 continue;
             }
 
-            let length = linear_gradient.gradient_line_length(uinode.size.x, uinode.size.y);
+            // compute the length of the gradient line for color stop resolution
+            let length = compute_gradient_line_length(
+                linear_gradient.angle,
+                uinode.size * transform.scale().xy(),
+            );
             let logical_length = length / target.scale_factor;
             let logical_viewport_size = target.physical_size.as_vec2() / target.scale_factor;
 
             let range_start = extracted_color_stops.0.len();
 
+            // resolve the physical distances of explicit stops and sort them high to low
             sorted_stops.extend(linear_gradient.stops.iter().filter_map(|stop| {
                 stop.point
                     .resolve(logical_length, logical_viewport_size)
@@ -327,25 +358,24 @@ pub fn extract_linear_gradients(
                         (stop.color.to_linear(), logical_point * target.scale_factor)
                     })
             }));
-
             sorted_stops.sort_by_key(|(_, point)| Reverse(FloatOrd(*point)));
 
             let min = sorted_stops.last().map(|(_, min)| *min).unwrap_or(0.);
-
             if 0. < min && linear_gradient.stops[0].point != Val::Auto {
                 extracted_color_stops
                     .0
                     .push((linear_gradient.stops[0].color.to_linear(), 0.));
             }
-
             let min = min.min(0.);
 
+            // get the position of the last explicit stop and use the full length of the gradient if no explicit stops
             let max = sorted_stops
                 .first()
                 .map(|(_, max)| *max)
                 .unwrap_or(length)
                 .max(length);
 
+            // Fill the extracted color stops buffer
             extracted_color_stops
                 .0
                 .extend(linear_gradient.stops.iter().map(|stop| {
@@ -364,15 +394,16 @@ pub fn extract_linear_gradients(
 
             let stops = &mut extracted_color_stops.0[range_start..];
 
+            // Interpolate implicit stops (where position is `f32::NAN`)
+            // If the first and last stops are implicit set them to the `min` and `max` values
+            // so that we always have explicit start and end points to interpolate between.
             if stops[0].1.is_nan() {
                 stops[0].1 = min;
             }
-
             if stops.last().unwrap().1.is_nan() {
                 stops.last_mut().unwrap().1 = max;
             }
 
-            // interpolate auto stops
             let mut i = 1;
 
             while i < stops.len() - 1 {
@@ -395,8 +426,6 @@ pub fn extract_linear_gradients(
                 i += 1;
             }
 
-            let stops_range = range_start..extracted_color_stops.0.len();
-
             extracted_linear_gradients
                 .items
                 .push(ExtractedLinearGradient {
@@ -404,7 +433,7 @@ pub fn extract_linear_gradients(
                     stack_index: uinode.stack_index,
                     transform: transform.compute_matrix(),
                     g_angle: linear_gradient.angle,
-                    stops_range,
+                    stops_range: range_start..extracted_color_stops.0.len(),
                     rect: Rect {
                         min: Vec2::ZERO,
                         max: uinode.size,
@@ -465,7 +494,7 @@ pub fn queue_linear_gradient(
             pipeline,
             entity: (gradient.render_entity, gradient.main_entity),
             sort_key: (
-                FloatOrd(gradient.stack_index as f32 + stack_z_offsets::NODE),
+                FloatOrd(gradient.stack_index as f32 + stack_z_offsets::GRADIENT),
                 gradient.render_entity.index(),
             ),
             batch_range: 0..0,
@@ -605,7 +634,7 @@ pub fn prepare_linear_gradient(
                     };
 
                     let angle = gradient.g_angle.rem_euclid(TAU);
-                    let corner_index = if angle < TAU / 4. {
+                    let g_start = points[if angle < TAU / 4. {
                         3
                     } else if angle < TAU / 2. {
                         0
@@ -613,12 +642,11 @@ pub fn prepare_linear_gradient(
                         1
                     } else {
                         2
-                    };
+                    }]
+                    .into();
 
+                    // CSS angles increase in a clockwise direction
                     let dir = Vec2::new(sin(angle), -cos(angle));
-
-                    let g_start = points[corner_index].into();
-
                     let range = gradient.stops_range.start..gradient.stops_range.end - 1;
                     let segment_count = range.len() as u32;
 

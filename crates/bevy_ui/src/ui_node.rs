@@ -2832,34 +2832,6 @@ pub struct LinearGradient {
 #[derive(Component, Clone, Debug)]
 pub struct LinearGradientBorder(pub LinearGradient);
 
-impl LinearGradient {
-    pub fn gradient_line_endpoints(&self, width: f32, height: f32) -> (Vec2, Vec2) {
-        let center = Vec2::new(width * 0.5, height * 0.5);
-        let v = Vec2::new(sin(self.angle), -cos(self.angle));
-        let (pos_corner, neg_corner) = if v.x >= 0.0 && v.y <= 0.0 {
-            (Vec2::new(width, 0.0), Vec2::new(0.0, height))
-        } else if v.x >= 0.0 && v.y > 0.0 {
-            (Vec2::new(width, height), Vec2::new(0.0, 0.0))
-        } else if v.x < 0.0 && v.y <= 0.0 {
-            (Vec2::new(0.0, 0.0), Vec2::new(width, height))
-        } else {
-            (Vec2::new(0.0, height), Vec2::new(width, 0.0))
-        };
-        let t_pos = (pos_corner - center).dot(v);
-        let t_neg = (neg_corner - center).dot(v);
-
-        let start = center + v * t_neg;
-        let end = center + v * t_pos;
-
-        (start, end)
-    }
-
-    pub fn gradient_line_length(&self, width: f32, height: f32) -> f32 {
-        let (start, end) = self.gradient_line_endpoints(width, height);
-        start.distance(end)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::GridPlacement;

@@ -95,6 +95,7 @@ pub mod stack_z_offsets {
     pub const BOX_SHADOW: f32 = -0.1;
     pub const TEXTURE_SLICE: f32 = 0.0;
     pub const NODE: f32 = 0.0;
+    pub const GRADIENT: f32 = 0.1;
     pub const MATERIAL: f32 = 0.18267;
 }
 
