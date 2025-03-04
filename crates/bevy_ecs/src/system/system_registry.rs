@@ -770,7 +770,7 @@ mod tests {
 
     #[test]
     fn cached_system_into_same_system_type() {
-        use crate::result::Result;
+        use crate::error::Result;
 
         struct Foo;
         impl IntoSystem<(), Result<()>, ()> for Foo {
