@@ -635,16 +635,16 @@ pub enum GamepadAxis {
     LeftStickX,
     /// The vertical value of the left stick.
     LeftStickY,
-    /// The value of the left `Z` button.
+    /// Generally the throttle axis of a HOTAS setup.
+    /// Refer to [`GamepadButton::LeftTrigger2`] for the analog trigger on a gamepad controller.
     LeftZ,
-
     /// The horizontal value of the right stick.
     RightStickX,
     /// The vertical value of the right stick.
     RightStickY,
-    /// The value of the right `Z` button.
+    /// The yaw of the main joystick, not supported on common gamepads.
+    /// Refer to [`GamepadButton::RightTrigger2`] for the analog trigger on a gamepad controller.
     RightZ,
-
     /// Non-standard support for other axis types (i.e. HOTAS sliders, potentiometers, etc).
     Other(u8),
 }

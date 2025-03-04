@@ -256,7 +256,7 @@ fn collisions(
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
     mut rng: ResMut<SharedRng>,
 ) {
-    let Ok(window) = window.get_single() else {
+    let Ok(window) = window.single() else {
         return;
     };
 

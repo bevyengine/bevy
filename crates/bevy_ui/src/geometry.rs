@@ -255,7 +255,8 @@ pub enum ValArithmeticError {
 }
 
 impl Val {
-    /// Resolves a [`Val`] to its value in logical pixels and returns this as an [`f32`].
+    /// Resolves a [`Val`] from the given context values and returns this as an [`f32`].
+    /// The [`Val::Px`] value (if present), `parent_size` and `viewport_size` should all be in the same coordinate space.
     /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
     ///
     /// **Note:** If a [`Val::Px`] is resolved, its inner value is returned unchanged.

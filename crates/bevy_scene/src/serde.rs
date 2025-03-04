@@ -763,12 +763,12 @@ mod tests {
 
         let bar_to_foo = dst_world
             .query_filtered::<&MyEntityRef, Without<Foo>>()
-            .get_single(&dst_world)
+            .single(&dst_world)
             .cloned()
             .unwrap();
         let foo = dst_world
             .query_filtered::<Entity, With<Foo>>()
-            .get_single(&dst_world)
+            .single(&dst_world)
             .unwrap();
 
         assert_eq!(foo, bar_to_foo.0);
@@ -793,7 +793,7 @@ mod tests {
         deserialized_scene
             .write_to_world(&mut world, &mut EntityHashMap::default())
             .unwrap();
-        assert_eq!(&qux, world.query::<&Qux>().single(&world));
+        assert_eq!(&qux, world.query::<&Qux>().single(&world).unwrap());
     }
 
     #[test]

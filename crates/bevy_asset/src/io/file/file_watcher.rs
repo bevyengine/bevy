@@ -262,7 +262,8 @@ impl FilesystemEventHandler for FileEventHandler {
         self.last_event = None;
     }
     fn get_path(&self, absolute_path: &Path) -> Option<(PathBuf, bool)> {
-        Some(get_asset_path(&self.root, absolute_path))
+        let absolute_path = absolute_path.canonicalize().unwrap();
+        Some(get_asset_path(&self.root, &absolute_path))
     }
 
     fn handle(&mut self, _absolute_paths: &[PathBuf], event: AssetSourceEvent) {

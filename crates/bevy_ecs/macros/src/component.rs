@@ -534,11 +534,11 @@ enum RequireFunc {
 }
 
 struct Relationship {
-    relationship_target: Ident,
+    relationship_target: Type,
 }
 
 struct RelationshipTarget {
-    relationship: Ident,
+    relationship: Type,
     linked_spawn: bool,
 }
 
@@ -673,14 +673,14 @@ impl Parse for Relationship {
         input.parse::<relationship_target>()?;
         input.parse::<Token![=]>()?;
         Ok(Relationship {
-            relationship_target: input.parse::<Ident>()?,
+            relationship_target: input.parse::<Type>()?,
         })
     }
 }
 
 impl Parse for RelationshipTarget {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        let mut relationship_ident = None;
+        let mut relationship_type: Option<Type> = None;
         let mut linked_spawn_exists = false;
         syn::custom_keyword!(relationship);
         syn::custom_keyword!(linked_spawn);
@@ -689,7 +689,7 @@ impl Parse for RelationshipTarget {
             if input.peek(relationship) {
                 input.parse::<relationship>()?;
                 input.parse::<Token![=]>()?;
-                relationship_ident = Some(input.parse::<Ident>()?);
+                relationship_type = Some(input.parse()?);
             } else if input.peek(linked_spawn) {
                 input.parse::<linked_spawn>()?;
                 linked_spawn_exists = true;
@@ -704,7 +704,7 @@ impl Parse for RelationshipTarget {
             }
         }
 
-        let relationship = relationship_ident.ok_or_else(|| syn::Error::new(input.span(), "RelationshipTarget derive must specify a relationship via #[relationship_target(relationship = X)"))?;
+        let relationship = relationship_type.ok_or_else(|| syn::Error::new(input.span(), "RelationshipTarget derive must specify a relationship via #[relationship_target(relationship = X)"))?;
         Ok(RelationshipTarget {
             relationship,
             linked_spawn: linked_spawn_exists,

@@ -16,7 +16,7 @@ derive_more = { version = "1", default-features = false, features = [
   "from",
   "into",
 ] }
-itertools = { version = "0.13.0", default-features = false }
+itertools = { version = "0.14.0", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
