@@ -72,6 +72,9 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) matched_archetypes: FixedBitSet,
     /// [`FilteredAccess`] computed by combining the `D` and `F` access. Used to check which other queries
     /// this query can run in parallel with.
+    /// Note that because we do a zero-cost reference conversion in `Query::as_readonly`,
+    /// the access for a read-only query may include accesses for the original mutable version,
+    /// but the `Query` does not have exclusive access to those components.
     pub(crate) component_access: FilteredAccess<ComponentId>,
     // NOTE: we maintain both a bitset and a vec because iterating the vec is faster
     pub(super) matched_storage_ids: Vec<StorageId>,
@@ -132,7 +135,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// `NewD` must have a subset of the access that `D` does and match the exact same archetypes/tables
     /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
     pub(crate) unsafe fn as_transmuted_state<
-        NewD: QueryData<State = D::State>,
+        NewD: ReadOnlyQueryData<State = D::State>,
         NewF: QueryFilter<State = F::State>,
     >(
         &self,
@@ -750,7 +753,21 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut fetch_state = NewD::get_state(world.components()).expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
         let filter_state = NewF::get_state(world.components()).expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
 
-        NewD::set_access(&mut fetch_state, &self.component_access);
+        fn to_readonly(mut access: FilteredAccess<ComponentId>) -> FilteredAccess<ComponentId> {
+            access.access_mut().clear_writes();
+            access
+        }
+
+        let self_access = if D::IS_READ_ONLY && self.component_access.access().has_any_write() {
+            // The current state was transmuted from a mutable
+            // `QueryData` to a read-only one.
+            // Ignore any write access in the current state.
+            &to_readonly(self.component_access.clone())
+        } else {
+            &self.component_access
+        };
+
+        NewD::set_access(&mut fetch_state, self_access);
         NewD::update_component_access(&fetch_state, &mut component_access);
 
         let mut filter_component_access = FilteredAccess::default();
@@ -758,7 +775,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
         component_access.extend(&filter_component_access);
         assert!(
-            component_access.is_subset(&self.component_access),
+            component_access.is_subset(self_access),
             "Transmuted state for {} attempts to access terms that are not allowed by original state {}.",
             core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>()
         );
@@ -840,16 +857,37 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let new_filter_state = NewF::get_state(world.components())
             .expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
 
-        NewD::set_access(&mut new_fetch_state, &self.component_access);
+        let mut joined_component_access = self.component_access.clone();
+        joined_component_access.extend(&other.component_access);
+
+        if D::IS_READ_ONLY && self.component_access.access().has_any_write()
+            || OtherD::IS_READ_ONLY && other.component_access.access().has_any_write()
+        {
+            // One of the input states was transmuted from a mutable
+            // `QueryData` to a read-only one.
+            // Ignore any write access in that current state.
+            // The simplest way to do this is to clear *all* writes
+            // and then add back in any writes that are valid
+            joined_component_access.access_mut().clear_writes();
+            if !D::IS_READ_ONLY {
+                joined_component_access
+                    .access_mut()
+                    .extend(self.component_access.access());
+            }
+            if !OtherD::IS_READ_ONLY {
+                joined_component_access
+                    .access_mut()
+                    .extend(other.component_access.access());
+            }
+        }
+
+        NewD::set_access(&mut new_fetch_state, &joined_component_access);
         NewD::update_component_access(&new_fetch_state, &mut component_access);
 
         let mut new_filter_component_access = FilteredAccess::default();
         NewF::update_component_access(&new_filter_state, &mut new_filter_component_access);
 
         component_access.extend(&new_filter_component_access);
-
-        let mut joined_component_access = self.component_access.clone();
-        joined_component_access.extend(&other.component_access);
 
         assert!(
             component_access.is_subset(&joined_component_access),
@@ -1759,8 +1797,11 @@ impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D
 #[cfg(test)]
 mod tests {
     use crate::{
-        component::Component, entity_disabling::DefaultQueryFilters, prelude::*,
-        world::FilteredEntityRef,
+        component::Component,
+        entity_disabling::DefaultQueryFilters,
+        prelude::*,
+        system::{QueryLens, RunSystemOnce},
+        world::{FilteredEntityMut, FilteredEntityRef},
     };
 
     #[test]
@@ -2002,6 +2043,23 @@ mod tests {
         let _new_query = query.transmute_filtered::<Entity, Changed<B>>(&world);
     }
 
+    #[test]
+    #[should_panic(
+        expected = "Transmuted state for (&mut bevy_ecs::query::state::tests::A, ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, ())."
+    )]
+    fn cannot_transmute_mutable_after_readonly() {
+        let mut world = World::new();
+        // Calling this method would mean we had aliasing queries.
+        fn bad(_: Query<&mut A>, _: Query<&A>) {}
+        world
+            .run_system_once(|query: Query<&mut A>| {
+                let mut readonly = query.as_readonly();
+                let mut lens: QueryLens<&mut A> = readonly.transmute_lens();
+                bad(lens.query(), query.as_readonly());
+            })
+            .unwrap();
+    }
+
     // Regression test for #14629
     #[test]
     #[should_panic]
@@ -2118,6 +2176,37 @@ mod tests {
         let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
         let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
         let _: QueryState<Entity, Changed<C>> = query_1.join_filtered(&world, &query_2);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Joined state for ((&mut bevy_ecs::query::state::tests::A, &mut bevy_ecs::query::state::tests::B), ()) attempts to access terms that are not allowed by state (&bevy_ecs::query::state::tests::A, ()) joined with (&mut bevy_ecs::query::state::tests::B, ())."
+    )]
+    fn cannot_join_mutable_after_readonly() {
+        let mut world = World::new();
+        // Calling this method would mean we had aliasing queries.
+        fn bad(_: Query<(&mut A, &mut B)>, _: Query<&A>) {}
+        world
+            .run_system_once(|query_a: Query<&mut A>, mut query_b: Query<&mut B>| {
+                let mut readonly = query_a.as_readonly();
+                let mut lens: QueryLens<(&mut A, &mut B)> = readonly.join(&mut query_b);
+                bad(lens.query(), query_a.as_readonly());
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn join_to_filtered_entity_mut() {
+        let mut world = World::new();
+        world.spawn((A(2), B(3)));
+
+        let query_1 = QueryState::<&mut A>::new(&mut world);
+        let query_2 = QueryState::<&mut B>::new(&mut world);
+        let mut new_query: QueryState<FilteredEntityMut> = query_1.join(&world, &query_2);
+
+        let mut entity = new_query.single_mut(&mut world).unwrap();
+        assert!(entity.get_mut::<A>().is_some());
+        assert!(entity.get_mut::<B>().is_some());
     }
 
     #[test]
