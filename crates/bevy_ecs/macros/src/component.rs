@@ -3,7 +3,14 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
 use std::collections::HashSet;
 use syn::{
-    parenthesized, parse::Parse, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::{Comma, Paren}, Data, DataEnum, DataStruct, DeriveInput, Expr, ExprClosure, ExprPath, Field, Fields, Ident, LitBool, LitStr, Member, Meta, Path, Result, Token, Type, Visibility
+    parenthesized,
+    parse::Parse,
+    parse_macro_input, parse_quote,
+    punctuated::Punctuated,
+    spanned::Spanned,
+    token::{Comma, Paren},
+    Data, DataEnum, DataStruct, DeriveInput, ExprClosure, ExprPath, Field, Fields, Ident, LitStr,
+    Member, Path, Result, Token, Type, Visibility,
 };
 
 pub const EVENT: &str = "event";
@@ -407,7 +414,6 @@ pub const STORAGE: &str = "storage";
 pub const REQUIRE: &str = "require";
 pub const RELATIONSHIP: &str = "relationship";
 pub const RELATIONSHIP_TARGET: &str = "relationship_target";
-pub const LINKED_SPAWN: &str = "linked_spawn";
 
 pub const ON_ADD: &str = "on_add";
 pub const ON_INSERT: &str = "on_insert";
