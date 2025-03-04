@@ -5,6 +5,8 @@ const RIGHT_VERTEX = 2u;
 const BOTTOM_VERTEX = 4u;
 const BORDER: u32 = 8u;
 const RADIAL: u32 = 16u;
+const FILL_START: u32 = 32u;
+const FILL_END: u32 = 64u;
 
 fn enabled(flags: u32, mask: u32) -> bool {
     return (flags & mask) != 0u;
@@ -180,28 +182,21 @@ fn draw_background(in: VertexOutput, color: vec4<f32>) -> vec4<f32> {
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    var gradient_color: vec4<f32>;
-    if !enabled(in.flags, RADIAL) {
-        gradient_color = radial_gradient(
-            in.point,
-            in.g_start,
-            0.5,
-            in.start_color,
-            in.start_len,
-            in.end_color,
-            in.end_len,
-        );
+    var g_distance: f32;
+    if enabled(in.flags, RADIAL) {
+        g_distance = radial_distance(in.point, in.g_start, in.dir.x);
     } else {
-        gradient_color = linear_gradient(
-            in.point,
-            in.g_start,
-            in.dir,
-            in.start_color,
-            in.start_len,
-            in.end_color,
-            in.end_len,
-        );
+        g_distance = linear_distance(in.point, in.g_start, in.dir);
     }
+
+    let gradient_color = interpolate_gradient(
+        g_distance,
+        in.start_color,
+        in.start_len,
+        in.end_color,
+        in.end_len,
+        in.flags
+    );
 
     if enabled(in.flags, BORDER) {
         return draw(in, gradient_color);
@@ -217,38 +212,42 @@ fn srgb_mix(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
     return vec4(pow(mixed_srgb, vec3(2.2)), mix(a.a, b.a, t));
 }
 
-fn linear_gradient(
+fn linear_distance(
     point: vec2<f32>,
     g_start: vec2<f32>,
     g_dir: vec2<f32>,
-    start_color: vec4<f32>,
-    start_distance: f32,
-    end_color: vec4<f32>,
-    end_distance: f32,
-) -> vec4<f32> {
-    let g_distance = dot(point - g_start, g_dir);
-    let t = (g_distance - start_distance) / (end_distance - start_distance);
-    if t <= 0.0 || 1.0 < t {
-        return vec4(0.0);
-    } else {
-        return srgb_mix(start_color, end_color, t);
-    }
+) -> f32 {
+    return dot(point - g_start, g_dir);
 }
 
-fn radial_gradient(
+fn radial_distance(
     point: vec2<f32>,
     center: vec2<f32>,
     ratio: f32,
+) -> f32 {
+    return distance(center - vec2(point.x, point.y * ratio), vec2(0., 0.));
+}
+
+fn interpolate_gradient(
+    distance: f32,
     start_color: vec4<f32>,
     start_distance: f32,
     end_color: vec4<f32>,
     end_distance: f32,
+    flags: u32,
 ) -> vec4<f32> {
-    let g_distance = distance(point, vec2(0., 0.));
-    let t = (g_distance - start_distance) / (end_distance - start_distance);
-    if t <= 0.0 || 1.0 < t {
+    let t = (distance - start_distance) / (end_distance - start_distance);
+    if t <= 0.0 {
+        if enabled(flags, FILL_START) {
+            return start_color;
+        }
         return vec4(0.0);
-    } else {
-        return srgb_mix(start_color, end_color, t);
     }
+    if 1. < t {
+        if enabled(flags, FILL_END) {
+            return end_color;
+        }
+        return vec4(0.0);
+    }
+    return srgb_mix(start_color, end_color, t);
 }
