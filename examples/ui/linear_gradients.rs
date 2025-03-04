@@ -3,12 +3,15 @@
 use bevy::color::palettes::css::BLUE;
 use bevy::color::palettes::css::DARK_CYAN;
 use bevy::color::palettes::css::DARK_GOLDENROD;
+use bevy::color::palettes::css::GREEN;
+use bevy::color::palettes::css::INDIGO;
 use bevy::color::palettes::css::LIGHT_CYAN;
 use bevy::color::palettes::css::LIME;
 use bevy::color::palettes::css::MAGENTA;
 use bevy::color::palettes::css::ORANGE;
 use bevy::color::palettes::css::PURPLE;
 use bevy::color::palettes::css::RED;
+use bevy::color::palettes::css::VIOLET;
 use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy::ui::ColorStop;
@@ -60,11 +63,35 @@ fn setup(mut commands: Commands) {
                 ],
                 vec![
                     ColorStop {
-                        color: PURPLE.into(),
+                        color: RED.into(),
                         point: Val::Auto,
                     },
                     ColorStop {
-                        color: DARK_GOLDENROD.into(),
+                        color: RED.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: RED.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: RED.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: ORANGE.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: ORANGE.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: ORANGE.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: ORANGE.into(),
                         point: Val::Auto,
                     },
                     ColorStop {
@@ -72,19 +99,79 @@ fn setup(mut commands: Commands) {
                         point: Val::Auto,
                     },
                     ColorStop {
+                        color: YELLOW.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: YELLOW.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: YELLOW.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: GREEN.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: GREEN.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: GREEN.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: GREEN.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
                         color: BLUE.into(),
                         point: Val::Auto,
                     },
                     ColorStop {
-                        color: MAGENTA.into(),
+                        color: BLUE.into(),
                         point: Val::Auto,
                     },
                     ColorStop {
-                        color: LIGHT_CYAN.into(),
+                        color: BLUE.into(),
                         point: Val::Auto,
                     },
                     ColorStop {
-                        color: DARK_CYAN.into(),
+                        color: BLUE.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: INDIGO.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: INDIGO.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: INDIGO.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: INDIGO.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: VIOLET.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: VIOLET.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: VIOLET.into(),
+                        point: Val::Auto,
+                    },
+                    ColorStop {
+                        color: VIOLET.into(),
                         point: Val::Auto,
                     },
                 ],
