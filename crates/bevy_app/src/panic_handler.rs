@@ -45,6 +45,7 @@ impl Plugin for PanicHandlerPlugin {
             SET_HOOK.call_once(|| {
                 #[cfg(target_arch = "wasm32")]
                 {
+                    // This provides better panic handling in JS engines (displays the panic message and improves the backtrace).
                     std::panic::set_hook(alloc::boxed::Box::new(console_error_panic_hook::hook));
                 }
                 #[cfg(not(target_arch = "wasm32"))]
