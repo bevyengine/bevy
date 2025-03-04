@@ -686,7 +686,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// worked out to share an ID space (which doesn't happen by default).
     #[track_caller]
     #[deprecated(
-        note = "This can cause extreme performance problems when used with lots of arbitrary free entities."
+        note = "This can cause extreme performance problems when used with lots of arbitrary free entities. See #18054 on GitHub."
     )]
     pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where

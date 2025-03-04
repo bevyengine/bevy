@@ -701,7 +701,7 @@ impl Entities {
     /// Returns the location of the entity currently using the given ID, if any. Location should be
     /// written immediately.
     #[deprecated(
-        note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity."
+        note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
     pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
         self.verify_flushed();
@@ -737,7 +737,7 @@ impl Entities {
     ///
     /// Returns the location of the entity currently using the given ID, if any.
     #[deprecated(
-        note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity."
+        note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
     #[expect(
         deprecated,

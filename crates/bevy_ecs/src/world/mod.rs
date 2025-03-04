@@ -2158,7 +2158,7 @@ impl World {
     /// ```
     #[track_caller]
     #[deprecated(
-        note = "This can cause extreme performance problems when used with lots of arbitrary free entities."
+        note = "This can cause extreme performance problems when used with lots of arbitrary free entities. See #18054 on GitHub."
     )]
     pub fn insert_or_spawn_batch<I, B>(&mut self, iter: I) -> Result<(), Vec<Entity>>
     where
@@ -2177,7 +2177,7 @@ impl World {
     /// as a command.
     #[inline]
     #[deprecated(
-        note = "This can cause extreme performance problems when used with lots of arbitrary free entities."
+        note = "This can cause extreme performance problems when used with lots of arbitrary free entities. See #18054 on GitHub."
     )]
     pub(crate) fn insert_or_spawn_batch_with_caller<I, B>(
         &mut self,
