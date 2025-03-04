@@ -845,7 +845,7 @@ mod tests {
 
     #[test]
     fn run_system_invalid_params() {
-        use crate::system::RegisteredError;
+        use crate::system::RegisteredSystemError;
 
         struct T;
         impl Resource for T {}
