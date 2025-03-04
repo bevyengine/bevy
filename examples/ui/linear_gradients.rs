@@ -89,12 +89,14 @@ fn setup(mut commands: Commands) {
                                                     ..default()
                                                 },
                                                 BorderRadius::all(Val::Px(20.)),
-                                                LinearGradient {
-                                                    angle,
+                                                GradientNode {
+                                                    style: GradientStyle::Linear { angle },
                                                     stops: stops.clone(),
                                                 },
-                                                LinearGradientBorder(LinearGradient {
-                                                    angle: 3. * TAU / 8.,
+                                                GradientBorder {
+                                                    style: GradientStyle::Linear {
+                                                        angle: 3. * TAU / 8.,
+                                                    },
                                                     stops: vec![
                                                         ColorStop {
                                                             color: YELLOW.into(),
@@ -106,7 +108,7 @@ fn setup(mut commands: Commands) {
                                                             point: Val::Auto,
                                                         },
                                                     ],
-                                                }),
+                                                },
                                             ));
                                         }
                                     });
@@ -123,12 +125,14 @@ fn setup(mut commands: Commands) {
                                 ..default()
                             },
                             BorderRadius::all(Val::Px(20.)),
-                            LinearGradient {
-                                angle: 0.,
+                            GradientNode {
+                                style: GradientStyle::Linear { angle: 0. },
                                 stops: stops.clone(),
                             },
-                            LinearGradientBorder(LinearGradient {
-                                angle: 3. * TAU / 8.,
+                            GradientBorder {
+                                style: GradientStyle::Linear {
+                                    angle: 3. * TAU / 8.,
+                                },
                                 stops: vec![
                                     ColorStop {
                                         color: YELLOW.into(),
@@ -140,7 +144,7 @@ fn setup(mut commands: Commands) {
                                         point: Val::Auto,
                                     },
                                 ],
-                            }),
+                            },
                             AnimateMarker,
                         ));
                     });

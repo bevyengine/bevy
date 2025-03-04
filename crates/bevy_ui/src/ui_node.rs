@@ -2964,9 +2964,21 @@ impl Default for GradientStyle {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct Gradient {
-    style: GradientStyle,
-    stops: Vec<ColorStop>,
+pub struct GradientNode {
+    pub style: GradientStyle,
+    pub stops: Vec<ColorStop>,
+}
+
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct GradientBorder {
+    pub style: GradientStyle,
+    pub stops: Vec<ColorStop>,
 }
 
 #[cfg(test)]
