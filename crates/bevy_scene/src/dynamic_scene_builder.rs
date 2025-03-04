@@ -387,7 +387,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                 let resource = type_registration
                     .data::<ReflectFromReflect>()
                     .and_then(|fr| fr.from_reflect(resource.as_partial_reflect()))
-                    .map(PartialReflect::into_partial_reflect)
+                    .map(CastPartialReflect::into_partial_reflect)
                     .unwrap_or_else(|| resource.clone_value());
 
                 self.extracted_resources.insert(component_id, resource);

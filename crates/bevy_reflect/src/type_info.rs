@@ -1,7 +1,7 @@
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, EnumInfo, Generics, ListInfo, MapInfo, ReflectKind, SetInfo,
-    StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
+    DynamicTupleStruct, EnumInfo, Generics, ListInfo, MapInfo, ReflectKind, SetInfo, StructInfo,
+    TupleInfo, TupleStructInfo, TypePath, TypePathTable,
 };
 use core::{
     any::{Any, TypeId},

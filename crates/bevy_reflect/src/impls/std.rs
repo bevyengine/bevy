@@ -1306,7 +1306,6 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> P
     }
 
     #[inline]
-
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Ok(self)
     }
@@ -1515,7 +1514,6 @@ impl PartialReflect for Cow<'static, str> {
     }
 
     #[inline]
-
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Ok(self)
     }
@@ -1792,7 +1790,6 @@ impl PartialReflect for &'static str {
     }
 
     #[inline]
-
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Ok(self)
     }
@@ -1887,7 +1884,6 @@ impl PartialReflect for &'static Path {
     }
 
     #[inline]
-
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Ok(self)
     }
@@ -1986,7 +1982,6 @@ impl PartialReflect for Cow<'static, Path> {
     }
 
     #[inline]
-
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Ok(self)
     }
