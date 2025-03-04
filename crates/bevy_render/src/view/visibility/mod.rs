@@ -204,7 +204,7 @@ impl ViewVisibility {
 /// It can be used for example:
 /// - when a [`Mesh`] is updated but its [`Aabb`] is not, which might happen with animations,
 /// - when using some light effects, like wanting a [`Mesh`] out of the [`Frustum`]
-///     to appear in the reflection of a [`Mesh`] within.
+///   to appear in the reflection of a [`Mesh`] within.
 #[derive(Debug, Component, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct NoFrustumCulling;
@@ -405,13 +405,13 @@ fn visibility_propagate_system(
     mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
     children_query: Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
 ) {
-    for (entity, visibility, parent, children) in &changed {
+    for (entity, visibility, child_of, children) in &changed {
         let is_visible = match visibility {
             Visibility::Visible => true,
             Visibility::Hidden => false,
             // fall back to true if no parent is found or parent lacks components
-            Visibility::Inherited => parent
-                .and_then(|p| visibility_query.get(p.get()).ok())
+            Visibility::Inherited => child_of
+                .and_then(|c| visibility_query.get(c.parent).ok())
                 .is_none_or(|(_, x)| x.get()),
         };
         let (_, mut inherited_visibility) = visibility_query
@@ -786,7 +786,9 @@ mod test {
             .entity_mut(parent2)
             .insert(Visibility::Visible);
         // Simulate a change in the parent component
-        app.world_mut().entity_mut(child2).insert(ChildOf(parent2)); // example of changing parent
+        app.world_mut()
+            .entity_mut(child2)
+            .insert(ChildOf { parent: parent2 }); // example of changing parent
 
         // Run the system again to propagate changes
         app.update();

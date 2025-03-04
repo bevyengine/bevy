@@ -758,6 +758,26 @@ impl ScheduleGraph {
             .unwrap()
     }
 
+    /// Returns the conditions for the set at the given [`NodeId`], if it exists.
+    pub fn get_set_conditions_at(&self, id: NodeId) -> Option<&[BoxedCondition]> {
+        if !id.is_set() {
+            return None;
+        }
+        self.system_set_conditions
+            .get(id.index())
+            .map(Vec::as_slice)
+    }
+
+    /// Returns the conditions for the set at the given [`NodeId`].
+    ///
+    /// Panics if it doesn't exist.
+    #[track_caller]
+    pub fn set_conditions_at(&self, id: NodeId) -> &[BoxedCondition] {
+        self.get_set_conditions_at(id)
+            .ok_or_else(|| format!("set with id {id:?} does not exist in this Schedule"))
+            .unwrap()
+    }
+
     /// Returns an iterator over all systems in this schedule, along with the conditions for each system.
     pub fn systems(&self) -> impl Iterator<Item = (NodeId, &ScheduleSystem, &[BoxedCondition])> {
         self.systems
@@ -2036,7 +2056,7 @@ mod tests {
     use bevy_ecs_macros::ScheduleLabel;
 
     use crate::{
-        prelude::{Res, Resource},
+        prelude::{ApplyDeferred, Res, Resource},
         schedule::{
             tests::ResMut, IntoSystemConfigs, IntoSystemSetConfigs, Schedule,
             ScheduleBuildSettings, SystemSet,
@@ -2062,12 +2082,12 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
 
+        let system: fn() = || {
+            panic!("This system must not run");
+        };
+
         schedule.configure_sets(Set.run_if(|| false));
-        schedule.add_systems(
-            (|| panic!("This system must not run"))
-                .ambiguous_with(|| ())
-                .in_set(Set),
-        );
+        schedule.add_systems(system.ambiguous_with(|| ()).in_set(Set));
         schedule.run(&mut world);
     }
 
@@ -2086,6 +2106,108 @@ mod tests {
 
         // inserted a sync point
         assert_eq!(schedule.executable.systems.len(), 3);
+    }
+
+    #[test]
+    fn explicit_sync_point_used_as_auto_sync_point() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |_: Res<Resource1>| {},
+            )
+                .chain(),
+        );
+        schedule.add_systems((|| {}, ApplyDeferred, || {}).chain());
+        schedule.run(&mut world);
+
+        // No sync point was inserted, since we can reuse the explicit sync point.
+        assert_eq!(schedule.executable.systems.len(), 5);
+    }
+
+    #[test]
+    fn conditional_explicit_sync_point_not_used_as_auto_sync_point() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |_: Res<Resource1>| {},
+            )
+                .chain(),
+        );
+        schedule.add_systems((|| {}, ApplyDeferred.run_if(|| false), || {}).chain());
+        schedule.run(&mut world);
+
+        // A sync point was inserted, since the explicit sync point is not always run.
+        assert_eq!(schedule.executable.systems.len(), 6);
+    }
+
+    #[test]
+    fn conditional_explicit_sync_point_not_used_as_auto_sync_point_condition_on_chain() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |_: Res<Resource1>| {},
+            )
+                .chain(),
+        );
+        schedule.add_systems((|| {}, ApplyDeferred, || {}).chain().run_if(|| false));
+        schedule.run(&mut world);
+
+        // A sync point was inserted, since the explicit sync point is not always run.
+        assert_eq!(schedule.executable.systems.len(), 6);
+    }
+
+    #[test]
+    fn conditional_explicit_sync_point_not_used_as_auto_sync_point_condition_on_system_set() {
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        struct Set;
+
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.configure_sets(Set.run_if(|| false));
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |_: Res<Resource1>| {},
+            )
+                .chain(),
+        );
+        schedule.add_systems((|| {}, ApplyDeferred.in_set(Set), || {}).chain());
+        schedule.run(&mut world);
+
+        // A sync point was inserted, since the explicit sync point is not always run.
+        assert_eq!(schedule.executable.systems.len(), 6);
+    }
+
+    #[test]
+    fn conditional_explicit_sync_point_not_used_as_auto_sync_point_condition_on_nested_system_set()
+    {
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        struct Set1;
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        struct Set2;
+
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.configure_sets(Set2.run_if(|| false));
+        schedule.configure_sets(Set1.in_set(Set2));
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |_: Res<Resource1>| {},
+            )
+                .chain(),
+        );
+        schedule.add_systems((|| {}, ApplyDeferred, || {}).chain().in_set(Set1));
+        schedule.run(&mut world);
+
+        // A sync point was inserted, since the explicit sync point is not always run.
+        assert_eq!(schedule.executable.systems.len(), 6);
     }
 
     #[test]
@@ -2138,6 +2260,63 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(schedule.executable.systems.len(), 5);
+    }
+
+    #[test]
+    fn do_not_consider_ignore_deferred_before_exclusive_system() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        // chain_ignore_deferred adds no sync points usually but an exception is made for exclusive systems
+        schedule.add_systems(
+            (
+                |_: Commands| {},
+                // <- no sync point is added here because the following system is not exclusive
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                // <- sync point is added here because the following system is exclusive which expects to see all commands to that point
+                |world: &mut World| assert!(world.contains_resource::<Resource1>()),
+                // <- no sync point is added here because the previous system has no deferred parameters
+                |_: &mut World| {},
+                // <- no sync point is added here because the following system is not exclusive
+                |_: Commands| {},
+            )
+                .chain_ignore_deferred(),
+        );
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 6); // 5 systems + 1 sync point
+    }
+
+    #[test]
+    fn bubble_sync_point_through_ignore_deferred_node() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+
+        let insert_resource_config = (
+            // the first system has deferred commands
+            |mut commands: Commands| commands.insert_resource(Resource1),
+            // the second system has no deferred commands
+            || {},
+        )
+            // the first two systems are chained without a sync point in between
+            .chain_ignore_deferred();
+
+        schedule.add_systems(
+            (
+                insert_resource_config,
+                // the third system would panic if the command of the first system was not applied
+                |_: Res<Resource1>| {},
+            )
+                // the third system is chained after the first two, possibly with a sync point in between
+                .chain(),
+        );
+
+        // To add a sync point between the second and third system despite the second having no commands,
+        // the first system has to signal the second system that there are unapplied commands.
+        // With that the second system will add a sync point after it so the third system will find the resource.
+
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 4); // 3 systems + 1 sync point
     }
 
     #[test]

@@ -35,12 +35,24 @@ use log::warn;
 ///
 /// [`Relationship`] and [`RelationshipTarget`] should always be derived via the [`Component`] trait to ensure the hooks are set up properly.
 ///
+/// ## Derive
+///
+/// [`Relationship`] and [`RelationshipTarget`] can only be derived for structs with a single unnamed field, single named field
+/// or for named structs where one field is annotated with `#[relationship]`.
+/// If there are additional fields, they must all implement [`Default`].
+///
+/// [`RelationshipTarget`] also requires that the relationship field is private to prevent direct mutation,
+/// ensuring the correctness of relationships.
 /// ```
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
 /// #[relationship(relationship_target = Children)]
-/// pub struct ChildOf(pub Entity);
+/// pub struct ChildOf {
+///     #[relationship]
+///     pub child: Entity,
+///     internal: u8,
+/// };
 ///
 /// #[derive(Component)]
 /// #[relationship_target(relationship = ChildOf)]
@@ -116,7 +128,7 @@ pub trait Relationship: Component + Sized {
             {
                 relationship_target.collection_mut_risky().remove(entity);
                 if relationship_target.len() == 0 {
-                    if let Some(mut entity) = world.commands().get_entity(target_entity) {
+                    if let Ok(mut entity) = world.commands().get_entity(target_entity) {
                         // this "remove" operation must check emptiness because in the event that an identical
                         // relationship is inserted on top, this despawn would result in the removal of that identical
                         // relationship ... not what we want!

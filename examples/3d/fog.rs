@@ -185,11 +185,7 @@ fn update_system(
     }
 
     // Linear Fog Controls
-    if let FogFalloff::Linear {
-        ref mut start,
-        ref mut end,
-    } = &mut fog.falloff
-    {
+    if let FogFalloff::Linear { start, end } = &mut fog.falloff {
         text.push_str("\nA / S - Move Start Distance\nZ / X - Move End Distance");
 
         if keycode.pressed(KeyCode::KeyA) {
@@ -207,7 +203,7 @@ fn update_system(
     }
 
     // Exponential Fog Controls
-    if let FogFalloff::Exponential { ref mut density } = &mut fog.falloff {
+    if let FogFalloff::Exponential { density } = &mut fog.falloff {
         text.push_str("\nA / S - Change Density");
 
         if keycode.pressed(KeyCode::KeyA) {
@@ -222,7 +218,7 @@ fn update_system(
     }
 
     // ExponentialSquared Fog Controls
-    if let FogFalloff::ExponentialSquared { ref mut density } = &mut fog.falloff {
+    if let FogFalloff::ExponentialSquared { density } = &mut fog.falloff {
         text.push_str("\nA / S - Change Density");
 
         if keycode.pressed(KeyCode::KeyA) {
