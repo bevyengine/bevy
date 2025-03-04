@@ -233,10 +233,13 @@ mod tests {
             "ParseIntError { kind: InvalidDigit }",
             lines.next().unwrap()
         );
-        assert_eq!(
-            "   2: bevy_ecs::error::bevy_error::tests::i_fail",
-            lines.next().unwrap()
-        );
+        if "   2: bevy_ecs::error::bevy_error::tests::i_fail" != lines.next().unwrap() {
+            panic!("{}", error.inner.backtrace());
+        }
+        // assert_eq!(
+        //     "   2: bevy_ecs::error::bevy_error::tests::i_fail",
+        //     lines.next().unwrap(),
+        // );
         lines.next().unwrap();
         assert_eq!(
             "   3: bevy_ecs::error::bevy_error::tests::filtered_backtrace_test",
