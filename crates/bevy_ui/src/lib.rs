@@ -198,6 +198,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
+                validate_leaf_nodes.before(TransformSystem::TransformPropagate),
                 update_ui_context_system.in_set(UiSystem::Prepare),
                 ui_layout_system_config,
                 ui_stack_system

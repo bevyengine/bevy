@@ -672,6 +672,28 @@ impl Default for Node {
     }
 }
 
+/// Marker struct for `Node`s that should not have `Node`s as children.
+#[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct LeafNode;
+
+/// Keeps `LeafNode` entities from having `Node` entities as children.
+pub fn validate_leaf_nodes(
+    mut commands: Commands,
+    children: Query<&Children>,
+    leaf_nodes: Query<Entity, With<LeafNode>>,
+    nodes: Query<Entity, Added<Node>>,
+) {
+    for leaf_node in &leaf_nodes {
+        for child in children.iter_descendants(leaf_node) {
+            if let Ok(node) = nodes.get(child) {
+                warn!("Entity {leaf_node} is marked as a `LeafNode` but has entity {node} containing `Node` as a descendant. The invalid relationship has been removed.");
+                commands.entity(node).remove::<ChildOf>();
+            }
+        }
+    }
+}
+
 /// Used to control how each individual item is aligned by default within the space they're given.
 /// - For Flexbox containers, sets default cross axis alignment of the child items.
 /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
