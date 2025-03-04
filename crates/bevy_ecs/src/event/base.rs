@@ -18,9 +18,21 @@ use core::{
 ///
 /// Events can also be "triggered" on a [`World`], which will then cause any [`Observer`] of that trigger to run.
 ///
-/// This trait can be derived.
-///
 /// Events must be thread-safe.
+///
+/// ## Derive
+/// This trait can be derived.
+/// Adding `auto_propagate` sets [`Self::AUTO_PROPAGATE`] to true.
+/// Adding `traversal = "X"` sets [`Self::Traversal`] to be of type "X".
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(Event)]
+/// #[event(auto_propagate)]
+/// struct MyEvent;
+/// ```
+///
 ///
 /// [`World`]: crate::world::World
 /// [`ComponentId`]: crate::component::ComponentId

@@ -894,14 +894,9 @@ mod tests {
         }
     }
 
-    #[derive(Component)]
+    #[derive(Component, Event)]
+    #[event(traversal = &'static ChildOf, auto_propagate)]
     struct EventPropagating;
-
-    impl Event for EventPropagating {
-        type Traversal = &'static ChildOf;
-
-        const AUTO_PROPAGATE: bool = true;
-    }
 
     #[test]
     fn observer_order_spawn_despawn() {
