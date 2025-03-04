@@ -771,7 +771,7 @@ mod tests {
     #[test]
     fn cached_system_into_same_system_type() {
         struct Foo;
-        impl IntoSystem<(), (), ()> for Foo {
+        impl IntoSystem<(), crate::result::Result<()>, ()> for Foo {
             type System = ApplyDeferred;
             fn into_system(_: Self) -> Self::System {
                 ApplyDeferred
@@ -779,7 +779,7 @@ mod tests {
         }
 
         struct Bar;
-        impl IntoSystem<(), (), ()> for Bar {
+        impl IntoSystem<(), crate::result::Result<()>, ()> for Bar {
             type System = ApplyDeferred;
             fn into_system(_: Self) -> Self::System {
                 ApplyDeferred
