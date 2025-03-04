@@ -102,7 +102,10 @@ use bevy_platform_support::collections::HashMap;
 use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
 use bevy_image::CompressedImageFormats;
-use bevy_render::{mesh::MeshVertexAttribute, renderer::RenderDevice};
+use bevy_render::{
+    mesh::{MeshVertexAttribute, TangentCalculationStrategy},
+    renderer::RenderDevice,
+};
 
 /// The glTF prelude.
 ///
@@ -118,6 +121,8 @@ pub use {assets::*, label::GltfAssetLabel, loader::*};
 #[derive(Default)]
 pub struct GltfPlugin {
     custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+    /// The strategy to use when computing tangents for meshes without them.
+    pub tangent_calculation_strategy: TangentCalculationStrategy,
 }
 
 impl GltfPlugin {
@@ -132,6 +137,15 @@ impl GltfPlugin {
         attribute: MeshVertexAttribute,
     ) -> Self {
         self.custom_vertex_attributes.insert(name.into(), attribute);
+        self
+    }
+
+    /// The strategy to use when computing mesh tangents.
+    pub fn with_tangent_calculation_strategy(
+        mut self,
+        tangent_strategy: TangentCalculationStrategy,
+    ) -> Self {
+        self.tangent_calculation_strategy = tangent_strategy;
         self
     }
 }
@@ -159,6 +173,7 @@ impl Plugin for GltfPlugin {
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
+            tangent_calculation_strategy: self.tangent_calculation_strategy,
         });
     }
 }
