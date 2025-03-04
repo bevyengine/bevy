@@ -2,10 +2,7 @@ use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{
-    ops::{cos, sin},
-    vec4, Rect, UVec2, Vec2, Vec4Swizzles,
-};
+use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
@@ -2796,7 +2793,13 @@ impl Default for TextShadow {
 }
 
 /// A color stop for a gradient
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Reflect)]
+#[reflect(Default, PartialEq, Debug)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct ColorStop {
     /// color
     pub color: Color,
@@ -2819,7 +2822,22 @@ impl From<Color> for ColorStop {
     }
 }
 
-#[derive(Component, Clone, Debug)]
+impl Default for ColorStop {
+    fn default() -> Self {
+        Self {
+            color: Color::WHITE,
+            point: Val::Auto,
+        }
+    }
+}
+
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component, Default, Debug)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct LinearGradient {
     // angle of the gradient line in radians
     // at 0 the gradient is drawn from bottom to top
@@ -2829,7 +2847,13 @@ pub struct LinearGradient {
     pub stops: Vec<ColorStop>,
 }
 
-#[derive(Component, Clone, Debug)]
+#[derive(Component, Clone, Default, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct LinearGradientBorder(pub LinearGradient);
 
 #[cfg(test)]
