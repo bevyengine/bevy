@@ -927,6 +927,41 @@ mod tests {
     }
 
     #[test]
+    fn cached_system_into_same_system_type() {
+        struct Foo;
+        impl IntoSystem<(), (), ()> for Foo {
+            type System = ApplyDeferred;
+            fn into_system(_: Self) -> Self::System {
+                ApplyDeferred
+            }
+        }
+
+        struct Bar;
+        impl IntoSystem<(), (), ()> for Bar {
+            type System = ApplyDeferred;
+            fn into_system(_: Self) -> Self::System {
+                ApplyDeferred
+            }
+        }
+
+        let mut world = World::new();
+        let foo1 = world.register_system_cached(Foo);
+        let foo2 = world.register_system_cached(Foo);
+        let bar1 = world.register_system_cached(Bar);
+        let bar2 = world.register_system_cached(Bar);
+
+        // The `S: IntoSystem` types are different, so they should be cached
+        // as separate systems, even though the `<S as IntoSystem>::System`
+        // types / values are the same (`ApplyDeferred`).
+        assert_ne!(foo1, bar1);
+
+        // But if the `S: IntoSystem` types are the same, they'll be cached
+        // as the same system.
+        assert_eq!(foo1, foo2);
+        assert_eq!(bar1, bar2);
+    }
+
+    #[test]
     fn system_with_input_ref() {
         fn with_ref(InRef(input): InRef<u8>, mut counter: ResMut<Counter>) {
             counter.0 += *input;
