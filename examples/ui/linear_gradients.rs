@@ -36,145 +36,98 @@ fn setup(mut commands: Commands) {
             ..Default::default()
         })
         .with_children(|commands| {
-            for stops in [
-                vec![
-                    ColorStop {
-                        color: Color::WHITE,
-                        point: Val::Percent(15.),
-                    },
-                    ColorStop {
-                        color: Color::BLACK,
-                        point: Val::Percent(85.),
-                    },
-                ],
-                vec![
-                    ColorStop {
-                        color: RED.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: BLUE.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: LIME.into(),
-                        point: Val::Auto,
-                    },
-                ],
-                vec![
-                    ColorStop {
-                        color: RED.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: RED.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: RED.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: RED.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: ORANGE.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: ORANGE.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: ORANGE.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: ORANGE.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: YELLOW.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: YELLOW.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: YELLOW.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: YELLOW.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: GREEN.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: GREEN.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: GREEN.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: GREEN.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: BLUE.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: BLUE.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: BLUE.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: BLUE.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: INDIGO.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: INDIGO.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: INDIGO.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: INDIGO.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: VIOLET.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: VIOLET.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: VIOLET.into(),
-                        point: Val::Auto,
-                    },
-                    ColorStop {
-                        color: VIOLET.into(),
-                        point: Val::Auto,
-                    },
-                ],
+            for (b, stops) in [
+                (
+                    5.,
+                    vec![
+                        ColorStop {
+                            color: Color::WHITE,
+                            point: Val::Percent(15.),
+                        },
+                        ColorStop {
+                            color: Color::BLACK,
+                            point: Val::Percent(85.),
+                        },
+                    ],
+                ),
+                (
+                    5.,
+                    vec![
+                        ColorStop {
+                            color: RED.into(),
+                            point: Val::Auto,
+                        },
+                        ColorStop {
+                            color: BLUE.into(),
+                            point: Val::Auto,
+                        },
+                        ColorStop {
+                            color: LIME.into(),
+                            point: Val::Auto,
+                        },
+                    ],
+                ),
+                (
+                    0.,
+                    vec![
+                        ColorStop {
+                            color: RED.into(),
+                            point: Val::Auto,
+                        },
+                        ColorStop {
+                            color: RED.into(),
+                            point: Val::Percent(100. / 7.),
+                        },
+                        ColorStop {
+                            color: ORANGE.into(),
+                            point: Val::Percent(100. / 7.),
+                        },
+                        ColorStop {
+                            color: ORANGE.into(),
+                            point: Val::Percent(200. / 7.),
+                        },
+                        ColorStop {
+                            color: YELLOW.into(),
+                            point: Val::Percent(200. / 7.),
+                        },
+                        ColorStop {
+                            color: YELLOW.into(),
+                            point: Val::Percent(300. / 7.),
+                        },
+                        ColorStop {
+                            color: GREEN.into(),
+                            point: Val::Percent(300. / 7.),
+                        },
+                        ColorStop {
+                            color: GREEN.into(),
+                            point: Val::Percent(400. / 7.),
+                        },
+                        ColorStop {
+                            color: BLUE.into(),
+                            point: Val::Percent(400. / 7.),
+                        },
+                        ColorStop {
+                            color: BLUE.into(),
+                            point: Val::Percent(500. / 7.),
+                        },
+                        ColorStop {
+                            color: INDIGO.into(),
+                            point: Val::Percent(500. / 7.),
+                        },
+                        ColorStop {
+                            color: INDIGO.into(),
+                            point: Val::Percent(600. / 7.),
+                        },
+                        ColorStop {
+                            color: VIOLET.into(),
+                            point: Val::Percent(600. / 7.),
+                        },
+                        ColorStop {
+                            color: VIOLET.into(),
+                            point: Val::Auto,
+                        },
+                    ],
+                ),
             ] {
                 commands.spawn(Node::default()).with_children(|commands| {
                     commands
@@ -196,7 +149,7 @@ fn setup(mut commands: Commands) {
                                                 Node {
                                                     width: Val::Px(w),
                                                     height: Val::Px(h),
-                                                    border: UiRect::all(Val::Px(5.)),
+                                                    border: UiRect::all(Val::Px(b)),
                                                     ..default()
                                                 },
                                                 BorderRadius::all(Val::Px(20.)),
@@ -229,7 +182,7 @@ fn setup(mut commands: Commands) {
                             Node {
                                 aspect_ratio: Some(1.),
                                 height: Val::Percent(100.),
-                                border: UiRect::all(Val::Px(5.)),
+                                border: UiRect::all(Val::Px(b)),
                                 margin: UiRect::left(Val::Px(30.)),
                                 ..default()
                             },

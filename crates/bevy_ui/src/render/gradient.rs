@@ -363,9 +363,9 @@ pub fn extract_gradients(
                                 (stop.color.to_linear(), logical_point * target.scale_factor)
                             })
                     }));
-                    sorted_stops.sort_by_key(|(_, point)| Reverse(FloatOrd(*point)));
+                    sorted_stops.sort_by_key(|(_, point)| FloatOrd(*point));
 
-                    let min = sorted_stops.last().map(|(_, min)| *min).unwrap_or(0.);
+                    let min = sorted_stops.first().map(|(_, min)| *min).unwrap_or(0.);
                     if 0. < min && stops[0].point != Val::Auto {
                         extracted_color_stops
                             .0
@@ -375,17 +375,19 @@ pub fn extract_gradients(
 
                     // get the position of the last explicit stop and use the full length of the gradient if no explicit stops
                     let max = sorted_stops
-                        .first()
+                        .last()
                         .map(|(_, max)| *max)
                         .unwrap_or(length)
                         .max(length);
+
+                    let mut sorted_stops_drain = sorted_stops.drain(..);
 
                     // Fill the extracted color stops buffer
                     extracted_color_stops.0.extend(stops.iter().map(|stop| {
                         if stop.point == Val::Auto {
                             (stop.color.to_linear(), f32::NAN)
                         } else {
-                            sorted_stops.pop().unwrap()
+                            sorted_stops_drain.next().unwrap()
                         }
                     }));
 
