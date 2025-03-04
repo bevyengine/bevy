@@ -28,27 +28,27 @@ use bevy_sprite::BorderRect;
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-pub const UI_LINEAR_GRADIENT_SHADER_HANDLE: Handle<Shader> =
+pub const UI_GRADIENT_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("10cd61e3-bbf7-47fa-91c8-16cbe806378c");
 
-pub struct LinearGradientPlugin;
+pub struct GradientPlugin;
 
-impl Plugin for LinearGradientPlugin {
+impl Plugin for GradientPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
-            UI_LINEAR_GRADIENT_SHADER_HANDLE,
-            "linear_gradient.wgsl",
+            UI_GRADIENT_SHADER_HANDLE,
+            "gradient.wgsl",
             Shader::from_wgsl
         );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .add_render_command::<TransparentUi, DrawLinearGradientFns>()
+                .add_render_command::<TransparentUi, DrawGradientFns>()
                 .init_resource::<ExtractedLinearGradients>()
                 .init_resource::<ExtractedColorStops>()
-                .init_resource::<LinearGradientMeta>()
-                .init_resource::<SpecializedRenderPipelines<LinearGradientPipeline>>()
+                .init_resource::<GradientMeta>()
+                .init_resource::<SpecializedRenderPipelines<GradientPipeline>>()
                 .add_systems(
                     ExtractSchedule,
                     extract_linear_gradients.in_set(RenderUiSystem::ExtractLinearGradient),
@@ -65,24 +65,24 @@ impl Plugin for LinearGradientPlugin {
 
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<LinearGradientPipeline>();
+            render_app.init_resource::<GradientPipeline>();
         }
     }
 }
 
 #[derive(Component)]
-pub struct LinearGradientBatch {
+pub struct GradientBatch {
     pub range: Range<u32>,
 }
 
 #[derive(Resource)]
-pub struct LinearGradientMeta {
+pub struct GradientMeta {
     vertices: RawBufferVec<UiGradientVertex>,
     indices: RawBufferVec<u32>,
     view_bind_group: Option<BindGroup>,
 }
 
-impl Default for LinearGradientMeta {
+impl Default for GradientMeta {
     fn default() -> Self {
         Self {
             vertices: RawBufferVec::new(BufferUsages::VERTEX),
@@ -93,11 +93,11 @@ impl Default for LinearGradientMeta {
 }
 
 #[derive(Resource)]
-pub struct LinearGradientPipeline {
+pub struct GradientPipeline {
     pub view_layout: BindGroupLayout,
 }
 
-impl FromWorld for LinearGradientPipeline {
+impl FromWorld for GradientPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
@@ -109,7 +109,7 @@ impl FromWorld for LinearGradientPipeline {
             ),
         );
 
-        LinearGradientPipeline { view_layout }
+        GradientPipeline { view_layout }
     }
 }
 
@@ -145,7 +145,7 @@ pub struct UiTextureSlicePipelineKey {
     pub hdr: bool,
 }
 
-impl SpecializedRenderPipeline for LinearGradientPipeline {
+impl SpecializedRenderPipeline for GradientPipeline {
     type Key = UiTextureSlicePipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
@@ -188,13 +188,13 @@ impl SpecializedRenderPipeline for LinearGradientPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: UI_LINEAR_GRADIENT_SHADER_HANDLE,
+                shader: UI_GRADIENT_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: UI_LINEAR_GRADIENT_SHADER_HANDLE,
+                shader: UI_GRADIENT_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -224,7 +224,7 @@ impl SpecializedRenderPipeline for LinearGradientPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("ui_linear_gradient_pipeline".into()),
+            label: Some("ui_gradient_pipeline".into()),
             zero_initialize_workgroup_memory: false,
         }
     }
@@ -455,15 +455,15 @@ pub fn extract_linear_gradients(
 )]
 pub fn queue_linear_gradient(
     extracted_gradients: ResMut<ExtractedLinearGradients>,
-    linear_gradients_pipeline: Res<LinearGradientPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<LinearGradientPipeline>>,
+    linear_gradients_pipeline: Res<GradientPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<GradientPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
     camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
-    let draw_function = draw_functions.read().id::<DrawLinearGradientFns>();
+    let draw_function = draw_functions.read().id::<DrawGradientFns>();
     for (index, gradient) in extracted_gradients.items.iter().enumerate() {
         let Ok((default_camera_view, ui_anti_alias)) =
             render_views.get_mut(gradient.extracted_camera_entity)
@@ -527,16 +527,16 @@ pub fn prepare_linear_gradient(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut ui_meta: ResMut<LinearGradientMeta>,
+    mut ui_meta: ResMut<GradientMeta>,
     mut extracted_gradients: ResMut<ExtractedLinearGradients>,
     mut extracted_color_stops: ResMut<ExtractedColorStops>,
     view_uniforms: Res<ViewUniforms>,
-    linear_gradients_pipeline: Res<LinearGradientPipeline>,
+    linear_gradients_pipeline: Res<GradientPipeline>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        let mut batches: Vec<(Entity, LinearGradientBatch)> = Vec::with_capacity(*previous_len);
+        let mut batches: Vec<(Entity, GradientBatch)> = Vec::with_capacity(*previous_len);
 
         ui_meta.vertices.clear();
         ui_meta.indices.clear();
@@ -693,7 +693,7 @@ pub fn prepare_linear_gradient(
 
                     batches.push((
                         item.entity(),
-                        LinearGradientBatch {
+                        GradientBatch {
                             range: vertices_index..(vertices_index + vertices_count),
                         },
                     ));
@@ -711,15 +711,11 @@ pub fn prepare_linear_gradient(
     extracted_color_stops.0.clear();
 }
 
-pub type DrawLinearGradientFns = (
-    SetItemPipeline,
-    SetLinearGradientViewBindGroup<0>,
-    DrawLinearGradient,
-);
+pub type DrawGradientFns = (SetItemPipeline, SetGradientViewBindGroup<0>, DrawGradient);
 
-pub struct SetLinearGradientViewBindGroup<const I: usize>;
-impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetLinearGradientViewBindGroup<I> {
-    type Param = SRes<LinearGradientMeta>;
+pub struct SetGradientViewBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetGradientViewBindGroup<I> {
+    type Param = SRes<GradientMeta>;
     type ViewQuery = Read<ViewUniformOffset>;
     type ItemQuery = ();
 
@@ -738,17 +734,17 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetLinearGradientViewBin
     }
 }
 
-pub struct DrawLinearGradient;
-impl<P: PhaseItem> RenderCommand<P> for DrawLinearGradient {
-    type Param = SRes<LinearGradientMeta>;
+pub struct DrawGradient;
+impl<P: PhaseItem> RenderCommand<P> for DrawGradient {
+    type Param = SRes<GradientMeta>;
     type ViewQuery = ();
-    type ItemQuery = Read<LinearGradientBatch>;
+    type ItemQuery = Read<GradientBatch>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: Option<&'w LinearGradientBatch>,
+        batch: Option<&'w GradientBatch>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

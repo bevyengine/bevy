@@ -6,7 +6,7 @@ pub mod ui_texture_slice_pipeline;
 
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
-mod linear_gradient;
+mod gradient;
 
 use crate::widget::ImageNode;
 use crate::{
@@ -50,7 +50,7 @@ use bevy_render::{
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
-use linear_gradient::LinearGradientPlugin;
+use gradient::GradientPlugin;
 
 use crate::{Display, Node};
 use bevy_platform_support::collections::{HashMap, HashSet};
@@ -190,7 +190,7 @@ pub fn build_ui_render(app: &mut App) {
     }
 
     app.add_plugins(UiTextureSlicerPlugin);
-    app.add_plugins(LinearGradientPlugin);
+    app.add_plugins(GradientPlugin);
     app.add_plugins(BoxShadowPlugin);
 }
 

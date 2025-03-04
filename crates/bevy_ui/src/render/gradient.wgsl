@@ -4,6 +4,7 @@ const TEXTURED = 1u;
 const RIGHT_VERTEX = 2u;
 const BOTTOM_VERTEX = 4u;
 const BORDER: u32 = 8u;
+const RADIAL: u32 = 16u;
 
 fn enabled(flags: u32, mask: u32) -> bool {
     return (flags & mask) != 0u;
@@ -179,21 +180,41 @@ fn draw_background(in: VertexOutput, color: vec4<f32>) -> vec4<f32> {
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    let gradient_color = linear_gradient(
-        in.point,
-        in.g_start,
-        in.dir,
-        in.start_color,
-        in.start_len,
-        in.end_color,
-        in.end_len,
-    );
+    var gradient_color: vec4<f32>;
+    if !enabled(in.flags, RADIAL) {
+        gradient_color = radial_gradient(
+            in.point,
+            in.g_start,
+            0.5,
+            in.start_color,
+            in.start_len,
+            in.end_color,
+            in.end_len,
+        );
+    } else {
+        gradient_color = linear_gradient(
+            in.point,
+            in.g_start,
+            in.dir,
+            in.start_color,
+            in.start_len,
+            in.end_color,
+            in.end_len,
+        );
+    }
 
     if enabled(in.flags, BORDER) {
         return draw(in, gradient_color);
     } else {
         return draw_background(in, gradient_color);
     }
+}
+
+fn srgb_mix(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
+    let a_srgb = pow(a.rgb, vec3(1. / 2.2));
+    let b_srgb = pow(b.rgb, vec3(1. / 2.2));
+    let mixed_srgb = mix(a_srgb, b_srgb, t);
+    return vec4(pow(mixed_srgb, vec3(2.2)), mix(a.a, b.a, t));
 }
 
 fn linear_gradient(
@@ -214,9 +235,20 @@ fn linear_gradient(
     }
 }
 
-fn srgb_mix(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
-    let a_srgb = pow(a.rgb, vec3(1. / 2.2));
-    let b_srgb = pow(b.rgb, vec3(1. / 2.2));
-    let mixed_srgb = mix(a_srgb, b_srgb, t);
-    return vec4(pow(mixed_srgb, vec3(2.2)), mix(a.a, b.a, t));
+fn radial_gradient(
+    point: vec2<f32>,
+    center: vec2<f32>,
+    ratio: f32,
+    start_color: vec4<f32>,
+    start_distance: f32,
+    end_color: vec4<f32>,
+    end_distance: f32,
+) -> vec4<f32> {
+    let g_distance = distance(point, vec2(0., 0.));
+    let t = (g_distance - start_distance) / (end_distance - start_distance);
+    if t <= 0.0 || 1.0 < t {
+        return vec4(0.0);
+    } else {
+        return srgb_mix(start_color, end_color, t);
+    }
 }
