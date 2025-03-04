@@ -131,7 +131,7 @@ impl Debug for BevyError {
                     if std::thread::panicking() {
                         SKIP_NORMAL_BACKTRACE.store(1, core::sync::atomic::Ordering::Relaxed);
                     }
-                    writeln!(f, "note: Some \"noisy\" backtrace lines have been filtered out. Run with `BEVY_BACKTRACE=full` for a verbose backtrace.")?;
+                    writeln!(f, "{FILTER_MESSAGE}")?;
                 }
             }
         }
@@ -139,6 +139,8 @@ impl Debug for BevyError {
         Ok(())
     }
 }
+
+const FILTER_MESSAGE: &str = "note: Some \"noisy\" backtrace lines have been filtered out. Run with `BEVY_BACKTRACE=full` for a verbose backtrace.";
 
 #[cfg(feature = "backtrace")]
 static SKIP_NORMAL_BACKTRACE: core::sync::atomic::AtomicUsize =
@@ -204,5 +206,59 @@ impl<T> OkOrMessage<T> for Option<T> {
             Some(value) => Ok(value),
             None => Err(MessageError(message)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::error::{bevy_error::FILTER_MESSAGE, Result};
+    use alloc::format;
+
+    fn i_fail() -> Result {
+        let _: usize = "I am not a number".parse()?;
+        Ok(())
+    }
+
+    #[test]
+    fn filtered_backtrace_test() {
+        // SAFETY: this is not safe ...  this test could run in parallel with another test
+        // that writes the environment variable. We either accept that so we can write this test,
+        // or we don't.
+        unsafe { std::env::set_var("RUST_BACKTRACE", "1") };
+
+        let error = i_fail().err().unwrap();
+        let debug_message = format!("{error:?}");
+        let mut lines = debug_message.lines();
+        assert_eq!(
+            "ParseIntError { kind: InvalidDigit }",
+            lines.next().unwrap()
+        );
+        assert_eq!(
+            "   2: bevy_ecs::error::bevy_error::tests::i_fail",
+            lines.next().unwrap()
+        );
+        lines.next().unwrap();
+        assert_eq!(
+            "   3: bevy_ecs::error::bevy_error::tests::filtered_backtrace_test",
+            lines.next().unwrap()
+        );
+        lines.next().unwrap();
+        assert_eq!(
+            "   4: bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{{closure}}",
+            lines.next().unwrap()
+        );
+        lines.next().unwrap();
+        assert_eq!(
+            "   5: core::ops::function::FnOnce::call_once",
+            lines.next().unwrap()
+        );
+        lines.next().unwrap();
+        assert_eq!(
+            "   6: core::ops::function::FnOnce::call_once",
+            lines.next().unwrap()
+        );
+        lines.next().unwrap();
+        assert_eq!(FILTER_MESSAGE, lines.next().unwrap());
+        assert!(lines.next().is_none());
     }
 }
