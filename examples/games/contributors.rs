@@ -1,9 +1,10 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
-use bevy::{math::bounding::Aabb2d, prelude::*, utils::HashMap};
+use bevy::{math::bounding::Aabb2d, prelude::*};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use std::{
+    collections::HashMap,
     env::VarError,
     hash::{DefaultHasher, Hash, Hasher},
     io::{self, BufRead, BufReader},
@@ -97,14 +98,14 @@ fn setup_contributor_selection(
         let transform = Transform::from_xyz(
             rng.gen_range(-400.0..400.0),
             rng.gen_range(0.0..400.0),
-            rng.gen(),
+            rng.r#gen(),
         );
         let dir = rng.gen_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
         let hue = name_to_hue(&name);
 
         // Some sprites should be flipped for variety
-        let flipped = rng.gen();
+        let flipped = rng.r#gen();
 
         let entity = commands
             .spawn((
@@ -251,10 +252,14 @@ fn gravity(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 /// velocity. On collision with the ground it applies an upwards
 /// force.
 fn collisions(
-    window: Single<&Window>,
+    window: Query<&Window>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
     mut rng: ResMut<SharedRng>,
 ) {
+    let Ok(window) = window.single() else {
+        return;
+    };
+
     let window_size = window.size();
 
     let collision_area = Aabb2d::new(Vec2::ZERO, (window_size - SPRITE_SIZE) / 2.);

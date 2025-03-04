@@ -20,6 +20,7 @@ struct AnimationState {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
+
     commands.insert_resource(AnimationState {
         min: 128.0,
         max: 512.0,

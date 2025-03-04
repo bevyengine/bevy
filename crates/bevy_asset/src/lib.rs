@@ -21,7 +21,7 @@
 //! Typically, you'll use the [`AssetServer::load`] method to load an asset from disk, which returns a [`Handle`].
 //! Note that this method does not attempt to reload the asset if it has already been loaded: as long as at least one handle has not been dropped,
 //! calling [`AssetServer::load`] on the same path will return the same handle.
-//! The handle that's returned can be used to instantiate various [`Component`](bevy_ecs::prelude::Component)s that require asset data to function,
+//! The handle that's returned can be used to instantiate various [`Component`]s that require asset data to function,
 //! which will then be spawned into the world as part of an entity.
 //!
 //! To avoid assets "popping" into existence, you may want to check that all of the required assets are loaded before transitioning to a new scene.
@@ -138,16 +138,19 @@
 //! If you want to save your assets back to disk, you should implement [`AssetSaver`](saver::AssetSaver) as well.
 //! This trait mirrors [`AssetLoader`] in structure, and works in tandem with [`AssetWriter`](io::AssetWriter), which mirrors [`AssetReader`](io::AssetReader).
 
-// FIXME(3492): remove once docs are ready
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![no_std]
 
 extern crate alloc;
+extern crate std;
+
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_asset;
 
 pub mod io;
 pub mod meta;
@@ -160,12 +163,16 @@ pub mod transformer;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
+    pub use crate::asset_changed::AssetChanged;
+
+    #[doc(hidden)]
     pub use crate::{
         Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets,
         DirectAssetAccessExt, Handle, UntypedHandle,
     };
 }
 
+mod asset_changed;
 mod assets;
 mod direct_access_ext;
 mod event;
@@ -198,21 +205,28 @@ pub use server::*;
 
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
 pub use ron;
+pub use uuid;
 
 use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
 };
-use alloc::sync::Arc;
-use bevy_app::{App, Last, Plugin, PreUpdate};
+use alloc::{
+    string::{String, ToString},
+    sync::Arc,
+    vec::Vec,
+};
+use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
+use bevy_ecs::prelude::Component;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
     world::FromWorld,
 };
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
-use bevy_utils::{tracing::error, HashSet};
 use core::any::TypeId;
+use tracing::error;
 
 #[cfg(all(feature = "file_watcher", not(feature = "multi_threaded")))]
 compile_error!(
@@ -400,6 +414,15 @@ impl Plugin for AssetPlugin {
 )]
 pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
 
+/// A trait for components that can be used as asset identifiers, e.g. handle wrappers.
+pub trait AsAssetId: Component {
+    /// The underlying asset type.
+    type Asset: Asset;
+
+    /// Retrieves the asset id from this component.
+    fn as_asset_id(&self) -> AssetId<Self::Asset>;
+}
+
 /// This trait defines how to visit the dependencies of an asset.
 /// For example, a 3D model might require both textures and meshes to be loaded.
 ///
@@ -476,8 +499,8 @@ pub trait AssetApp {
     /// * Initializing the [`AssetEvent`] resource for the [`Asset`]
     /// * Adding other relevant systems and resources for the [`Asset`]
     /// * Ignoring schedule ambiguities in [`Assets`] resource. Any time a system takes
-    ///     mutable access to this resource this causes a conflict, but they rarely actually
-    ///     modify the same underlying asset.
+    ///   mutable access to this resource this causes a conflict, but they rarely actually
+    ///   modify the same underlying asset.
     fn init_asset<A: Asset>(&mut self) -> &mut Self;
     /// Registers the asset type `T` using `[App::register]`,
     /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
@@ -561,7 +584,7 @@ impl AssetApp for App {
             .add_event::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
             .add_systems(
-                Last,
+                PostUpdate,
                 Assets::<A>::asset_events
                     .run_if(Assets::<A>::asset_events_condition)
                     .in_set(AssetEvents),
@@ -607,7 +630,6 @@ pub struct AssetEvents;
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_asset,
         folder::LoadedFolder,
         handle::Handle,
         io::{
@@ -617,19 +639,26 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets,
+        AssetPlugin, AssetServer, Assets, DuplicateLabelAssetError, LoadState,
     };
-    use alloc::sync::Arc;
-    use bevy_app::{App, Update};
-    use bevy_core::TaskPoolPlugin;
+    use alloc::{
+        boxed::Box,
+        format,
+        string::{String, ToString},
+        sync::Arc,
+        vec,
+        vec::Vec,
+    };
+    use bevy_app::{App, TaskPoolPlugin, Update};
     use bevy_ecs::{
         event::EventCursor,
         prelude::*,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
     use bevy_log::LogPlugin;
+    use bevy_platform_support::collections::HashMap;
     use bevy_reflect::TypePath;
-    use bevy_utils::{Duration, HashMap};
+    use core::time::Duration;
     use serde::{Deserialize, Serialize};
     use std::path::Path;
     use thiserror::Error;
@@ -666,6 +695,8 @@ mod tests {
         CannotLoadDependency { dependency: AssetPath<'static> },
         #[error("A RON error occurred during loading")]
         RonSpannedError(#[from] ron::error::SpannedError),
+        #[error(transparent)]
+        DuplicateLabelAssetError(#[from] DuplicateLabelAssetError),
         #[error("An IO error occurred during loading")]
         Io(#[from] std::io::Error),
     }
@@ -696,7 +727,7 @@ mod tests {
                     .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
                     })?;
-                let cool = loaded.get();
+                let cool = loaded.get_asset().get();
                 embedded.push_str(&cool.text);
             }
             Ok(CoolText {
@@ -711,7 +742,7 @@ mod tests {
                     .sub_texts
                     .drain(..)
                     .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
-                    .collect(),
+                    .collect::<Result<Vec<_>, _>>()?,
             })
         }
 
@@ -1672,9 +1703,9 @@ mod tests {
                                 );
                             }
                         }
-                        _ => panic!("Unexpected error type {:?}", read_error),
+                        _ => panic!("Unexpected error type {}", read_error),
                     },
-                    _ => panic!("Unexpected error type {:?}", error.error),
+                    _ => panic!("Unexpected error type {}", error.error),
                 }
             }
         }
@@ -1749,12 +1780,58 @@ mod tests {
         app.world_mut().run_schedule(Update);
     }
 
+    #[test]
+    fn fails_to_load_for_duplicate_subasset_labels() {
+        let mut app = App::new();
+
+        let dir = Dir::default();
+        dir.insert_asset_text(
+            Path::new("a.ron"),
+            r#"(
+    text: "b",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: ["A", "A"],
+)"#,
+        );
+
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build()
+                .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() })),
+        )
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            LogPlugin::default(),
+            AssetPlugin::default(),
+        ));
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<CoolText>("a.ron");
+
+        run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
+            LoadState::Loading => None,
+            LoadState::Failed(err) => {
+                assert!(matches!(*err, AssetLoadError::AssetLoaderError(_)));
+                Some(())
+            }
+            state => panic!("Unexpected asset state: {state:?}"),
+        });
+    }
+
     // validate the Asset derive macro for various asset types
     #[derive(Asset, TypePath)]
     pub struct TestAsset;
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
+    #[expect(
+        dead_code,
+        reason = "This exists to ensure that `#[derive(Asset)]` works on enums. The inner variants are known not to be used."
+    )]
     pub enum EnumTestAsset {
         Unnamed(#[dependency] Handle<TestAsset>),
         Named {
@@ -1769,7 +1846,6 @@ mod tests {
         Empty,
     }
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct StructTestAsset {
         #[dependency]
@@ -1778,7 +1854,6 @@ mod tests {
         embedded: TestAsset,
     }
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 }

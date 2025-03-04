@@ -144,6 +144,7 @@ impl AsBindGroup for BindlessMaterial {
         _layout: &BindGroupLayout,
         _render_device: &RenderDevice,
         _param: &mut SystemParamItem<'_, '_, Self::Param>,
+        _force_no_bindless: bool,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // We implement `as_bind_group`` directly because bindless texture
         // arrays can't be owned.
@@ -152,7 +153,7 @@ impl AsBindGroup for BindlessMaterial {
         Err(AsBindGroupError::CreateBindGroupDirectly)
     }
 
-    fn bind_group_layout_entries(_: &RenderDevice) -> Vec<BindGroupLayoutEntry>
+    fn bind_group_layout_entries(_: &RenderDevice, _: bool) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized,
     {

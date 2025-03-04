@@ -5,35 +5,33 @@ use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_ecs::{
     prelude::Component,
-    storage::SparseSet,
     system::{
         lifetimeless::{Read, SRes},
         *,
     },
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_platform_support::collections::HashMap;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    sync_world::TemporaryRenderEntity,
     texture::{GpuImage, TRANSPARENT_IMAGE_HANDLE},
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
-use bevy_sprite::{
-    SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureAtlasLayout, TextureSlicer,
-};
+use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
 use widget::ImageNode;
 
-pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11156288772117983964);
+pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("10cd61e3-bbf7-47fa-91c8-16cbe806378c");
 
 pub struct UiTextureSlicerPlugin;
 
@@ -90,7 +88,6 @@ struct UiTextureSliceVertex {
 pub struct UiTextureSlicerBatch {
     pub range: Range<u32>,
     pub image: AssetId<Image>,
-    pub camera: Entity,
 }
 
 #[derive(Resource)]
@@ -232,47 +229,48 @@ pub struct ExtractedUiTextureSlice {
     pub atlas_rect: Option<Rect>,
     pub image: AssetId<Image>,
     pub clip: Option<Rect>,
-    pub camera_entity: Entity,
+    pub extracted_camera_entity: Entity,
     pub color: LinearRgba,
     pub image_scale_mode: SpriteImageMode,
     pub flip_x: bool,
     pub flip_y: bool,
     pub inverse_scale_factor: f32,
     pub main_entity: MainEntity,
+    pub render_entity: Entity,
 }
 
 #[derive(Resource, Default)]
 pub struct ExtractedUiTextureSlices {
-    pub slices: SparseSet<Entity, ExtractedUiTextureSlice>,
+    pub slices: Vec<ExtractedUiTextureSlice>,
 }
 
 pub fn extract_ui_texture_slices(
     mut commands: Commands,
     mut extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     slicers_query: Extract<
         Query<(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            &ComputedNodeTarget,
             &ImageNode,
         )>,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
-    for (entity, uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
-            continue;
-        };
+    let mut camera_mapper = camera_map.get_mapper();
 
-        let Ok(camera_entity) = mapping.get(camera_entity) else {
+    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
+        // Skip invisible images
+        if !inherited_visibility.get()
+            || image.color.is_fully_transparent()
+            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+        {
             continue;
-        };
+        }
 
         let image_scale_mode = match image.image_mode.clone() {
             widget::NodeImageMode::Sliced(texture_slicer) => {
@@ -290,13 +288,9 @@ pub fn extract_ui_texture_slices(
             _ => continue,
         };
 
-        // Skip invisible images
-        if !view_visibility.get()
-            || image.color.is_fully_transparent()
-            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
-        {
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
-        }
+        };
 
         let atlas_rect = image
             .texture_atlas
@@ -315,46 +309,56 @@ pub fn extract_ui_texture_slices(
             }
         };
 
-        extracted_ui_slicers.slices.insert(
-            commands.spawn(TemporaryRenderEntity).id(),
-            ExtractedUiTextureSlice {
-                stack_index: uinode.stack_index,
-                transform: transform.compute_matrix(),
-                color: image.color.into(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.size,
-                },
-                clip: clip.map(|clip| clip.clip),
-                image: image.image.id(),
-                camera_entity,
-                image_scale_mode,
-                atlas_rect,
-                flip_x: image.flip_x,
-                flip_y: image.flip_y,
-                inverse_scale_factor: uinode.inverse_scale_factor,
-                main_entity: entity.into(),
+        extracted_ui_slicers.slices.push(ExtractedUiTextureSlice {
+            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            stack_index: uinode.stack_index,
+            transform: transform.compute_matrix(),
+            color: image.color.into(),
+            rect: Rect {
+                min: Vec2::ZERO,
+                max: uinode.size,
             },
-        );
+            clip: clip.map(|clip| clip.clip),
+            image: image.image.id(),
+            extracted_camera_entity,
+            image_scale_mode,
+            atlas_rect,
+            flip_x: image.flip_x,
+            flip_y: image.flip_y,
+            inverse_scale_factor: uinode.inverse_scale_factor,
+            main_entity: entity.into(),
+        });
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "it's a system that needs a lot of them"
+)]
 pub fn queue_ui_slices(
     extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
     ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView)>,
+    mut render_views: Query<&UiCameraView, With<ExtractedView>>,
+    camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUiTextureSlices>();
-    for (entity, extracted_slicer) in extracted_ui_slicers.slices.iter() {
-        let Ok((view_entity, view)) = views.get_mut(extracted_slicer.camera_entity) else {
+    for (index, extracted_slicer) in extracted_ui_slicers.slices.iter().enumerate() {
+        let Ok(default_camera_view) =
+            render_views.get_mut(extracted_slicer.extracted_camera_entity)
+        else {
             continue;
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Ok(view) = camera_views.get(default_camera_view.0) else {
+            continue;
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -367,18 +371,19 @@ pub fn queue_ui_slices(
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
-            entity: (*entity, extracted_slicer.main_entity),
+            entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),
             sort_key: (
                 FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::TEXTURE_SLICE),
-                entity.index(),
+                extracted_slicer.render_entity.index(),
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            index,
+            indexed: true,
         });
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_ui_slices(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -428,7 +433,11 @@ pub fn prepare_ui_slices(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(texture_slices) = extracted_slices.slices.get(item.entity()) {
+                if let Some(texture_slices) = extracted_slices
+                    .slices
+                    .get(item.index)
+                    .filter(|n| item.entity() == n.render_entity)
+                {
                     let mut existing_batch = batches.last_mut();
 
                     if batch_image_handle == AssetId::invalid()
@@ -436,18 +445,15 @@ pub fn prepare_ui_slices(
                         || (batch_image_handle != AssetId::default()
                             && texture_slices.image != AssetId::default()
                             && batch_image_handle != texture_slices.image)
-                        || existing_batch.as_ref().map(|(_, b)| b.camera)
-                            != Some(texture_slices.camera_entity)
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_item_index = item_index;
                             batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size.as_vec2();
+                            batch_image_size = gpu_image.size_2d().as_vec2();
 
                             let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
                                 image: texture_slices.image,
-                                camera: texture_slices.camera_entity,
                             };
 
                             batches.push((item.entity(), new_batch));
@@ -475,7 +481,7 @@ pub fn prepare_ui_slices(
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size.as_vec2();
+                            batch_image_size = gpu_image.size_2d().as_vec2();
                             existing_batch.as_mut().unwrap().1.image = texture_slices.image;
 
                             image_bind_groups
@@ -766,20 +772,20 @@ fn compute_texture_slices(
             ];
 
             let image_side_width = image_size.x * (slices[2] - slices[0]);
-            let image_side_height = image_size.y * (slices[2] - slices[1]);
-            let target_side_height = target_size.x * (border[2] - border[0]);
-            let target_side_width = target_size.y * (border[3] - border[1]);
+            let image_side_height = image_size.y * (slices[3] - slices[1]);
+            let target_side_width = target_size.x * (border[2] - border[0]);
+            let target_side_height = target_size.y * (border[3] - border[1]);
 
             // compute the number of times to repeat the side and center slices when tiling along each axis
             // if the returned value is `1.` the slice will be stretched to fill the axis.
             let repeat_side_x =
-                compute_tiled_subaxis(image_side_width, target_side_height, sides_scale_mode);
+                compute_tiled_subaxis(image_side_width, target_side_width, sides_scale_mode);
             let repeat_side_y =
-                compute_tiled_subaxis(image_side_height, target_side_width, sides_scale_mode);
+                compute_tiled_subaxis(image_side_height, target_side_height, sides_scale_mode);
             let repeat_center_x =
-                compute_tiled_subaxis(image_side_width, target_side_height, center_scale_mode);
+                compute_tiled_subaxis(image_side_width, target_side_width, center_scale_mode);
             let repeat_center_y =
-                compute_tiled_subaxis(image_side_height, target_side_width, center_scale_mode);
+                compute_tiled_subaxis(image_side_height, target_side_height, center_scale_mode);
 
             [
                 slices,
@@ -802,7 +808,10 @@ fn compute_texture_slices(
             [[0., 0., 1., 1.], [0., 0., 1., 1.], [1., 1., rx, ry]]
         }
         SpriteImageMode::Auto => {
-            unreachable!("Slices should not be computed for ImageScaleMode::Stretch")
+            unreachable!("Slices can not be computed for SpriteImageMode::Stretch")
+        }
+        SpriteImageMode::Scale(_) => {
+            unreachable!("Slices can not be computed for SpriteImageMode::Scale")
         }
     }
 }

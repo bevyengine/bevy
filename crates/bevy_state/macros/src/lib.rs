@@ -1,5 +1,4 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 extern crate proc_macro;
@@ -20,5 +19,5 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
 }
 
 pub(crate) fn bevy_state_path() -> syn::Path {
-    BevyManifest::default().get_path("bevy_state")
+    BevyManifest::shared().get_path("bevy_state")
 }

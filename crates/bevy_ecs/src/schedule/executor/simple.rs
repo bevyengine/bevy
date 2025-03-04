@@ -1,13 +1,17 @@
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
 
+#[cfg(feature = "trace")]
+use tracing::info_span;
+
+#[cfg(feature = "std")]
+use std::eprintln;
+
 use crate::{
+    result::{Error, SystemErrorContext},
     schedule::{
         executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
-    system::System,
     world::World,
 };
 
@@ -40,6 +44,7 @@ impl SystemExecutor for SimpleExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
+        error_handler: fn(Error, SystemErrorContext),
     ) {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
@@ -100,13 +105,29 @@ impl SystemExecutor for SimpleExecutor {
                 continue;
             }
 
-            let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                // TODO: implement an error-handling API instead of suppressing a possible failure.
-                let _ = __rust_begin_short_backtrace::run(system, world);
-            }));
-            if let Err(payload) = res {
-                eprintln!("Encountered a panic in system `{}`!", &*system.name());
-                std::panic::resume_unwind(payload);
+            let f = AssertUnwindSafe(|| {
+                if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
+                    error_handler(
+                        err,
+                        SystemErrorContext {
+                            name: system.name(),
+                            last_run: system.get_last_run(),
+                        },
+                    );
+                }
+            });
+
+            #[cfg(feature = "std")]
+            {
+                if let Err(payload) = std::panic::catch_unwind(f) {
+                    eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                    std::panic::resume_unwind(payload);
+                }
+            }
+
+            #[cfg(not(feature = "std"))]
+            {
+                (f)();
             }
         }
 
@@ -121,7 +142,7 @@ impl SystemExecutor for SimpleExecutor {
 
 impl SimpleExecutor {
     /// Creates a new simple executor for use in a [`Schedule`](crate::schedule::Schedule).
-    /// This calls each system in order and immediately calls [`System::apply_deferred`].
+    /// This calls each system in order and immediately calls [`System::apply_deferred`](crate::system::System).
     pub const fn new() -> Self {
         Self {
             evaluated_sets: FixedBitSet::new(),
@@ -131,8 +152,10 @@ impl SimpleExecutor {
 }
 
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
-    // not short-circuiting is intentional
-    #[allow(clippy::unnecessary_fold)]
+    #[expect(
+        clippy::unnecessary_fold,
+        reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
+    )]
     conditions
         .iter_mut()
         .map(|condition| {

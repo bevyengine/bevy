@@ -4,8 +4,8 @@ use bevy::{
     animation::{AnimationTarget, AnimationTargetId},
     color::palettes::css::{LIGHT_GRAY, WHITE},
     prelude::*,
-    utils::hashbrown::HashSet,
 };
+use std::collections::HashSet;
 
 // IDs of the mask groups we define for the running fox model.
 //
@@ -108,6 +108,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: WHITE.into(),
             brightness: 100.0,
+            ..default()
         })
         .init_resource::<AppState>()
         .run();
@@ -222,8 +223,13 @@ fn setup_ui(mut commands: Commands) {
 // Adds a button that allows the user to toggle a mask group on and off.
 //
 // The button will automatically become a child of the parent that owns the
-// given `ChildBuilder`.
-fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, mask_group_id: u32) {
+// given `ChildSpawnerCommands`.
+fn add_mask_group_control(
+    parent: &mut ChildSpawnerCommands,
+    label: &str,
+    width: Val,
+    mask_group_id: u32,
+) {
     let button_text_style = (
         TextFont {
             font_size: 14.0,

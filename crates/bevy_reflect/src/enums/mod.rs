@@ -10,8 +10,8 @@ pub use variants::*;
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
     use crate::*;
+    use alloc::boxed::Box;
 
     #[derive(Reflect, Debug, PartialEq)]
     enum MyEnum {

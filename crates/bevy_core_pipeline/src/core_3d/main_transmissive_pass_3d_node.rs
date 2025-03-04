@@ -7,12 +7,12 @@ use bevy_render::{
     render_phase::ViewSortedRenderPhases,
     render_resource::{Extent3d, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
-use bevy_utils::tracing::error;
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 use core::ops::Range;
+use tracing::error;
+#[cfg(feature = "trace")]
+use tracing::info_span;
 
 /// A [`bevy_render::render_graph::Node`] that runs the [`Transmissive3d`]
 /// [`ViewSortedRenderPhases`].
@@ -22,6 +22,7 @@ pub struct MainTransmissivePass3dNode;
 impl ViewNode for MainTransmissivePass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
+        &'static ExtractedView,
         &'static Camera3d,
         &'static ViewTarget,
         Option<&'static ViewTransmissionTexture>,
@@ -32,7 +33,7 @@ impl ViewNode for MainTransmissivePass3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, camera_3d, target, transmission, depth): QueryItem<Self::ViewQuery>,
+        (camera, view, camera_3d, target, transmission, depth): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
@@ -43,7 +44,7 @@ impl ViewNode for MainTransmissivePass3dNode {
             return Ok(());
         };
 
-        let Some(transmissive_phase) = transmissive_phases.get(&view_entity) else {
+        let Some(transmissive_phase) = transmissive_phases.get(&view.retained_view_entity) else {
             return Ok(());
         };
 

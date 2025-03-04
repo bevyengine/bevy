@@ -6,10 +6,11 @@ mod file_asset;
 #[cfg(not(feature = "multi_threaded"))]
 mod sync_file_asset;
 
-use bevy_utils::tracing::{debug, error};
 #[cfg(feature = "file_watcher")]
 pub use file_watcher::*;
+use tracing::{debug, error};
 
+use alloc::borrow::ToOwned;
 use std::{
     env,
     path::{Path, PathBuf},
@@ -64,22 +65,22 @@ impl FileAssetReader {
     }
 }
 
+/// A writer for the local filesystem.
 pub struct FileAssetWriter {
     root_path: PathBuf,
 }
 
 impl FileAssetWriter {
-    /// Creates a new `FileAssetIo` at a path relative to the executable's directory, optionally
+    /// Creates a new [`FileAssetWriter`] at a path relative to the executable's directory, optionally
     /// watching for changes.
-    ///
-    /// See `get_base_path` below.
     pub fn new<P: AsRef<Path> + core::fmt::Debug>(path: P, create_root: bool) -> Self {
         let root_path = get_base_path().join(path.as_ref());
         if create_root {
             if let Err(e) = std::fs::create_dir_all(&root_path) {
                 error!(
-                    "Failed to create root directory {:?} for file asset writer: {:?}",
-                    root_path, e
+                    "Failed to create root directory {} for file asset writer: {}",
+                    root_path.display(),
+                    e
                 );
             }
         }

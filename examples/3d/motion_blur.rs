@@ -62,6 +62,7 @@ fn setup_scene(
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
         brightness: 300.0,
+        ..default()
     });
     commands.insert_resource(CameraMode::Chase);
     commands.spawn((
@@ -317,7 +318,7 @@ fn move_cars(
         let delta = transform.translation - prev;
         transform.look_to(delta, Vec3::Y);
         for child in children.iter() {
-            let Ok(mut wheel) = spins.get_mut(*child) else {
+            let Ok(mut wheel) = spins.get_mut(child) else {
                 continue;
             };
             let radius = wheel.scale.x;

@@ -160,6 +160,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 0.0,
+            ..default()
         })
         .add_systems(Startup, setup)
         .add_systems(PreUpdate, create_cubes)
@@ -248,6 +249,7 @@ fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
         IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
+            ..default()
         },
         LightProbe,
     ));
@@ -431,6 +433,7 @@ fn toggle_irradiance_volumes(
         commands.entity(light_probe).insert(IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
+            ..default()
         });
         ambient_light.brightness = 0.0;
         app_status.irradiance_volume_present = true;
@@ -469,7 +472,7 @@ fn handle_mouse_clicks(
     };
     let plane_intersection = ray.origin + ray.direction.normalize() * ray_distance;
 
-    // Move all the main objeccts.
+    // Move all the main objects.
     for mut transform in main_objects.iter_mut() {
         transform.translation = vec3(
             plane_intersection.x,

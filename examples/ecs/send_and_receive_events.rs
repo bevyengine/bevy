@@ -19,7 +19,7 @@
 //!
 //! Let's look at an example of each.
 
-use bevy::{core::FrameCount, ecs::event::EventCursor, prelude::*};
+use bevy::{diagnostic::FrameCount, ecs::event::EventCursor, prelude::*};
 
 fn main() {
     let mut app = App::new();
@@ -58,7 +58,7 @@ struct B;
 // not at compile time, as Bevy uses internal unsafe code to split the `World` into disjoint pieces.
 fn read_and_write_different_event_types(mut a: EventWriter<A>, mut b: EventReader<B>) {
     for _ in b.read() {}
-    a.send(A);
+    a.write(A);
 }
 
 /// A dummy event type.
@@ -71,24 +71,24 @@ struct DebugEvent {
 
 /// A system that sends all combinations of events.
 fn send_events(mut events: EventWriter<DebugEvent>, frame_count: Res<FrameCount>) {
-    println!("Sending events for frame {:?}", frame_count.0);
+    println!("Sending events for frame {}", frame_count.0);
 
-    events.send(DebugEvent {
+    events.write(DebugEvent {
         resend_from_param_set: false,
         resend_from_local_event_reader: false,
         times_sent: 1,
     });
-    events.send(DebugEvent {
+    events.write(DebugEvent {
         resend_from_param_set: true,
         resend_from_local_event_reader: false,
         times_sent: 1,
     });
-    events.send(DebugEvent {
+    events.write(DebugEvent {
         resend_from_param_set: false,
         resend_from_local_event_reader: true,
         times_sent: 1,
     });
-    events.send(DebugEvent {
+    events.write(DebugEvent {
         resend_from_param_set: true,
         resend_from_local_event_reader: true,
         times_sent: 1,
@@ -127,7 +127,7 @@ fn send_and_receive_param_set(
     // This is p1, as the second parameter in the `ParamSet` is the writer.
     for mut event in events_to_resend {
         event.times_sent += 1;
-        param_set.p1().send(event);
+        param_set.p1().write(event);
     }
 }
 

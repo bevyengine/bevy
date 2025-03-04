@@ -223,7 +223,7 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
             let line_normal = (conjugate_rot * intersect_line).yx();
             let angle = line_normal.to_angle();
 
-            // Since the plane containing the caps of the extrusion is not guaranteed to be orthgonal to the `ax` plane, only a certain "scale" factor
+            // Since the plane containing the caps of the extrusion is not guaranteed to be orthogonal to the `ax` plane, only a certain "scale" factor
             // of the `Aabb2d` will actually go towards the dimensions of the `Aabb3d`
             let scale = cap_normal.reject_from(ax).length();
 
@@ -348,7 +348,10 @@ mod tests {
 
     #[test]
     fn segment() {
-        let extrusion = Extrusion::new(Segment2d::new(Dir2::new_unchecked(Vec2::NEG_Y), 3.), 4.0);
+        let extrusion = Extrusion::new(
+            Segment2d::from_direction_and_length(Dir2::new_unchecked(Vec2::NEG_Y), 3.),
+            4.0,
+        );
         let translation = Vec3::new(3., 4., 5.);
         let rotation = Quat::from_rotation_x(FRAC_PI_4);
         let isometry = Isometry3d::new(translation, rotation);

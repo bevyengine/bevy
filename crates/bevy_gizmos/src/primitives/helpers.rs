@@ -4,7 +4,7 @@ use bevy_math::{ops, Vec2};
 
 /// Calculates the `nth` coordinate of a circle.
 ///
-/// Given a circle's radiu and its resolution, this function computes the position
+/// Given a circle's radius and its resolution, this function computes the position
 /// of the `nth` point along the circumference of the circle. The rotation starts at `(0.0, radius)`
 /// and proceeds counter-clockwise.
 pub(crate) fn single_circle_coordinate(radius: f32, resolution: u32, nth_point: u32) -> Vec2 {
@@ -15,7 +15,7 @@ pub(crate) fn single_circle_coordinate(radius: f32, resolution: u32, nth_point: 
 
 /// Generates an iterator over the coordinates of a circle.
 ///
-/// The coordinates form a open circle, meaning the first and last points aren't the same.
+/// The coordinates form an open circle, meaning the first and last points aren't the same.
 ///
 /// This function creates an iterator that yields the positions of points approximating a
 /// circle with the given radius, divided into linear segments. The iterator produces `resolution`

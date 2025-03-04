@@ -1,6 +1,6 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use alloc::sync::Arc;
-use bevy_utils::HashMap;
+use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
+use bevy_platform_support::collections::HashMap;
 use core::{pin::Pin, task::Poll};
 use futures_io::AsyncRead;
 use futures_lite::{ready, Stream};

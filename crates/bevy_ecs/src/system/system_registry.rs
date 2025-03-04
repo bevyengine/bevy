@@ -1,14 +1,13 @@
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectComponent;
 use crate::{
-    self as bevy_ecs,
-    bundle::Bundle,
     change_detection::Mut,
     entity::Entity,
     system::{input::SystemInput, BoxedSystem, IntoSystem},
-    world::{Command, World},
+    world::World,
 };
-use bevy_ecs_macros::{Component, Resource};
+use alloc::boxed::Box;
+use bevy_ecs_macros::{require, Component, Resource};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use core::marker::PhantomData;
@@ -16,13 +15,23 @@ use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
-struct RegisteredSystem<I, O> {
+#[require(SystemIdMarker)]
+pub(crate) struct RegisteredSystem<I, O> {
     initialized: bool,
     system: BoxedSystem<I, O>,
 }
 
+impl<I, O> RegisteredSystem<I, O> {
+    pub fn new(system: BoxedSystem<I, O>) -> Self {
+        RegisteredSystem {
+            initialized: false,
+            system,
+        }
+    }
+}
+
 /// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
-#[derive(Component)]
+#[derive(Component, Default)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Component))]
 pub struct SystemIdMarker;
@@ -133,17 +142,6 @@ impl<S> CachedSystemId<S> {
     }
 }
 
-/// Creates a [`Bundle`] for a one-shot system entity.
-fn system_bundle<I: 'static, O: 'static>(system: BoxedSystem<I, O>) -> impl Bundle {
-    (
-        RegisteredSystem {
-            initialized: false,
-            system,
-        },
-        SystemIdMarker,
-    )
-}
-
 impl World {
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
@@ -176,7 +174,7 @@ impl World {
         I: SystemInput + 'static,
         O: 'static,
     {
-        let entity = self.spawn(system_bundle(system)).id();
+        let entity = self.spawn(RegisteredSystem::new(system)).id();
         SystemId::from_entity(entity)
     }
 
@@ -215,7 +213,7 @@ impl World {
     /// This is different from [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once),
     /// because it keeps local state between calls and change detection works correctly.
     ///
-    /// In order to run a chained system with an input, use [`World::run_system_with_input`] instead.
+    /// In order to run a chained system with an input, use [`World::run_system_with`] instead.
     ///
     /// # Limitations
     ///
@@ -300,7 +298,7 @@ impl World {
         &mut self,
         id: SystemId<(), O>,
     ) -> Result<O, RegisteredSystemError<(), O>> {
-        self.run_system_with_input(id, ())
+        self.run_system_with(id, ())
     }
 
     /// Run a stored chained system by its [`SystemId`], providing an input value.
@@ -323,13 +321,13 @@ impl World {
     /// let mut world = World::default();
     /// let counter_one = world.register_system(increment);
     /// let counter_two = world.register_system(increment);
-    /// assert_eq!(world.run_system_with_input(counter_one, 1).unwrap(), 1);
-    /// assert_eq!(world.run_system_with_input(counter_one, 20).unwrap(), 21);
-    /// assert_eq!(world.run_system_with_input(counter_two, 30).unwrap(), 30);
+    /// assert_eq!(world.run_system_with(counter_one, 1).unwrap(), 1);
+    /// assert_eq!(world.run_system_with(counter_one, 20).unwrap(), 21);
+    /// assert_eq!(world.run_system_with(counter_two, 30).unwrap(), 30);
     /// ```
     ///
     /// See [`World::run_system`] for more examples.
-    pub fn run_system_with_input<I, O>(
+    pub fn run_system_with<I, O>(
         &mut self,
         id: SystemId<I, O>,
         input: I::Inner<'_>,
@@ -414,7 +412,9 @@ impl World {
         self.resource_scope(|world, mut id: Mut<CachedSystemId<S>>| {
             if let Ok(mut entity) = world.get_entity_mut(id.entity) {
                 if !entity.contains::<RegisteredSystem<I, O>>() {
-                    entity.insert(system_bundle(Box::new(IntoSystem::into_system(system))));
+                    entity.insert(RegisteredSystem::new(Box::new(IntoSystem::into_system(
+                        system,
+                    ))));
                 }
             } else {
                 id.entity = world.register_system(system).entity();
@@ -465,164 +465,7 @@ impl World {
         S: IntoSystem<I, O, M> + 'static,
     {
         let id = self.register_system_cached(system);
-        self.run_system_with_input(id, input)
-    }
-}
-
-/// The [`Command`] type for [`World::run_system`] or [`World::run_system_with_input`].
-///
-/// This command runs systems in an exclusive and single threaded way.
-/// Running slow systems can become a bottleneck.
-///
-/// If the system needs an [`In<_>`](crate::system::In) input value to run, it must
-/// be provided as part of the command.
-///
-/// There is no way to get the output of a system when run as a command, because the
-/// execution of the system happens later. To get the output of a system, use
-/// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
-#[derive(Debug, Clone)]
-pub struct RunSystemWithInput<I: SystemInput + 'static> {
-    system_id: SystemId<I>,
-    input: I::Inner<'static>,
-}
-
-/// The [`Command`] type for [`World::run_system`].
-///
-/// This command runs systems in an exclusive and single threaded way.
-/// Running slow systems can become a bottleneck.
-///
-/// If the system needs an [`In<_>`](crate::system::In) input value to run, use the
-/// [`RunSystemWithInput`] type instead.
-///
-/// There is no way to get the output of a system when run as a command, because the
-/// execution of the system happens later. To get the output of a system, use
-/// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
-pub type RunSystem = RunSystemWithInput<()>;
-
-impl RunSystem {
-    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands).
-    pub fn new(system_id: SystemId) -> Self {
-        Self::new_with_input(system_id, ())
-    }
-}
-
-impl<I: SystemInput + 'static> RunSystemWithInput<I> {
-    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
-    /// in order to run the specified system with the provided [`In<_>`](crate::system::In) input value.
-    pub fn new_with_input(system_id: SystemId<I>, input: I::Inner<'static>) -> Self {
-        Self { system_id, input }
-    }
-}
-
-impl<I> Command for RunSystemWithInput<I>
-where
-    I: SystemInput<Inner<'static>: Send> + 'static,
-{
-    #[inline]
-    fn apply(self, world: &mut World) {
-        _ = world.run_system_with_input(self.system_id, self.input);
-    }
-}
-
-/// The [`Command`] type for registering one shot systems from [`Commands`](crate::system::Commands).
-///
-/// This command needs an already boxed system to register, and an already spawned entity.
-pub struct RegisterSystem<I: SystemInput + 'static, O: 'static> {
-    system: BoxedSystem<I, O>,
-    entity: Entity,
-}
-
-impl<I, O> RegisterSystem<I, O>
-where
-    I: SystemInput + 'static,
-    O: 'static,
-{
-    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands).
-    pub fn new<M, S: IntoSystem<I, O, M> + 'static>(system: S, entity: Entity) -> Self {
-        Self {
-            system: Box::new(IntoSystem::into_system(system)),
-            entity,
-        }
-    }
-}
-
-impl<I, O> Command for RegisterSystem<I, O>
-where
-    I: SystemInput + Send + 'static,
-    O: Send + 'static,
-{
-    fn apply(self, world: &mut World) {
-        if let Ok(mut entity) = world.get_entity_mut(self.entity) {
-            entity.insert(system_bundle(self.system));
-        }
-    }
-}
-
-/// The [`Command`] type for unregistering one-shot systems from [`Commands`](crate::system::Commands).
-pub struct UnregisterSystem<I: SystemInput + 'static, O: 'static> {
-    system_id: SystemId<I, O>,
-}
-
-impl<I, O> UnregisterSystem<I, O>
-where
-    I: SystemInput + 'static,
-    O: 'static,
-{
-    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands).
-    pub fn new(system_id: SystemId<I, O>) -> Self {
-        Self { system_id }
-    }
-}
-
-impl<I, O> Command for UnregisterSystem<I, O>
-where
-    I: SystemInput + 'static,
-    O: 'static,
-{
-    fn apply(self, world: &mut World) {
-        let _ = world.unregister_system(self.system_id);
-    }
-}
-
-/// The [`Command`] type for running a cached one-shot system from
-/// [`Commands`](crate::system::Commands).
-///
-/// See [`World::register_system_cached`] for more information.
-pub struct RunSystemCachedWith<S, I, O, M>
-where
-    I: SystemInput,
-    S: IntoSystem<I, O, M>,
-{
-    system: S,
-    input: I::Inner<'static>,
-    _phantom: PhantomData<(fn() -> O, fn() -> M)>,
-}
-
-impl<S, I, O, M> RunSystemCachedWith<S, I, O, M>
-where
-    I: SystemInput,
-    S: IntoSystem<I, O, M>,
-{
-    /// Creates a new [`Command`] struct, which can be added to
-    /// [`Commands`](crate::system::Commands).
-    pub fn new(system: S, input: I::Inner<'static>) -> Self {
-        Self {
-            system,
-            input,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<S, I, O, M> Command for RunSystemCachedWith<S, I, O, M>
-where
-    I: SystemInput<Inner<'static>: Send> + Send + 'static,
-    O: Send + 'static,
-    S: IntoSystem<I, O, M> + Send + 'static,
-    M: 'static,
-{
-    fn apply(self, world: &mut World) {
-        let _ = world.run_system_cached_with(self.system, self.input);
+        self.run_system_with(id, input)
     }
 }
 
@@ -668,7 +511,6 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
 
 mod tests {
     use crate::prelude::*;
-    use crate::{self as bevy_ecs};
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
@@ -744,22 +586,22 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(1));
 
         world
-            .run_system_with_input(id, NonCopy(1))
+            .run_system_with(id, NonCopy(1))
             .expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(2));
 
         world
-            .run_system_with_input(id, NonCopy(1))
+            .run_system_with(id, NonCopy(1))
             .expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(3));
 
         world
-            .run_system_with_input(id, NonCopy(20))
+            .run_system_with(id, NonCopy(20))
             .expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(23));
 
         world
-            .run_system_with_input(id, NonCopy(1))
+            .run_system_with(id, NonCopy(1))
             .expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(24));
     }
@@ -842,7 +684,7 @@ mod tests {
 
         fn nested(query: Query<&Callback>, mut commands: Commands) {
             for callback in query.iter() {
-                commands.run_system_with_input(callback.0, callback.1);
+                commands.run_system_with(callback.0, callback.1);
             }
         }
 
@@ -971,7 +813,7 @@ mod tests {
         world.insert_resource(Counter(0));
 
         let id = world.register_system(with_ref);
-        world.run_system_with_input(id, &2).unwrap();
+        world.run_system_with(id, &2).unwrap();
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
@@ -993,28 +835,24 @@ mod tests {
         let post_system = world.register_system(post);
 
         let mut event = MyEvent { cancelled: false };
-        world
-            .run_system_with_input(post_system, &mut event)
-            .unwrap();
+        world.run_system_with(post_system, &mut event).unwrap();
         assert!(!event.cancelled);
 
         world.resource_mut::<Counter>().0 = 1;
-        world
-            .run_system_with_input(post_system, &mut event)
-            .unwrap();
+        world.run_system_with(post_system, &mut event).unwrap();
         assert!(event.cancelled);
     }
 
     #[test]
     fn run_system_invalid_params() {
-        use crate::system::RegisteredSystemError;
+        use crate::system::RegisteredError;
 
         struct T;
         impl Resource for T {}
         fn system(_: Res<T>) {}
 
         let mut world = World::new();
-        let id = world.register_system_cached(system);
+        let id = world.register_system(system.warn_param_missing());
         // This fails because `T` has not been added to the world yet.
         let result = world.run_system(id);
 

@@ -1,5 +1,4 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -12,7 +11,6 @@
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod measurement;
-pub mod node_bundles;
 pub mod ui_material;
 pub mod update;
 pub mod widget;
@@ -40,25 +38,25 @@ pub use measurement::*;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
+
 use widget::{ImageNode, ImageNodeSize};
 
 /// The UI prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[allow(deprecated)]
     #[doc(hidden)]
-    pub use crate::widget::TextBundle;
+    #[cfg(feature = "bevy_ui_debug")]
+    pub use crate::render::UiDebugOptions;
     #[doc(hidden)]
     pub use crate::widget::{Text, TextUiReader, TextUiWriter};
     #[doc(hidden)]
     pub use {
         crate::{
             geometry::*,
-            node_bundles::*,
             ui_material::*,
             ui_node::*,
-            widget::{Button, ImageNode, Label},
+            widget::{Button, ImageNode, Label, NodeImageMode},
             Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
@@ -69,16 +67,12 @@ pub mod prelude {
 use bevy_app::{prelude::*, Animation};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_render::{
-    camera::CameraUpdateSystem,
-    view::{check_visibility, VisibilitySystems},
-    RenderApp,
-};
+use bevy_render::{camera::CameraUpdateSystem, RenderApp};
 use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
-use update::{update_clipping_system, update_target_camera_system};
+use update::{update_clipping_system, update_ui_context_system};
 
 /// The basic plugin for Bevy UI
 pub struct UiPlugin {
@@ -109,6 +103,8 @@ pub enum UiSystem {
     Focus,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
+    /// Update content requirements before layout.
+    Content,
     /// After this label, the ui layout state has been updated.
     ///
     /// Runs in [`PostUpdate`].
@@ -159,24 +155,27 @@ impl Plugin for UiPlugin {
             .register_type::<Node>()
             .register_type::<RelativeCursorPosition>()
             .register_type::<ScrollPosition>()
-            .register_type::<TargetCamera>()
+            .register_type::<UiTargetCamera>()
             .register_type::<ImageNode>()
             .register_type::<ImageNodeSize>()
             .register_type::<UiRect>()
             .register_type::<UiScale>()
             .register_type::<BorderColor>()
             .register_type::<BorderRadius>()
+            .register_type::<BoxShadow>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
             .register_type::<Outline>()
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
+            .register_type::<TextShadow>()
             .configure_sets(
                 PostUpdate,
                 (
                     CameraUpdateSystem,
-                    UiSystem::Prepare.before(UiSystem::Stack).after(Animation),
+                    UiSystem::Prepare.after(Animation),
+                    UiSystem::Content,
                     UiSystem::Layout,
                     UiSystem::PostLayout,
                 )
@@ -199,8 +198,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                check_visibility::<With<Node>>.in_set(VisibilitySystems::CheckVisibility),
-                update_target_camera_system.in_set(UiSystem::Prepare),
+                update_ui_context_system.in_set(UiSystem::Prepare),
                 ui_layout_system_config,
                 ui_stack_system
                     .in_set(UiSystem::Stack)
@@ -214,7 +212,7 @@ impl Plugin for UiPlugin {
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
                 // will never modify a pre-existing `Image` asset.
                 widget::update_image_content_size_system
-                    .in_set(UiSystem::Prepare)
+                    .in_set(UiSystem::Content)
                     .in_set(AmbiguousWithTextSystem)
                     .in_set(AmbiguousWithUpdateText2DLayout),
             ),
@@ -229,6 +227,9 @@ impl Plugin for UiPlugin {
         if !self.enable_rendering {
             return;
         }
+
+        #[cfg(feature = "bevy_ui_debug")]
+        app.init_resource::<UiDebugOptions>();
 
         build_ui_render(app);
     }
@@ -263,7 +264,7 @@ fn build_text_interop(app: &mut App) {
                 widget::measure_text_system,
             )
                 .chain()
-                .in_set(UiSystem::Prepare)
+                .in_set(UiSystem::Content)
                 // Text and Text2d are independent.
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
                 // Potential conflict: `Assets<Image>`
@@ -276,6 +277,7 @@ fn build_text_interop(app: &mut App) {
             widget::text_system
                 .in_set(UiSystem::PostLayout)
                 .after(bevy_text::remove_dropped_font_atlas_sets)
+                .before(bevy_asset::AssetEvents)
                 // Text2d and bevy_ui text are entirely on separate entities
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
                 .ambiguous_with(bevy_text::update_text2d_layout)

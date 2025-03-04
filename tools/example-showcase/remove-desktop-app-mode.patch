@@ -13,4 +13,4 @@ index 104384086..6e3c8dd83 100644
 +        Self::default()
      }
  
-     /// Returns the current [`UpdateMode`].
+     /// Default settings for mobile.

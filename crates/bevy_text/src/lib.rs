@@ -29,8 +29,6 @@
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
 //!    which contains all the information that downstream systems need for rendering.
 
-#![allow(clippy::type_complexity)]
-
 extern crate alloc;
 
 mod bounds;
@@ -62,9 +60,6 @@ pub use text_access::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    #[allow(deprecated)]
-    pub use crate::Text2dBundle;
-    #[doc(hidden)]
     pub use crate::{
         Font, JustifyText, LineBreak, Text2d, Text2dReader, Text2dWriter, TextColor, TextError,
         TextFont, TextLayout, TextSpan,
@@ -72,9 +67,9 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, Animation};
-use bevy_asset::AssetApp;
 #[cfg(feature = "default_font")]
 use bevy_asset::{load_internal_binary_asset, Handle};
+use bevy_asset::{AssetApp, AssetEvents};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::CameraUpdateSystem, view::VisibilitySystems, ExtractSchedule, RenderApp,
@@ -113,6 +108,7 @@ impl Plugin for TextPlugin {
         app.init_asset::<Font>()
             .register_type::<Text2d>()
             .register_type::<TextFont>()
+            .register_type::<LineHeight>()
             .register_type::<TextColor>()
             .register_type::<TextSpan>()
             .register_type::<TextBounds>()
@@ -128,7 +124,7 @@ impl Plugin for TextPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    remove_dropped_font_atlas_sets,
+                    remove_dropped_font_atlas_sets.before(AssetEvents),
                     detect_text_needs_rerender::<Text2d>,
                     update_text2d_layout
                         // Potential conflict: `Assets<Image>`

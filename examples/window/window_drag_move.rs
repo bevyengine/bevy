@@ -3,7 +3,7 @@
 //!
 //! When window decorations are not present, the user cannot drag a window by
 //! its titlebar to change its position. The `start_drag_move()` function
-//! permits a users to drag a window by left clicking anywhere in the window;
+//! permits a user to drag a window by left clicking anywhere in the window;
 //! left click must be pressed and other constraints can be imposed. For
 //! instance an application could require a user to hold down alt and left click
 //! to drag a window.
@@ -92,7 +92,7 @@ fn handle_input(
     mut dir: ResMut<ResizeDir>,
     example_text: Query<Entity, With<Text>>,
     mut writer: TextUiWriter,
-) {
+) -> Result {
     use LeftClickAction::*;
     if input.just_pressed(KeyCode::KeyA) {
         *action = match *action {
@@ -100,7 +100,7 @@ fn handle_input(
             Resize => Nothing,
             Nothing => Move,
         };
-        *writer.text(example_text.single(), 4) = format!("{:?}", *action);
+        *writer.text(example_text.single()?, 4) = format!("{:?}", *action);
     }
 
     if input.just_pressed(KeyCode::KeyS) {
@@ -108,13 +108,15 @@ fn handle_input(
             .0
             .checked_sub(1)
             .unwrap_or(DIRECTIONS.len().saturating_sub(1));
-        *writer.text(example_text.single(), 7) = format!("{:?}", DIRECTIONS[dir.0]);
+        *writer.text(example_text.single()?, 7) = format!("{:?}", DIRECTIONS[dir.0]);
     }
 
     if input.just_pressed(KeyCode::KeyD) {
         dir.0 = (dir.0 + 1) % DIRECTIONS.len();
-        *writer.text(example_text.single(), 7) = format!("{:?}", DIRECTIONS[dir.0]);
+        *writer.text(example_text.single()?, 7) = format!("{:?}", DIRECTIONS[dir.0]);
     }
+
+    Ok(())
 }
 
 fn move_or_resize_windows(

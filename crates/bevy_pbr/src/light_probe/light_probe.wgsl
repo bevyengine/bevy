@@ -16,6 +16,8 @@ struct LightProbeQueryResult {
     // Transform from world space to the light probe model space. In light probe
     // model space, the light probe is a 1×1×1 cube centered on the origin.
     light_from_world: mat4x4<f32>,
+    // Whether this light probe contributes diffuse light to lightmapped meshes.
+    affects_lightmapped_mesh_diffuse: bool,
 };
 
 fn transpose_affine_matrix(matrix: mat3x4<f32>) -> mat4x4<f32> {
@@ -50,7 +52,7 @@ fn query_light_probe(
     var end_offset: u32;
     if is_irradiance_volume {
         start_offset = (*clusterable_object_index_ranges).first_irradiance_volume_index_offset;
-        end_offset = (*clusterable_object_index_ranges).last_clusterable_object_index_offset;
+        end_offset = (*clusterable_object_index_ranges).first_decal_offset;
     } else {
         start_offset = (*clusterable_object_index_ranges).first_reflection_probe_index_offset;
         end_offset = (*clusterable_object_index_ranges).first_irradiance_volume_index_offset;
@@ -80,6 +82,8 @@ fn query_light_probe(
             result.texture_index = light_probe.cubemap_index;
             result.intensity = light_probe.intensity;
             result.light_from_world = light_from_world;
+            result.affects_lightmapped_mesh_diffuse =
+                light_probe.affects_lightmapped_mesh_diffuse != 0u;
             break;
         }
     }
@@ -132,6 +136,8 @@ fn query_light_probe(
             result.texture_index = light_probe.cubemap_index;
             result.intensity = light_probe.intensity;
             result.light_from_world = light_from_world;
+            result.affects_lightmapped_mesh_diffuse =
+                light_probe.affects_lightmapped_mesh_diffuse != 0u;
 
             // TODO: Workaround for ICE in DXC https://github.com/microsoft/DirectXShaderCompiler/issues/6183
             // We can't use `break` here because of the ICE.

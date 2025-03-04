@@ -21,7 +21,7 @@ fn main() {
         // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugins((
             LogDiagnosticsPlugin::default(),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     present_mode: PresentMode::AutoNoVsync,
@@ -75,11 +75,11 @@ fn setup(
     for y in -half_y..half_y {
         for x in -half_x..half_x {
             let position = Vec2::new(x as f32, y as f32);
-            let translation = (position * tile_size).extend(rng.gen::<f32>());
-            let rotation = Quat::from_rotation_z(rng.gen::<f32>());
-            let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
+            let translation = (position * tile_size).extend(rng.r#gen::<f32>());
+            let rotation = Quat::from_rotation_z(rng.r#gen::<f32>());
+            let scale = Vec3::splat(rng.r#gen::<f32>() * 2.0);
             let mut timer = Timer::from_seconds(0.1, TimerMode::Repeating);
-            timer.set_elapsed(Duration::from_secs_f32(rng.gen::<f32>()));
+            timer.set_elapsed(Duration::from_secs_f32(rng.r#gen::<f32>()));
 
             commands.spawn((
                 Sprite {

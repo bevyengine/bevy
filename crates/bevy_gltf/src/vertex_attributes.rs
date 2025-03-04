@@ -1,9 +1,9 @@
+use bevy_platform_support::collections::HashMap;
 use bevy_render::{
     mesh::{MeshVertexAttribute, VertexAttributeValues as Values},
     prelude::Mesh,
     render_resource::VertexFormat,
 };
-use bevy_utils::HashMap;
 use gltf::{
     accessor::{DataType, Dimensions},
     mesh::util::{ReadColors, ReadJoints, ReadTexCoords, ReadWeights},

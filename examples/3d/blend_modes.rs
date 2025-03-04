@@ -246,7 +246,6 @@ impl Default for ExampleState {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn example_control_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,

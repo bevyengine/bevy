@@ -1,6 +1,7 @@
 use bevy_app::{App, MainScheduleOrder, Plugin, PreStartup, PreUpdate, SubApp};
 use bevy_ecs::{event::Events, schedule::IntoSystemConfigs, world::FromWorld};
-use bevy_utils::{tracing::warn, warn_once};
+use bevy_utils::once;
+use log::warn;
 
 use crate::{
     state::{
@@ -87,7 +88,9 @@ pub trait AppExtStates {
 /// Separate function to only warn once for all state installation methods.
 fn warn_if_no_states_plugin_installed(app: &SubApp) {
     if !app.is_plugin_added::<StatesPlugin>() {
-        warn_once!("States were added to the app, but `StatesPlugin` is not installed.");
+        once!(warn!(
+            "States were added to the app, but `StatesPlugin` is not installed."
+        ));
     }
 }
 
@@ -313,7 +316,6 @@ impl Plugin for StatesPlugin {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_state,
         app::StatesPlugin,
         state::{State, StateTransition, StateTransitionEvent},
     };

@@ -46,6 +46,14 @@ struct Args {
     /// at the start of each frame despawn any existing UI nodes and spawn a new UI tree
     #[argh(switch)]
     respawn: bool,
+
+    /// set the root node to display none, removing all nodes from the layout.
+    #[argh(switch)]
+    display_none: bool,
+
+    /// spawn the layout without a camera
+    #[argh(switch)]
+    no_camera: bool,
 }
 
 /// This example shows what happens when there is a lot of buttons on screen.
@@ -69,7 +77,7 @@ fn main() {
             }),
             ..default()
         }),
-        FrameTimeDiagnosticsPlugin,
+        FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
     .insert_resource(WinitSettings {
@@ -78,9 +86,11 @@ fn main() {
     })
     .add_systems(Update, (button_system, set_text_colors_changed));
 
-    app.add_systems(Startup, |mut commands: Commands| {
-        commands.spawn(Camera2d);
-    });
+    if !args.no_camera {
+        app.add_systems(Startup, |mut commands: Commands| {
+            commands.spawn(Camera2d);
+        });
+    }
 
     if args.grid {
         app.add_systems(Startup, setup_grid);
@@ -153,6 +163,11 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
     commands
         .spawn(Node {
+            display: if args.display_none {
+                Display::None
+            } else {
+                Display::Flex
+            },
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
@@ -203,7 +218,11 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
     commands
         .spawn(Node {
-            display: Display::Grid,
+            display: if args.display_none {
+                Display::None
+            } else {
+                Display::Grid
+            },
             width: Val::Percent(100.),
             height: Val::Percent(100.0),
             grid_template_columns: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
@@ -234,9 +253,8 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
         });
 }
 
-#[allow(clippy::too_many_arguments)]
 fn spawn_button(
-    commands: &mut ChildBuilder,
+    commands: &mut ChildSpawnerCommands,
     background_color: Color,
     buttons: f32,
     column: usize,
@@ -271,18 +289,28 @@ fn spawn_button(
 
     if spawn_text {
         builder.with_children(|parent| {
-            parent.spawn((
-                Text(format!("{column}, {row}")),
-                TextFont {
-                    font_size: FONT_SIZE,
-                    ..default()
-                },
-                TextColor(Color::srgb(0.2, 0.2, 0.2)),
-            ));
+            // These labels are split to stress test multi-span text
+            parent
+                .spawn((
+                    Text(format!("{column}, ")),
+                    TextFont {
+                        font_size: FONT_SIZE,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.5, 0.2, 0.2)),
+                ))
+                .with_child((
+                    TextSpan(format!("{row}")),
+                    TextFont {
+                        font_size: FONT_SIZE,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.2, 0.2, 0.5)),
+                ));
         });
     }
 }
 
-fn despawn_ui(mut commands: Commands, root_node: Single<Entity, (With<Node>, Without<Parent>)>) {
-    commands.entity(*root_node).despawn_recursive();
+fn despawn_ui(mut commands: Commands, root_node: Single<Entity, (With<Node>, Without<ChildOf>)>) {
+    commands.entity(*root_node).despawn();
 }

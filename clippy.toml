@@ -41,4 +41,8 @@ disallowed-methods = [
   { path = "f32::asinh", reason = "use bevy_math::ops::asinh instead for libm determinism" },
   { path = "f32::acosh", reason = "use bevy_math::ops::acosh instead for libm determinism" },
   { path = "f32::atanh", reason = "use bevy_math::ops::atanh instead for libm determinism" },
+  { path = "criterion::black_box", reason = "use core::hint::black_box instead" },
 ]
+
+# Require `bevy_ecs::children!` to use `[]` braces, instead of `()` or `{}`.
+standard-macro-braces = [{ name = "children", brace = "[" }]

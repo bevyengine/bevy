@@ -1,10 +1,13 @@
-use alloc::vec;
-use alloc::vec::Vec;
-use core::fmt::Debug;
-use core::hash::BuildHasherDefault;
+use alloc::{boxed::Box, vec, vec::Vec};
+use core::{
+    any::{Any, TypeId},
+    fmt::Debug,
+};
 use smallvec::SmallVec;
 
-use bevy_utils::{AHasher, HashMap, HashSet};
+use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_utils::TypeIdMap;
+
 use fixedbitset::FixedBitSet;
 
 use crate::schedule::set::*;
@@ -23,22 +26,26 @@ pub(crate) enum DependencyKind {
     Before,
     /// A node that should be succeeded.
     After,
-    /// A node that should be preceded and will **not** automatically insert an instance of `ApplyDeferred` on the edge.
-    BeforeNoSync,
-    /// A node that should be succeeded and will **not** automatically insert an instance of `ApplyDeferred` on the edge.
-    AfterNoSync,
 }
 
 /// An edge to be added to the dependency graph.
-#[derive(Clone)]
 pub(crate) struct Dependency {
     pub(crate) kind: DependencyKind,
     pub(crate) set: InternedSystemSet,
+    pub(crate) options: TypeIdMap<Box<dyn Any>>,
 }
 
 impl Dependency {
     pub fn new(kind: DependencyKind, set: InternedSystemSet) -> Self {
-        Self { kind, set }
+        Self {
+            kind,
+            set,
+            options: Default::default(),
+        }
+    }
+    pub fn add_config<T: 'static>(mut self, option: T) -> Self {
+        self.options.insert(TypeId::of::<T>(), Box::new(option));
+        self
     }
 }
 
@@ -54,7 +61,7 @@ pub(crate) enum Ambiguity {
 }
 
 /// Metadata about how the node fits in the schedule graph
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub(crate) struct GraphInfo {
     /// the sets that the node belongs to (hierarchy)
     pub(crate) hierarchy: Vec<InternedSystemSet>,
@@ -88,7 +95,7 @@ pub(crate) struct CheckGraphResults {
     pub(crate) transitive_reduction: DiGraph,
     /// Variant of the graph with all possible transitive edges.
     // TODO: this will very likely be used by "if-needed" ordering
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "See the TODO above this attribute.")]
     pub(crate) transitive_closure: DiGraph,
 }
 
@@ -96,11 +103,11 @@ impl Default for CheckGraphResults {
     fn default() -> Self {
         Self {
             reachable: FixedBitSet::new(),
-            connected: HashSet::new(),
+            connected: HashSet::default(),
             disconnected: Vec::new(),
             transitive_edges: Vec::new(),
-            transitive_reduction: DiGraph::new(),
-            transitive_closure: DiGraph::new(),
+            transitive_reduction: DiGraph::default(),
+            transitive_closure: DiGraph::default(),
         }
     }
 }
@@ -124,8 +131,8 @@ pub(crate) fn check_graph(graph: &DiGraph, topological_order: &[NodeId]) -> Chec
     let n = graph.node_count();
 
     // build a copy of the graph where the nodes and edges appear in topsorted order
-    let mut map = HashMap::with_capacity(n);
-    let mut topsorted = DiGraph::<BuildHasherDefault<AHasher>>::new();
+    let mut map = <HashMap<_, _>>::with_capacity_and_hasher(n, Default::default());
+    let mut topsorted = <DiGraph>::default();
     // iterate nodes in topological order
     for (i, &node) in topological_order.iter().enumerate() {
         map.insert(node, i);
@@ -137,12 +144,12 @@ pub(crate) fn check_graph(graph: &DiGraph, topological_order: &[NodeId]) -> Chec
     }
 
     let mut reachable = FixedBitSet::with_capacity(n * n);
-    let mut connected = HashSet::new();
+    let mut connected = <HashSet<_>>::default();
     let mut disconnected = Vec::new();
 
     let mut transitive_edges = Vec::new();
-    let mut transitive_reduction = DiGraph::new();
-    let mut transitive_closure = DiGraph::new();
+    let mut transitive_reduction = DiGraph::default();
+    let mut transitive_closure = DiGraph::default();
 
     let mut visited = FixedBitSet::with_capacity(n);
 
@@ -227,7 +234,7 @@ pub fn simple_cycles_in_component(graph: &DiGraph, scc: &[NodeId]) -> Vec<Vec<No
 
     while let Some(mut scc) = sccs.pop() {
         // only look at nodes and edges in this strongly-connected component
-        let mut subgraph = DiGraph::<BuildHasherDefault<AHasher>>::new();
+        let mut subgraph = <DiGraph>::default();
         for &node in &scc {
             subgraph.add_node(node);
         }
@@ -243,16 +250,17 @@ pub fn simple_cycles_in_component(graph: &DiGraph, scc: &[NodeId]) -> Vec<Vec<No
         // path of nodes that may form a cycle
         let mut path = Vec::with_capacity(subgraph.node_count());
         // we mark nodes as "blocked" to avoid finding permutations of the same cycles
-        let mut blocked = HashSet::with_capacity(subgraph.node_count());
+        let mut blocked: HashSet<_> =
+            HashSet::with_capacity_and_hasher(subgraph.node_count(), Default::default());
         // connects nodes along path segments that can't be part of a cycle (given current root)
         // those nodes can be unblocked at the same time
         let mut unblock_together: HashMap<NodeId, HashSet<NodeId>> =
-            HashMap::with_capacity(subgraph.node_count());
+            HashMap::with_capacity_and_hasher(subgraph.node_count(), Default::default());
         // stack for unblocking nodes
         let mut unblock_stack = Vec::with_capacity(subgraph.node_count());
         // nodes can be involved in multiple cycles
         let mut maybe_in_more_cycles: HashSet<NodeId> =
-            HashSet::with_capacity(subgraph.node_count());
+            HashSet::with_capacity_and_hasher(subgraph.node_count(), Default::default());
         // stack for DFS
         let mut stack = Vec::with_capacity(subgraph.node_count());
 
@@ -268,7 +276,7 @@ pub fn simple_cycles_in_component(graph: &DiGraph, scc: &[NodeId]) -> Vec<Vec<No
         stack.clear();
         stack.push((root, subgraph.neighbors(root)));
         while !stack.is_empty() {
-            let (ref node, successors) = stack.last_mut().unwrap();
+            let &mut (ref node, ref mut successors) = stack.last_mut().unwrap();
             if let Some(next) = successors.next() {
                 if next == root {
                     // found a cycle

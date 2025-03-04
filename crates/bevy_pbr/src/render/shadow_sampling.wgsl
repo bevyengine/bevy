@@ -47,7 +47,7 @@ fn search_for_blockers_in_shadow_map_hardware(
         view_bindings::directional_shadow_textures,
         view_bindings::directional_shadow_textures_linear_sampler,
         light_local,
-        0.0,
+        0u,
     );
 #else   // NO_ARRAY_TEXTURES_SUPPORT
     let sampled_depth = textureSampleLevel(
@@ -55,7 +55,7 @@ fn search_for_blockers_in_shadow_map_hardware(
         view_bindings::directional_shadow_textures_linear_sampler,
         light_local,
         array_index,
-        0.0,
+        0u,
     );
 #endif  // NO_ARRAY_TEXTURES_SUPPORT
     return select(vec2(0.0), vec2(sampled_depth, 1.0), sampled_depth >= depth);

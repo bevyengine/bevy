@@ -61,7 +61,7 @@ pub trait ShapeSample {
     /// let square = Rectangle::new(2.0, 2.0);
     ///
     /// // Returns a Vec2 with both x and y between -1 and 1.
-    /// println!("{:?}", square.sample_interior(&mut rand::thread_rng()));
+    /// println!("{}", square.sample_interior(&mut rand::thread_rng()));
     /// ```
     fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output;
 
@@ -76,7 +76,7 @@ pub trait ShapeSample {
     ///
     /// // Returns a Vec2 where one of the coordinates is at ±1,
     /// //  and the other is somewhere between -1 and 1.
-    /// println!("{:?}", square.sample_boundary(&mut rand::thread_rng()));
+    /// println!("{}", square.sample_boundary(&mut rand::thread_rng()));
     /// ```
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output;
 
@@ -92,7 +92,7 @@ pub trait ShapeSample {
     ///
     /// // Iterate over points randomly drawn from `square`'s interior:
     /// for random_val in square.interior_dist().sample_iter(rng).take(5) {
-    ///     println!("{:?}", random_val);
+    ///     println!("{}", random_val);
     /// }
     /// ```
     fn interior_dist(self) -> impl Distribution<Self::Output>
@@ -114,7 +114,7 @@ pub trait ShapeSample {
     ///
     /// // Iterate over points randomly drawn from `square`'s boundary:
     /// for random_val in square.boundary_dist().sample_iter(rng).take(5) {
-    ///     println!("{:?}", random_val);
+    ///     println!("{}", random_val);
     /// }
     /// ```
     fn boundary_dist(self) -> impl Distribution<Self::Output>
@@ -234,7 +234,7 @@ impl ShapeSample for Rectangle {
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
         let primary_side = rng.gen_range(-1.0..1.0);
-        let other_side = if rng.gen() { -1.0 } else { 1.0 };
+        let other_side = if rng.r#gen() { -1.0 } else { 1.0 };
 
         if self.half_size.x + self.half_size.y > 0.0 {
             if rng.gen_bool((self.half_size.x / (self.half_size.x + self.half_size.y)) as f64) {
@@ -261,7 +261,7 @@ impl ShapeSample for Cuboid {
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
         let primary_side1 = rng.gen_range(-1.0..1.0);
         let primary_side2 = rng.gen_range(-1.0..1.0);
-        let other_side = if rng.gen() { -1.0 } else { 1.0 };
+        let other_side = if rng.r#gen() { -1.0 } else { 1.0 };
 
         if let Ok(dist) = WeightedIndex::new([
             self.half_size.y * self.half_size.z,
@@ -289,7 +289,7 @@ fn sample_triangle_interior<P: NormedVectorSpace, R: Rng + ?Sized>(
     let ab = b - a;
     let ac = c - a;
 
-    // Generate random points on a parallelipiped and reflect so that
+    // Generate random points on a parallelepiped and reflect so that
     // we can use the points that lie outside the triangle
     let u = rng.gen_range(0.0..=1.0);
     let v = rng.gen_range(0.0..=1.0);
@@ -425,7 +425,7 @@ impl ShapeSample for Cylinder {
         if self.radius + 2.0 * self.half_height > 0.0 {
             if rng.gen_bool((self.radius / (self.radius + 2.0 * self.half_height)) as f64) {
                 let Vec2 { x, y: z } = self.base().sample_interior(rng);
-                if rng.gen() {
+                if rng.r#gen() {
                     Vec3::new(x, self.half_height, z)
                 } else {
                     Vec3::new(x, -self.half_height, z)

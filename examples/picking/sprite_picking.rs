@@ -55,16 +55,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 let i = (anchor_index % 3) as f32;
                 let j = (anchor_index / 3) as f32;
 
-                // spawn black square behind sprite to show anchor point
+                // Spawn black square behind sprite to show anchor point
                 commands
                     .spawn((
                         Sprite::from_color(Color::BLACK, sprite_size),
                         Transform::from_xyz(i * len - len, j * len - len, -1.0),
+                        Pickable::default(),
                     ))
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
                     .observe(recolor_on::<Pointer<Out>>(Color::BLACK))
-                    .observe(recolor_on::<Pointer<Down>>(Color::srgb(1.0, 1.0, 0.0)))
-                    .observe(recolor_on::<Pointer<Up>>(Color::srgb(0.0, 1.0, 1.0)));
+                    .observe(recolor_on::<Pointer<Pressed>>(Color::srgb(1.0, 1.0, 0.0)))
+                    .observe(recolor_on::<Pointer<Released>>(Color::srgb(0.0, 1.0, 1.0)));
 
                 commands
                     .spawn((
@@ -79,11 +80,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Transform::from_xyz(i * len - len, j * len - len, 0.0)
                             .with_scale(Vec3::splat(1.0 + (i - 1.0) * 0.2))
                             .with_rotation(Quat::from_rotation_z((j - 1.0) * 0.2)),
+                        Pickable::default(),
                     ))
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 0.0)))
                     .observe(recolor_on::<Pointer<Out>>(Color::srgb(1.0, 0.0, 0.0)))
-                    .observe(recolor_on::<Pointer<Down>>(Color::srgb(0.0, 0.0, 1.0)))
-                    .observe(recolor_on::<Pointer<Up>>(Color::srgb(0.0, 1.0, 0.0)));
+                    .observe(recolor_on::<Pointer<Pressed>>(Color::srgb(0.0, 0.0, 1.0)))
+                    .observe(recolor_on::<Pointer<Released>>(Color::srgb(0.0, 1.0, 0.0)));
             }
         });
 }
@@ -140,17 +142,18 @@ fn setup_atlas(
             Transform::from_xyz(300.0, 0.0, 0.0).with_scale(Vec3::splat(6.0)),
             animation_indices,
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+            Pickable::default(),
         ))
         .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
         .observe(recolor_on::<Pointer<Out>>(Color::srgb(1.0, 1.0, 1.0)))
-        .observe(recolor_on::<Pointer<Down>>(Color::srgb(1.0, 1.0, 0.0)))
-        .observe(recolor_on::<Pointer<Up>>(Color::srgb(0.0, 1.0, 1.0)));
+        .observe(recolor_on::<Pointer<Pressed>>(Color::srgb(1.0, 1.0, 0.0)))
+        .observe(recolor_on::<Pointer<Released>>(Color::srgb(0.0, 1.0, 1.0)));
 }
 
 // An observer listener that changes the target entity's color.
 fn recolor_on<E: Debug + Clone + Reflect>(color: Color) -> impl Fn(Trigger<E>, Query<&mut Sprite>) {
     move |ev, mut sprites| {
-        let Ok(mut sprite) = sprites.get_mut(ev.entity()) else {
+        let Ok(mut sprite) = sprites.get_mut(ev.target()) else {
             return;
         };
         sprite.color = color;

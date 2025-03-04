@@ -1,12 +1,12 @@
 use crate::{
-    func::{ArgList, DynamicFunction, FunctionInfo, FunctionResult},
+    func::{
+        args::{ArgCount, ArgList},
+        DynamicFunction, FunctionInfo, FunctionResult,
+    },
     PartialReflect,
 };
 use alloc::borrow::Cow;
 use core::fmt::Debug;
-
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
 
 /// A trait used to power [function-like] operations via [reflection].
 ///
@@ -25,7 +25,7 @@ use alloc::{boxed::Box, format, vec};
 /// }
 ///
 /// let func: Box<dyn Function> = Box::new(add.into_function());
-/// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+/// let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
 /// let value = func.reflect_call(args).unwrap().unwrap_owned();
 /// assert_eq!(value.try_take::<i32>().unwrap(), 100);
 /// ```
@@ -45,12 +45,15 @@ pub trait Function: PartialReflect + Debug {
     ///
     /// [`DynamicFunctions`]: crate::func::DynamicFunction
     /// [`IntoFunction`]: crate::func::IntoFunction
-    fn name(&self) -> Option<&Cow<'static, str>> {
-        self.info().name()
-    }
+    fn name(&self) -> Option<&Cow<'static, str>>;
 
-    /// The number of arguments this function accepts.
-    fn arg_count(&self) -> usize {
+    /// Returns the number of arguments the function expects.
+    ///
+    /// For [overloaded] functions that can have a variable number of arguments,
+    /// this will contain the full set of counts for all signatures.
+    ///
+    /// [overloaded]: crate::func#overloading-functions
+    fn arg_count(&self) -> ArgCount {
         self.info().arg_count()
     }
 
@@ -68,6 +71,7 @@ pub trait Function: PartialReflect + Debug {
 mod tests {
     use super::*;
     use crate::func::IntoFunction;
+    use alloc::boxed::Box;
 
     #[test]
     fn should_call_dyn_function() {
@@ -76,7 +80,7 @@ mod tests {
         }
 
         let func: Box<dyn Function> = Box::new(add.into_function());
-        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
         let value = func.reflect_call(args).unwrap().unwrap_owned();
         assert_eq!(value.try_take::<i32>().unwrap(), 100);
     }

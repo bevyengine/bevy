@@ -20,7 +20,7 @@
 //! - The [`PointerHits`] events produced by a backend do **not** need to be sorted or filtered, all
 //!   that is needed is an unordered list of entities and their [`HitData`].
 //!
-//! - Backends do not need to consider the [`PickingBehavior`](crate::PickingBehavior) component, though they may
+//! - Backends do not need to consider the [`Pickable`](crate::Pickable) component, though they may
 //!   use it for optimization purposes. For example, a backend that traverses a spatial hierarchy
 //!   may want to exit early if it intersects an entity that blocks lower entities from being
 //!   picked.
@@ -42,7 +42,7 @@ pub mod prelude {
     pub use super::{ray::RayMap, HitData, PointerHits};
     pub use crate::{
         pointer::{PointerId, PointerLocation},
-        PickSet, PickingBehavior,
+        PickSet, Pickable,
     };
 }
 
@@ -52,9 +52,9 @@ pub mod prelude {
 /// Some backends may only support providing the topmost entity; this is a valid limitation. For
 /// example, a picking shader might only have data on the topmost rendered output from its buffer.
 ///
-/// Note that systems reading these events in [`PreUpdate`](bevy_app) will not report ordering
+/// Note that systems reading these events in [`PreUpdate`](bevy_app::PreUpdate) will not report ordering
 /// ambiguities with picking backends. Take care to ensure such systems are explicitly ordered
-/// against [`PickSet::Backends`](crate), or better, avoid reading `PointerHits` in `PreUpdate`.
+/// against [`PickSet::Backend`](crate::PickSet::Backend), or better, avoid reading `PointerHits` in `PreUpdate`.
 #[derive(Event, Debug, Clone, Reflect)]
 #[reflect(Debug)]
 pub struct PointerHits {
@@ -84,8 +84,7 @@ pub struct PointerHits {
 }
 
 impl PointerHits {
-    // FIXME(15321): solve CI failures, then replace with `#[expect()]`.
-    #[allow(missing_docs, reason = "Not all docs are written yet (#3492).")]
+    #[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
     pub fn new(pointer: prelude::PointerId, picks: Vec<(Entity, HitData)>, order: f32) -> Self {
         Self {
             pointer,
@@ -106,15 +105,15 @@ pub struct HitData {
     /// distance from the pointer to the hit, measured from the near plane of the camera, to the
     /// point, in world space.
     pub depth: f32,
-    /// The position of the intersection in the world, if the data is available from the backend.
+    /// The position reported by the backend, if the data is available. Position data may be in any
+    /// space (e.g. World space, Screen space, Local space), specified by the backend providing it.
     pub position: Option<Vec3>,
     /// The normal vector of the hit test, if the data is available from the backend.
     pub normal: Option<Vec3>,
 }
 
 impl HitData {
-    // FIXME(15321): solve CI failures, then replace with `#[expect()]`.
-    #[allow(missing_docs, reason = "Not all docs are written yet (#3492).")]
+    #[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
     pub fn new(camera: Entity, depth: f32, position: Option<Vec3>, normal: Option<Vec3>) -> Self {
         Self {
             camera,
@@ -131,10 +130,10 @@ pub mod ray {
     use crate::backend::prelude::{PointerId, PointerLocation};
     use bevy_ecs::prelude::*;
     use bevy_math::Ray3d;
+    use bevy_platform_support::collections::{hash_map::Iter, HashMap};
     use bevy_reflect::Reflect;
     use bevy_render::camera::Camera;
     use bevy_transform::prelude::GlobalTransform;
-    use bevy_utils::{hashbrown::hash_map::Iter, HashMap};
     use bevy_window::PrimaryWindow;
 
     /// Identifies a ray constructed from some (pointer, camera) combination. A pointer can be over

@@ -7,7 +7,7 @@ use bevy::{
     a11y::AccessibilityNode,
     color::palettes::{basic::LIME, css::DARK_GRAY},
     input::mouse::{MouseScrollUnit, MouseWheel},
-    picking::focus::HoverMap,
+    picking::hover::HoverMap,
     prelude::*,
     ui::widget::NodeImageMode,
 };
@@ -18,11 +18,8 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, update_scroll_position);
 
-    #[cfg(feature = "bevy_dev_tools")]
-    {
-        app.add_plugins(bevy::dev_tools::ui_debug_overlay::DebugUiPlugin)
-            .add_systems(Update, toggle_overlay);
-    }
+    #[cfg(feature = "bevy_ui_debug")]
+    app.add_systems(Update, toggle_debug_overlay);
 
     app.run();
 }
@@ -39,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             justify_content: JustifyContent::SpaceBetween,
             ..default()
         })
-        .insert(PickingBehavior::IGNORE)
+        .insert(Pickable::IGNORE)
         .with_children(|parent| {
             // left vertical fill (border)
             parent
@@ -63,6 +60,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                            Visibility::Visible,
                         ))
                         .with_children(|parent| {
                             // text
@@ -79,20 +77,50 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Label,
                             ));
 
-                            #[cfg(feature = "bevy_dev_tools")]
-                            // Debug overlay text
-                            parent.spawn((
-                                Text::new("Press Space to enable debug outlines."),
-                                TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    ..default()
-                                },
-                                Label,
-                            ));
+                            #[cfg(feature = "bevy_ui_debug")]
+                            {
+                                // Debug overlay text
+                                parent.spawn((
+                                    Text::new("Press Space to toggle debug outlines."),
+                                    TextFont {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        ..default()
+                                    },
+                                    Label,
+                                ));
 
-                            #[cfg(not(feature = "bevy_dev_tools"))]
+                                parent.spawn((
+                                    Text::new("V: toggle UI root's visibility"),
+                                    TextFont {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 12.,
+                                        ..default()
+                                    },
+                                    Label,
+                                ));
+
+                                parent.spawn((
+                                    Text::new("S: toggle outlines for hidden nodes"),
+                                    TextFont {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 12.,
+                                        ..default()
+                                    },
+                                    Label,
+                                ));
+                                parent.spawn((
+                                    Text::new("C: toggle outlines for clipped nodes"),
+                                    TextFont {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 12.,
+                                        ..default()
+                                    },
+                                    Label,
+                                ));
+                            }
+                            #[cfg(not(feature = "bevy_ui_debug"))]
                             parent.spawn((
-                                Text::new("Try enabling feature \"bevy_dev_tools\"."),
+                                Text::new("Try enabling feature \"bevy_ui_debug\"."),
                                 TextFont {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     ..default()
@@ -146,7 +174,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         Label,
                                         AccessibilityNode(Accessible::new(Role::ListItem)),
                                     ))
-                                    .insert(PickingBehavior {
+                                    .insert(Pickable {
                                         should_block_lower: false,
                                         ..default()
                                     });
@@ -208,7 +236,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     justify_content: JustifyContent::Center,
                     ..default()
                 })
-                .insert(PickingBehavior::IGNORE)
+                .insert(Pickable::IGNORE)
                 .with_children(|parent| {
                     parent
                         .spawn((
@@ -324,7 +352,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     padding: UiRect::all(Val::Px(10.)),
                     ..default()
                 })
-                .insert(PickingBehavior::IGNORE)
+                .insert(Pickable::IGNORE)
                 .with_children(|parent| {
                     for (flip_x, flip_y) in
                         [(false, false), (false, true), (true, true), (true, false)]
@@ -347,16 +375,34 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-#[cfg(feature = "bevy_dev_tools")]
+#[cfg(feature = "bevy_ui_debug")]
 // The system that will enable/disable the debug outlines around the nodes
-fn toggle_overlay(
+fn toggle_debug_overlay(
     input: Res<ButtonInput<KeyCode>>,
-    mut options: ResMut<bevy::dev_tools::ui_debug_overlay::UiDebugOptions>,
+    mut debug_options: ResMut<UiDebugOptions>,
+    mut root_node_query: Query<&mut Visibility, (With<Node>, Without<ChildOf>)>,
 ) {
     info_once!("The debug outlines are enabled, press Space to turn them on/off");
     if input.just_pressed(KeyCode::Space) {
-        // The toggle method will enable the debug_overlay if disabled and disable if enabled
-        options.toggle();
+        // The toggle method will enable the debug overlay if disabled and disable if enabled
+        debug_options.toggle();
+    }
+
+    if input.just_pressed(KeyCode::KeyS) {
+        // Toggle debug outlines for nodes with `ViewVisibility` set to false.
+        debug_options.show_hidden = !debug_options.show_hidden;
+    }
+
+    if input.just_pressed(KeyCode::KeyC) {
+        // Toggle outlines for clipped UI nodes.
+        debug_options.show_clipped = !debug_options.show_clipped;
+    }
+
+    if input.just_pressed(KeyCode::KeyV) {
+        for mut visibility in root_node_query.iter_mut() {
+            // Toggle the UI root node's visibility
+            visibility.toggle_inherited_hidden();
+        }
     }
 }
 

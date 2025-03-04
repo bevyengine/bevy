@@ -1,16 +1,13 @@
-use alloc::boxed::Box;
+use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect_derive::impl_type_path;
 use core::any::Any;
 use smallvec::{Array as SmallArray, SmallVec};
 
-#[cfg(not(feature = "std"))]
-use alloc::{format, vec};
-
 use crate::{
-    self as bevy_reflect, utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType,
-    Generics, GetTypeRegistration, List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect,
-    ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo,
-    TypePath, TypeRegistration, Typed,
+    utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType, Generics, GetTypeRegistration,
+    List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect, ReflectFromPtr, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo, TypePath, TypeRegistration,
+    Typed,
 };
 
 impl<T: SmallArray + TypePath + Send + Sync> List for SmallVec<T>

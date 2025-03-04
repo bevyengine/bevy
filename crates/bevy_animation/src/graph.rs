@@ -1,7 +1,9 @@
 //! The animation graph, which allows animations to be blended together.
 
-use core::iter;
-use core::ops::{Index, IndexMut, Range};
+use core::{
+    iter,
+    ops::{Index, IndexMut, Range},
+};
 use std::io::{self, Write};
 
 use bevy_asset::{
@@ -12,10 +14,11 @@ use bevy_ecs::{
     component::Component,
     event::EventReader,
     reflect::ReflectComponent,
-    system::{Res, ResMut, Resource},
+    resource::Resource,
+    system::{Res, ResMut},
 };
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, ReflectSerialize};
-use bevy_utils::HashMap;
 use derive_more::derive::From;
 use petgraph::{
     graph::{DiGraph, NodeIndex},
@@ -420,7 +423,7 @@ impl AnimationGraph {
         Self {
             graph,
             root,
-            mask_groups: HashMap::new(),
+            mask_groups: HashMap::default(),
         }
     }
 
@@ -881,10 +884,10 @@ impl ThreadedAnimationGraph {
 
         self.sorted_edge_ranges.clear();
         self.sorted_edge_ranges
-            .extend(iter::repeat(0..0).take(node_count));
+            .extend(iter::repeat_n(0..0, node_count));
 
         self.computed_masks.clear();
-        self.computed_masks.extend(iter::repeat(0).take(node_count));
+        self.computed_masks.extend(iter::repeat_n(0, node_count));
     }
 
     /// Recursively constructs the [`ThreadedAnimationGraph`] for the subtree

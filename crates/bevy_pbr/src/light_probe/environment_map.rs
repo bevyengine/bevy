@@ -15,7 +15,7 @@
 //!    environment maps are added to every point of the scene, including
 //!    interior enclosed areas.
 //!
-//! 2. If attached to a [`LightProbe`], environment maps represent the immediate
+//! 2. If attached to a [`crate::LightProbe`], environment maps represent the immediate
 //!    surroundings of a specific location in the scene. These types of
 //!    environment maps are known as *reflection probes*.
 //!
@@ -44,33 +44,29 @@
 //!
 //! [several pre-filtered environment maps]: https://github.com/KhronosGroup/glTF-Sample-Environments
 
-#![expect(deprecated)]
-
-use bevy_asset::{AssetId, Handle};
+use bevy_asset::{weak_handle, AssetId, Handle};
 use bevy_ecs::{
-    bundle::Bundle, component::Component, query::QueryItem, reflect::ReflectComponent,
-    system::lifetimeless::Read,
+    component::Component, query::QueryItem, reflect::ReflectComponent, system::lifetimeless::Read,
 };
 use bevy_image::Image;
 use bevy_math::Quat;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstance,
-    prelude::SpatialBundle,
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{self, uniform_buffer},
         BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, ShaderStages,
         TextureSampleType, TextureView,
     },
-    renderer::RenderDevice,
+    renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
 };
 
 use core::{num::NonZero, ops::Deref};
 
 use crate::{
-    add_cubemap_texture_view, binding_arrays_are_usable, EnvironmentMapUniform, LightProbe,
+    add_cubemap_texture_view, binding_arrays_are_usable, EnvironmentMapUniform,
     MAX_VIEW_LIGHT_PROBES,
 };
 
@@ -78,7 +74,7 @@ use super::{LightProbeComponent, RenderViewLightProbes};
 
 /// A handle to the environment map helper shader.
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(154476556247605696);
+    weak_handle!("d38c4ec4-e84c-468f-b485-bf44745db937");
 
 /// A pair of cubemap textures that represent the surroundings of a specific
 /// area in space.
@@ -106,6 +102,16 @@ pub struct EnvironmentMapLight {
     /// This is useful for users who require a different axis, such as the Z-axis, to serve
     /// as the vertical axis.
     pub rotation: Quat,
+
+    /// Whether the light from this environment map contributes diffuse lighting
+    /// to meshes with lightmaps.
+    ///
+    /// Set this to false if your lightmap baking tool bakes the diffuse light
+    /// from this environment light into the lightmaps in order to avoid
+    /// counting the radiance from this environment map twice.
+    ///
+    /// By default, this is set to true.
+    pub affects_lightmapped_mesh_diffuse: bool,
 }
 
 impl Default for EnvironmentMapLight {
@@ -115,6 +121,7 @@ impl Default for EnvironmentMapLight {
             specular_map: Handle::default(),
             intensity: 0.0,
             rotation: Quat::IDENTITY,
+            affects_lightmapped_mesh_diffuse: true,
         }
     }
 }
@@ -129,26 +136,6 @@ pub struct EnvironmentMapIds {
     /// The typically-sharper, mipmapped image that represents specular radiance
     /// surrounding a region.
     pub(crate) specular: AssetId<Image>,
-}
-
-/// A bundle that contains everything needed to make an entity a reflection
-/// probe.
-///
-/// A reflection probe is a type of environment map that specifies the light
-/// surrounding a region in space. For more information, see
-/// [`crate::environment_map`].
-#[derive(Bundle, Clone)]
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `LightProbe` and `EnvironmentMapLight` components instead. Inserting them will now also insert the other components required by them automatically."
-)]
-pub struct ReflectionProbeBundle {
-    /// Contains a transform that specifies the position of this reflection probe in space.
-    pub spatial: SpatialBundle,
-    /// Marks this environment map as a light probe.
-    pub light_probe: LightProbe,
-    /// The cubemaps that make up this environment map.
-    pub environment_map: EnvironmentMapLight,
 }
 
 /// All the bind group entries necessary for PBR shaders to access the
@@ -199,6 +186,9 @@ pub struct EnvironmentMapViewLightProbeInfo {
     /// The scale factor applied to the diffuse and specular light in the
     /// cubemap. This is in units of cd/m² (candela per square meter).
     pub(crate) intensity: f32,
+    /// Whether this lightmap affects the diffuse lighting of lightmapped
+    /// meshes.
+    pub(crate) affects_lightmapped_mesh_diffuse: bool,
 }
 
 impl ExtractInstance for EnvironmentMapIds {
@@ -218,10 +208,11 @@ impl ExtractInstance for EnvironmentMapIds {
 /// specular binding arrays respectively, in addition to the sampler.
 pub(crate) fn get_bind_group_layout_entries(
     render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
 ) -> [BindGroupLayoutEntryBuilder; 4] {
     let mut texture_cube_binding =
         binding_types::texture_cube(TextureSampleType::Float { filterable: true });
-    if binding_arrays_are_usable(render_device) {
+    if binding_arrays_are_usable(render_device, render_adapter) {
         texture_cube_binding =
             texture_cube_binding.count(NonZero::<u32>::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
     }
@@ -242,8 +233,9 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
         render_device: &RenderDevice,
+        render_adapter: &RenderAdapter,
     ) -> RenderViewEnvironmentMapBindGroupEntries<'a> {
-        if binding_arrays_are_usable(render_device) {
+        if binding_arrays_are_usable(render_device, render_adapter) {
             let mut diffuse_texture_views = vec![];
             let mut specular_texture_views = vec![];
             let mut sampler = None;
@@ -326,6 +318,10 @@ impl LightProbeComponent for EnvironmentMapLight {
         self.intensity
     }
 
+    fn affects_lightmapped_mesh_diffuse(&self) -> bool {
+        self.affects_lightmapped_mesh_diffuse
+    }
+
     fn create_render_view_light_probes(
         view_component: Option<&EnvironmentMapLight>,
         image_assets: &RenderAssets<GpuImage>,
@@ -338,6 +334,7 @@ impl LightProbeComponent for EnvironmentMapLight {
             diffuse_map: diffuse_map_handle,
             specular_map: specular_map_handle,
             intensity,
+            affects_lightmapped_mesh_diffuse,
             ..
         }) = view_component
         {
@@ -354,6 +351,7 @@ impl LightProbeComponent for EnvironmentMapLight {
                     ) as i32,
                     smallest_specular_mip_level: specular_map.mip_level_count - 1,
                     intensity: *intensity,
+                    affects_lightmapped_mesh_diffuse: *affects_lightmapped_mesh_diffuse,
                 };
             }
         };
@@ -368,6 +366,7 @@ impl Default for EnvironmentMapViewLightProbeInfo {
             cubemap_index: -1,
             smallest_specular_mip_level: 0,
             intensity: 1.0,
+            affects_lightmapped_mesh_diffuse: true,
         }
     }
 }

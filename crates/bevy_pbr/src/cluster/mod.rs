@@ -2,17 +2,18 @@
 
 use core::num::NonZero;
 
-use self::assign::ClusterableObjectType;
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     query::{With, Without},
     reflect::ReflectComponent,
-    system::{Commands, Query, Res, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res},
     world::{FromWorld, World},
 };
 use bevy_math::{uvec4, AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4};
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
@@ -24,7 +25,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     Extract,
 };
-use bevy_utils::{hashbrown::HashSet, tracing::warn};
+use tracing::warn;
 
 pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
 use crate::MeshPipeline;
@@ -203,6 +204,8 @@ struct ClusterableObjectCounts {
     reflection_probes: u32,
     /// The number of irradiance volumes in the cluster.
     irradiance_volumes: u32,
+    /// The number of decals in the cluster.
+    decals: u32,
 }
 
 enum ExtractedClusterableObjectElement {
@@ -516,34 +519,6 @@ impl Default for GpuClusterableObjectsUniform {
     }
 }
 
-pub(crate) struct ClusterableObjectOrderData<'a> {
-    pub(crate) entity: &'a Entity,
-    pub(crate) object_type: &'a ClusterableObjectType,
-}
-
-#[allow(clippy::too_many_arguments)]
-// Sort clusterable objects by:
-//
-// * object type, so that we can iterate point lights, spot lights, etc. in
-//   contiguous blocks in the fragment shader,
-//
-// * then those with shadows enabled first, so that the index can be used to
-//   render at most `point_light_shadow_maps_count` point light shadows and
-//   `spot_light_shadow_maps_count` spot light shadow maps,
-//
-// * then by entity as a stable key to ensure that a consistent set of
-//   clusterable objects are chosen if the clusterable object count limit is
-//   exceeded.
-pub(crate) fn clusterable_object_order(
-    a: ClusterableObjectOrderData,
-    b: ClusterableObjectOrderData,
-) -> core::cmp::Ordering {
-    a.object_type
-        .ordering()
-        .cmp(&b.object_type.ordering())
-        .then_with(|| a.entity.cmp(b.entity)) // stable
-}
-
 /// Extracts clusters from the main world from the render world.
 pub fn extract_clusters(
     mut commands: Commands,
@@ -700,7 +675,7 @@ impl ViewClusterBindings {
                         counts.spot_lights,
                         counts.reflection_probes,
                     ),
-                    uvec4(counts.irradiance_volumes, 0, 0, 0),
+                    uvec4(counts.irradiance_volumes, counts.decals, 0, 0),
                 ]);
             }
         }
@@ -853,7 +828,7 @@ impl ViewClusterBuffers {
 // the number of light probes is irrelevant.
 fn pack_offset_and_counts(offset: usize, point_count: u32, spot_count: u32) -> u32 {
     ((offset as u32 & CLUSTER_OFFSET_MASK) << (CLUSTER_COUNT_SIZE * 2))
-        | (point_count & CLUSTER_COUNT_MASK) << CLUSTER_COUNT_SIZE
+        | ((point_count & CLUSTER_COUNT_MASK) << CLUSTER_COUNT_SIZE)
         | (spot_count & CLUSTER_COUNT_MASK)
 }
 

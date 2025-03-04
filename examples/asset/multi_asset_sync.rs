@@ -20,6 +20,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
+            ..default()
         })
         .add_systems(Startup, setup_assets)
         .add_systems(Startup, setup_scene)
@@ -104,7 +105,7 @@ impl AssetBarrier {
     }
 
     /// Wait for all [`AssetBarrierGuard`]s to be dropped asynchronously.
-    pub fn wait_async(&self) -> impl Future<Output = ()> + 'static {
+    pub fn wait_async(&self) -> impl Future<Output = ()> + 'static + use<> {
         let shared = self.0.clone();
         async move {
             loop {
@@ -257,7 +258,7 @@ fn get_async_loading_state(
     // If loaded, change the state.
     if is_loaded {
         next_loading_state.set(LoadingState::Loaded);
-        if let Ok(mut text) = text.get_single_mut() {
+        if let Ok(mut text) = text.single_mut() {
             "Loaded!".clone_into(&mut **text);
         }
     }
@@ -267,7 +268,7 @@ fn get_async_loading_state(
 fn despawn_loading_state_entities(mut commands: Commands, loading: Query<Entity, With<Loading>>) {
     // Despawn entities in the loading phase.
     for entity in loading.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 
     // Despawn resources used in the loading phase.

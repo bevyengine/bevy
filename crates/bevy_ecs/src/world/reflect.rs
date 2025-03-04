@@ -4,6 +4,7 @@ use core::any::TypeId;
 
 use thiserror::Error;
 
+use alloc::string::{String, ToString};
 use bevy_reflect::{Reflect, ReflectFromPtr};
 
 use crate::{prelude::*, world::ComponentId};
@@ -164,7 +165,7 @@ impl World {
         };
 
         // HACK: Only required for the `None`-case/`else`-branch, but it borrows `self`, which will
-        // already be mutablyy borrowed by `self.get_mut_by_id()`, and I didn't find a way around it.
+        // already be mutably borrowed by `self.get_mut_by_id()`, and I didn't find a way around it.
         let component_name = self
             .components()
             .get_name(component_id)
@@ -212,7 +213,7 @@ pub enum GetComponentReflectError {
     NoCorrespondingComponentId(TypeId),
 
     /// The given [`Entity`] does not have a [`Component`] corresponding to the given [`TypeId`].
-    #[error("The given `Entity` {entity:?} does not have a `{component_name:?}` component ({component_id:?}, which corresponds to {type_id:?})")]
+    #[error("The given `Entity` {entity} does not have a `{component_name:?}` component ({component_id:?}, which corresponds to {type_id:?})")]
     EntityDoesNotHaveComponent {
         /// The given [`Entity`].
         entity: Entity,
@@ -250,11 +251,7 @@ mod tests {
 
     use bevy_reflect::Reflect;
 
-    use crate::{
-        // For bevy_ecs_macros
-        self as bevy_ecs,
-        prelude::{AppTypeRegistry, Component, DetectChanges, World},
-    };
+    use crate::prelude::{AppTypeRegistry, Component, DetectChanges, World};
 
     #[derive(Component, Reflect)]
     struct RFoo(i32);
