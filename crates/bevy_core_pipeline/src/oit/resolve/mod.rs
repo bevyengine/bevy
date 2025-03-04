@@ -33,6 +33,9 @@ pub const OIT_RESOLVE_SHADER_HANDLE: Handle<Shader> =
 /// Contains the render node used to run the resolve pass.
 pub mod node;
 
+/// Minimum required value of `wgpu::Limits::max_storage_buffers_per_shader_stage`.
+pub const OIT_REQUIRED_STORAGE_BUFFERS: u32 = 2;
+
 /// Plugin needed to resolve the Order Independent Transparency (OIT) buffer to the screen.
 pub struct OitResolvePlugin;
 impl Plugin for OitResolvePlugin {
@@ -58,6 +61,17 @@ impl Plugin for OitResolvePlugin {
             .contains(DownlevelFlags::FRAGMENT_WRITABLE_STORAGE)
         {
             warn!("OrderIndependentTransparencyPlugin not loaded. GPU lacks support: DownlevelFlags::FRAGMENT_WRITABLE_STORAGE.");
+            return;
+        }
+
+        if render_app
+            .world()
+            .resource::<RenderDevice>()
+            .limits()
+            .max_storage_buffers_per_shader_stage
+            < OIT_REQUIRED_STORAGE_BUFFERS
+        {
+            warn!("OrderIndependentTransparencyPlugin not loaded. RenderDevice lacks support: max_storage_buffers_per_shader_stage < OIT_REQUIRED_STORAGE_BUFFERS.");
             return;
         }
 
