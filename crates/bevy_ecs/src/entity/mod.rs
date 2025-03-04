@@ -246,6 +246,9 @@ impl Hash for Entity {
     }
 }
 
+#[deprecated(
+    note = "This is exclusively used with the now deprecated `Entities::alloc_at_without_replacement`."
+)]
 pub(crate) enum AllocAtWithoutReplacement {
     Exists(EntityLocation),
     DidNotExist,
@@ -735,6 +738,10 @@ impl Entities {
     /// Returns the location of the entity currently using the given ID, if any.
     #[deprecated(
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity."
+    )]
+    #[expect(
+        deprecated,
+        reason = "We need to support `AllocAtWithoutReplacement` for now."
     )]
     pub(crate) fn alloc_at_without_replacement(
         &mut self,

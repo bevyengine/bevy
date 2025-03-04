@@ -30,6 +30,10 @@ pub use filtered_resource::*;
 pub use identifier::WorldId;
 pub use spawn_batch::*;
 
+#[expect(
+    deprecated,
+    reason = "We need to support `AllocAtWithoutReplacement` for now."
+)]
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{
