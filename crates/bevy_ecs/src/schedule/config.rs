@@ -2,7 +2,7 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use variadics_please::all_tuples;
 
 use crate::{
-    result::Result,
+    error::Result,
     schedule::{
         auto_insert_apply_deferred::IgnoreDeferred,
         condition::{BoxedCondition, Condition},

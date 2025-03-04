@@ -26,9 +26,9 @@ use tracing::info_span;
 
 use crate::{
     component::{ComponentId, Components, Tick},
+    error::{BevyError, DefaultSystemErrorHandler, SystemErrorContext},
     prelude::Component,
     resource::Resource,
-    result::{DefaultSystemErrorHandler, Error, SystemErrorContext},
     schedule::*,
     system::ScheduleSystem,
     world::World,
@@ -296,7 +296,7 @@ pub struct Schedule {
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
     executor_initialized: bool,
-    error_handler: Option<fn(Error, SystemErrorContext)>,
+    error_handler: Option<fn(BevyError, SystemErrorContext)>,
 }
 
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
@@ -399,10 +399,10 @@ impl Schedule {
         self
     }
 
-    /// Set the error handler to use for systems that return a [`Result`](crate::result::Result).
+    /// Set the error handler to use for systems that return a [`Result`](crate::error::Result).
     ///
-    /// See the [`result` module-level documentation](crate::result) for more information.
-    pub fn set_error_handler(&mut self, error_handler: fn(Error, SystemErrorContext)) {
+    /// See the [`error` module-level documentation](crate::error) for more information.
+    pub fn set_error_handler(&mut self, error_handler: fn(BevyError, SystemErrorContext)) {
         self.error_handler = Some(error_handler);
     }
 

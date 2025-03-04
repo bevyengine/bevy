@@ -15,9 +15,9 @@ use tracing::{info_span, Span};
 
 use crate::{
     archetype::ArchetypeComponentId,
+    error::{BevyError, Result, SystemErrorContext},
     prelude::Resource,
     query::Access,
-    result::{Error, Result, SystemErrorContext},
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     system::ScheduleSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -132,7 +132,7 @@ pub struct ExecutorState {
 struct Context<'scope, 'env, 'sys> {
     environment: &'env Environment<'env, 'sys>,
     scope: &'scope Scope<'scope, 'env, ()>,
-    error_handler: fn(Error, SystemErrorContext),
+    error_handler: fn(BevyError, SystemErrorContext),
 }
 
 impl Default for MultiThreadedExecutor {
@@ -183,7 +183,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(Error, SystemErrorContext),
+        error_handler: fn(BevyError, SystemErrorContext),
     ) {
         let state = self.state.get_mut().unwrap();
         // reset counts

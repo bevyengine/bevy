@@ -1,27 +1,27 @@
 //! This module contains convenience functions that return simple error handlers
 //! for use with [`Commands::queue_handled`](super::Commands::queue_handled) and [`EntityCommands::queue_handled`](super::EntityCommands::queue_handled).
 
-use crate::{result::Error, world::World};
+use crate::{error::BevyError, world::World};
 use log::{error, warn};
 
 /// An error handler that does nothing.
-pub fn silent() -> fn(&mut World, Error) {
+pub fn silent() -> fn(&mut World, BevyError) {
     |_, _| {}
 }
 
 /// An error handler that accepts an error and logs it with [`warn!`].
-pub fn warn() -> fn(&mut World, Error) {
+pub fn warn() -> fn(&mut World, BevyError) {
     |_, error| warn!("{error}")
 }
 
 /// An error handler that accepts an error and logs it with [`error!`].
-pub fn error() -> fn(&mut World, Error) {
+pub fn error() -> fn(&mut World, BevyError) {
     |_, error| error!("{error}")
 }
 
 /// An error handler that accepts an error and panics with the error in
 /// the panic message.
-pub fn panic() -> fn(&mut World, Error) {
+pub fn panic() -> fn(&mut World, BevyError) {
     |_, error| panic!("{error}")
 }
 
@@ -30,7 +30,7 @@ pub fn panic() -> fn(&mut World, Error) {
 /// `GLOBAL_ERROR_HANDLER` will be used instead, enabling error handler customization.
 #[cfg(not(feature = "configurable_error_handler"))]
 #[inline]
-pub fn default() -> fn(&mut World, Error) {
+pub fn default() -> fn(&mut World, BevyError) {
     panic()
 }
 
@@ -48,7 +48,7 @@ pub fn default() -> fn(&mut World, Error) {
 /// // initialize Bevy App here
 /// ```
 #[cfg(feature = "configurable_error_handler")]
-pub static GLOBAL_ERROR_HANDLER: std::sync::OnceLock<fn(&mut World, Error)> =
+pub static GLOBAL_ERROR_HANDLER: std::sync::OnceLock<fn(&mut World, BevyError)> =
     std::sync::OnceLock::new();
 
 /// The default error handler. This defaults to [`panic()`]. If the
@@ -56,6 +56,6 @@ pub static GLOBAL_ERROR_HANDLER: std::sync::OnceLock<fn(&mut World, Error)> =
 /// [`GLOBAL_ERROR_HANDLER`] will be used instead, enabling error handler customization.
 #[cfg(feature = "configurable_error_handler")]
 #[inline]
-pub fn default() -> fn(&mut World, Error) {
+pub fn default() -> fn(&mut World, BevyError) {
     *GLOBAL_ERROR_HANDLER.get_or_init(|| panic())
 }
