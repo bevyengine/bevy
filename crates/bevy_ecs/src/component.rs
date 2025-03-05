@@ -20,7 +20,10 @@ use bevy_platform_support::sync::Arc;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::TypeIdMap;
+use bevy_utils::{
+    staging::{StageOnWrite, StagedChanges},
+    TypeIdMap,
+};
 use core::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -1139,6 +1142,54 @@ impl ComponentCloneBehavior {
     }
 }
 
+/// Coordinates a registration that is reserved, but not registered.
+trait QueuedComponentRegistration {
+    fn register(&mut self, registrator: ComponentsRegistrator);
+}
+
+/// Allows queueing components to be registered.
+#[derive(Default)]
+pub struct QueuedComponents {
+    components: TypeIdMap<(ComponentId, Box<dyn QueuedComponentRegistration>)>,
+    resources: TypeIdMap<(ComponentId, Box<dyn QueuedComponentRegistration>)>,
+    dynamic_registrations: Vec<(ComponentId, Box<dyn QueuedComponentRegistration>)>,
+}
+
+impl Debug for QueuedComponents {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let components = self
+            .components
+            .iter()
+            .map(|(type_id, (id, _))| (type_id, id))
+            .collect::<Vec<_>>();
+        let resources = self
+            .resources
+            .iter()
+            .map(|(type_id, (id, _))| (type_id, id))
+            .collect::<Vec<_>>();
+        let dynamic_registrations = self
+            .dynamic_registrations
+            .iter()
+            .map(|(id, _)| id)
+            .collect::<Vec<_>>();
+        write!(f, "components: {components:?}, resources: {resources:?}, dynamic_registrations: {dynamic_registrations:?}")
+    }
+}
+
+impl StagedChanges for QueuedComponents {
+    type Cold = Components;
+
+    fn apply_staged(&mut self, storage: &mut Self::Cold) {
+        todo!()
+    }
+
+    fn any_staged(&self) -> bool {
+        !self.components.is_empty()
+            || !self.resources.is_empty()
+            || !self.dynamic_registrations.is_empty()
+    }
+}
+
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
 #[derive(Debug, Default)]
 pub struct Components {
@@ -1211,6 +1262,73 @@ impl Deref for ComponentsRegistrator<'_> {
 impl DerefMut for ComponentsRegistrator<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.components
+    }
+}
+
+/// A type that enables queuing registration in [`Components`].
+pub struct ComponentsQueuedRegistrator<'w> {
+    components: &'w StageOnWrite<QueuedComponents>,
+    ids: &'w ComponentIds,
+}
+
+impl<'w> ComponentsQueuedRegistrator<'w> {
+    /// Constructs a new [`ComponentsQueuedRegistrator`].
+    ///
+    /// # Safety
+    ///
+    /// The [`Components`] and [`ComponentIds`] must match.
+    /// For example, they must be from the same world.
+    pub unsafe fn new(
+        components: &'w StageOnWrite<QueuedComponents>,
+        ids: &'w ComponentIds,
+    ) -> Self {
+        Self { components, ids }
+    }
+
+    /// This is a queued version of [`ComponentsRegistrator::register_component`].
+    /// This will reserve an id and queue the registration.
+    /// These registrations will be carried out at the next opportunity.
+    #[inline]
+    pub fn queue_register_component<T: Component>(&self) -> ComponentId {
+        todo!()
+    }
+
+    /// This is a queued version of [`ComponentsRegistrator::register_component_with_descriptor`].
+    /// This will reserve an id and queue the registration.
+    /// These registrations will be carried out at the next opportunity.
+    #[inline]
+    pub fn queue_register_component_with_descriptor(
+        &self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        todo!()
+    }
+
+    /// This is a queued version of [`ComponentsRegistrator::register_resource`].
+    /// This will reserve an id and queue the registration.
+    /// These registrations will be carried out at the next opportunity.
+    #[inline]
+    pub fn queue_register_resource<T: Resource>(&self) -> ComponentId {
+        todo!()
+    }
+
+    /// This is a queued version of [`ComponentsRegistrator::register_non_send`].
+    /// This will reserve an id and queue the registration.
+    /// These registrations will be carried out at the next opportunity.
+    #[inline]
+    pub fn queue_register_non_send<T: Any>(&self) -> ComponentId {
+        todo!()
+    }
+
+    /// This is a queued version of [`ComponentsRegistrator::register_resource_with_descriptor`].
+    /// This will reserve an id and queue the registration.
+    /// These registrations will be carried out at the next opportunity.
+    #[inline]
+    pub fn queue_register_resource_with_descriptor(
+        &self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        todo!()
     }
 }
 
