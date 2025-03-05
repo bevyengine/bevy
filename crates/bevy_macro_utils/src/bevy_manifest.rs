@@ -8,10 +8,16 @@ use cargo_manifest_proc_macros::{
 };
 use proc_macro::TokenStream;
 
+use crate::official_bevy_crates::OFFICIAL_BEVY_CRATES;
+
 struct BevyReExportingPolicy;
 
 impl CrateReExportingPolicy for BevyReExportingPolicy {
     fn get_re_exported_crate_path(&self, crate_name: &str) -> Option<PathPiece> {
+        if OFFICIAL_BEVY_CRATES.binary_search(&crate_name).is_err() {
+            return None;
+        }
+
         crate_name.strip_prefix("bevy_").map(|s| {
             let mut path = PathPiece::new();
             path.push(syn::parse_str::<syn::PathSegment>(s).unwrap());
@@ -48,7 +54,7 @@ impl BevyManifest {
     /// Returns the path for the crate with the given name.
     pub fn get_path(&self, name: &str) -> syn::Path {
         self.maybe_get_path(name)
-            .expect("Failed to get path for crate")
+            .unwrap_or_else(|err| panic!("Proc macro failed to resolve a unique crate path to {name}. Check your project dependencies. Underlying error: {err}"))
     }
 
     /// Attempt to parse the provided [path](str) as a [syntax tree node](syn::parse::Parse)
@@ -65,19 +71,5 @@ impl BevyManifest {
     /// [`try_parse_str`]: Self::try_parse_str
     pub fn parse_str<T: syn::parse::Parse>(path: &str) -> T {
         Self::try_parse_str(path).unwrap()
-    }
-
-    /// Attempt to get a subcrate [path](syn::Path) under Bevy by [name](str)
-    pub fn get_subcrate(&self, subcrate: &str) -> Result<syn::Path, TryResolveCratePathError> {
-        self.maybe_get_path(BEVY)
-            .map(|bevy_path| {
-                let mut segments = bevy_path.segments;
-                segments.push(BevyManifest::parse_str(subcrate));
-                syn::Path {
-                    leading_colon: None,
-                    segments,
-                }
-            })
-            .or_else(|_err| self.maybe_get_path(&format!("bevy_{subcrate}")))
     }
 }
