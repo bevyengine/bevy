@@ -814,7 +814,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     {
         // We box the closure so we can name the type and transmute it to 'scope.
         let f: Box<dyn FnOnce() -> T + Send + 'scope> = Box::new(f);
-        #[expect(unsafe_code)]
+        #[expect(unsafe_code, reason = "required to transmute lifetimes")]
         // SAFETY: task is forced to complete before scope is done.
         let f: Box<dyn FnOnce() -> T + Send + 'static> = unsafe { mem::transmute(f) };
 
