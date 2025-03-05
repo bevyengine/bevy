@@ -20,10 +20,7 @@ use bevy_platform_support::sync::Arc;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::{
-    staging::{StageOnWrite, StagedChanges},
-    TypeIdMap,
-};
+use bevy_utils::TypeIdMap;
 use core::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -1176,28 +1173,6 @@ impl Debug for QueuedComponents {
     }
 }
 
-impl StagedChanges for QueuedComponents {
-    type Cold = Components;
-
-    fn apply_staged(&mut self, storage: &mut Self::Cold) {
-        todo!()
-    }
-
-    fn any_staged(&self) -> bool {
-        !self.components.is_empty()
-            || !self.resources.is_empty()
-            || !self.dynamic_registrations.is_empty()
-    }
-}
-
-/// Stores metadata associated with each kind of [`Component`] in a given [`World`].
-#[derive(Debug, Default)]
-pub struct Components {
-    components: HashMap<ComponentId, ComponentInfo>,
-    indices: TypeIdMap<ComponentId>,
-    resource_indices: TypeIdMap<ComponentId>,
-}
-
 /// Generates [`ComponentId`]s.
 #[derive(Debug, Default)]
 pub struct ComponentIds {
@@ -1267,7 +1242,7 @@ impl DerefMut for ComponentsRegistrator<'_> {
 
 /// A type that enables queuing registration in [`Components`].
 pub struct ComponentsQueuedRegistrator<'w> {
-    components: &'w StageOnWrite<QueuedComponents>,
+    components: &'w Components,
     ids: &'w ComponentIds,
 }
 
@@ -1278,10 +1253,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     ///
     /// The [`Components`] and [`ComponentIds`] must match.
     /// For example, they must be from the same world.
-    pub unsafe fn new(
-        components: &'w StageOnWrite<QueuedComponents>,
-        ids: &'w ComponentIds,
-    ) -> Self {
+    pub unsafe fn new(components: &'w Components, ids: &'w ComponentIds) -> Self {
         Self { components, ids }
     }
 
@@ -1551,6 +1523,15 @@ impl<'w> ComponentsRegistrator<'w> {
         }
         id
     }
+}
+
+/// Stores metadata associated with each kind of [`Component`] in a given [`World`].
+#[derive(Debug, Default)]
+pub struct Components {
+    components: HashMap<ComponentId, ComponentInfo>,
+    indices: TypeIdMap<ComponentId>,
+    resource_indices: TypeIdMap<ComponentId>,
+    queued: bevy_platform_support::sync::RwLock<QueuedComponents>,
 }
 
 impl Components {
