@@ -28,6 +28,7 @@ fn main() {
 
     app.finish();
     app.cleanup();
+    app.build_async();
     app.update();
 
     let main_app_ambiguities = count_ambiguities(app.main());

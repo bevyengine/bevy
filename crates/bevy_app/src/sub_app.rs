@@ -1,4 +1,4 @@
-use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
+use crate::{App, AppLabel, ErasedPlugin, InternedAppLabel, Plugin, Plugins, PluginsState};
 use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
     event::EventRegistry,
@@ -63,7 +63,7 @@ pub struct SubApp {
     /// The data of this application.
     world: World,
     /// List of plugins that have been added.
-    pub(crate) plugin_registry: Vec<Box<dyn Plugin>>,
+    pub(crate) plugin_registry: Vec<Box<dyn ErasedPlugin>>,
     /// The names of plugins that have been added to this app. (used to track duplicates and
     /// already-registered plugins)
     pub(crate) plugin_names: HashSet<String>,

@@ -1,4 +1,4 @@
-use crate::{App, AppError, Plugin};
+use crate::{App, AppError, ErasedPlugin, Plugin};
 use alloc::{
     boxed::Box,
     string::{String, ToString},
@@ -215,7 +215,7 @@ pub trait PluginGroup: Sized {
 }
 
 struct PluginEntry {
-    plugin: Box<dyn Plugin>,
+    plugin: Box<dyn ErasedPlugin>,
     enabled: bool,
 }
 
