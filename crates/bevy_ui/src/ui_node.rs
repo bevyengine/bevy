@@ -2810,6 +2810,12 @@ pub struct ColorStop {
     pub point: Val,
 }
 
+impl ColorStop {
+    pub fn new(color: Color, point: Val) -> Self {
+        Self { color, point }
+    }
+}
+
 impl From<(Color, Val)> for ColorStop {
     fn from((color, stop): (Color, Val)) -> Self {
         Self { color, point: stop }
