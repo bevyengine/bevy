@@ -89,7 +89,7 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
 }
 
 /// Abstracts over an owned or borrowed [`QueryState`].
-pub trait QueryStateBorrow: Deref<Target = QueryState<Self::Data, Self::Filter>> {
+pub trait QueryStateDeref: Deref<Target = QueryState<Self::Data, Self::Filter>> {
     /// The [`QueryData`] for this `QueryState`.
     type Data: QueryData;
 
@@ -100,7 +100,7 @@ pub trait QueryStateBorrow: Deref<Target = QueryState<Self::Data, Self::Filter>>
     type StorageIter: Iterator<Item = StorageId> + Clone + Default;
 
     /// A read-only version of the state.
-    type ReadOnly: QueryStateBorrow<
+    type ReadOnly: QueryStateDeref<
         Data = <Self::Data as QueryData>::ReadOnly,
         Filter = Self::Filter,
     >;
@@ -118,7 +118,7 @@ pub trait QueryStateBorrow: Deref<Target = QueryState<Self::Data, Self::Filter>>
     fn into_readonly(self) -> Self::ReadOnly;
 }
 
-impl<D: QueryData, F: QueryFilter> QueryStateBorrow for Box<QueryState<D, F>> {
+impl<D: QueryData, F: QueryFilter> QueryStateDeref for Box<QueryState<D, F>> {
     type Data = D;
     type Filter = F;
     type StorageIter = vec::IntoIter<StorageId>;
@@ -142,7 +142,7 @@ impl<D: QueryData, F: QueryFilter> QueryStateBorrow for Box<QueryState<D, F>> {
     }
 }
 
-impl<'s, D: QueryData, F: QueryFilter> QueryStateBorrow for &'s QueryState<D, F> {
+impl<'s, D: QueryData, F: QueryFilter> QueryStateDeref for &'s QueryState<D, F> {
     type Data = D;
     type Filter = F;
     type StorageIter = iter::Copied<slice::Iter<'s, StorageId>>;

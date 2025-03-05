@@ -5,7 +5,7 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{QueryData, QueryItem, QueryStateBorrow, ReadOnlyQueryData};
+use super::{QueryData, QueryItem, QueryStateDeref, ReadOnlyQueryData};
 
 use alloc::vec::Vec;
 
@@ -13,7 +13,7 @@ use alloc::vec::Vec;
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
-pub struct QueryParIter<'w, S: QueryStateBorrow> {
+pub struct QueryParIter<'w, S: QueryStateDeref> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: S,
     pub(crate) last_run: Tick,
@@ -21,7 +21,7 @@ pub struct QueryParIter<'w, S: QueryStateBorrow> {
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>> QueryParIter<'w, S> {
+impl<'w, D: QueryData, S: QueryStateDeref<Data = D>> QueryParIter<'w, S> {
     /// Changes the batching strategy used when iterating.
     ///
     /// For more information on how this affects the resultant iteration, see
@@ -160,7 +160,7 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>> QueryParIter<'w, S> {
 ///
 /// [`Entity`]: crate::entity::Entity
 /// [`Query::par_iter_many`]: crate::system::Query::par_iter_many
-pub struct QueryParManyIter<'w, S: QueryStateBorrow, E: EntityBorrow> {
+pub struct QueryParManyIter<'w, S: QueryStateDeref, E: EntityBorrow> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: S,
     pub(crate) entity_list: Vec<E>,
@@ -169,7 +169,7 @@ pub struct QueryParManyIter<'w, S: QueryStateBorrow, E: EntityBorrow> {
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, D: ReadOnlyQueryData, S: QueryStateBorrow<Data = D>, E: EntityBorrow + Sync>
+impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityBorrow + Sync>
     QueryParManyIter<'w, S, E>
 {
     /// Changes the batching strategy used when iterating.
@@ -314,7 +314,7 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateBorrow<Data = D>, E: EntityBorrow + 
 /// [`EntitySet`]: crate::entity::EntitySet
 /// [`Query::par_iter_many_unique`]: crate::system::Query::par_iter_many_unique
 /// [`Query::par_iter_many_unique_mut`]: crate::system::Query::par_iter_many_unique_mut
-pub struct QueryParManyUniqueIter<'w, S: QueryStateBorrow, E: TrustedEntityBorrow + Sync> {
+pub struct QueryParManyUniqueIter<'w, S: QueryStateDeref, E: TrustedEntityBorrow + Sync> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: S,
     pub(crate) entity_list: UniqueEntityVec<E>,
@@ -323,7 +323,7 @@ pub struct QueryParManyUniqueIter<'w, S: QueryStateBorrow, E: TrustedEntityBorro
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, E: TrustedEntityBorrow + Sync>
+impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, E: TrustedEntityBorrow + Sync>
     QueryParManyUniqueIter<'w, S, E>
 {
     /// Changes the batching strategy used when iterating.

@@ -5,7 +5,7 @@ use crate::{
     query::{
         DebugCheckedUnwrap, NopWorldQuery, QueryCombinationIter, QueryData, QueryEntityError,
         QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
-        QueryParManyUniqueIter, QuerySingleError, QueryState, QueryStateBorrow, ROQueryItem,
+        QueryParManyUniqueIter, QuerySingleError, QueryState, QueryStateDeref, ROQueryItem,
         ReadOnlyQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
@@ -383,7 +383,7 @@ pub struct Query<
     'state,
     D: QueryData,
     F: QueryFilter = (),
-    S: QueryStateBorrow<Data = D, Filter = F> = &'state QueryState<D, F>,
+    S: QueryStateDeref<Data = D, Filter = F> = &'state QueryState<D, F>,
 > {
     // SAFETY: Must have access to the components registered in `state`.
     world: UnsafeWorldCell<'world>,
@@ -413,7 +413,7 @@ impl<D: QueryData, F: QueryFilter> core::fmt::Debug for Query<'_, '_, D, F> {
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>>
+impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateDeref<Data = D, Filter = F>>
     Query<'w, 's, D, F, S>
 {
     /// Creates a new query.
@@ -2322,7 +2322,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>> IntoIterator
+impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateDeref<Data = D, Filter = F>> IntoIterator
     for Query<'w, 's, D, F, S>
 {
     type Item = D::Item<'w>;
@@ -2337,7 +2337,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>> IntoIterator
+impl<'w, D: QueryData, F: QueryFilter, S: QueryStateDeref<Data = D, Filter = F>> IntoIterator
     for &'w Query<'_, '_, D, F, S>
 {
     type Item = ROQueryItem<'w, D>;
@@ -2348,7 +2348,7 @@ impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>> IntoIterator
+impl<'w, D: QueryData, F: QueryFilter, S: QueryStateDeref<Data = D, Filter = F>> IntoIterator
     for &'w mut Query<'_, '_, D, F, S>
 {
     type Item = D::Item<'w>;

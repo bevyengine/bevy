@@ -4,7 +4,7 @@ use crate::{
     bundle::Bundle,
     component::Tick,
     entity::{Entities, Entity, EntityBorrow, EntitySet, EntitySetIterator},
-    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, QueryStateBorrow, StorageId},
+    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, QueryStateDeref, StorageId},
     storage::{Table, TableRow, Tables},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
@@ -24,7 +24,7 @@ use core::{
 ///
 /// This struct is created by the [`Query::iter`](crate::system::Query::iter) and
 /// [`Query::iter_mut`](crate::system::Query::iter_mut) methods.
-pub struct QueryIter<'w, S: QueryStateBorrow> {
+pub struct QueryIter<'w, S: QueryStateDeref> {
     world: UnsafeWorldCell<'w>,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
@@ -32,7 +32,7 @@ pub struct QueryIter<'w, S: QueryStateBorrow> {
     cursor: QueryIterationCursor<'w, S>,
 }
 
-impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>> QueryIter<'w, S> {
+impl<'w, D: QueryData, F: QueryFilter, S: QueryStateDeref<Data = D, Filter = F>> QueryIter<'w, S> {
     /// # Safety
     /// - `world` must have permission to access any of the components registered in `query_state`.
     /// - `world` must be the same one used to initialize `query_state`.
@@ -863,7 +863,7 @@ impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>> Iterator
+impl<'w, D: QueryData, F: QueryFilter, S: QueryStateDeref<Data = D, Filter = F>> Iterator
     for QueryIter<'w, S>
 {
     type Item = D::Item<'w>;
@@ -908,7 +908,7 @@ impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>
 }
 
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
-impl<'w, S: QueryStateBorrow> FusedIterator for QueryIter<'w, S> {}
+impl<'w, S: QueryStateDeref> FusedIterator for QueryIter<'w, S> {}
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
 unsafe impl<'w, F: QueryFilter> EntitySetIterator for QueryIter<'w, &QueryState<Entity, F>> {}
@@ -943,13 +943,13 @@ unsafe impl<'w, F: QueryFilter, B: Bundle> EntitySetIterator
 {
 }
 
-impl<'w, S: QueryStateBorrow> Debug for QueryIter<'w, S> {
+impl<'w, S: QueryStateDeref> Debug for QueryIter<'w, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryIter").finish()
     }
 }
 
-impl<'w, S: QueryStateBorrow<Data: ReadOnlyQueryData> + Copy> Clone for QueryIter<'w, S> {
+impl<'w, S: QueryStateDeref<Data: ReadOnlyQueryData> + Copy> Clone for QueryIter<'w, S> {
     fn clone(&self) -> Self {
         self.remaining()
     }
@@ -960,7 +960,7 @@ impl<'w, S: QueryStateBorrow<Data: ReadOnlyQueryData> + Copy> Clone for QueryIte
 /// This struct is created by the [`QueryIter::sort`], [`QueryIter::sort_unstable`],
 /// [`QueryIter::sort_by`], [`QueryIter::sort_unstable_by`], [`QueryIter::sort_by_key`],
 /// [`QueryIter::sort_unstable_by_key`], and [`QueryIter::sort_by_cached_key`] methods.
-pub struct QuerySortedIter<'w, S: QueryStateBorrow, I>
+pub struct QuerySortedIter<'w, S: QueryStateDeref, I>
 where
     I: Iterator<Item = Entity>,
 {
@@ -972,7 +972,7 @@ where
     query_state: S,
 }
 
-impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, I: Iterator> QuerySortedIter<'w, S, I>
+impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, I: Iterator> QuerySortedIter<'w, S, I>
 where
     I: Iterator<Item = Entity>,
 {
@@ -1036,7 +1036,7 @@ where
     }
 }
 
-impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, I: Iterator> Iterator
+impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, I: Iterator> Iterator
     for QuerySortedIter<'w, S, I>
 where
     I: Iterator<Item = Entity>,
@@ -1055,7 +1055,7 @@ where
     }
 }
 
-impl<'w, S: QueryStateBorrow, I: Iterator> DoubleEndedIterator for QuerySortedIter<'w, S, I>
+impl<'w, S: QueryStateDeref, I: Iterator> DoubleEndedIterator for QuerySortedIter<'w, S, I>
 where
     I: DoubleEndedIterator<Item = Entity>,
 {
@@ -1067,13 +1067,13 @@ where
     }
 }
 
-impl<'w, S: QueryStateBorrow, I: Iterator> ExactSizeIterator for QuerySortedIter<'w, S, I> where
+impl<'w, S: QueryStateDeref, I: Iterator> ExactSizeIterator for QuerySortedIter<'w, S, I> where
     I: ExactSizeIterator<Item = Entity>
 {
 }
 
 // This is correct as [`QuerySortedIter`] returns `None` once exhausted if `entity_iter` does.
-impl<'w, S: QueryStateBorrow, I: Iterator> FusedIterator for QuerySortedIter<'w, S, I> where
+impl<'w, S: QueryStateDeref, I: Iterator> FusedIterator for QuerySortedIter<'w, S, I> where
     I: FusedIterator<Item = Entity>
 {
 }
@@ -1086,7 +1086,7 @@ unsafe impl<'w, F: QueryFilter, I: Iterator<Item = Entity>> EntitySetIterator
 {
 }
 
-impl<'w, S: QueryStateBorrow, I: Iterator<Item = Entity>> Debug for QuerySortedIter<'w, S, I> {
+impl<'w, S: QueryStateDeref, I: Iterator<Item = Entity>> Debug for QuerySortedIter<'w, S, I> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QuerySortedIter").finish()
     }
@@ -1098,7 +1098,7 @@ impl<'w, S: QueryStateBorrow, I: Iterator<Item = Entity>> Debug for QuerySortedI
 /// Entities that don't match the query are skipped.
 ///
 /// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
-pub struct QueryManyIter<'w, S: QueryStateBorrow, I: Iterator<Item: EntityBorrow>> {
+pub struct QueryManyIter<'w, S: QueryStateDeref, I: Iterator<Item: EntityBorrow>> {
     world: UnsafeWorldCell<'w>,
     entity_iter: I,
     entities: &'w Entities,
@@ -1113,7 +1113,7 @@ impl<
         'w,
         D: QueryData,
         F: QueryFilter,
-        S: QueryStateBorrow<Data = D, Filter = F>,
+        S: QueryStateDeref<Data = D, Filter = F>,
         I: Iterator<Item: EntityBorrow>,
     > QueryManyIter<'w, S, I>
 {
@@ -1693,7 +1693,7 @@ impl<
 impl<
         'w,
         D: QueryData,
-        S: QueryStateBorrow<Data = D>,
+        S: QueryStateDeref<Data = D>,
         I: DoubleEndedIterator<Item: EntityBorrow>,
     > QueryManyIter<'w, S, I>
 {
@@ -1720,7 +1720,7 @@ impl<
     }
 }
 
-impl<'w, D: ReadOnlyQueryData, S: QueryStateBorrow<Data = D>, I: Iterator<Item: EntityBorrow>>
+impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, I: Iterator<Item: EntityBorrow>>
     Iterator for QueryManyIter<'w, S, I>
 {
     type Item = D::Item<'w>;
@@ -1752,7 +1752,7 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateBorrow<Data = D>, I: Iterator<Item: 
 impl<
         'w,
         D: ReadOnlyQueryData,
-        S: QueryStateBorrow<Data = D>,
+        S: QueryStateDeref<Data = D>,
         I: DoubleEndedIterator<Item: EntityBorrow>,
     > DoubleEndedIterator for QueryManyIter<'w, S, I>
 {
@@ -1776,8 +1776,8 @@ impl<
 }
 
 // This is correct as [`QueryManyIter`] always returns `None` once exhausted.
-impl<'w, S: QueryStateBorrow<Data: ReadOnlyQueryData>, I: Iterator<Item: EntityBorrow>>
-    FusedIterator for QueryManyIter<'w, S, I>
+impl<'w, S: QueryStateDeref<Data: ReadOnlyQueryData>, I: Iterator<Item: EntityBorrow>> FusedIterator
+    for QueryManyIter<'w, S, I>
 {
 }
 
@@ -1787,7 +1787,7 @@ unsafe impl<'w, F: QueryFilter, I: EntitySetIterator> EntitySetIterator
 {
 }
 
-impl<'w, S: QueryStateBorrow, I: Iterator<Item: EntityBorrow>> Debug for QueryManyIter<'w, S, I> {
+impl<'w, S: QueryStateDeref, I: Iterator<Item: EntityBorrow>> Debug for QueryManyIter<'w, S, I> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryManyIter").finish()
     }
@@ -1806,11 +1806,11 @@ impl<'w, S: QueryStateBorrow, I: Iterator<Item: EntityBorrow>> Debug for QueryMa
 /// [`iter_many_unique`]: crate::system::Query::iter_many
 /// [`iter_many_unique_mut`]: crate::system::Query::iter_many_mut
 /// [`Query`]: crate::system::Query
-pub struct QueryManyUniqueIter<'w, S: QueryStateBorrow, I: EntitySetIterator>(
+pub struct QueryManyUniqueIter<'w, S: QueryStateDeref, I: EntitySetIterator>(
     QueryManyIter<'w, S, I>,
 );
 
-impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, I: EntitySetIterator>
+impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, I: EntitySetIterator>
     QueryManyUniqueIter<'w, S, I>
 {
     /// # Safety
@@ -1833,7 +1833,7 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, I: EntitySetIterator>
     }
 }
 
-impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, I: EntitySetIterator> Iterator
+impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, I: EntitySetIterator> Iterator
     for QueryManyUniqueIter<'w, S, I>
 {
     type Item = D::Item<'w>;
@@ -1861,10 +1861,7 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, I: EntitySetIterator> Iter
 }
 
 // This is correct as [`QueryManyIter`] always returns `None` once exhausted.
-impl<'w, S: QueryStateBorrow, I: EntitySetIterator> FusedIterator
-    for QueryManyUniqueIter<'w, S, I>
-{
-}
+impl<'w, S: QueryStateDeref, I: EntitySetIterator> FusedIterator for QueryManyUniqueIter<'w, S, I> {}
 
 // SAFETY: Fetching unique entities maintains uniqueness.
 unsafe impl<'w, F: QueryFilter, I: EntitySetIterator> EntitySetIterator
@@ -1872,7 +1869,7 @@ unsafe impl<'w, F: QueryFilter, I: EntitySetIterator> EntitySetIterator
 {
 }
 
-impl<'w, S: QueryStateBorrow, I: EntitySetIterator> Debug for QueryManyUniqueIter<'w, S, I> {
+impl<'w, S: QueryStateDeref, I: EntitySetIterator> Debug for QueryManyUniqueIter<'w, S, I> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryManyUniqueIter").finish()
     }
@@ -1883,7 +1880,7 @@ impl<'w, S: QueryStateBorrow, I: EntitySetIterator> Debug for QueryManyUniqueIte
 /// This struct is created by the [`sort`](QueryManyIter), [`sort_unstable`](QueryManyIter),
 /// [`sort_by`](QueryManyIter), [`sort_unstable_by`](QueryManyIter), [`sort_by_key`](QueryManyIter),
 /// [`sort_unstable_by_key`](QueryManyIter), and [`sort_by_cached_key`](QueryManyIter) methods of [`QueryManyIter`].
-pub struct QuerySortedManyIter<'w, S: QueryStateBorrow, I: Iterator<Item = Entity>> {
+pub struct QuerySortedManyIter<'w, S: QueryStateDeref, I: Iterator<Item = Entity>> {
     entity_iter: I,
     entities: &'w Entities,
     tables: &'w Tables,
@@ -1892,7 +1889,7 @@ pub struct QuerySortedManyIter<'w, S: QueryStateBorrow, I: Iterator<Item = Entit
     query_state: S,
 }
 
-impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, I: Iterator<Item = Entity>>
+impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, I: Iterator<Item = Entity>>
     QuerySortedManyIter<'w, S, I>
 {
     /// # Safety
@@ -1975,7 +1972,7 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, I: Iterator<Item = Entity>
     }
 }
 
-impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, I: DoubleEndedIterator<Item = Entity>>
+impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, I: DoubleEndedIterator<Item = Entity>>
     QuerySortedManyIter<'w, S, I>
 {
     /// Get next result from the query
@@ -1994,7 +1991,7 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, I: DoubleEndedIterator<Ite
     }
 }
 
-impl<'w, D: ReadOnlyQueryData, S: QueryStateBorrow<Data = D>, I: Iterator<Item = Entity>> Iterator
+impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, I: Iterator<Item = Entity>> Iterator
     for QuerySortedManyIter<'w, S, I>
 {
     type Item = D::Item<'w>;
@@ -2013,7 +2010,7 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateBorrow<Data = D>, I: Iterator<Item =
     }
 }
 
-impl<'w, S: QueryStateBorrow<Data: ReadOnlyQueryData>, I: DoubleEndedIterator<Item = Entity>>
+impl<'w, S: QueryStateDeref<Data: ReadOnlyQueryData>, I: DoubleEndedIterator<Item = Entity>>
     DoubleEndedIterator for QuerySortedManyIter<'w, S, I>
 {
     #[inline(always)]
@@ -2026,12 +2023,12 @@ impl<'w, S: QueryStateBorrow<Data: ReadOnlyQueryData>, I: DoubleEndedIterator<It
     }
 }
 
-impl<'w, S: QueryStateBorrow<Data: ReadOnlyQueryData>, I: ExactSizeIterator<Item = Entity>>
+impl<'w, S: QueryStateDeref<Data: ReadOnlyQueryData>, I: ExactSizeIterator<Item = Entity>>
     ExactSizeIterator for QuerySortedManyIter<'w, S, I>
 {
 }
 
-impl<'w, S: QueryStateBorrow, I: Iterator<Item = Entity>> Debug for QuerySortedManyIter<'w, S, I> {
+impl<'w, S: QueryStateDeref, I: Iterator<Item = Entity>> Debug for QuerySortedManyIter<'w, S, I> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QuerySortedManyIter").finish()
     }
@@ -2100,14 +2097,14 @@ impl<'w, S: QueryStateBorrow, I: Iterator<Item = Entity>> Debug for QuerySortedM
 /// [`Query`]: crate::system::Query
 /// [`Query::iter_combinations`]: crate::system::Query::iter_combinations
 /// [`Query::iter_combinations_mut`]: crate::system::Query::iter_combinations_mut
-pub struct QueryCombinationIter<'w, S: QueryStateBorrow, const K: usize> {
+pub struct QueryCombinationIter<'w, S: QueryStateDeref, const K: usize> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: S,
     cursors: [QueryIterationCursor<'w, S>; K],
 }
 
-impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, const K: usize>
+impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, const K: usize>
     QueryCombinationIter<'w, S, K>
 {
     /// # Safety
@@ -2213,7 +2210,7 @@ impl<
         'w,
         D: ReadOnlyQueryData,
         F: QueryFilter,
-        S: QueryStateBorrow<Data = D, Filter = F>,
+        S: QueryStateDeref<Data = D, Filter = F>,
         const K: usize,
     > Iterator for QueryCombinationIter<'w, S, K>
 {
@@ -2257,7 +2254,7 @@ impl<
     }
 }
 
-impl<'w, S: QueryStateBorrow> ExactSizeIterator for QueryIter<'w, S>
+impl<'w, S: QueryStateDeref> ExactSizeIterator for QueryIter<'w, S>
 where
     S::Filter: ArchetypeFilter,
 {
@@ -2267,18 +2264,18 @@ where
 }
 
 // This is correct as [`QueryCombinationIter`] always returns `None` once exhausted.
-impl<'w, S: QueryStateBorrow<Data: ReadOnlyQueryData>, const K: usize> FusedIterator
+impl<'w, S: QueryStateDeref<Data: ReadOnlyQueryData>, const K: usize> FusedIterator
     for QueryCombinationIter<'w, S, K>
 {
 }
 
-impl<'w, S: QueryStateBorrow, const K: usize> Debug for QueryCombinationIter<'w, S, K> {
+impl<'w, S: QueryStateDeref, const K: usize> Debug for QueryCombinationIter<'w, S, K> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryCombinationIter").finish()
     }
 }
 
-struct QueryIterationCursor<'w, S: QueryStateBorrow> {
+struct QueryIterationCursor<'w, S: QueryStateDeref> {
     // whether the query iteration is dense or not. Mirrors QueryState's `is_dense` field.
     is_dense: bool,
     storage_id_iter: S::StorageIter,
@@ -2292,7 +2289,7 @@ struct QueryIterationCursor<'w, S: QueryStateBorrow> {
     current_row: usize,
 }
 
-impl<S: QueryStateBorrow> Clone for QueryIterationCursor<'_, S> {
+impl<S: QueryStateDeref> Clone for QueryIterationCursor<'_, S> {
     fn clone(&self) -> Self {
         Self {
             is_dense: self.is_dense,
@@ -2307,7 +2304,7 @@ impl<S: QueryStateBorrow> Clone for QueryIterationCursor<'_, S> {
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>>
+impl<'w, D: QueryData, F: QueryFilter, S: QueryStateDeref<Data = D, Filter = F>>
     QueryIterationCursor<'w, S>
 {
     /// # Safety

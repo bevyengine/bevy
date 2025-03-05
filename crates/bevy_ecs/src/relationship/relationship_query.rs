@@ -1,6 +1,6 @@
 use crate::{
     entity::Entity,
-    query::{QueryData, QueryStateBorrow},
+    query::{QueryData, QueryStateDeref},
     relationship::{Relationship, RelationshipTarget},
     system::Query,
 };
@@ -9,7 +9,7 @@ use smallvec::SmallVec;
 
 use super::SourceIter;
 
-impl<'w, 's, D: QueryData, S: QueryStateBorrow<Data = D>> Query<'w, 's, D, S::Filter, S> {
+impl<'w, 's, D: QueryData, S: QueryStateDeref<Data = D>> Query<'w, 's, D, S::Filter, S> {
     /// If the given `entity` contains the `R` [`Relationship`] component, returns the
     /// target entity of that relationship.
     pub fn related<R: Relationship>(&'w self, entity: Entity) -> Option<Entity>
@@ -143,7 +143,7 @@ impl<'w, 's, D: QueryData, S: QueryStateBorrow<Data = D>> Query<'w, 's, D, S::Fi
 /// An [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
 ///
 /// Traverses the hierarchy breadth-first.
-pub struct DescendantIter<'w, 's, S: QueryStateBorrow, R: RelationshipTarget>
+pub struct DescendantIter<'w, 's, S: QueryStateDeref, R: RelationshipTarget>
 where
     <S::Data as QueryData>::ReadOnly: QueryData<Item<'w> = &'w R>,
 {
@@ -151,7 +151,7 @@ where
     vecdeque: VecDeque<Entity>,
 }
 
-impl<'w, 's, S: QueryStateBorrow, R: RelationshipTarget> DescendantIter<'w, 's, S, R>
+impl<'w, 's, S: QueryStateDeref, R: RelationshipTarget> DescendantIter<'w, 's, S, R>
 where
     <S::Data as QueryData>::ReadOnly: QueryData<Item<'w> = &'w R>,
 {
@@ -168,7 +168,7 @@ where
     }
 }
 
-impl<'w, 's, S: QueryStateBorrow, R: RelationshipTarget> Iterator for DescendantIter<'w, 's, S, R>
+impl<'w, 's, S: QueryStateDeref, R: RelationshipTarget> Iterator for DescendantIter<'w, 's, S, R>
 where
     <S::Data as QueryData>::ReadOnly: QueryData<Item<'w> = &'w R>,
 {
@@ -188,7 +188,7 @@ where
 /// An [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
 ///
 /// Traverses the hierarchy depth-first.
-pub struct DescendantDepthFirstIter<'w, 's, S: QueryStateBorrow, R: RelationshipTarget>
+pub struct DescendantDepthFirstIter<'w, 's, S: QueryStateDeref, R: RelationshipTarget>
 where
     <S::Data as QueryData>::ReadOnly: QueryData<Item<'w> = &'w R>,
 {
@@ -196,7 +196,7 @@ where
     stack: SmallVec<[Entity; 8]>,
 }
 
-impl<'w, 's, S: QueryStateBorrow, R: RelationshipTarget> DescendantDepthFirstIter<'w, 's, S, R>
+impl<'w, 's, S: QueryStateDeref, R: RelationshipTarget> DescendantDepthFirstIter<'w, 's, S, R>
 where
     <S::Data as QueryData>::ReadOnly: QueryData<Item<'w> = &'w R>,
     SourceIter<'w, R>: DoubleEndedIterator,
@@ -212,7 +212,7 @@ where
     }
 }
 
-impl<'w, 's, S: QueryStateBorrow, R: RelationshipTarget> Iterator
+impl<'w, 's, S: QueryStateDeref, R: RelationshipTarget> Iterator
     for DescendantDepthFirstIter<'w, 's, S, R>
 where
     <S::Data as QueryData>::ReadOnly: QueryData<Item<'w> = &'w R>,
@@ -232,7 +232,7 @@ where
 }
 
 /// An [`Iterator`] of [`Entity`]s over the ancestors of an [`Entity`].
-pub struct AncestorIter<'w, 's, S: QueryStateBorrow, R: Relationship>
+pub struct AncestorIter<'w, 's, S: QueryStateDeref, R: Relationship>
 where
     <S::Data as QueryData>::ReadOnly: QueryData<Item<'w> = &'w R>,
 {
@@ -240,7 +240,7 @@ where
     next: Option<Entity>,
 }
 
-impl<'w, 's, S: QueryStateBorrow, R: Relationship> AncestorIter<'w, 's, S, R>
+impl<'w, 's, S: QueryStateDeref, R: Relationship> AncestorIter<'w, 's, S, R>
 where
     <S::Data as QueryData>::ReadOnly: QueryData<Item<'w> = &'w R>,
 {
@@ -253,7 +253,7 @@ where
     }
 }
 
-impl<'w, 's, S: QueryStateBorrow, R: Relationship> Iterator for AncestorIter<'w, 's, S, R>
+impl<'w, 's, S: QueryStateDeref, R: Relationship> Iterator for AncestorIter<'w, 's, S, R>
 where
     <S::Data as QueryData>::ReadOnly: QueryData<Item<'w> = &'w R>,
 {
