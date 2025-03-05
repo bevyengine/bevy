@@ -473,7 +473,7 @@ pub fn extract_gradients(
                                 RadialGradientAxis::ClosestSide => sides.min().unwrap().0,
                                 RadialGradientAxis::FarthestSide => sides.max().unwrap().0,
                                 RadialGradientAxis::Length(val) => val
-                                    .resolve(uinode.size.x, target.physical_size.as_vec2())
+                                    .resolve(h.x, target.physical_size.as_vec2())
                                     .ok()
                                     .unwrap_or_else(|| sides.min().unwrap().0),
                             };
@@ -506,7 +506,7 @@ pub fn extract_gradients(
                         }
                     };
 
-                    let length = 0.5 * uinode.size.x * transform.scale().x;
+                    let length = size.x;
 
                     let logical_length = length / target.scale_factor;
                     let logical_viewport_size =
