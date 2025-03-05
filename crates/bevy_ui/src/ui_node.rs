@@ -2909,15 +2909,15 @@ impl RelativePosition {
     }
 
     pub fn resolve(self, scale_factor: f32, length: f32, viewport_size: Vec2) -> f32 {
-        let (mut val, point) = match self {
+        let (val, point) = match self {
             Self::Start(val) => (val, -0.5 * length),
             Self::Center(val) => (val, 0.),
             Self::End(val) => (-val, 0.5 * length),
         };
-        if let Val::Px(px) = val {
-            val = Val::Px(px * scale_factor);
-        }
-        point + val.resolve(length, viewport_size).unwrap_or(0.)
+        point
+            + val
+                .resolve(scale_factor, length, viewport_size)
+                .unwrap_or(0.)
     }
 }
 

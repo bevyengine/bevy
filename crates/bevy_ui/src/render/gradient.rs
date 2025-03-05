@@ -347,20 +347,14 @@ pub fn extract_gradients(
                     let length =
                         compute_gradient_line_length(*angle, uinode.size * transform.scale().xy());
 
-                    let logical_length = length / target.scale_factor;
-                    let logical_viewport_size =
-                        target.physical_size.as_vec2() / target.scale_factor;
-
                     let range_start = extracted_color_stops.0.len();
 
                     // resolve the physical distances of explicit stops and sort them
                     sorted_stops.extend(stops.iter().filter_map(|stop| {
                         stop.point
-                            .resolve(logical_length, logical_viewport_size)
+                            .resolve(target.scale_factor, length, target.physical_size.as_vec2())
                             .ok()
-                            .map(|logical_point| {
-                                (stop.color.to_linear(), logical_point * target.scale_factor)
-                            })
+                            .map(|physical_point| (stop.color.to_linear(), physical_point))
                     }));
                     sorted_stops.sort_by_key(|(_, point)| FloatOrd(*point));
 
@@ -473,7 +467,11 @@ pub fn extract_gradients(
                                 RadialGradientAxis::ClosestSide => sides.min().unwrap().0,
                                 RadialGradientAxis::FarthestSide => sides.max().unwrap().0,
                                 RadialGradientAxis::Length(val) => val
-                                    .resolve(h.x, target.physical_size.as_vec2())
+                                    .resolve(
+                                        target.scale_factor,
+                                        h.x,
+                                        target.physical_size.as_vec2(),
+                                    )
                                     .ok()
                                     .unwrap_or_else(|| sides.min().unwrap().0),
                             };
@@ -488,7 +486,11 @@ pub fn extract_gradients(
                                 RadialGradientAxis::ClosestSide => (-h.x - c.x).min(h.x - c.x),
                                 RadialGradientAxis::FarthestSide => (-h.x - c.x).max(h.x - c.x),
                                 RadialGradientAxis::Length(val) => val
-                                    .resolve(uinode.size.x, target.physical_size.as_vec2())
+                                    .resolve(
+                                        target.scale_factor,
+                                        uinode.size.x,
+                                        target.physical_size.as_vec2(),
+                                    )
                                     .ok()
                                     .unwrap_or_else(|| (-h.x - c.x).min(h.x - c.x)),
                             };
@@ -497,7 +499,11 @@ pub fn extract_gradients(
                                 RadialGradientAxis::ClosestSide => (-h.y - c.y).min(h.y - c.y),
                                 RadialGradientAxis::FarthestSide => (-h.y - c.y).max(h.y - c.y),
                                 RadialGradientAxis::Length(val) => val
-                                    .resolve(uinode.size.y, target.physical_size.as_vec2())
+                                    .resolve(
+                                        target.scale_factor,
+                                        uinode.size.y,
+                                        target.physical_size.as_vec2(),
+                                    )
                                     .ok()
                                     .unwrap_or_else(|| (-h.y - c.y).min(h.x - c.y)),
                             };
@@ -508,20 +514,14 @@ pub fn extract_gradients(
 
                     let length = size.x;
 
-                    let logical_length = length / target.scale_factor;
-                    let logical_viewport_size =
-                        target.physical_size.as_vec2() / target.scale_factor;
-
                     let range_start = extracted_color_stops.0.len();
 
                     // resolve the physical distances of explicit stops and sort them high to low
                     sorted_stops.extend(stops.iter().filter_map(|stop| {
                         stop.point
-                            .resolve(logical_length, logical_viewport_size)
+                            .resolve(target.scale_factor, length, target.physical_size.as_vec2())
                             .ok()
-                            .map(|logical_point| {
-                                (stop.color.to_linear(), logical_point * target.scale_factor)
-                            })
+                            .map(|point| (stop.color.to_linear(), point))
                     }));
                     sorted_stops.sort_by_key(|(_, point)| FloatOrd(*point));
 
