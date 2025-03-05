@@ -130,91 +130,91 @@ Example | Description
 
 ## 3D Rendering
 
-Example | Description
---- | ---
-[3D Bloom](../examples/3d/bloom_3d.rs) | Illustrates bloom configuration using HDR and emissive materials
-[3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
-[3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
-[3D Viewport To World](../examples/3d/3d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world` method
-[Animated Material](../examples/3d/animated_material.rs) | Shows how to animate material properties
-[Anisotropy](../examples/3d/anisotropy.rs) | Displays an example model with anisotropy
-[Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
-[Atmosphere](../examples/3d/atmosphere.rs) | A scene showcasing pbr atmospheric scattering
-[Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
-[Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure
-[Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
-[Built-in postprocessing](../examples/3d/post_processing.rs) | Demonstrates the built-in postprocessing features
-[Camera sub view](../examples/3d/camera_sub_view.rs) | Demonstrates using different sub view effects on a camera
-[Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
-[Clustered Decals](../examples/3d/clustered_decals.rs) | Demonstrates clustered decals
-[Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
-[Decal](../examples/3d/decal.rs) | Decal rendering
-[Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
-[Depth of field](../examples/3d/depth_of_field.rs) | Demonstrates depth of field
-[Edit Gltf Material](../examples/3d/edit_material_on_gltf.rs) | Showcases changing materials of a Gltf after Scene spawn
-[Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
-[Fog volumes](../examples/3d/fog_volumes.rs) | Demonstrates fog volumes
-[Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
-[Irradiance Volumes](../examples/3d/irradiance_volumes.rs) | Demonstrates irradiance volumes
-[Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
-[Lightmaps](../examples/3d/lightmaps.rs) | Rendering a scene with baked lightmaps
-[Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
-[Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
-[Load glTF extras](../examples/3d/load_gltf_extras.rs) | Loads and renders a glTF file as a scene, including the gltf extras
-[Mesh Ray Cast](../examples/3d/mesh_ray_cast.rs) | Demonstrates ray casting with the `MeshRayCast` system parameter
-[Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
-[Mixed lighting](../examples/3d/mixed_lighting.rs) | Demonstrates how to combine baked and dynamic lighting
-[Motion Blur](../examples/3d/motion_blur.rs) | Demonstrates per-pixel motion blur
-[Occlusion Culling](../examples/3d/occlusion_culling.rs) | Demonstration of Occlusion Culling
-[Order Independent Transparency](../examples/3d/order_independent_transparency.rs) | Demonstrates how to use OIT
-[Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
-[Parallax Mapping](../examples/3d/parallax_mapping.rs) | Demonstrates use of a normal map and depth map for parallax mapping
-[Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
-[Percentage-closer soft shadows](../examples/3d/pcss.rs) | Demonstrates percentage-closer soft shadows (PCSS)
-[Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
-[Query glTF primitives](../examples/3d/query_gltf_primitives.rs) | Query primitives in a glTF scene
-[Reflection Probes](../examples/3d/reflection_probes.rs) | Demonstrates reflection probes
-[Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
-[Rotate Environment Map](../examples/3d/rotate_environment_map.rs) | Demonstrates how to rotate the skybox and the environment map simultaneously
-[Screen Space Ambient Occlusion](../examples/3d/ssao.rs) | A scene showcasing screen space ambient occlusion
-[Screen Space Reflections](../examples/3d/ssr.rs) | Demonstrates screen space reflections with water ripples
-[Scrolling fog](../examples/3d/scrolling_fog.rs) | Demonstrates how to create the effect of fog moving in the wind
-[Shadow Biases](../examples/3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
-[Shadow Caster and Receiver](../examples/3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
-[Skybox](../examples/3d/skybox.rs) | Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats.
-[Specular Tint](../examples/3d/specular_tint.rs) | Demonstrates specular tints and maps
-[Spherical Area Lights](../examples/3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior
-[Split Screen](../examples/3d/split_screen.rs) | Demonstrates how to render two cameras to the same window to accomplish "split screen"
-[Spotlight](../examples/3d/spotlight.rs) | Illustrates spot lights
-[Texture](../examples/3d/texture.rs) | Shows configuration of texture materials
-[Tonemapping](../examples/3d/tonemapping.rs) | Compares tonemapping options
-[Transmission](../examples/3d/transmission.rs) | Showcases light transmission in the PBR material
-[Transparency in 3D](../examples/3d/transparency_3d.rs) | Demonstrates transparency in 3d
-[Two Passes](../examples/3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives
-[Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
-[Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors
-[Visibility range](../examples/3d/visibility_range.rs) | Demonstrates visibility ranges
-[Volumetric fog](../examples/3d/volumetric_fog.rs) | Demonstrates volumetric fog and lighting
-[Wireframe](../examples/3d/wireframe.rs) | Showcases wireframe rendering
+| Example | Description |
+| --- | --- |
+| [3D Bloom](../examples/3d/bloom_3d.rs) | Illustrates bloom configuration using HDR and emissive materials |
+| [3D Scene](../examples/3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting |
+| [3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes |
+| [3D Viewport To World](../examples/3d/3d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world` method |
+| [Animated Material](../examples/3d/animated_material.rs) | Shows how to animate material properties |
+| [Anisotropy](../examples/3d/anisotropy.rs) | Displays an example model with anisotropy |
+| [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods |
+| [Atmosphere](../examples/3d/atmosphere.rs) | A scene showcasing pbr atmospheric scattering |
+| [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect |
+| [Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure |
+| [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes |
+| [Built-in postprocessing](../examples/3d/post_processing.rs) | Demonstrates the built-in postprocessing features |
+| [Camera sub view](../examples/3d/camera_sub_view.rs) | Demonstrates using different sub view effects on a camera |
+| [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature |
+| [Clustered Decals](../examples/3d/clustered_decals.rs) | Demonstrates clustered decals |
+| [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading |
+| [Decal](../examples/3d/decal.rs) | Decal rendering |
+| [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines |
+| [Depth of field](../examples/3d/depth_of_field.rs) | Demonstrates depth of field |
+| [Edit Gltf Material](../examples/3d/edit_material_on_gltf.rs) | Showcases changing materials of a Gltf after Scene spawn |
+| [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect |
+| [Fog volumes](../examples/3d/fog_volumes.rs) | Demonstrates fog volumes |
+| [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture |
+| [Irradiance Volumes](../examples/3d/irradiance_volumes.rs) | Demonstrates irradiance volumes |
+| [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene |
+| [Lightmaps](../examples/3d/lightmaps.rs) | Rendering a scene with baked lightmaps |
+| [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines |
+| [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene |
+| [Load glTF extras](../examples/3d/load_gltf_extras.rs) | Loads and renders a glTF file as a scene, including the gltf extras |
+| [Mesh Ray Cast](../examples/3d/mesh_ray_cast.rs) | Demonstrates ray casting with the `MeshRayCast` system parameter |
+| [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental) |
+| [Mixed lighting](../examples/3d/mixed_lighting.rs) | Demonstrates how to combine baked and dynamic lighting |
+| [Motion Blur](../examples/3d/motion_blur.rs) | Demonstrates per-pixel motion blur |
+| [Occlusion Culling](../examples/3d/occlusion_culling.rs) | Demonstration of Occlusion Culling |
+| [Order Independent Transparency](../examples/3d/order_independent_transparency.rs) | Demonstrates how to use OIT |
+| [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications) |
+| [Parallax Mapping](../examples/3d/parallax_mapping.rs) | Demonstrates use of a normal map and depth map for parallax mapping |
+| [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations |
+| [Percentage-closer soft shadows](../examples/3d/pcss.rs) | Demonstrates percentage-closer soft shadows (PCSS) |
+| [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties |
+| [Query glTF primitives](../examples/3d/query_gltf_primitives.rs) | Query primitives in a glTF scene |
+| [Reflection Probes](../examples/3d/reflection_probes.rs) | Demonstrates reflection probes |
+| [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images |
+| [Rotate Environment Map](../examples/3d/rotate_environment_map.rs) | Demonstrates how to rotate the skybox and the environment map simultaneously |
+| [Screen Space Ambient Occlusion](../examples/3d/ssao.rs) | A scene showcasing screen space ambient occlusion |
+| [Screen Space Reflections](../examples/3d/ssr.rs) | Demonstrates screen space reflections with water ripples |
+| [Scrolling fog](../examples/3d/scrolling_fog.rs) | Demonstrates how to create the effect of fog moving in the wind |
+| [Shadow Biases](../examples/3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene |
+| [Shadow Caster and Receiver](../examples/3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene |
+| [Skybox](../examples/3d/skybox.rs) | Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats. |
+| [Specular Tint](../examples/3d/specular_tint.rs) | Demonstrates specular tints and maps |
+| [Spherical Area Lights](../examples/3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior |
+| [Split Screen](../examples/3d/split_screen.rs) | Demonstrates how to render two cameras to the same window to accomplish "split screen" |
+| [Spotlight](../examples/3d/spotlight.rs) | Illustrates spot lights |
+| [Texture](../examples/3d/texture.rs) | Shows configuration of texture materials |
+| [Tonemapping](../examples/3d/tonemapping.rs) | Compares tonemapping options |
+| [Transmission](../examples/3d/transmission.rs) | Showcases light transmission in the PBR material |
+| [Transparency in 3D](../examples/3d/transparency_3d.rs) | Demonstrates transparency in 3d |
+| [Two Passes](../examples/3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives |
+| [Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene |
+| [Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors |
+| [Visibility range](../examples/3d/visibility_range.rs) | Demonstrates visibility ranges |
+| [Volumetric fog](../examples/3d/volumetric_fog.rs) | Demonstrates volumetric fog and lighting |
+| [Wireframe](../examples/3d/wireframe.rs) | Showcases wireframe rendering |
 
 ## Animation
 
-Example | Description
---- | ---
-[Animated Mesh](../examples/animation/animated_mesh.rs) | Plays an animation on a skinned glTF model of a fox
-[Animated Mesh Control](../examples/animation/animated_mesh_control.rs) | Plays an animation from a skinned glTF with keyboard controls
-[Animated Mesh Events](../examples/animation/animated_mesh_events.rs) | Plays an animation from a skinned glTF with events
-[Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
-[Animated UI](../examples/animation/animated_ui.rs) | Shows how to use animation clips to animate UI properties
-[Animation Events](../examples/animation/animation_events.rs) | Demonstrate how to use animation events
-[Animation Graph](../examples/animation/animation_graph.rs) | Blends multiple animations together with a graph
-[Animation Masks](../examples/animation/animation_masks.rs) | Demonstrates animation masks
-[Color animation](../examples/animation/color_animation.rs) | Demonstrates how to animate colors using mixing and splines in different color spaces
-[Custom Skinned Mesh](../examples/animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code
-[Eased Motion](../examples/animation/eased_motion.rs) | Demonstrates the application of easing curves to animate an object
-[Easing Functions](../examples/animation/easing_functions.rs) | Showcases the built-in easing functions
-[Morph Targets](../examples/animation/morph_targets.rs) | Plays an animation from a glTF file with meshes with morph targets
-[glTF Skinned Mesh](../examples/animation/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file
+| Example | Description |
+| --- | --- |
+| [Animated Mesh](../examples/animation/animated_mesh.rs) | Plays an animation on a skinned glTF model of a fox |
+| [Animated Mesh Control](../examples/animation/animated_mesh_control.rs) | Plays an animation from a skinned glTF with keyboard controls |
+| [Animated Mesh Events](../examples/animation/animated_mesh_events.rs) | Plays an animation from a skinned glTF with events |
+| [Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component |
+| [Animated UI](../examples/animation/animated_ui.rs) | Shows how to use animation clips to animate UI properties |
+| [Animation Events](../examples/animation/animation_events.rs) | Demonstrate how to use animation events |
+| [Animation Graph](../examples/animation/animation_graph.rs) | Blends multiple animations together with a graph |
+| [Animation Masks](../examples/animation/animation_masks.rs) | Demonstrates animation masks |
+| [Color animation](../examples/animation/color_animation.rs) | Demonstrates how to animate colors using mixing and splines in different color spaces |
+| [Custom Skinned Mesh](../examples/animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code |
+| [Eased Motion](../examples/animation/eased_motion.rs) | Demonstrates the application of easing curves to animate an object |
+| [Easing Functions](../examples/animation/easing_functions.rs) | Showcases the built-in easing functions |
+| [Morph Targets](../examples/animation/morph_targets.rs) | Plays an animation from a glTF file with meshes with morph targets |
+| [glTF Skinned Mesh](../examples/animation/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file |
 
 ## Application
 
@@ -386,15 +386,15 @@ Example | Description
 
 ## Math
 
-Example | Description
---- | ---
-[Bounding Volume Intersections (2D)](../examples/math/bounding_2d.rs) | Showcases bounding volumes and intersection tests
-[Cubic Splines](../examples/math/cubic_splines.rs) | Exhibits different modes of constructing cubic curves using splines
-[Custom Primitives](../examples/math/custom_primitives.rs) | Demonstrates how to add custom primitives and useful traits for them.
-[Random Sampling](../examples/math/random_sampling.rs) | Demonstrates how to sample random points from mathematical primitives
-[Rendering Primitives](../examples/math/render_primitives.rs) | Shows off rendering for all math primitives as both Meshes and Gizmos
-[Sampling Primitives](../examples/math/sampling_primitives.rs) | Demonstrates all the primitives which can be sampled.
-[Smooth Follow](../examples/movement/smooth_follow.rs) | Demonstrates how to make an entity smoothly follow another using interpolation
+| Example | Description |
+| --- | --- |
+| [Bounding Volume Intersections (2D)](../examples/math/bounding_2d.rs) | Showcases bounding volumes and intersection tests |
+| [Cubic Splines](../examples/math/cubic_splines.rs) | Exhibits different modes of constructing cubic curves using splines |
+| [Custom Primitives](../examples/math/custom_primitives.rs) | Demonstrates how to add custom primitives and useful traits for them. |
+| [Random Sampling](../examples/math/random_sampling.rs) | Demonstrates how to sample random points from mathematical primitives |
+| [Rendering Primitives](../examples/math/render_primitives.rs) | Shows off rendering for all math primitives as both Meshes and Gizmos |
+| [Sampling Primitives](../examples/math/sampling_primitives.rs) | Demonstrates all the primitives which can be sampled. |
+| [Smooth Follow](../examples/movement/smooth_follow.rs) | Demonstrates how to make an entity smoothly follow another using interpolation |
 
 ## Movement
 
@@ -404,12 +404,12 @@ Example | Description
 
 ## Picking
 
-Example | Description
---- | ---
-[Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes
-[Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay
-[Showcases simple picking events and usage](../examples/picking/simple_picking.rs) | Demonstrates how to use picking events to spawn simple objects
-[Sprite Picking](../examples/picking/sprite_picking.rs) | Demonstrates picking sprites and sprite atlases
+| Example | Description |
+| --- | --- |
+| [Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes |
+| [Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay |
+| [Showcases simple picking events and usage](../examples/picking/simple_picking.rs) | Demonstrates how to use picking events to spawn simple objects |
+| [Sprite Picking](../examples/picking/sprite_picking.rs) | Demonstrates picking sprites and sprite atlases |
 
 ## Reflection
 
@@ -489,23 +489,23 @@ Due to the focus on performance it's recommended to run the stress tests in rele
 cargo run --release --example <example name>
 ```
 
-Example | Description
---- | ---
-[Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
-[Many Animated Materials](../examples/stress_tests/many_materials.rs) | Benchmark to test rendering many animated materials
-[Many Animated Sprites](../examples/stress_tests/many_animated_sprites.rs) | Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing.
-[Many Buttons](../examples/stress_tests/many_buttons.rs) | Test rendering of many UI elements
-[Many Cameras & Lights](../examples/stress_tests/many_cameras_lights.rs) | Test rendering of many cameras and lights
-[Many Components (and Entities and Systems)](../examples/stress_tests/many_components.rs) | Test large ECS systems
-[Many Cubes](../examples/stress_tests/many_cubes.rs) | Simple benchmark to test per-entity draw overhead. Run with the `sphere` argument to test frustum culling
-[Many Foxes](../examples/stress_tests/many_foxes.rs) | Loads an animated fox model and spawns lots of them. Good for testing skinned mesh performance. Takes an unsigned integer argument for the number of foxes to spawn. Defaults to 1000
-[Many Gizmos](../examples/stress_tests/many_gizmos.rs) | Test rendering of many gizmos
-[Many Glyphs](../examples/stress_tests/many_glyphs.rs) | Simple benchmark to test text rendering.
-[Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights
-[Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
-[Many Text2d](../examples/stress_tests/many_text2d.rs) | Displays many Text2d! Used for performance testing.
-[Text Pipeline](../examples/stress_tests/text_pipeline.rs) | Text Pipeline benchmark
-[Transform Hierarchy](../examples/stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
+| Example | Description |
+| --- | --- |
+| [Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy |
+| [Many Animated Materials](../examples/stress_tests/many_materials.rs) | Benchmark to test rendering many animated materials |
+| [Many Animated Sprites](../examples/stress_tests/many_animated_sprites.rs) | Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing. |
+| [Many Buttons](../examples/stress_tests/many_buttons.rs) | Test rendering of many UI elements |
+| [Many Cameras & Lights](../examples/stress_tests/many_cameras_lights.rs) | Test rendering of many cameras and lights |
+| [Many Components (and Entities and Systems)](../examples/stress_tests/many_components.rs) | Test large ECS systems |
+| [Many Cubes](../examples/stress_tests/many_cubes.rs) | Simple benchmark to test per-entity draw overhead. Run with the `sphere` argument to test frustum culling |
+| [Many Foxes](../examples/stress_tests/many_foxes.rs) | Loads an animated fox model and spawns lots of them. Good for testing skinned mesh performance. Takes an unsigned integer argument for the number of foxes to spawn. Defaults to 1000 |
+| [Many Gizmos](../examples/stress_tests/many_gizmos.rs) | Test rendering of many gizmos |
+| [Many Glyphs](../examples/stress_tests/many_glyphs.rs) | Simple benchmark to test text rendering. |
+| [Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights |
+| [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites. |
+| [Many Text2d](../examples/stress_tests/many_text2d.rs) | Displays many Text2d! Used for performance testing. |
+| [Text Pipeline](../examples/stress_tests/text_pipeline.rs) | Text Pipeline benchmark |
+| [Transform Hierarchy](../examples/stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance |
 
 ## Time
 
@@ -571,20 +571,20 @@ Example | Description
 
 ## Window
 
-Example | Description
---- | ---
-[Clear Color](../examples/window/clear_color.rs) | Creates a solid color window
-[Custom Cursor Image](../examples/window/custom_cursor_image.rs) | Demonstrates creating an animated custom cursor from an image
-[Custom User Event](../examples/window/custom_user_event.rs) | Handles custom user events within the event loop
-[Low Power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
-[Monitor info](../examples/window/monitor_info.rs) | Displays information about available monitors (displays).
-[Multiple Windows](../examples/window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
-[Scale Factor Override](../examples/window/scale_factor_override.rs) | Illustrates how to customize the default window settings
-[Screenshot](../examples/window/screenshot.rs) | Shows how to save screenshots to disk
-[Transparent Window](../examples/window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
-[Window Drag Move](../examples/window/window_drag_move.rs) | Demonstrates drag move and drag resize without window decoration
-[Window Resizing](../examples/window/window_resizing.rs) | Demonstrates resizing and responding to resizing a window
-[Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings
+| Example | Description |
+| --- | --- |
+| [Clear Color](../examples/window/clear_color.rs) | Creates a solid color window |
+| [Custom Cursor Image](../examples/window/custom_cursor_image.rs) | Demonstrates creating an animated custom cursor from an image |
+| [Custom User Event](../examples/window/custom_user_event.rs) | Handles custom user events within the event loop |
+| [Low Power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications |
+| [Monitor info](../examples/window/monitor_info.rs) | Displays information about available monitors (displays). |
+| [Multiple Windows](../examples/window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them |
+| [Scale Factor Override](../examples/window/scale_factor_override.rs) | Illustrates how to customize the default window settings |
+| [Screenshot](../examples/window/screenshot.rs) | Shows how to save screenshots to disk |
+| [Transparent Window](../examples/window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration |
+| [Window Drag Move](../examples/window/window_drag_move.rs) | Demonstrates drag move and drag resize without window decoration |
+| [Window Resizing](../examples/window/window_resizing.rs) | Demonstrates resizing and responding to resizing a window |
+| [Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings |
 
 # Tests
 
