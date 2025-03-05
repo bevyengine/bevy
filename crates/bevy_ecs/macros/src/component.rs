@@ -208,7 +208,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             .map(|r| format!("[`{}`]", r.path.to_token_stream()))
             .collect::<Vec<_>>()
             .join(", ");
-        let doc = format!("**Required Components**: {paths}. \n\n A component's Required Components are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.");
+        // Put information about required components onto the component implementation.
+        // This is rather hidden, but we can't modify the type's doc comment from a derive macro.
+        // Instead put it in the main description via our rustdoc wrapper.
+        let doc = format!("# Required Components\n {paths}\n\n A component's Required Components are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.");
         quote! {
             #[doc = #doc]
         }

@@ -1,0 +1,9 @@
+[package]
+name = "rustdoc-wrapper"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+walkdir = "2"
+kuchikiki = "0.8"
+dom_query = "0.15"
