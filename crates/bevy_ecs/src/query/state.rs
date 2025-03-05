@@ -124,7 +124,7 @@ pub unsafe trait QueryStateDeref:
     fn into_readonly(self) -> Self::ReadOnly;
 }
 
-/// SAFETY: The QueryState is owned and cannot change
+/// SAFETY: The `QueryState` is owned and cannot change
 unsafe impl<D: QueryData, F: QueryFilter> QueryStateDeref for Box<QueryState<D, F>> {
     type Data = D;
     type Filter = F;
@@ -149,7 +149,7 @@ unsafe impl<D: QueryData, F: QueryFilter> QueryStateDeref for Box<QueryState<D, 
     }
 }
 
-/// SAFETY: The QueryState is borrowed for the life of the reference and cannot change
+/// SAFETY: The `QueryState` is borrowed for the life of the reference and cannot change
 unsafe impl<'s, D: QueryData, F: QueryFilter> QueryStateDeref for &'s QueryState<D, F> {
     type Data = D;
     type Filter = F;

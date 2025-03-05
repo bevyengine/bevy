@@ -320,7 +320,7 @@ pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 ///
 /// # Safety
 ///
-/// Calling [`TrustedEntityBorrow::entity()`] on the `Item` must return the `entity` that was passed to [`QueryData::fetch()`].
+/// Calling [`EntityBorrow::entity()`](crate::entity::EntityBorrow::entity) on the `Item` must return the `entity` that was passed to [`QueryData::fetch()`].
 pub unsafe trait TrustedEntityQueryData: QueryData
 where
     for<'a> Self: QueryData<Item<'a>: TrustedEntityBorrow>,
