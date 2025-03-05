@@ -1,13 +1,13 @@
 use core::borrow::Borrow;
 
-use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
+use bevy_ecs::{component::Component, entity::hash_map::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 
 /// An axis-aligned bounding box, defined by:
 /// - a center,
 /// - the distances from the center to each faces along the axis,
-///     the faces are orthogonal to the axis.
+///   the faces are orthogonal to the axis.
 ///
 /// It is typically used as a component on an entity to represent the local space
 /// occupied by this entity, with faces orthogonal to its local axis.
@@ -18,7 +18,7 @@ use bevy_reflect::prelude::*;
 ///
 /// It will be added automatically by the systems in [`CalculateBounds`] to entities that:
 /// - could be subject to frustum culling, for example with a [`Mesh3d`]
-///     or `Sprite` component,
+///   or `Sprite` component,
 /// - don't have the [`NoFrustumCulling`] component.
 ///
 /// It won't be updated automatically if the space occupied by the entity changes,

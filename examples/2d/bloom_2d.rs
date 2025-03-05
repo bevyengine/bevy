@@ -3,7 +3,7 @@
 use bevy::{
     core_pipeline::{
         bloom::{Bloom, BloomCompositeMode},
-        tonemapping::Tonemapping,
+        tonemapping::{DebandDither, Tonemapping},
     },
     prelude::*,
 };
@@ -26,10 +26,12 @@ fn setup(
         Camera2d,
         Camera {
             hdr: true, // 1. HDR is required for bloom
+            clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
         Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
         Bloom::default(),           // 3. Enable bloom for the camera
+        DebandDither::Enabled,      // Optional: bloom causes gradients which cause banding
     ));
 
     // Sprite
@@ -61,7 +63,7 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
+            top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
         },
@@ -71,16 +73,16 @@ fn setup(
 // ------------------------------------------------------------------------------------------------
 
 fn update_bloom_settings(
-    camera: Single<(Entity, Option<&mut Bloom>), With<Camera>>,
+    camera: Single<(Entity, &Tonemapping, Option<&mut Bloom>), With<Camera>>,
     mut text: Single<&mut Text>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let bloom = camera.into_inner();
+    let (camera_entity, tonemapping, bloom) = camera.into_inner();
 
     match bloom {
-        (entity, Some(mut bloom)) => {
+        Some(mut bloom) => {
             text.0 = "Bloom (Toggle: Space)\n".to_string();
             text.push_str(&format!("(Q/A) Intensity: {}\n", bloom.intensity));
             text.push_str(&format!(
@@ -107,9 +109,10 @@ fn update_bloom_settings(
                 "(U/J) Threshold softness: {}\n",
                 bloom.prefilter.threshold_softness
             ));
+            text.push_str(&format!("(I/K) Horizontal Scale: {}\n", bloom.scale.x));
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).remove::<Bloom>();
+                commands.entity(camera_entity).remove::<Bloom>();
             }
 
             let dt = time.delta_secs();
@@ -169,14 +172,43 @@ fn update_bloom_settings(
                 bloom.prefilter.threshold_softness += dt / 10.0;
             }
             bloom.prefilter.threshold_softness = bloom.prefilter.threshold_softness.clamp(0.0, 1.0);
+
+            if keycode.pressed(KeyCode::KeyK) {
+                bloom.scale.x -= dt * 2.0;
+            }
+            if keycode.pressed(KeyCode::KeyI) {
+                bloom.scale.x += dt * 2.0;
+            }
+            bloom.scale.x = bloom.scale.x.clamp(0.0, 16.0);
         }
 
-        (entity, None) => {
-            text.0 = "Bloom: Off (Toggle: Space)".to_string();
+        None => {
+            text.0 = "Bloom: Off (Toggle: Space)\n".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).insert(Bloom::default());
+                commands.entity(camera_entity).insert(Bloom::default());
             }
         }
+    }
+
+    text.push_str(&format!("(O) Tonemapping: {:?}\n", tonemapping));
+    if keycode.just_pressed(KeyCode::KeyO) {
+        commands
+            .entity(camera_entity)
+            .insert(next_tonemap(tonemapping));
+    }
+}
+
+/// Get the next Tonemapping algorithm
+fn next_tonemap(tonemapping: &Tonemapping) -> Tonemapping {
+    match tonemapping {
+        Tonemapping::None => Tonemapping::AcesFitted,
+        Tonemapping::AcesFitted => Tonemapping::AgX,
+        Tonemapping::AgX => Tonemapping::BlenderFilmic,
+        Tonemapping::BlenderFilmic => Tonemapping::Reinhard,
+        Tonemapping::Reinhard => Tonemapping::ReinhardLuminance,
+        Tonemapping::ReinhardLuminance => Tonemapping::SomewhatBoringDisplayTransform,
+        Tonemapping::SomewhatBoringDisplayTransform => Tonemapping::TonyMcMapface,
+        Tonemapping::TonyMcMapface => Tonemapping::None,
     }
 }

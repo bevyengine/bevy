@@ -5,8 +5,8 @@ use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{Rect, Vec2};
+use bevy_platform_support::collections::HashSet;
 use bevy_transform::prelude::*;
-use bevy_utils::HashSet;
 
 /// Component storing texture slices for tiled or sliced sprite entities
 ///
@@ -28,7 +28,6 @@ impl ComputedTextureSlices {
         &'a self,
         transform: &'a GlobalTransform,
         original_entity: Entity,
-        render_entity: Entity,
         sprite: &'a Sprite,
     ) -> impl ExactSizeIterator<Item = ExtractedSprite> + 'a {
         let mut flip = Vec2::ONE;
@@ -54,7 +53,7 @@ impl ComputedTextureSlices {
                 flip_y,
                 image_handle_id: sprite.image.id(),
                 anchor: Self::redepend_anchor_from_sprite_to_slice(sprite, slice),
-                render_entity,
+                scaling_mode: sprite.image_mode.scale(),
             }
         })
     }
@@ -124,6 +123,9 @@ fn compute_sprite_slices(
         }
         SpriteImageMode::Auto => {
             unreachable!("Slices should not be computed for SpriteImageMode::Stretch")
+        }
+        SpriteImageMode::Scale(_) => {
+            unreachable!("Slices should not be computed for SpriteImageMode::Scale")
         }
     };
     Some(ComputedTextureSlices(slices))

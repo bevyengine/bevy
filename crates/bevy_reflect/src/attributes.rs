@@ -152,7 +152,6 @@ macro_rules! impl_custom_attribute_methods {
             $self.custom_attributes().get::<T>()
         }
 
-        #[allow(rustdoc::redundant_explicit_links)]
         /// Gets a custom attribute by its [`TypeId`](core::any::TypeId).
         ///
         /// This is the dynamic equivalent of [`get_attribute`](Self::get_attribute).
@@ -179,7 +178,6 @@ pub(crate) use impl_custom_attribute_methods;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_reflect;
     use crate::{type_info::Typed, TypeInfo, VariantInfo};
     use alloc::{format, string::String};
     use core::ops::RangeInclusive;

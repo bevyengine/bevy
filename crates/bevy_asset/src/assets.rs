@@ -1,15 +1,13 @@
 use crate::asset_changed::AssetChanges;
-use crate::{
-    self as bevy_asset, Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle,
-    UntypedHandle,
-};
-use alloc::sync::Arc;
+use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
+use alloc::{sync::Arc, vec::Vec};
 use bevy_ecs::{
     prelude::EventWriter,
-    system::{Res, ResMut, Resource, SystemChangeTick},
+    resource::Resource,
+    system::{Res, ResMut, SystemChangeTick},
 };
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{Reflect, TypePath};
-use bevy_utils::HashMap;
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -97,6 +95,7 @@ impl AssetIndexAllocator {
 /// [`AssetPath`]: crate::AssetPath
 #[derive(Asset, TypePath)]
 pub struct LoadedUntypedAsset {
+    /// The handle to the loaded asset.
     #[dependency]
     pub handle: UntypedHandle,
 }
@@ -282,6 +281,8 @@ impl<A: Asset> DenseAssetStorage<A> {
 /// at compile time.
 ///
 /// This tracks (and queues) [`AssetEvent`] events whenever changes to the collection occur.
+/// To check whether the asset used by a given component has changed (due to a change in the handle or the underlying asset)
+/// use the [`AssetChanged`](crate::asset_changed::AssetChanged) query filter.
 #[derive(Resource)]
 pub struct Assets<A: Asset> {
     dense_storage: DenseAssetStorage<A>,
@@ -578,7 +579,7 @@ impl<A: Asset> Assets<A> {
                 };
             }
         }
-        events.send_batch(assets.queued_events.drain(..));
+        events.write_batch(assets.queued_events.drain(..));
     }
 
     /// A run condition for [`asset_events`]. The system will not run if there are no events to
@@ -594,7 +595,7 @@ impl<A: Asset> Assets<A> {
 pub struct AssetsMutIterator<'a, A: Asset> {
     queued_events: &'a mut Vec<AssetEvent<A>>,
     dense_storage: Enumerate<core::slice::IterMut<'a, Entry<A>>>,
-    hash_map: bevy_utils::hashbrown::hash_map::IterMut<'a, Uuid, A>,
+    hash_map: bevy_platform_support::collections::hash_map::IterMut<'a, Uuid, A>,
 }
 
 impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
@@ -631,6 +632,7 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
     }
 }
 
+/// An error returned when an [`AssetIndex`] has an invalid generation.
 #[derive(Error, Debug)]
 #[error("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
 pub struct InvalidGenerationError {

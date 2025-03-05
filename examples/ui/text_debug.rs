@@ -20,7 +20,7 @@ fn main() {
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, infotext_system)
         .add_systems(Update, change_text_system)

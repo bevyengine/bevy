@@ -1,20 +1,6 @@
-// TODO: Upstream `portable-atomic` support to `downcast_rs` and unconditionally
-// include it as a dependency.
-// See https://github.com/marcianx/downcast-rs/pull/22 for details
-#[cfg(feature = "downcast")]
-use downcast_rs::{impl_downcast, Downcast};
-
 use crate::App;
 use core::any::Any;
-
-/// Dummy trait with the same name as `downcast_rs::Downcast`. This is to ensure
-/// the `Plugin: Downcast` bound can remain even when `downcast` isn't enabled.
-#[cfg(not(feature = "downcast"))]
-#[doc(hidden)]
-pub trait Downcast {}
-
-#[cfg(not(feature = "downcast"))]
-impl<T: ?Sized> Downcast for T {}
+use downcast_rs::{impl_downcast, Downcast};
 
 /// A collection of Bevy app logic and configuration.
 ///
@@ -105,7 +91,6 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     }
 }
 
-#[cfg(feature = "downcast")]
 impl_downcast!(Plugin);
 
 impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {

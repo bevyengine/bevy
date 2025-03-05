@@ -13,8 +13,8 @@ struct ClusterableObject {
     spot_light_tan_angle: f32,
     soft_shadow_size: f32,
     shadow_map_near_z: f32,
-    pad_a: f32,
-    pad_b: f32,
+    texture_index: u32,
+    pad: f32,
 };
 
 const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                    = 1u;
@@ -50,7 +50,6 @@ const DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32 = 4u;
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
     directional_lights: array<DirectionalLight, #{MAX_DIRECTIONAL_LIGHTS}u>,
-    ambient_color: vec4<f32>,
     // x/y/z dimensions and n_clusters in w
     cluster_dimensions: vec4<u32>,
     // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
@@ -172,3 +171,15 @@ struct OrderIndependentTransparencySettings {
   layers_count: i32,
   alpha_threshold: f32,
 };
+
+struct ClusteredDecal {
+    local_from_world: mat4x4<f32>,
+    image_index: i32,
+    tag: u32,
+    pad_a: u32,
+    pad_b: u32,
+}
+
+struct ClusteredDecals {
+    decals: array<ClusteredDecal>,
+}

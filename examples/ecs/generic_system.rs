@@ -84,6 +84,6 @@ fn transition_to_in_game_system(
 // Here, the `Component` trait is a trait bound on T, our generic type
 fn cleanup_system<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
     for e in &query {
-        commands.entity(e).despawn_recursive();
+        commands.entity(e).despawn();
     }
 }

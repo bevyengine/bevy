@@ -429,7 +429,7 @@ const SMAA_CORNER_ROUNDING: u32 = 25u;
 // "SMAA Presets".)
 
 /**
- * If there is an neighbor edge that has SMAA_LOCAL_CONTRAST_FACTOR times
+ * If there is a neighbor edge that has SMAA_LOCAL_CONTRAST_FACTOR times
  * bigger contrast than current edge, current edge will be discarded.
  *
  * This allows to eliminate spurious crossing edges, and is based on the fact

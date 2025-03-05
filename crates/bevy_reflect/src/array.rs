@@ -1,8 +1,8 @@
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    self as bevy_reflect, type_info::impl_type_methods, utility::reflect_hasher, ApplyError,
-    Generics, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, Type, TypeInfo, TypePath,
+    type_info::impl_type_methods, utility::reflect_hasher, ApplyError, Generics, MaybeTyped,
+    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
+    TypePath,
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect_derive::impl_type_path;
@@ -173,11 +173,6 @@ impl DynamicArray {
             represented_type: None,
             values,
         }
-    }
-
-    #[deprecated(since = "0.15.0", note = "use from_iter")]
-    pub fn from_vec<T: PartialReflect>(values: Vec<T>) -> Self {
-        Self::from_iter(values)
     }
 
     /// Sets the [type] to be represented by this `DynamicArray`.

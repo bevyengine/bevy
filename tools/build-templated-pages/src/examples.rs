@@ -64,8 +64,7 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
                 .get(&technical_name)
                 .and_then(|metadata| metadata.get("hidden"))
                 .and_then(Item::as_bool)
-                .and_then(|hidden| hidden.then_some(()))
-                .is_some()
+                .unwrap_or(false)
             {
                 return None;
             }

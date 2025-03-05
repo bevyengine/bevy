@@ -1,7 +1,7 @@
 //! The generic input type.
 
-use bevy_ecs::system::Resource;
-use bevy_utils::HashSet;
+use bevy_ecs::resource::Resource;
+use bevy_platform_support::collections::HashSet;
 use core::hash::Hash;
 #[cfg(feature = "bevy_reflect")]
 use {

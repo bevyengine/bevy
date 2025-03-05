@@ -13,6 +13,9 @@ struct Args {
     /// enables deferred shading
     #[argh(switch)]
     deferred: bool,
+    /// enables bicubic filtering
+    #[argh(switch)]
+    bicubic: bool,
 }
 
 fn main() {
@@ -22,6 +25,10 @@ fn main() {
     let args: Args = Args::from_args(&[], &[]).unwrap();
 
     let mut app = App::new();
+    #[expect(
+        deprecated,
+        reason = "Once AmbientLight is removed, the resource can be removed"
+    )]
     app.add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight::NONE);
 
@@ -63,6 +70,7 @@ fn add_lightmaps_to_meshes(
         (Entity, &Name, &MeshMaterial3d<StandardMaterial>),
         (With<Mesh3d>, Without<Lightmap>),
     >,
+    args: Res<Args>,
 ) {
     let exposure = 250.0;
     for (entity, name, material) in meshes.iter() {
@@ -70,6 +78,7 @@ fn add_lightmaps_to_meshes(
             materials.get_mut(material).unwrap().lightmap_exposure = exposure;
             commands.entity(entity).insert(Lightmap {
                 image: asset_server.load("lightmaps/CornellBox-Large.zstd.ktx2"),
+                bicubic_sampling: args.bicubic,
                 ..default()
             });
             continue;
@@ -79,6 +88,7 @@ fn add_lightmaps_to_meshes(
             materials.get_mut(material).unwrap().lightmap_exposure = exposure;
             commands.entity(entity).insert(Lightmap {
                 image: asset_server.load("lightmaps/CornellBox-Small.zstd.ktx2"),
+                bicubic_sampling: args.bicubic,
                 ..default()
             });
             continue;
@@ -88,6 +98,7 @@ fn add_lightmaps_to_meshes(
             materials.get_mut(material).unwrap().lightmap_exposure = exposure;
             commands.entity(entity).insert(Lightmap {
                 image: asset_server.load("lightmaps/CornellBox-Box.zstd.ktx2"),
+                bicubic_sampling: args.bicubic,
                 ..default()
             });
             continue;

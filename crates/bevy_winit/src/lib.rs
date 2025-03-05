@@ -45,6 +45,8 @@ use crate::{
 pub mod accessibility;
 mod converters;
 pub mod cursor;
+#[cfg(feature = "custom_cursor")]
+mod custom_cursor;
 mod state;
 mod system;
 mod winit_config;
@@ -118,11 +120,15 @@ impl<T: Event> Plugin for WinitPlugin<T> {
             event_loop_builder.with_android_app(bevy_window::ANDROID_APP.get().expect(msg).clone());
         }
 
+        let event_loop = event_loop_builder
+            .build()
+            .expect("Failed to build event loop");
+
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
             .add_event::<RawWinitWindowEvent>()
-            .set_runner(winit_runner::<T>)
+            .set_runner(|app| winit_runner(app, event_loop))
             .add_systems(
                 Last,
                 (
@@ -137,14 +143,6 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 
         app.add_plugins(AccessKitPlugin);
         app.add_plugins(cursor::CursorPlugin);
-
-        let event_loop = event_loop_builder
-            .build()
-            .expect("Failed to build event loop");
-
-        // `winit`'s windows are bound to the event loop that created them, so the event loop must
-        // be inserted as a resource here to pass it onto the runner.
-        app.insert_non_send_resource(event_loop);
     }
 }
 

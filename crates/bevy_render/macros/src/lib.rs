@@ -11,10 +11,7 @@ use quote::format_ident;
 use syn::{parse_macro_input, DeriveInput};
 
 pub(crate) fn bevy_render_path() -> syn::Path {
-    BevyManifest::shared()
-        .maybe_get_path("bevy_render")
-        // NOTE: If the derivation is within bevy_render, then we need to return 'crate'
-        .unwrap_or_else(|| BevyManifest::parse_str("crate"))
+    BevyManifest::shared().get_path("bevy_render")
 }
 
 #[proc_macro_derive(ExtractResource)]
@@ -63,7 +60,8 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
         sampler,
         bind_group_data,
         storage,
-        bindless
+        bindless,
+        data
     )
 )]
 pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {

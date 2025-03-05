@@ -109,7 +109,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn spawn_child_node(
-    builder: &mut ChildBuilder,
+    builder: &mut ChildSpawnerCommands,
     font: Handle<Font>,
     align_items: AlignItems,
     justify_content: JustifyContent,
@@ -145,7 +145,7 @@ fn spawn_child_node(
 }
 
 fn spawn_nested_text_bundle(
-    builder: &mut ChildBuilder,
+    builder: &mut ChildSpawnerCommands,
     font: Handle<Font>,
     background_color: Color,
     margin: UiRect,

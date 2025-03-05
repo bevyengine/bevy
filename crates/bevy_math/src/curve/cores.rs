@@ -147,7 +147,7 @@ pub enum EvenCoreError {
     },
 
     /// Unbounded domains are not compatible with `EvenCore`.
-    #[error("Cannot create a EvenCore over an unbounded domain")]
+    #[error("Cannot create an EvenCore over an unbounded domain")]
     UnboundedDomain,
 }
 

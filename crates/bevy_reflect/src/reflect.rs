@@ -17,7 +17,7 @@ use crate::utility::NonGenericTypeInfoCell;
 #[derive(Error, Debug)]
 pub enum ApplyError {
     #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
-    /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to a enum.
+    /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to an enum.
     MismatchedKinds {
         from_kind: ReflectKind,
         to_kind: ReflectKind,

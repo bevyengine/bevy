@@ -145,7 +145,14 @@ pub use srgba::*;
 pub use xyza::*;
 
 /// Describes the traits that a color should implement for consistency.
-#[allow(dead_code)] // This is an internal marker trait used to ensure that our color types impl the required traits
+#[expect(
+    clippy::allow_attributes,
+    reason = "If the below attribute on `dead_code` is removed, then rustc complains that `StandardColor` is dead code. However, if we `expect` the `dead_code` lint, then rustc complains of an unfulfilled expectation."
+)]
+#[allow(
+    dead_code,
+    reason = "This is an internal marker trait used to ensure that our color types impl the required traits"
+)]
 pub(crate) trait StandardColor
 where
     Self: core::fmt::Debug,

@@ -26,7 +26,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     window: Query<&Window>,
-) {
+) -> Result {
     // circular base
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(4.0))),
@@ -56,7 +56,7 @@ fn setup(
     }
 
     // cameras
-    let window = window.single();
+    let window = window.single()?;
     let width = window.resolution.width() / CAMERA_COLS as f32 * window.resolution.scale_factor();
     let height = window.resolution.height() / CAMERA_ROWS as f32 * window.resolution.scale_factor();
     let mut i = 0;
@@ -83,6 +83,7 @@ fn setup(
             i += 1;
         }
     }
+    Ok(())
 }
 
 fn rotate_cameras(time: Res<Time>, mut query: Query<&mut Transform, With<Camera>>) {

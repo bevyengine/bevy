@@ -1,6 +1,7 @@
+use bevy_platform_support::time::Instant;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::{Duration, Instant};
+use core::time::Duration;
 
 use crate::time::Time;
 
@@ -138,6 +139,18 @@ impl Time<Real> {
 mod test {
     use super::*;
 
+    // Waits until Instant::now() has increased.
+    //
+    // ```
+    // let previous = Instant::now();
+    // wait();
+    // assert!(Instant::now() > previous);
+    // ```
+    fn wait() {
+        let start = Instant::now();
+        while Instant::now() <= start {}
+    }
+
     #[test]
     fn test_update() {
         let startup = Instant::now();
@@ -149,6 +162,7 @@ mod test {
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), Duration::ZERO);
 
+        wait();
         time.update();
 
         assert_ne!(time.first_update(), None);
@@ -156,6 +170,7 @@ mod test {
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), Duration::ZERO);
 
+        wait();
         time.update();
 
         assert_ne!(time.first_update(), None);
@@ -164,6 +179,7 @@ mod test {
         assert_ne!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), time.delta());
 
+        wait();
         let prev_elapsed = time.elapsed();
         time.update();
 
@@ -176,6 +192,7 @@ mod test {
         let startup = Instant::now();
         let mut time = Time::<Real>::new(startup);
 
+        wait();
         let first_update = Instant::now();
         time.update_with_instant(first_update);
 
@@ -185,6 +202,7 @@ mod test {
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), Duration::ZERO);
 
+        wait();
         let second_update = Instant::now();
         time.update_with_instant(second_update);
 
@@ -193,6 +211,7 @@ mod test {
         assert_eq!(time.delta(), second_update - first_update);
         assert_eq!(time.elapsed(), second_update - first_update);
 
+        wait();
         let third_update = Instant::now();
         time.update_with_instant(third_update);
 

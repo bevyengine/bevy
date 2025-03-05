@@ -1,0 +1,14 @@
+error[E0499]: cannot borrow `lens` as mutable more than once at a time
+  --> tests/ui/query_lens_lifetime_safety.rs:18:39
+   |
+17 |             let mut data: Mut<Foo> = lens.query().get_inner(e).unwrap();
+   |                                      ---- first mutable borrow occurs here
+18 |             let mut data2: Mut<Foo> = lens.query().get_inner(e).unwrap();
+   |                                       ^^^^ second mutable borrow occurs here
+19 |
+20 |             assert_eq!(&mut *data, &mut *data2); // oops UB
+   |                              ---- first borrow later used here
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0499`.

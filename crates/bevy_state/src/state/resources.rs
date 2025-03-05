@@ -2,7 +2,8 @@ use core::ops::Deref;
 
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    system::{ResMut, Resource},
+    resource::Resource,
+    system::ResMut,
     world::{FromWorld, World},
 };
 

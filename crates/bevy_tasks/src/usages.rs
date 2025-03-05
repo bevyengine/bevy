@@ -1,19 +1,10 @@
 use super::TaskPool;
+use bevy_platform_support::sync::OnceLock;
 use core::ops::Deref;
-
-#[cfg(feature = "std")]
-use std::sync::OnceLock;
-
-#[cfg(not(feature = "std"))]
-use spin::Once;
 
 macro_rules! taskpool {
     ($(#[$attr:meta])* ($static:ident, $type:ident)) => {
-        #[cfg(feature = "std")]
         static $static: OnceLock<$type> = OnceLock::new();
-
-        #[cfg(not(feature = "std"))]
-        static $static: Once<$type> = Once::new();
 
         $(#[$attr])*
         #[derive(Debug)]
@@ -22,15 +13,7 @@ macro_rules! taskpool {
         impl $type {
             #[doc = concat!(" Gets the global [`", stringify!($type), "`] instance, or initializes it with `f`.")]
             pub fn get_or_init(f: impl FnOnce() -> TaskPool) -> &'static Self {
-                #[cfg(feature = "std")]
-                {
-                    $static.get_or_init(|| Self(f()))
-                }
-
-                #[cfg(not(feature = "std"))]
-                {
-                    $static.call_once(|| Self(f()))
-                }
+                $static.get_or_init(|| Self(f()))
             }
 
             #[doc = concat!(" Attempts to get the global [`", stringify!($type), "`] instance, \

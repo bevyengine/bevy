@@ -15,7 +15,7 @@ use crate::func::args::ArgInfo;
 use crate::func::{ArgList, SignatureInfo};
 use crate::Type;
 use alloc::boxed::Box;
-use bevy_utils::hashbrown::Equivalent;
+use bevy_platform_support::collections::Equivalent;
 use core::borrow::Borrow;
 use core::fmt::{Debug, Formatter};
 use core::hash::{Hash, Hasher};

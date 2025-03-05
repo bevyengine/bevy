@@ -3,12 +3,13 @@
 use bevy_ecs::{
     entity::Entity,
     event::{Event, EventReader},
-    system::{ResMut, Resource},
+    resource::Resource,
+    system::ResMut,
 };
 use bevy_math::Vec2;
+use bevy_platform_support::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::HashMap;
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};

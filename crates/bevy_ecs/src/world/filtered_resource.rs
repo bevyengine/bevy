@@ -2,12 +2,10 @@ use crate::{
     change_detection::{Mut, MutUntyped, Ref, Ticks, TicksMut},
     component::{ComponentId, Tick},
     query::Access,
-    system::Resource,
+    resource::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_ptr::Ptr;
-#[cfg(feature = "track_location")]
-use bevy_ptr::UnsafeCellDeref;
+use bevy_ptr::{Ptr, UnsafeCellDeref};
 
 /// Provides read-only access to a set of [`Resource`]s defined by the contained [`Access`].
 ///
@@ -159,17 +157,16 @@ impl<'w, 's> FilteredResources<'w, 's> {
             return None;
         }
         // SAFETY: We have read access to this resource
-        unsafe { self.world.get_resource_with_ticks(component_id) }.map(
-            |(value, ticks, _caller)| Ref {
+        unsafe { self.world.get_resource_with_ticks(component_id) }.map(|(value, ticks, caller)| {
+            Ref {
                 // SAFETY: `component_id` was obtained from the type ID of `R`.
                 value: unsafe { value.deref() },
                 // SAFETY: We have read access to the resource, so no mutable reference can exist.
                 ticks: unsafe { Ticks::from_tick_cells(ticks, self.last_run, self.this_run) },
-                #[cfg(feature = "track_location")]
                 // SAFETY: We have read access to the resource, so no mutable reference can exist.
-                changed_by: unsafe { _caller.deref() },
-            },
-        )
+                changed_by: unsafe { caller.map(|caller| caller.deref()) },
+            }
+        })
     }
 
     /// Gets a pointer to the resource with the given [`ComponentId`] if it exists and the `FilteredResources` has access to it.
@@ -477,17 +474,16 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
             return None;
         }
         // SAFETY: We have access to this resource in `access`, and the caller ensures that there are no conflicting borrows for the duration of the returned value.
-        unsafe { self.world.get_resource_with_ticks(component_id) }.map(
-            |(value, ticks, _caller)| MutUntyped {
+        unsafe { self.world.get_resource_with_ticks(component_id) }.map(|(value, ticks, caller)| {
+            MutUntyped {
                 // SAFETY: We have exclusive access to the underlying storage.
                 value: unsafe { value.assert_unique() },
                 // SAFETY: We have exclusive access to the underlying storage.
                 ticks: unsafe { TicksMut::from_tick_cells(ticks, self.last_run, self.this_run) },
-                #[cfg(feature = "track_location")]
                 // SAFETY: We have exclusive access to the underlying storage.
-                changed_by: unsafe { _caller.deref_mut() },
-            },
-        )
+                changed_by: unsafe { caller.map(|caller| caller.deref_mut()) },
+            }
+        })
     }
 }
 

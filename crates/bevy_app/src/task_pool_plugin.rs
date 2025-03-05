@@ -1,26 +1,13 @@
-#![cfg_attr(
-    feature = "portable-atomic",
-    expect(
-        clippy::redundant_closure,
-        reason = "portable_atomic_util::Arc has subtly different implicit behavior"
-    )
-)]
-
 use crate::{App, Plugin};
 
 use alloc::string::ToString;
+use bevy_platform_support::sync::Arc;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
 use core::{fmt::Debug, marker::PhantomData};
 use log::trace;
 
 #[cfg(not(target_arch = "wasm32"))]
 use {crate::Last, bevy_ecs::prelude::NonSend};
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;

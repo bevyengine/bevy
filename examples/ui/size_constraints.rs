@@ -107,7 +107,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn spawn_bar(parent: &mut ChildBuilder) {
+fn spawn_bar(parent: &mut ChildSpawnerCommands) {
     parent
         .spawn((
             Node {
@@ -137,7 +137,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
 }
 
 fn spawn_button_row(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     constraint: Constraint,
     text_style: (TextFont, TextColor),
 ) {
@@ -204,7 +204,7 @@ fn spawn_button_row(
 }
 
 fn spawn_button(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     constraint: Constraint,
     action: ButtonValue,
     label: String,
@@ -269,7 +269,7 @@ fn update_buttons(
     for (button_id, interaction, constraint, value) in button_query.iter_mut() {
         match interaction {
             Interaction::Pressed => {
-                button_activated_event.send(ButtonActivatedEvent(button_id));
+                button_activated_event.write(ButtonActivatedEvent(button_id));
                 match constraint {
                     Constraint::FlexBasis => {
                         bar_node.flex_basis = value.0;

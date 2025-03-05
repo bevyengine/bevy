@@ -24,15 +24,13 @@ const ATTRIBUTE_BARYCENTRIC: MeshVertexAttribute =
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0 / 5.0f32,
-            ..default()
-        })
         .add_plugins((
             DefaultPlugins.set(
                 GltfPlugin::default()
                     // Map a custom glTF attribute name to a `MeshVertexAttribute`.
+                    // The glTF file used here has an attribute name with *two*
+                    // underscores: __BARYCENTRIC
+                    // One is stripped to do the comparison here.
                     .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
             ),
             Material2dPlugin::<CustomMaterial>::default(),
@@ -45,6 +43,7 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<CustomMaterial>>,
+    mut images: ResMut<Assets<Image>>,
 ) {
     // Add a mesh loaded from a glTF file. This mesh has data for `ATTRIBUTE_BARYCENTRIC`.
     let mesh = asset_server.load(
@@ -60,8 +59,13 @@ fn setup(
         Transform::from_scale(150.0 * Vec3::ONE),
     ));
 
-    // Add a camera
-    commands.spawn(Camera2d);
+    commands.spawn((
+        Camera2d,
+        EnvironmentMapLight {
+            intensity: 1.0 / 5.0,
+            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
+        },
+    ));
 }
 
 /// This custom material uses barycentric coordinates from

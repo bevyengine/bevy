@@ -10,9 +10,15 @@
     mesh_view_bindings::view,
 }
 
+#import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d}
+
 #ifdef MESHLET_MESH_MATERIAL_PASS
 #import bevy_pbr::meshlet_visibility_buffer_resolve::resolve_vertex_output
 #endif
+
+#ifdef BINDLESS
+#import bevy_pbr::pbr_bindings::material_indices
+#endif  // BINDLESS
 
 #ifdef PREPASS_FRAGMENT
 @fragment
@@ -31,8 +37,8 @@ fn fragment(
 
 #ifdef BINDLESS
     let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
-    let flags = pbr_bindings::material[slot].flags;
-    let uv_transform = pbr_bindings::material[slot].uv_transform;
+    let flags = pbr_bindings::material_array[material_indices[slot].material].flags;
+    let uv_transform = pbr_bindings::material_array[material_indices[slot].material].uv_transform;
 #else   // BINDLESS
     let flags = pbr_bindings::material.flags;
     let uv_transform = pbr_bindings::material.uv_transform;
@@ -93,8 +99,8 @@ fn fragment(
             textureSampleBias(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-                pbr_bindings::normal_map_texture[slot],
-                pbr_bindings::normal_map_sampler[slot],
+                bindless_textures_2d[material_indices[slot].normal_map_texture],
+                bindless_samplers_filtering[material_indices[slot].normal_map_sampler],
 #else   // BINDLESS
                 pbr_bindings::normal_map_texture,
                 pbr_bindings::normal_map_sampler,

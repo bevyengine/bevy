@@ -7,9 +7,9 @@ struct StandardMaterial {
     emissive: vec4<f32>,
     attenuation_color: vec4<f32>,
     uv_transform: mat3x3<f32>,
+    reflectance: vec3<f32>,
     perceptual_roughness: f32,
     metallic: f32,
-    reflectance: f32,
     diffuse_transmission: f32,
     specular_transmission: f32,
     thickness: f32,
@@ -52,6 +52,8 @@ const STANDARD_MATERIAL_FLAGS_CLEARCOAT_TEXTURE_BIT: u32          = 16384u;
 const STANDARD_MATERIAL_FLAGS_CLEARCOAT_ROUGHNESS_TEXTURE_BIT: u32 = 32768u;
 const STANDARD_MATERIAL_FLAGS_CLEARCOAT_NORMAL_TEXTURE_BIT: u32   = 65536u;
 const STANDARD_MATERIAL_FLAGS_ANISOTROPY_TEXTURE_BIT: u32         = 131072u;
+const STANDARD_MATERIAL_FLAGS_SPECULAR_TEXTURE_BIT: u32           = 262144u;
+const STANDARD_MATERIAL_FLAGS_SPECULAR_TINT_TEXTURE_BIT: u32      = 524288u;
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32       = 3758096384u; // (0b111u32 << 29)
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32              = 0u;          // (0u32 << 29)
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 536870912u;  // (1u32 << 29)
@@ -73,7 +75,7 @@ fn standard_material_new() -> StandardMaterial {
     material.emissive = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     material.perceptual_roughness = 0.5;
     material.metallic = 0.00;
-    material.reflectance = 0.5;
+    material.reflectance = vec3<f32>(0.5);
     material.diffuse_transmission = 0.0;
     material.specular_transmission = 0.0;
     material.thickness = 0.0;

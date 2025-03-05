@@ -2,7 +2,7 @@
 
 use bevy::{
     animation::{AnimationTarget, AnimationTargetId},
-    color::palettes::css::{LIGHT_GRAY, WHITE},
+    color::palettes::css::LIGHT_GRAY,
     prelude::*,
 };
 use std::collections::HashSet;
@@ -105,11 +105,6 @@ fn main() {
         .add_systems(Update, setup_animation_graph_once_loaded)
         .add_systems(Update, handle_button_toggles)
         .add_systems(Update, update_ui)
-        .insert_resource(AmbientLight {
-            color: WHITE.into(),
-            brightness: 100.0,
-            ..default()
-        })
         .init_resource::<AppState>()
         .run();
 }
@@ -120,12 +115,17 @@ fn setup_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Spawn the camera.
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-15.0, 10.0, 20.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        EnvironmentMapLight {
+            intensity: 100.0,
+            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
+        },
     ));
 
     // Spawn the light.
@@ -223,8 +223,13 @@ fn setup_ui(mut commands: Commands) {
 // Adds a button that allows the user to toggle a mask group on and off.
 //
 // The button will automatically become a child of the parent that owns the
-// given `ChildBuilder`.
-fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, mask_group_id: u32) {
+// given `ChildSpawnerCommands`.
+fn add_mask_group_control(
+    parent: &mut ChildSpawnerCommands,
+    label: &str,
+    width: Val,
+    mask_group_id: u32,
+) {
     let button_text_style = (
         TextFont {
             font_size: 14.0,

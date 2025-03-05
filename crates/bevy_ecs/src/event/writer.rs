@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 use bevy_ecs::{
     event::{Event, EventId, Events, SendBatchIds},
     system::{ResMut, SystemParam},
@@ -15,14 +14,14 @@ use bevy_ecs::{
 /// #[derive(Event)]
 /// pub struct MyEvent; // Custom event type.
 /// fn my_system(mut writer: EventWriter<MyEvent>) {
-///     writer.send(MyEvent);
+///     writer.write(MyEvent);
 /// }
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 /// # Observers
 ///
-/// "Buffered" Events, such as those sent directly in [`Events`] or sent using [`EventWriter`], do _not_ automatically
+/// "Buffered" Events, such as those sent directly in [`Events`] or written using [`EventWriter`], do _not_ automatically
 /// trigger any [`Observer`]s watching for that event, as each [`Event`] has different requirements regarding _if_ it will
 /// be triggered, and if so, _when_ it will be triggered in the schedule.
 ///
@@ -33,7 +32,7 @@ use bevy_ecs::{
 ///
 /// # Untyped events
 ///
-/// `EventWriter` can only send events of one specific type, which must be known at compile-time.
+/// `EventWriter` can only write events of one specific type, which must be known at compile-time.
 /// This is not a problem most of the time, but you may find a situation where you cannot know
 /// ahead of time every kind of event you'll need to send. In this case, you can use the "type-erased event" pattern.
 ///
@@ -65,13 +64,48 @@ pub struct EventWriter<'w, E: Event> {
 }
 
 impl<'w, E: Event> EventWriter<'w, E> {
+    /// Writes an `event`, which can later be read by [`EventReader`](super::EventReader)s.
+    /// This method returns the [ID](`EventId`) of the written `event`.
+    ///
+    /// See [`Events`] for details.
+    #[doc(alias = "send")]
+    #[track_caller]
+    pub fn write(&mut self, event: E) -> EventId<E> {
+        self.events.send(event)
+    }
+
+    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
+    /// This is more efficient than sending each event individually.
+    /// This method returns the [IDs](`EventId`) of the written `events`.
+    ///
+    /// See [`Events`] for details.
+    #[doc(alias = "send_batch")]
+    #[track_caller]
+    pub fn write_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
+        self.events.send_batch(events)
+    }
+
+    /// Writes the default value of the event. Useful when the event is an empty struct.
+    /// This method returns the [ID](`EventId`) of the written `event`.
+    ///
+    /// See [`Events`] for details.
+    #[doc(alias = "send_default")]
+    #[track_caller]
+    pub fn write_default(&mut self) -> EventId<E>
+    where
+        E: Default,
+    {
+        self.events.send_default()
+    }
+
     /// Sends an `event`, which can later be read by [`EventReader`](super::EventReader)s.
     /// This method returns the [ID](`EventId`) of the sent `event`.
     ///
     /// See [`Events`] for details.
+    #[deprecated(since = "0.16.0", note = "Use `EventWriter::write` instead.")]
     #[track_caller]
     pub fn send(&mut self, event: E) -> EventId<E> {
-        self.events.send(event)
+        self.write(event)
     }
 
     /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
@@ -79,20 +113,22 @@ impl<'w, E: Event> EventWriter<'w, E> {
     /// This method returns the [IDs](`EventId`) of the sent `events`.
     ///
     /// See [`Events`] for details.
+    #[deprecated(since = "0.16.0", note = "Use `EventWriter::write_batch` instead.")]
     #[track_caller]
     pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
-        self.events.send_batch(events)
+        self.write_batch(events)
     }
 
     /// Sends the default value of the event. Useful when the event is an empty struct.
     /// This method returns the [ID](`EventId`) of the sent `event`.
     ///
     /// See [`Events`] for details.
+    #[deprecated(since = "0.16.0", note = "Use `EventWriter::write_default` instead.")]
     #[track_caller]
     pub fn send_default(&mut self) -> EventId<E>
     where
         E: Default,
     {
-        self.events.send_default()
+        self.write_default()
     }
 }

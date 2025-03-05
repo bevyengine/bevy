@@ -112,7 +112,7 @@
 //!
 //! Additionally, using the derive macro on enums requires a third condition to be met:
 //! * All fields and sub-elements must implement [`FromReflect`]—
-//!     another important reflection trait discussed in a later section.
+//!   another important reflection trait discussed in a later section.
 //!
 //! # The Reflection Subtraits
 //!
@@ -564,6 +564,9 @@ extern crate std;
 
 extern crate alloc;
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_reflect;
+
 mod array;
 mod fields;
 mod from_reflect;
@@ -686,7 +689,10 @@ pub mod __macro_exports {
         note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
     )]
     pub trait RegisterForReflection {
-        #[allow(unused_variables)]
+        #[expect(
+            unused_variables,
+            reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+        )]
         fn __register(registry: &mut TypeRegistry) {}
     }
 
@@ -712,7 +718,10 @@ pub mod __macro_exports {
 }
 
 #[cfg(test)]
-#[allow(clippy::disallowed_types, clippy::approx_constant)]
+#[expect(
+    clippy::approx_constant,
+    reason = "We don't need the exact value of Pi here."
+)]
 mod tests {
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use alloc::{
@@ -723,7 +732,7 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use bevy_utils::HashMap;
+    use bevy_platform_support::collections::HashMap;
     use core::{
         any::TypeId,
         fmt::{Debug, Formatter},
@@ -738,7 +747,6 @@ mod tests {
     use static_assertions::{assert_impl_all, assert_not_impl_all};
 
     use super::{prelude::*, *};
-    use crate as bevy_reflect;
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         utility::GenericTypePathCell,
@@ -876,7 +884,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::disallowed_types)]
     fn reflect_unit_struct() {
         #[derive(Reflect)]
         struct Foo(u32, u64);
@@ -2148,7 +2155,7 @@ mod tests {
             enum_struct: SomeEnum,
             custom: CustomDebug,
             #[reflect(ignore)]
-            #[allow(dead_code)]
+            #[expect(dead_code, reason = "This value is intended to not be reflected.")]
             ignored: isize,
         }
 

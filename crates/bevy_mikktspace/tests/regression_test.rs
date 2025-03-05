@@ -2,7 +2,8 @@
 #![expect(
     clippy::bool_assert_comparison,
     clippy::semicolon_if_nothing_returned,
-    clippy::useless_conversion
+    clippy::useless_conversion,
+    reason = "Crate auto-generated with many non-idiomatic decisions. See #7372 for details."
 )]
 
 use bevy_mikktspace::{generate_tangents, Geometry};

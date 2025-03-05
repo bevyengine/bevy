@@ -15,14 +15,19 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg(all(debug_assertions, feature = "std"))]
 use std::eprintln;
 
+use thiserror::Error;
+
 /// An error indicating that a direction is invalid.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Error)]
 pub enum InvalidDirectionError {
     /// The length of the direction vector is zero or very close to zero.
+    #[error("The length of the direction vector is zero or very close to zero")]
     Zero,
     /// The length of the direction vector is `std::f32::INFINITY`.
+    #[error("The length of the direction vector is `std::f32::INFINITY`")]
     Infinite,
     /// The length of the direction vector is `NaN`.
+    #[error("The length of the direction vector is `NaN`")]
     NaN,
 }
 
@@ -38,15 +43,6 @@ impl InvalidDirectionError {
             // If the direction is invalid but neither NaN nor infinite, it must be zero
             InvalidDirectionError::Zero
         }
-    }
-}
-
-impl core::fmt::Display for InvalidDirectionError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(
-            f,
-            "Direction can not be zero (or very close to zero), or non-finite."
-        )
     }
 }
 
@@ -79,20 +75,6 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
         );
     }
 }
-
-/// A normalized vector pointing in a direction in 2D space
-#[deprecated(
-    since = "0.14.0",
-    note = "`Direction2d` has been renamed. Please use `Dir2` instead."
-)]
-pub type Direction2d = Dir2;
-
-/// A normalized vector pointing in a direction in 3D space
-#[deprecated(
-    since = "0.14.0",
-    note = "`Direction3d` has been renamed. Please use `Dir3` instead."
-)]
-pub type Direction3d = Dir3;
 
 /// A normalized vector pointing in a direction in 2D space
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -212,9 +194,11 @@ impl Dir2 {
     /// let dir2 = Dir2::Y;
     ///
     /// let result1 = dir1.slerp(dir2, 1.0 / 3.0);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(result1, Dir2::from_xy(0.75_f32.sqrt(), 0.5).unwrap());
     ///
     /// let result2 = dir1.slerp(dir2, 0.5);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(result2, Dir2::from_xy(0.5_f32.sqrt(), 0.5_f32.sqrt()).unwrap());
     /// ```
     #[inline]
@@ -471,6 +455,7 @@ impl Dir3 {
     /// let dir2 = Dir3::Y;
     ///
     /// let result1 = dir1.slerp(dir2, 1.0 / 3.0);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(
     ///     result1,
     ///     Dir3::from_xyz(0.75_f32.sqrt(), 0.5, 0.0).unwrap(),
@@ -478,6 +463,7 @@ impl Dir3 {
     /// );
     ///
     /// let result2 = dir1.slerp(dir2, 0.5);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(result2, Dir3::from_xyz(0.5_f32.sqrt(), 0.5_f32.sqrt(), 0.0).unwrap());
     /// ```
     #[inline]
@@ -730,6 +716,7 @@ impl Dir3A {
     /// let dir2 = Dir3A::Y;
     ///
     /// let result1 = dir1.slerp(dir2, 1.0 / 3.0);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(
     ///     result1,
     ///     Dir3A::from_xyz(0.75_f32.sqrt(), 0.5, 0.0).unwrap(),
@@ -737,6 +724,7 @@ impl Dir3A {
     /// );
     ///
     /// let result2 = dir1.slerp(dir2, 0.5);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(result2, Dir3A::from_xyz(0.5_f32.sqrt(), 0.5_f32.sqrt(), 0.0).unwrap());
     /// ```
     #[inline]
@@ -864,6 +852,7 @@ impl approx::UlpsEq for Dir3A {
 }
 
 #[cfg(test)]
+#[cfg(feature = "approx")]
 mod tests {
     use crate::ops;
 

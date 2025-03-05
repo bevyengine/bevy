@@ -99,7 +99,6 @@ Freecam Controls:
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn run_camera_controller(
     time: Res<Time>,
     mut windows: Query<&mut Window>,
@@ -113,7 +112,7 @@ fn run_camera_controller(
 ) {
     let dt = time.delta_secs();
 
-    let Ok((mut transform, mut controller)) = query.get_single_mut() else {
+    let Ok((mut transform, mut controller)) = query.single_mut() else {
         return;
     };
 

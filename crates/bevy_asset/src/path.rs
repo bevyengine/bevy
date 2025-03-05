@@ -1,4 +1,8 @@
 use crate::io::AssetSourceId;
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+};
 use atomicow::CowArc;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use core::{
@@ -14,10 +18,10 @@ use thiserror::Error;
 ///
 /// Asset paths consist of three main parts:
 /// * [`AssetPath::source`]: The name of the [`AssetSource`](crate::io::AssetSource) to load the asset from.
-///     This is optional. If one is not set the default source will be used (which is the `assets` folder by default).
+///   This is optional. If one is not set the default source will be used (which is the `assets` folder by default).
 /// * [`AssetPath::path`]: The "virtual filesystem path" pointing to an asset source file.
 /// * [`AssetPath::label`]: An optional "named sub asset". When assets are loaded, they are
-///     allowed to load "sub assets" of any type, which are identified by a named "label".
+///   allowed to load "sub assets" of any type, which are identified by a named "label".
 ///
 /// Asset paths are generally constructed (and visualized) as strings:
 ///
@@ -316,7 +320,7 @@ impl<'a> AssetPath<'a> {
     /// If internally a value is a static reference, the static reference will be used unchanged.
     /// If internally a value is an "owned [`Arc`]", it will remain unchanged.
     ///
-    /// [`Arc`]: std::sync::Arc
+    /// [`Arc`]: alloc::sync::Arc
     pub fn into_owned(self) -> AssetPath<'static> {
         AssetPath {
             source: self.source.into_owned(),
@@ -329,7 +333,7 @@ impl<'a> AssetPath<'a> {
     /// If internally a value is a static reference, the static reference will be used unchanged.
     /// If internally a value is an "owned [`Arc`]", the [`Arc`] will be cloned.
     ///
-    /// [`Arc`]: std::sync::Arc
+    /// [`Arc`]: alloc::sync::Arc
     #[inline]
     pub fn clone_owned(&self) -> AssetPath<'static> {
         self.clone().into_owned()
@@ -629,6 +633,7 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use crate::AssetPath;
+    use alloc::string::ToString;
     use std::path::Path;
 
     #[test]

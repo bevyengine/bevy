@@ -25,7 +25,7 @@ use core::fmt::Debug;
 /// }
 ///
 /// let func: Box<dyn Function> = Box::new(add.into_function());
-/// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+/// let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
 /// let value = func.reflect_call(args).unwrap().unwrap_owned();
 /// assert_eq!(value.try_take::<i32>().unwrap(), 100);
 /// ```
@@ -80,7 +80,7 @@ mod tests {
         }
 
         let func: Box<dyn Function> = Box::new(add.into_function());
-        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
         let value = func.reflect_call(args).unwrap().unwrap_owned();
         assert_eq!(value.try_take::<i32>().unwrap(), 100);
     }

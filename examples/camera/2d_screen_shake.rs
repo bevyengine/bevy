@@ -165,7 +165,7 @@ fn screen_shake(
         }
     } else {
         // return camera to the latest position of player (it's fixed in this example case)
-        if let Ok((mut camera, mut transform)) = query.get_single_mut() {
+        if let Ok((mut camera, mut transform)) = query.single_mut() {
             let sub_view = camera.sub_camera_view.as_mut().unwrap();
             let target = screen_shake.latest_position.unwrap();
             sub_view

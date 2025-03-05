@@ -1,7 +1,7 @@
 [package]
 name = "bevy_state"
-version = "0.15.0-dev"
-edition = "2021"
+version = "0.16.0-dev"
+edition = "2024"
 description = "Finite state machines for Bevy"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "bevy_reflect", "bevy_app", "bevy_hierarchy"]
+default = ["std", "bevy_reflect", "bevy_app"]
 
 # Functionality
 
@@ -17,15 +17,11 @@ default = ["std", "bevy_reflect", "bevy_app", "bevy_hierarchy"]
 bevy_reflect = [
   "dep:bevy_reflect",
   "bevy_ecs/bevy_reflect",
-  "bevy_hierarchy?/reflect",
   "bevy_app?/bevy_reflect",
 ]
 
 ## Adds integration with the `bevy_app` plugin API.
-bevy_app = ["dep:bevy_app", "bevy_hierarchy?/bevy_app"]
-
-## Adds integration with the `bevy_hierarchy` `Parent` and `Children` API.
-bevy_hierarchy = ["dep:bevy_hierarchy"]
+bevy_app = ["dep:bevy_app"]
 
 # Platform Compatibility
 
@@ -37,7 +33,7 @@ std = [
   "bevy_utils/std",
   "bevy_reflect?/std",
   "bevy_app?/std",
-  "bevy_hierarchy?/std",
+  "bevy_platform_support/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -46,24 +42,18 @@ critical-section = [
   "bevy_ecs/critical-section",
   "bevy_utils/critical-section",
   "bevy_app?/critical-section",
-]
-
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support. 
-portable-atomic = [
-  "bevy_ecs/portable-atomic",
-  "bevy_utils/portable-atomic",
-  "bevy_app?/portable-atomic",
+  "bevy_reflect?/critical-section",
+  "bevy_platform_support/critical-section",
 ]
 
 [dependencies]
 # bevy
-bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev", default-features = false }
-bevy_state_macros = { path = "macros", version = "0.15.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", default-features = false, optional = true }
-bevy_app = { path = "../bevy_app", version = "0.15.0-dev", default-features = false, optional = true }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev", default-features = false, optional = true }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
+bevy_state_macros = { path = "macros", version = "0.16.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
 variadics_please = "1.1"
 
 # other

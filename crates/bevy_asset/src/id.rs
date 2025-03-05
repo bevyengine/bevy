@@ -26,7 +26,9 @@ pub enum AssetId<A: Asset> {
     ///
     /// [`Assets`]: crate::Assets
     Index {
+        /// The unstable, opaque index of the asset.
         index: AssetIndex,
+        /// A marker to store the type information of the asset.
         #[reflect(ignore)]
         marker: PhantomData<fn() -> A>,
     },
@@ -34,7 +36,10 @@ pub enum AssetId<A: Asset> {
     /// with one.
     ///
     /// [`Assets`]: crate::Assets
-    Uuid { uuid: Uuid },
+    Uuid {
+        /// The UUID provided during asset registration.
+        uuid: Uuid,
+    },
 }
 
 impl<A: Asset> AssetId<A> {
@@ -165,12 +170,22 @@ pub enum UntypedAssetId {
     /// explicitly registered that way.
     ///
     /// [`Assets`]: crate::Assets
-    Index { type_id: TypeId, index: AssetIndex },
+    Index {
+        /// An identifier that records the underlying asset type.
+        type_id: TypeId,
+        /// The unstable, opaque index of the asset.
+        index: AssetIndex,
+    },
     /// A stable-across-runs / const asset identifier. This will only be used if an asset is explicitly registered in [`Assets`]
     /// with one.
     ///
     /// [`Assets`]: crate::Assets
-    Uuid { type_id: TypeId, uuid: Uuid },
+    Uuid {
+        /// An identifier that records the underlying asset type.
+        type_id: TypeId,
+        /// The UUID provided during asset registration.
+        uuid: Uuid,
+    },
 }
 
 impl UntypedAssetId {
@@ -404,7 +419,12 @@ impl<A: Asset> TryFrom<UntypedAssetId> for AssetId<A> {
 pub enum UntypedAssetIdConversionError {
     /// Caused when trying to convert an [`UntypedAssetId`] into an [`AssetId`] of the wrong type.
     #[error("This UntypedAssetId is for {found:?} and cannot be converted into an AssetId<{expected:?}>")]
-    TypeIdMismatch { expected: TypeId, found: TypeId },
+    TypeIdMismatch {
+        /// The [`TypeId`] of the asset that we are trying to convert to.
+        expected: TypeId,
+        /// The [`TypeId`] of the asset that we are trying to convert from.
+        found: TypeId,
+    },
 }
 
 #[cfg(test)]
@@ -420,7 +440,7 @@ mod tests {
     fn hash<T: Hash>(data: &T) -> u64 {
         use core::hash::BuildHasher;
 
-        bevy_utils::FixedHasher.hash_one(data)
+        bevy_platform_support::hash::FixedHasher.hash_one(data)
     }
 
     /// Typed and Untyped `AssetIds` should be equivalent to each other and themselves

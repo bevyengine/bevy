@@ -1,24 +1,38 @@
 //! A material that uses bindless textures.
 
 use bevy::prelude::*;
-use bevy::render::render_resource::{AsBindGroup, ShaderRef};
+use bevy::render::render_resource::{AsBindGroup, ShaderRef, ShaderType};
 
 const SHADER_ASSET_PATH: &str = "shaders/bindless_material.wgsl";
 
-// `#[bindless(4)]` indicates that we want Bevy to group materials into bind
-// groups of at most 4 materials each.
+// `#[bindless(limit(4))]` indicates that we want Bevy to group materials into
+// bind groups of at most 4 materials each.
+// Note that we use the structure-level `#[uniform]` attribute to supply
+// ordinary data to the shader.
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-#[bindless(4)]
+#[uniform(0, BindlessMaterialUniform, binding_array(10))]
+#[bindless(limit(4))]
 struct BindlessMaterial {
-    // This will be exposed to the shader as a binding array of 4 *storage*
-    // buffers (as bindless uniforms don't exist).
-    #[uniform(0)]
     color: LinearRgba,
     // This will be exposed to the shader as a binding array of 4 textures and a
     // binding array of 4 samplers.
     #[texture(1)]
     #[sampler(2)]
     color_texture: Option<Handle<Image>>,
+}
+
+// This buffer will be presented to the shader as `@binding(10)`.
+#[derive(ShaderType)]
+struct BindlessMaterialUniform {
+    color: LinearRgba,
+}
+
+impl<'a> From<&'a BindlessMaterial> for BindlessMaterialUniform {
+    fn from(material: &'a BindlessMaterial) -> Self {
+        BindlessMaterialUniform {
+            color: material.color,
+        }
+    }
 }
 
 // The entry point.

@@ -184,7 +184,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn create_button(parent: &mut ChildBuilder<'_>, asset_server: &AssetServer) {
+fn create_button(parent: &mut ChildSpawnerCommands<'_>, asset_server: &AssetServer) {
     parent
         .spawn((
             Button,

@@ -1,19 +1,16 @@
-use crate::system::{SystemBuffer, SystemMeta};
-
+use crate::{
+    system::{Command, SystemBuffer, SystemMeta},
+    world::{DeferredWorld, World},
+};
+use alloc::{boxed::Box, vec::Vec};
+use bevy_ptr::{OwningPtr, Unaligned};
 use core::{
     fmt::Debug,
     mem::{size_of, MaybeUninit},
     panic::AssertUnwindSafe,
     ptr::{addr_of_mut, NonNull},
 };
-
-use alloc::{boxed::Box, vec::Vec};
-use bevy_ptr::{OwningPtr, Unaligned};
 use log::warn;
-
-use crate::world::{Command, World};
-
-use super::DeferredWorld;
 
 struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
@@ -75,10 +72,7 @@ unsafe impl Sync for CommandQueue {}
 impl CommandQueue {
     /// Push a [`Command`] onto the queue.
     #[inline]
-    pub fn push<C>(&mut self, command: C)
-    where
-        C: Command,
-    {
+    pub fn push(&mut self, command: impl Command) {
         // SAFETY: self is guaranteed to live for the lifetime of this method
         unsafe {
             self.get_raw().push(command);
@@ -154,17 +148,14 @@ impl RawCommandQueue {
     ///
     /// * Caller ensures that `self` has not outlived the underlying queue
     #[inline]
-    pub unsafe fn push<C>(&mut self, command: C)
-    where
-        C: Command,
-    {
+    pub unsafe fn push<C: Command>(&mut self, command: C) {
         // Stores a command alongside its metadata.
         // `repr(C)` prevents the compiler from reordering the fields,
         // while `repr(packed)` prevents the compiler from inserting padding bytes.
         #[repr(C, packed)]
-        struct Packed<T: Command> {
+        struct Packed<C: Command> {
             meta: CommandMeta,
-            command: T,
+            command: C,
         }
 
         let meta = CommandMeta {
@@ -344,8 +335,7 @@ impl SystemBuffer for CommandQueue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate as bevy_ecs;
-    use crate::system::Resource;
+    use crate::resource::Resource;
     use alloc::{borrow::ToOwned, string::String, sync::Arc};
     use core::{
         panic::AssertUnwindSafe,
@@ -441,10 +431,10 @@ mod test {
         assert_eq!(world.entities().len(), 2);
     }
 
-    // This has an arbitrary value `String` stored to ensure
-    // when then command gets pushed, the `bytes` vector gets
-    // some data added to it.
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "The inner string is used to ensure that, when the PanicCommand gets pushed to the queue, some data is written to the `bytes` vector."
+    )]
     struct PanicCommand(String);
     impl Command for PanicCommand {
         fn apply(self, _: &mut World) {
@@ -520,7 +510,10 @@ mod test {
         assert_is_send(SpawnCommand);
     }
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used to test how the CommandQueue reacts to padding added by rust's compiler."
+    )]
     struct CommandWithPadding(u8, u16);
     impl Command for CommandWithPadding {
         fn apply(self, _: &mut World) {}

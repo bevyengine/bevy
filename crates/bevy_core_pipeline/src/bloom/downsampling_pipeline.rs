@@ -2,10 +2,11 @@ use super::{Bloom, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT};
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
     prelude::{Component, Entity},
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_math::Vec4;
+use bevy_math::{Vec2, Vec4};
 use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -31,6 +32,7 @@ pub struct BloomDownsamplingPipeline {
 pub struct BloomDownsamplingPipelineKeys {
     prefilter: bool,
     first_downsample: bool,
+    uniform_scale: bool,
 }
 
 /// The uniform struct extracted from [`Bloom`] attached to a Camera.
@@ -40,8 +42,8 @@ pub struct BloomUniforms {
     // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
     pub threshold_precomputations: Vec4,
     pub viewport: Vec4,
+    pub scale: Vec2,
     pub aspect: f32,
-    pub uv_offset: f32,
 }
 
 impl FromWorld for BloomDownsamplingPipeline {
@@ -102,6 +104,10 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
             shader_defs.push("USE_THRESHOLD".into());
         }
 
+        if key.uniform_scale {
+            shader_defs.push("UNIFORM_SCALE".into());
+        }
+
         RenderPipelineDescriptor {
             label: Some(
                 if key.first_downsample {
@@ -148,6 +154,7 @@ pub fn prepare_downsampling_pipeline(
             BloomDownsamplingPipelineKeys {
                 prefilter,
                 first_downsample: false,
+                uniform_scale: bloom.scale == Vec2::ONE,
             },
         );
 
@@ -157,6 +164,7 @@ pub fn prepare_downsampling_pipeline(
             BloomDownsamplingPipelineKeys {
                 prefilter,
                 first_downsample: true,
+                uniform_scale: bloom.scale == Vec2::ONE,
             },
         );
 

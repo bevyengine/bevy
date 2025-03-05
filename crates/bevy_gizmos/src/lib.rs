@@ -19,6 +19,9 @@
 //!
 //! See the documentation on [Gizmos](crate::gizmos::Gizmos) for more examples.
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_gizmos;
+
 /// System set label for the systems handling the rendering of gizmos.
 #[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum GizmoRenderSystem {
@@ -76,10 +79,11 @@ pub mod prelude {
 }
 
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
-use bevy_asset::{Asset, AssetApp, AssetId, Assets, Handle};
+use bevy_asset::{weak_handle, Asset, AssetApp, AssetId, Assets, Handle};
 use bevy_ecs::{
+    resource::Resource,
     schedule::{IntoSystemConfigs, SystemSet},
-    system::{Res, ResMut, Resource},
+    system::{Res, ResMut},
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::TypePath;
@@ -137,9 +141,10 @@ use gizmos::{GizmoStorage, Swap};
 use light::LightGizmoPlugin;
 
 #[cfg(feature = "bevy_render")]
-const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
+const LINE_SHADER_HANDLE: Handle<Shader> = weak_handle!("15dc5869-ad30-4664-b35a-4137cb8804a1");
 #[cfg(feature = "bevy_render")]
-const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1162780797909187908);
+const LINE_JOINT_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("7b5bdda5-df81-4711-a6cf-e587700de6f2");
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 ///
@@ -189,16 +194,16 @@ impl Plugin for GizmoPlugin {
             if app.is_plugin_added::<bevy_sprite::SpritePlugin>() {
                 app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
             } else {
-                bevy_utils::tracing::warn!("bevy_sprite feature is enabled but bevy_sprite::SpritePlugin was not detected. Are you sure you loaded GizmoPlugin after SpritePlugin?");
+                tracing::warn!("bevy_sprite feature is enabled but bevy_sprite::SpritePlugin was not detected. Are you sure you loaded GizmoPlugin after SpritePlugin?");
             }
             #[cfg(feature = "bevy_pbr")]
             if app.is_plugin_added::<bevy_pbr::PbrPlugin>() {
                 app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
             } else {
-                bevy_utils::tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
+                tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
             }
         } else {
-            bevy_utils::tracing::warn!("bevy_render feature is enabled but RenderApp was not detected. Are you sure you loaded GizmoPlugin after RenderPlugin?");
+            tracing::warn!("bevy_render feature is enabled but RenderApp was not detected. Are you sure you loaded GizmoPlugin after RenderPlugin?");
         }
     }
 
@@ -419,8 +424,9 @@ fn extract_gizmo_data(
     handles: Extract<Res<GizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
 ) {
-    use bevy_utils::warn_once;
+    use bevy_utils::once;
     use config::GizmoLineStyle;
+    use tracing::warn;
 
     for (group_type_id, handle) in &handles.handles {
         let Some((config, _)) = config.get_config_dyn(group_type_id) else {
@@ -447,10 +453,10 @@ fn extract_gizmo_data(
         } = config.line.style
         {
             if gap_scale <= 0.0 {
-                warn_once!("When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the gap scale should be greater than zero.");
+                once!(warn!("When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the gap scale should be greater than zero."));
             }
             if line_scale <= 0.0 {
-                warn_once!("When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the line scale should be greater than zero.");
+                once!(warn!("When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the line scale should be greater than zero."));
             }
             (gap_scale, line_scale)
         } else {

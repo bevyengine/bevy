@@ -2,7 +2,8 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::With,
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res, ResMut},
     world::FromWorld,
 };
 use bevy_image::BevyDefault as _;

@@ -123,11 +123,6 @@ fn main() {
             ..default()
         }))
         .add_plugins(MeshPickingPlugin)
-        .insert_resource(AmbientLight {
-            color: ClearColor::default().0,
-            brightness: 10000.0,
-            affects_lightmapped_meshes: true,
-        })
         .init_resource::<AppStatus>()
         .add_event::<WidgetClickEvent<LightingMode>>()
         .add_event::<LightingModeChanged>()
@@ -145,18 +140,28 @@ fn main() {
 }
 
 /// Creates the scene.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
-    spawn_camera(&mut commands);
+fn setup(
+    mut commands: Commands,
+    images: ResMut<Assets<Image>>,
+    asset_server: Res<AssetServer>,
+    app_status: Res<AppStatus>,
+) {
+    spawn_camera(&mut commands, images);
     spawn_scene(&mut commands, &asset_server);
     spawn_buttons(&mut commands);
     spawn_help_text(&mut commands, &app_status);
 }
 
 /// Spawns the 3D camera.
-fn spawn_camera(commands: &mut Commands) {
-    commands
-        .spawn(Camera3d::default())
-        .insert(Transform::from_xyz(-0.7, 0.7, 1.0).looking_at(vec3(0.0, 0.3, 0.0), Vec3::Y));
+fn spawn_camera(commands: &mut Commands, mut images: ResMut<Assets<Image>>) {
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-0.7, 0.7, 1.0).looking_at(vec3(0.0, 0.3, 0.0), Vec3::Y),
+        EnvironmentMapLight {
+            intensity: 10000.0,
+            ..EnvironmentMapLight::solid_color(&mut images, ClearColor::default().0)
+        },
+    ));
 }
 
 /// Spawns the scene.
@@ -175,7 +180,7 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
              mut lighting_mode_change_event_writer: EventWriter<LightingModeChanged>| {
                 // When the scene loads, send a `LightingModeChanged` event so
                 // that we set up the lightmaps.
-                lighting_mode_change_event_writer.send(LightingModeChanged);
+                lighting_mode_change_event_writer.write(LightingModeChanged);
             },
         );
 }
@@ -267,6 +272,7 @@ fn update_lightmaps(
                     commands.entity(entity).insert(Lightmap {
                         image: (*lightmap).clone(),
                         uv_rect,
+                        bicubic_sampling: false,
                     });
                 }
                 None => {
@@ -290,6 +296,7 @@ fn update_lightmaps(
                     commands.entity(entity).insert(Lightmap {
                         image: (*lightmap).clone(),
                         uv_rect: SPHERE_UV_RECT,
+                        bicubic_sampling: false,
                     });
                 }
                 _ => {
@@ -319,11 +326,11 @@ const fn uv_rect_opengl(gl_min: Vec2, size: Vec2) -> Rect {
 /// hit on the sphere itself.
 fn make_sphere_nonpickable(
     mut commands: Commands,
-    mut query: Query<(Entity, &Name), (With<Mesh3d>, Without<PickingBehavior>)>,
+    mut query: Query<(Entity, &Name), (With<Mesh3d>, Without<Pickable>)>,
 ) {
     for (sphere, name) in &mut query {
         if &**name == "Sphere" {
-            commands.entity(sphere).insert(PickingBehavior::IGNORE);
+            commands.entity(sphere).insert(Pickable::IGNORE);
         }
     }
 }
@@ -391,7 +398,7 @@ fn handle_lighting_mode_change(
 ) {
     for event in widget_click_event_reader.read() {
         app_status.lighting_mode = **event;
-        lighting_mode_change_event_writer.send(LightingModeChanged);
+        lighting_mode_change_event_writer.write(LightingModeChanged);
     }
 }
 
@@ -430,7 +437,7 @@ fn reset_sphere_position(
 fn move_sphere(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     pointers: Query<&PointerInteraction>,
-    mut meshes: Query<(&Name, &Parent), With<Mesh3d>>,
+    mut meshes: Query<(&Name, &ChildOf), With<Mesh3d>>,
     mut transforms: Query<&mut Transform>,
     app_status: Res<AppStatus>,
 ) {
@@ -443,11 +450,11 @@ fn move_sphere(
     }
 
     // Find the sphere.
-    let Some(parent) = meshes
+    let Some(child_of) = meshes
         .iter_mut()
-        .filter_map(|(name, parent)| {
+        .filter_map(|(name, child_of)| {
             if &**name == "Sphere" {
-                Some(parent)
+                Some(child_of)
             } else {
                 None
             }
@@ -458,7 +465,7 @@ fn move_sphere(
     };
 
     // Grab its transform.
-    let Ok(mut transform) = transforms.get_mut(**parent) else {
+    let Ok(mut transform) = transforms.get_mut(child_of.parent) else {
         return;
     };
 

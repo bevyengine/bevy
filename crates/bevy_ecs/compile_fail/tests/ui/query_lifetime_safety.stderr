@@ -45,9 +45,9 @@ error[E0502]: cannot borrow `query` as immutable because it is also borrowed as 
 error[E0502]: cannot borrow `query` as mutable because it is also borrowed as immutable
   --> tests/ui/query_lifetime_safety.rs:45:39
    |
-44 |             let data: &Foo = query.get_single().unwrap();
+44 |             let data: &Foo = query.single().unwrap();
    |                              ----- immutable borrow occurs here
-45 |             let mut data2: Mut<Foo> = query.get_single_mut().unwrap();
+45 |             let mut data2: Mut<Foo> = query.single_mut().unwrap();
    |                                       ^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
 46 |
 47 |             assert_eq!(data, &mut *data2); // oops UB
@@ -56,9 +56,9 @@ error[E0502]: cannot borrow `query` as mutable because it is also borrowed as im
 error[E0502]: cannot borrow `query` as immutable because it is also borrowed as mutable
   --> tests/ui/query_lifetime_safety.rs:52:30
    |
-51 |             let mut data2: Mut<Foo> = query.get_single_mut().unwrap();
+51 |             let mut data2: Mut<Foo> = query.single_mut().unwrap();
    |                                       ----- mutable borrow occurs here
-52 |             let data: &Foo = query.get_single().unwrap();
+52 |             let data: &Foo = query.single().unwrap();
    |                              ^^^^^ immutable borrow occurs here
 53 |
 54 |             assert_eq!(data, &mut *data2); // oops UB

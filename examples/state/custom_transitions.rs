@@ -163,7 +163,7 @@ fn menu(
 }
 
 fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-    commands.entity(menu_data.button_entity).despawn_recursive();
+    commands.entity(menu_data.button_entity).despawn();
 }
 
 const SPEED: f32 = 100.0;

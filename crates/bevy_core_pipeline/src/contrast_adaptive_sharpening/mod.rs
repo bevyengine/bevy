@@ -4,7 +4,7 @@ use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -54,9 +54,6 @@ pub struct ContrastAdaptiveSharpening {
     pub denoise: bool,
 }
 
-#[deprecated(since = "0.15.0", note = "Renamed to `ContrastAdaptiveSharpening`")]
-pub type ContrastAdaptiveSharpeningSettings = ContrastAdaptiveSharpening;
-
 impl Default for ContrastAdaptiveSharpening {
     fn default() -> Self {
         ContrastAdaptiveSharpening {
@@ -99,7 +96,7 @@ impl ExtractComponent for ContrastAdaptiveSharpening {
 }
 
 const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(6925381244141981602);
+    weak_handle!("ef83f0a5-51df-4b51-9ab7-b5fd1ae5a397");
 
 /// Adds Support for Contrast Adaptive Sharpening (CAS).
 pub struct CasPlugin;

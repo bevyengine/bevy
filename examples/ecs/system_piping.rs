@@ -4,10 +4,7 @@
 use bevy::prelude::*;
 use std::num::ParseIntError;
 
-use bevy::{
-    log::LogPlugin,
-    utils::tracing::{debug, error, info, Level},
-};
+use bevy::log::{debug, error, info, Level, LogPlugin};
 
 fn main() {
     App::new()
@@ -72,7 +69,7 @@ fn data_pipe_system(message: Res<Message>) -> String {
     message.0.clone()
 }
 
-// This system produces an Result<String> output by trying to extract a String from the
+// This system produces a Result<String> output by trying to extract a String from the
 // OptionalWarning resource. Try changing the OptionalWarning resource to None. You should
 // not see the warning message printed.
 fn warning_pipe_system(message: Res<OptionalWarning>) -> Result<(), String> {

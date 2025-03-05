@@ -1,4 +1,4 @@
-use crate::{self as bevy_reflect, impl_reflect_opaque, ReflectDeserialize, ReflectSerialize};
+use crate::{impl_reflect_opaque, ReflectDeserialize, ReflectSerialize};
 
 impl_reflect_opaque!(::wgpu_types::TextureFormat(
     Debug,

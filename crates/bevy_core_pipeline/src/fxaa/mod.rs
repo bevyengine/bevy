@@ -4,7 +4,7 @@ use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -80,7 +80,7 @@ impl Default for Fxaa {
     }
 }
 
-const FXAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4182761465141723543);
+const FXAA_SHADER_HANDLE: Handle<Shader> = weak_handle!("fc58c0a8-01c0-46e9-94cc-83a794bae7b0");
 
 /// Adds support for Fast Approximate Anti-Aliasing (FXAA)
 pub struct FxaaPlugin;

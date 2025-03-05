@@ -4,7 +4,8 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use bevy_utils::{hashbrown::hash_map::Entry, TypeIdMap};
+use bevy_platform_support::collections::hash_map::Entry;
+use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use log::{debug, warn};
 
@@ -226,7 +227,7 @@ impl PluginGroup for PluginGroupBuilder {
 
 /// Facilitates the creation and configuration of a [`PluginGroup`].
 ///
-/// Provides a build ordering to ensure that [`Plugin`]s which produce/require a [`Resource`](bevy_ecs::system::Resource)
+/// Provides a build ordering to ensure that [`Plugin`]s which produce/require a [`Resource`](bevy_ecs::resource::Resource)
 /// are built before/after dependent/depending [`Plugin`]s. [`Plugin`]s inside the group
 /// can be disabled, enabled or reordered.
 pub struct PluginGroupBuilder {

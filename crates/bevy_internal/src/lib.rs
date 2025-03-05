@@ -36,7 +36,6 @@ pub use bevy_gilrs as gilrs;
 pub use bevy_gizmos as gizmos;
 #[cfg(feature = "bevy_gltf")]
 pub use bevy_gltf as gltf;
-pub use bevy_hierarchy as hierarchy;
 #[cfg(feature = "bevy_image")]
 pub use bevy_image as image;
 pub use bevy_input as input;
@@ -47,6 +46,7 @@ pub use bevy_math as math;
 pub use bevy_pbr as pbr;
 #[cfg(feature = "bevy_picking")]
 pub use bevy_picking as picking;
+pub use bevy_platform_support as platform_support;
 pub use bevy_ptr as ptr;
 pub use bevy_reflect as reflect;
 #[cfg(feature = "bevy_remote")]
