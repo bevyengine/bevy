@@ -2935,8 +2935,7 @@ impl Gradient {
     /// Returns true if the gradient has no stops.
     pub fn is_empty(&self) -> bool {
         match self {
-            Gradient::Linear { stops, .. } => stops.is_empty(),
-            Gradient::Radial { stops, .. } => stops.is_empty(),
+            Gradient::Linear { stops, .. } | Gradient::Radial { stops, .. } => stops.is_empty(),
             Gradient::Conic { stops, .. } => stops.is_empty(),
         }
     }
@@ -2944,10 +2943,7 @@ impl Gradient {
     /// If the gradient has only a single stop returns its color.
     pub fn get_single(&self) -> Option<Color> {
         match self {
-            Gradient::Linear { stops, .. } => stops
-                .first()
-                .and_then(|stop| (stops.len() == 1).then_some(stop.color)),
-            Gradient::Radial { stops, .. } => stops
+            Gradient::Linear { stops, .. } | Gradient::Radial { stops, .. } => stops
                 .first()
                 .and_then(|stop| (stops.len() == 1).then_some(stop.color)),
             Gradient::Conic { stops, .. } => stops

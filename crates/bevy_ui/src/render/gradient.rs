@@ -840,10 +840,10 @@ pub fn prepare_linear_gradient(
                         let end_color = end_stop.0.to_f32_array();
                         let mut stop_flags = flags;
                         if stop_index == gradient.stops_range.start {
-                            stop_flags |= FILL_START
+                            stop_flags |= FILL_START;
                         }
                         if stop_index == gradient.stops_range.end - 2 {
-                            stop_flags |= FILL_END
+                            stop_flags |= FILL_END;
                         }
 
                         for i in 0..4 {
