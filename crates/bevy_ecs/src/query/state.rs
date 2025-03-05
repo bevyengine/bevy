@@ -89,7 +89,13 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
 }
 
 /// Abstracts over an owned or borrowed [`QueryState`].
-pub trait QueryStateDeref: Deref<Target = QueryState<Self::Data, Self::Filter>> {
+///
+/// # Safety
+///
+/// This must `deref` to a `QueryState` that does not change.
+pub unsafe trait QueryStateDeref:
+    Deref<Target = QueryState<Self::Data, Self::Filter>>
+{
     /// The [`QueryData`] for this `QueryState`.
     type Data: QueryData;
 
@@ -118,7 +124,8 @@ pub trait QueryStateDeref: Deref<Target = QueryState<Self::Data, Self::Filter>> 
     fn into_readonly(self) -> Self::ReadOnly;
 }
 
-impl<D: QueryData, F: QueryFilter> QueryStateDeref for Box<QueryState<D, F>> {
+/// SAFETY: The QueryState is owned and cannot change
+unsafe impl<D: QueryData, F: QueryFilter> QueryStateDeref for Box<QueryState<D, F>> {
     type Data = D;
     type Filter = F;
     type StorageIter = vec::IntoIter<StorageId>;
@@ -142,7 +149,8 @@ impl<D: QueryData, F: QueryFilter> QueryStateDeref for Box<QueryState<D, F>> {
     }
 }
 
-impl<'s, D: QueryData, F: QueryFilter> QueryStateDeref for &'s QueryState<D, F> {
+/// SAFETY: The QueryState is borrowed for the life of the reference and cannot change
+unsafe impl<'s, D: QueryData, F: QueryFilter> QueryStateDeref for &'s QueryState<D, F> {
     type Data = D;
     type Filter = F;
     type StorageIter = iter::Copied<slice::Iter<'s, StorageId>>;
