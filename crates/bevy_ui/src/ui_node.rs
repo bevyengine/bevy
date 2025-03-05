@@ -13,7 +13,7 @@ use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
-use core::num::NonZero;
+use core::{f32, num::NonZero};
 use derive_more::derive::From;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -2599,37 +2599,6 @@ impl Default for LayoutConfig {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::GridPlacement;
-
-    #[test]
-    fn invalid_grid_placement_values() {
-        assert!(std::panic::catch_unwind(|| GridPlacement::span(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::end(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(0, 1)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(-1, 0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(1, 0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(0, 1)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(0, 1)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(1, 0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_start(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_end(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_span(0)).is_err());
-    }
-
-    #[test]
-    fn grid_placement_accessors() {
-        assert_eq!(GridPlacement::start(5).get_start(), Some(5));
-        assert_eq!(GridPlacement::end(-4).get_end(), Some(-4));
-        assert_eq!(GridPlacement::span(2).get_span(), Some(2));
-        assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
-        assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
-        assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
-    }
-}
-
 /// Indicates that this root [`Node`] entity should be rendered to a specific camera.
 ///
 /// UI then will be laid out respecting the camera's viewport and scale factor, and
@@ -2823,5 +2792,230 @@ impl Default for TextShadow {
             offset: Vec2::splat(4.),
             color: Color::linear_rgba(0., 0., 0., 0.75),
         }
+    }
+}
+
+/// A color stop for a gradient
+#[derive(Debug, Copy, Clone, PartialEq, Reflect)]
+#[reflect(Default, PartialEq, Debug)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct ColorStop {
+    /// color
+    pub color: Color,
+    /// logical distance along the gradient line
+    pub point: Val,
+}
+
+impl ColorStop {
+    pub fn new(color: Color, point: Val) -> Self {
+        Self { color, point }
+    }
+}
+
+impl From<(Color, Val)> for ColorStop {
+    fn from((color, stop): (Color, Val)) -> Self {
+        Self { color, point: stop }
+    }
+}
+
+impl From<Color> for ColorStop {
+    fn from(color: Color) -> Self {
+        Self {
+            color,
+            point: Val::Auto,
+        }
+    }
+}
+
+impl Default for ColorStop {
+    fn default() -> Self {
+        Self {
+            color: Color::WHITE,
+            point: Val::Auto,
+        }
+    }
+}
+
+/// An angular color stop for a conic gradient
+#[derive(Default, Debug, Copy, Clone, PartialEq, Reflect)]
+#[reflect(Default, PartialEq, Debug)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct AngularColorStop {
+    pub color: Color,
+    pub angle: Option<f32>,
+}
+
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum RadialGradientAxis {
+    #[default]
+    ClosestSide,
+    FarthestSide,
+    Length(Val),
+}
+
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum RadialGradientShape {
+    #[default]
+    FarthestCorner,
+    Circle(RadialGradientAxis),
+    ClosestCorner,
+    Ellipse(RadialGradientAxis, RadialGradientAxis),
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum RelativePosition {
+    Start(Val),
+    Center(Val),
+    End(Val),
+}
+
+impl RelativePosition {
+    pub fn start() -> Self {
+        Self::Start(Val::ZERO)
+    }
+
+    pub fn center() -> Self {
+        Self::Center(Val::ZERO)
+    }
+
+    pub fn end() -> Self {
+        Self::End(Val::ZERO)
+    }
+
+    pub fn resolve(self, scale_factor: f32, length: f32, viewport_size: Vec2) -> f32 {
+        let (val, point) = match self {
+            Self::Start(val) => (val, -0.5 * length),
+            Self::Center(val) => (val, 0.),
+            Self::End(val) => (-val, 0.5 * length),
+        };
+        point
+            + val
+                .resolve(scale_factor, length, viewport_size)
+                .unwrap_or(0.)
+    }
+}
+
+impl Default for RelativePosition {
+    fn default() -> Self {
+        RelativePosition::Center(Val::Auto)
+    }
+}
+#[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum Gradient {
+    Linear {
+        angle: f32,
+        stops: Vec<ColorStop>,
+    },
+    Radial {
+        center: [RelativePosition; 2],
+        shape: RadialGradientShape,
+        stops: Vec<ColorStop>,
+    },
+    Conic {
+        center: [RelativePosition; 2],
+        stops: Vec<AngularColorStop>,
+    },
+}
+
+impl Gradient {
+    /// Returns true if the gradient has no stops.
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Gradient::Linear { stops, .. } | Gradient::Radial { stops, .. } => stops.is_empty(),
+            Gradient::Conic { stops, .. } => stops.is_empty(),
+        }
+    }
+
+    /// If the gradient has only a single stop returns its color.
+    pub fn get_single(&self) -> Option<Color> {
+        match self {
+            Gradient::Linear { stops, .. } | Gradient::Radial { stops, .. } => stops
+                .first()
+                .and_then(|stop| (stops.len() == 1).then_some(stop.color)),
+            Gradient::Conic { stops, .. } => stops
+                .first()
+                .and_then(|stop| (stops.len() == 1).then_some(stop.color)),
+        }
+    }
+}
+
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct GradientNode(pub Gradient);
+
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct GradientBorder(pub Gradient);
+
+#[cfg(test)]
+mod tests {
+    use crate::GridPlacement;
+
+    #[test]
+    fn invalid_grid_placement_values() {
+        assert!(std::panic::catch_unwind(|| GridPlacement::span(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(-1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_start(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_end(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_span(0)).is_err());
+    }
+
+    #[test]
+    fn grid_placement_accessors() {
+        assert_eq!(GridPlacement::start(5).get_start(), Some(5));
+        assert_eq!(GridPlacement::end(-4).get_end(), Some(-4));
+        assert_eq!(GridPlacement::span(2).get_span(), Some(2));
+        assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
+        assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
+        assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
     }
 }

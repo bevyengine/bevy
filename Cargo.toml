@@ -3338,6 +3338,28 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "linear_gradients"
+path = "examples/ui/linear_gradients.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.linear_gradients]
+name = "Linear Gradients"
+description = "An example demonstrating linear gradients"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "radial_gradients"
+path = "examples/ui/radial_gradients.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.radial_gradients]
+name = "Radial Gradients"
+description = "An example demonstrating radial gradients"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "scroll"
 path = "examples/ui/scroll.rs"
 doc-scrape-examples = true
