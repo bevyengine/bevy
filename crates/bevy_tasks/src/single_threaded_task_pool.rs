@@ -277,17 +277,17 @@ impl TaskPool {
     /// the browser. Consider using [`spawn_blocking_async`] instead.
     ///
     /// [`spawn_blocking_async`]: Self::spawn_blocking_async
-    pub fn spawn_blocking<T>(&self, f: impl FnOnce() + 'static) -> FakeTask
+    pub fn spawn_blocking<T>(&self, f: impl FnOnce() -> T + 'static) -> Task<T>
     where
-        T: 'static,
+        T: 'static + MaybeSend + MaybeSync,
     {
         self.spawn(async { f() })
     }
 
     /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
-    pub fn spawn_blocking_async<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
+    pub fn spawn_blocking_async<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
     where
-        T: 'static,
+        T: 'static + MaybeSend + MaybeSync,
     {
         self.spawn(future)
     }

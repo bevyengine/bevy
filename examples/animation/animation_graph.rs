@@ -16,7 +16,7 @@ use argh::FromArgs;
 
 #[cfg(not(target_arch = "wasm32"))]
 use {
-    bevy::{asset::io::file::FileAssetReader, tasks::IoTaskPool},
+    bevy::{asset::io::file::FileAssetReader, tasks::ComputeTaskPool},
     ron::ser::PrettyConfig,
     std::{fs::File, path::Path},
 };

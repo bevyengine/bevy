@@ -2,7 +2,7 @@ use crate::{App, Plugin};
 
 use alloc::string::ToString;
 use bevy_platform_support::sync::Arc;
-use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
+use bevy_tasks::{ComputeTaskPool, TaskPoolBuilder};
 use core::{fmt::Debug, marker::PhantomData};
 use log::trace;
 
@@ -175,7 +175,7 @@ impl TaskPoolOptions {
             trace!("IO Threads: {}", io_threads);
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
-            IoTaskPool::get_or_init(|| {
+            ComputeTaskPool::get_or_init(|| {
                 #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
                 let mut builder = TaskPoolBuilder::default()
                     .num_threads(io_threads)
@@ -204,7 +204,7 @@ impl TaskPoolOptions {
             trace!("Async Compute Threads: {}", async_compute_threads);
             remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
-            AsyncComputeTaskPool::get_or_init(|| {
+            ComputeTaskPool::get_or_init(|| {
                 #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
                 let mut builder = TaskPoolBuilder::default()
                     .num_threads(async_compute_threads)
@@ -258,7 +258,7 @@ impl TaskPoolOptions {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_tasks::prelude::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
+    use bevy_tasks::prelude::ComputeTaskPool;
 
     #[test]
     fn runs_spawn_local_tasks() {
@@ -266,7 +266,7 @@ mod tests {
         app.add_plugins(TaskPoolPlugin::default());
 
         let (async_tx, async_rx) = crossbeam_channel::unbounded();
-        AsyncComputeTaskPool::get()
+        ComputeTaskPool::get()
             .spawn_local(async move {
                 async_tx.send(()).unwrap();
             })
@@ -280,7 +280,7 @@ mod tests {
             .detach();
 
         let (io_tx, io_rx) = crossbeam_channel::unbounded();
-        IoTaskPool::get()
+        ComputeTaskPool::get()
             .spawn_local(async move {
                 io_tx.send(()).unwrap();
             })

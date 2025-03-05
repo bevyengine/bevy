@@ -26,7 +26,7 @@ use alloc::{
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
 use bevy_platform_support::collections::HashSet;
-use bevy_tasks::IoTaskPool;
+use bevy_tasks::ComputeTaskPool;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
 use either::Either;
@@ -426,7 +426,7 @@ impl AssetServer {
 
         let owned_handle = handle.clone();
         let server = self.clone();
-        let task = IoTaskPool::get().spawn(async move {
+        let task = ComputeTaskPool::get().spawn(async move {
             if let Err(err) = server
                 .load_internal(Some(owned_handle), path, false, None)
                 .await
@@ -487,7 +487,7 @@ impl AssetServer {
         let id = handle.id().untyped();
 
         let server = self.clone();
-        let task = IoTaskPool::get().spawn(async move {
+        let task = ComputeTaskPool::get().spawn(async move {
             let path_clone = path.clone();
             match server.load_untyped_async(path).await {
                 Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
@@ -810,7 +810,7 @@ impl AssetServer {
 
         let event_sender = self.data.asset_event_sender.clone();
 
-        let task = IoTaskPool::get().spawn(async move {
+        let task = ComputeTaskPool::get().spawn(async move {
             match future.await {
                 Ok(asset) => {
                     let loaded_asset = LoadedAsset::new_with_dependencies(asset).into();

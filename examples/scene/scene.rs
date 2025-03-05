@@ -24,7 +24,7 @@
 //! won't work on WASM because WASM typically doesn't have direct filesystem access.
 //!
 
-use bevy::{asset::LoadState, prelude::*, tasks::IoTaskPool};
+use bevy::{asset::LoadState, prelude::*, tasks::ComputeTaskPool};
 use core::time::Duration;
 use std::{fs::File, io::Write};
 

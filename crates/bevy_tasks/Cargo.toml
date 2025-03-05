@@ -16,7 +16,7 @@ std = [
   "edge-executor?/std",
   "bevy_platform_support/std",
 ]
-multi_threaded = ["std", "dep:async-channel", "dep:concurrent-queue"]
+multi_threaded = ["std", "dep:async-channel", "dep:concurrent-queue", "dep:blocking"]
 async_executor = ["std", "dep:async-executor"]
 edge_executor = ["dep:edge-executor"]
 critical-section = [
