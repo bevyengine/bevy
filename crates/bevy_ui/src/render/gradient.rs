@@ -47,19 +47,19 @@ impl Plugin for GradientPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<TransparentUi, DrawGradientFns>()
-                .init_resource::<ExtractedLinearGradients>()
+                .init_resource::<ExtractedGradients>()
                 .init_resource::<ExtractedColorStops>()
                 .init_resource::<GradientMeta>()
                 .init_resource::<SpecializedRenderPipelines<GradientPipeline>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_gradients.in_set(RenderUiSystem::ExtractLinearGradient),
+                    extract_gradients.in_set(RenderUiSystem::ExtractGradient),
                 )
                 .add_systems(
                     Render,
                     (
-                        queue_linear_gradient.in_set(RenderSet::Queue),
-                        prepare_linear_gradient.in_set(RenderSet::PrepareBindGroups),
+                        queue_gradient.in_set(RenderSet::Queue),
+                        prepare_gradient.in_set(RenderSet::PrepareBindGroups),
                     ),
                 );
         }
@@ -104,7 +104,7 @@ impl FromWorld for GradientPipeline {
         let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(
-            "ui_linear_gradient_view_layout",
+            "ui_gradient_view_layout",
             &BindGroupLayoutEntries::single(
                 ShaderStages::VERTEX_FRAGMENT,
                 uniform_buffer::<ViewUniform>(true),
@@ -142,13 +142,13 @@ pub fn compute_gradient_line_length(angle: f32, size: Vec2) -> f32 {
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct UiTextureSlicePipelineKey {
+pub struct UiGradientPipelineKey {
     anti_alias: bool,
     pub hdr: bool,
 }
 
 impl SpecializedRenderPipeline for GradientPipeline {
-    type Key = UiTextureSlicePipelineKey;
+    type Key = UiGradientPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let vertex_layout = VertexBufferLayout::from_vertex_formats(
@@ -259,7 +259,7 @@ pub struct ExtractedGradient {
 }
 
 #[derive(Resource, Default)]
-pub struct ExtractedLinearGradients {
+pub struct ExtractedGradients {
     pub items: Vec<ExtractedGradient>,
 }
 
@@ -268,7 +268,7 @@ pub struct ExtractedColorStops(pub Vec<(LinearRgba, f32)>);
 
 pub fn extract_gradients(
     mut commands: Commands,
-    mut extracted_linear_gradients: ResMut<ExtractedLinearGradients>,
+    mut extracted_gradients: ResMut<ExtractedGradients>,
     mut extracted_color_stops: ResMut<ExtractedColorStops>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     gradients_query: Extract<
@@ -430,7 +430,7 @@ pub fn extract_gradients(
                         i += 1;
                     }
 
-                    extracted_linear_gradients.items.push(ExtractedGradient {
+                    extracted_gradients.items.push(ExtractedGradient {
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
                         stack_index: uinode.stack_index,
                         transform: transform.compute_matrix(),
@@ -551,7 +551,7 @@ pub fn extract_gradients(
                         i += 1;
                     }
 
-                    extracted_linear_gradients.items.push(ExtractedGradient {
+                    extracted_gradients.items.push(ExtractedGradient {
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
                         stack_index: uinode.stack_index,
                         transform: transform.compute_matrix(),
@@ -594,7 +594,7 @@ pub fn extract_gradients(
                         ));
                     }
 
-                    extracted_linear_gradients.items.push(ExtractedGradient {
+                    extracted_gradients.items.push(ExtractedGradient {
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
                         stack_index: uinode.stack_index,
                         transform: transform.compute_matrix(),
@@ -621,9 +621,9 @@ pub fn extract_gradients(
     clippy::too_many_arguments,
     reason = "it's a system that needs a lot of them"
 )]
-pub fn queue_linear_gradient(
-    extracted_gradients: ResMut<ExtractedLinearGradients>,
-    linear_gradients_pipeline: Res<GradientPipeline>,
+pub fn queue_gradient(
+    extracted_gradients: ResMut<ExtractedGradients>,
+    gradients_pipeline: Res<GradientPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<GradientPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
@@ -650,8 +650,8 @@ pub fn queue_linear_gradient(
 
         let pipeline = pipelines.specialize(
             &pipeline_cache,
-            &linear_gradients_pipeline,
-            UiTextureSlicePipelineKey {
+            &gradients_pipeline,
+            UiGradientPipelineKey {
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
                 hdr: view.hdr,
             },
@@ -691,15 +691,15 @@ struct UiGradientVertex {
     end_color: [f32; 4],
 }
 
-pub fn prepare_linear_gradient(
+pub fn prepare_gradient(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut ui_meta: ResMut<GradientMeta>,
-    mut extracted_gradients: ResMut<ExtractedLinearGradients>,
+    mut extracted_gradients: ResMut<ExtractedGradients>,
     mut extracted_color_stops: ResMut<ExtractedColorStops>,
     view_uniforms: Res<ViewUniforms>,
-    linear_gradients_pipeline: Res<GradientPipeline>,
+    gradients_pipeline: Res<GradientPipeline>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
@@ -709,8 +709,8 @@ pub fn prepare_linear_gradient(
         ui_meta.vertices.clear();
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
-            "linear_gradient_view_bind_group",
-            &linear_gradients_pipeline.view_layout,
+            "gradient_view_bind_group",
+            &gradients_pipeline.view_layout,
             &BindGroupEntries::single(view_binding),
         ));
 
@@ -727,7 +727,6 @@ pub fn prepare_linear_gradient(
                     .filter(|n| item.entity() == n.render_entity)
                 {
                     *item.batch_range_mut() = item_index as u32..item_index as u32 + 1;
-                    //println!("batch range = {:?}", item.batch_range());
                     let uinode_rect = gradient.rect;
 
                     let rect_size = uinode_rect.size().extend(1.0);

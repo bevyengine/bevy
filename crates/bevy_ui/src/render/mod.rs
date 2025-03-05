@@ -112,7 +112,7 @@ pub enum RenderUiSystem {
     ExtractTextShadows,
     ExtractText,
     ExtractDebug,
-    ExtractLinearGradient,
+    ExtractGradient,
 }
 
 pub fn build_ui_render(app: &mut App) {
