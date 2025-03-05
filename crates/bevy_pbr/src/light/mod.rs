@@ -20,13 +20,9 @@ use bevy_render::{
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::Parallel;
 
-use crate::{prelude::EnvironmentMapLight, *};
+use crate::*;
 
 mod ambient_light;
-#[expect(
-    deprecated,
-    reason = "AmbientLight has been replaced by EnvironmentMapLight"
-)]
 pub use ambient_light::AmbientLight;
 
 mod point_light;
@@ -513,7 +509,6 @@ pub struct LightVisibilityClass;
 /// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
-    MapAmbientLights,
     AddClusters,
     AssignLightsToClusters,
     /// System order ambiguities between systems in this set are ignored:
@@ -525,58 +520,6 @@ pub enum SimulationLightSystems {
     /// the order of systems within this set is irrelevant, as the various visibility-checking systems
     /// assumes that their operations are irreversible during the frame.
     CheckLightVisibility,
-}
-
-#[derive(Component)]
-pub struct EnvironmentMapLightFromAmbientLight;
-
-#[expect(
-    deprecated,
-    reason = "AmbientLight has been replaced by EnvironmentMapLight"
-)]
-pub fn map_ambient_lights(
-    mut commands: Commands,
-    mut image_assets: ResMut<Assets<Image>>,
-    ambient_light: Res<AmbientLight>,
-    new_views: Query<
-        (Entity, Option<Ref<AmbientLight>>),
-        (
-            With<Camera>,
-            Without<EnvironmentMapLight>,
-            Without<EnvironmentMapLightFromAmbientLight>,
-        ),
-    >,
-    mut managed_views: Query<
-        (&mut EnvironmentMapLight, Option<Ref<AmbientLight>>),
-        With<EnvironmentMapLightFromAmbientLight>,
-    >,
-) {
-    let ambient_light = ambient_light.into();
-    for (entity, ambient_override) in new_views.iter() {
-        let ambient = ambient_override.as_ref().unwrap_or(&ambient_light);
-        let ambient_required = ambient.brightness > 0.0 && ambient.color != Color::BLACK;
-        if ambient_required && ambient.is_changed() {
-            commands
-                .entity(entity)
-                .insert(EnvironmentMapLight {
-                    intensity: ambient.brightness,
-                    affects_lightmapped_mesh_diffuse: ambient.affects_lightmapped_meshes,
-                    ..EnvironmentMapLight::solid_color(image_assets.as_mut(), ambient.color)
-                })
-                .insert(EnvironmentMapLightFromAmbientLight);
-        }
-    }
-    for (mut env_map, ambient_override) in managed_views.iter_mut() {
-        let ambient = ambient_override.as_ref().unwrap_or(&ambient_light);
-        let ambient_required = ambient.brightness > 0.0 && ambient.color != Color::BLACK;
-        if ambient_required && ambient.is_changed() {
-            *env_map = EnvironmentMapLight {
-                intensity: ambient.brightness,
-                affects_lightmapped_mesh_diffuse: ambient.affects_lightmapped_meshes,
-                ..EnvironmentMapLight::solid_color(image_assets.as_mut(), ambient.color)
-            };
-        }
-    }
 }
 
 pub fn update_directional_light_frusta(

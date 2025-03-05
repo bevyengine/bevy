@@ -1,8 +1,3 @@
-#![deprecated(
-    since = "0.16.0",
-    note = "Use `EnvironmentMapLight::solid_color` instead"
-)]
-
 use super::*;
 
 /// An ambient light, which lights the entire scene equally.

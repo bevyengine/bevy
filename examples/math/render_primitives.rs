@@ -14,7 +14,7 @@ fn main() {
         .init_state::<CameraActive>();
 
     // cameras
-    app.add_systems(Startup, (setup_cameras, setup_lights))
+    app.add_systems(Startup, (setup_cameras, setup_lights, setup_ambient_light))
         .add_systems(
             Update,
             (
@@ -292,27 +292,24 @@ const CIRCULAR_SEGMENT: CircularSegment = CircularSegment {
     },
 };
 
-fn setup_cameras(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+fn setup_cameras(mut commands: Commands) {
     let start_in_2d = true;
     let make_camera = |is_active| Camera {
         is_active,
         ..Default::default()
     };
 
-    commands.spawn((
-        Camera2d,
-        make_camera(start_in_2d),
-        EnvironmentMapLight {
-            intensity: 50.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
-        },
-    ));
+    commands.spawn((Camera2d, make_camera(start_in_2d)));
 
     commands.spawn((
         Camera3d::default(),
         make_camera(!start_in_2d),
         Transform::from_xyz(0.0, 10.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
     ));
+}
+
+fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
+    ambient_light.brightness = 50.0;
 }
 
 fn setup_lights(mut commands: Commands) {
