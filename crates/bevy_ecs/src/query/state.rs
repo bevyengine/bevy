@@ -28,7 +28,7 @@ use super::{
 /// An ID for either a table or an archetype. Used for Query iteration.
 ///
 /// Query iteration is exclusively dense (over tables) or archetypal (over archetypes) based on whether
-/// the query filters are dense or not. This is represented by the [`QueryState::is_dense`] field.
+/// the query filters are dense or not. This is represented by the [`QueryState::is_dense`](QueryState) field.
 ///
 /// Note that `D::IS_DENSE` and `F::IS_DENSE` have no relationship with `QueryState::is_dense` and
 /// any combination of their values can happen.
