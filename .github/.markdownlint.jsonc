@@ -1,0 +1,9 @@
+{
+    "extends": "../../.markdownlint.jsonc",
+    "no-inline-html": {
+        "allowed_elements": [
+            "details", // Needed for PR template
+            "summary" // Needed for PR template
+        ]
+    }
+}
