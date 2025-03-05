@@ -30,11 +30,12 @@ impl Plugin for CiTestingPlugin {
         let config: CiTestingConfig = {
             let filename = std::env::var("CI_TESTING_CONFIG")
                 .unwrap_or_else(|_| "ci_testing_config.ron".to_string());
-            ron::from_str(
-                &std::fs::read_to_string(filename)
-                    .expect("error reading CI testing configuration file"),
-            )
-            .expect("error deserializing CI testing configuration file")
+            std::fs::read_to_string(filename)
+                .map(|content| {
+                    ron::from_str(&content)
+                        .expect("error deserializing CI testing configuration file")
+                })
+                .unwrap_or_default()
         };
 
         #[cfg(target_arch = "wasm32")]

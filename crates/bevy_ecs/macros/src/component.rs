@@ -1,6 +1,6 @@
 use proc_macro::{TokenStream, TokenTree};
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use std::collections::HashSet;
 use syn::{
     parenthesized,
@@ -9,8 +9,8 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Comma, Paren},
-    Data, DataStruct, DeriveInput, ExprClosure, ExprPath, Fields, Ident, LitStr, Path, Result,
-    Token, Visibility,
+    Data, DataStruct, DeriveInput, ExprClosure, ExprPath, Field, Fields, Ident, Index, LitStr,
+    Member, Path, Result, Token, Type, Visibility,
 };
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
@@ -51,6 +51,8 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     })
 }
 
+const ENTITIES_ATTR: &str = "entities";
+
 pub fn derive_component(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
@@ -69,17 +71,15 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(err) => err.into_compile_error().into(),
     };
 
+    let visit_entities = visit_entities(&ast.data, &bevy_ecs_path, relationship.is_some());
+
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
-    let on_add = hook_register_function_call(quote! {on_add}, attrs.on_add);
-    let mut on_insert = hook_register_function_call(quote! {on_insert}, attrs.on_insert);
-    let mut on_replace = hook_register_function_call(quote! {on_replace}, attrs.on_replace);
-    let on_remove: Option<TokenStream2> =
-        hook_register_function_call(quote! {on_remove}, attrs.on_remove);
-    let mut on_despawn = hook_register_function_call(quote! {on_despawn}, attrs.on_despawn);
+    let on_add_path = attrs.on_add.map(|path| path.to_token_stream());
+    let on_remove_path = attrs.on_remove.map(|path| path.to_token_stream());
 
-    if relationship.is_some() {
-        if on_insert.is_some() {
+    let on_insert_path = if relationship.is_some() {
+        if attrs.on_insert.is_some() {
             return syn::Error::new(
                 ast.span(),
                 "Custom on_insert hooks are not supported as relationships already define an on_insert hook",
@@ -88,11 +88,13 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             .into();
         }
 
-        on_insert = Some(
-            quote!(hooks.on_insert(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert);),
-        );
+        Some(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert))
+    } else {
+        attrs.on_insert.map(|path| path.to_token_stream())
+    };
 
-        if on_replace.is_some() {
+    let on_replace_path = if relationship.is_some() {
+        if attrs.on_replace.is_some() {
             return syn::Error::new(
                 ast.span(),
                 "Custom on_replace hooks are not supported as Relationships already define an on_replace hook",
@@ -101,13 +103,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             .into();
         }
 
-        on_replace = Some(
-            quote!(hooks.on_replace(<Self as #bevy_ecs_path::relationship::Relationship>::on_replace);),
-        );
-    }
-
-    if let Some(relationship_target) = &attrs.relationship_target {
-        if on_replace.is_some() {
+        Some(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_replace))
+    } else if attrs.relationship_target.is_some() {
+        if attrs.on_replace.is_some() {
             return syn::Error::new(
                 ast.span(),
                 "Custom on_replace hooks are not supported as RelationshipTarget already defines an on_replace hook",
@@ -116,25 +114,36 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             .into();
         }
 
-        on_replace = Some(
-            quote!(hooks.on_replace(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace);),
-        );
+        Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace))
+    } else {
+        attrs.on_replace.map(|path| path.to_token_stream())
+    };
 
-        if relationship_target.despawn_descendants {
-            if on_despawn.is_some() {
-                return syn::Error::new(
-                    ast.span(),
-                    "Custom on_despawn hooks are not supported as this RelationshipTarget already defines an on_despawn hook, via the despawn_descendants attribute",
-                )
-                .into_compile_error()
-                .into();
-            }
-
-            on_despawn = Some(
-                quote!(hooks.on_despawn(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn);),
-            );
+    let on_despawn_path = if attrs
+        .relationship_target
+        .is_some_and(|target| target.linked_spawn)
+    {
+        if attrs.on_despawn.is_some() {
+            return syn::Error::new(
+                ast.span(),
+                "Custom on_despawn hooks are not supported as this RelationshipTarget already defines an on_despawn hook, via the 'linked_spawn' attribute",
+            )
+            .into_compile_error()
+            .into();
         }
-    }
+
+        Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn))
+    } else {
+        attrs.on_despawn.map(|path| path.to_token_stream())
+    };
+
+    let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path);
+    let on_insert = hook_register_function_call(&bevy_ecs_path, quote! {on_insert}, on_insert_path);
+    let on_replace =
+        hook_register_function_call(&bevy_ecs_path, quote! {on_replace}, on_replace_path);
+    let on_remove = hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, on_remove_path);
+    let on_despawn =
+        hook_register_function_call(&bevy_ecs_path, quote! {on_despawn}, on_despawn_path);
 
     ast.generics
         .make_where_clause()
@@ -151,7 +160,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 <#ident as #bevy_ecs_path::component::Component>::register_required_components(
                     requiree,
                     components,
-                    storages,
                     required_components,
                     inheritance_depth + 1,
                     recursion_check_stack
@@ -161,7 +169,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 Some(RequireFunc::Path(func)) => {
                     register_required.push(quote! {
                         components.register_required_components_manual::<Self, #ident>(
-                            storages,
                             required_components,
                             || { let x: #ident = #func().into(); x },
                             inheritance_depth,
@@ -172,7 +179,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 Some(RequireFunc::Closure(func)) => {
                     register_required.push(quote! {
                         components.register_required_components_manual::<Self, #ident>(
-                            storages,
                             required_components,
                             || { let x: #ident = (#func)().into(); x },
                             inheritance_depth,
@@ -183,7 +189,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 None => {
                     register_required.push(quote! {
                         components.register_required_components_manual::<Self, #ident>(
-                            storages,
                             required_components,
                             <#ident as Default>::default,
                             inheritance_depth,
@@ -201,12 +206,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         .then_some(quote! { #bevy_ecs_path::component::Immutable })
         .unwrap_or(quote! { #bevy_ecs_path::component::Mutable });
 
-    let clone_handler = if relationship_target.is_some() {
-        quote!(#bevy_ecs_path::component::ComponentCloneHandler::ignore())
+    let clone_behavior = if relationship_target.is_some() {
+        quote!(#bevy_ecs_path::component::ComponentCloneBehavior::RelationshipTarget(#bevy_ecs_path::relationship::clone_relationship_target::<Self>))
     } else {
         quote!(
-            use #bevy_ecs_path::component::{ComponentCloneViaClone, ComponentCloneBase};
-            (&&&#bevy_ecs_path::component::ComponentCloneSpecializationWrapper::<Self>::default()).get_component_clone_handler()
+            use #bevy_ecs_path::component::{DefaultCloneBehaviorBase, DefaultCloneBehaviorViaClone};
+            (&&&#bevy_ecs_path::component::DefaultCloneBehaviorSpecialization::<Self>::default()).default_clone_behavior()
         )
     };
 
@@ -219,37 +224,182 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             fn register_required_components(
                 requiree: #bevy_ecs_path::component::ComponentId,
                 components: &mut #bevy_ecs_path::component::Components,
-                storages: &mut #bevy_ecs_path::storage::Storages,
                 required_components: &mut #bevy_ecs_path::component::RequiredComponents,
                 inheritance_depth: u16,
                 recursion_check_stack: &mut #bevy_ecs_path::__macro_exports::Vec<#bevy_ecs_path::component::ComponentId>
             ) {
                 #bevy_ecs_path::component::enforce_no_required_components_recursion(components, recursion_check_stack);
-                let self_id = components.register_component::<Self>(storages);
+                let self_id = components.register_component::<Self>();
                 recursion_check_stack.push(self_id);
                 #(#register_required)*
                 #(#register_recursive_requires)*
                 recursion_check_stack.pop();
             }
 
-            #[allow(unused_variables)]
-            fn register_component_hooks(hooks: &mut #bevy_ecs_path::component::ComponentHooks) {
-                #on_add
-                #on_insert
-                #on_replace
-                #on_remove
-                #on_despawn
+            #on_add
+            #on_insert
+            #on_replace
+            #on_remove
+            #on_despawn
+
+            fn clone_behavior() -> #bevy_ecs_path::component::ComponentCloneBehavior {
+                #clone_behavior
             }
 
-            fn get_component_clone_handler() -> #bevy_ecs_path::component::ComponentCloneHandler {
-                #clone_handler
-            }
+            #visit_entities
         }
 
         #relationship
 
         #relationship_target
     })
+}
+
+fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> TokenStream2 {
+    match data {
+        Data::Struct(DataStruct { fields, .. }) => {
+            let mut visited_fields = Vec::new();
+            let mut visited_indices = Vec::new();
+
+            if is_relationship {
+                let field = match relationship_field(fields, "VisitEntities", fields.span()) {
+                    Ok(f) => f,
+                    Err(e) => return e.to_compile_error(),
+                };
+
+                match field.ident {
+                    Some(ref ident) => visited_fields.push(ident.clone()),
+                    None => visited_indices.push(Index::from(0)),
+                }
+            }
+            match fields {
+                Fields::Named(fields) => {
+                    for field in &fields.named {
+                        if field
+                            .attrs
+                            .iter()
+                            .any(|a| a.meta.path().is_ident(ENTITIES_ATTR))
+                        {
+                            if let Some(ident) = field.ident.clone() {
+                                visited_fields.push(ident);
+                            }
+                        }
+                    }
+                }
+                Fields::Unnamed(fields) => {
+                    for (index, field) in fields.unnamed.iter().enumerate() {
+                        if field
+                            .attrs
+                            .iter()
+                            .any(|a| a.meta.path().is_ident(ENTITIES_ATTR))
+                        {
+                            visited_indices.push(Index::from(index));
+                        }
+                    }
+                }
+                Fields::Unit => {}
+            }
+            if visited_fields.is_empty() && visited_indices.is_empty() {
+                TokenStream2::new()
+            } else {
+                let visit = visited_fields
+                    .iter()
+                    .map(|field| quote!(this.#field.visit_entities(&mut func);))
+                    .chain(
+                        visited_indices
+                            .iter()
+                            .map(|index| quote!(this.#index.visit_entities(&mut func);)),
+                    );
+                let visit_mut = visited_fields
+                    .iter()
+                    .map(|field| quote!(this.#field.visit_entities_mut(&mut func);))
+                    .chain(
+                        visited_indices
+                            .iter()
+                            .map(|index| quote!(this.#index.visit_entities_mut(&mut func);)),
+                    );
+                quote!(
+                    fn visit_entities(this: &Self, mut func: impl FnMut(Entity)) {
+                        use #bevy_ecs_path::entity::VisitEntities;
+                        #(#visit)*
+                    }
+
+                    fn visit_entities_mut(this: &mut Self, mut func: impl FnMut(&mut Entity)) {
+                        use #bevy_ecs_path::entity::VisitEntitiesMut;
+                        #(#visit_mut)*
+                    }
+                )
+            }
+        }
+        Data::Enum(data_enum) => {
+            let mut has_visited_fields = false;
+            let mut visit_variants = Vec::with_capacity(data_enum.variants.len());
+            let mut visit_variants_mut = Vec::with_capacity(data_enum.variants.len());
+            for variant in &data_enum.variants {
+                let mut variant_fields = Vec::new();
+                let mut variant_fields_mut = Vec::new();
+
+                let mut visit_variant_fields = Vec::new();
+                let mut visit_variant_fields_mut = Vec::new();
+
+                for (index, field) in variant.fields.iter().enumerate() {
+                    if field
+                        .attrs
+                        .iter()
+                        .any(|a| a.meta.path().is_ident(ENTITIES_ATTR))
+                    {
+                        has_visited_fields = true;
+                        let field_member = ident_or_index(field.ident.as_ref(), index);
+                        let field_ident = format_ident!("field_{}", field_member);
+
+                        variant_fields.push(quote!(#field_member: #field_ident));
+                        variant_fields_mut.push(quote!(#field_member: #field_ident));
+
+                        visit_variant_fields.push(quote!(#field_ident.visit_entities(&mut func);));
+                        visit_variant_fields_mut
+                            .push(quote!(#field_ident.visit_entities_mut(&mut func);));
+                    }
+                }
+
+                let ident = &variant.ident;
+                visit_variants.push(quote!(Self::#ident {#(#variant_fields,)* ..} => {
+                    #(#visit_variant_fields)*
+                }));
+                visit_variants_mut.push(quote!(Self::#ident {#(#variant_fields_mut,)* ..} => {
+                    #(#visit_variant_fields_mut)*
+                }));
+            }
+            if has_visited_fields {
+                quote!(
+                    fn visit_entities(this: &Self, mut func: impl FnMut(Entity)) {
+                        use #bevy_ecs_path::entity::VisitEntities;
+                        match this {
+                            #(#visit_variants,)*
+                            _ => {}
+                        }
+                    }
+
+                    fn visit_entities_mut(this: &mut Self, mut func: impl FnMut(&mut Entity)) {
+                        use #bevy_ecs_path::entity::VisitEntitiesMut;
+                        match this {
+                            #(#visit_variants_mut,)*
+                            _ => {}
+                        }
+                    }
+                )
+            } else {
+                TokenStream2::new()
+            }
+        }
+        Data::Union(_) => TokenStream2::new(),
+    }
+}
+
+pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
+    ident.map_or_else(
+        || Member::Unnamed(index.into()),
+        |ident| Member::Named(ident.clone()),
+    )
 }
 
 pub fn document_required_components(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -324,12 +474,12 @@ enum RequireFunc {
 }
 
 struct Relationship {
-    relationship_target: Ident,
+    relationship_target: Type,
 }
 
 struct RelationshipTarget {
-    relationship: Ident,
-    despawn_descendants: bool,
+    relationship: Type,
+    linked_spawn: bool,
 }
 
 // values for `storage` attribute
@@ -444,10 +594,17 @@ fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
 }
 
 fn hook_register_function_call(
+    bevy_ecs_path: &Path,
     hook: TokenStream2,
-    function: Option<ExprPath>,
+    function: Option<TokenStream2>,
 ) -> Option<TokenStream2> {
-    function.map(|meta| quote! { hooks. #hook (#meta); })
+    function.map(|meta| {
+        quote! {
+            fn #hook() -> ::core::option::Option<#bevy_ecs_path::component::ComponentHook> {
+                ::core::option::Option::Some(#meta)
+            }
+        }
+    })
 }
 
 impl Parse for Relationship {
@@ -456,26 +613,26 @@ impl Parse for Relationship {
         input.parse::<relationship_target>()?;
         input.parse::<Token![=]>()?;
         Ok(Relationship {
-            relationship_target: input.parse::<Ident>()?,
+            relationship_target: input.parse::<Type>()?,
         })
     }
 }
 
 impl Parse for RelationshipTarget {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        let mut relationship_ident = None;
-        let mut despawn_descendants_exists = false;
+        let mut relationship_type: Option<Type> = None;
+        let mut linked_spawn_exists = false;
         syn::custom_keyword!(relationship);
-        syn::custom_keyword!(despawn_descendants);
+        syn::custom_keyword!(linked_spawn);
         let mut done = false;
         loop {
             if input.peek(relationship) {
                 input.parse::<relationship>()?;
                 input.parse::<Token![=]>()?;
-                relationship_ident = Some(input.parse::<Ident>()?);
-            } else if input.peek(despawn_descendants) {
-                input.parse::<despawn_descendants>()?;
-                despawn_descendants_exists = true;
+                relationship_type = Some(input.parse()?);
+            } else if input.peek(linked_spawn) {
+                input.parse::<linked_spawn>()?;
+                linked_spawn_exists = true;
             } else {
                 done = true;
             }
@@ -487,10 +644,10 @@ impl Parse for RelationshipTarget {
             }
         }
 
-        let relationship = relationship_ident.ok_or_else(|| syn::Error::new(input.span(), "RelationshipTarget derive must specify a relationship via #[relationship_target(relationship = X)"))?;
+        let relationship = relationship_type.ok_or_else(|| syn::Error::new(input.span(), "RelationshipTarget derive must specify a relationship via #[relationship_target(relationship = X)"))?;
         Ok(RelationshipTarget {
             relationship,
-            despawn_descendants: despawn_descendants_exists,
+            linked_spawn: linked_spawn_exists,
         })
     }
 }
@@ -503,25 +660,24 @@ fn derive_relationship(
     let Some(relationship) = &attrs.relationship else {
         return Ok(None);
     };
-    const RELATIONSHIP_FORMAT_MESSAGE: &str = "Relationship derives must be a tuple struct with the only element being an EntityTargets type (ex: ChildOf(Entity))";
-    if let Data::Struct(DataStruct {
-        fields: Fields::Unnamed(unnamed_fields),
+    let Data::Struct(DataStruct {
+        fields,
         struct_token,
         ..
     }) = &ast.data
-    {
-        if unnamed_fields.unnamed.len() != 1 {
-            return Err(syn::Error::new(ast.span(), RELATIONSHIP_FORMAT_MESSAGE));
-        }
-        if unnamed_fields.unnamed.first().is_none() {
-            return Err(syn::Error::new(
-                struct_token.span(),
-                RELATIONSHIP_FORMAT_MESSAGE,
-            ));
-        }
-    } else {
-        return Err(syn::Error::new(ast.span(), RELATIONSHIP_FORMAT_MESSAGE));
+    else {
+        return Err(syn::Error::new(
+            ast.span(),
+            "Relationship can only be derived for structs.",
+        ));
     };
+    let field = relationship_field(fields, "Relationship", struct_token.span())?;
+
+    let relationship_member: Member = field.ident.clone().map_or(Member::from(0), Member::Named);
+
+    let members = fields
+        .members()
+        .filter(|member| member != &relationship_member);
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
@@ -534,12 +690,15 @@ fn derive_relationship(
 
             #[inline(always)]
             fn get(&self) -> #bevy_ecs_path::entity::Entity {
-                self.0
+                self.#relationship_member
             }
 
             #[inline]
             fn from(entity: #bevy_ecs_path::entity::Entity) -> Self {
-                Self(entity)
+                Self {
+                    #(#members: core::default::Default::default(),),*
+                    #relationship_member: entity
+                }
             }
         }
     }))
@@ -554,53 +713,92 @@ fn derive_relationship_target(
         return Ok(None);
     };
 
-    const RELATIONSHIP_TARGET_FORMAT_MESSAGE: &str = "RelationshipTarget derives must be a tuple struct with the first element being a private RelationshipSourceCollection (ex: Children(Vec<Entity>))";
-    let collection = if let Data::Struct(DataStruct {
-        fields: Fields::Unnamed(unnamed_fields),
+    let Data::Struct(DataStruct {
+        fields,
         struct_token,
         ..
     }) = &ast.data
-    {
-        if let Some(first) = unnamed_fields.unnamed.first() {
-            if first.vis != Visibility::Inherited {
-                return Err(syn::Error::new(first.span(), "The collection in RelationshipTarget must be private to prevent users from directly mutating it, which could invalidate the correctness of relationships."));
-            }
-            first.ty.clone()
-        } else {
-            return Err(syn::Error::new(
-                struct_token.span(),
-                RELATIONSHIP_TARGET_FORMAT_MESSAGE,
-            ));
-        }
-    } else {
+    else {
         return Err(syn::Error::new(
             ast.span(),
-            RELATIONSHIP_TARGET_FORMAT_MESSAGE,
+            "RelationshipTarget can only be derived for structs.",
         ));
     };
+    let field = relationship_field(fields, "RelationshipTarget", struct_token.span())?;
+
+    if field.vis != Visibility::Inherited {
+        return Err(syn::Error::new(field.span(), "The collection in RelationshipTarget must be private to prevent users from directly mutating it, which could invalidate the correctness of relationships."));
+    }
+    let collection = &field.ty;
+
+    let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
+
+    let members = fields
+        .members()
+        .filter(|member| member != &relationship_member);
 
     let relationship = &relationship_target.relationship;
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+    let linked_spawn = relationship_target.linked_spawn;
     Ok(Some(quote! {
         impl #impl_generics #bevy_ecs_path::relationship::RelationshipTarget for #struct_name #type_generics #where_clause {
+            const LINKED_SPAWN: bool = #linked_spawn;
             type Relationship = #relationship;
             type Collection = #collection;
 
             #[inline]
             fn collection(&self) -> &Self::Collection {
-                &self.0
+                &self.#relationship_member
             }
 
             #[inline]
             fn collection_mut_risky(&mut self) -> &mut Self::Collection {
-                &mut self.0
+                &mut self.#relationship_member
             }
 
             #[inline]
             fn from_collection_risky(collection: Self::Collection) -> Self {
-                Self(collection)
+                Self {
+                    #(#members: core::default::Default::default(),),*
+                    #relationship_member: collection
+                }
             }
         }
     }))
+}
+
+/// Returns the field with the `#[relationship]` attribute, the only field if unnamed,
+/// or the only field in a [`Fields::Named`] with one field, otherwise `Err`.
+fn relationship_field<'a>(
+    fields: &'a Fields,
+    derive: &'static str,
+    span: Span,
+) -> Result<&'a Field> {
+    match fields {
+        Fields::Named(fields) if fields.named.len() == 1 => Ok(fields.named.first().unwrap()),
+        Fields::Named(fields) => fields.named.iter().find(|field| {
+            field
+                .attrs
+                .iter()
+                .any(|attr| attr.path().is_ident("relationship"))
+        }).ok_or(syn::Error::new(
+            span,
+            format!("{derive} derive expected named structs with a single field or with a field annotated with #[relationship].")
+        )),
+        Fields::Unnamed(fields) => fields
+            .unnamed
+            .len()
+            .eq(&1)
+            .then(|| fields.unnamed.first())
+            .flatten()
+            .ok_or(syn::Error::new(
+                span,
+                format!("{derive} derive expected unnamed structs with one field."),
+            )),
+        Fields::Unit => Err(syn::Error::new(
+            span,
+            format!("{derive} derive expected named or unnamed struct, found unit struct."),
+        )),
+    }
 }

@@ -13,16 +13,20 @@ use bevy_render::{
     mesh::Mesh3d,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
-        InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityClass,
-        VisibilityRange, VisibleEntityRanges,
+        InheritedVisibility, NoFrustumCulling, PreviousVisibleEntities, RenderLayers,
+        ViewVisibility, VisibilityClass, VisibilityRange, VisibleEntityRanges,
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::Parallel;
 
-use crate::*;
+use crate::{prelude::EnvironmentMapLight, *};
 
 mod ambient_light;
+#[expect(
+    deprecated,
+    reason = "AmbientLight has been replaced by EnvironmentMapLight"
+)]
 pub use ambient_light::AmbientLight;
 
 mod point_light;
@@ -246,27 +250,25 @@ impl CascadeShadowConfigBuilder {
 
 impl Default for CascadeShadowConfigBuilder {
     fn default() -> Self {
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            // Currently only support one cascade in webgl.
-            Self {
-                num_cascades: 1,
-                minimum_distance: 0.1,
-                maximum_distance: 100.0,
-                first_cascade_far_bound: 5.0,
-                overlap_proportion: 0.2,
-            }
-        } else {
-            Self {
-                num_cascades: 4,
-                minimum_distance: 0.1,
-                maximum_distance: 1000.0,
-                first_cascade_far_bound: 5.0,
-                overlap_proportion: 0.2,
-            }
+        // The defaults are chosen to be similar to be Unity, Unreal, and Godot.
+        // Unity: first cascade far bound = 10.05, maximum distance = 150.0
+        // Unreal Engine 5: maximum distance = 200.0
+        // Godot: first cascade far bound = 10.0, maximum distance = 100.0
+        Self {
+            // Currently only support one cascade in WebGL 2.
+            num_cascades: if cfg!(all(
+                feature = "webgl",
+                target_arch = "wasm32",
+                not(feature = "webgpu")
+            )) {
+                1
+            } else {
+                4
+            },
+            minimum_distance: 0.1,
+            maximum_distance: 150.0,
+            first_cascade_far_bound: 10.0,
+            overlap_proportion: 0.2,
         }
     }
 }
@@ -511,6 +513,7 @@ pub struct LightVisibilityClass;
 /// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
+    MapAmbientLights,
     AddClusters,
     AssignLightsToClusters,
     /// System order ambiguities between systems in this set are ignored:
@@ -522,6 +525,58 @@ pub enum SimulationLightSystems {
     /// the order of systems within this set is irrelevant, as the various visibility-checking systems
     /// assumes that their operations are irreversible during the frame.
     CheckLightVisibility,
+}
+
+#[derive(Component)]
+pub struct EnvironmentMapLightFromAmbientLight;
+
+#[expect(
+    deprecated,
+    reason = "AmbientLight has been replaced by EnvironmentMapLight"
+)]
+pub fn map_ambient_lights(
+    mut commands: Commands,
+    mut image_assets: ResMut<Assets<Image>>,
+    ambient_light: Res<AmbientLight>,
+    new_views: Query<
+        (Entity, Option<Ref<AmbientLight>>),
+        (
+            With<Camera>,
+            Without<EnvironmentMapLight>,
+            Without<EnvironmentMapLightFromAmbientLight>,
+        ),
+    >,
+    mut managed_views: Query<
+        (&mut EnvironmentMapLight, Option<Ref<AmbientLight>>),
+        With<EnvironmentMapLightFromAmbientLight>,
+    >,
+) {
+    let ambient_light = ambient_light.into();
+    for (entity, ambient_override) in new_views.iter() {
+        let ambient = ambient_override.as_ref().unwrap_or(&ambient_light);
+        let ambient_required = ambient.brightness > 0.0 && ambient.color != Color::BLACK;
+        if ambient_required && ambient.is_changed() {
+            commands
+                .entity(entity)
+                .insert(EnvironmentMapLight {
+                    intensity: ambient.brightness,
+                    affects_lightmapped_mesh_diffuse: ambient.affects_lightmapped_meshes,
+                    ..EnvironmentMapLight::solid_color(image_assets.as_mut(), ambient.color)
+                })
+                .insert(EnvironmentMapLightFromAmbientLight);
+        }
+    }
+    for (mut env_map, ambient_override) in managed_views.iter_mut() {
+        let ambient = ambient_override.as_ref().unwrap_or(&ambient_light);
+        let ambient_required = ambient.brightness > 0.0 && ambient.color != Color::BLACK;
+        if ambient_required && ambient.is_changed() {
+            *env_map = EnvironmentMapLight {
+                intensity: ambient.brightness,
+                affects_lightmapped_mesh_diffuse: ambient.affects_lightmapped_meshes,
+                ..EnvironmentMapLight::solid_color(image_assets.as_mut(), ambient.color)
+            };
+        }
+    }
 }
 
 pub fn update_directional_light_frusta(
@@ -816,15 +871,23 @@ pub fn check_dir_light_mesh_visibility(
     // TODO: use resource to avoid unnecessary memory alloc
     let mut defer_queue = core::mem::take(defer_visible_entities_queue.deref_mut());
     commands.queue(move |world: &mut World| {
-        let mut query = world.query::<&mut ViewVisibility>();
-        for entities in defer_queue.iter_mut() {
-            let mut iter = query.iter_many_mut(world, entities.iter());
-            while let Some(mut view_visibility) = iter.fetch_next() {
-                if !**view_visibility {
-                    view_visibility.set();
+        world.resource_scope::<PreviousVisibleEntities, _>(
+            |world, mut previous_visible_entities| {
+                let mut query = world.query::<(Entity, &mut ViewVisibility)>();
+                for entities in defer_queue.iter_mut() {
+                    let mut iter = query.iter_many_mut(world, entities.iter());
+                    while let Some((entity, mut view_visibility)) = iter.fetch_next() {
+                        if !**view_visibility {
+                            view_visibility.set();
+                        }
+
+                        // Remove any entities that were discovered to be
+                        // visible from the `PreviousVisibleEntities` resource.
+                        previous_visible_entities.remove(&entity);
+                    }
                 }
-            }
-        }
+            },
+        );
     });
 }
 
@@ -862,6 +925,7 @@ pub fn check_point_light_mesh_visibility(
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
+    mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
     mut cubemap_visible_entities_queue: Local<Parallel<[Vec<Entity>; 6]>>,
     mut spot_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
     mut checked_lights: Local<EntityHashSet>,
@@ -963,10 +1027,17 @@ pub fn check_point_light_mesh_visibility(
                 );
 
                 for entities in cubemap_visible_entities_queue.iter_mut() {
-                    cubemap_visible_entities
-                        .iter_mut()
-                        .zip(entities.iter_mut())
-                        .for_each(|(dst, source)| dst.entities.append(source));
+                    for (dst, source) in
+                        cubemap_visible_entities.iter_mut().zip(entities.iter_mut())
+                    {
+                        // Remove any entities that were discovered to be
+                        // visible from the `PreviousVisibleEntities` resource.
+                        for entity in source.iter() {
+                            previous_visible_entities.remove(entity);
+                        }
+
+                        dst.entities.append(source);
+                    }
                 }
 
                 for visible_entities in cubemap_visible_entities.iter_mut() {
@@ -1049,6 +1120,12 @@ pub fn check_point_light_mesh_visibility(
 
                 for entities in spot_visible_entities_queue.iter_mut() {
                     visible_entities.append(entities);
+
+                    // Remove any entities that were discovered to be visible
+                    // from the `PreviousVisibleEntities` resource.
+                    for entity in entities {
+                        previous_visible_entities.remove(entity);
+                    }
                 }
 
                 shrink_entities(visible_entities.deref_mut());

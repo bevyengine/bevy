@@ -2,6 +2,7 @@ use core::fmt::Debug;
 
 use crate::{primitives::Frustum, view::VisibilitySystems};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
+use bevy_asset::AssetEvents;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::{ops, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
@@ -29,7 +30,9 @@ impl Plugin for CameraProjectionPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    crate::camera::camera_system.in_set(CameraUpdateSystem),
+                    crate::camera::camera_system
+                        .in_set(CameraUpdateSystem)
+                        .before(AssetEvents),
                     crate::view::update_frusta
                         .in_set(VisibilitySystems::UpdateFrusta)
                         .after(crate::camera::camera_system)
@@ -637,8 +640,8 @@ impl CameraProjection for OrthographicProjection {
             ScalingMode::Fixed { width, height } => (width, height),
         };
 
-        let origin_x = (projection_width * self.viewport_origin.x).round();
-        let origin_y = (projection_height * self.viewport_origin.y).round();
+        let origin_x = projection_width * self.viewport_origin.x;
+        let origin_y = projection_height * self.viewport_origin.y;
 
         self.area = Rect::new(
             self.scale * -origin_x,

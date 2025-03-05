@@ -105,7 +105,8 @@ pub struct HitData {
     /// distance from the pointer to the hit, measured from the near plane of the camera, to the
     /// point, in world space.
     pub depth: f32,
-    /// The position of the intersection in the world, if the data is available from the backend.
+    /// The position reported by the backend, if the data is available. Position data may be in any
+    /// space (e.g. World space, Screen space, Local space), specified by the backend providing it.
     pub position: Option<Vec3>,
     /// The normal vector of the hit test, if the data is available from the backend.
     pub normal: Option<Vec3>,

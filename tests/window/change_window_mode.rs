@@ -41,7 +41,7 @@ fn startup(mut cmds: Commands) {
 }
 
 fn toggle_window_mode(mut qry_window: Query<&mut Window>) {
-    let Ok(mut window) = qry_window.get_single_mut() else {
+    let Ok(mut window) = qry_window.single_mut() else {
         return;
     };
 

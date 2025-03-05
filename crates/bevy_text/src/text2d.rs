@@ -49,7 +49,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor};
+/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor, TextSpan};
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -73,6 +73,12 @@ use bevy_window::{PrimaryWindow, Window};
 ///     Text2d::new("hello world\nand bevy!"),
 ///     TextLayout::new_with_justify(JustifyText::Center)
 /// ));
+///
+/// // With spans
+/// world.spawn(Text2d::new("hello ")).with_children(|parent| {
+///     parent.spawn(TextSpan::new("world"));
+///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+/// });
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
@@ -147,7 +153,7 @@ pub fn extract_text2d_sprite(
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
-        .get_single()
+        .single()
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
@@ -213,6 +219,7 @@ pub fn extract_text2d_sprite(
                     flip_y: false,
                     anchor: Anchor::Center.as_vec(),
                     original_entity: Some(original_entity),
+                    scaling_mode: None,
                 },
             );
         }
@@ -249,7 +256,7 @@ pub fn update_text2d_layout(
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
-        .get_single()
+        .single()
         .ok()
         .map(|window| window.resolution.scale_factor())
         .or(*last_scale_factor)

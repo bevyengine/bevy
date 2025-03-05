@@ -16,7 +16,7 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, Token, TypeParam,
+    ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -86,10 +86,10 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         match field_kind {
             BundleFieldKind::Component => {
                 field_component_ids.push(quote! {
-                <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
+                <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, &mut *ids);
                 });
                 field_required_components.push(quote! {
-                    <#field_type as #ecs_path::bundle::Bundle>::register_required_components(components, storages, required_components);
+                    <#field_type as #ecs_path::bundle::Bundle>::register_required_components(components, required_components);
                 });
                 field_get_component_ids.push(quote! {
                     <#field_type as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);
@@ -100,7 +100,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                             self.#field.get_components(&mut *func);
                         });
                         field_from_components.push(quote! {
-                            #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
+                            #field: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
                         });
                     }
                     None => {
@@ -109,7 +109,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                             self.#index.get_components(&mut *func);
                         });
                         field_from_components.push(quote! {
-                            #index: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
+                            #index: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
                         });
                     }
                 }
@@ -128,13 +128,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         // SAFETY:
-        // - ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        // - ComponentId is returned in field-definition-order. [get_components] uses field-definition-order
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
         //   the correct `StorageType` into the callback.
+        #[allow(deprecated)]
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
-                storages: &mut #ecs_path::storage::Storages,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
             ){
                 #(#field_component_ids)*
@@ -147,6 +147,18 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #(#field_get_component_ids)*
             }
 
+            fn register_required_components(
+                components: &mut #ecs_path::component::Components,
+                required_components: &mut #ecs_path::component::RequiredComponents
+            ){
+                #(#field_required_components)*
+            }
+        }
+
+        // SAFETY:
+        // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
+        #[allow(deprecated)]
+        unsafe impl #impl_generics #ecs_path::bundle::BundleFromComponents for #struct_name #ty_generics #where_clause {
             #[allow(unused_variables, non_snake_case)]
             unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
             where
@@ -156,17 +168,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                     #(#field_from_components)*
                 }
             }
-
-            fn register_required_components(
-                components: &mut #ecs_path::component::Components,
-                storages: &mut #ecs_path::storage::Storages,
-                required_components: &mut #ecs_path::component::RequiredComponents
-            ){
-                #(#field_required_components)*
-            }
         }
 
+        #[allow(deprecated)]
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
+            type Effect = ();
             #[allow(unused_variables)]
             #[inline]
             fn get_components(
@@ -589,7 +595,10 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
-#[proc_macro_derive(Component, attributes(component, relationship, relationship_target))]
+#[proc_macro_derive(
+    Component,
+    attributes(component, relationship, relationship_target, entities)
+)]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
 }
@@ -632,7 +641,7 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
                 None => {
                     return syn::Error::new(
                         Span::call_site(),
-                        "No #[from_world] attribute was found on any of this enum's variants.",
+                        "No variant found with the `#[from_world]` attribute",
                     )
                     .into_compile_error()
                     .into();
@@ -650,37 +659,20 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
     };
 
     let field_init_expr = quote!(#bevy_ecs_path::world::FromWorld::from_world(world));
-
-    let field_initializers: Punctuated<TokenStream2, Token![,]> = match fields {
-        syn::Fields::Named(fields_named) => fields_named
-            .named
-            .iter()
-            .map(|field| {
-                let ident = field.ident.clone().unwrap();
-                quote!(#ident: #field_init_expr)
-            })
-            .collect(),
-        syn::Fields::Unnamed(fields_unnamed) => (0..fields_unnamed.unnamed.len())
-            .map(|index| quote!(#index: #field_init_expr))
-            .collect(),
-        syn::Fields::Unit => Punctuated::new(),
-    };
-
-    let field_initializers: TokenStream2 = if !field_initializers.is_empty() {
-        quote!({ #field_initializers })
-    } else {
-        quote!(#field_initializers)
-    };
+    let members = fields.members();
 
     let field_initializers = match variant_ident {
-        Some(variant_ident) => quote!( Self::#variant_ident #field_initializers),
-        None => quote!( Self #field_initializers),
+        Some(variant_ident) => quote!( Self::#variant_ident {
+            #(#members: #field_init_expr),*
+        }),
+        None => quote!( Self {
+            #(#members: #field_init_expr),*
+        }),
     };
 
     TokenStream::from(quote! {
             impl #impl_generics #bevy_ecs_path::world::FromWorld for #name #ty_generics #where_clauses {
                 fn from_world(world: &mut #bevy_ecs_path::world::World) -> Self {
-                    #[allow(clippy::init_numbered_fields)]
                     #field_initializers
                 }
             }
