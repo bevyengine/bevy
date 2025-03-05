@@ -167,7 +167,7 @@ impl DynamicSet {
     }
 
     fn internal_hash(value: &dyn PartialReflect) -> u64 {
-        value.reflect_hash().expect(hash_error!(value))
+        value.reflect_hash().expect(&hash_error!(value))
     }
 
     fn internal_eq(

@@ -94,7 +94,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             // at the same time.
             unsafe {
                 self.state
-                    .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+                    .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
+                    .into_iter()
                     .fold(init, func);
             }
         }
@@ -106,7 +107,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
                 // SAFETY: See the safety comment above.
                 unsafe {
                     self.state
-                        .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+                        .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
+                        .into_iter()
                         .fold(init, func);
                 }
             } else {
@@ -262,12 +264,8 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
             // at the same time.
             unsafe {
                 self.state
-                    .iter_many_unchecked_manual(
-                        &self.entity_list,
-                        self.world,
-                        self.last_run,
-                        self.this_run,
-                    )
+                    .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
+                    .iter_many_inner(&self.entity_list)
                     .fold(init, func);
             }
         }
@@ -279,12 +277,8 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
                 // SAFETY: See the safety comment above.
                 unsafe {
                     self.state
-                        .iter_many_unchecked_manual(
-                            &self.entity_list,
-                            self.world,
-                            self.last_run,
-                            self.this_run,
-                        )
+                        .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
+                        .iter_many_inner(&self.entity_list)
                         .fold(init, func);
                 }
             } else {
@@ -430,12 +424,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
             // at the same time.
             unsafe {
                 self.state
-                    .iter_many_unique_unchecked_manual(
-                        self.entity_list,
-                        self.world,
-                        self.last_run,
-                        self.this_run,
-                    )
+                    .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
+                    .iter_many_unique_inner(self.entity_list)
                     .fold(init, func);
             }
         }
@@ -447,12 +437,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
                 // SAFETY: See the safety comment above.
                 unsafe {
                     self.state
-                        .iter_many_unique_unchecked_manual(
-                            self.entity_list,
-                            self.world,
-                            self.last_run,
-                            self.this_run,
-                        )
+                        .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
+                        .iter_many_unique_inner(self.entity_list)
                         .fold(init, func);
                 }
             } else {
