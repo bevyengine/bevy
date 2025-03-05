@@ -1318,6 +1318,50 @@ impl<'w> ComponentsRegistrator<'w> {
         Self { components, ids }
     }
 
+    /// Applies every queued registration.
+    /// This ensures that every valid [`ComponentId`] is registered,
+    /// enabling retrieving [`ComponentInfo`], etc.
+    pub fn apply_queued_registrations(&mut self) {
+        // components
+        while let Some((id, mut registrator)) = {
+            let queued = self
+                .queued
+                .get_mut()
+                .unwrap_or_else(PoisonError::into_inner);
+            queued.components.keys().next().copied().map(|type_id| {
+                // SAFETY: the id just came from a valid iterator.
+                unsafe { queued.components.remove(&type_id).debug_checked_unwrap() }
+            })
+        } {
+            registrator.register(self, id);
+        }
+
+        // resources
+        while let Some((id, mut registrator)) = {
+            let queued = self
+                .queued
+                .get_mut()
+                .unwrap_or_else(PoisonError::into_inner);
+            queued.resources.keys().next().copied().map(|type_id| {
+                // SAFETY: the id just came from a valid iterator.
+                unsafe { queued.resources.remove(&type_id).debug_checked_unwrap() }
+            })
+        } {
+            registrator.register(self, id);
+        }
+
+        // dynamic
+        for (id, mut registrator) in core::mem::take(
+            &mut self
+                .queued
+                .get_mut()
+                .unwrap_or_else(PoisonError::into_inner)
+                .dynamic_registrations,
+        ) {
+            registrator.register(self, id);
+        }
+    }
+
     /// Registers a [`Component`] of type `T` with this instance.
     /// If a component of this type has already been registered, this will return
     /// the ID of the pre-existing component.
