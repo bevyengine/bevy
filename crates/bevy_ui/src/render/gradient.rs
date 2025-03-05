@@ -31,7 +31,7 @@ use bytemuck::{Pod, Zeroable};
 use super::shader_flags::{FILL_END, FILL_START};
 
 pub const UI_GRADIENT_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("10cd61e3-bbf7-47fa-91c8-16cbe806378c");
+    weak_handle!("10116113-aac4-47fa-91c8-35cbe80dddcb");
 
 pub struct GradientPlugin;
 
