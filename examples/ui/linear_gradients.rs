@@ -215,11 +215,12 @@ fn setup(mut commands: Commands) {
                             GradientNode(Gradient::Radial {
                                 stops: stops.clone(),
                                 center: [
-                                    RelativePosition::Center(Val::ZERO),
-                                    RelativePosition::Center(Val::ZERO),
+                                    RelativePosition::Center(Val::Px(25.)),
+                                    RelativePosition::Center(Val::Px(25.)),
                                 ],
                                 shape: RadialGradientShape::Circle(
-                                    RadialGradientAxis::FarthestSide,
+                                    //RadialGradientAxis::FarthestSide,
+                                    RadialGradientAxis::ClosestSide,
                                 ),
                             }),
                             GradientBorder(Gradient::Linear {

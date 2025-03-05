@@ -228,7 +228,7 @@ fn radial_distance(
     center: vec2<f32>,
     ratio: f32,
 ) -> f32 {
-    return length(center - vec2(point.x, point.y));
+    return length(center - vec2(point.x, point.y * ratio));
 }
 
 fn conic_distance(

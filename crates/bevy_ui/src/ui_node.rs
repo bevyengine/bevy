@@ -2896,6 +2896,18 @@ pub enum RelativePosition {
 }
 
 impl RelativePosition {
+    pub fn start() -> Self {
+        Self::Start(Val::ZERO)
+    }
+
+    pub fn center() -> Self {
+        Self::Center(Val::ZERO)
+    }
+
+    pub fn end() -> Self {
+        Self::End(Val::ZERO)
+    }
+
     pub fn resolve(self, scale_factor: f32, length: f32, viewport_size: Vec2) -> f32 {
         let (mut val, point) = match self {
             Self::Start(val) => (val, -0.5 * length),
