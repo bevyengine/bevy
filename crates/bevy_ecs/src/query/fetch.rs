@@ -3,7 +3,7 @@ use crate::{
     bundle::Bundle,
     change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
-    entity::{Entities, Entity, EntityLocation},
+    entity::{Entities, Entity, EntityLocation, TrustedEntityBorrow},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
@@ -316,6 +316,17 @@ pub unsafe trait QueryData: WorldQuery {
 /// This must only be implemented for read-only [`QueryData`]'s.
 pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 
+/// A [`QueryData`] whose items can be compared as the original entity.
+///
+/// # Safety
+///
+/// Calling [`TrustedEntityBorrow::entity()`] on the `Item` must return the `entity` that was passed to [`QueryData::fetch()`].
+pub unsafe trait TrustedEntityQueryData: QueryData
+where
+    for<'a> Self: QueryData<Item<'a>: TrustedEntityBorrow>,
+{
+}
+
 /// The item type returned when a [`WorldQuery`] is iterated over
 pub type QueryItem<'w, Q> = <Q as QueryData>::Item<'w>;
 /// The read-only variant of the item type returned when a [`QueryData`] is iterated over immutably
@@ -392,6 +403,9 @@ unsafe impl QueryData for Entity {
 
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for Entity {}
+
+/// SAFETY: `entity()` returns `self`, and `fetch` returns `entity`
+unsafe impl TrustedEntityQueryData for Entity {}
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
@@ -554,6 +568,9 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityRef<'_> {}
 
+/// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
+unsafe impl TrustedEntityQueryData for EntityRef<'_> {}
+
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for EntityMut<'a> {
     type Fetch<'w> = UnsafeWorldCell<'w>;
@@ -631,6 +648,9 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
         unsafe { EntityMut::new(cell) }
     }
 }
+
+/// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
+unsafe impl TrustedEntityQueryData for EntityMut<'_> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
@@ -728,6 +748,9 @@ unsafe impl<'a> QueryData for FilteredEntityRef<'a> {
 /// SAFETY: Access is read-only.
 unsafe impl ReadOnlyQueryData for FilteredEntityRef<'_> {}
 
+/// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
+unsafe impl TrustedEntityQueryData for FilteredEntityRef<'_> {}
+
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
     type Fetch<'w> = (UnsafeWorldCell<'w>, Access<ComponentId>);
@@ -819,6 +842,9 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
         unsafe { FilteredEntityMut::new(cell, access.clone()) }
     }
 }
+
+/// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
+unsafe impl TrustedEntityQueryData for FilteredEntityMut<'_> {}
 
 /// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
@@ -920,6 +946,9 @@ where
 /// components.
 unsafe impl<'a, B> ReadOnlyQueryData for EntityRefExcept<'a, B> where B: Bundle {}
 
+/// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
+unsafe impl<B: Bundle> TrustedEntityQueryData for EntityRefExcept<'_, B> {}
+
 /// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
@@ -1016,6 +1045,9 @@ where
         EntityMutExcept::new(cell)
     }
 }
+
+/// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
+unsafe impl<B: Bundle> TrustedEntityQueryData for EntityMutExcept<'_, B> {}
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
