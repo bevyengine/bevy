@@ -1144,14 +1144,43 @@ impl ComponentCloneBehavior {
 
 /// Coordinates a registration that is reserved, but not registered.
 trait QueuedComponentRegistration {
-    fn register(&mut self, registrator: &mut ComponentsRegistrator, this_id: ComponentId);
+    /// Performs the registration.
+    ///
+    /// # Safery
+    ///
+    /// This must only ever be called once with a unique id.
+    unsafe fn register(&mut self, registrator: &mut ComponentsRegistrator, this_id: ComponentId);
+}
+
+/// A [`QueuedComponentRegistration`] from an arbitrary function.
+struct ArbitraryQueuedComponentRegistration<F: FnOnce(&mut ComponentsRegistrator, ComponentId)>(
+    Option<F>,
+);
+
+impl<F: FnOnce(&mut ComponentsRegistrator, ComponentId)> QueuedComponentRegistration
+    for ArbitraryQueuedComponentRegistration<F>
+{
+    unsafe fn register(&mut self, registrator: &mut ComponentsRegistrator, this_id: ComponentId) {
+        // SAFETY: The inner value is always `Some` until this is called, and this is only called once.
+        let func = unsafe { self.0.take().debug_checked_unwrap() };
+        func(registrator, this_id);
+    }
+}
+
+impl<F: FnOnce(&mut ComponentsRegistrator, ComponentId)> ArbitraryQueuedComponentRegistration<F> {
+    fn new(func: F) -> Self {
+        Self(Some(func))
+    }
 }
 
 /// Allows queueing components to be registered.
 #[derive(Default)]
 pub struct QueuedComponents {
+    // SAFETY: These `ComponentId`s must be unique
     components: TypeIdMap<(ComponentId, Box<dyn QueuedComponentRegistration>)>,
+    // SAFETY: These `ComponentId`s must be unique
     resources: TypeIdMap<(ComponentId, Box<dyn QueuedComponentRegistration>)>,
+    // SAFETY: These `ComponentId`s must be unique
     dynamic_registrations: Vec<(ComponentId, Box<dyn QueuedComponentRegistration>)>,
 }
 
@@ -1229,6 +1258,14 @@ pub struct ComponentsQueuedRegistrator<'w> {
     ids: &'w ComponentIds,
 }
 
+impl Deref for ComponentsQueuedRegistrator<'_> {
+    type Target = Components;
+
+    fn deref(&self) -> &Self::Target {
+        self.components
+    }
+}
+
 impl<'w> ComponentsQueuedRegistrator<'w> {
     /// Constructs a new [`ComponentsQueuedRegistrator`].
     ///
@@ -1240,12 +1277,93 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         Self { components, ids }
     }
 
+    /// Queues this function to run as a component registrator.
+    ///
+    /// # Safety
+    ///
+    /// The [`TypeId`] must not already be registered or queued as a component.
+    unsafe fn force_register_arbitrary_component(
+        &self,
+        type_id: TypeId,
+        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId) + 'static,
+    ) -> ComponentId {
+        let id = self.ids.next();
+        self.components
+            .queued
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .components
+            .insert(
+                type_id,
+                (
+                    id,
+                    Box::new(ArbitraryQueuedComponentRegistration::new(func)),
+                ),
+            );
+        id
+    }
+
+    /// Queues this function to run as a component registrator.
+    ///
+    /// # Safety
+    ///
+    /// The [`TypeId`] must not already be registered or queued as a resource.
+    unsafe fn force_register_arbitrary_resource(
+        &self,
+        type_id: TypeId,
+        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId) + 'static,
+    ) -> ComponentId {
+        let id = self.ids.next();
+        self.components
+            .queued
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .resources
+            .insert(
+                type_id,
+                (
+                    id,
+                    Box::new(ArbitraryQueuedComponentRegistration::new(func)),
+                ),
+            );
+        id
+    }
+
+    /// Queues this function to run as a dynamic registrator.
+    fn force_register_arbitrary_dynamic(
+        &self,
+        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId) + 'static,
+    ) -> ComponentId {
+        let id = self.ids.next();
+        self.components
+            .queued
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .dynamic_registrations
+            .push((
+                id,
+                Box::new(ArbitraryQueuedComponentRegistration::new(func)),
+            ));
+        id
+    }
+
     /// This is a queued version of [`ComponentsRegistrator::register_component`].
     /// This will reserve an id and queue the registration.
     /// These registrations will be carried out at the next opportunity.
     #[inline]
     pub fn queue_register_component<T: Component>(&self) -> ComponentId {
-        todo!()
+        self.component_id::<T>().unwrap_or_else(|| {
+            // SAFETY: We just checked that this type was not in the queue.
+            unsafe {
+                self.force_register_arbitrary_component(TypeId::of::<T>(), |registrator, id| {
+                    // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
+                    #[expect(unused_unsafe, reason = "More precise to specify.")]
+                    unsafe {
+                        registrator.register_component_unchecked::<T>(&mut Vec::new(), id);
+                    }
+                })
+            }
+        })
     }
 
     /// This is a queued version of [`ComponentsRegistrator::register_component_with_descriptor`].
@@ -1256,7 +1374,12 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         &self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        todo!()
+        self.force_register_arbitrary_dynamic(|registrator, id| {
+            // SAFETY: Id uniqueness handled by caller.
+            unsafe {
+                registrator.register_component_inner(id, descriptor);
+            }
+        })
     }
 
     /// This is a queued version of [`ComponentsRegistrator::register_resource`].
@@ -1264,7 +1387,22 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// These registrations will be carried out at the next opportunity.
     #[inline]
     pub fn queue_register_resource<T: Resource>(&self) -> ComponentId {
-        todo!()
+        let type_id = TypeId::of::<T>();
+        self.get_resource_id(type_id).unwrap_or_else(|| {
+            // SAFETY: We just checked that this type was not in the queue.
+            unsafe {
+                self.force_register_arbitrary_resource(type_id, move |registrator, id| {
+                    // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
+                    // SAFETY: Id uniqueness handled by caller, and the type_id matches descriptor.
+                    #[expect(unused_unsafe, reason = "More precise to specify.")]
+                    unsafe {
+                        registrator.register_resource_unchecked_with(type_id, id, || {
+                            ComponentDescriptor::new_resource::<T>()
+                        });
+                    }
+                })
+            }
+        })
     }
 
     /// This is a queued version of [`ComponentsRegistrator::register_non_send`].
@@ -1272,7 +1410,22 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// These registrations will be carried out at the next opportunity.
     #[inline]
     pub fn queue_register_non_send<T: Any>(&self) -> ComponentId {
-        todo!()
+        let type_id = TypeId::of::<T>();
+        self.get_resource_id(type_id).unwrap_or_else(|| {
+            // SAFETY: We just checked that this type was not in the queue.
+            unsafe {
+                self.force_register_arbitrary_resource(type_id, move |registrator, id| {
+                    // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
+                    // SAFETY: Id uniqueness handled by caller, and the type_id matches descriptor.
+                    #[expect(unused_unsafe, reason = "More precise to specify.")]
+                    unsafe {
+                        registrator.register_resource_unchecked_with(type_id, id, || {
+                            ComponentDescriptor::new_non_send::<T>(StorageType::default())
+                        });
+                    }
+                })
+            }
+        })
     }
 
     /// This is a queued version of [`ComponentsRegistrator::register_resource_with_descriptor`].
@@ -1283,7 +1436,12 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         &self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        todo!()
+        self.force_register_arbitrary_dynamic(|registrator, id| {
+            // SAFETY: Id uniqueness handled by caller.
+            unsafe {
+                registrator.register_component_inner(id, descriptor);
+            }
+        })
     }
 }
 
@@ -1333,7 +1491,10 @@ impl<'w> ComponentsRegistrator<'w> {
                 unsafe { queued.components.remove(&type_id).debug_checked_unwrap() }
             })
         } {
-            registrator.register(self, id);
+            // SAFETY: we own this value and it is being dropped, and the id came from the unique queue.
+            unsafe {
+                registrator.register(self, id);
+            }
         }
 
         // resources
@@ -1347,7 +1508,10 @@ impl<'w> ComponentsRegistrator<'w> {
                 unsafe { queued.resources.remove(&type_id).debug_checked_unwrap() }
             })
         } {
-            registrator.register(self, id);
+            // SAFETY: we own this value and it is being dropped, and the id came from the unique queue.
+            unsafe {
+                registrator.register(self, id);
+            }
         }
 
         // dynamic
@@ -1358,7 +1522,10 @@ impl<'w> ComponentsRegistrator<'w> {
                 .unwrap_or_else(PoisonError::into_inner)
                 .dynamic_registrations,
         ) {
-            registrator.register(self, id);
+            // SAFETY: we own this value and it is being dropped, and the id came from the unique queue.
+            unsafe {
+                registrator.register(self, id);
+            }
         }
     }
 
@@ -1395,7 +1562,11 @@ impl<'w> ComponentsRegistrator<'w> {
         {
             // If we are trying to register something that has already been queued, we respect the queue.
             // Just like if we are trying to register something that already is, we respect the first registration.
-            registrator.register(self, id);
+            //
+            // SAFETY: we own this value and it is being dropped, and the id came from the unique queue.
+            unsafe {
+                registrator.register(self, id);
+            }
             return id;
         }
 
@@ -1572,7 +1743,11 @@ impl<'w> ComponentsRegistrator<'w> {
         {
             // If we are trying to register something that has already been queued, we respect the queue.
             // Just like if we are trying to register something that already is, we respect the first registration.
-            registrator.register(self, id);
+            //
+            // SAFETY: we own this value and it is being dropped, and the id came from the unique queue.
+            unsafe {
+                registrator.register(self, id);
+            }
             return id;
         }
 
@@ -1620,6 +1795,8 @@ pub struct Components {
 }
 
 impl Components {
+    /// This registers any descriptor, component or resource.
+    ///
     /// # Safety
     ///
     /// The id must have never been registered before. This must be a fresh registration.
