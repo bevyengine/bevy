@@ -15,8 +15,11 @@ use crate::{
 use alloc::boxed::Box;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
-use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_platform_support::sync::Arc;
+use bevy_platform_support::{
+    collections::{HashMap, HashSet},
+    sync::PoisonError,
+};
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -1141,7 +1144,7 @@ impl ComponentCloneBehavior {
 
 /// Coordinates a registration that is reserved, but not registered.
 trait QueuedComponentRegistration {
-    fn register(&mut self, registrator: ComponentsRegistrator);
+    fn register(&mut self, registrator: &mut ComponentsRegistrator, this_id: ComponentId);
 }
 
 /// Allows queueing components to be registered.
@@ -1284,7 +1287,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     }
 }
 
-/// A type that enables registering in [`Components`].
+/// A [`Components`] wrapper that enables additional features, like registration.
 pub struct ComponentsRegistrator<'w> {
     components: &'w mut Components,
     ids: &'w mut ComponentIds,
@@ -1325,33 +1328,46 @@ impl<'w> ComponentsRegistrator<'w> {
     /// * [`Components::register_component_with_descriptor()`]
     #[inline]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
-        self.component_id::<T>().unwrap_or_else(|| {
-            let id = self.ids.next_mut();
-            // SAFETY: The component is not currently registered, and the id is fresh.
-            unsafe { self.register_component_internal::<T>(&mut Vec::new(), id) }
-            id
-        })
+        self.register_component_checked::<T>(&mut Vec::new())
     }
 
-    /// Same as [`register_component`] but keeps a `recursion_check_stack`.
+    /// Same as [`Self::register_component_internal`] but keeps a checks for safety.
     #[inline]
-    fn register_component_checked_internal<T: Component>(
+    fn register_component_checked<T: Component>(
         &mut self,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) -> ComponentId {
-        self.component_id::<T>().unwrap_or_else(|| {
-            let id = self.ids.next_mut();
-            // SAFETY: The component is not currently registered, and the id is fresh.
-            unsafe { self.register_component_internal::<T>(recursion_check_stack, id) }
-            id
-        })
+        let type_id = TypeId::of::<T>();
+        if let Some(id) = self.indices.get(&type_id) {
+            return *id;
+        }
+
+        if let Some((id, mut registrator)) = self
+            .queued
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
+            .components
+            .remove(&type_id)
+        {
+            // If we are trying to register something that has already been queued, we respect the queue.
+            // Just like if we are trying to register something that already is, we respect the first registration.
+            registrator.register(self, id);
+            return id;
+        }
+
+        let id = self.ids.next_mut();
+        // SAFETY: The component is not currently registered, and the id is fresh.
+        unsafe {
+            self.register_component_unchecked::<T>(recursion_check_stack, id);
+        }
+        id
     }
 
     /// # Safety
     ///
-    /// Neither this component, nor it's id may be registered. This must be a new registration.
+    /// Neither this component, nor it's id may be registered or queued. This must be a new registration.
     #[inline]
-    unsafe fn register_component_internal<T: Component>(
+    unsafe fn register_component_unchecked<T: Component>(
         &mut self,
         recursion_check_stack: &mut Vec<ComponentId>,
         id: ComponentId,
@@ -1442,8 +1458,8 @@ impl<'w> ComponentsRegistrator<'w> {
         inheritance_depth: u16,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) {
-        let requiree = self.register_component_checked_internal::<T>(recursion_check_stack);
-        let required = self.register_component_checked_internal::<R>(recursion_check_stack);
+        let requiree = self.register_component_checked::<T>(recursion_check_stack);
+        let required = self.register_component_checked::<R>(recursion_check_stack);
 
         // SAFETY: We just created the components.
         unsafe {
@@ -1467,16 +1483,12 @@ impl<'w> ComponentsRegistrator<'w> {
     /// * [`Components::register_resource_with_descriptor()`]
     #[inline]
     pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
-        self.resource_id::<T>().unwrap_or_else(|| {
-            let id = self.ids.next_mut();
-            // SAFETY: The resource is not currently registered, the id is fresh, and the [`ComponentDescriptor`] matches the [`TypeId`]
-            unsafe {
-                self.register_resource_with(TypeId::of::<T>(), id, || {
-                    ComponentDescriptor::new_resource::<T>()
-                });
-            }
-            id
-        })
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
+        unsafe {
+            self.register_resource_with(TypeId::of::<T>(), || {
+                ComponentDescriptor::new_resource::<T>()
+            })
+        }
     }
 
     /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
@@ -1484,20 +1496,48 @@ impl<'w> ComponentsRegistrator<'w> {
     /// the ID of the pre-existing resource.
     #[inline]
     pub fn register_non_send<T: Any>(&mut self) -> ComponentId {
-        let type_id = TypeId::of::<T>();
-        self.resource_indices
-            .get(&type_id)
-            .copied()
-            .unwrap_or_else(|| {
-                let id = self.ids.next_mut();
-                // SAFETY: The resource is not currently registered, the id is fresh, and the [`ComponentDescriptor`] matches the [`TypeId`]
-                unsafe {
-                    self.register_resource_with(type_id, id, || {
-                        ComponentDescriptor::new_non_send::<T>(StorageType::default())
-                    });
-                }
-                id
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
+        unsafe {
+            self.register_resource_with(TypeId::of::<T>(), || {
+                ComponentDescriptor::new_non_send::<T>(StorageType::default())
             })
+        }
+    }
+
+    /// Same as [`Components::register_resource_unchecked_with`] but handles safety.
+    ///
+    /// # Safety
+    ///
+    /// The [`ComponentDescriptor`] must match the [`TypeId`].
+    #[inline]
+    unsafe fn register_resource_with(
+        &mut self,
+        type_id: TypeId,
+        descriptor: impl FnOnce() -> ComponentDescriptor,
+    ) -> ComponentId {
+        if let Some(id) = self.resource_indices.get(&type_id) {
+            return *id;
+        }
+
+        if let Some((id, mut registrator)) = self
+            .queued
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
+            .resources
+            .remove(&type_id)
+        {
+            // If we are trying to register something that has already been queued, we respect the queue.
+            // Just like if we are trying to register something that already is, we respect the first registration.
+            registrator.register(self, id);
+            return id;
+        }
+
+        let id = self.ids.next_mut();
+        // SAFETY: The resource is not currently registered, the id is fresh, and the [`ComponentDescriptor`] matches the [`TypeId`]
+        unsafe {
+            self.register_resource_unchecked_with(type_id, id, descriptor);
+        }
+        id
     }
 
     /// Registers a [`Resource`] described by `descriptor`.
@@ -1531,6 +1571,7 @@ pub struct Components {
     components: HashMap<ComponentId, ComponentInfo>,
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
+    // This is kept internal and local to verify that no deadlocks can occor.
     queued: bevy_platform_support::sync::RwLock<QueuedComponents>,
 }
 
@@ -1549,19 +1590,45 @@ impl Components {
         debug_assert!(prev.is_none());
     }
 
-    /// Returns the number of components registered with this instance.
+    /// Returns the number of components registered or queued with this instance.
     #[inline]
     pub fn len(&self) -> usize {
+        self.num_queued() + self.num_registered()
+    }
+
+    /// Returns `true` if there are no components registered or queued with this instance. Otherwise, this returns `false`.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Returns the number of components registered with this instance.
+    #[inline]
+    pub fn num_queued(&self) -> usize {
+        let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
+        queued.components.len() + queued.dynamic_registrations.len() + queued.resources.len()
+    }
+
+    /// Returns `true` if there are any components registered with this instance. Otherwise, this returns `false`.
+    #[inline]
+    pub fn any_queued(&self) -> bool {
+        self.num_queued() > 0
+    }
+
+    /// Returns the number of components registered with this instance.
+    #[inline]
+    pub fn num_registered(&self) -> usize {
         self.components.len()
     }
 
-    /// Returns `true` if there are no components registered with this instance. Otherwise, this returns `false`.
+    /// Returns `true` if there are any components registered with this instance. Otherwise, this returns `false`.
     #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.components.len() == 0
+    pub fn any_registered(&self) -> bool {
+        self.num_registered() > 0
     }
 
-    /// Gets the metadata associated with the given component.
+    /// Gets the metadata associated with the given component, if it is registered.
+    /// This will return `None` if the id is not regiserted or is queued.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
@@ -1569,7 +1636,8 @@ impl Components {
         self.components.get(&id)
     }
 
-    /// Returns the name associated with the given component.
+    /// Returns the name associated with the given component, if it is registered.
+    /// This will return `None` if the id is not regiserted or is queued.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
@@ -1580,7 +1648,7 @@ impl Components {
     /// Gets the metadata associated with the given component.
     /// # Safety
     ///
-    /// `id` must be a valid [`ComponentId`]
+    /// `id` must be a valid and fully registered [`ComponentId`].
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         // SAFETY: The caller ensures `id` is valid.
@@ -1821,7 +1889,14 @@ impl Components {
     /// Type-erased equivalent of [`Components::component_id()`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).copied()
+        self.indices.get(&type_id).copied().or_else(|| {
+            self.queued
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .components
+                .get(&type_id)
+                .map(|queued| queued.0)
+        })
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -1831,7 +1906,7 @@ impl Components {
     /// instance.
     ///
     /// Returns [`None`] if the `Component` type has not
-    /// yet been initialized using [`Components::register_component()`].
+    /// yet been initialized using [`Components::register_component()`] or [`Components::queue_register_component()`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -1859,7 +1934,14 @@ impl Components {
     /// Type-erased equivalent of [`Components::resource_id()`].
     #[inline]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices.get(&type_id).copied()
+        self.resource_indices.get(&type_id).copied().or_else(|| {
+            self.queued
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .resources
+                .get(&type_id)
+                .map(|queued| queued.0)
+        })
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
@@ -1869,7 +1951,7 @@ impl Components {
     /// instance.
     ///
     /// Returns [`None`] if the `Resource` type has not
-    /// yet been initialized using [`Components::register_resource()`].
+    /// yet been initialized using [`Components::register_resource()`] or [`Components::queue_register_resource()`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -1897,9 +1979,9 @@ impl Components {
     ///
     /// The [`ComponentDescriptor`] must match the [`TypeId`].
     /// The [`ComponentId`] must be unique.
-    /// The [`TypeId`] must have never been registered.
+    /// The [`TypeId`] and [`ComponentId`] must not be registered or queued.
     #[inline]
-    unsafe fn register_resource_with(
+    unsafe fn register_resource_unchecked_with(
         &mut self,
         type_id: TypeId,
         component_id: ComponentId,
@@ -1913,8 +1995,8 @@ impl Components {
         debug_assert!(prev.is_none());
     }
 
-    /// Gets an iterator over all components registered with this instance.
-    pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
+    /// Gets an iterator over all components fully registered with this instance.
+    pub fn iter_registered(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.values()
     }
 }
