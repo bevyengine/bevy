@@ -56,6 +56,7 @@ mod sealed {
 /// ```
 /// # use core::any::Any;
 /// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath, ApplyError};
+/// # use bevy_reflect::cast::{CastPartialReflect, CastReflect};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {
@@ -78,9 +79,6 @@ mod sealed {
 /// # }
 /// # impl PartialReflect for Foo {
 /// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
-/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
-/// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { todo!() }
-/// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
 /// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> { todo!() }
 /// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
 /// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
@@ -94,10 +92,17 @@ mod sealed {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
 /// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
-/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
-/// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
-/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
 /// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
+/// # }
+/// # impl CastPartialReflect for Foo {
+/// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { self }
+/// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { self }
+/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { self }
+/// # }
+/// # impl CastReflect for Foo {
+/// #     fn as_reflect(&self) -> &dyn Reflect { self }
+/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { self }
+/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { self }
 /// # }
 /// ```
 ///
@@ -145,6 +150,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// ```
 /// # use core::any::Any;
 /// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError, Generics, TypeParamInfo};
+/// # use bevy_reflect::cast::{CastPartialReflect, CastReflect};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T>(T);
@@ -166,9 +172,6 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// # }
 /// # impl<T: PartialReflect + TypePath> PartialReflect for Foo<T> {
 /// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
-/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
-/// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { todo!() }
-/// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
 /// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> { todo!() }
 /// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
 /// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
@@ -182,10 +185,17 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
 /// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
-/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
-/// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
-/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
 /// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
+/// # }
+/// # impl<T: PartialReflect + TypePath> CastPartialReflect for Foo<T> {
+/// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { self }
+/// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { self }
+/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { self }
+/// # }
+/// # impl<T: Reflect + Typed + TypePath> CastReflect for Foo<T> {
+/// #     fn as_reflect(&self) -> &dyn Reflect { self }
+/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { self }
+/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { self }
 /// # }
 /// ```
 ///
