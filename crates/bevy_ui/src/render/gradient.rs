@@ -450,7 +450,7 @@ pub fn extract_gradients(
                 }
                 Gradient::Radial {
                     center,
-                    shape,
+                    shape: _,
                     stops,
                 } => {
                     let g_start = Vec2::new(
@@ -465,7 +465,6 @@ pub fn extract_gradients(
                             target.physical_size.as_vec2(),
                         ),
                     );
-                    let range_start = extracted_color_stops.0.len();
 
                     let length = 0.5 * uinode.size.x * transform.scale().x;
 
