@@ -7,7 +7,7 @@ use bevy::{
     render::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
-        view::RenderLayers,
+        view::{VisibleLayers, RenderLayers},
     },
 };
 
@@ -62,7 +62,7 @@ fn setup(
     });
 
     // This specifies the layer used for the first pass, which will be attached to the first pass camera and cube.
-    let first_pass_layer = RenderLayers::layer(1);
+    let first_pass_layer = VisibleLayers::layer(1);
 
     // The cube that will be rendered to the texture.
     commands.spawn((
@@ -80,7 +80,7 @@ fn setup(
     commands.spawn((
         PointLight::default(),
         Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-        RenderLayers::layer(0).with(1),
+        VisibleLayers::Override(RenderLayers::layer(0).with(1)),
     ));
 
     commands.spawn((
