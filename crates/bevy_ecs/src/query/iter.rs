@@ -122,7 +122,7 @@ impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>
             world: self.world,
             tables: self.tables,
             archetypes: self.archetypes,
-            query_state: self.query_state.borrow(),
+            query_state: &self.query_state,
             cursor: self.cursor.reborrow(),
         }
     }
@@ -214,14 +214,10 @@ impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>
             "TableRow is only valid up to u32::MAX"
         );
 
-        D::set_table(
-            &mut self.cursor.fetch,
-            &self.query_state.borrow().fetch_state,
-            table,
-        );
+        D::set_table(&mut self.cursor.fetch, &self.query_state.fetch_state, table);
         F::set_table(
             &mut self.cursor.filter,
-            &self.query_state.borrow().filter_state,
+            &self.query_state.filter_state,
             table,
         );
 
@@ -271,13 +267,13 @@ impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>
         let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
         D::set_archetype(
             &mut self.cursor.fetch,
-            &self.query_state.borrow().fetch_state,
+            &self.query_state.fetch_state,
             archetype,
             table,
         );
         F::set_archetype(
             &mut self.cursor.filter,
-            &self.query_state.borrow().filter_state,
+            &self.query_state.filter_state,
             archetype,
             table,
         );
@@ -349,13 +345,13 @@ impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>
 
         D::set_archetype(
             &mut self.cursor.fetch,
-            &self.query_state.borrow().fetch_state,
+            &self.query_state.fetch_state,
             archetype,
             table,
         );
         F::set_archetype(
             &mut self.cursor.filter,
-            &self.query_state.borrow().filter_state,
+            &self.query_state.filter_state,
             archetype,
             table,
         );
@@ -840,10 +836,7 @@ impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>
 
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .borrow()
-            .transmute_filtered::<(L, Entity), F>(world);
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -882,7 +875,7 @@ impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>
         // `query_state` is the state that was passed to `QueryIterationCursor::init`.
         unsafe {
             self.cursor
-                .next(self.tables, self.archetypes, self.query_state.borrow())
+                .next(self.tables, self.archetypes, &self.query_state)
         }
     }
 
@@ -994,7 +987,7 @@ where
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
-        let fetch = D::init_fetch(world, &query_state.borrow().fetch_state, last_run, this_run);
+        let fetch = D::init_fetch(world, &query_state.fetch_state, last_run, this_run);
         QuerySortedIter {
             query_state,
             entities: world.entities(),
@@ -1029,7 +1022,7 @@ where
         unsafe {
             D::set_archetype(
                 &mut self.fetch,
-                &self.query_state.borrow().fetch_state,
+                &self.query_state.fetch_state,
                 archetype,
                 table,
             );
@@ -1134,13 +1127,8 @@ impl<
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
-        let fetch = D::init_fetch(world, &query_state.borrow().fetch_state, last_run, this_run);
-        let filter = F::init_fetch(
-            world,
-            &query_state.borrow().filter_state,
-            last_run,
-            this_run,
-        );
+        let fetch = D::init_fetch(world, &query_state.fetch_state, last_run, this_run);
+        let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         QueryManyIter {
             world,
             query_state,
@@ -1228,7 +1216,7 @@ impl<
                 self.archetypes,
                 &mut self.fetch,
                 &mut self.filter,
-                self.query_state.borrow(),
+                &self.query_state,
             )
             .map(D::shrink)
         }
@@ -1667,10 +1655,7 @@ impl<
     > {
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .borrow()
-            .transmute_filtered::<(L, Entity), F>(world);
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -1728,7 +1713,7 @@ impl<
                 self.archetypes,
                 &mut self.fetch,
                 &mut self.filter,
-                self.query_state.borrow(),
+                &self.query_state,
             )
             .map(D::shrink)
         }
@@ -1753,7 +1738,7 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateBorrow<Data = D>, I: Iterator<Item: 
                 self.archetypes,
                 &mut self.fetch,
                 &mut self.filter,
-                self.query_state.borrow(),
+                &self.query_state,
             )
         }
     }
@@ -1784,7 +1769,7 @@ impl<
                 self.archetypes,
                 &mut self.fetch,
                 &mut self.filter,
-                self.query_state.borrow(),
+                &self.query_state,
             )
         }
     }
@@ -1864,7 +1849,7 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, I: EntitySetIterator> Iter
                 self.0.archetypes,
                 &mut self.0.fetch,
                 &mut self.0.filter,
-                self.0.query_state.borrow(),
+                &self.0.query_state,
             )
         }
     }
@@ -1921,7 +1906,7 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, I: Iterator<Item = Entity>
         last_run: Tick,
         this_run: Tick,
     ) -> QuerySortedManyIter<'w, S, I> {
-        let fetch = D::init_fetch(world, &query_state.borrow().fetch_state, last_run, this_run);
+        let fetch = D::init_fetch(world, &query_state.fetch_state, last_run, this_run);
         QuerySortedManyIter {
             query_state,
             entities: world.entities(),
@@ -1961,7 +1946,7 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, I: Iterator<Item = Entity>
         unsafe {
             D::set_archetype(
                 &mut self.fetch,
-                &self.query_state.borrow().fetch_state,
+                &self.query_state.fetch_state,
                 archetype,
                 table,
             );
@@ -2180,15 +2165,12 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, const K: usize>
         // Make cursor in index `j` for all `j` in `[i, K)` a copy of `c` advanced `j-i+1` times.
         // If no such `c` exists, return `None`
         'outer: for i in (0..K).rev() {
-            match self.cursors[i].next(self.tables, self.archetypes, self.query_state.borrow()) {
+            match self.cursors[i].next(self.tables, self.archetypes, &self.query_state) {
                 Some(_) => {
                     for j in (i + 1)..K {
                         self.cursors[j] = self.cursors[j - 1].clone();
-                        match self.cursors[j].next(
-                            self.tables,
-                            self.archetypes,
-                            self.query_state.borrow(),
-                        ) {
+                        match self.cursors[j].next(self.tables, self.archetypes, &self.query_state)
+                        {
                             Some(_) => {}
                             None if i > 0 => continue 'outer,
                             None => return None,
@@ -2352,20 +2334,15 @@ impl<'w, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter = F>
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
-        let fetch = D::init_fetch(world, &query_state.borrow().fetch_state, last_run, this_run);
-        let filter = F::init_fetch(
-            world,
-            &query_state.borrow().filter_state,
-            last_run,
-            this_run,
-        );
+        let fetch = D::init_fetch(world, &query_state.fetch_state, last_run, this_run);
+        let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         QueryIterationCursor {
             fetch,
             filter,
             table_entities: &[],
             archetype_entities: &[],
             storage_id_iter: query_state.storage_ids(),
-            is_dense: query_state.borrow().is_dense,
+            is_dense: query_state.is_dense,
             current_len: 0,
             current_row: 0,
         }

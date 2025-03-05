@@ -10,6 +10,7 @@ use crate::{
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
+use bevy_platform_support::prelude::Box;
 use core::{
     marker::PhantomData,
     mem::MaybeUninit,
@@ -455,7 +456,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
 
     /// Returns another `Query` from this does not return any data, which can be faster.
     fn as_nop(&self) -> Query<'_, '_, NopWorldQuery<D>, F> {
-        let new_state = self.state.borrow().as_nop();
+        let new_state = self.state.as_nop();
         // SAFETY:
         // - The reborrowed query is converted to read-only, so it cannot perform mutable access,
         //   and the original query is held with a shared borrow, so it cannot perform mutable access either.
@@ -545,14 +546,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
         // SAFETY:
         // - This is memory safe because the caller ensures that there are no conflicting references.
         // - The world matches because it was the same one used to construct self.
-        unsafe {
-            Query::new(
-                self.world,
-                self.state.borrow(),
-                self.last_run,
-                self.this_run,
-            )
-        }
+        unsafe { Query::new(self.world, &self.state, self.last_run, self.this_run) }
     }
 
     /// Returns an [`Iterator`] over the read-only query items.
@@ -1197,7 +1191,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
     ) -> QueryParManyIter<'_, &QueryState<D::ReadOnly, F>, EntityList::Item> {
         QueryParManyIter {
             world: self.world,
-            state: self.state.borrow().as_readonly(),
+            state: self.state.as_readonly(),
             entity_list: entities.into_iter().collect(),
             last_run: self.last_run,
             this_run: self.this_run,
@@ -1226,7 +1220,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
     ) -> QueryParManyUniqueIter<'_, &QueryState<D::ReadOnly, F>, EntityList::Item> {
         QueryParManyUniqueIter {
             world: self.world,
-            state: self.state.borrow().as_readonly(),
+            state: self.state.as_readonly(),
             entity_list: entities.into_iter().collect(),
             last_run: self.last_run,
             this_run: self.this_run,
@@ -1255,7 +1249,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
     ) -> QueryParManyUniqueIter<'_, &QueryState<D, F>, EntityList::Item> {
         QueryParManyUniqueIter {
             world: self.world,
-            state: self.state.borrow(),
+            state: &self.state,
             entity_list: entities.into_iter().collect(),
             last_run: self.last_run,
             this_run: self.this_run,
@@ -1460,7 +1454,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
                 .ok_or(EntityDoesNotExistError::new(entity, self.world.entities()))?;
             if !self
                 .state
-                .borrow()
                 .matched_archetypes
                 .contains(location.archetype_id.index())
             {
@@ -1473,13 +1466,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
                 .debug_checked_unwrap();
             let mut fetch = D::init_fetch(
                 self.world,
-                &self.state.borrow().fetch_state,
+                &self.state.fetch_state,
                 self.last_run,
                 self.this_run,
             );
             let mut filter = F::init_fetch(
                 self.world,
-                &self.state.borrow().filter_state,
+                &self.state.filter_state,
                 self.last_run,
                 self.this_run,
             );
@@ -1490,18 +1483,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
                 .tables
                 .get(location.table_id)
                 .debug_checked_unwrap();
-            D::set_archetype(
-                &mut fetch,
-                &self.state.borrow().fetch_state,
-                archetype,
-                table,
-            );
-            F::set_archetype(
-                &mut filter,
-                &self.state.borrow().filter_state,
-                archetype,
-                table,
-            );
+            D::set_archetype(&mut fetch, &self.state.fetch_state, archetype, table);
+            F::set_archetype(&mut filter, &self.state.filter_state, archetype, table);
 
             if F::filter_fetch(&mut filter, entity, location.table_row) {
                 Ok(D::fetch(&mut fetch, entity, location.table_row))
@@ -2180,14 +2163,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
     pub fn transmute_lens_filtered_inner<NewD: QueryData, NewF: QueryFilter>(
         self,
     ) -> QueryLens<'w, NewD, NewF> {
-        let state = self
-            .state
-            .borrow()
-            .transmute_filtered::<NewD, NewF>(self.world);
+        let state = self.state.transmute_filtered::<NewD, NewF>(self.world);
         // SAFETY:
         // - This is memory safe because the original query had compatible access and was consumed.
         // - The world matches because it was the same one used to construct self.
-        unsafe { Query::new(self.world, state, self.last_run, self.this_run) }
+        unsafe { Query::new(self.world, Box::new(state), self.last_run, self.this_run) }
     }
 
     /// Gets a [`QueryLens`] with the same accesses as the existing query
@@ -2334,12 +2314,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
     ) -> QueryLens<'w, NewD, NewF> {
         let state = self
             .state
-            .borrow()
             .join_filtered::<OtherD, OtherF, NewD, NewF>(self.world, other.state);
         // SAFETY:
         // - This is memory safe because the original query had compatible access and was consumed.
         // - The world matches because it was the same one used to construct self.
-        unsafe { Query::new(self.world, state, self.last_run, self.this_run) }
+        unsafe { Query::new(self.world, Box::new(state), self.last_run, self.this_run) }
     }
 }
 
@@ -2413,7 +2392,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Query<'w, 's, D, F> {
 /// A [`Query`] with an owned [`QueryState`].
 ///
 /// This is returned from methods like [`Query::transmute_lens`] that construct a fresh [`QueryState`].
-pub type QueryLens<'w, Q, F = ()> = Query<'w, 'w, Q, F, QueryState<Q, F>>;
+pub type QueryLens<'w, Q, F = ()> = Query<'w, 'w, Q, F, Box<QueryState<Q, F>>>;
 
 impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
     /// Create a [`Query`] from the underlying [`QueryState`].

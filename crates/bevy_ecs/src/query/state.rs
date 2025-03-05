@@ -14,7 +14,8 @@ use crate::{
 use crate::entity::{TrustedEntityBorrow, UniqueEntitySlice};
 
 use alloc::vec::{self, Vec};
-use core::{borrow::Borrow, fmt, iter, ptr, slice};
+use bevy_platform_support::prelude::Box;
+use core::{fmt, iter, ops::Deref, ptr, slice};
 use fixedbitset::FixedBitSet;
 use log::warn;
 #[cfg(feature = "trace")]
@@ -88,7 +89,7 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
 }
 
 /// Abstracts over an owned or borrowed [`QueryState`].
-pub trait QueryStateBorrow: Borrow<QueryState<Self::Data, Self::Filter>> {
+pub trait QueryStateBorrow: Deref<Target = QueryState<Self::Data, Self::Filter>> {
     /// The [`QueryData`] for this `QueryState`.
     type Data: QueryData;
 
@@ -117,11 +118,11 @@ pub trait QueryStateBorrow: Borrow<QueryState<Self::Data, Self::Filter>> {
     fn into_readonly(self) -> Self::ReadOnly;
 }
 
-impl<D: QueryData, F: QueryFilter> QueryStateBorrow for QueryState<D, F> {
+impl<D: QueryData, F: QueryFilter> QueryStateBorrow for Box<QueryState<D, F>> {
     type Data = D;
     type Filter = F;
     type StorageIter = vec::IntoIter<StorageId>;
-    type ReadOnly = QueryState<D::ReadOnly, F>;
+    type ReadOnly = Box<QueryState<D::ReadOnly, F>>;
 
     fn storage_ids(&self) -> Self::StorageIter {
         // Query iteration holds both the state and the storage iterator,
@@ -137,7 +138,7 @@ impl<D: QueryData, F: QueryFilter> QueryStateBorrow for QueryState<D, F> {
     }
 
     fn into_readonly(self) -> Self::ReadOnly {
-        self.into_readonly()
+        Box::new((*self).into_readonly())
     }
 }
 

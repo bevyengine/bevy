@@ -94,7 +94,6 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>> QueryParIter<'w, S> {
             // at the same time.
             unsafe {
                 self.state
-                    .borrow()
                     .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
                     .into_iter()
                     .fold(init, func);
@@ -108,7 +107,6 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>> QueryParIter<'w, S> {
                 // SAFETY: See the safety comment above.
                 unsafe {
                     self.state
-                        .borrow()
                         .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
                         .into_iter()
                         .fold(init, func);
@@ -118,7 +116,7 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>> QueryParIter<'w, S> {
                 let batch_size = self.get_batch_size(thread_count).max(1);
                 // SAFETY: See the safety comment above.
                 unsafe {
-                    self.state.borrow().par_fold_init_unchecked_manual(
+                    self.state.par_fold_init_unchecked_manual(
                         init,
                         self.world,
                         batch_size,
@@ -135,7 +133,7 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>> QueryParIter<'w, S> {
     fn get_batch_size(&self, thread_count: usize) -> usize {
         let max_items = || {
             let id_iter = self.state.storage_ids();
-            if self.state.borrow().is_dense {
+            if self.state.is_dense {
                 // SAFETY: We only access table metadata.
                 let tables = unsafe { &self.world.world_metadata().storages().tables };
                 id_iter
@@ -266,7 +264,6 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateBorrow<Data = D>, E: EntityBorrow + 
             // at the same time.
             unsafe {
                 self.state
-                    .borrow()
                     .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
                     .iter_many_inner(&self.entity_list)
                     .fold(init, func);
@@ -280,7 +277,6 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateBorrow<Data = D>, E: EntityBorrow + 
                 // SAFETY: See the safety comment above.
                 unsafe {
                     self.state
-                        .borrow()
                         .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
                         .iter_many_inner(&self.entity_list)
                         .fold(init, func);
@@ -290,7 +286,7 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateBorrow<Data = D>, E: EntityBorrow + 
                 let batch_size = self.get_batch_size(thread_count).max(1);
                 // SAFETY: See the safety comment above.
                 unsafe {
-                    self.state.borrow().par_many_fold_init_unchecked_manual(
+                    self.state.par_many_fold_init_unchecked_manual(
                         init,
                         self.world,
                         &self.entity_list,
@@ -422,7 +418,6 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, E: TrustedEntityBorrow + S
             // at the same time.
             unsafe {
                 self.state
-                    .borrow()
                     .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
                     .iter_many_unique_inner(self.entity_list)
                     .fold(init, func);
@@ -436,7 +431,6 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, E: TrustedEntityBorrow + S
                 // SAFETY: See the safety comment above.
                 unsafe {
                     self.state
-                        .borrow()
                         .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
                         .iter_many_unique_inner(self.entity_list)
                         .fold(init, func);
@@ -446,17 +440,15 @@ impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, E: TrustedEntityBorrow + S
                 let batch_size = self.get_batch_size(thread_count).max(1);
                 // SAFETY: See the safety comment above.
                 unsafe {
-                    self.state
-                        .borrow()
-                        .par_many_unique_fold_init_unchecked_manual(
-                            init,
-                            self.world,
-                            &self.entity_list,
-                            batch_size,
-                            func,
-                            self.last_run,
-                            self.this_run,
-                        );
+                    self.state.par_many_unique_fold_init_unchecked_manual(
+                        init,
+                        self.world,
+                        &self.entity_list,
+                        batch_size,
+                        func,
+                        self.last_run,
+                        self.this_run,
+                    );
                 }
             }
         }
