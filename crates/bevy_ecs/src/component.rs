@@ -1312,6 +1312,7 @@ impl<'w> ComponentsRegistrator<'w> {
     ///
     /// * [`Components::component_id()`]
     /// * [`Components::register_component()`]
+    #[inline]
     pub fn register_component_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
@@ -1420,6 +1421,7 @@ impl<'w> ComponentsRegistrator<'w> {
     ///
     /// * [`Components::resource_id()`]
     /// * [`Components::register_resource()`]
+    #[inline]
     pub fn register_resource_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,

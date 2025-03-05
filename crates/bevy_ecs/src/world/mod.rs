@@ -223,7 +223,7 @@ impl World {
         &self.components
     }
 
-    /// Retrieves this world's [`Components`] collection.
+    /// Prepares a [`ComponentsRegistrator`] for the world.
     #[inline]
     pub fn components_registrator(&mut self) -> ComponentsRegistrator {
         // SAFETY: These are from the same world.
