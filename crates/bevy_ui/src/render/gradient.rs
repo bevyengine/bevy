@@ -353,7 +353,7 @@ pub fn extract_gradients(
 
                     let range_start = extracted_color_stops.0.len();
 
-                    // resolve the physical distances of explicit stops and sort them high to low
+                    // resolve the physical distances of explicit stops and sort them
                     sorted_stops.extend(stops.iter().filter_map(|stop| {
                         stop.point
                             .resolve(logical_length, logical_viewport_size)
@@ -579,11 +579,52 @@ pub fn extract_gradients(
                     );
                     let range_start = extracted_color_stops.0.len();
 
-                    for (i, stop) in stops.iter().enumerate() {
-                        extracted_color_stops.0.push((
-                            stop.color.into(),
-                            i as f32 * TAU / (stops.len() as f32 - 1.),
-                        ));
+                    // sort the explicit stops
+                    sorted_stops.extend(stops.iter().filter_map(|stop| {
+                        stop.angle.map(|angle| (stop.color.to_linear(), angle))
+                    }));
+                    sorted_stops.sort_by_key(|(_, angle)| FloatOrd(*angle));
+                    let mut sorted_stops_drain = sorted_stops.drain(..);
+
+                    // fill the extracted stops buffer
+                    extracted_color_stops.0.extend(stops.iter().map(|stop| {
+                        if stop.angle.is_none() {
+                            (stop.color.to_linear(), f32::NAN)
+                        } else {
+                            sorted_stops_drain.next().unwrap()
+                        }
+                    }));
+
+                    // interpolation
+                    let stops_out = &mut extracted_color_stops.0[range_start..];
+
+                    if stops_out[0].1.is_nan() {
+                        stops_out[0].1 = 0.;
+                    }
+                    if stops_out.last().unwrap().1.is_nan() {
+                        stops_out.last_mut().unwrap().1 = TAU;
+                    }
+
+                    let mut i = 1;
+
+                    while i < stops_out.len() - 1 {
+                        let point = stops_out[i].1;
+                        if point.is_nan() {
+                            let start = i;
+                            let mut end = i + 1;
+                            while end < stops_out.len() - 1 && stops_out[end].1.is_nan() {
+                                end += 1;
+                            }
+                            let start_point = stops_out[start - 1].1;
+                            let end_point = stops_out[end].1;
+                            let steps = end - start;
+                            let step = (end_point - start_point) / (steps + 1) as f32;
+                            for j in 0..steps {
+                                stops_out[i + j].1 = start_point + step * (j + 1) as f32;
+                            }
+                            i = end;
+                        }
+                        i += 1;
                     }
 
                     extracted_gradients.items.push(ExtractedGradient {
