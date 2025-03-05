@@ -63,7 +63,7 @@ impl Plugin for ForwardDecalPlugin {
 /// # Usage Notes
 ///
 /// * Spawn this component on an entity with a [`crate::MeshMaterial3d`] component holding a [`ForwardDecalMaterial`].
-/// * Any camera rendering a forward decal must have the [`bevy_core_pipeline::DepthPrepass`] component.
+/// * Any camera rendering a forward decal must have the [`bevy_core_pipeline::prepass::DepthPrepass`] component.
 /// * Looking at forward decals at a steep angle can cause distortion. This can be mitigated by padding your decal's
 ///   texture with extra transparent pixels on the edges.
 #[derive(Component, Reflect)]
