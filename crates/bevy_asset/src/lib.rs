@@ -1902,10 +1902,10 @@ mod tests {
         dir.insert_asset_text(Path::new(a_path), a_ron);
 
         let mut app = App::new();
-        let (gated_memory_reader, _gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
+        let memory_reader = MemoryAssetReader { root: dir };
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build().with_reader(move || Box::new(gated_memory_reader.clone())),
+            AssetSource::build().with_reader(move || Box::new(memory_reader.clone())),
         )
         .add_plugins((
             TaskPoolPlugin::default(),
