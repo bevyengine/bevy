@@ -21,10 +21,6 @@ use bevy::{
 };
 
 fn main() {
-    #[expect(
-        deprecated,
-        reason = "Once AmbientLight is removed, the resource can be removed"
-    )]
     App::new()
         .insert_resource(AmbientLight::NONE)
         .add_plugins(DefaultPlugins)
