@@ -258,6 +258,10 @@ impl Index<usize> for EntityIndexSet {
     }
 }
 
+/// A dynamically-sized slice of values in an [`EntityIndexSet`].
+///
+/// Equivalent to an [`indexmap::set::Slice<V>`] whose source [`IndexSet`]
+/// uses [`EntityHash`].
 #[repr(transparent)]
 pub struct Slice<S = EntityHash>(PhantomData<S>, set::Slice<Entity>);
 

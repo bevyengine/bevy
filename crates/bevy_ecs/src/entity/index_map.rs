@@ -351,6 +351,11 @@ where
 
 impl<V: Eq> Eq for EntityIndexMap<V> {}
 
+/// A dynamically-sized slice of key-value pairs in an [`EntityIndexMap`].
+///
+/// Equivalent to an [`indexmap::map::Slice<V>`] whose source [`IndexMap`]
+/// uses [`EntityHash`].
+#[repr(transparent)]
 pub struct Slice<V, S = EntityHash>(PhantomData<S>, map::Slice<Entity, V>);
 
 impl<V> Slice<V> {
