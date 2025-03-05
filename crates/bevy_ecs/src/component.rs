@@ -432,7 +432,7 @@ pub trait Component: Send + Sync + 'static {
     /// Registers required components.
     fn register_required_components(
         _component_id: ComponentId,
-        _components: &mut Components,
+        _components: &mut ComponentsRegistrator,
         _required_components: &mut RequiredComponents,
         _inheritance_depth: u16,
         _recursion_check_stack: &mut Vec<ComponentId>,
@@ -1195,12 +1195,12 @@ impl ComponentIds {
 }
 
 /// A type that enables registering in [`Components`].
-pub struct ComponentsView<'w> {
+pub struct ComponentsRegistrator<'w> {
     components: &'w mut Components,
     ids: &'w mut ComponentIds,
 }
 
-impl Deref for ComponentsView<'_> {
+impl Deref for ComponentsRegistrator<'_> {
     type Target = Components;
 
     fn deref(&self) -> &Self::Target {
@@ -1208,13 +1208,23 @@ impl Deref for ComponentsView<'_> {
     }
 }
 
-impl DerefMut for ComponentsView<'_> {
+impl DerefMut for ComponentsRegistrator<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.components
     }
 }
 
-impl<'w> ComponentsView<'w> {
+impl<'w> ComponentsRegistrator<'w> {
+    /// Constructs a new [`ComponentsRegistrator`].
+    ///
+    /// # Safety
+    ///
+    /// The [`Components`] and [`ComponentIds`] must match.
+    /// For example, they must be from the same world.
+    pub unsafe fn new(components: &'w mut Components, ids: &'w mut ComponentIds) -> Self {
+        Self { components, ids }
+    }
+
     /// Registers a [`Component`] of type `T` with this instance.
     /// If a component of this type has already been registered, this will return
     /// the ID of the pre-existing component.
@@ -1245,6 +1255,50 @@ impl<'w> ComponentsView<'w> {
             unsafe { self.register_component_internal::<T>(recursion_check_stack, id) }
             id
         })
+    }
+
+    /// # Safety
+    ///
+    /// Neither this component, nor it's id may be registered. This must be a new registration.
+    #[inline]
+    unsafe fn register_component_internal<T: Component>(
+        &mut self,
+        recursion_check_stack: &mut Vec<ComponentId>,
+        id: ComponentId,
+    ) {
+        // SAFETY: ensured by caller.
+        unsafe {
+            self.register_component_inner(id, ComponentDescriptor::new::<T>());
+        }
+        let type_id = TypeId::of::<T>();
+        let prev = self.indices.insert(type_id, id);
+        debug_assert!(prev.is_none());
+
+        let mut required_components = RequiredComponents::default();
+        T::register_required_components(
+            id,
+            self,
+            &mut required_components,
+            0,
+            recursion_check_stack,
+        );
+        // SAFETY: we just inserted it in `register_component_inner`
+        let info = unsafe {
+            &mut self
+                .components
+                .components
+                .get_mut(&id)
+                .debug_checked_unwrap()
+        };
+
+        #[expect(
+            deprecated,
+            reason = "need to use this method until it is removed to ensure user defined components register hooks correctly"
+        )]
+        // TODO: Replace with `info.hooks.update_from_component::<T>();` once `Component::register_component_hooks` is removed
+        T::register_component_hooks(&mut info.hooks);
+
+        info.required_components = required_components;
     }
 
     /// Registers a component described by `descriptor`.
@@ -1380,44 +1434,6 @@ impl<'w> ComponentsView<'w> {
 }
 
 impl Components {
-    /// # Safety
-    ///
-    /// Neither this component, nor it's id may be registered. This must be a new registration.
-    #[inline]
-    unsafe fn register_component_internal<T: Component>(
-        &mut self,
-        recursion_check_stack: &mut Vec<ComponentId>,
-        id: ComponentId,
-    ) {
-        // SAFETY: ensured by caller.
-        unsafe {
-            self.register_component_inner(id, ComponentDescriptor::new::<T>());
-        }
-        let type_id = TypeId::of::<T>();
-        let prev = self.indices.insert(type_id, id);
-        debug_assert!(prev.is_none());
-
-        let mut required_components = RequiredComponents::default();
-        T::register_required_components(
-            id,
-            self,
-            &mut required_components,
-            0,
-            recursion_check_stack,
-        );
-        // SAFETY: we just inserted it in `register_component_inner`
-        let info = unsafe { &mut self.components.get_mut(&id).debug_checked_unwrap() };
-
-        #[expect(
-            deprecated,
-            reason = "need to use this method until it is removed to ensure user defined components register hooks correctly"
-        )]
-        // TODO: Replace with `info.hooks.update_from_component::<T>();` once `Component::register_component_hooks` is removed
-        T::register_component_hooks(&mut info.hooks);
-
-        info.required_components = required_components;
-    }
-
     /// # Safety
     ///
     /// The id must have never been registered before. THis must be a fresh registration.
@@ -2124,7 +2140,7 @@ impl RequiredComponents {
     /// is smaller than the depth of the existing registration. Otherwise, the new registration will be ignored.
     pub fn register<C: Component>(
         &mut self,
-        components: &mut ComponentsView,
+        components: &mut ComponentsRegistrator,
         constructor: fn() -> C,
         inheritance_depth: u16,
     ) {

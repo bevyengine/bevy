@@ -38,8 +38,9 @@ use crate::{
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
-        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, Mutable, RequiredComponents, RequiredComponentsError, Tick,
+        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentIds, ComponentInfo,
+        ComponentTicks, Components, ComponentsRegistrator, Mutable, RequiredComponents,
+        RequiredComponentsError, Tick,
     },
     entity::{
         AllocAtWithoutReplacement, Entities, Entity, EntityDoesNotExistError, EntityLocation,
@@ -89,6 +90,7 @@ pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
     pub(crate) components: Components,
+    pub(crate) component_ids: ComponentIds,
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
@@ -119,6 +121,7 @@ impl Default for World {
             last_check_tick: Tick::new(0),
             last_trigger_id: 0,
             command_queue: RawCommandQueue::new(),
+            component_ids: ComponentIds::default(),
         };
         world.bootstrap();
         world
@@ -220,6 +223,13 @@ impl World {
         &self.components
     }
 
+    /// Retrieves this world's [`Components`] collection.
+    #[inline]
+    pub fn components_registrator(&mut self) -> ComponentsRegistrator {
+        // SAFETY: These are from the same world.
+        unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) }
+    }
+
     /// Retrieves this world's [`Storages`] collection.
     #[inline]
     pub fn storages(&self) -> &Storages {
@@ -252,7 +262,7 @@ impl World {
     /// In most cases, you don't need to call this method directly since component registration
     /// happens automatically during system initialization.
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
-        self.components.register_component::<T>()
+        self.components_registrator().register_component::<T>()
     }
 
     /// Registers a component type as "disabling",
@@ -536,7 +546,7 @@ impl World {
         &mut self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        self.components
+        self.components_registrator()
             .register_component_with_descriptor(descriptor)
     }
 
@@ -576,7 +586,7 @@ impl World {
     /// to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or
     /// [`World::insert_resource`] instead.
     pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
-        self.components.register_resource::<R>()
+        self.components_registrator().register_resource::<R>()
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
@@ -1573,7 +1583,7 @@ impl World {
         &mut self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        self.components
+        self.components_registrator()
             .register_resource_with_descriptor(descriptor)
     }
 
@@ -1588,7 +1598,7 @@ impl World {
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
         let caller = MaybeLocation::caller();
-        let component_id = self.components.register_resource::<R>();
+        let component_id = self.components_registrator().register_resource::<R>();
         if self
             .storages
             .resources
@@ -1625,7 +1635,7 @@ impl World {
         value: R,
         caller: MaybeLocation,
     ) {
-        let component_id = self.components.register_resource::<R>();
+        let component_id = self.components_registrator().register_resource::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
@@ -1649,7 +1659,7 @@ impl World {
     #[track_caller]
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> ComponentId {
         let caller = MaybeLocation::caller();
-        let component_id = self.components.register_non_send::<R>();
+        let component_id = self.components_registrator().register_non_send::<R>();
         if self
             .storages
             .non_send_resources
@@ -1680,7 +1690,7 @@ impl World {
     #[track_caller]
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
         let caller = MaybeLocation::caller();
-        let component_id = self.components.register_non_send::<R>();
+        let component_id = self.components_registrator().register_non_send::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
@@ -1963,7 +1973,7 @@ impl World {
         let change_tick = self.change_tick();
         let last_change_tick = self.last_change_tick();
 
-        let component_id = self.components.register_resource::<R>();
+        let component_id = self.components_registrator().register_resource::<R>();
         let data = self.initialize_resource_internal(component_id);
         if !data.is_present() {
             OwningPtr::make(func(), |ptr| {
@@ -2021,7 +2031,7 @@ impl World {
         let change_tick = self.change_tick();
         let last_change_tick = self.last_change_tick();
 
-        let component_id = self.components.register_resource::<R>();
+        let component_id = self.components_registrator().register_resource::<R>();
         if self
             .storages
             .resources
@@ -2176,12 +2186,14 @@ impl World {
         B: Bundle<Effect: NoBundleEffect>,
     {
         self.flush();
-
         let change_tick = self.change_tick();
 
+        // SAFETY: These come from the same world.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let bundle_id = self
             .bundles
-            .register_info::<B>(&mut self.components, &mut self.storages);
+            .register_info::<B>(&mut registrator, &mut self.storages);
         enum SpawnOrInsert<'w> {
             Spawn(BundleSpawner<'w>),
             Insert(BundleInserter<'w>, ArchetypeId),
@@ -2346,9 +2358,12 @@ impl World {
 
         self.flush();
         let change_tick = self.change_tick();
+        // SAFETY: These come from the same world.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let bundle_id = self
             .bundles
-            .register_info::<B>(&mut self.components, &mut self.storages);
+            .register_info::<B>(&mut registrator, &mut self.storages);
 
         let mut batch_iter = batch.into_iter();
 
@@ -2482,9 +2497,12 @@ impl World {
 
         self.flush();
         let change_tick = self.change_tick();
+        // SAFETY: These come from the same world.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let bundle_id = self
             .bundles
-            .register_info::<B>(&mut self.components, &mut self.storages);
+            .register_info::<B>(&mut registrator, &mut self.storages);
 
         let mut invalid_entities = Vec::<Entity>::new();
         let mut batch_iter = batch.into_iter();
@@ -3038,9 +3056,12 @@ impl World {
     /// component in the bundle.
     #[inline]
     pub fn register_bundle<B: Bundle>(&mut self) -> &BundleInfo {
+        // SAFETY: These come from the same world.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let id = self
             .bundles
-            .register_info::<B>(&mut self.components, &mut self.storages);
+            .register_info::<B>(&mut registrator, &mut self.storages);
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
