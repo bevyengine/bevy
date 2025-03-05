@@ -1536,13 +1536,13 @@ impl<'w> ComponentsRegistrator<'w> {
     /// # See also
     ///
     /// * [`Components::component_id()`]
-    /// * [`Components::register_component_with_descriptor()`]
+    /// * [`ComponentsRegistrator::register_component_with_descriptor()`]
     #[inline]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
         self.register_component_checked::<T>(&mut Vec::new())
     }
 
-    /// Same as [`Self::register_component_internal`] but keeps a checks for safety.
+    /// Same as [`Self::register_component_unchecked`] but keeps a checks for safety.
     #[inline]
     fn register_component_checked<T: Component>(
         &mut self,
@@ -1632,7 +1632,7 @@ impl<'w> ComponentsRegistrator<'w> {
     /// # See also
     ///
     /// * [`Components::component_id()`]
-    /// * [`Components::register_component()`]
+    /// * [`ComponentsRegistrator::register_component()`]
     #[inline]
     pub fn register_component_with_descriptor(
         &mut self,
@@ -1695,7 +1695,7 @@ impl<'w> ComponentsRegistrator<'w> {
     /// # See also
     ///
     /// * [`Components::resource_id()`]
-    /// * [`Components::register_resource_with_descriptor()`]
+    /// * [`ComponentsRegistrator::register_resource_with_descriptor()`]
     #[inline]
     pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
@@ -1769,7 +1769,7 @@ impl<'w> ComponentsRegistrator<'w> {
     /// # See also
     ///
     /// * [`Components::resource_id()`]
-    /// * [`Components::register_resource()`]
+    /// * [`ComponentsRegistrator::register_resource()`]
     #[inline]
     pub fn register_resource_with_descriptor(
         &mut self,
@@ -2127,7 +2127,7 @@ impl Components {
     /// instance.
     ///
     /// Returns [`None`] if the `Component` type has not
-    /// yet been initialized using [`Components::register_component()`] or [`Components::queue_register_component()`].
+    /// yet been initialized using [`ComponentsRegistrator::register_component()`] or [`ComponentsQueuedRegistrator::queue_register_component()`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -2172,7 +2172,7 @@ impl Components {
     /// instance.
     ///
     /// Returns [`None`] if the `Resource` type has not
-    /// yet been initialized using [`Components::register_resource()`] or [`Components::queue_register_resource()`].
+    /// yet been initialized using [`ComponentsRegistrator::register_resource()`] or [`ComponentsQueuedRegistrator::queue_register_resource()`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -2361,7 +2361,7 @@ impl ComponentTicks {
 
     /// Manually sets the change tick.
     ///
-    /// This is normally done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
+    /// This is normally done automatically via the [`DerefMut`] implementation
     /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut), etc.
     /// However, components and resources that make use of interior mutability might require manual updates.
     ///
