@@ -179,6 +179,11 @@ impl<'w> EntityWorldMut<'w> {
         self.add_related::<ChildOf>(&[child])
     }
 
+    /// Replaces the children on this entity with a new list of children.
+    pub fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
+        self.replace_related::<ChildOf>(children)
+    }
+
     /// Spawns the passed bundle and adds it to this entity as a child.
     ///
     /// For efficient spawning of multiple children, use [`with_children`].
@@ -228,6 +233,11 @@ impl<'a> EntityCommands<'a> {
     /// Adds the given child to this entity
     pub fn add_child(&mut self, child: Entity) -> &mut Self {
         self.add_related::<ChildOf>(&[child])
+    }
+
+    /// Replaces the children on this entity with a new list of children.
+    pub fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
+        self.replace_related::<ChildOf>(children)
     }
 
     /// Spawns the passed bundle and adds it to this entity as a child.
@@ -489,5 +499,38 @@ mod tests {
         let mut world = World::new();
         let id = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
         assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 2,);
+    }
+
+    #[test]
+    fn replace_children() {
+        let mut world = World::new();
+        let parent = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
+        let &[child_a, child_b] = &world.entity(parent).get::<Children>().unwrap().0[..] else {
+            panic!("Tried to spawn 2 children on an entity and didn't get 2 children");
+        };
+
+        let child_c = world.spawn_empty().id();
+
+        world
+            .entity_mut(parent)
+            .replace_children(&[child_a, child_c]);
+
+        let children = world.entity(parent).get::<Children>().unwrap();
+
+        assert!(children.contains(&child_a));
+        assert!(children.contains(&child_c));
+
+        assert!(!children.contains(&child_b));
+    }
+
+    #[test]
+    fn replace_children_with_nothing() {
+        let mut world = World::new();
+        let parent = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
+        assert_eq!(world.entity(parent).get::<Children>().unwrap().len(), 2);
+
+        world.entity_mut(parent).replace_children(&[]);
+
+        assert!(world.entity(parent).get::<Children>().is_none());
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     bundle::Bundle,
-    entity::Entity,
+    entity::{hash_set::EntityHashSet, Entity},
     relationship::{Relationship, RelationshipTarget},
     system::{Commands, EntityCommands},
     world::{EntityWorldMut, World},
@@ -31,6 +31,35 @@ impl<'w> EntityWorldMut<'w> {
                 world.entity_mut(*related).insert(R::from(id));
             }
         });
+        self
+    }
+
+    /// Replaces all the related entities with the given set of new related entities.
+    pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
+        let Some(existing_relations) = self.get::<R::RelationshipTarget>() else {
+            return self.add_related::<R>(related);
+        };
+
+        let mut potential_relations = EntityHashSet::from_iter(related.iter().copied());
+        let mut relations_to_remove = EntityHashSet::with_capacity(related.len());
+
+        for related in existing_relations.iter() {
+            if !potential_relations.remove(&related) {
+                relations_to_remove.insert(related);
+            }
+        }
+
+        let id = self.id();
+        self.world_scope(|world| {
+            for related in relations_to_remove {
+                world.entity_mut(related).remove::<R>();
+            }
+
+            for related in potential_relations {
+                world.entity_mut(related).insert(R::from(id));
+            }
+        });
+
         self
     }
 
@@ -136,6 +165,18 @@ impl<'a> EntityCommands<'a> {
     /// See [`add_related`](Self::add_related) if you want to relate more than one entity.
     pub fn add_one_related<R: Relationship>(&mut self, entity: Entity) -> &mut Self {
         self.add_related::<R>(&[entity])
+    }
+
+    /// Replaces all the related entities with the given set of new related entities.
+    pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
+        let id = self.id();
+        let related = related.to_vec();
+
+        self.commands().queue(move |world: &mut World| {
+            world.entity_mut(id).replace_related::<R>(&related);
+        });
+
+        self
     }
 
     /// Despawns entities that relate to this one via the given [`RelationshipTarget`].
