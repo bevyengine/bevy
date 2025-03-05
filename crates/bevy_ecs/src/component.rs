@@ -1146,6 +1146,40 @@ pub struct Components {
     resource_indices: TypeIdMap<ComponentId>,
 }
 
+/// Generates [`ComponentId`]s.
+#[derive(Debug, Default)]
+pub struct ComponentIds {
+    next: bevy_platform_support::sync::atomic::AtomicUsize,
+}
+
+impl ComponentIds {
+    /// Peeks the next [`ComponentId`] to be generated without generating it.
+    pub fn peek(&self) -> ComponentId {
+        ComponentId(
+            self.next
+                .load(bevy_platform_support::sync::atomic::Ordering::Relaxed),
+        )
+    }
+
+    /// Generates and returns the next [`ComponentId`].
+    pub fn next(&self) -> ComponentId {
+        ComponentId(
+            self.next
+                .fetch_add(1, bevy_platform_support::sync::atomic::Ordering::Relaxed),
+        )
+    }
+
+    /// Returns the number of [`ComponentId`]s generated.
+    pub fn len(&self) -> usize {
+        self.peek().0
+    }
+
+    /// Returns true if and only if no ids have been generated.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 impl Components {
     /// Registers a [`Component`] of type `T` with this instance.
     /// If a component of this type has already been registered, this will return
