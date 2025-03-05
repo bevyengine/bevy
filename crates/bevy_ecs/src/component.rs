@@ -1220,26 +1220,6 @@ impl ComponentIds {
     }
 }
 
-/// A type that enables registering in [`Components`].
-pub struct ComponentsRegistrator<'w> {
-    components: &'w mut Components,
-    ids: &'w mut ComponentIds,
-}
-
-impl Deref for ComponentsRegistrator<'_> {
-    type Target = Components;
-
-    fn deref(&self) -> &Self::Target {
-        self.components
-    }
-}
-
-impl DerefMut for ComponentsRegistrator<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.components
-    }
-}
-
 /// A type that enables queuing registration in [`Components`].
 pub struct ComponentsQueuedRegistrator<'w> {
     components: &'w Components,
@@ -1301,6 +1281,26 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         todo!()
+    }
+}
+
+/// A type that enables registering in [`Components`].
+pub struct ComponentsRegistrator<'w> {
+    components: &'w mut Components,
+    ids: &'w mut ComponentIds,
+}
+
+impl Deref for ComponentsRegistrator<'_> {
+    type Target = Components;
+
+    fn deref(&self) -> &Self::Target {
+        self.components
+    }
+}
+
+impl DerefMut for ComponentsRegistrator<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.components
     }
 }
 
