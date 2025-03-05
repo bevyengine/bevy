@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, Asset, Assets, Handle};
-use bevy_ecs::component::{require, Component};
+use bevy_ecs::component::Component;
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
