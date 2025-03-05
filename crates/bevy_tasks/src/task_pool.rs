@@ -7,6 +7,7 @@ use std::{
 
 use crate::executor::FallibleTask;
 use bevy_platform_support::sync::Arc;
+use blocking::unblock;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
 
@@ -180,7 +181,12 @@ impl TaskPool {
 
     fn new_internal(builder: TaskPoolBuilder) -> Self {
         if let Some(thread_count) = builder.max_blocking_threads {
-            env::set_var("BLOCKING_MAX_THREADS", thread_count.to_string().as_str());
+            // Safety: This is likely unsafe as this could be called if the TaskPoolBuilder is called from
+            // multiple threads.
+            // #[expect(unsafe_code, reason = "TaskPools are only initialiazed from one thread")]
+            // unsafe {
+            //     env::set_var("BLOCKING_MAX_THREADS", thread_count.to_string().as_str());
+            // }
         }
 
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
@@ -777,7 +783,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
         self.spawned.push(task).unwrap();
     }
 
-    /// Spawns a scoped future onto the thread of the external thread executor.
+    /// Spawns a scoped future onto the thread pool.
     /// This is typically the main thread. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
@@ -792,6 +798,45 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
+    }
+
+    /// Spawns a closure onto the blocking thread pool. This is useful when longer running
+    /// work is necessary, but blocking the task pool needs to be avoided.
+    /// The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
+    /// [`Scope::spawn`] instead, unless the provided future needs to run on the external thread.
+    ///
+    /// For more information, see [`TaskPool::scope`].
+    pub fn spawn_blocking(&self, f: impl FnOnce() -> T + Send + 'scope)
+    where
+        T: Send + 'static,
+    {
+        // We box the closure so we can name the type and transmute it to 'scope.
+        let f: Box<dyn FnOnce() -> T + Send + 'scope> = Box::new(f);
+        #[expect(unsafe_code)]
+        // SAFETY: task is forced to complete before scope is done.
+        let f: Box<dyn FnOnce() -> T + Send + 'static> = unsafe { mem::transmute(f) };
+
+        let task = unblock(|| Ok(f())).fallible();
+
+        self.spawned.push(task).unwrap();
+    }
+
+    /// Spawns a scoped future onto the blocking thread pool. This is useful when longer running
+    /// work is necessary, but blocking the task pool needs to be avoided.
+    /// The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
+    /// [`Scope::spawn`] instead, unless the provided future needs to run on the external thread.
+    ///
+    /// For more information, see [`TaskPool::scope`].
+    #[inline]
+    pub fn spawn_blocking_async(&self, f: impl Future<Output = T> + Send + 'scope)
+    where
+        T: Send + 'static,
+    {
+        self.spawn_blocking(|| block_on(f));
     }
 }
 
