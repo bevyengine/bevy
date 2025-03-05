@@ -28,6 +28,7 @@ use core::{
     fmt::Debug,
     marker::PhantomData,
     mem::needs_drop,
+    ops::{Deref, DerefMut},
 };
 use disqualified::ShortName;
 use thiserror::Error;
@@ -1141,7 +1142,7 @@ impl ComponentCloneBehavior {
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
 #[derive(Debug, Default)]
 pub struct Components {
-    components: Vec<ComponentInfo>,
+    components: HashMap<ComponentId, ComponentInfo>,
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
 }
@@ -1169,6 +1170,19 @@ impl ComponentIds {
         )
     }
 
+    /// Peeks the next [`ComponentId`] to be generated without generating it.
+    pub fn peek_mut(&mut self) -> ComponentId {
+        ComponentId(*self.next.get_mut())
+    }
+
+    /// Generates and returns the next [`ComponentId`].
+    pub fn next_mut(&mut self) -> ComponentId {
+        let id = self.next.get_mut();
+        let result = ComponentId(*id);
+        *id += 1;
+        result
+    }
+
     /// Returns the number of [`ComponentId`]s generated.
     pub fn len(&self) -> usize {
         self.peek().0
@@ -1180,7 +1194,27 @@ impl ComponentIds {
     }
 }
 
-impl Components {
+/// A type that enables registering in [`Components`].
+pub struct ComponentsView<'w> {
+    components: &'w mut Components,
+    ids: &'w mut ComponentIds,
+}
+
+impl Deref for ComponentsView<'_> {
+    type Target = Components;
+
+    fn deref(&self) -> &Self::Target {
+        self.components
+    }
+}
+
+impl DerefMut for ComponentsView<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.components
+    }
+}
+
+impl<'w> ComponentsView<'w> {
     /// Registers a [`Component`] of type `T` with this instance.
     /// If a component of this type has already been registered, this will return
     /// the ID of the pre-existing component.
@@ -1191,52 +1225,26 @@ impl Components {
     /// * [`Components::register_component_with_descriptor()`]
     #[inline]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
-        self.register_component_internal::<T>(&mut Vec::new())
+        self.component_id::<T>().unwrap_or_else(|| {
+            let id = self.ids.next_mut();
+            // SAFETY: The component is not currently registered, and the id is fresh.
+            unsafe { self.register_component_internal::<T>(&mut Vec::new(), id) }
+            id
+        })
     }
 
+    /// Same as [`register_component`] but keeps a `recursion_check_stack`.
     #[inline]
-    fn register_component_internal<T: Component>(
+    fn register_component_checked_internal<T: Component>(
         &mut self,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) -> ComponentId {
-        let mut is_new_registration = false;
-        let id = {
-            let Components {
-                indices,
-                components,
-                ..
-            } = self;
-            let type_id = TypeId::of::<T>();
-            *indices.entry(type_id).or_insert_with(|| {
-                let id = Components::register_component_inner(
-                    components,
-                    ComponentDescriptor::new::<T>(),
-                );
-                is_new_registration = true;
-                id
-            })
-        };
-        if is_new_registration {
-            let mut required_components = RequiredComponents::default();
-            T::register_required_components(
-                id,
-                self,
-                &mut required_components,
-                0,
-                recursion_check_stack,
-            );
-            let info = &mut self.components[id.index()];
-
-            #[expect(
-                deprecated,
-                reason = "need to use this method until it is removed to ensure user defined components register hooks correctly"
-            )]
-            // TODO: Replace with `info.hooks.update_from_component::<T>();` once `Component::register_component_hooks` is removed
-            T::register_component_hooks(&mut info.hooks);
-
-            info.required_components = required_components;
-        }
-        id
+        self.component_id::<T>().unwrap_or_else(|| {
+            let id = self.ids.next_mut();
+            // SAFETY: The component is not currently registered, and the id is fresh.
+            unsafe { self.register_component_internal::<T>(recursion_check_stack, id) }
+            id
+        })
     }
 
     /// Registers a component described by `descriptor`.
@@ -1254,18 +1262,174 @@ impl Components {
         &mut self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        Components::register_component_inner(&mut self.components, descriptor)
+        let id = self.ids.next_mut();
+        // SAFETY: The id is fresh.
+        unsafe {
+            self.register_component_inner(id, descriptor);
+        }
+        id
     }
 
+    // NOTE: This should maybe be private, but it is currently public so that `bevy_ecs_macros` can use it.
+    //       We can't directly move this there either, because this uses `Components::get_required_by_mut`,
+    //       which is private, and could be equally risky to expose to users.
+    /// Registers the given component `R` and [required components] inherited from it as required by `T`,
+    /// and adds `T` to their lists of requirees.
+    ///
+    /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
+    /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
+    /// Lower depths are more specific requirements, and can override existing less specific registrations.
+    ///
+    /// The `recursion_check_stack` allows checking whether this component tried to register itself as its
+    /// own (indirect) required component.
+    ///
+    /// This method does *not* register any components as required by components that require `T`.
+    ///
+    /// Only use this method if you know what you are doing. In most cases, you should instead use [`World::register_required_components`],
+    /// or the equivalent method in `bevy_app::App`.
+    ///
+    /// [required component]: Component#required-components
+    #[doc(hidden)]
+    pub fn register_required_components_manual<T: Component, R: Component>(
+        &mut self,
+        required_components: &mut RequiredComponents,
+        constructor: fn() -> R,
+        inheritance_depth: u16,
+        recursion_check_stack: &mut Vec<ComponentId>,
+    ) {
+        let requiree = self.register_component_checked_internal::<T>(recursion_check_stack);
+        let required = self.register_component_checked_internal::<R>(recursion_check_stack);
+
+        // SAFETY: We just created the components.
+        unsafe {
+            self.register_required_components_manual_unchecked::<R>(
+                requiree,
+                required,
+                required_components,
+                constructor,
+                inheritance_depth,
+            );
+        }
+    }
+
+    /// Registers a [`Resource`] of type `T` with this instance.
+    /// If a resource of this type has already been registered, this will return
+    /// the ID of the pre-existing resource.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::resource_id()`]
+    /// * [`Components::register_resource_with_descriptor()`]
     #[inline]
-    fn register_component_inner(
-        components: &mut Vec<ComponentInfo>,
+    pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
+        self.resource_id::<T>().unwrap_or_else(|| {
+            let id = self.ids.next_mut();
+            // SAFETY: The resource is not currently registered, the id is fresh, and the [`ComponentDescriptor`] matches the [`TypeId`]
+            unsafe {
+                self.register_resource_with(TypeId::of::<T>(), id, || {
+                    ComponentDescriptor::new_resource::<T>()
+                })
+            }
+            id
+        })
+    }
+
+    /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
+    /// If a resource of this type has already been registered, this will return
+    /// the ID of the pre-existing resource.
+    #[inline]
+    pub fn register_non_send<T: Any>(&mut self) -> ComponentId {
+        let type_id = TypeId::of::<T>();
+        self.resource_indices
+            .get(&type_id)
+            .copied()
+            .unwrap_or_else(|| {
+                let id = self.ids.next_mut();
+                // SAFETY: The resource is not currently registered, the id is fresh, and the [`ComponentDescriptor`] matches the [`TypeId`]
+                unsafe {
+                    self.register_resource_with(type_id, id, || {
+                        ComponentDescriptor::new_non_send::<T>(StorageType::default())
+                    })
+                }
+                id
+            })
+    }
+
+    /// Registers a [`Resource`] described by `descriptor`.
+    ///
+    /// # Note
+    ///
+    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
+    /// will be created for each one.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::resource_id()`]
+    /// * [`Components::register_resource()`]
+    pub fn register_resource_with_descriptor(
+        &mut self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        let component_id = ComponentId(components.len());
-        let info = ComponentInfo::new(component_id, descriptor);
-        components.push(info);
-        component_id
+        let id = self.ids.next_mut();
+        // SAFETY: The id is fresh.
+        unsafe {
+            self.register_component_inner(id, descriptor);
+        }
+        id
+    }
+}
+
+impl Components {
+    /// # Safety
+    ///
+    /// Neither this component, nor it's id may be registered. This must be a new registration.
+    #[inline]
+    unsafe fn register_component_internal<T: Component>(
+        &mut self,
+        recursion_check_stack: &mut Vec<ComponentId>,
+        id: ComponentId,
+    ) {
+        // SAFETY: ensured by caller.
+        unsafe {
+            self.register_component_inner(id, ComponentDescriptor::new::<T>());
+        }
+        let type_id = TypeId::of::<T>();
+        let prev = self.indices.insert(type_id, id);
+        debug_assert!(prev.is_none());
+
+        let mut required_components = RequiredComponents::default();
+        T::register_required_components(
+            id,
+            self,
+            &mut required_components,
+            0,
+            recursion_check_stack,
+        );
+        // SAFETY: we just inserted it in `register_component_inner`
+        let info = unsafe { &mut self.components.get_mut(&id).debug_checked_unwrap() };
+
+        #[expect(
+            deprecated,
+            reason = "need to use this method until it is removed to ensure user defined components register hooks correctly"
+        )]
+        // TODO: Replace with `info.hooks.update_from_component::<T>();` once `Component::register_component_hooks` is removed
+        T::register_component_hooks(&mut info.hooks);
+
+        info.required_components = required_components;
+    }
+
+    /// # Safety
+    ///
+    /// The id must have never been registered before. THis must be a fresh registration.
+    #[inline]
+    unsafe fn register_component_inner(
+        &mut self,
+        id: ComponentId,
+        descriptor: ComponentDescriptor,
+    ) {
+        let info = ComponentInfo::new(id, descriptor);
+        let prev = self.components.insert(id, info);
+        debug_assert!(prev.is_none())
     }
 
     /// Returns the number of components registered with this instance.
@@ -1285,7 +1449,7 @@ impl Components {
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        self.components.get(id.0)
+        self.components.get(&id)
     }
 
     /// Returns the name associated with the given component.
@@ -1302,14 +1466,13 @@ impl Components {
     /// `id` must be a valid [`ComponentId`]
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
-        debug_assert!(id.index() < self.components.len());
         // SAFETY: The caller ensures `id` is valid.
-        unsafe { self.components.get_unchecked(id.0) }
+        unsafe { self.get_info(id).debug_checked_unwrap() }
     }
 
     #[inline]
     pub(crate) fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
-        self.components.get_mut(id.0).map(|info| &mut info.hooks)
+        self.components.get_mut(&id).map(|info| &mut info.hooks)
     }
 
     #[inline]
@@ -1318,7 +1481,7 @@ impl Components {
         id: ComponentId,
     ) -> Option<&mut RequiredComponents> {
         self.components
-            .get_mut(id.0)
+            .get_mut(&id)
             .map(|info| &mut info.required_components)
     }
 
@@ -1484,48 +1647,6 @@ impl Components {
         inherited_requirements
     }
 
-    // NOTE: This should maybe be private, but it is currently public so that `bevy_ecs_macros` can use it.
-    //       We can't directly move this there either, because this uses `Components::get_required_by_mut`,
-    //       which is private, and could be equally risky to expose to users.
-    /// Registers the given component `R` and [required components] inherited from it as required by `T`,
-    /// and adds `T` to their lists of requirees.
-    ///
-    /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
-    /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
-    /// Lower depths are more specific requirements, and can override existing less specific registrations.
-    ///
-    /// The `recursion_check_stack` allows checking whether this component tried to register itself as its
-    /// own (indirect) required component.
-    ///
-    /// This method does *not* register any components as required by components that require `T`.
-    ///
-    /// Only use this method if you know what you are doing. In most cases, you should instead use [`World::register_required_components`],
-    /// or the equivalent method in `bevy_app::App`.
-    ///
-    /// [required component]: Component#required-components
-    #[doc(hidden)]
-    pub fn register_required_components_manual<T: Component, R: Component>(
-        &mut self,
-        required_components: &mut RequiredComponents,
-        constructor: fn() -> R,
-        inheritance_depth: u16,
-        recursion_check_stack: &mut Vec<ComponentId>,
-    ) {
-        let requiree = self.register_component_internal::<T>(recursion_check_stack);
-        let required = self.register_component_internal::<R>(recursion_check_stack);
-
-        // SAFETY: We just created the components.
-        unsafe {
-            self.register_required_components_manual_unchecked::<R>(
-                requiree,
-                required,
-                required_components,
-                constructor,
-                inheritance_depth,
-            );
-        }
-    }
-
     /// Registers the given component `R` and [required components] inherited from it as required by `T`,
     /// and adds `T` to their lists of requirees.
     ///
@@ -1567,7 +1688,7 @@ impl Components {
 
     #[inline]
     pub(crate) fn get_required_by(&self, id: ComponentId) -> Option<&HashSet<ComponentId>> {
-        self.components.get(id.0).map(|info| &info.required_by)
+        self.components.get(&id).map(|info| &info.required_by)
     }
 
     #[inline]
@@ -1576,7 +1697,7 @@ impl Components {
         id: ComponentId,
     ) -> Option<&mut HashSet<ComponentId>> {
         self.components
-            .get_mut(id.0)
+            .get_mut(&id)
             .map(|info| &mut info.required_by)
     }
 
@@ -1655,84 +1776,29 @@ impl Components {
         self.get_resource_id(TypeId::of::<T>())
     }
 
-    /// Registers a [`Resource`] of type `T` with this instance.
-    /// If a resource of this type has already been registered, this will return
-    /// the ID of the pre-existing resource.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::resource_id()`]
-    /// * [`Components::register_resource_with_descriptor()`]
-    #[inline]
-    pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
-        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
-        unsafe {
-            self.get_or_register_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_resource::<T>()
-            })
-        }
-    }
-
-    /// Registers a [`Resource`] described by `descriptor`.
-    ///
-    /// # Note
-    ///
-    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
-    /// will be created for each one.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::resource_id()`]
-    /// * [`Components::register_resource()`]
-    pub fn register_resource_with_descriptor(
-        &mut self,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        Components::register_resource_inner(&mut self.components, descriptor)
-    }
-
-    /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
-    /// If a resource of this type has already been registered, this will return
-    /// the ID of the pre-existing resource.
-    #[inline]
-    pub fn register_non_send<T: Any>(&mut self) -> ComponentId {
-        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
-        unsafe {
-            self.get_or_register_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_non_send::<T>(StorageType::default())
-            })
-        }
-    }
-
     /// # Safety
     ///
-    /// The [`ComponentDescriptor`] must match the [`TypeId`]
+    /// The [`ComponentDescriptor`] must match the [`TypeId`].
+    /// The [`ComponentId`] must be unique.
+    /// The [`TypeId`] must have never been registered.
     #[inline]
-    unsafe fn get_or_register_resource_with(
+    unsafe fn register_resource_with(
         &mut self,
         type_id: TypeId,
+        component_id: ComponentId,
         func: impl FnOnce() -> ComponentDescriptor,
-    ) -> ComponentId {
-        let components = &mut self.components;
-        *self.resource_indices.entry(type_id).or_insert_with(|| {
-            let descriptor = func();
-            Components::register_resource_inner(components, descriptor)
-        })
-    }
-
-    #[inline]
-    fn register_resource_inner(
-        components: &mut Vec<ComponentInfo>,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        let component_id = ComponentId(components.len());
-        components.push(ComponentInfo::new(component_id, descriptor));
-        component_id
+    ) {
+        // SAFETY: ensured by caller
+        unsafe {
+            self.register_component_inner(component_id, func());
+        }
+        let prev = self.resource_indices.insert(type_id, component_id);
+        debug_assert!(prev.is_none())
     }
 
     /// Gets an iterator over all components registered with this instance.
     pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
-        self.components.iter()
+        self.components.values()
     }
 }
 
@@ -1916,7 +1982,7 @@ impl<T: Component> ComponentIdFor<'_, T> {
     }
 }
 
-impl<T: Component> core::ops::Deref for ComponentIdFor<'_, T> {
+impl<T: Component> Deref for ComponentIdFor<'_, T> {
     type Target = ComponentId;
     fn deref(&self) -> &Self::Target {
         &self.0.component_id
@@ -2058,7 +2124,7 @@ impl RequiredComponents {
     /// is smaller than the depth of the existing registration. Otherwise, the new registration will be ignored.
     pub fn register<C: Component>(
         &mut self,
-        components: &mut Components,
+        components: &mut ComponentsView,
         constructor: fn() -> C,
         inheritance_depth: u16,
     ) {
