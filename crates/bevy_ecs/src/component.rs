@@ -1382,7 +1382,7 @@ impl<'w> ComponentsRegistrator<'w> {
             unsafe {
                 self.register_resource_with(TypeId::of::<T>(), id, || {
                     ComponentDescriptor::new_resource::<T>()
-                })
+                });
             }
             id
         })
@@ -1403,7 +1403,7 @@ impl<'w> ComponentsRegistrator<'w> {
                 unsafe {
                     self.register_resource_with(type_id, id, || {
                         ComponentDescriptor::new_non_send::<T>(StorageType::default())
-                    })
+                    });
                 }
                 id
             })
@@ -1436,7 +1436,7 @@ impl<'w> ComponentsRegistrator<'w> {
 impl Components {
     /// # Safety
     ///
-    /// The id must have never been registered before. THis must be a fresh registration.
+    /// The id must have never been registered before. This must be a fresh registration.
     #[inline]
     unsafe fn register_component_inner(
         &mut self,
@@ -1445,7 +1445,7 @@ impl Components {
     ) {
         let info = ComponentInfo::new(id, descriptor);
         let prev = self.components.insert(id, info);
-        debug_assert!(prev.is_none())
+        debug_assert!(prev.is_none());
     }
 
     /// Returns the number of components registered with this instance.
@@ -1809,7 +1809,7 @@ impl Components {
             self.register_component_inner(component_id, func());
         }
         let prev = self.resource_indices.insert(type_id, component_id);
-        debug_assert!(prev.is_none())
+        debug_assert!(prev.is_none());
     }
 
     /// Gets an iterator over all components registered with this instance.
