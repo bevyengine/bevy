@@ -401,6 +401,12 @@ where
     dirty: BufferDirtyState,
 }
 
+/// The size of the buffer that we assign to unused buffer slots, in bytes.
+///
+/// This is essentially arbitrary, as it doesn't seem to matter to `wgpu` what
+/// the size is.
+const DEFAULT_BINDLESS_FALLBACK_BUFFER_SIZE: u64 = 16;
+
 impl From<u32> for MaterialBindGroupSlot {
     fn from(value: u32) -> Self {
         MaterialBindGroupSlot(value)
@@ -699,7 +705,10 @@ where
                     bindless_buffer_descriptor.bindless_index,
                     render_device.create_buffer(&BufferDescriptor {
                         label: Some("bindless fallback buffer"),
-                        size: bindless_buffer_descriptor.size as u64,
+                        size: match bindless_buffer_descriptor.size {
+                            Some(size) => size as u64,
+                            None => DEFAULT_BINDLESS_FALLBACK_BUFFER_SIZE,
+                        },
                         usage: BufferUsages::STORAGE,
                         mapped_at_creation: false,
                     }),
@@ -1607,7 +1616,10 @@ where
                         bindless_index,
                         MaterialDataBuffer::new(
                             buffer_descriptor.binding_number,
-                            buffer_descriptor.size as u32,
+                            buffer_descriptor
+                                .size
+                                .expect("Data buffers should have a size")
+                                as u32,
                         ),
                     );
                 }
