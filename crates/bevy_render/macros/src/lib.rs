@@ -1,5 +1,4 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod as_bind_group;
@@ -12,10 +11,7 @@ use quote::format_ident;
 use syn::{parse_macro_input, DeriveInput};
 
 pub(crate) fn bevy_render_path() -> syn::Path {
-    BevyManifest::default()
-        .maybe_get_path("bevy_render")
-        // NOTE: If the derivation is within bevy_render, then we need to return 'crate'
-        .unwrap_or_else(|| BevyManifest::parse_str("crate"))
+    BevyManifest::shared().get_path("bevy_render")
 }
 
 #[proc_macro_derive(ExtractResource)]
@@ -24,6 +20,7 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 }
 
 /// Implements `ExtractComponent` trait for a component.
+///
 /// The component must implement [`Clone`].
 /// The component will be extracted into the render world via cloning.
 /// Note that this only enables extraction of the component, it does not execute the extraction.
@@ -56,7 +53,16 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(
     AsBindGroup,
-    attributes(uniform, storage_texture, texture, sampler, bind_group_data, storage)
+    attributes(
+        uniform,
+        storage_texture,
+        texture,
+        sampler,
+        bind_group_data,
+        storage,
+        bindless,
+        data
+    )
 )]
 pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

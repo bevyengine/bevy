@@ -1,6 +1,6 @@
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 struct A(f32);
 #[derive(Component)]
 struct B(f32);
@@ -12,19 +12,18 @@ impl Benchmark {
         let mut world = World::default();
 
         let entities = world
-            .spawn_batch((0..10000).map(|_| A(0.0)))
-            .collect::<Vec<_>>();
-
+            .spawn_batch(core::iter::repeat_n(A(0.), 10_000))
+            .collect();
         Self(world, entities)
     }
 
     pub fn run(&mut self) {
         for entity in &self.1 {
-            self.0.insert_one(*entity, B(0.0)).unwrap();
+            self.0.entity_mut(*entity).insert(B(0.));
         }
 
         for entity in &self.1 {
-            self.0.remove_one::<B>(*entity).unwrap();
+            self.0.entity_mut(*entity).remove::<B>();
         }
     }
 }

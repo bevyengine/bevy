@@ -1,9 +1,13 @@
 //! Traits used by label implementations
 
-use std::{
+use core::{
     any::Any,
     hash::{Hash, Hasher},
 };
+
+// Re-exported for use within `define_label!`
+#[doc(hidden)]
+pub use alloc::boxed::Box;
 
 /// An object safe version of [`Eq`]. This trait is automatically implemented
 /// for any `'static` type that implements `Eq`.
@@ -17,6 +21,9 @@ pub trait DynEq: Any {
     /// not the same.
     fn dyn_eq(&self, other: &dyn DynEq) -> bool;
 }
+
+// Tests that this trait is dyn-compatible
+const _: Option<Box<dyn DynEq>> = None;
 
 impl<T> DynEq for T
 where
@@ -43,6 +50,9 @@ pub trait DynHash: DynEq {
     /// Feeds this value into the given [`Hasher`].
     fn dyn_hash(&self, state: &mut dyn Hasher);
 }
+
+// Tests that this trait is dyn-compatible
+const _: Option<Box<dyn DynHash>> = None;
 
 impl<T> DynHash for T
 where
@@ -110,20 +120,20 @@ macro_rules! define_label {
     ) => {
 
         $(#[$label_attr])*
-        pub trait $label_trait_name: 'static + Send + Sync + ::std::fmt::Debug {
+        pub trait $label_trait_name: 'static + Send + Sync + ::core::fmt::Debug {
 
             $($trait_extra_methods)*
 
             /// Clones this `
             #[doc = stringify!($label_trait_name)]
             ///`.
-            fn dyn_clone(&self) -> ::std::boxed::Box<dyn $label_trait_name>;
+            fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name>;
 
             /// Casts this value to a form where it can be compared with other type-erased values.
             fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq;
 
             /// Feeds this value into the given [`Hasher`].
-            fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher);
+            fn dyn_hash(&self, state: &mut dyn ::core::hash::Hasher);
 
             /// Returns an [`Interned`] value corresponding to `self`.
             fn intern(&self) -> $crate::intern::Interned<dyn $label_trait_name>
@@ -132,11 +142,12 @@ macro_rules! define_label {
             }
         }
 
+        #[diagnostic::do_not_recommend]
         impl $label_trait_name for $crate::intern::Interned<dyn $label_trait_name> {
 
             $($interned_extra_methods_impl)*
 
-            fn dyn_clone(&self) -> ::std::boxed::Box<dyn $label_trait_name> {
+            fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name> {
                 (**self).dyn_clone()
             }
 
@@ -145,7 +156,7 @@ macro_rules! define_label {
                 (**self).as_dyn_eq()
             }
 
-            fn dyn_hash(&self, state: &mut dyn ::std::hash::Hasher) {
+            fn dyn_hash(&self, state: &mut dyn ::core::hash::Hasher) {
                 (**self).dyn_hash(state);
             }
 
@@ -162,29 +173,34 @@ macro_rules! define_label {
 
         impl Eq for dyn $label_trait_name {}
 
-        impl ::std::hash::Hash for dyn $label_trait_name {
-            fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        impl ::core::hash::Hash for dyn $label_trait_name {
+            fn hash<H: ::core::hash::Hasher>(&self, state: &mut H) {
                 self.dyn_hash(state);
             }
         }
 
         impl $crate::intern::Internable for dyn $label_trait_name {
             fn leak(&self) -> &'static Self {
-                Box::leak(self.dyn_clone())
+                $crate::label::Box::leak(self.dyn_clone())
             }
 
             fn ref_eq(&self, other: &Self) -> bool {
-                if self.as_dyn_eq().type_id() == other.as_dyn_eq().type_id() {
-                    (self as *const Self).cast::<()>() == (other as *const Self).cast::<()>()
-                } else {
-                    false
-                }
+                use ::core::ptr;
+
+                // Test that both the type id and pointer address are equivalent.
+                self.as_dyn_eq().type_id() == other.as_dyn_eq().type_id()
+                    && ptr::addr_eq(ptr::from_ref::<Self>(self), ptr::from_ref::<Self>(other))
             }
 
-            fn ref_hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
-                use ::std::hash::Hash;
+            fn ref_hash<H: ::core::hash::Hasher>(&self, state: &mut H) {
+                use ::core::{hash::Hash, ptr};
+
+                // Hash the type id...
                 self.as_dyn_eq().type_id().hash(state);
-                (self as *const Self).cast::<()>().hash(state);
+
+                // ...and the pointer address.
+                // Cast to a unit `()` first to discard any pointer metadata.
+                ptr::from_ref::<Self>(self).cast::<()>().hash(state);
             }
         }
 

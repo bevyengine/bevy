@@ -22,12 +22,16 @@ It is based on [`async-executor`][async-executor], a lightweight executor that a
 In order to be able to optimize task execution in multi-threaded environments,
 bevy provides three different thread pools via which tasks of different kinds can be spawned.
 (The same API is used in single-threaded environments, even if execution is limited to a single thread.
-This currently applies to WASM targets.)
+This currently applies to Wasm targets.)
 The determining factor for what kind of work should go in each pool is latency requirements:
 
 For CPU-intensive work, the standard [`ComputeTaskPool`] can be used. It can also be used for
 non-blocking IO-intensive work (tasks that spend very little time in a "woken" state).
 Work that does not need to be completed to present the next frame should use [`TaskPool::spawn_blocking`].
+
+## `no_std` Support
+
+To enable `no_std` support in this crate, you will need to disable default features, and enable the `edge_executor` and `critical-section` features. For platforms without full support for Rust atomics, you may also need to enable the `portable-atomic` feature.
 
 [bevy]: https://bevyengine.org
 [rayon]: https://github.com/rayon-rs/rayon

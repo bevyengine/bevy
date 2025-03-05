@@ -1,17 +1,14 @@
-use crate::{Material2d, Material2dPlugin, MaterialMesh2dBundle};
+use crate::{AlphaMode2d, Material2d, Material2dPlugin};
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
-use bevy_color::{Color, LinearRgba};
-use bevy_math::Vec4;
+use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, Assets, Handle};
+use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
+use bevy_image::Image;
+use bevy_math::{Affine2, Mat3, Vec4};
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    render_asset::RenderAssets,
-    render_resource::*,
-    texture::{GpuImage, Image},
-};
+use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
 
 pub const COLOR_MATERIAL_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(3253086872234592509);
+    weak_handle!("92e0e6e9-ed0b-4db3-89ab-5f65d3678250");
 
 #[derive(Default)]
 pub struct ColorMaterialPlugin;
@@ -28,6 +25,7 @@ impl Plugin for ColorMaterialPlugin {
         app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
             .register_asset_reflect::<ColorMaterial>();
 
+        // Initialize the default material handle.
         app.world_mut()
             .resource_mut::<Assets<ColorMaterial>>()
             .insert(
@@ -40,22 +38,34 @@ impl Plugin for ColorMaterialPlugin {
     }
 }
 
-/// A [2d material](Material2d) that renders [2d meshes](crate::Mesh2dHandle) with a texture tinted by a uniform color
+/// A [2d material](Material2d) that renders [2d meshes](crate::Mesh2d) with a texture tinted by a uniform color
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[reflect(Default, Debug)]
 #[uniform(0, ColorMaterialUniform)]
 pub struct ColorMaterial {
     pub color: Color,
+    pub alpha_mode: AlphaMode2d,
+    pub uv_transform: Affine2,
     #[texture(1)]
     #[sampler(2)]
     pub texture: Option<Handle<Image>>,
+}
+
+impl ColorMaterial {
+    /// Creates a new material from a given color
+    pub fn from_color(color: impl Into<Color>) -> Self {
+        Self::from(color.into())
+    }
 }
 
 impl Default for ColorMaterial {
     fn default() -> Self {
         ColorMaterial {
             color: Color::WHITE,
+            uv_transform: Affine2::default(),
             texture: None,
+            // TODO should probably default to AlphaMask once supported?
+            alpha_mode: AlphaMode2d::Blend,
         }
     }
 }
@@ -64,6 +74,11 @@ impl From<Color> for ColorMaterial {
     fn from(color: Color) -> Self {
         ColorMaterial {
             color,
+            alpha_mode: if color.alpha() < 1.0 {
+                AlphaMode2d::Blend
+            } else {
+                AlphaMode2d::Opaque
+            },
             ..Default::default()
         }
     }
@@ -82,17 +97,31 @@ impl From<Handle<Image>> for ColorMaterial {
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct ColorMaterialFlags: u32 {
-        const TEXTURE           = 1 << 0;
-        const NONE              = 0;
-        const UNINITIALIZED     = 0xFFFF;
+        const TEXTURE                    = 1 << 0;
+        /// Bitmask reserving bits for the [`AlphaMode2d`]
+        /// Values are just sequential values bitshifted into
+        /// the bitmask, and can range from 0 to 3.
+        const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS;
+        const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;
+        const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;
+        const ALPHA_MODE_BLEND           = 2 << Self::ALPHA_MODE_SHIFT_BITS;
+        const NONE                       = 0;
+        const UNINITIALIZED              = 0xFFFF;
     }
+}
+
+impl ColorMaterialFlags {
+    const ALPHA_MODE_MASK_BITS: u32 = 0b11;
+    const ALPHA_MODE_SHIFT_BITS: u32 = 32 - Self::ALPHA_MODE_MASK_BITS.count_ones();
 }
 
 /// The GPU representation of the uniform data of a [`ColorMaterial`].
 #[derive(Clone, Default, ShaderType)]
 pub struct ColorMaterialUniform {
     pub color: Vec4,
+    pub uv_transform: Mat3,
     pub flags: u32,
+    pub alpha_cutoff: f32,
 }
 
 impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
@@ -102,9 +131,21 @@ impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
             flags |= ColorMaterialFlags::TEXTURE;
         }
 
+        // Defaults to 0.5 like in 3d
+        let mut alpha_cutoff = 0.5;
+        match self.alpha_mode {
+            AlphaMode2d::Opaque => flags |= ColorMaterialFlags::ALPHA_MODE_OPAQUE,
+            AlphaMode2d::Mask(c) => {
+                alpha_cutoff = c;
+                flags |= ColorMaterialFlags::ALPHA_MODE_MASK;
+            }
+            AlphaMode2d::Blend => flags |= ColorMaterialFlags::ALPHA_MODE_BLEND,
+        };
         ColorMaterialUniform {
             color: LinearRgba::from(self.color).to_f32_array().into(),
+            uv_transform: self.uv_transform.into(),
             flags: flags.bits(),
+            alpha_cutoff,
         }
     }
 }
@@ -113,7 +154,8 @@ impl Material2d for ColorMaterial {
     fn fragment_shader() -> ShaderRef {
         COLOR_MATERIAL_SHADER_HANDLE.into()
     }
-}
 
-/// A component bundle for entities with a [`Mesh2dHandle`](crate::Mesh2dHandle) and a [`ColorMaterial`].
-pub type ColorMesh2dBundle = MaterialMesh2dBundle<ColorMaterial>;
+    fn alpha_mode(&self) -> AlphaMode2d {
+        self.alpha_mode
+    }
+}

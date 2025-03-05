@@ -4,7 +4,7 @@ use crate::{
     world::World,
 };
 
-use super::EntityHashMap;
+use super::{hash_map::EntityHashMap, VisitEntitiesMut};
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -15,8 +15,15 @@ use super::EntityHashMap;
 /// (usually by using an [`EntityHashMap<Entity>`] between source entities and entities in the
 /// current world).
 ///
+/// This trait is similar to [`VisitEntitiesMut`]. They differ in that [`VisitEntitiesMut`] operates
+/// on `&mut Entity` and allows for in-place modification, while this trait makes no assumption that
+/// such in-place modification is occurring, which is impossible for types such as [`HashSet<Entity>`]
+/// and [`EntityHashMap`] which must be rebuilt when their contained [`Entity`]s are remapped.
+///
 /// Implementing this trait correctly is required for properly loading components
 /// with entity references from scenes.
+///
+/// [`HashSet<Entity>`]: bevy_platform_support::collections::HashSet
 ///
 /// ## Example
 ///
@@ -32,18 +39,25 @@ use super::EntityHashMap;
 ///
 /// impl MapEntities for Spring {
 ///     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-///         self.a = entity_mapper.map_entity(self.a);
-///         self.b = entity_mapper.map_entity(self.b);
+///         self.a = entity_mapper.get_mapped(self.a);
+///         self.b = entity_mapper.get_mapped(self.b);
 ///     }
 /// }
 /// ```
-///
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
     /// Implementors should look up any and all [`Entity`] values stored within `self` and
     /// update them to the mapped values via `entity_mapper`.
     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M);
+}
+
+impl<T: VisitEntitiesMut> MapEntities for T {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        self.visit_entities_mut(|entity| {
+            *entity = entity_mapper.get_mapped(*entity);
+        });
+    }
 }
 
 /// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
@@ -53,11 +67,14 @@ pub trait MapEntities {
 ///
 /// More generally, this can be used to map [`Entity`] references between any two [`Worlds`](World).
 ///
+/// This can be used in tandem with [`Component::visit_entities`](crate::component::Component::visit_entities)
+/// and [`Component::visit_entities_mut`](crate::component::Component::visit_entities_mut) to map a component's entities.
+///
 /// ## Example
 ///
 /// ```
 /// # use bevy_ecs::entity::{Entity, EntityMapper};
-/// # use bevy_ecs::entity::EntityHashMap;
+/// # use bevy_ecs::entity::hash_map::EntityHashMap;
 /// #
 /// pub struct SimpleEntityMapper {
 ///   map: EntityHashMap<Entity>,
@@ -66,20 +83,61 @@ pub trait MapEntities {
 /// // Example implementation of EntityMapper where we map an entity to another entity if it exists
 /// // in the underlying `EntityHashMap`, otherwise we just return the original entity.
 /// impl EntityMapper for SimpleEntityMapper {
-///     fn map_entity(&mut self, entity: Entity) -> Entity {
+///     fn get_mapped(&mut self, entity: Entity) -> Entity {
 ///         self.map.get(&entity).copied().unwrap_or(entity)
+///     }
+///     
+///     fn set_mapped(&mut self, source: Entity, target: Entity) {
+///         self.map.insert(source, target);
 ///     }
 /// }
 /// ```
 pub trait EntityMapper {
-    /// Map an entity to another entity
-    fn map_entity(&mut self, entity: Entity) -> Entity;
+    /// Returns the "target" entity that maps to the given `source`.
+    fn get_mapped(&mut self, source: Entity) -> Entity;
+
+    /// Maps the `target` entity to the given `source`. For some implementations this might not actually determine the result
+    /// of [`EntityMapper::get_mapped`].
+    fn set_mapped(&mut self, source: Entity, target: Entity);
+}
+
+impl EntityMapper for () {
+    #[inline]
+    fn get_mapped(&mut self, source: Entity) -> Entity {
+        source
+    }
+
+    #[inline]
+    fn set_mapped(&mut self, _source: Entity, _target: Entity) {}
+}
+
+impl EntityMapper for (Entity, Entity) {
+    #[inline]
+    fn get_mapped(&mut self, source: Entity) -> Entity {
+        if source == self.0 {
+            self.1
+        } else {
+            source
+        }
+    }
+
+    fn set_mapped(&mut self, _source: Entity, _target: Entity) {}
+}
+
+impl EntityMapper for &mut dyn EntityMapper {
+    fn get_mapped(&mut self, source: Entity) -> Entity {
+        (*self).get_mapped(source)
+    }
+
+    fn set_mapped(&mut self, source: Entity, target: Entity) {
+        (*self).set_mapped(source, target);
+    }
 }
 
 impl EntityMapper for SceneEntityMapper<'_> {
     /// Returns the corresponding mapped entity or reserves a new dead entity ID in the current world if it is absent.
-    fn map_entity(&mut self, entity: Entity) -> Entity {
-        if let Some(&mapped) = self.map.get(&entity) {
+    fn get_mapped(&mut self, source: Entity) -> Entity {
+        if let Some(&mapped) = self.map.get(&source) {
             return mapped;
         }
 
@@ -92,9 +150,24 @@ impl EntityMapper for SceneEntityMapper<'_> {
         // Prevent generations counter from being a greater value than HIGH_MASK.
         self.generations = (self.generations + 1) & HIGH_MASK;
 
-        self.map.insert(entity, new);
+        self.map.insert(source, new);
 
         new
+    }
+
+    fn set_mapped(&mut self, source: Entity, target: Entity) {
+        self.map.insert(source, target);
+    }
+}
+
+impl EntityMapper for EntityHashMap<Entity> {
+    /// Returns the corresponding mapped entity or returns `entity` if there is no mapped entity
+    fn get_mapped(&mut self, source: Entity) -> Entity {
+        self.get(&source).cloned().unwrap_or(source)
+    }
+
+    fn set_mapped(&mut self, source: Entity, target: Entity) {
+        self.insert(source, target);
     }
 }
 
@@ -102,8 +175,7 @@ impl EntityMapper for SceneEntityMapper<'_> {
 /// world. These newly allocated references are guaranteed to never point to any living entity in that world.
 ///
 /// References are allocated by returning increasing generations starting from an internally initialized base
-/// [`Entity`]. After it is finished being used by [`MapEntities`] implementations, this entity is despawned and the
-/// requisite number of generations reserved.
+/// [`Entity`]. After it is finished being used, this entity is despawned and the requisite number of generations reserved.
 pub struct SceneEntityMapper<'m> {
     /// A mapping from one set of entities to another.
     ///
@@ -132,7 +204,10 @@ impl<'m> SceneEntityMapper<'m> {
     }
 
     /// Creates a new [`SceneEntityMapper`], spawning a temporary base [`Entity`] in the provided [`World`]
-    fn new(map: &'m mut EntityHashMap<Entity>, world: &mut World) -> Self {
+    pub fn new(map: &'m mut EntityHashMap<Entity>, world: &mut World) -> Self {
+        // We're going to be calling methods on `Entities` that require advance
+        // flushing, such as `alloc` and `free`.
+        world.flush_entities();
         Self {
             map,
             // SAFETY: Entities data is kept in a valid state via `EntityMapper::world_scope`
@@ -142,10 +217,9 @@ impl<'m> SceneEntityMapper<'m> {
     }
 
     /// Reserves the allocated references to dead entities within the world. This frees the temporary base
-    /// [`Entity`] while reserving extra generations via [`crate::entity::Entities::reserve_generations`]. Because this
-    /// renders the [`SceneEntityMapper`] unable to safely allocate any more references, this method takes ownership of
-    /// `self` in order to render it unusable.
-    fn finish(self, world: &mut World) {
+    /// [`Entity`] while reserving extra generations. Because this makes the [`SceneEntityMapper`] unable to
+    /// safely allocate any more references, this method takes ownership of `self` in order to render it unusable.
+    pub fn finish(self, world: &mut World) {
         // SAFETY: Entities data is kept in a valid state via `EntityMap::world_scope`
         let entities = unsafe { world.entities_mut() };
         assert!(entities.free(self.dead_start).is_some());
@@ -173,7 +247,7 @@ impl<'m> SceneEntityMapper<'m> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::{Entity, EntityHashMap, EntityMapper, SceneEntityMapper},
+        entity::{hash_map::EntityHashMap, Entity, EntityMapper, SceneEntityMapper},
         world::World,
     };
 
@@ -187,15 +261,15 @@ mod tests {
         let mut mapper = SceneEntityMapper::new(&mut map, &mut world);
 
         let mapped_ent = Entity::from_raw(FIRST_IDX);
-        let dead_ref = mapper.map_entity(mapped_ent);
+        let dead_ref = mapper.get_mapped(mapped_ent);
 
         assert_eq!(
             dead_ref,
-            mapper.map_entity(mapped_ent),
+            mapper.get_mapped(mapped_ent),
             "should persist the allocated mapping from the previous line"
         );
         assert_eq!(
-            mapper.map_entity(Entity::from_raw(SECOND_IDX)).index(),
+            mapper.get_mapped(Entity::from_raw(SECOND_IDX)).index(),
             dead_ref.index(),
             "should re-use the same index for further dead refs"
         );
@@ -213,12 +287,29 @@ mod tests {
         let mut world = World::new();
 
         let dead_ref = SceneEntityMapper::world_scope(&mut map, &mut world, |_, mapper| {
-            mapper.map_entity(Entity::from_raw(0))
+            mapper.get_mapped(Entity::from_raw(0))
         });
 
         // Next allocated entity should be a further generation on the same index
         let entity = world.spawn_empty().id();
         assert_eq!(entity.index(), dead_ref.index());
         assert!(entity.generation() > dead_ref.generation());
+    }
+
+    #[test]
+    fn entity_mapper_no_panic() {
+        let mut world = World::new();
+        // "Dirty" the `Entities`, requiring a flush afterward.
+        world.entities.reserve_entity();
+        assert!(world.entities.needs_flush());
+
+        // Create and exercise a SceneEntityMapper - should not panic because it flushes
+        // `Entities` first.
+        SceneEntityMapper::world_scope(&mut Default::default(), &mut world, |_, m| {
+            m.get_mapped(Entity::PLACEHOLDER);
+        });
+
+        // The SceneEntityMapper should leave `Entities` in a flushed state.
+        assert!(!world.entities.needs_flush());
     }
 }

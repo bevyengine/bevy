@@ -1,31 +1,40 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::Reflect;
-use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
-use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
-use bevy_render::render_asset::{RenderAssetUsages, RenderAssets};
-use bevy_render::render_resource::binding_types::{
-    sampler, texture_2d, texture_3d, uniform_buffer,
+use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::{
+    camera::Camera,
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
+    render_asset::{RenderAssetUsages, RenderAssets},
+    render_resource::{
+        binding_types::{sampler, texture_2d, texture_3d, uniform_buffer},
+        *,
+    },
+    renderer::RenderDevice,
+    texture::{FallbackImage, GpuImage},
+    view::{ExtractedView, ViewTarget, ViewUniform},
+    Render, RenderApp, RenderSet,
 };
-use bevy_render::renderer::RenderDevice;
-use bevy_render::texture::{CompressedImageFormats, GpuImage, Image, ImageSampler, ImageType};
-use bevy_render::view::{ViewTarget, ViewUniform};
-use bevy_render::{camera::Camera, texture::FallbackImage};
-use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
+use bitflags::bitflags;
 #[cfg(not(feature = "tonemapping_luts"))]
-use bevy_utils::tracing::error;
+use tracing::error;
 
 mod node;
 
 use bevy_utils::default;
 pub use node::TonemappingNode;
 
-const TONEMAPPING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17015368199668024512);
+const TONEMAPPING_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("e239c010-c25c-42a1-b4e8-08818764d667");
 
 const TONEMAPPING_SHARED_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2499430578245347910);
+    weak_handle!("61dbc544-4b30-4ca9-83bd-4751b5cfb1b1");
+
+const TONEMAPPING_LUT_BINDINGS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("d50e3a70-c85e-4725-a81e-72fc83281145");
 
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
@@ -49,6 +58,12 @@ impl Plugin for TonemappingPlugin {
             app,
             TONEMAPPING_SHARED_SHADER_HANDLE,
             "tonemapping_shared.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            TONEMAPPING_LUT_BINDINGS_SHADER_HANDLE,
+            "lut_bindings.wgsl",
             Shader::from_wgsl
         );
 
@@ -126,7 +141,7 @@ pub struct TonemappingPipeline {
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component)]
+#[reflect(Component, Debug, Hash, Default, PartialEq)]
 pub enum Tonemapping {
     /// Bypass tonemapping.
     None,
@@ -179,10 +194,27 @@ impl Tonemapping {
     }
 }
 
+bitflags! {
+    /// Various flags describing what tonemapping needs to do.
+    ///
+    /// This allows the shader to skip unneeded steps.
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    pub struct TonemappingPipelineKeyFlags: u8 {
+        /// The hue needs to be changed.
+        const HUE_ROTATE                = 0x01;
+        /// The white balance needs to be adjusted.
+        const WHITE_BALANCE             = 0x02;
+        /// Saturation/contrast/gamma/gain/lift for one or more sections
+        /// (shadows, midtones, highlights) need to be adjusted.
+        const SECTIONAL_COLOR_GRADING   = 0x04;
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TonemappingPipelineKey {
     deband_dither: DebandDither,
     tonemapping: Tonemapping,
+    flags: TonemappingPipelineKeyFlags,
 }
 
 impl SpecializedRenderPipeline for TonemappingPipeline {
@@ -190,8 +222,35 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
+
+        shader_defs.push(ShaderDefVal::UInt(
+            "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
+            3,
+        ));
+        shader_defs.push(ShaderDefVal::UInt(
+            "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
+            4,
+        ));
+
         if let DebandDither::Enabled = key.deband_dither {
             shader_defs.push("DEBAND_DITHER".into());
+        }
+
+        // Define shader flags depending on the color grading options in use.
+        if key.flags.contains(TonemappingPipelineKeyFlags::HUE_ROTATE) {
+            shader_defs.push("HUE_ROTATE".into());
+        }
+        if key
+            .flags
+            .contains(TonemappingPipelineKeyFlags::WHITE_BALANCE)
+        {
+            shader_defs.push("WHITE_BALANCE".into());
+        }
+        if key
+            .flags
+            .contains(TonemappingPipelineKeyFlags::SECTIONAL_COLOR_GRADING)
+        {
+            shader_defs.push("SECTIONAL_COLOR_GRADING".into());
         }
 
         match key.tonemapping {
@@ -206,7 +265,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 error!(
                     "AgX tonemapping requires the `tonemapping_luts` feature.
                     Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
+                    or use a different `Tonemapping` method for your `Camera2d`/`Camera3d`."
                 );
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
             }
@@ -218,7 +277,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 error!(
                     "TonyMcMapFace tonemapping requires the `tonemapping_luts` feature.
                     Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
+                    or use a different `Tonemapping` method for your `Camera2d`/`Camera3d`."
                 );
                 shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
             }
@@ -227,7 +286,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 error!(
                     "BlenderFilmic tonemapping requires the `tonemapping_luts` feature.
                     Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
+                    or use a different `Tonemapping` method for your `Camera2d`/`Camera3d`."
                 );
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
@@ -250,6 +309,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -292,12 +352,38 @@ pub fn prepare_view_tonemapping_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
     upscaling_pipeline: Res<TonemappingPipeline>,
-    view_targets: Query<(Entity, Option<&Tonemapping>, Option<&DebandDither>), With<ViewTarget>>,
+    view_targets: Query<
+        (
+            Entity,
+            &ExtractedView,
+            Option<&Tonemapping>,
+            Option<&DebandDither>,
+        ),
+        With<ViewTarget>,
+    >,
 ) {
-    for (entity, tonemapping, dither) in view_targets.iter() {
+    for (entity, view, tonemapping, dither) in view_targets.iter() {
+        // As an optimization, we omit parts of the shader that are unneeded.
+        let mut flags = TonemappingPipelineKeyFlags::empty();
+        flags.set(
+            TonemappingPipelineKeyFlags::HUE_ROTATE,
+            view.color_grading.global.hue != 0.0,
+        );
+        flags.set(
+            TonemappingPipelineKeyFlags::WHITE_BALANCE,
+            view.color_grading.global.temperature != 0.0 || view.color_grading.global.tint != 0.0,
+        );
+        flags.set(
+            TonemappingPipelineKeyFlags::SECTIONAL_COLOR_GRADING,
+            view.color_grading
+                .all_sections()
+                .any(|section| *section != default()),
+        );
+
         let key = TonemappingPipelineKey {
             deband_dither: *dither.unwrap_or(&DebandDither::Disabled),
             tonemapping: *tonemapping.unwrap_or(&Tonemapping::None),
+            flags,
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
@@ -311,7 +397,7 @@ pub fn prepare_view_tonemapping_pipelines(
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component)]
+#[reflect(Component, Debug, Hash, Default, PartialEq)]
 pub enum DebandDither {
     #[default]
     Disabled,
@@ -346,17 +432,20 @@ pub fn get_lut_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 2] {
     ]
 }
 
-// allow(dead_code) so it doesn't complain when the tonemapping_luts feature is disabled
-#[allow(dead_code)]
+#[expect(clippy::allow_attributes, reason = "`dead_code` is not always linted.")]
+#[allow(
+    dead_code,
+    reason = "There is unused code when the `tonemapping_luts` feature is disabled."
+)]
 fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
-    let image_sampler = ImageSampler::Descriptor(bevy_render::texture::ImageSamplerDescriptor {
+    let image_sampler = ImageSampler::Descriptor(bevy_image::ImageSamplerDescriptor {
         label: Some("Tonemapping LUT sampler".to_string()),
-        address_mode_u: bevy_render::texture::ImageAddressMode::ClampToEdge,
-        address_mode_v: bevy_render::texture::ImageAddressMode::ClampToEdge,
-        address_mode_w: bevy_render::texture::ImageAddressMode::ClampToEdge,
-        mag_filter: bevy_render::texture::ImageFilterMode::Linear,
-        min_filter: bevy_render::texture::ImageFilterMode::Linear,
-        mipmap_filter: bevy_render::texture::ImageFilterMode::Linear,
+        address_mode_u: bevy_image::ImageAddressMode::ClampToEdge,
+        address_mode_v: bevy_image::ImageAddressMode::ClampToEdge,
+        address_mode_w: bevy_image::ImageAddressMode::ClampToEdge,
+        mag_filter: bevy_image::ImageFilterMode::Linear,
+        min_filter: bevy_image::ImageFilterMode::Linear,
+        mipmap_filter: bevy_image::ImageFilterMode::Linear,
         ..default()
     });
     Image::from_buffer(
@@ -376,7 +465,7 @@ pub fn lut_placeholder() -> Image {
     let format = TextureFormat::Rgba8Unorm;
     let data = vec![255, 0, 255, 255];
     Image {
-        data,
+        data: Some(data),
         texture_descriptor: TextureDescriptor {
             size: Extent3d {
                 width: 1,

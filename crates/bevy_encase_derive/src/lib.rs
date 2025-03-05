@@ -1,5 +1,4 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
@@ -13,7 +12,7 @@ use encase_derive_impl::{implement, syn};
 const ENCASE: &str = "encase";
 
 fn bevy_encase_path() -> syn::Path {
-    let bevy_manifest = BevyManifest::default();
+    let bevy_manifest = BevyManifest::shared();
     bevy_manifest
         .get_subcrate("render")
         .map(|bevy_render_path| {
@@ -32,7 +31,7 @@ fn bevy_encase_path() -> syn::Path {
                 segments,
             }
         })
-        .unwrap_or_else(|| bevy_manifest.get_path(ENCASE))
+        .unwrap_or_else(|_err| bevy_manifest.get_path(ENCASE))
 }
 
 implement!(bevy_encase_path());

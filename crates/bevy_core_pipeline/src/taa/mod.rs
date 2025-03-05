@@ -5,17 +5,19 @@ use crate::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
-use bevy_core::FrameCount;
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
-    prelude::{Bundle, Component, Entity},
+    prelude::{require, Component, Entity, ReflectComponent},
     query::{QueryItem, With},
+    resource::Resource,
     schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_image::BevyDefault as _;
 use bevy_math::vec2;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     prelude::{Camera, Projection},
@@ -30,24 +32,28 @@ use bevy_render::{
         TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
-    texture::{BevyDefault, CachedTexture, TextureCache},
+    sync_component::SyncComponentPlugin,
+    sync_world::RenderEntity,
+    texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
+use tracing::warn;
 
-const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276);
+const TAA_SHADER_HANDLE: Handle<Shader> = weak_handle!("fea20d50-86b6-4069-aa32-374346aec00c");
 
-/// Plugin for temporal anti-aliasing. Disables multisample anti-aliasing (MSAA).
+/// Plugin for temporal anti-aliasing.
 ///
-/// See [`TemporalAntiAliasSettings`] for more details.
+/// See [`TemporalAntiAliasing`] for more details.
 pub struct TemporalAntiAliasPlugin;
 
 impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
-        app.insert_resource(Msaa::Off)
-            .register_type::<TemporalAntiAliasSettings>();
+        app.register_type::<TemporalAntiAliasing>();
+
+        app.add_plugins(SyncComponentPlugin::<TemporalAntiAliasing>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -68,6 +74,7 @@ impl Plugin for TemporalAntiAliasPlugin {
                 Core3d,
                 (
                     Node3d::EndMainPass,
+                    Node3d::MotionBlur, // Running before TAA reduces edge artifacts and noise
                     Node3d::Taa,
                     Node3d::Bloom,
                     Node3d::Tonemapping,
@@ -82,15 +89,6 @@ impl Plugin for TemporalAntiAliasPlugin {
 
         render_app.init_resource::<TaaPipeline>();
     }
-}
-
-/// Bundle to apply temporal anti-aliasing.
-#[derive(Bundle, Default, Clone)]
-pub struct TemporalAntiAliasBundle {
-    pub settings: TemporalAntiAliasSettings,
-    pub jitter: TemporalJitter,
-    pub depth_prepass: DepthPrepass,
-    pub motion_vector_prepass: MotionVectorPrepass,
 }
 
 /// Component to apply temporal anti-aliasing to a 3D perspective camera.
@@ -117,25 +115,26 @@ pub struct TemporalAntiAliasBundle {
 ///
 /// # Usage Notes
 ///
-/// Requires that you add [`TemporalAntiAliasPlugin`] to your app,
-/// and add the [`DepthPrepass`], [`MotionVectorPrepass`], and [`TemporalJitter`]
-/// components to your camera.
+/// The [`TemporalAntiAliasPlugin`] must be added to your app.
+/// Any camera with this component must also disable [`Msaa`] by setting it to [`Msaa::Off`].
 ///
-/// [Currently](https://github.com/bevyengine/bevy/issues/8423) cannot be used with [`bevy_render::camera::OrthographicProjection`].
+/// [Currently](https://github.com/bevyengine/bevy/issues/8423), TAA cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
-/// Currently does not support skinned meshes and morph targets.
-/// There will probably be ghosting artifacts if used with them.
-/// Does not work well with alpha-blended meshes as it requires depth writing to determine motion.
+/// TAA also does not work well with alpha-blended meshes, as it requires depth writing to determine motion.
 ///
 /// It is very important that correct motion vectors are written for everything on screen.
 /// Failure to do so will lead to ghosting artifacts. For instance, if particle effects
 /// are added using a third party library, the library must either:
+///
 /// 1. Write particle motion vectors to the motion vectors prepass texture
 /// 2. Render particles after TAA
 ///
-/// If no [`MipBias`] component is attached to the camera, TAA will add a MipBias(-1.0) component.
+/// If no [`MipBias`] component is attached to the camera, TAA will add a `MipBias(-1.0)` component.
 #[derive(Component, Reflect, Clone)]
-pub struct TemporalAntiAliasSettings {
+#[reflect(Component, Default)]
+#[require(TemporalJitter, DepthPrepass, MotionVectorPrepass)]
+#[doc(alias = "Taa")]
+pub struct TemporalAntiAliasing {
     /// Set to true to delete the saved temporal history (past frames).
     ///
     /// Useful for preventing ghosting when the history is no longer
@@ -146,7 +145,7 @@ pub struct TemporalAntiAliasSettings {
     pub reset: bool,
 }
 
-impl Default for TemporalAntiAliasSettings {
+impl Default for TemporalAntiAliasing {
     fn default() -> Self {
         Self { reset: true }
     }
@@ -163,17 +162,23 @@ impl ViewNode for TemporalAntiAliasNode {
         &'static TemporalAntiAliasHistoryTextures,
         &'static ViewPrepassTextures,
         &'static TemporalAntiAliasPipelineId,
+        &'static Msaa,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
+        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if *msaa != Msaa::Off {
+            warn!("Temporal anti-aliasing requires MSAA to be disabled");
+            return Ok(());
+        }
+
         let (Some(pipelines), Some(pipeline_cache)) = (
             world.get_resource::<TaaPipeline>(),
             world.get_resource::<PipelineCache>(),
@@ -334,36 +339,49 @@ impl SpecializedRenderPipeline for TaaPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
 
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
-    let mut cameras_3d = main_world
-        .query_filtered::<(Entity, &Camera, &Projection, &mut TemporalAntiAliasSettings), (
-            With<Camera3d>,
-            With<TemporalJitter>,
-            With<DepthPrepass>,
-            With<MotionVectorPrepass>,
-        )>();
+    let mut cameras_3d = main_world.query_filtered::<(
+        RenderEntity,
+        &Camera,
+        &Projection,
+        &mut TemporalAntiAliasing,
+    ), (
+        With<Camera3d>,
+        With<TemporalJitter>,
+        With<DepthPrepass>,
+        With<MotionVectorPrepass>,
+    )>();
 
     for (entity, camera, camera_projection, mut taa_settings) in
         cameras_3d.iter_mut(&mut main_world)
     {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
+        let mut entity_commands = commands
+            .get_entity(entity)
+            .expect("Camera entity wasn't synced.");
         if camera.is_active && has_perspective_projection {
-            commands.get_or_spawn(entity).insert(taa_settings.clone());
+            entity_commands.insert(taa_settings.clone());
             taa_settings.reset = false;
+        } else {
+            // TODO: needs better strategy for cleaning up
+            entity_commands.remove::<(
+                TemporalAntiAliasing,
+                // components added in prepare systems (because `TemporalAntiAliasNode` does not query extracted components)
+                TemporalAntiAliasHistoryTextures,
+                TemporalAntiAliasPipelineId,
+            )>();
         }
     }
 }
 
 fn prepare_taa_jitter_and_mip_bias(
     frame_count: Res<FrameCount>,
-    mut query: Query<
-        (Entity, &mut TemporalJitter, Option<&MipBias>),
-        With<TemporalAntiAliasSettings>,
-    >,
+    mut query: Query<(Entity, &mut TemporalJitter, Option<&MipBias>), With<TemporalAntiAliasing>>,
     mut commands: Commands,
 ) {
     // Halton sequence (2, 3) - 0.5, skipping i = 0
@@ -400,16 +418,16 @@ fn prepare_taa_history_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     frame_count: Res<FrameCount>,
-    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasSettings>>,
+    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasing>>,
 ) {
     for (entity, camera, view) in &views {
-        if let Some(physical_viewport_size) = camera.physical_viewport_size {
+        if let Some(physical_target_size) = camera.physical_target_size {
             let mut texture_descriptor = TextureDescriptor {
                 label: None,
                 size: Extent3d {
                     depth_or_array_layers: 1,
-                    width: physical_viewport_size.x,
-                    height: physical_viewport_size.y,
+                    width: physical_target_size.x,
+                    height: physical_target_size.y,
                 },
                 mip_level_count: 1,
                 sample_count: 1,
@@ -454,7 +472,7 @@ fn prepare_taa_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TaaPipeline>>,
     pipeline: Res<TaaPipeline>,
-    views: Query<(Entity, &ExtractedView, &TemporalAntiAliasSettings)>,
+    views: Query<(Entity, &ExtractedView, &TemporalAntiAliasing)>,
 ) {
     for (entity, view, taa_settings) in &views {
         let mut pipeline_key = TaaPipelineKey {

@@ -4,20 +4,19 @@ use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::prelude::*;
+use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
-    render_graph::RenderGraphApp,
-    render_graph::ViewNodeRunner,
+    render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d},
         *,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -49,9 +48,12 @@ impl Sensitivity {
     }
 }
 
+/// A component for enabling Fast Approximate Anti-Aliasing (FXAA)
+/// for a [`bevy_render::camera::Camera`].
 #[derive(Reflect, Component, Clone, ExtractComponent)]
 #[reflect(Component, Default)]
 #[extract_component_filter(With<Camera>)]
+#[doc(alias = "FastApproximateAntiAliasing")]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
     pub enabled: bool,
@@ -60,7 +62,7 @@ pub struct Fxaa {
     /// Use higher sensitivity for a slower, smoother, result.
     /// [`Ultra`](`Sensitivity::Ultra`) and [`Extreme`](`Sensitivity::Extreme`)
     /// settings can result in significant smearing and loss of detail.
-
+    ///
     /// The minimum amount of local contrast required to apply algorithm.
     pub edge_threshold: Sensitivity,
 
@@ -78,7 +80,7 @@ impl Default for Fxaa {
     }
 }
 
-const FXAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4182761465141723543);
+const FXAA_SHADER_HANDLE: Handle<Shader> = weak_handle!("fc58c0a8-01c0-46e9-94cc-83a794bae7b0");
 
 /// Adds support for Fast Approximate Anti-Aliasing (FXAA)
 pub struct FxaaPlugin;
@@ -194,6 +196,7 @@ impl SpecializedRenderPipeline for FxaaPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

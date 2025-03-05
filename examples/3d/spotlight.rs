@@ -4,6 +4,7 @@ use std::f32::consts::*;
 
 use bevy::{
     color::palettes::basic::{MAROON, RED},
+    math::ops,
     pbr::NotShadowCaster,
     prelude::*,
 };
@@ -19,10 +20,6 @@ Rotate Camera: Left and Right Arrows";
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
-            brightness: 20.0,
-            ..default()
-        })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (light_sway, movement, rotation))
@@ -36,15 +33,13 @@ struct Movable;
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // ground plane
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-            material: materials.add(Color::WHITE),
-            ..default()
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
+        MeshMaterial3d(materials.add(Color::WHITE)),
         Movable,
     ));
 
@@ -63,12 +58,9 @@ fn setup(
             let z = rng.gen_range(-5.0..5.0);
 
             (
-                PbrBundle {
-                    mesh: cube_mesh.clone(),
-                    material: blue.clone(),
-                    transform: Transform::from_xyz(x, y, z),
-                    ..default()
-                },
+                Mesh3d(cube_mesh.clone()),
+                MeshMaterial3d(blue.clone()),
+                Transform::from_xyz(x, y, z),
                 Movable,
             )
         })
@@ -79,12 +71,12 @@ fn setup(
     let sphere_mesh_direction = meshes.add(Sphere::new(0.1).mesh().uv(32, 18));
     let red_emissive = materials.add(StandardMaterial {
         base_color: RED.into(),
-        emissive: Color::linear_rgba(100.0, 0.0, 0.0, 0.0),
+        emissive: LinearRgba::new(1.0, 0.0, 0.0, 0.0),
         ..default()
     });
     let maroon_emissive = materials.add(StandardMaterial {
         base_color: MAROON.into(),
-        emissive: Color::linear_rgba(50.0, 0.0, 0.0, 0.0),
+        emissive: LinearRgba::new(0.369, 0.0, 0.0, 0.0),
         ..default()
     });
 
@@ -94,10 +86,8 @@ fn setup(
             let z = z as f32 - 2.0;
             // red spot_light
             commands
-                .spawn(SpotLightBundle {
-                    transform: Transform::from_xyz(1.0 + x, 2.0, z)
-                        .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
-                    spot_light: SpotLight {
+                .spawn((
+                    SpotLight {
                         intensity: 40_000.0, // lumens
                         color: Color::WHITE,
                         shadows_enabled: true,
@@ -105,21 +95,18 @@ fn setup(
                         outer_angle: PI / 4.0,
                         ..default()
                     },
-                    ..default()
-                })
+                    Transform::from_xyz(1.0 + x, 2.0, z)
+                        .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
+                ))
                 .with_children(|builder| {
-                    builder.spawn(PbrBundle {
-                        mesh: sphere_mesh.clone(),
-                        material: red_emissive.clone(),
-                        ..default()
-                    });
                     builder.spawn((
-                        PbrBundle {
-                            transform: Transform::from_translation(Vec3::Z * -0.1),
-                            mesh: sphere_mesh_direction.clone(),
-                            material: maroon_emissive.clone(),
-                            ..default()
-                        },
+                        Mesh3d(sphere_mesh.clone()),
+                        MeshMaterial3d(red_emissive.clone()),
+                    ));
+                    builder.spawn((
+                        Mesh3d(sphere_mesh_direction.clone()),
+                        MeshMaterial3d(maroon_emissive.clone()),
+                        Transform::from_translation(Vec3::Z * -0.1),
                         NotShadowCaster,
                     ));
                 });
@@ -127,41 +114,39 @@ fn setup(
     }
 
     // camera
-    commands.spawn(Camera3dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
             hdr: true,
             ..default()
         },
-        transform: Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+        Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        EnvironmentMapLight {
+            intensity: 20.0,
+            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
+        },
+    ));
 
-    commands.spawn(
-        TextBundle::from_section(
-            INSTRUCTIONS,
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new(INSTRUCTIONS),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)>) {
     for (mut transform, mut angles) in query.iter_mut() {
         transform.rotation = Quat::from_euler(
             EulerRot::XYZ,
-            -FRAC_PI_2 + (time.elapsed_seconds() * 0.67 * 3.0).sin() * 0.5,
-            (time.elapsed_seconds() * 3.0).sin() * 0.5,
+            -FRAC_PI_2 + ops::sin(time.elapsed_secs() * 0.67 * 3.0) * 0.5,
+            ops::sin(time.elapsed_secs() * 3.0) * 0.5,
             0.0,
         );
-        let angle = ((time.elapsed_seconds() * 1.2).sin() + 1.0) * (FRAC_PI_4 - 0.1);
+        let angle = (ops::sin(time.elapsed_secs() * 1.2) + 1.0) * (FRAC_PI_4 - 0.1);
         angles.inner_angle = angle * 0.8;
         angles.outer_angle = angle;
     }
@@ -196,7 +181,7 @@ fn movement(
         translation.y -= 1.0;
     }
 
-    translation *= 2.0 * time.delta_seconds();
+    translation *= 2.0 * time.delta_secs();
 
     // Apply translation
     for mut transform in &mut query {
@@ -205,12 +190,11 @@ fn movement(
 }
 
 fn rotation(
-    mut query: Query<&mut Transform, With<Camera>>,
+    mut transform: Single<&mut Transform, With<Camera>>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let mut transform = query.single_mut();
-    let delta = time.delta_seconds();
+    let delta = time.delta_secs();
 
     if input.pressed(KeyCode::ArrowLeft) {
         transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(delta));

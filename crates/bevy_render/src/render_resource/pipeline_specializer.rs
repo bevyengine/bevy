@@ -1,17 +1,22 @@
-use crate::mesh::MeshVertexBufferLayoutRef;
-use crate::render_resource::CachedComputePipelineId;
 use crate::{
-    mesh::MissingVertexAttributeError,
+    mesh::{MeshVertexBufferLayoutRef, MissingVertexAttributeError, VertexBufferLayout},
     render_resource::{
-        CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache, RenderPipelineDescriptor,
-        VertexBufferLayout,
+        CachedComputePipelineId, CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache,
+        RenderPipelineDescriptor,
     },
 };
-use bevy_ecs::system::Resource;
-use bevy_utils::hashbrown::hash_map::VacantEntry;
-use bevy_utils::{default, hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap};
-use std::{fmt::Debug, hash::Hash};
+use bevy_ecs::resource::Resource;
+use bevy_platform_support::{
+    collections::{
+        hash_map::{Entry, RawEntryMut, VacantEntry},
+        HashMap,
+    },
+    hash::FixedHasher,
+};
+use bevy_utils::default;
+use core::{fmt::Debug, hash::Hash};
 use thiserror::Error;
+use tracing::error;
 
 pub trait SpecializedRenderPipeline {
     type Key: Clone + Hash + PartialEq + Eq;
@@ -130,7 +135,11 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
             specialize_pipeline: &S,
             key: S::Key,
             layout: &MeshVertexBufferLayoutRef,
-            entry: VacantEntry<(MeshVertexBufferLayoutRef, S::Key), CachedRenderPipelineId>,
+            entry: VacantEntry<
+                (MeshVertexBufferLayoutRef, S::Key),
+                CachedRenderPipelineId,
+                FixedHasher,
+            >,
         ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError>
         where
             S: SpecializedMeshPipeline,
@@ -140,7 +149,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                 .map_err(|mut err| {
                     {
                         let SpecializedMeshPipelineError::MissingVertexAttribute(err) = &mut err;
-                        err.pipeline_type = Some(std::any::type_name::<S>());
+                        err.pipeline_type = Some(core::any::type_name::<S>());
                     }
                     err
                 })?;
@@ -169,7 +178,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                                     unused' MeshVertexBufferLayout information to specialize \
                                     the pipeline. This is not allowed because it would invalidate \
                                     the pipeline cache.",
-                                std::any::type_name::<S>()
+                                core::any::type_name::<S>()
                             );
                         }
                     }

@@ -2,22 +2,6 @@
 
 #import bevy_pbr::rgb9e5
 
-const PI: f32 = 3.141592653589793;
-const HALF_PI: f32 = 1.57079632679;
-const E: f32 = 2.718281828459045;
-
-fn hsv2rgb(hue: f32, saturation: f32, value: f32) -> vec3<f32> {
-    let rgb = clamp(
-        abs(
-            ((hue * 6.0 + vec3<f32>(0.0, 4.0, 2.0)) % 6.0) - 3.0
-        ) - 1.0,
-        vec3<f32>(0.0),
-        vec3<f32>(1.0)
-    );
-
-    return value * mix(vec3<f32>(1.0), rgb, vec3<f32>(saturation));
-}
-
 // Generates a random u32 in range [0, u32::MAX].
 //
 // `state` is a mutable reference to a u32 used as the seed.
@@ -71,7 +55,13 @@ fn octahedral_encode(v: vec3<f32>) -> vec2<f32> {
 // For decoding normals or unit direction vectors from octahedral coordinates.
 fn octahedral_decode(v: vec2<f32>) -> vec3<f32> {
     let f = v * 2.0 - 1.0;
-    var n = vec3(f.xy, 1.0 - abs(f.x) - abs(f.y));
+    var n = octahedral_decode_signed(f);
+    return normalize(n);
+}
+
+// Like octahedral_decode, but for input in [-1, 1] instead of [0, 1].
+fn octahedral_decode_signed(v: vec2<f32>) -> vec3<f32> {
+    var n = vec3(v.xy, 1.0 - abs(v.x) - abs(v.y));
     let t = saturate(-n.z);
     let w = select(vec2(t), vec2(-t), n.xy >= vec2(0.0));
     n = vec3(n.xy + w, n.z);

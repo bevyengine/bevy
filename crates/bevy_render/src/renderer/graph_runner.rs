@@ -1,10 +1,10 @@
 use bevy_ecs::{prelude::Entity, world::World};
+use bevy_platform_support::collections::HashMap;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
-use bevy_utils::HashMap;
+use tracing::info_span;
 
+use alloc::{borrow::Cow, collections::VecDeque};
 use smallvec::{smallvec, SmallVec};
-use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 
 use crate::{
@@ -16,6 +16,17 @@ use crate::{
     renderer::{RenderContext, RenderDevice},
 };
 
+/// The [`RenderGraphRunner`] is responsible for executing a [`RenderGraph`].
+///
+/// It will run all nodes in the graph sequentially in the correct order (defined by the edges).
+/// Each [`Node`](crate::render_graph::Node) can run any arbitrary code, but will generally
+/// either send directly a [`CommandBuffer`] or a task that will asynchronously generate a [`CommandBuffer`]
+///
+/// After running the graph, the [`RenderGraphRunner`] will execute in parallel all the tasks to get
+/// an ordered list of [`CommandBuffer`]s to execute. These [`CommandBuffer`] will be submitted to the GPU
+/// sequentially in the order that the tasks were submitted. (which is the order of the [`RenderGraph`])
+///
+/// [`CommandBuffer`]: wgpu::CommandBuffer
 pub(crate) struct RenderGraphRunner;
 
 #[derive(Error, Debug)]
@@ -57,6 +68,7 @@ impl RenderGraphRunner {
         render_device: RenderDevice,
         mut diagnostics_recorder: Option<DiagnosticsRecorder>,
         queue: &wgpu::Queue,
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         adapter: &wgpu::Adapter,
         world: &World,
         finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
@@ -65,8 +77,12 @@ impl RenderGraphRunner {
             recorder.begin_frame();
         }
 
-        let mut render_context =
-            RenderContext::new(render_device, adapter.get_info(), diagnostics_recorder);
+        let mut render_context = RenderContext::new(
+            render_device,
+            #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+            adapter.get_info(),
+            diagnostics_recorder,
+        );
         Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
         finalizer(render_context.command_encoder());
 
@@ -90,6 +106,8 @@ impl RenderGraphRunner {
         Ok(diagnostics_recorder)
     }
 
+    /// Runs the [`RenderGraph`] and all its sub-graphs sequentially, making sure that all nodes are
+    /// run in the correct order. (a node only runs when all its dependencies have finished running)
     fn run_graph<'w>(
         graph: &RenderGraph,
         sub_graph: Option<InternedRenderSubGraph>,

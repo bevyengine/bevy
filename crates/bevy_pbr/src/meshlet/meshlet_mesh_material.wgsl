@@ -18,7 +18,7 @@ fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<f
 @fragment
 fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> {
     let vertex_output = resolve_vertex_output(frag_coord);
-    var rng = vertex_output.meshlet_id;
+    var rng = vertex_output.cluster_id;
     let color = vec3(rand_f(&rng), rand_f(&rng), rand_f(&rng));
     return vec4(color, 1.0);
 }

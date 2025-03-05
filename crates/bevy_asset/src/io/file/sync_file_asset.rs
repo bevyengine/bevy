@@ -1,17 +1,17 @@
-use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
+use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::Stream;
 
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream,
-    Reader, Writer,
+    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, AsyncSeekForward,
+    PathStream, Reader, Writer,
 };
 
+use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
+use core::{pin::Pin, task::Poll};
 use std::{
     fs::{read_dir, File},
     io::{Read, Seek, Write},
     path::{Path, PathBuf},
-    pin::Pin,
-    task::Poll,
 };
 
 use super::{FileAssetReader, FileAssetWriter};
@@ -21,7 +21,7 @@ struct FileReader(File);
 impl AsyncRead for FileReader {
     fn poll_read(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
         buf: &mut [u8],
     ) -> Poll<std::io::Result<usize>> {
         let this = self.get_mut();
@@ -30,15 +30,27 @@ impl AsyncRead for FileReader {
     }
 }
 
-impl AsyncSeek for FileReader {
-    fn poll_seek(
+impl AsyncSeekForward for FileReader {
+    fn poll_seek_forward(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-        pos: std::io::SeekFrom,
+        _cx: &mut core::task::Context<'_>,
+        offset: u64,
     ) -> Poll<std::io::Result<u64>> {
         let this = self.get_mut();
-        let seek = this.0.seek(pos);
+        let current = this.0.stream_position()?;
+        let seek = this.0.seek(std::io::SeekFrom::Start(current + offset));
+
         Poll::Ready(seek)
+    }
+}
+
+impl Reader for FileReader {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { crate::io::STACK_FUTURE_SIZE }>
+    {
+        stackfuture::StackFuture::from(async { self.0.read_to_end(buf) })
     }
 }
 
@@ -47,7 +59,7 @@ struct FileWriter(File);
 impl AsyncWrite for FileWriter {
     fn poll_write(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
         buf: &[u8],
     ) -> Poll<std::io::Result<usize>> {
         let this = self.get_mut();
@@ -57,7 +69,7 @@ impl AsyncWrite for FileWriter {
 
     fn poll_flush(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
     ) -> Poll<std::io::Result<()>> {
         let this = self.get_mut();
         let flushed = this.0.flush();
@@ -66,7 +78,7 @@ impl AsyncWrite for FileWriter {
 
     fn poll_close(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
     ) -> Poll<std::io::Result<()>> {
         Poll::Ready(Ok(()))
     }
@@ -79,7 +91,7 @@ impl Stream for DirReader {
 
     fn poll_next(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
         Poll::Ready(this.0.pop())
@@ -87,13 +99,10 @@ impl Stream for DirReader {
 }
 
 impl AssetReader for FileAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let full_path = self.root_path.join(path);
         match File::open(&full_path) {
-            Ok(file) => {
-                let reader: Box<Reader> = Box::new(FileReader(file));
-                Ok(reader)
-            }
+            Ok(file) => Ok(FileReader(file)),
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
                     Err(AssetReaderError::NotFound(full_path))
@@ -104,14 +113,11 @@ impl AssetReader for FileAssetReader {
         }
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let meta_path = get_meta_path(path);
         let full_path = self.root_path.join(meta_path);
         match File::open(&full_path) {
-            Ok(file) => {
-                let reader: Box<Reader> = Box::new(FileReader(file));
-                Ok(reader)
-            }
+            Ok(file) => Ok(FileReader(file)),
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
                     Err(AssetReaderError::NotFound(full_path))
@@ -156,10 +162,7 @@ impl AssetReader for FileAssetReader {
         }
     }
 
-    async fn is_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> std::result::Result<bool, AssetReaderError> {
+    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
         let full_path = self.root_path.join(path);
         let metadata = full_path
             .metadata()
@@ -190,35 +193,32 @@ impl AssetWriter for FileAssetWriter {
         Ok(writer)
     }
 
-    async fn remove<'a>(&'a self, path: &'a Path) -> std::result::Result<(), AssetWriterError> {
+    async fn remove<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
         let full_path = self.root_path.join(path);
         std::fs::remove_file(full_path)?;
         Ok(())
     }
 
-    async fn remove_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> std::result::Result<(), AssetWriterError> {
+    async fn remove_meta<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
         let meta_path = get_meta_path(path);
         let full_path = self.root_path.join(meta_path);
         std::fs::remove_file(full_path)?;
         Ok(())
     }
 
-    async fn remove_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> std::result::Result<(), AssetWriterError> {
+    async fn create_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
+        let full_path = self.root_path.join(path);
+        std::fs::create_dir_all(full_path)?;
+        Ok(())
+    }
+
+    async fn remove_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
         let full_path = self.root_path.join(path);
         std::fs::remove_dir_all(full_path)?;
         Ok(())
     }
 
-    async fn remove_empty_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> std::result::Result<(), AssetWriterError> {
+    async fn remove_empty_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
         let full_path = self.root_path.join(path);
         std::fs::remove_dir(full_path)?;
         Ok(())
@@ -227,7 +227,7 @@ impl AssetWriter for FileAssetWriter {
     async fn remove_assets_in_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> std::result::Result<(), AssetWriterError> {
+    ) -> Result<(), AssetWriterError> {
         let full_path = self.root_path.join(path);
         std::fs::remove_dir_all(&full_path)?;
         std::fs::create_dir_all(&full_path)?;
@@ -238,7 +238,7 @@ impl AssetWriter for FileAssetWriter {
         &'a self,
         old_path: &'a Path,
         new_path: &'a Path,
-    ) -> std::result::Result<(), AssetWriterError> {
+    ) -> Result<(), AssetWriterError> {
         let full_old_path = self.root_path.join(old_path);
         let full_new_path = self.root_path.join(new_path);
         if let Some(parent) = full_new_path.parent() {
@@ -252,7 +252,7 @@ impl AssetWriter for FileAssetWriter {
         &'a self,
         old_path: &'a Path,
         new_path: &'a Path,
-    ) -> std::result::Result<(), AssetWriterError> {
+    ) -> Result<(), AssetWriterError> {
         let old_meta_path = get_meta_path(old_path);
         let new_meta_path = get_meta_path(new_path);
         let full_old_path = self.root_path.join(old_meta_path);

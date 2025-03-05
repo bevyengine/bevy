@@ -1,10 +1,13 @@
 use_field_init_shorthand = true
 newline_style = "Unix"
+style_edition = "2021"
 
 # The following lines may be uncommented on nightly Rust.
 # Once these features have stabilized, they should be added to the always-enabled options above.
 # unstable_features = true
 # imports_granularity = "Crate"
+# normalize_comments = true
+
+# these options seem poorly implemented and cause churn, so, try to avoid them
 # wrap_comments = true
 # comment_width = 100
-# normalize_comments = true

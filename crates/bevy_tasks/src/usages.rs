@@ -1,5 +1,6 @@
 use super::TaskPool;
-use std::{ops::Deref, sync::OnceLock};
+use bevy_platform_support::sync::OnceLock;
+use core::ops::Deref;
 
 static COMPUTE_TASK_POOL: OnceLock<ComputeTaskPool> = OnceLock::new();
 
@@ -41,7 +42,7 @@ impl Deref for ComputeTaskPool {
     }
 }
 
-/// A function used by `bevy_core` to tick the global tasks pools on the main thread.
+/// A function used by `bevy_app` to tick the global tasks pools on the main thread.
 /// This will run a maximum of 100 local tasks per executor per call to this function.
 ///
 /// # Warning

@@ -1,9 +1,10 @@
-use std::any::{Any, TypeId};
+use alloc::boxed::Box;
+use core::any::{Any, TypeId};
 
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
-use bevy_reflect::{FromReflect, FromType, Reflect};
+use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect};
 
-use crate::{Asset, Assets, Handle, UntypedAssetId, UntypedHandle};
+use crate::{Asset, AssetId, Assets, Handle, UntypedAssetId, UntypedHandle};
 
 /// Type data for the [`TypeRegistry`](bevy_reflect::TypeRegistry) used to operate on reflected [`Asset`]s.
 ///
@@ -22,8 +23,8 @@ pub struct ReflectAsset {
     // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
     get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, UntypedHandle) -> Option<&mut dyn Reflect>,
-    add: fn(&mut World, &dyn Reflect) -> UntypedHandle,
-    insert: fn(&mut World, UntypedHandle, &dyn Reflect),
+    add: fn(&mut World, &dyn PartialReflect) -> UntypedHandle,
+    insert: fn(&mut World, UntypedHandle, &dyn PartialReflect),
     len: fn(&World) -> usize,
     ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = UntypedAssetId> + 'w>,
     remove: fn(&mut World, UntypedHandle) -> Option<Box<dyn Reflect>>,
@@ -46,14 +47,19 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::get_mut`]
-    #[allow(unsafe_code)]
     pub fn get_mut<'w>(
         &self,
         world: &'w mut World,
         handle: UntypedHandle,
     ) -> Option<&'w mut dyn Reflect> {
         // SAFETY: unique world access
-        unsafe { (self.get_unchecked_mut)(world.as_unsafe_world_cell(), handle) }
+        #[expect(
+            unsafe_code,
+            reason = "Use of unsafe `Self::get_unchecked_mut()` function."
+        )]
+        unsafe {
+            (self.get_unchecked_mut)(world.as_unsafe_world_cell(), handle)
+        }
     }
 
     /// Equivalent of [`Assets::get_mut`], but works with an [`UnsafeWorldCell`].
@@ -83,7 +89,10 @@ impl ReflectAsset {
     /// violating Rust's aliasing rules. To avoid this:
     /// * Only call this method if you know that the [`UnsafeWorldCell`] may be used to access the corresponding `Assets<T>`
     /// * Don't call this method more than once in the same scope.
-    #[allow(unsafe_code)]
+    #[expect(
+        unsafe_code,
+        reason = "This function calls unsafe code and has safety requirements."
+    )]
     pub unsafe fn get_unchecked_mut<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
@@ -94,11 +103,11 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::add`]
-    pub fn add(&self, world: &mut World, value: &dyn Reflect) -> UntypedHandle {
+    pub fn add(&self, world: &mut World, value: &dyn PartialReflect) -> UntypedHandle {
         (self.add)(world, value)
     }
     /// Equivalent of [`Assets::insert`]
-    pub fn insert(&self, world: &mut World, handle: UntypedHandle, value: &dyn Reflect) {
+    pub fn insert(&self, world: &mut World, handle: UntypedHandle, value: &dyn PartialReflect) {
         (self.insert)(world, handle, value);
     }
 
@@ -108,7 +117,6 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::len`]
-    #[allow(clippy::len_without_is_empty)] // clippy expects the `is_empty` method to have the signature `(&self) -> bool`
     pub fn len(&self, world: &World) -> usize {
         (self.len)(world)
     }
@@ -137,7 +145,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             get_unchecked_mut: |world, handle| {
                 // SAFETY: `get_unchecked_mut` must be called with `UnsafeWorldCell` having access to `Assets<A>`,
                 // and must ensure to only have at most one reference to it live at all times.
-                #[allow(unsafe_code)]
+                #[expect(unsafe_code, reason = "Uses `UnsafeWorldCell::get_resource_mut()`.")]
                 let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
                 let asset = assets.get_mut(&handle.typed_debug_checked());
                 asset.map(|asset| asset as &mut dyn Reflect)
@@ -160,7 +168,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             },
             ids: |world| {
                 let assets = world.resource::<Assets<A>>();
-                Box::new(assets.ids().map(|i| i.untyped()))
+                Box::new(assets.ids().map(AssetId::untyped))
             },
             remove: |world, handle| {
                 let mut assets = world.resource_mut::<Assets<A>>();
@@ -236,13 +244,13 @@ impl<A: Asset> FromType<Handle<A>> for ReflectHandle {
 
 #[cfg(test)]
 mod tests {
-    use std::any::TypeId;
+    use alloc::{string::String, vec::Vec};
+    use core::any::TypeId;
 
-    use crate as bevy_asset;
     use crate::{Asset, AssetApp, AssetPlugin, ReflectAsset, UntypedHandle};
     use bevy_app::App;
     use bevy_ecs::reflect::AppTypeRegistry;
-    use bevy_reflect::{Reflect, ReflectMut};
+    use bevy_reflect::Reflect;
 
     #[derive(Asset, Reflect)]
     struct AssetType {
@@ -271,13 +279,13 @@ mod tests {
         };
 
         let handle = reflect_asset.add(app.world_mut(), &value);
-        let ReflectMut::Struct(strukt) = reflect_asset
+        // struct is a reserved keyword, so we can't use it here
+        let strukt = reflect_asset
             .get_mut(app.world_mut(), handle)
             .unwrap()
             .reflect_mut()
-        else {
-            unreachable!();
-        };
+            .as_struct()
+            .unwrap();
         strukt
             .field_mut("field")
             .unwrap()

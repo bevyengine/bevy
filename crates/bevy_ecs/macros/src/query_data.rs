@@ -1,13 +1,10 @@
 use bevy_macro_utils::ensure_no_collision;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::{format_ident, quote, ToTokens};
+use quote::{format_ident, quote};
 use syn::{
-    parse::{Parse, ParseStream},
-    parse_macro_input, parse_quote,
-    punctuated::Punctuated,
-    token::Comma,
-    Attribute, Data, DataStruct, DeriveInput, Field, Index, Meta,
+    parse_macro_input, parse_quote, punctuated::Punctuated, token, token::Comma, Attribute, Data,
+    DataStruct, DeriveInput, Field, Index, Meta,
 };
 
 use crate::{
@@ -19,7 +16,7 @@ use crate::{
 struct QueryDataAttributes {
     pub is_mutable: bool,
 
-    pub derive_args: Punctuated<Meta, syn::token::Comma>,
+    pub derive_args: Punctuated<Meta, Comma>,
 }
 
 static MUTABLE_ATTRIBUTE_NAME: &str = "mutable";
@@ -39,53 +36,37 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
     let mut attributes = QueryDataAttributes::default();
     for attr in &ast.attrs {
-        if !attr
+        if attr
             .path()
             .get_ident()
-            .map_or(false, |ident| ident == QUERY_DATA_ATTRIBUTE_NAME)
+            .is_none_or(|ident| ident != QUERY_DATA_ATTRIBUTE_NAME)
         {
             continue;
         }
 
-        attr.parse_args_with(|input: ParseStream| {
-            let meta = input.parse_terminated(syn::Meta::parse, Comma)?;
-            for meta in meta {
-                let ident = meta.path().get_ident().unwrap_or_else(|| {
-                    panic!(
-                        "Unrecognized attribute: `{}`",
-                        meta.path().to_token_stream()
-                    )
-                });
-                if ident == MUTABLE_ATTRIBUTE_NAME {
-                    if let Meta::Path(_) = meta {
-                        attributes.is_mutable = true;
-                    } else {
-                        panic!(
-                            "The `{MUTABLE_ATTRIBUTE_NAME}` attribute is expected to have no value or arguments",
-                        );
-                    }
-                }
-                else if ident == DERIVE_ATTRIBUTE_NAME {
-                    if let Meta::List(meta_list) = meta {
-                        meta_list.parse_nested_meta(|meta| {
-                            attributes.derive_args.push(Meta::Path(meta.path));
-                            Ok(())
-                        })?;
-                    } else {
-                        panic!(
-                            "Expected a structured list within the `{DERIVE_ATTRIBUTE_NAME}` attribute",
-                        );
-                    }
+        let result = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident(MUTABLE_ATTRIBUTE_NAME) {
+                attributes.is_mutable = true;
+                if meta.input.peek(token::Paren) {
+                    Err(meta.error(format_args!("`{MUTABLE_ATTRIBUTE_NAME}` does not take any arguments")))
                 } else {
-                    panic!(
-                        "Unrecognized attribute: `{}`",
-                        meta.path().to_token_stream()
-                    );
+                    Ok(())
                 }
+            } else if meta.path.is_ident(DERIVE_ATTRIBUTE_NAME) {
+                meta.parse_nested_meta(|meta| {
+                    attributes.derive_args.push(Meta::Path(meta.path));
+                    Ok(())
+                }).map_err(|_| {
+                    meta.error(format_args!("`{DERIVE_ATTRIBUTE_NAME}` requires at least one argument"))
+                })
+            } else {
+                Err(meta.error(format_args!("invalid attribute, expected `{MUTABLE_ATTRIBUTE_NAME}` or `{DERIVE_ATTRIBUTE_NAME}`")))
             }
-            Ok(())
-        })
-        .unwrap_or_else(|_| panic!("Invalid `{QUERY_DATA_ATTRIBUTE_NAME}` attribute format"));
+        });
+
+        if let Err(err) = result {
+            return err.to_compile_error().into();
+        }
     }
 
     let path = bevy_ecs_path();
@@ -104,7 +85,6 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let read_only_struct_name = if attributes.is_mutable {
         Ident::new(&format!("{struct_name}ReadOnly"), Span::call_site())
     } else {
-        #[allow(clippy::redundant_clone)]
         struct_name.clone()
     };
 
@@ -112,7 +92,6 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let read_only_item_struct_name = if attributes.is_mutable {
         Ident::new(&format!("{struct_name}ReadOnlyItem"), Span::call_site())
     } else {
-        #[allow(clippy::redundant_clone)]
         item_struct_name.clone()
     };
 
@@ -122,7 +101,6 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         let new_ident = Ident::new(&format!("{struct_name}ReadOnlyFetch"), Span::call_site());
         ensure_no_collision(new_ident, tokens.clone())
     } else {
-        #[allow(clippy::redundant_clone)]
         fetch_struct_name.clone()
     };
 
@@ -198,12 +176,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         &path,
         &struct_name,
         &visibility,
-        &item_struct_name,
         &fetch_struct_name,
         &field_types,
         &user_impl_generics,
         &user_impl_generics_with_world,
-        &field_idents,
         &user_ty_generics,
         &user_ty_generics_with_world,
         &named_field_idents,
@@ -235,12 +211,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             &path,
             &read_only_struct_name,
             &visibility,
-            &read_only_item_struct_name,
             &read_only_fetch_struct_name,
             &read_only_field_types,
             &user_impl_generics,
             &user_impl_generics_with_world,
-            &field_idents,
             &user_ty_generics,
             &user_ty_generics_with_world,
             &named_field_idents,
@@ -250,9 +224,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             user_where_clauses_with_world,
         );
         let read_only_structs = quote! {
-            #[doc = "Automatically generated [`WorldQuery`] type for a read-only variant of [`"]
-            #[doc = stringify!(#struct_name)]
-            #[doc = "`]."]
+            #[doc = concat!(
+                "Automatically generated [`WorldQuery`](",
+                stringify!(#path),
+                "::query::WorldQuery) type for a read-only variant of [`",
+                stringify!(#struct_name),
+                "`]."
+            )]
             #[automatically_derived]
             #visibility struct #read_only_struct_name #user_impl_generics #user_where_clauses {
                 #(
@@ -276,18 +254,68 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 /// SAFETY: we assert fields are readonly below
                 unsafe impl #user_impl_generics #path::query::QueryData
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
+                    const IS_READ_ONLY: bool = true;
                     type ReadOnly = #read_only_struct_name #user_ty_generics;
+                    type Item<'__w> = #read_only_item_struct_name #user_ty_generics_with_world;
+
+                    fn shrink<'__wlong: '__wshort, '__wshort>(
+                        item: Self::Item<'__wlong>
+                    ) -> Self::Item<'__wshort> {
+                        #read_only_item_struct_name {
+                            #(
+                                #field_idents: <#read_only_field_types>::shrink(item.#field_idents),
+                            )*
+                        }
+                    }
+
+                    /// SAFETY: we call `fetch` for each member that implements `Fetch`.
+                    #[inline(always)]
+                    unsafe fn fetch<'__w>(
+                        _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
+                        _entity: #path::entity::Entity,
+                        _table_row: #path::storage::TableRow,
+                    ) -> Self::Item<'__w> {
+                        Self::Item {
+                            #(#field_idents: <#read_only_field_types>::fetch(&mut _fetch.#named_field_idents, _entity, _table_row),)*
+                        }
+                    }
                 }
             }
         } else {
             quote! {}
         };
 
+        let is_read_only = !attributes.is_mutable;
+
         quote! {
             /// SAFETY: we assert fields are readonly below
             unsafe impl #user_impl_generics #path::query::QueryData
             for #struct_name #user_ty_generics #user_where_clauses {
+                const IS_READ_ONLY: bool = #is_read_only;
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
+                type Item<'__w> = #item_struct_name #user_ty_generics_with_world;
+
+                fn shrink<'__wlong: '__wshort, '__wshort>(
+                    item: Self::Item<'__wlong>
+                ) -> Self::Item<'__wshort> {
+                    #item_struct_name {
+                        #(
+                            #field_idents: <#field_types>::shrink(item.#field_idents),
+                        )*
+                    }
+                }
+
+                /// SAFETY: we call `fetch` for each member that implements `Fetch`.
+                #[inline(always)]
+                unsafe fn fetch<'__w>(
+                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
+                    _entity: #path::entity::Entity,
+                    _table_row: #path::storage::TableRow,
+                ) -> Self::Item<'__w> {
+                    Self::Item {
+                        #(#field_idents: <#field_types>::fetch(&mut _fetch.#named_field_idents, _entity, _table_row),)*
+                    }
+                }
             }
 
             #read_only_data_impl
@@ -331,9 +359,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
         const _: () = {
             #[doc(hidden)]
-            #[doc = "Automatically generated internal [`WorldQuery`] state type for [`"]
-            #[doc = stringify!(#struct_name)]
-            #[doc = "`], used for caching."]
+            #[doc = concat!(
+                "Automatically generated internal [`WorldQuery`](",
+                stringify!(#path),
+                "::query::WorldQuery) state type for [`",
+                stringify!(#struct_name),
+                "`], used for caching."
+            )]
             #[automatically_derived]
             #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
                 #(#named_field_idents: <#field_types as #path::query::WorldQuery>::State,)*
@@ -396,7 +428,7 @@ fn read_world_query_field_info(field: &Field) -> syn::Result<QueryDataFieldInfo>
         if attr
             .path()
             .get_ident()
-            .map_or(false, |ident| ident == QUERY_DATA_ATTRIBUTE_NAME)
+            .is_some_and(|ident| ident == QUERY_DATA_ATTRIBUTE_NAME)
         {
             return Err(syn::Error::new_spanned(
                 attr,

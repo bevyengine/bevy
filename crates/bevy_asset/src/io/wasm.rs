@@ -1,9 +1,10 @@
 use crate::io::{
     get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
 };
-use bevy_utils::tracing::error;
+use alloc::{borrow::ToOwned, boxed::Box, format};
 use js_sys::{Uint8Array, JSON};
 use std::path::{Path, PathBuf};
+use tracing::error;
 use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::Response;
@@ -23,7 +24,7 @@ extern "C" {
     fn worker(this: &Global) -> JsValue;
 }
 
-/// Reader implementation for loading assets via HTTP in WASM.
+/// Reader implementation for loading assets via HTTP in Wasm.
 pub struct HttpWasmAssetReader {
     root_path: PathBuf,
 }
@@ -37,7 +38,7 @@ impl HttpWasmAssetReader {
     }
 }
 
-fn js_value_to_err<'a>(context: &'a str) -> impl FnOnce(JsValue) -> std::io::Error + 'a {
+fn js_value_to_err(context: &str) -> impl FnOnce(JsValue) -> std::io::Error + '_ {
     move |value| {
         let message = match JSON::stringify(&value) {
             Ok(js_str) => format!("Failed to {context}: {js_str}"),
@@ -51,8 +52,8 @@ fn js_value_to_err<'a>(context: &'a str) -> impl FnOnce(JsValue) -> std::io::Err
 }
 
 impl HttpWasmAssetReader {
-    async fn fetch_bytes<'a>(&self, path: PathBuf) -> Result<Box<Reader<'a>>, AssetReaderError> {
-        // The JS global scope includes a self-reference via a specialising name, which can be used to determine the type of global context available.
+    async fn fetch_bytes<'a>(&self, path: PathBuf) -> Result<impl Reader, AssetReaderError> {
+        // The JS global scope includes a self-reference via a specializing name, which can be used to determine the type of global context available.
         let global: Global = js_sys::global().unchecked_into();
         let promise = if !global.window().is_undefined() {
             let window: web_sys::Window = global.unchecked_into();
@@ -77,24 +78,24 @@ impl HttpWasmAssetReader {
             200 => {
                 let data = JsFuture::from(resp.array_buffer().unwrap()).await.unwrap();
                 let bytes = Uint8Array::new(&data).to_vec();
-                let reader: Box<Reader> = Box::new(VecReader::new(bytes));
+                let reader = VecReader::new(bytes);
                 Ok(reader)
             }
             404 => Err(AssetReaderError::NotFound(path)),
-            status => Err(AssetReaderError::HttpError(status as u16)),
+            status => Err(AssetReaderError::HttpError(status)),
         }
     }
 }
 
 impl AssetReader for HttpWasmAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let path = self.root_path.join(path);
         self.fetch_bytes(path).await
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let meta_path = get_meta_path(&self.root_path.join(path));
-        Ok(self.fetch_bytes(meta_path).await?)
+        self.fetch_bytes(meta_path).await
     }
 
     async fn read_directory<'a>(
@@ -106,10 +107,7 @@ impl AssetReader for HttpWasmAssetReader {
         Ok(stream)
     }
 
-    async fn is_directory<'a>(
-        &'a self,
-        _path: &'a Path,
-    ) -> std::result::Result<bool, AssetReaderError> {
+    async fn is_directory<'a>(&'a self, _path: &'a Path) -> Result<bool, AssetReaderError> {
         error!("Reading directories is not supported with the HttpWasmAssetReader");
         Ok(false)
     }

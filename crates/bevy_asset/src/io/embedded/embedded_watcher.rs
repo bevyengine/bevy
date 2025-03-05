@@ -3,26 +3,28 @@ use crate::io::{
     memory::Dir,
     AssetSourceEvent, AssetWatcher,
 };
-use bevy_utils::tracing::warn;
-use bevy_utils::{Duration, HashMap};
-use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, FileIdMap};
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use bevy_platform_support::collections::HashMap;
+use core::time::Duration;
+use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, RecommendedCache};
 use parking_lot::RwLock;
 use std::{
     fs::File,
     io::{BufReader, Read},
     path::{Path, PathBuf},
-    sync::Arc,
 };
+use tracing::warn;
 
 /// A watcher for assets stored in the `embedded` asset source. Embedded assets are assets whose
 /// bytes have been embedded into the Rust binary using the [`embedded_asset`](crate::embedded_asset) macro.
 /// This watcher will watch for changes to the "source files", read the contents of changed files from the file system
 /// and overwrite the initial static bytes of the file embedded in the binary with the new dynamically loaded bytes.
 pub struct EmbeddedWatcher {
-    _watcher: Debouncer<RecommendedWatcher, FileIdMap>,
+    _watcher: Debouncer<RecommendedWatcher, RecommendedCache>,
 }
 
 impl EmbeddedWatcher {
+    /// Creates a new `EmbeddedWatcher` that watches for changes to the embedded assets in the given `dir`.
     pub fn new(
         dir: Dir,
         root_paths: Arc<RwLock<HashMap<Box<Path>, PathBuf>>>,

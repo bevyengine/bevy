@@ -1,7 +1,6 @@
 //! This example illustrates how to use logs in bevy.
 
-use bevy::log::once;
-use bevy::prelude::*;
+use bevy::{log::once, prelude::*};
 
 fn main() {
     App::new()
@@ -19,17 +18,16 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
-    commands.spawn(TextBundle {
-        text: Text::from_section(
-            "Press P to panic",
-            TextStyle {
-                font_size: 60.0,
-                ..default()
-            },
-        ),
-        ..default()
-    });
+    commands.spawn(Camera2d);
+    commands.spawn((
+        Text::new("Press P to panic"),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
 }
 
 fn panic_on_p(keys: Res<ButtonInput<KeyCode>>) {
@@ -69,8 +67,9 @@ fn log_once_system() {
         info_once!("logs once per call site, so this works just fine: {}", i);
     }
 
-    // you can also use the 'once!' macro directly, in situations you want do do
-    // something expensive only once within the context of a continuous system.
+    // you can also use the `once!` macro directly,
+    // in situations where you want to do something expensive only once
+    // within the context of a continuous system.
     once!({
         info!("doing expensive things");
         let mut a: u64 = 0;
