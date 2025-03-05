@@ -32,7 +32,7 @@ impl core::error::Error for QueryEntityError {}
 impl core::fmt::Display for QueryEntityError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
-            Self::QueryDoesNotMatch(entity, archetype_id) => {
+            Self::QueryDoesNotMatch(entity, _) => {
                 write!(f, "The query does not match entity {entity}")
             }
             Self::EntityDoesNotExist(error) => {
