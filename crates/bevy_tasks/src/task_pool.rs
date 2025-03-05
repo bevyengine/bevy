@@ -63,7 +63,7 @@ impl TaskPoolBuilder {
 
     /// The task pool contains a dynamically scaling group of threads for handling blocking tasks.
     /// The pool will spin up and down threads as needed, unlike the threads allocated by
-    /// [`num_threads`] which are always available. By default, zero threads will be spawned at
+    /// [`Self::num_threads`] which are always available. By default, zero threads will be spawned at
     /// initialization, and up to `num_blocking_threads` will be spun up. Upon reaching that limit,
     /// calls to [`spawn_blocking`] and [`spawn_blocking_async`] will wait until one of the threads
     /// becomes available.
@@ -644,7 +644,7 @@ impl TaskPool {
     /// ## Platform Specific Behavior
     /// Long running blocking operations in browser environments will panic, so the app
     /// must yield back to the browser periodically. If you're targeting web platforms,
-    /// consider using [`spawn_blocking_async`].
+    /// consider using [`Self::spawn_blocking_async`].
     ///
     /// [thrash]: https://en.wikipedia.org/wiki/Thrashing_(computer_science)
     pub fn spawn_blocking<T>(&self, f: impl FnOnce() -> T + Send + 'static) -> Task<T>
@@ -675,7 +675,7 @@ impl TaskPool {
     /// asynchronously. When you run CPU-bound code using `spawn_blocking`,
     /// you should keep this large upper limit in mind; to run your
     /// CPU-bound computations on only a few threads. Spawning too many threads
-    /// will cause the OS to [thrash], which may impact the performance
+    /// will cause the OS to thrash, which may impact the performance
     /// of the non-blocking tasks scheduled onto the `TaskPool`.  
     ///
     /// The returned task can be detached or cancelled; however, any long standing
