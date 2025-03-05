@@ -609,7 +609,7 @@ impl<'w> EntityClonerBuilder<'w> {
     /// will not involve required components.
     pub fn without_required_components(
         &mut self,
-        builder: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
+        builder: impl FnOnce(&mut EntityClonerBuilder),
     ) -> &mut Self {
         self.attach_required_components = false;
         builder(self);
@@ -816,12 +816,11 @@ impl<'w> EntityClonerBuilder<'w> {
 mod tests {
     use super::ComponentCloneCtx;
     use crate::{
-        self as bevy_ecs,
         component::{Component, ComponentCloneBehavior, ComponentDescriptor, StorageType},
         entity::{hash_map::EntityHashMap, Entity, EntityCloner},
-        hierarchy::{ChildOf, Children},
-        reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
-        resource::Resource,
+        prelude::{ChildOf, Children, Resource},
+        reflect::AppTypeRegistry,
+        reflect::{ReflectComponent, ReflectFromWorld},
         system::Commands,
         world::{FromWorld, World},
     };
@@ -835,6 +834,7 @@ mod tests {
     mod reflect {
         use super::*;
         use crate::{
+            component::{Component, ComponentCloneBehavior},
             entity::EntityCloner,
             reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
             system::Commands,
@@ -1189,12 +1189,40 @@ mod tests {
 
         EntityCloner::build(&mut world)
             .deny_all()
-            .without_required_components(|builder| {
-                builder.allow::<B>();
-            })
+            .allow::<B>()
             .clone_entity(e, e_clone);
 
         assert_eq!(world.entity(e_clone).get::<A>(), None);
+        assert_eq!(world.entity(e_clone).get::<B>(), Some(&B));
+        assert_eq!(world.entity(e_clone).get::<C>(), Some(&C(5)));
+    }
+
+    #[test]
+    fn clone_entity_with_default_required_components() {
+        #[derive(Component, Clone, PartialEq, Debug)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        #[require(C(|| C(5)))]
+        struct B;
+
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct C(u32);
+
+        let mut world = World::default();
+
+        let e = world.spawn((A, C(0))).id();
+        let e_clone = world.spawn_empty().id();
+
+        EntityCloner::build(&mut world)
+            .deny_all()
+            .without_required_components(|builder| {
+                builder.allow::<A>();
+            })
+            .clone_entity(e, e_clone);
+
+        assert_eq!(world.entity(e_clone).get::<A>(), Some(&A));
         assert_eq!(world.entity(e_clone).get::<B>(), Some(&B));
         assert_eq!(world.entity(e_clone).get::<C>(), Some(&C(5)));
     }
@@ -1263,9 +1291,9 @@ mod tests {
     fn recursive_clone() {
         let mut world = World::new();
         let root = world.spawn_empty().id();
-        let child1 = world.spawn(ChildOf(root)).id();
-        let grandchild = world.spawn(ChildOf(child1)).id();
-        let child2 = world.spawn(ChildOf(root)).id();
+        let child1 = world.spawn(ChildOf { parent: root }).id();
+        let grandchild = world.spawn(ChildOf { parent: child1 }).id();
+        let child2 = world.spawn(ChildOf { parent: root }).id();
 
         let clone_root = world.spawn_empty().id();
         EntityCloner::build(&mut world)

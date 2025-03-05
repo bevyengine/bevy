@@ -496,7 +496,7 @@ pub(crate) fn assign_objects_to_clusters(
 
         // initialize empty cluster bounding spheres
         cluster_aabb_spheres.clear();
-        cluster_aabb_spheres.extend(core::iter::repeat(None).take(cluster_count));
+        cluster_aabb_spheres.extend(core::iter::repeat_n(None, cluster_count));
 
         // Calculate the x/y/z cluster frustum planes in view space
         let mut x_planes = Vec::with_capacity(clusters.dimensions.x as usize + 1);
@@ -845,7 +845,7 @@ pub(crate) fn assign_objects_to_clusters(
                                 }
                             }
 
-                            ClusterableObjectType::Decal { .. } => {
+                            ClusterableObjectType::Decal => {
                                 // Decals currently affect all clusters in their
                                 // bounding sphere.
                                 //

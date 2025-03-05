@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 use bevy_ecs::{
     change_detection::Mut,
     component::Tick,

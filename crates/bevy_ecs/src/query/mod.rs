@@ -104,7 +104,6 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         archetype::Archetype,
         component::{Component, ComponentId, Components, Tick},
         prelude::{AnyOf, Changed, Entity, Or, QueryState, Res, ResMut, Resource, With, Without},
@@ -439,6 +438,18 @@ mod tests {
     }
 
     #[test]
+    fn get_many_only_mut_checks_duplicates() {
+        let mut world = World::new();
+        let id = world.spawn(A(10)).id();
+        let mut query_state = world.query::<&mut A>();
+        let mut query = query_state.query_mut(&mut world);
+        let result = query.get_many([id, id]);
+        assert_eq!(result, Ok([&A(10), &A(10)]));
+        let mut_result = query.get_many_mut([id, id]);
+        assert!(mut_result.is_err());
+    }
+
+    #[test]
     fn multi_storage_query() {
         let mut world = World::new();
 
@@ -752,8 +763,8 @@ mod tests {
         let _: Option<&Foo> = q.get(&world, e).ok();
         let _: Option<&Foo> = q.get_manual(&world, e).ok();
         let _: Option<[&Foo; 1]> = q.get_many(&world, [e]).ok();
-        let _: Option<&Foo> = q.get_single(&world).ok();
-        let _: &Foo = q.single(&world);
+        let _: Option<&Foo> = q.single(&world).ok();
+        let _: &Foo = q.single(&world).unwrap();
 
         // system param
         let mut q = SystemState::<Query<&mut Foo>>::new(&mut world);
@@ -765,9 +776,9 @@ mod tests {
 
         let _: Option<&Foo> = q.get(e).ok();
         let _: Option<[&Foo; 1]> = q.get_many([e]).ok();
-        let _: Option<&Foo> = q.get_single().ok();
+        let _: Option<&Foo> = q.single().ok();
         let _: [&Foo; 1] = q.many([e]);
-        let _: &Foo = q.single();
+        let _: &Foo = q.single().unwrap();
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/8029
@@ -870,6 +881,7 @@ mod tests {
 
     /// SAFETY: `Self` is the same as `Self::ReadOnly`
     unsafe impl QueryData for ReadsRData {
+        const IS_READ_ONLY: bool = true;
         type ReadOnly = Self;
         type Item<'w> = ();
 

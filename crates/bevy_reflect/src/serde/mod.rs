@@ -10,8 +10,8 @@ pub use type_data::*;
 mod tests {
     use super::*;
     use crate::{
-        self as bevy_reflect, type_registry::TypeRegistry, DynamicStruct, DynamicTupleStruct,
-        FromReflect, PartialReflect, Reflect, Struct,
+        type_registry::TypeRegistry, DynamicStruct, DynamicTupleStruct, FromReflect,
+        PartialReflect, Reflect, Struct,
     };
     use serde::de::DeserializeSeed;
 
@@ -340,7 +340,7 @@ mod tests {
         fn create_arc_dyn_enemy<T: Enemy>(enemy: T) -> Arc<dyn Enemy> {
             let arc = Arc::new(enemy);
 
-            #[cfg(feature = "portable-atomic")]
+            #[cfg(not(target_has_atomic = "ptr"))]
             #[expect(
                 unsafe_code,
                 reason = "unsized coercion is an unstable feature for non-std types"

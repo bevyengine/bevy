@@ -17,7 +17,7 @@ fn main() {
         .run();
 }
 
-fn setup_camera(mut commands: Commands) {
+fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn((
         Camera3d::default(),
         // Add the `MotionBlur` component to a camera to enable motion blur.
@@ -32,6 +32,10 @@ fn setup_camera(mut commands: Commands) {
         // MSAA and Motion Blur together are not compatible on WebGL
         #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
         Msaa::Off,
+        EnvironmentMapLight {
+            intensity: 300.0,
+            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
+        },
     ));
 }
 
@@ -59,11 +63,6 @@ fn setup_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 300.0,
-        ..default()
-    });
     commands.insert_resource(CameraMode::Chase);
     commands.spawn((
         DirectionalLight {
@@ -318,7 +317,7 @@ fn move_cars(
         let delta = transform.translation - prev;
         transform.look_to(delta, Vec3::Y);
         for child in children.iter() {
-            let Ok(mut wheel) = spins.get_mut(*child) else {
+            let Ok(mut wheel) = spins.get_mut(child) else {
                 continue;
             };
             let radius = wheel.scale.x;

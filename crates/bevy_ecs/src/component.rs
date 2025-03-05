@@ -1,10 +1,9 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
-    self as bevy_ecs,
     archetype::ArchetypeFlags,
     bundle::BundleInfo,
-    change_detection::MAX_CHANGE_AGE,
+    change_detection::{MaybeLocation, MAX_CHANGE_AGE},
     entity::{ComponentCloneCtx, Entity},
     query::DebugCheckedUnwrap,
     resource::Resource,
@@ -29,7 +28,6 @@ use core::{
     fmt::Debug,
     marker::PhantomData,
     mem::needs_drop,
-    panic::Location,
 };
 use disqualified::ShortName;
 use thiserror::Error;
@@ -545,7 +543,7 @@ pub struct HookContext {
     /// The [`ComponentId`] this hook was invoked for.
     pub component_id: ComponentId,
     /// The caller location is `Some` if the `track_caller` feature is enabled.
-    pub caller: Option<&'static Location<'static>>,
+    pub caller: MaybeLocation,
 }
 
 /// [`World`]-mutating functions that run as part of lifecycle events of a [`Component`].
@@ -1339,9 +1337,22 @@ impl Components {
         let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
         required_by.insert(requiree);
 
+        let mut required_components_tmp = RequiredComponents::default();
         // SAFETY: The caller ensures that the `requiree` and `required` components are valid.
-        let inherited_requirements =
-            unsafe { self.register_inherited_required_components(requiree, required) };
+        let inherited_requirements = unsafe {
+            self.register_inherited_required_components(
+                requiree,
+                required,
+                &mut required_components_tmp,
+            )
+        };
+
+        // SAFETY: The caller ensures that the `requiree` is valid.
+        let required_components = unsafe {
+            self.get_required_components_mut(requiree)
+                .debug_checked_unwrap()
+        };
+        required_components.0.extend(required_components_tmp.0);
 
         // Propagate the new required components up the chain to all components that require the requiree.
         if let Some(required_by) = self.get_required_by(requiree).cloned() {
@@ -1393,6 +1404,7 @@ impl Components {
         &mut self,
         requiree: ComponentId,
         required: ComponentId,
+        required_components: &mut RequiredComponents,
     ) -> Vec<(ComponentId, RequiredComponent)> {
         // Get required components inherited from the `required` component.
         // SAFETY: The caller ensures that the `required` component is valid.
@@ -1416,12 +1428,6 @@ impl Components {
 
         // Register the new required components.
         for (component_id, component) in inherited_requirements.iter().cloned() {
-            // SAFETY: The caller ensures that the `requiree` is valid.
-            let required_components = unsafe {
-                self.get_required_components_mut(requiree)
-                    .debug_checked_unwrap()
-            };
-
             // Register the required component for the requiree.
             // SAFETY: Component ID and constructor match the ones on the original requiree.
             unsafe {
@@ -1522,26 +1528,7 @@ impl Components {
         let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
         required_by.insert(requiree);
 
-        // Register the inherited required components for the requiree.
-        let required: Vec<(ComponentId, RequiredComponent)> = self
-            .get_info(required)
-            .unwrap()
-            .required_components()
-            .0
-            .iter()
-            .map(|(id, component)| (*id, component.clone()))
-            .collect();
-
-        for (id, component) in required {
-            // Register the inherited required components for the requiree.
-            // The inheritance depth is increased by `1` since this is a component required by the original required component.
-            required_components.register_dynamic(
-                id,
-                component.constructor.clone(),
-                component.inheritance_depth + 1,
-            );
-            self.get_required_by_mut(id).unwrap().insert(requiree);
-        }
+        self.register_inherited_required_components(requiree, required, required_components);
     }
 
     #[inline]
@@ -1937,17 +1924,9 @@ pub enum RequiredComponentsError {
 }
 
 /// A Required Component constructor. See [`Component`] for details.
-#[cfg(feature = "track_location")]
 #[derive(Clone)]
 pub struct RequiredComponentConstructor(
-    pub Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity, &'static Location<'static>)>,
-);
-
-/// A Required Component constructor. See [`Component`] for details.
-#[cfg(not(feature = "track_location"))]
-#[derive(Clone)]
-pub struct RequiredComponentConstructor(
-    pub Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity)>,
+    pub Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity, MaybeLocation)>,
 );
 
 impl RequiredComponentConstructor {
@@ -1967,17 +1946,9 @@ impl RequiredComponentConstructor {
         change_tick: Tick,
         table_row: TableRow,
         entity: Entity,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) {
-        (self.0)(
-            table,
-            sparse_sets,
-            change_tick,
-            table_row,
-            entity,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        (self.0)(table, sparse_sets, change_tick, table_row, entity, caller);
     }
 }
 
@@ -2078,36 +2049,26 @@ impl RequiredComponents {
             //
             // This would be resolved by https://github.com/rust-lang/rust/issues/123430
 
-            #[cfg(feature = "portable-atomic")]
+            #[cfg(not(target_has_atomic = "ptr"))]
             use alloc::boxed::Box;
 
-            #[cfg(feature = "track_location")]
             type Constructor = dyn for<'a, 'b> Fn(
                 &'a mut Table,
                 &'b mut SparseSets,
                 Tick,
                 TableRow,
                 Entity,
-                &'static Location<'static>,
+                MaybeLocation,
             );
 
-            #[cfg(not(feature = "track_location"))]
-            type Constructor =
-                dyn for<'a, 'b> Fn(&'a mut Table, &'b mut SparseSets, Tick, TableRow, Entity);
-
-            #[cfg(feature = "portable-atomic")]
+            #[cfg(not(target_has_atomic = "ptr"))]
             type Intermediate<T> = Box<T>;
 
-            #[cfg(not(feature = "portable-atomic"))]
+            #[cfg(target_has_atomic = "ptr")]
             type Intermediate<T> = Arc<T>;
 
             let boxed: Intermediate<Constructor> = Intermediate::new(
-                move |table,
-                      sparse_sets,
-                      change_tick,
-                      table_row,
-                      entity,
-                      #[cfg(feature = "track_location")] caller| {
+                move |table, sparse_sets, change_tick, table_row, entity, caller| {
                     OwningPtr::make(constructor(), |ptr| {
                         // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
                         // pass in a valid table_row and entity requiring a C constructor
@@ -2123,7 +2084,6 @@ impl RequiredComponents {
                                 component_id,
                                 C::STORAGE_TYPE,
                                 ptr,
-                                #[cfg(feature = "track_location")]
                                 caller,
                             );
                         }
