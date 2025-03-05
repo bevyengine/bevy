@@ -510,7 +510,7 @@ impl AssetProcessor {
         loop {
             let mut check_reprocess_queue =
                 core::mem::take(&mut self.data.asset_infos.write().await.check_reprocess_queue);
-                ComputeTaskPool::get().scope(|scope| {
+            ComputeTaskPool::get().scope(|scope| {
                 for path in check_reprocess_queue.drain(..) {
                     let processor = self.clone();
                     let source = self.get_source(path.source()).unwrap();
