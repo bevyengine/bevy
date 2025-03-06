@@ -249,15 +249,142 @@ async fn handle_client(
     request_sender: Sender<BrpMessage>,
     headers: Headers,
 ) -> AnyhowResult<()> {
-    http1::Builder::new()
+    let builder = http1::Builder::new()
         .timer(SmolTimer::new())
         .serve_connection(
             FuturesIo::new(client),
-            service::service_fn(|request| {
-                process_request_batch(request, &request_sender, &headers)
-            }),
-        )
-        .await?;
+            service::service_fn(|request| process_http_request(request, &request_sender, &headers)),
+        );
+
+    #[cfg(feature = "remote_websocket")]
+    let builder = builder.with_upgrades();
+
+    builder.await?;
+
+    Ok(())
+}
+
+async fn process_http_request(
+    #[allow(unused_mut)] mut request: Request<Incoming>,
+    request_sender: &Sender<BrpMessage>,
+    headers: &Headers,
+) -> AnyhowResult<Response<BrpHttpBody>> {
+    #[cfg(feature = "remote_websocket")]
+    if hyper_tungstenite::is_upgrade_request(&request) {
+        let (response, websocket) = hyper_tungstenite::upgrade(&mut request, None)?;
+
+        IoTaskPool::get()
+            .spawn(handle_websocket_connection(
+                websocket,
+                request_sender.clone(),
+            ))
+            .detach();
+
+        let (header, body) = response.into_parts();
+
+        return Ok(Response::from_parts(header, BrpHttpBody::Complete(body)));
+    }
+
+    let batch_bytes = request.into_body().collect().await?.to_bytes();
+    let batch = serde_json::from_slice::<BrpBatch>(&batch_bytes);
+
+    let mut response = match process_request_batch(batch, request_sender).await? {
+        BrpHttpResponse::Complete(serialized) => {
+            let mut response = Response::new(BrpHttpBody::Complete(Full::new(Bytes::from(
+                serialized.as_bytes().to_owned(),
+            ))));
+            response.headers_mut().insert(
+                hyper::header::CONTENT_TYPE,
+                HeaderValue::from_static("application/json"),
+            );
+            response
+        }
+        BrpHttpResponse::Stream(stream) => {
+            let mut response = Response::new(BrpHttpBody::Stream(stream));
+            response.headers_mut().insert(
+                hyper::header::CONTENT_TYPE,
+                HeaderValue::from_static("text/event-stream"),
+            );
+            response
+        }
+    };
+
+    for (key, value) in &headers.headers {
+        response.headers_mut().insert(key, value.clone());
+    }
+
+    Ok(response)
+}
+
+#[cfg(feature = "remote_websocket")]
+async fn handle_websocket_connection(
+    ws: hyper_tungstenite::HyperWebsocket,
+    request_sender: Sender<BrpMessage>,
+) -> AnyhowResult<()> {
+    use futures_util::{stream::SplitSink, SinkExt, StreamExt};
+    use hyper_tungstenite::HyperWebsocketStream;
+    use tungstenite::Message;
+
+    async fn forward_responses(
+        mut response_receiver: Pin<Box<Receiver<Message>>>,
+        mut write_stream: SplitSink<HyperWebsocketStream, Message>,
+    ) -> AnyhowResult<()> {
+        while let Some(response) = StreamExt::next(&mut response_receiver).await {
+            write_stream.send(response).await?;
+        }
+        Ok(())
+    }
+
+    async fn process_ws_request(
+        request: String,
+        request_sender: Sender<BrpMessage>,
+        response_sender: Sender<Message>,
+    ) -> AnyhowResult<()> {
+        let batch = serde_json::from_str::<BrpBatch>(&request);
+
+        match process_request_batch(batch, &request_sender).await? {
+            BrpHttpResponse::Complete(serialized) => {
+                response_sender.send(Message::text(serialized)).await?;
+            }
+            BrpHttpResponse::Stream(mut stream) => {
+                while let Some(result) = StreamExt::next(&mut stream.rx).await {
+                    let response = BrpResponse::new(stream.id.clone(), result);
+                    let serialized = serde_json::to_string(&response).unwrap();
+                    response_sender.send(Message::text(serialized)).await?;
+                }
+            }
+        };
+
+        Ok(())
+    }
+
+    let ws = ws.await?;
+
+    let (write_stream, mut read_stream) = ws.split();
+
+    let (response_sender, response_receiver) = async_channel::bounded(32);
+
+    // Send any queued outgoing responses in a background task
+    IoTaskPool::get()
+        .spawn(forward_responses(Box::pin(response_receiver), write_stream))
+        .detach();
+
+    // Read and process incoming requests
+    while let Some(message) = StreamExt::next(&mut read_stream).await {
+        match message {
+            Ok(Message::Text(request)) => {
+                IoTaskPool::get()
+                    .spawn(process_ws_request(
+                        request,
+                        request_sender.clone(),
+                        response_sender.clone(),
+                    ))
+                    .detach();
+            }
+            Ok(Message::Close(_)) | Err(_) => return Ok(()),
+            _ => {}
+        }
+    }
 
     Ok(())
 }
@@ -265,14 +392,10 @@ async fn handle_client(
 /// A helper function for the Bevy Remote Protocol server that handles a batch
 /// of requests coming from a client.
 async fn process_request_batch(
-    request: Request<Incoming>,
+    batch_result: Result<BrpBatch, serde_json::Error>,
     request_sender: &Sender<BrpMessage>,
-    headers: &Headers,
-) -> AnyhowResult<Response<BrpHttpBody>> {
-    let batch_bytes = request.into_body().collect().await?.to_bytes();
-    let batch: Result<BrpBatch, _> = serde_json::from_slice(&batch_bytes);
-
-    let result = match batch {
+) -> AnyhowResult<BrpHttpResponse<String, BrpStream>> {
+    let response = match batch_result {
         Ok(BrpBatch::Single(request)) => {
             let response = process_single_request(request, request_sender).await?;
             match response {
@@ -318,29 +441,6 @@ async fn process_request_batch(
         }
     };
 
-    let mut response = match result {
-        BrpHttpResponse::Complete(serialized) => {
-            let mut response = Response::new(BrpHttpBody::Complete(Full::new(Bytes::from(
-                serialized.as_bytes().to_owned(),
-            ))));
-            response.headers_mut().insert(
-                hyper::header::CONTENT_TYPE,
-                HeaderValue::from_static("application/json"),
-            );
-            response
-        }
-        BrpHttpResponse::Stream(stream) => {
-            let mut response = Response::new(BrpHttpBody::Stream(stream));
-            response.headers_mut().insert(
-                hyper::header::CONTENT_TYPE,
-                HeaderValue::from_static("text/event-stream"),
-            );
-            response
-        }
-    };
-    for (key, value) in &headers.headers {
-        response.headers_mut().insert(key, value.clone());
-    }
     Ok(response)
 }
 

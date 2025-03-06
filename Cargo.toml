@@ -263,6 +263,9 @@ bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
 
+# Enable WebSocket support for Bevy Remote Protocol
+remote_websocket = ["bevy_remote", "bevy_internal/remote_websocket"]
+
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
