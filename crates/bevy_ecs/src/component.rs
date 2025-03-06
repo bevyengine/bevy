@@ -455,6 +455,15 @@ pub trait Component: Send + Sync + 'static {
     fn visit_entities_mut(_this: &mut Self, _f: impl FnMut(&mut Entity)) {}
 }
 
+/// Indicates this [`Component`] requires another [`Component`] `C`.
+/// This trait is similar to [`Eq`] in the sense that it is up to the implementer to ensure `C` is
+/// appropriately registered as a required component.
+///
+/// # Safety
+///
+/// Implementing this trait must be done in tandem with updating the implementation of [`Component::register_required_components`].
+pub unsafe trait Require<C: Component>: Component {}
+
 mod private {
     pub trait Seal {}
 }
