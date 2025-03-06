@@ -172,6 +172,7 @@ mod tests {
 
         let error = i_fail().err().unwrap();
         let debug_message = format!("{error:?}");
+        std::eprintln!("{debug_message}");
         let mut lines = debug_message.lines().peekable();
         assert_eq!(
             "ParseIntError { kind: InvalidDigit }",
