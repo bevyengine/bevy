@@ -5,19 +5,17 @@ use std::ops::Range;
 use bevy::{
     color::palettes::css::{BLACK, WHITE},
     core_pipeline::{fxaa::Fxaa, Skybox},
+    image::{
+        ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
+        ImageSamplerDescriptor,
+    },
     input::mouse::MouseWheel,
     math::{vec3, vec4},
     pbr::{
         DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
     },
     prelude::*,
-    render::{
-        render_resource::{AsBindGroup, ShaderRef, ShaderType},
-        texture::{
-            ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
-            ImageSamplerDescriptor,
-        },
-    },
+    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -251,38 +249,33 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 
 // Spawns the help text.
 fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
-    commands.spawn(
-        TextBundle {
-            text: create_text(app_settings),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        create_text(app_settings),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // Creates or recreates the help text.
 fn create_text(app_settings: &AppSettings) -> Text {
-    Text::from_section(
-        format!(
-            "{}\n{}\n{}",
-            match app_settings.displayed_model {
-                DisplayedModel::Cube => SWITCH_TO_FLIGHT_HELMET_HELP_TEXT,
-                DisplayedModel::FlightHelmet => SWITCH_TO_CUBE_HELP_TEXT,
-            },
-            if app_settings.ssr_on {
-                TURN_SSR_OFF_HELP_TEXT
-            } else {
-                TURN_SSR_ON_HELP_TEXT
-            },
-            MOVE_CAMERA_HELP_TEXT
-        ),
-        TextStyle::default(),
+    format!(
+        "{}\n{}\n{}",
+        match app_settings.displayed_model {
+            DisplayedModel::Cube => SWITCH_TO_FLIGHT_HELMET_HELP_TEXT,
+            DisplayedModel::FlightHelmet => SWITCH_TO_CUBE_HELP_TEXT,
+        },
+        if app_settings.ssr_on {
+            TURN_SSR_OFF_HELP_TEXT
+        } else {
+            TURN_SSR_ON_HELP_TEXT
+        },
+        MOVE_CAMERA_HELP_TEXT
     )
+    .into()
 }
 
 impl MaterialExtension for Water {
@@ -297,7 +290,7 @@ fn rotate_model(
     time: Res<Time>,
 ) {
     for mut transform in query.iter_mut() {
-        transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.0, time.elapsed_seconds(), 0.0);
+        transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.0, time.elapsed_secs(), 0.0);
     }
 }
 
@@ -345,7 +338,6 @@ fn move_camera(
 }
 
 // Adjusts app settings per user input.
-#[allow(clippy::too_many_arguments)]
 fn adjust_app_settings(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,

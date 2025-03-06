@@ -49,18 +49,15 @@ fn setup_scene(
 }
 
 fn setup_instructions(mut commands: Commands) {
-    commands.spawn(
-        TextBundle::from_section(
-            "Move the light with WASD.\nThe camera will smoothly track the light.",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Move the light with WASD.\nThe camera will smoothly track the light."),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn setup_camera(mut commands: Commands) {
@@ -76,18 +73,10 @@ fn setup_camera(mut commands: Commands) {
 
 /// Update the camera position by tracking the player.
 fn update_camera(
-    mut camera: Query<&mut Transform, (With<Camera2d>, Without<Player>)>,
-    player: Query<&Transform, (With<Player>, Without<Camera2d>)>,
+    mut camera: Single<&mut Transform, (With<Camera2d>, Without<Player>)>,
+    player: Single<&Transform, (With<Player>, Without<Camera2d>)>,
     time: Res<Time>,
 ) {
-    let Ok(mut camera) = camera.get_single_mut() else {
-        return;
-    };
-
-    let Ok(player) = player.get_single() else {
-        return;
-    };
-
     let Vec3 { x, y, .. } = player.translation;
     let direction = Vec3::new(x, y, camera.translation.z);
 
@@ -95,7 +84,7 @@ fn update_camera(
     // between the camera position and the player position on the x and y axes.
     camera
         .translation
-        .smooth_nudge(&direction, CAMERA_DECAY_RATE, time.delta_seconds());
+        .smooth_nudge(&direction, CAMERA_DECAY_RATE, time.delta_secs());
 }
 
 /// Update the player position with keyboard inputs.
@@ -104,14 +93,10 @@ fn update_camera(
 ///
 /// A more robust solution for player movement can be found in `examples/movement/physics_in_fixed_timestep.rs`.
 fn move_player(
-    mut player: Query<&mut Transform, With<Player>>,
+    mut player: Single<&mut Transform, With<Player>>,
     time: Res<Time>,
     kb_input: Res<ButtonInput<KeyCode>>,
 ) {
-    let Ok(mut player) = player.get_single_mut() else {
-        return;
-    };
-
     let mut direction = Vec2::ZERO;
 
     if kb_input.pressed(KeyCode::KeyW) {
@@ -133,6 +118,6 @@ fn move_player(
     // Progressively update the player's position over time. Normalize the
     // direction vector to prevent it from exceeding a magnitude of 1 when
     // moving diagonally.
-    let move_delta = direction.normalize_or_zero() * PLAYER_SPEED * time.delta_seconds();
+    let move_delta = direction.normalize_or_zero() * PLAYER_SPEED * time.delta_secs();
     player.translation += move_delta.extend(0.);
 }

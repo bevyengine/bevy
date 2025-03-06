@@ -2,7 +2,7 @@
 
 use core::array;
 
-use bevy_asset::{AssetId, Handle};
+use bevy_asset::{weak_handle, AssetId, Handle};
 use bevy_color::ColorToComponents as _;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
@@ -13,9 +13,11 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{Has, QueryItem, With},
-    system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_image::{BevyDefault, Image};
 use bevy_math::{vec4, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _};
 use bevy_render::{
     mesh::{
@@ -36,9 +38,9 @@ use bevy_render::{
         TextureSampleType, TextureUsages, VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::{BevyDefault as _, GpuImage, Image},
+    sync_world::RenderEntity,
+    texture::GpuImage,
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
-    world_sync::RenderEntity,
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
@@ -76,21 +78,22 @@ bitflags! {
 }
 
 /// The volumetric fog shader.
-pub const VOLUMETRIC_FOG_HANDLE: Handle<Shader> = Handle::weak_from_u128(17400058287583986650);
+pub const VOLUMETRIC_FOG_HANDLE: Handle<Shader> =
+    weak_handle!("481f474c-2024-44bb-8f79-f7c05ced95ea");
 
 /// The plane mesh, which is used to render a fog volume that the camera is
 /// inside.
 ///
 /// This mesh is simply stretched to the size of the framebuffer, as when the
 /// camera is inside a fog volume it's essentially a full-screen effect.
-pub const PLANE_MESH: Handle<Mesh> = Handle::weak_from_u128(435245126479971076);
+pub const PLANE_MESH: Handle<Mesh> = weak_handle!("92523617-c708-4fd0-b42f-ceb4300c930b");
 
 /// The cube mesh, which is used to render a fog volume that the camera is
 /// outside.
 ///
 /// Note that only the front faces of this cuboid will be rasterized in
 /// hardware. The back faces will be calculated in the shader via raytracing.
-pub const CUBE_MESH: Handle<Mesh> = Handle::weak_from_u128(5023959819001661507);
+pub const CUBE_MESH: Handle<Mesh> = weak_handle!("4a1dd661-2d91-4377-a17a-a914e21e277e");
 
 /// The total number of bind group layouts.
 ///
@@ -271,27 +274,43 @@ impl FromWorld for VolumetricFogPipeline {
 /// from the main world to the render world.
 pub fn extract_volumetric_fog(
     mut commands: Commands,
-    view_targets: Extract<Query<(&RenderEntity, &VolumetricFog)>>,
-    fog_volumes: Extract<Query<(&RenderEntity, &FogVolume, &GlobalTransform)>>,
-    volumetric_lights: Extract<Query<(&RenderEntity, &VolumetricLight)>>,
+    view_targets: Extract<Query<(RenderEntity, &VolumetricFog)>>,
+    fog_volumes: Extract<Query<(RenderEntity, &FogVolume, &GlobalTransform)>>,
+    volumetric_lights: Extract<Query<(RenderEntity, &VolumetricLight)>>,
 ) {
     if volumetric_lights.is_empty() {
+        // TODO: needs better way to handle clean up in render world
+        for (entity, ..) in view_targets.iter() {
+            commands
+                .entity(entity)
+                .remove::<(VolumetricFog, ViewVolumetricFogPipelines, ViewVolumetricFog)>();
+        }
+        for (entity, ..) in fog_volumes.iter() {
+            commands.entity(entity).remove::<FogVolume>();
+        }
         return;
     }
 
     for (entity, volumetric_fog) in view_targets.iter() {
-        commands.get_or_spawn(entity.id()).insert(*volumetric_fog);
+        commands
+            .get_entity(entity)
+            .expect("Volumetric fog entity wasn't synced.")
+            .insert(*volumetric_fog);
     }
 
     for (entity, fog_volume, fog_transform) in fog_volumes.iter() {
         commands
-            .get_or_spawn(entity.id())
+            .get_entity(entity)
+            .expect("Fog volume entity wasn't synced.")
             .insert((*fog_volume).clone())
             .insert(*fog_transform);
     }
 
     for (entity, volumetric_light) in volumetric_lights.iter() {
-        commands.get_or_spawn(entity.id()).insert(*volumetric_light);
+        commands
+            .get_entity(entity)
+            .expect("Volumetric light entity wasn't synced.")
+            .insert(*volumetric_light);
     }
 }
 
@@ -584,12 +603,12 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
 
 /// Specializes volumetric fog pipelines for all views with that effect enabled.
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_volumetric_fog_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
@@ -675,19 +694,19 @@ pub fn prepare_volumetric_fog_uniforms(
     render_queue: Res<RenderQueue>,
     mut local_from_world_matrices: Local<Vec<Mat4>>,
 ) {
-    let Some(mut writer) = volumetric_lighting_uniform_buffer.get_writer(
-        view_targets.iter().len(),
-        &render_device,
-        &render_queue,
-    ) else {
-        return;
-    };
-
     // Do this up front to avoid O(n^2) matrix inversion.
     local_from_world_matrices.clear();
     for (_, _, fog_transform) in fog_volumes.iter() {
         local_from_world_matrices.push(fog_transform.compute_matrix().inverse());
     }
+
+    let uniform_count = view_targets.iter().len() * local_from_world_matrices.len();
+
+    let Some(mut writer) =
+        volumetric_lighting_uniform_buffer.get_writer(uniform_count, &render_device, &render_queue)
+    else {
+        return;
+    };
 
     for (view_entity, extracted_view, volumetric_fog) in view_targets.iter() {
         let world_from_view = extracted_view.world_from_view.compute_matrix();

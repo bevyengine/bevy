@@ -1,9 +1,12 @@
 //! This module contains the systems that update the stored UI nodes stack
 
 use bevy_ecs::prelude::*;
-use bevy_utils::HashSet;
+use bevy_platform_support::collections::HashSet;
 
-use crate::{GlobalZIndex, Node, UiChildren, UiRootNodes, ZIndex};
+use crate::{
+    experimental::{UiChildren, UiRootNodes},
+    ComputedNode, GlobalZIndex, ZIndex,
+};
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -32,10 +35,9 @@ impl ChildBufferCache {
 
 /// Generates the render stack for UI nodes.
 ///
-/// Create a list of root nodes from unparented entities and entities with a `GlobalZIndex` component.
+/// Create a list of root nodes from parentless entities and entities with a `GlobalZIndex` component.
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each root node,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
-#[allow(clippy::too_many_arguments)]
 pub fn ui_stack_system(
     mut cache: Local<ChildBufferCache>,
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
@@ -43,10 +45,10 @@ pub fn ui_stack_system(
     mut ui_stack: ResMut<UiStack>,
     ui_root_nodes: UiRootNodes,
     root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
-    zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), With<Node>>,
+    zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), With<ComputedNode>>,
     ui_children: UiChildren,
-    zindex_query: Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
-    mut update_query: Query<&mut Node>,
+    zindex_query: Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
+    mut update_query: Query<&mut ComputedNode>,
 ) {
     ui_stack.uinodes.clear();
     visited_root_nodes.clear();
@@ -59,7 +61,7 @@ pub fn ui_stack_system(
                 maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
             ),
         ));
-        visited_root_nodes.insert_unique_unchecked(id);
+        visited_root_nodes.insert(id);
     }
 
     for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
@@ -99,7 +101,7 @@ fn update_uistack_recursive(
     cache: &mut ChildBufferCache,
     node_entity: Entity,
     ui_children: &UiChildren,
-    zindex_query: &Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
+    zindex_query: &Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
     ui_stack: &mut Vec<Entity>,
 ) {
     ui_stack.push(node_entity);
@@ -130,7 +132,6 @@ mod tests {
         system::Commands,
         world::{CommandQueue, World},
     };
-    use bevy_hierarchy::{BuildChildren, ChildBuild};
 
     use crate::{GlobalZIndex, Node, UiStack, ZIndex};
 

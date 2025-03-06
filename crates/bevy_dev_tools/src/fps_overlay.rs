@@ -7,18 +7,21 @@ use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
+    entity::Entity,
+    prelude::Local,
     query::With,
+    resource::Resource,
     schedule::{common_conditions::resource_changed, IntoSystemConfigs},
-    system::{Commands, Query, Res, Resource},
+    system::{Commands, Query, Res},
 };
-use bevy_hierarchy::{BuildChildren, ChildBuild};
 use bevy_render::view::Visibility;
-use bevy_text::{Font, Text, TextSection, TextStyle};
+use bevy_text::{Font, TextColor, TextFont, TextSpan};
+use bevy_time::Time;
 use bevy_ui::{
-    node_bundles::{NodeBundle, TextBundle},
-    GlobalZIndex, PositionType, Style,
+    widget::{Text, TextUiWriter},
+    GlobalZIndex, Node, PositionType,
 };
-use bevy_utils::default;
+use core::time::Duration;
 
 /// [`GlobalZIndex`] used to render the fps overlay.
 ///
@@ -42,7 +45,7 @@ impl Plugin for FpsOverlayPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // TODO: Use plugin dependencies, see https://github.com/bevyengine/bevy/issues/69
         if !app.is_plugin_added::<FrameTimeDiagnosticsPlugin>() {
-            app.add_plugins(FrameTimeDiagnosticsPlugin);
+            app.add_plugins(FrameTimeDiagnosticsPlugin::default());
         }
         app.insert_resource(self.config.clone())
             .add_systems(Startup, setup)
@@ -60,20 +63,28 @@ impl Plugin for FpsOverlayPlugin {
 #[derive(Resource, Clone)]
 pub struct FpsOverlayConfig {
     /// Configuration of text in the overlay.
-    pub text_config: TextStyle,
+    pub text_config: TextFont,
+    /// Color of text in the overlay.
+    pub text_color: Color,
     /// Displays the FPS overlay if true.
     pub enabled: bool,
+    /// The period after which the FPS overlay re-renders.
+    ///
+    /// Defaults to once every 100 ms.
+    pub refresh_interval: Duration,
 }
 
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
         FpsOverlayConfig {
-            text_config: TextStyle {
+            text_config: TextFont {
                 font: Handle::<Font>::default(),
                 font_size: 32.0,
-                color: Color::WHITE,
+                ..Default::default()
             },
+            text_color: Color::WHITE,
             enabled: true,
+            refresh_interval: Duration::from_millis(100),
         }
     }
 }
@@ -84,33 +95,41 @@ struct FpsText;
 fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    // We need to make sure the overlay doesn't affect the position of other UI nodes
-                    position_type: PositionType::Absolute,
-                    ..default()
-                },
-                // Render overlay on top of everything
-                ..default()
+            Node {
+                // We need to make sure the overlay doesn't affect the position of other UI nodes
+                position_type: PositionType::Absolute,
+                ..Default::default()
             },
+            // Render overlay on top of everything
             GlobalZIndex(FPS_OVERLAY_ZINDEX),
         ))
-        .with_children(|c| {
-            c.spawn((
-                TextBundle::from_sections([
-                    TextSection::new("FPS: ", overlay_config.text_config.clone()),
-                    TextSection::from_style(overlay_config.text_config.clone()),
-                ]),
+        .with_children(|p| {
+            p.spawn((
+                Text::new("FPS: "),
+                overlay_config.text_config.clone(),
+                TextColor(overlay_config.text_color),
                 FpsText,
-            ));
+            ))
+            .with_child((TextSpan::default(), overlay_config.text_config.clone()));
         });
 }
 
-fn update_text(diagnostic: Res<DiagnosticsStore>, mut query: Query<&mut Text, With<FpsText>>) {
-    for mut text in &mut query {
-        if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(value) = fps.smoothed() {
-                text.sections[1].value = format!("{value:.2}");
+fn update_text(
+    diagnostic: Res<DiagnosticsStore>,
+    query: Query<Entity, With<FpsText>>,
+    mut writer: TextUiWriter,
+    time: Res<Time>,
+    config: Res<FpsOverlayConfig>,
+    mut time_since_rerender: Local<Duration>,
+) {
+    *time_since_rerender += time.delta();
+    if *time_since_rerender >= config.refresh_interval {
+        *time_since_rerender = Duration::ZERO;
+        for entity in &query {
+            if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS) {
+                if let Some(value) = fps.smoothed() {
+                    *writer.text(entity, 1) = format!("{value:.2}");
+                }
             }
         }
     }
@@ -118,12 +137,14 @@ fn update_text(diagnostic: Res<DiagnosticsStore>, mut query: Query<&mut Text, Wi
 
 fn customize_text(
     overlay_config: Res<FpsOverlayConfig>,
-    mut query: Query<&mut Text, With<FpsText>>,
+    query: Query<Entity, With<FpsText>>,
+    mut writer: TextUiWriter,
 ) {
-    for mut text in &mut query {
-        for section in text.sections.iter_mut() {
-            section.style = overlay_config.text_config.clone();
-        }
+    for entity in &query {
+        writer.for_each_font(entity, |mut font| {
+            *font = overlay_config.text_config.clone();
+        });
+        writer.for_each_color(entity, |mut color| color.0 = overlay_config.text_color);
     }
 }
 

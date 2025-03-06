@@ -5,7 +5,8 @@ use super::{
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
     prelude::{Component, Entity},
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_render::{
@@ -124,6 +125,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

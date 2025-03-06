@@ -21,8 +21,9 @@ mod source;
 pub use futures_lite::AsyncWriteExt;
 pub use source::*;
 
-use alloc::sync::Arc;
-use bevy_utils::{BoxedFuture, ConditionalSendFuture};
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
+use core::future::Future;
 use core::{
     mem::size_of,
     pin::Pin,
@@ -37,7 +38,7 @@ use thiserror::Error;
 #[derive(Error, Debug, Clone)]
 pub enum AssetReaderError {
     /// Path not found.
-    #[error("Path not found: {0}")]
+    #[error("Path not found: {}", _0.display())]
     NotFound(PathBuf),
 
     /// Encountered an I/O error while loading an asset.
@@ -115,6 +116,40 @@ impl<T: ?Sized + AsyncSeekForward + Unpin> AsyncSeekForward for Box<T> {
         offset: u64,
     ) -> Poll<futures_io::Result<u64>> {
         Pin::new(&mut **self).poll_seek_forward(cx, offset)
+    }
+}
+
+/// Extension trait for [`AsyncSeekForward`].
+pub trait AsyncSeekForwardExt: AsyncSeekForward {
+    /// Seek by the provided `offset` in the forwards direction, using the [`AsyncSeekForward`] trait.
+    fn seek_forward(&mut self, offset: u64) -> SeekForwardFuture<'_, Self>
+    where
+        Self: Unpin,
+    {
+        SeekForwardFuture {
+            seeker: self,
+            offset,
+        }
+    }
+}
+
+impl<R: AsyncSeekForward + ?Sized> AsyncSeekForwardExt for R {}
+
+#[derive(Debug)]
+#[must_use = "futures do nothing unless you `.await` or poll them"]
+pub struct SeekForwardFuture<'a, S: Unpin + ?Sized> {
+    seeker: &'a mut S,
+    offset: u64,
+}
+
+impl<S: Unpin + ?Sized> Unpin for SeekForwardFuture<'_, S> {}
+
+impl<S: AsyncSeekForward + Unpin + ?Sized> Future for SeekForwardFuture<'_, S> {
+    type Output = futures_lite::io::Result<u64>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let offset = self.offset;
+        Pin::new(&mut *self.seeker).poll_seek_forward(cx, offset)
     }
 }
 
@@ -347,6 +382,12 @@ pub trait AssetWriter: Send + Sync + 'static {
         old_path: &'a Path,
         new_path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<(), AssetWriterError>>;
+    /// Creates a directory at the given path, including all parent directories if they do not
+    /// already exist.
+    fn create_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> impl ConditionalSendFuture<Output = Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, including all assets _and_ directories in that directory.
     fn remove_directory<'a>(
         &'a self,
@@ -423,6 +464,12 @@ pub trait ErasedAssetWriter: Send + Sync + 'static {
         old_path: &'a Path,
         new_path: &'a Path,
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
+    /// Creates a directory at the given path, including all parent directories if they do not
+    /// already exist.
+    fn create_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, including all assets _and_ directories in that directory.
     fn remove_directory<'a>(
         &'a self,
@@ -485,6 +532,12 @@ impl<T: AssetWriter> ErasedAssetWriter for T {
         new_path: &'a Path,
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::rename_meta(self, old_path, new_path))
+    }
+    fn create_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
+        Box::pin(Self::create_directory(self, path))
     }
     fn remove_directory<'a>(
         &'a self,
@@ -726,10 +779,7 @@ struct EmptyPathStream;
 impl Stream for EmptyPathStream {
     type Item = PathBuf;
 
-    fn poll_next(
-        self: Pin<&mut Self>,
-        _cx: &mut core::task::Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Poll::Ready(None)
     }
 }

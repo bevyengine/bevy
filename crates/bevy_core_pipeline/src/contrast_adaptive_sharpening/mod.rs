@@ -4,8 +4,9 @@ use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
@@ -16,7 +17,6 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -53,9 +53,6 @@ pub struct ContrastAdaptiveSharpening {
     /// and upscaling to avoid artifacts.
     pub denoise: bool,
 }
-
-#[deprecated(since = "0.15.0", note = "Renamed to `ContrastAdaptiveSharpening`")]
-pub type ContrastAdaptiveSharpeningSettings = ContrastAdaptiveSharpening;
 
 impl Default for ContrastAdaptiveSharpening {
     fn default() -> Self {
@@ -99,7 +96,7 @@ impl ExtractComponent for ContrastAdaptiveSharpening {
 }
 
 const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(6925381244141981602);
+    weak_handle!("ef83f0a5-51df-4b51-9ab7-b5fd1ae5a397");
 
 /// Adds Support for Contrast Adaptive Sharpening (CAS).
 pub struct CasPlugin;
@@ -233,6 +230,7 @@ impl SpecializedRenderPipeline for CasPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -242,14 +240,22 @@ fn prepare_cas_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<CasPipeline>>,
     sharpening_pipeline: Res<CasPipeline>,
-    views: Query<(Entity, &ExtractedView, &DenoiseCas), With<CasUniform>>,
+    views: Query<
+        (Entity, &ExtractedView, &DenoiseCas),
+        Or<(Added<CasUniform>, Changed<DenoiseCas>)>,
+    >,
+    mut removals: RemovedComponents<CasUniform>,
 ) {
-    for (entity, view, cas) in &views {
+    for entity in removals.read() {
+        commands.entity(entity).remove::<ViewCasPipeline>();
+    }
+
+    for (entity, view, denoise_cas) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &sharpening_pipeline,
             CasPipelineKey {
-                denoise: cas.0,
+                denoise: denoise_cas.0,
                 texture_format: if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {

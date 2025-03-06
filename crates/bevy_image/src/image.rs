@@ -4,14 +4,22 @@ use super::basis::*;
 use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use bevy_asset::{Asset, RenderAssetUsages};
-use bevy_math::{AspectRatio, UVec2, Vec2};
-use bevy_reflect::prelude::*;
-use bevy_reflect::Reflect;
+use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
+use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
+use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
+use tracing::warn;
+use wgpu_types::{
+    AddressMode, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
+    SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    TextureViewDescriptor,
+};
+
 pub trait BevyDefault {
     fn bevy_default() -> Self;
 }
@@ -27,19 +35,21 @@ pub const SAMPLER_ASSET_INDEX: u64 = 1;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ImageFormat {
-    Avif,
     #[cfg(feature = "basis-universal")]
     Basis,
     #[cfg(feature = "bmp")]
     Bmp,
     #[cfg(feature = "dds")]
     Dds,
+    #[cfg(feature = "ff")]
     Farbfeld,
+    #[cfg(feature = "gif")]
     Gif,
     #[cfg(feature = "exr")]
     OpenExr,
     #[cfg(feature = "hdr")]
     Hdr,
+    #[cfg(feature = "ico")]
     Ico,
     #[cfg(feature = "jpeg")]
     Jpeg,
@@ -49,8 +59,11 @@ pub enum ImageFormat {
     Png,
     #[cfg(feature = "pnm")]
     Pnm,
+    #[cfg(feature = "qoi")]
+    Qoi,
     #[cfg(feature = "tga")]
     Tga,
+    #[cfg(feature = "tiff")]
     Tiff,
     #[cfg(feature = "webp")]
     WebP,
@@ -60,7 +73,7 @@ macro_rules! feature_gate {
     ($feature: tt, $value: ident) => {{
         #[cfg(not(feature = $feature))]
         {
-            bevy_utils::tracing::warn!("feature \"{}\" is not enabled", $feature);
+            tracing::warn!("feature \"{}\" is not enabled", $feature);
             return None;
         }
         #[cfg(feature = $feature)]
@@ -69,64 +82,195 @@ macro_rules! feature_gate {
 }
 
 impl ImageFormat {
+    /// Gets the file extensions for a given format.
+    pub const fn to_file_extensions(&self) -> &'static [&'static str] {
+        match self {
+            #[cfg(feature = "basis-universal")]
+            ImageFormat::Basis => &["basis"],
+            #[cfg(feature = "bmp")]
+            ImageFormat::Bmp => &["bmp"],
+            #[cfg(feature = "dds")]
+            ImageFormat::Dds => &["dds"],
+            #[cfg(feature = "ff")]
+            ImageFormat::Farbfeld => &["ff", "farbfeld"],
+            #[cfg(feature = "gif")]
+            ImageFormat::Gif => &["gif"],
+            #[cfg(feature = "exr")]
+            ImageFormat::OpenExr => &["exr"],
+            #[cfg(feature = "hdr")]
+            ImageFormat::Hdr => &["hdr"],
+            #[cfg(feature = "ico")]
+            ImageFormat::Ico => &["ico"],
+            #[cfg(feature = "jpeg")]
+            ImageFormat::Jpeg => &["jpg", "jpeg"],
+            #[cfg(feature = "ktx2")]
+            ImageFormat::Ktx2 => &["ktx2"],
+            #[cfg(feature = "pnm")]
+            ImageFormat::Pnm => &["pam", "pbm", "pgm", "ppm"],
+            #[cfg(feature = "png")]
+            ImageFormat::Png => &["png"],
+            #[cfg(feature = "qoi")]
+            ImageFormat::Qoi => &["qoi"],
+            #[cfg(feature = "tga")]
+            ImageFormat::Tga => &["tga"],
+            #[cfg(feature = "tiff")]
+            ImageFormat::Tiff => &["tif", "tiff"],
+            #[cfg(feature = "webp")]
+            ImageFormat::WebP => &["webp"],
+            // FIXME: https://github.com/rust-lang/rust/issues/129031
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
+            )]
+            _ => &[],
+        }
+    }
+
+    /// Gets the MIME types for a given format.
+    ///
+    /// If a format doesn't have any dedicated MIME types, this list will be empty.
+    pub const fn to_mime_types(&self) -> &'static [&'static str] {
+        match self {
+            #[cfg(feature = "basis-universal")]
+            ImageFormat::Basis => &["image/basis", "image/x-basis"],
+            #[cfg(feature = "bmp")]
+            ImageFormat::Bmp => &["image/bmp", "image/x-bmp"],
+            #[cfg(feature = "dds")]
+            ImageFormat::Dds => &["image/vnd-ms.dds"],
+            #[cfg(feature = "hdr")]
+            ImageFormat::Hdr => &["image/vnd.radiance"],
+            #[cfg(feature = "gif")]
+            ImageFormat::Gif => &["image/gif"],
+            #[cfg(feature = "ff")]
+            ImageFormat::Farbfeld => &[],
+            #[cfg(feature = "ico")]
+            ImageFormat::Ico => &["image/x-icon"],
+            #[cfg(feature = "jpeg")]
+            ImageFormat::Jpeg => &["image/jpeg"],
+            #[cfg(feature = "ktx2")]
+            ImageFormat::Ktx2 => &["image/ktx2"],
+            #[cfg(feature = "png")]
+            ImageFormat::Png => &["image/png"],
+            #[cfg(feature = "qoi")]
+            ImageFormat::Qoi => &["image/qoi", "image/x-qoi"],
+            #[cfg(feature = "exr")]
+            ImageFormat::OpenExr => &["image/x-exr"],
+            #[cfg(feature = "pnm")]
+            ImageFormat::Pnm => &[
+                "image/x-portable-bitmap",
+                "image/x-portable-graymap",
+                "image/x-portable-pixmap",
+                "image/x-portable-anymap",
+            ],
+            #[cfg(feature = "tga")]
+            ImageFormat::Tga => &["image/x-targa", "image/x-tga"],
+            #[cfg(feature = "tiff")]
+            ImageFormat::Tiff => &["image/tiff"],
+            #[cfg(feature = "webp")]
+            ImageFormat::WebP => &["image/webp"],
+            // FIXME: https://github.com/rust-lang/rust/issues/129031
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
+            )]
+            _ => &[],
+        }
+    }
+
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match mime_type.to_ascii_lowercase().as_str() {
-            "image/avif" => ImageFormat::Avif,
+            // note: farbfeld does not have a MIME type
+            "image/basis" | "image/x-basis" => feature_gate!("basis-universal", Basis),
             "image/bmp" | "image/x-bmp" => feature_gate!("bmp", Bmp),
             "image/vnd-ms.dds" => feature_gate!("dds", Dds),
             "image/vnd.radiance" => feature_gate!("hdr", Hdr),
-            "image/gif" => ImageFormat::Gif,
-            "image/x-icon" => ImageFormat::Ico,
+            "image/gif" => feature_gate!("gif", Gif),
+            "image/x-icon" => feature_gate!("ico", Ico),
             "image/jpeg" => feature_gate!("jpeg", Jpeg),
             "image/ktx2" => feature_gate!("ktx2", Ktx2),
             "image/png" => feature_gate!("png", Png),
+            "image/qoi" | "image/x-qoi" => feature_gate!("qoi", Qoi),
             "image/x-exr" => feature_gate!("exr", OpenExr),
             "image/x-portable-bitmap"
             | "image/x-portable-graymap"
             | "image/x-portable-pixmap"
             | "image/x-portable-anymap" => feature_gate!("pnm", Pnm),
             "image/x-targa" | "image/x-tga" => feature_gate!("tga", Tga),
-            "image/tiff" => ImageFormat::Tiff,
+            "image/tiff" => feature_gate!("tiff", Tiff),
             "image/webp" => feature_gate!("webp", WebP),
             _ => return None,
         })
     }
 
     pub fn from_extension(extension: &str) -> Option<Self> {
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match extension.to_ascii_lowercase().as_str() {
-            "avif" => ImageFormat::Avif,
             "basis" => feature_gate!("basis-universal", Basis),
             "bmp" => feature_gate!("bmp", Bmp),
             "dds" => feature_gate!("dds", Dds),
-            "ff" | "farbfeld" => ImageFormat::Farbfeld,
-            "gif" => ImageFormat::Gif,
+            "ff" | "farbfeld" => feature_gate!("ff", Farbfeld),
+            "gif" => feature_gate!("gif", Gif),
             "exr" => feature_gate!("exr", OpenExr),
             "hdr" => feature_gate!("hdr", Hdr),
-            "ico" => ImageFormat::Ico,
+            "ico" => feature_gate!("ico", Ico),
             "jpg" | "jpeg" => feature_gate!("jpeg", Jpeg),
             "ktx2" => feature_gate!("ktx2", Ktx2),
-            "pbm" | "pam" | "ppm" | "pgm" => feature_gate!("pnm", Pnm),
+            "pam" | "pbm" | "pgm" | "ppm" => feature_gate!("pnm", Pnm),
             "png" => feature_gate!("png", Png),
+            "qoi" => feature_gate!("qoi", Qoi),
             "tga" => feature_gate!("tga", Tga),
-            "tif" | "tiff" => ImageFormat::Tiff,
+            "tif" | "tiff" => feature_gate!("tiff", Tiff),
             "webp" => feature_gate!("webp", WebP),
             _ => return None,
         })
     }
 
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match self {
-            ImageFormat::Avif => image::ImageFormat::Avif,
             #[cfg(feature = "bmp")]
             ImageFormat::Bmp => image::ImageFormat::Bmp,
             #[cfg(feature = "dds")]
             ImageFormat::Dds => image::ImageFormat::Dds,
+            #[cfg(feature = "ff")]
             ImageFormat::Farbfeld => image::ImageFormat::Farbfeld,
+            #[cfg(feature = "gif")]
             ImageFormat::Gif => image::ImageFormat::Gif,
             #[cfg(feature = "exr")]
             ImageFormat::OpenExr => image::ImageFormat::OpenExr,
             #[cfg(feature = "hdr")]
             ImageFormat::Hdr => image::ImageFormat::Hdr,
+            #[cfg(feature = "ico")]
             ImageFormat::Ico => image::ImageFormat::Ico,
             #[cfg(feature = "jpeg")]
             ImageFormat::Jpeg => image::ImageFormat::Jpeg,
@@ -134,8 +278,11 @@ impl ImageFormat {
             ImageFormat::Png => image::ImageFormat::Png,
             #[cfg(feature = "pnm")]
             ImageFormat::Pnm => image::ImageFormat::Pnm,
+            #[cfg(feature = "qoi")]
+            ImageFormat::Qoi => image::ImageFormat::Qoi,
             #[cfg(feature = "tga")]
             ImageFormat::Tga => image::ImageFormat::Tga,
+            #[cfg(feature = "tiff")]
             ImageFormat::Tiff => image::ImageFormat::Tiff,
             #[cfg(feature = "webp")]
             ImageFormat::WebP => image::ImageFormat::WebP,
@@ -143,40 +290,65 @@ impl ImageFormat {
             ImageFormat::Basis => return None,
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => return None,
+            // FIXME: https://github.com/rust-lang/rust/issues/129031
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
+            )]
+            _ => return None,
         })
     }
 
     pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match format {
-            image::ImageFormat::Avif => ImageFormat::Avif,
             image::ImageFormat::Bmp => feature_gate!("bmp", Bmp),
             image::ImageFormat::Dds => feature_gate!("dds", Dds),
-            image::ImageFormat::Farbfeld => ImageFormat::Farbfeld,
-            image::ImageFormat::Gif => ImageFormat::Gif,
+            image::ImageFormat::Farbfeld => feature_gate!("ff", Farbfeld),
+            image::ImageFormat::Gif => feature_gate!("gif", Gif),
             image::ImageFormat::OpenExr => feature_gate!("exr", OpenExr),
             image::ImageFormat::Hdr => feature_gate!("hdr", Hdr),
-            image::ImageFormat::Ico => ImageFormat::Ico,
+            image::ImageFormat::Ico => feature_gate!("ico", Ico),
             image::ImageFormat::Jpeg => feature_gate!("jpeg", Jpeg),
             image::ImageFormat::Png => feature_gate!("png", Png),
             image::ImageFormat::Pnm => feature_gate!("pnm", Pnm),
+            image::ImageFormat::Qoi => feature_gate!("qoi", Qoi),
             image::ImageFormat::Tga => feature_gate!("tga", Tga),
-            image::ImageFormat::Tiff => ImageFormat::Tiff,
+            image::ImageFormat::Tiff => feature_gate!("tiff", Tiff),
             image::ImageFormat::WebP => feature_gate!("webp", WebP),
             _ => return None,
         })
     }
 }
 
-#[derive(Asset, Reflect, Debug, Clone)]
-#[reflect(opaque)]
-#[reflect(Default, Debug)]
+#[derive(Asset, Debug, Clone)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(opaque, Default, Debug)
+)]
 pub struct Image {
-    pub data: Vec<u8>,
+    /// Raw pixel data.
+    /// If the image is being used as a storage texture which doesn't need to be initialized by the
+    /// CPU, then this should be `None`
+    /// Otherwise, it should always be `Some`
+    pub data: Option<Vec<u8>>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
-    pub texture_descriptor: wgpu::TextureDescriptor<'static>,
+    pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
-    pub texture_view_descriptor: Option<TextureViewDescriptor<'static>>,
+    pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
     pub asset_usage: RenderAssetUsages,
 }
 
@@ -227,7 +399,7 @@ impl ImageSampler {
 ///
 /// See [`ImageSamplerDescriptor`] for information how to configure this.
 ///
-/// This type mirrors [`wgpu::AddressMode`].
+/// This type mirrors [`AddressMode`].
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub enum ImageAddressMode {
     /// Clamp the value to the edge of the texture.
@@ -247,7 +419,7 @@ pub enum ImageAddressMode {
     /// 1.25 -> 0.75
     MirrorRepeat,
     /// Clamp the value to the border of the texture
-    /// Requires the wgpu feature [`wgpu::Features::ADDRESS_MODE_CLAMP_TO_BORDER`].
+    /// Requires the wgpu feature [`Features::ADDRESS_MODE_CLAMP_TO_BORDER`].
     ///
     /// -0.25 -> border
     /// 1.25 -> border
@@ -256,7 +428,7 @@ pub enum ImageAddressMode {
 
 /// Texel mixing mode when sampling between texels.
 ///
-/// This type mirrors [`wgpu::FilterMode`].
+/// This type mirrors [`FilterMode`].
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub enum ImageFilterMode {
     /// Nearest neighbor sampling.
@@ -272,7 +444,7 @@ pub enum ImageFilterMode {
 
 /// Comparison function used for depth and stencil operations.
 ///
-/// This type mirrors [`wgpu::CompareFunction`].
+/// This type mirrors [`CompareFunction`].
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum ImageCompareFunction {
     /// Function never passes
@@ -299,7 +471,7 @@ pub enum ImageCompareFunction {
 
 /// Color variation to use when the sampler addressing mode is [`ImageAddressMode::ClampToBorder`].
 ///
-/// This type mirrors [`wgpu::SamplerBorderColor`].
+/// This type mirrors [`SamplerBorderColor`].
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum ImageSamplerBorderColor {
     /// RGBA color `[0, 0, 0, 0]`.
@@ -312,7 +484,7 @@ pub enum ImageSamplerBorderColor {
     /// textures that have an alpha component, and equivalent to [`Self::OpaqueBlack`]
     /// for textures that do not have an alpha component. On other backends,
     /// this is equivalent to [`Self::TransparentBlack`]. Requires
-    /// [`wgpu::Features::ADDRESS_MODE_CLAMP_TO_ZERO`]. Not supported on the web.
+    /// [`Features::ADDRESS_MODE_CLAMP_TO_ZERO`]. Not supported on the web.
     Zero,
 }
 
@@ -322,7 +494,7 @@ pub enum ImageSamplerBorderColor {
 /// it will be serialized to an image asset `.meta` file which might require a migration in case of
 /// a breaking change.
 ///
-/// This types mirrors [`wgpu::SamplerDescriptor`], but that might change in future versions.
+/// This types mirrors [`SamplerDescriptor`], but that might change in future versions.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ImageSamplerDescriptor {
     pub label: Option<String>,
@@ -392,8 +564,8 @@ impl ImageSamplerDescriptor {
         }
     }
 
-    pub fn as_wgpu(&self) -> wgpu::SamplerDescriptor {
-        wgpu::SamplerDescriptor {
+    pub fn as_wgpu(&self) -> SamplerDescriptor<Option<&str>> {
+        SamplerDescriptor {
             label: self.label.as_deref(),
             address_mode_u: self.address_mode_u.into(),
             address_mode_v: self.address_mode_v.into(),
@@ -410,100 +582,100 @@ impl ImageSamplerDescriptor {
     }
 }
 
-impl From<ImageAddressMode> for wgpu::AddressMode {
+impl From<ImageAddressMode> for AddressMode {
     fn from(value: ImageAddressMode) -> Self {
         match value {
-            ImageAddressMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
-            ImageAddressMode::Repeat => wgpu::AddressMode::Repeat,
-            ImageAddressMode::MirrorRepeat => wgpu::AddressMode::MirrorRepeat,
-            ImageAddressMode::ClampToBorder => wgpu::AddressMode::ClampToBorder,
+            ImageAddressMode::ClampToEdge => AddressMode::ClampToEdge,
+            ImageAddressMode::Repeat => AddressMode::Repeat,
+            ImageAddressMode::MirrorRepeat => AddressMode::MirrorRepeat,
+            ImageAddressMode::ClampToBorder => AddressMode::ClampToBorder,
         }
     }
 }
 
-impl From<ImageFilterMode> for wgpu::FilterMode {
+impl From<ImageFilterMode> for FilterMode {
     fn from(value: ImageFilterMode) -> Self {
         match value {
-            ImageFilterMode::Nearest => wgpu::FilterMode::Nearest,
-            ImageFilterMode::Linear => wgpu::FilterMode::Linear,
+            ImageFilterMode::Nearest => FilterMode::Nearest,
+            ImageFilterMode::Linear => FilterMode::Linear,
         }
     }
 }
 
-impl From<ImageCompareFunction> for wgpu::CompareFunction {
+impl From<ImageCompareFunction> for CompareFunction {
     fn from(value: ImageCompareFunction) -> Self {
         match value {
-            ImageCompareFunction::Never => wgpu::CompareFunction::Never,
-            ImageCompareFunction::Less => wgpu::CompareFunction::Less,
-            ImageCompareFunction::Equal => wgpu::CompareFunction::Equal,
-            ImageCompareFunction::LessEqual => wgpu::CompareFunction::LessEqual,
-            ImageCompareFunction::Greater => wgpu::CompareFunction::Greater,
-            ImageCompareFunction::NotEqual => wgpu::CompareFunction::NotEqual,
-            ImageCompareFunction::GreaterEqual => wgpu::CompareFunction::GreaterEqual,
-            ImageCompareFunction::Always => wgpu::CompareFunction::Always,
+            ImageCompareFunction::Never => CompareFunction::Never,
+            ImageCompareFunction::Less => CompareFunction::Less,
+            ImageCompareFunction::Equal => CompareFunction::Equal,
+            ImageCompareFunction::LessEqual => CompareFunction::LessEqual,
+            ImageCompareFunction::Greater => CompareFunction::Greater,
+            ImageCompareFunction::NotEqual => CompareFunction::NotEqual,
+            ImageCompareFunction::GreaterEqual => CompareFunction::GreaterEqual,
+            ImageCompareFunction::Always => CompareFunction::Always,
         }
     }
 }
 
-impl From<ImageSamplerBorderColor> for wgpu::SamplerBorderColor {
+impl From<ImageSamplerBorderColor> for SamplerBorderColor {
     fn from(value: ImageSamplerBorderColor) -> Self {
         match value {
-            ImageSamplerBorderColor::TransparentBlack => wgpu::SamplerBorderColor::TransparentBlack,
-            ImageSamplerBorderColor::OpaqueBlack => wgpu::SamplerBorderColor::OpaqueBlack,
-            ImageSamplerBorderColor::OpaqueWhite => wgpu::SamplerBorderColor::OpaqueWhite,
-            ImageSamplerBorderColor::Zero => wgpu::SamplerBorderColor::Zero,
+            ImageSamplerBorderColor::TransparentBlack => SamplerBorderColor::TransparentBlack,
+            ImageSamplerBorderColor::OpaqueBlack => SamplerBorderColor::OpaqueBlack,
+            ImageSamplerBorderColor::OpaqueWhite => SamplerBorderColor::OpaqueWhite,
+            ImageSamplerBorderColor::Zero => SamplerBorderColor::Zero,
         }
     }
 }
 
-impl From<wgpu::AddressMode> for ImageAddressMode {
-    fn from(value: wgpu::AddressMode) -> Self {
+impl From<AddressMode> for ImageAddressMode {
+    fn from(value: AddressMode) -> Self {
         match value {
-            wgpu::AddressMode::ClampToEdge => ImageAddressMode::ClampToEdge,
-            wgpu::AddressMode::Repeat => ImageAddressMode::Repeat,
-            wgpu::AddressMode::MirrorRepeat => ImageAddressMode::MirrorRepeat,
-            wgpu::AddressMode::ClampToBorder => ImageAddressMode::ClampToBorder,
+            AddressMode::ClampToEdge => ImageAddressMode::ClampToEdge,
+            AddressMode::Repeat => ImageAddressMode::Repeat,
+            AddressMode::MirrorRepeat => ImageAddressMode::MirrorRepeat,
+            AddressMode::ClampToBorder => ImageAddressMode::ClampToBorder,
         }
     }
 }
 
-impl From<wgpu::FilterMode> for ImageFilterMode {
-    fn from(value: wgpu::FilterMode) -> Self {
+impl From<FilterMode> for ImageFilterMode {
+    fn from(value: FilterMode) -> Self {
         match value {
-            wgpu::FilterMode::Nearest => ImageFilterMode::Nearest,
-            wgpu::FilterMode::Linear => ImageFilterMode::Linear,
+            FilterMode::Nearest => ImageFilterMode::Nearest,
+            FilterMode::Linear => ImageFilterMode::Linear,
         }
     }
 }
 
-impl From<wgpu::CompareFunction> for ImageCompareFunction {
-    fn from(value: wgpu::CompareFunction) -> Self {
+impl From<CompareFunction> for ImageCompareFunction {
+    fn from(value: CompareFunction) -> Self {
         match value {
-            wgpu::CompareFunction::Never => ImageCompareFunction::Never,
-            wgpu::CompareFunction::Less => ImageCompareFunction::Less,
-            wgpu::CompareFunction::Equal => ImageCompareFunction::Equal,
-            wgpu::CompareFunction::LessEqual => ImageCompareFunction::LessEqual,
-            wgpu::CompareFunction::Greater => ImageCompareFunction::Greater,
-            wgpu::CompareFunction::NotEqual => ImageCompareFunction::NotEqual,
-            wgpu::CompareFunction::GreaterEqual => ImageCompareFunction::GreaterEqual,
-            wgpu::CompareFunction::Always => ImageCompareFunction::Always,
+            CompareFunction::Never => ImageCompareFunction::Never,
+            CompareFunction::Less => ImageCompareFunction::Less,
+            CompareFunction::Equal => ImageCompareFunction::Equal,
+            CompareFunction::LessEqual => ImageCompareFunction::LessEqual,
+            CompareFunction::Greater => ImageCompareFunction::Greater,
+            CompareFunction::NotEqual => ImageCompareFunction::NotEqual,
+            CompareFunction::GreaterEqual => ImageCompareFunction::GreaterEqual,
+            CompareFunction::Always => ImageCompareFunction::Always,
         }
     }
 }
 
-impl From<wgpu::SamplerBorderColor> for ImageSamplerBorderColor {
-    fn from(value: wgpu::SamplerBorderColor) -> Self {
+impl From<SamplerBorderColor> for ImageSamplerBorderColor {
+    fn from(value: SamplerBorderColor) -> Self {
         match value {
-            wgpu::SamplerBorderColor::TransparentBlack => ImageSamplerBorderColor::TransparentBlack,
-            wgpu::SamplerBorderColor::OpaqueBlack => ImageSamplerBorderColor::OpaqueBlack,
-            wgpu::SamplerBorderColor::OpaqueWhite => ImageSamplerBorderColor::OpaqueWhite,
-            wgpu::SamplerBorderColor::Zero => ImageSamplerBorderColor::Zero,
+            SamplerBorderColor::TransparentBlack => ImageSamplerBorderColor::TransparentBlack,
+            SamplerBorderColor::OpaqueBlack => ImageSamplerBorderColor::OpaqueBlack,
+            SamplerBorderColor::OpaqueWhite => ImageSamplerBorderColor::OpaqueWhite,
+            SamplerBorderColor::Zero => ImageSamplerBorderColor::Zero,
         }
     }
 }
 
-impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
-    fn from(value: wgpu::SamplerDescriptor) -> Self {
+impl From<SamplerDescriptor<Option<&str>>> for ImageSamplerDescriptor {
+    fn from(value: SamplerDescriptor<Option<&str>>) -> Self {
         ImageSamplerDescriptor {
             label: value.label.map(ToString::to_string),
             address_mode_u: value.address_mode_u.into(),
@@ -524,28 +696,9 @@ impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
 impl Default for Image {
     /// default is a 1x1x1 all '1.0' texture
     fn default() -> Self {
-        let format = TextureFormat::bevy_default();
-        let data = vec![255; format.pixel_size()];
-        Image {
-            data,
-            texture_descriptor: wgpu::TextureDescriptor {
-                size: Extent3d {
-                    width: 1,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
-                format,
-                dimension: TextureDimension::D2,
-                label: None,
-                mip_level_count: 1,
-                sample_count: 1,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
-            },
-            sampler: ImageSampler::Default,
-            texture_view_descriptor: None,
-            asset_usage: RenderAssetUsages::default(),
-        }
+        let mut image = Image::default_uninit();
+        image.data = Some(vec![255; image.texture_descriptor.format.pixel_size()]);
+        image
     }
 }
 
@@ -567,15 +720,34 @@ impl Image {
             data.len(),
             "Pixel data, size and format have to match",
         );
-        let mut image = Self {
-            data,
-            ..Default::default()
-        };
-        image.texture_descriptor.dimension = dimension;
-        image.texture_descriptor.size = size;
-        image.texture_descriptor.format = format;
-        image.asset_usage = asset_usage;
+        let mut image = Image::new_uninit(size, dimension, format, asset_usage);
+        image.data = Some(data);
         image
+    }
+
+    /// Exactly the same as [`Image::new`], but doesn't initialize the image
+    pub fn new_uninit(
+        size: Extent3d,
+        dimension: TextureDimension,
+        format: TextureFormat,
+        asset_usage: RenderAssetUsages,
+    ) -> Self {
+        Image {
+            data: None,
+            texture_descriptor: TextureDescriptor {
+                size,
+                format,
+                dimension,
+                label: None,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            sampler: ImageSampler::Default,
+            texture_view_descriptor: None,
+            asset_usage,
+        }
     }
 
     /// A transparent white 1x1x1 image.
@@ -588,26 +760,30 @@ impl Image {
         let format = TextureFormat::bevy_default();
         debug_assert!(format.pixel_size() == 4);
         let data = vec![255, 255, 255, 0];
-        Image {
-            data,
-            texture_descriptor: wgpu::TextureDescriptor {
-                size: Extent3d {
-                    width: 1,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
-                format,
-                dimension: TextureDimension::D2,
-                label: None,
-                mip_level_count: 1,
-                sample_count: 1,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
+        Image::new(
+            Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
             },
-            sampler: ImageSampler::Default,
-            texture_view_descriptor: None,
-            asset_usage: RenderAssetUsages::default(),
-        }
+            TextureDimension::D2,
+            data,
+            format,
+            RenderAssetUsages::default(),
+        )
+    }
+    /// Creates a new uninitialized 1x1x1 image
+    pub fn default_uninit() -> Image {
+        Image::new_uninit(
+            Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            TextureFormat::bevy_default(),
+            RenderAssetUsages::default(),
+        )
     }
 
     /// Creates a new image from raw binary data and the corresponding metadata, by filling
@@ -622,12 +798,7 @@ impl Image {
         format: TextureFormat,
         asset_usage: RenderAssetUsages,
     ) -> Self {
-        let mut value = Image::default();
-        value.texture_descriptor.format = format;
-        value.texture_descriptor.dimension = dimension;
-        value.asset_usage = asset_usage;
-        value.resize(size);
-
+        let byte_len = format.pixel_size() * size.volume();
         debug_assert_eq!(
             pixel.len() % format.pixel_size(),
             0,
@@ -635,15 +806,12 @@ impl Image {
             format.pixel_size(),
         );
         debug_assert!(
-            pixel.len() <= value.data.len(),
+            pixel.len() <= byte_len,
             "Fill data must fit within pixel buffer (expected {}B).",
-            value.data.len(),
+            byte_len,
         );
-
-        for current_pixel in value.data.chunks_exact_mut(pixel.len()) {
-            current_pixel.copy_from_slice(pixel);
-        }
-        value
+        let data = pixel.iter().copied().cycle().take(byte_len).collect();
+        Image::new(size, dimension, data, format, asset_usage)
     }
 
     /// Returns the width of a 2D image.
@@ -682,10 +850,14 @@ impl Image {
     /// Does not properly resize the contents of the image, but only its internal `data` buffer.
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
-        self.data.resize(
-            size.volume() * self.texture_descriptor.format.pixel_size(),
-            0,
-        );
+        if let Some(ref mut data) = self.data {
+            data.resize(
+                size.volume() * self.texture_descriptor.format.pixel_size(),
+                0,
+            );
+        } else {
+            warn!("Resized an uninitialized image. Directly modify image.texture_descriptor.size instead");
+        }
     }
 
     /// Changes the `size`, asserting that the total number of data elements (pixels) remains the
@@ -759,7 +931,15 @@ impl Image {
         #[cfg(all(debug_assertions, feature = "dds"))] name: String,
         buffer: &[u8],
         image_type: ImageType,
-        #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unused_variables` may not always lint"
+        )]
+        #[allow(
+            unused_variables,
+            reason = "`supported_compressed_formats` is needed where the image format is `Basis`, `Dds`, or `Ktx2`; if these are disabled, then `supported_compressed_formats` is unused."
+        )]
+        supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
         image_sampler: ImageSampler,
         asset_usage: RenderAssetUsages,
@@ -789,6 +969,14 @@ impl Image {
             ImageFormat::Ktx2 => {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern may be unreachable if only the specially-handled formats are enabled; however, the wildcard pattern is needed for any formats not specially handled"
+            )]
             _ => {
                 let image_crate_format = format
                     .as_image_crate_format()
@@ -809,13 +997,488 @@ impl Image {
         let format_description = self.texture_descriptor.format;
         format_description
             .required_features()
-            .contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC)
+            .contains(Features::TEXTURE_COMPRESSION_ASTC)
             || format_description
                 .required_features()
-                .contains(wgpu::Features::TEXTURE_COMPRESSION_BC)
+                .contains(Features::TEXTURE_COMPRESSION_BC)
             || format_description
                 .required_features()
-                .contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2)
+                .contains(Features::TEXTURE_COMPRESSION_ETC2)
+    }
+
+    /// Compute the byte offset where the data of a specific pixel is stored
+    ///
+    /// Returns None if the provided coordinates are out of bounds.
+    ///
+    /// For 2D textures, Z is the layer number. For 1D textures, Y and Z are ignored.
+    #[inline(always)]
+    pub fn pixel_data_offset(&self, coords: UVec3) -> Option<usize> {
+        let width = self.texture_descriptor.size.width;
+        let height = self.texture_descriptor.size.height;
+        let depth = self.texture_descriptor.size.depth_or_array_layers;
+
+        let pixel_size = self.texture_descriptor.format.pixel_size();
+        let pixel_offset = match self.texture_descriptor.dimension {
+            TextureDimension::D3 | TextureDimension::D2 => {
+                if coords.x >= width || coords.y >= height || coords.z >= depth {
+                    return None;
+                }
+                coords.z * height * width + coords.y * width + coords.x
+            }
+            TextureDimension::D1 => {
+                if coords.x >= width {
+                    return None;
+                }
+                coords.x
+            }
+        };
+
+        Some(pixel_offset as usize * pixel_size)
+    }
+
+    /// Get a reference to the data bytes where a specific pixel's value is stored
+    #[inline(always)]
+    pub fn pixel_bytes(&self, coords: UVec3) -> Option<&[u8]> {
+        let len = self.texture_descriptor.format.pixel_size();
+        let data = self.data.as_ref()?;
+        self.pixel_data_offset(coords)
+            .map(|start| &data[start..(start + len)])
+    }
+
+    /// Get a mutable reference to the data bytes where a specific pixel's value is stored
+    #[inline(always)]
+    pub fn pixel_bytes_mut(&mut self, coords: UVec3) -> Option<&mut [u8]> {
+        let len = self.texture_descriptor.format.pixel_size();
+        let offset = self.pixel_data_offset(coords);
+        let data = self.data.as_mut()?;
+        offset.map(|start| &mut data[start..(start + len)])
+    }
+
+    /// Read the color of a specific pixel (1D texture).
+    ///
+    /// See [`get_color_at`](Self::get_color_at) for more details.
+    #[inline(always)]
+    pub fn get_color_at_1d(&self, x: u32) -> Result<Color, TextureAccessError> {
+        if self.texture_descriptor.dimension != TextureDimension::D1 {
+            return Err(TextureAccessError::WrongDimension);
+        }
+        self.get_color_at_internal(UVec3::new(x, 0, 0))
+    }
+
+    /// Read the color of a specific pixel (2D texture).
+    ///
+    /// This function will find the raw byte data of a specific pixel and
+    /// decode it into a user-friendly [`Color`] struct for you.
+    ///
+    /// Supports many of the common [`TextureFormat`]s:
+    ///  - RGBA/BGRA 8-bit unsigned integer, both sRGB and Linear
+    ///  - 16-bit and 32-bit unsigned integer
+    ///  - 16-bit and 32-bit float
+    ///
+    /// Be careful: as the data is converted to [`Color`] (which uses `f32` internally),
+    /// there may be issues with precision when using non-f32 [`TextureFormat`]s.
+    /// If you read a value you previously wrote using `set_color_at`, it will not match.
+    /// If you are working with a 32-bit integer [`TextureFormat`], the value will be
+    /// inaccurate (as `f32` does not have enough bits to represent it exactly).
+    ///
+    /// Single channel (R) formats are assumed to represent grayscale, so the value
+    /// will be copied to all three RGB channels in the resulting [`Color`].
+    ///
+    /// Other [`TextureFormat`]s are unsupported, such as:
+    ///  - block-compressed formats
+    ///  - non-byte-aligned formats like 10-bit
+    ///  - signed integer formats
+    #[inline(always)]
+    pub fn get_color_at(&self, x: u32, y: u32) -> Result<Color, TextureAccessError> {
+        if self.texture_descriptor.dimension != TextureDimension::D2 {
+            return Err(TextureAccessError::WrongDimension);
+        }
+        self.get_color_at_internal(UVec3::new(x, y, 0))
+    }
+
+    /// Read the color of a specific pixel (2D texture with layers or 3D texture).
+    ///
+    /// See [`get_color_at`](Self::get_color_at) for more details.
+    #[inline(always)]
+    pub fn get_color_at_3d(&self, x: u32, y: u32, z: u32) -> Result<Color, TextureAccessError> {
+        match (
+            self.texture_descriptor.dimension,
+            self.texture_descriptor.size.depth_or_array_layers,
+        ) {
+            (TextureDimension::D3, _) | (TextureDimension::D2, 2..) => {
+                self.get_color_at_internal(UVec3::new(x, y, z))
+            }
+            _ => Err(TextureAccessError::WrongDimension),
+        }
+    }
+
+    /// Change the color of a specific pixel (1D texture).
+    ///
+    /// See [`set_color_at`](Self::set_color_at) for more details.
+    #[inline(always)]
+    pub fn set_color_at_1d(&mut self, x: u32, color: Color) -> Result<(), TextureAccessError> {
+        if self.texture_descriptor.dimension != TextureDimension::D1 {
+            return Err(TextureAccessError::WrongDimension);
+        }
+        self.set_color_at_internal(UVec3::new(x, 0, 0), color)
+    }
+
+    /// Change the color of a specific pixel (2D texture).
+    ///
+    /// This function will find the raw byte data of a specific pixel and
+    /// change it according to a [`Color`] you provide. The [`Color`] struct
+    /// will be encoded into the [`Image`]'s [`TextureFormat`].
+    ///
+    /// Supports many of the common [`TextureFormat`]s:
+    ///  - RGBA/BGRA 8-bit unsigned integer, both sRGB and Linear
+    ///  - 16-bit and 32-bit unsigned integer (with possibly-limited precision, as [`Color`] uses `f32`)
+    ///  - 16-bit and 32-bit float
+    ///
+    /// Be careful: writing to non-f32 [`TextureFormat`]s is lossy! The data has to be converted,
+    /// so if you read it back using `get_color_at`, the `Color` you get will not equal the value
+    /// you used when writing it using this function.
+    ///
+    /// For R and RG formats, only the respective values from the linear RGB [`Color`] will be used.
+    ///
+    /// Other [`TextureFormat`]s are unsupported, such as:
+    ///  - block-compressed formats
+    ///  - non-byte-aligned formats like 10-bit
+    ///  - signed integer formats
+    #[inline(always)]
+    pub fn set_color_at(&mut self, x: u32, y: u32, color: Color) -> Result<(), TextureAccessError> {
+        if self.texture_descriptor.dimension != TextureDimension::D2 {
+            return Err(TextureAccessError::WrongDimension);
+        }
+        self.set_color_at_internal(UVec3::new(x, y, 0), color)
+    }
+
+    /// Change the color of a specific pixel (2D texture with layers or 3D texture).
+    ///
+    /// See [`set_color_at`](Self::set_color_at) for more details.
+    #[inline(always)]
+    pub fn set_color_at_3d(
+        &mut self,
+        x: u32,
+        y: u32,
+        z: u32,
+        color: Color,
+    ) -> Result<(), TextureAccessError> {
+        match (
+            self.texture_descriptor.dimension,
+            self.texture_descriptor.size.depth_or_array_layers,
+        ) {
+            (TextureDimension::D3, _) | (TextureDimension::D2, 2..) => {
+                self.set_color_at_internal(UVec3::new(x, y, z), color)
+            }
+            _ => Err(TextureAccessError::WrongDimension),
+        }
+    }
+
+    #[inline(always)]
+    fn get_color_at_internal(&self, coords: UVec3) -> Result<Color, TextureAccessError> {
+        let Some(bytes) = self.pixel_bytes(coords) else {
+            return Err(TextureAccessError::OutOfBounds {
+                x: coords.x,
+                y: coords.y,
+                z: coords.z,
+            });
+        };
+
+        // NOTE: GPUs are always Little Endian.
+        // Make sure to respect that when we create color values from bytes.
+        match self.texture_descriptor.format {
+            TextureFormat::Rgba8UnormSrgb => Ok(Color::srgba(
+                bytes[0] as f32 / u8::MAX as f32,
+                bytes[1] as f32 / u8::MAX as f32,
+                bytes[2] as f32 / u8::MAX as f32,
+                bytes[3] as f32 / u8::MAX as f32,
+            )),
+            TextureFormat::Rgba8Unorm | TextureFormat::Rgba8Uint => Ok(Color::linear_rgba(
+                bytes[0] as f32 / u8::MAX as f32,
+                bytes[1] as f32 / u8::MAX as f32,
+                bytes[2] as f32 / u8::MAX as f32,
+                bytes[3] as f32 / u8::MAX as f32,
+            )),
+            TextureFormat::Bgra8UnormSrgb => Ok(Color::srgba(
+                bytes[2] as f32 / u8::MAX as f32,
+                bytes[1] as f32 / u8::MAX as f32,
+                bytes[0] as f32 / u8::MAX as f32,
+                bytes[3] as f32 / u8::MAX as f32,
+            )),
+            TextureFormat::Bgra8Unorm => Ok(Color::linear_rgba(
+                bytes[2] as f32 / u8::MAX as f32,
+                bytes[1] as f32 / u8::MAX as f32,
+                bytes[0] as f32 / u8::MAX as f32,
+                bytes[3] as f32 / u8::MAX as f32,
+            )),
+            TextureFormat::Rgba32Float => Ok(Color::linear_rgba(
+                f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]),
+                f32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]),
+                f32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]),
+                f32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]),
+            )),
+            TextureFormat::Rgba16Float => Ok(Color::linear_rgba(
+                half::f16::from_le_bytes([bytes[0], bytes[1]]).to_f32(),
+                half::f16::from_le_bytes([bytes[2], bytes[3]]).to_f32(),
+                half::f16::from_le_bytes([bytes[4], bytes[5]]).to_f32(),
+                half::f16::from_le_bytes([bytes[6], bytes[7]]).to_f32(),
+            )),
+            TextureFormat::Rgba16Unorm | TextureFormat::Rgba16Uint => {
+                let (r, g, b, a) = (
+                    u16::from_le_bytes([bytes[0], bytes[1]]),
+                    u16::from_le_bytes([bytes[2], bytes[3]]),
+                    u16::from_le_bytes([bytes[4], bytes[5]]),
+                    u16::from_le_bytes([bytes[6], bytes[7]]),
+                );
+                Ok(Color::linear_rgba(
+                    // going via f64 to avoid rounding errors with large numbers and division
+                    (r as f64 / u16::MAX as f64) as f32,
+                    (g as f64 / u16::MAX as f64) as f32,
+                    (b as f64 / u16::MAX as f64) as f32,
+                    (a as f64 / u16::MAX as f64) as f32,
+                ))
+            }
+            TextureFormat::Rgba32Uint => {
+                let (r, g, b, a) = (
+                    u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]),
+                    u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]),
+                    u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]),
+                    u32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]),
+                );
+                Ok(Color::linear_rgba(
+                    // going via f64 to avoid rounding errors with large numbers and division
+                    (r as f64 / u32::MAX as f64) as f32,
+                    (g as f64 / u32::MAX as f64) as f32,
+                    (b as f64 / u32::MAX as f64) as f32,
+                    (a as f64 / u32::MAX as f64) as f32,
+                ))
+            }
+            // assume R-only texture format means grayscale (linear)
+            // copy value to all of RGB in Color
+            TextureFormat::R8Unorm | TextureFormat::R8Uint => {
+                let x = bytes[0] as f32 / u8::MAX as f32;
+                Ok(Color::linear_rgb(x, x, x))
+            }
+            TextureFormat::R16Unorm | TextureFormat::R16Uint => {
+                let x = u16::from_le_bytes([bytes[0], bytes[1]]);
+                // going via f64 to avoid rounding errors with large numbers and division
+                let x = (x as f64 / u16::MAX as f64) as f32;
+                Ok(Color::linear_rgb(x, x, x))
+            }
+            TextureFormat::R32Uint => {
+                let x = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+                // going via f64 to avoid rounding errors with large numbers and division
+                let x = (x as f64 / u32::MAX as f64) as f32;
+                Ok(Color::linear_rgb(x, x, x))
+            }
+            TextureFormat::R16Float => {
+                let x = half::f16::from_le_bytes([bytes[0], bytes[1]]).to_f32();
+                Ok(Color::linear_rgb(x, x, x))
+            }
+            TextureFormat::R32Float => {
+                let x = f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+                Ok(Color::linear_rgb(x, x, x))
+            }
+            TextureFormat::Rg8Unorm | TextureFormat::Rg8Uint => {
+                let r = bytes[0] as f32 / u8::MAX as f32;
+                let g = bytes[1] as f32 / u8::MAX as f32;
+                Ok(Color::linear_rgb(r, g, 0.0))
+            }
+            TextureFormat::Rg16Unorm | TextureFormat::Rg16Uint => {
+                let r = u16::from_le_bytes([bytes[0], bytes[1]]);
+                let g = u16::from_le_bytes([bytes[2], bytes[3]]);
+                // going via f64 to avoid rounding errors with large numbers and division
+                let r = (r as f64 / u16::MAX as f64) as f32;
+                let g = (g as f64 / u16::MAX as f64) as f32;
+                Ok(Color::linear_rgb(r, g, 0.0))
+            }
+            TextureFormat::Rg32Uint => {
+                let r = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+                let g = u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
+                // going via f64 to avoid rounding errors with large numbers and division
+                let r = (r as f64 / u32::MAX as f64) as f32;
+                let g = (g as f64 / u32::MAX as f64) as f32;
+                Ok(Color::linear_rgb(r, g, 0.0))
+            }
+            TextureFormat::Rg16Float => {
+                let r = half::f16::from_le_bytes([bytes[0], bytes[1]]).to_f32();
+                let g = half::f16::from_le_bytes([bytes[2], bytes[3]]).to_f32();
+                Ok(Color::linear_rgb(r, g, 0.0))
+            }
+            TextureFormat::Rg32Float => {
+                let r = f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+                let g = f32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
+                Ok(Color::linear_rgb(r, g, 0.0))
+            }
+            _ => Err(TextureAccessError::UnsupportedTextureFormat(
+                self.texture_descriptor.format,
+            )),
+        }
+    }
+
+    #[inline(always)]
+    fn set_color_at_internal(
+        &mut self,
+        coords: UVec3,
+        color: Color,
+    ) -> Result<(), TextureAccessError> {
+        let format = self.texture_descriptor.format;
+
+        let Some(bytes) = self.pixel_bytes_mut(coords) else {
+            return Err(TextureAccessError::OutOfBounds {
+                x: coords.x,
+                y: coords.y,
+                z: coords.z,
+            });
+        };
+
+        // NOTE: GPUs are always Little Endian.
+        // Make sure to respect that when we convert color values to bytes.
+        match format {
+            TextureFormat::Rgba8UnormSrgb => {
+                let [r, g, b, a] = Srgba::from(color).to_f32_array();
+                bytes[0] = (r * u8::MAX as f32) as u8;
+                bytes[1] = (g * u8::MAX as f32) as u8;
+                bytes[2] = (b * u8::MAX as f32) as u8;
+                bytes[3] = (a * u8::MAX as f32) as u8;
+            }
+            TextureFormat::Rgba8Unorm | TextureFormat::Rgba8Uint => {
+                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
+                bytes[0] = (r * u8::MAX as f32) as u8;
+                bytes[1] = (g * u8::MAX as f32) as u8;
+                bytes[2] = (b * u8::MAX as f32) as u8;
+                bytes[3] = (a * u8::MAX as f32) as u8;
+            }
+            TextureFormat::Bgra8UnormSrgb => {
+                let [r, g, b, a] = Srgba::from(color).to_f32_array();
+                bytes[0] = (b * u8::MAX as f32) as u8;
+                bytes[1] = (g * u8::MAX as f32) as u8;
+                bytes[2] = (r * u8::MAX as f32) as u8;
+                bytes[3] = (a * u8::MAX as f32) as u8;
+            }
+            TextureFormat::Bgra8Unorm => {
+                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
+                bytes[0] = (b * u8::MAX as f32) as u8;
+                bytes[1] = (g * u8::MAX as f32) as u8;
+                bytes[2] = (r * u8::MAX as f32) as u8;
+                bytes[3] = (a * u8::MAX as f32) as u8;
+            }
+            TextureFormat::Rgba16Float => {
+                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
+                bytes[0..2].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(r)));
+                bytes[2..4].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(g)));
+                bytes[4..6].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(b)));
+                bytes[6..8].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(a)));
+            }
+            TextureFormat::Rgba32Float => {
+                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
+                bytes[0..4].copy_from_slice(&f32::to_le_bytes(r));
+                bytes[4..8].copy_from_slice(&f32::to_le_bytes(g));
+                bytes[8..12].copy_from_slice(&f32::to_le_bytes(b));
+                bytes[12..16].copy_from_slice(&f32::to_le_bytes(a));
+            }
+            TextureFormat::Rgba16Unorm | TextureFormat::Rgba16Uint => {
+                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
+                let [r, g, b, a] = [
+                    (r * u16::MAX as f32) as u16,
+                    (g * u16::MAX as f32) as u16,
+                    (b * u16::MAX as f32) as u16,
+                    (a * u16::MAX as f32) as u16,
+                ];
+                bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
+                bytes[2..4].copy_from_slice(&u16::to_le_bytes(g));
+                bytes[4..6].copy_from_slice(&u16::to_le_bytes(b));
+                bytes[6..8].copy_from_slice(&u16::to_le_bytes(a));
+            }
+            TextureFormat::Rgba32Uint => {
+                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
+                let [r, g, b, a] = [
+                    (r * u32::MAX as f32) as u32,
+                    (g * u32::MAX as f32) as u32,
+                    (b * u32::MAX as f32) as u32,
+                    (a * u32::MAX as f32) as u32,
+                ];
+                bytes[0..4].copy_from_slice(&u32::to_le_bytes(r));
+                bytes[4..8].copy_from_slice(&u32::to_le_bytes(g));
+                bytes[8..12].copy_from_slice(&u32::to_le_bytes(b));
+                bytes[12..16].copy_from_slice(&u32::to_le_bytes(a));
+            }
+            TextureFormat::R8Unorm | TextureFormat::R8Uint => {
+                // Convert to grayscale with minimal loss if color is already gray
+                let linear = LinearRgba::from(color);
+                let luminance = Xyza::from(linear).y;
+                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
+                bytes[0] = (r * u8::MAX as f32) as u8;
+            }
+            TextureFormat::R16Unorm | TextureFormat::R16Uint => {
+                // Convert to grayscale with minimal loss if color is already gray
+                let linear = LinearRgba::from(color);
+                let luminance = Xyza::from(linear).y;
+                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
+                let r = (r * u16::MAX as f32) as u16;
+                bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
+            }
+            TextureFormat::R32Uint => {
+                // Convert to grayscale with minimal loss if color is already gray
+                let linear = LinearRgba::from(color);
+                let luminance = Xyza::from(linear).y;
+                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
+                // go via f64 to avoid imprecision
+                let r = (r as f64 * u32::MAX as f64) as u32;
+                bytes[0..4].copy_from_slice(&u32::to_le_bytes(r));
+            }
+            TextureFormat::R16Float => {
+                // Convert to grayscale with minimal loss if color is already gray
+                let linear = LinearRgba::from(color);
+                let luminance = Xyza::from(linear).y;
+                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
+                let x = half::f16::from_f32(r);
+                bytes[0..2].copy_from_slice(&half::f16::to_le_bytes(x));
+            }
+            TextureFormat::R32Float => {
+                // Convert to grayscale with minimal loss if color is already gray
+                let linear = LinearRgba::from(color);
+                let luminance = Xyza::from(linear).y;
+                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
+                bytes[0..4].copy_from_slice(&f32::to_le_bytes(r));
+            }
+            TextureFormat::Rg8Unorm | TextureFormat::Rg8Uint => {
+                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
+                bytes[0] = (r * u8::MAX as f32) as u8;
+                bytes[1] = (g * u8::MAX as f32) as u8;
+            }
+            TextureFormat::Rg16Unorm | TextureFormat::Rg16Uint => {
+                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
+                let r = (r * u16::MAX as f32) as u16;
+                let g = (g * u16::MAX as f32) as u16;
+                bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
+                bytes[2..4].copy_from_slice(&u16::to_le_bytes(g));
+            }
+            TextureFormat::Rg32Uint => {
+                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
+                // go via f64 to avoid imprecision
+                let r = (r as f64 * u32::MAX as f64) as u32;
+                let g = (g as f64 * u32::MAX as f64) as u32;
+                bytes[0..4].copy_from_slice(&u32::to_le_bytes(r));
+                bytes[4..8].copy_from_slice(&u32::to_le_bytes(g));
+            }
+            TextureFormat::Rg16Float => {
+                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
+                bytes[0..2].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(r)));
+                bytes[2..4].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(g)));
+            }
+            TextureFormat::Rg32Float => {
+                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
+                bytes[0..4].copy_from_slice(&f32::to_le_bytes(r));
+                bytes[4..8].copy_from_slice(&f32::to_le_bytes(g));
+            }
+            _ => {
+                return Err(TextureAccessError::UnsupportedTextureFormat(
+                    self.texture_descriptor.format,
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -828,37 +1491,58 @@ pub enum DataFormat {
     Rg,
 }
 
+/// Texture data need to be transcoded from this format for use with `wgpu`.
 #[derive(Clone, Copy, Debug)]
 pub enum TranscodeFormat {
     Etc1s,
     Uastc(DataFormat),
-    // Has to be transcoded to R8Unorm for use with `wgpu`
+    // Has to be transcoded to R8Unorm for use with `wgpu`.
     R8UnormSrgb,
-    // Has to be transcoded to R8G8Unorm for use with `wgpu`
+    // Has to be transcoded to R8G8Unorm for use with `wgpu`.
     Rg8UnormSrgb,
-    // Has to be transcoded to Rgba8 for use with `wgpu`
+    // Has to be transcoded to Rgba8 for use with `wgpu`.
     Rgb8,
 }
 
-/// An error that occurs when loading a texture
+/// An error that occurs when accessing specific pixels in a texture.
+#[derive(Error, Debug)]
+pub enum TextureAccessError {
+    #[error("out of bounds (x: {x}, y: {y}, z: {z})")]
+    OutOfBounds { x: u32, y: u32, z: u32 },
+    #[error("unsupported texture format: {0:?}")]
+    UnsupportedTextureFormat(TextureFormat),
+    #[error("attempt to access texture with different dimension")]
+    WrongDimension,
+}
+
+/// An error that occurs when loading a texture.
 #[derive(Error, Debug)]
 pub enum TextureError {
+    /// Image MIME type is invalid.
     #[error("invalid image mime type: {0}")]
     InvalidImageMimeType(String),
+    /// Image extension is invalid.
     #[error("invalid image extension: {0}")]
     InvalidImageExtension(String),
+    /// Failed to load an image.
     #[error("failed to load an image: {0}")]
     ImageError(#[from] image::ImageError),
+    /// Texture format isn't supported.
     #[error("unsupported texture format: {0}")]
     UnsupportedTextureFormat(String),
+    /// Supercompression isn't supported.
     #[error("supercompression not supported: {0}")]
     SuperCompressionNotSupported(String),
-    #[error("failed to load an image: {0}")]
+    /// Failed to decompress an image.
+    #[error("failed to decompress an image: {0}")]
     SuperDecompressionError(String),
+    /// Invalid data.
     #[error("invalid data: {0}")]
     InvalidData(String),
+    /// Transcode error.
     #[error("transcode error: {0}")]
     TranscodeError(String),
+    /// Format requires transcoding.
     #[error("format requires transcoding: {0:?}")]
     FormatRequiresTranscodingError(TranscodeFormat),
     /// Only cubemaps with six faces are supported.
@@ -929,15 +1613,15 @@ bitflags::bitflags! {
 }
 
 impl CompressedImageFormats {
-    pub fn from_features(features: wgpu::Features) -> Self {
+    pub fn from_features(features: Features) -> Self {
         let mut supported_compressed_formats = Self::default();
-        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC) {
+        if features.contains(Features::TEXTURE_COMPRESSION_ASTC) {
             supported_compressed_formats |= Self::ASTC_LDR;
         }
-        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_BC) {
+        if features.contains(Features::TEXTURE_COMPRESSION_BC) {
             supported_compressed_formats |= Self::BC;
         }
-        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2) {
+        if features.contains(Features::TEXTURE_COMPRESSION_ETC2) {
             supported_compressed_formats |= Self::ETC2;
         }
         supported_compressed_formats
@@ -1004,5 +1688,50 @@ mod test {
         let image = Image::default();
         assert_eq!(UVec2::ONE, image.size());
         assert_eq!(Vec2::ONE, image.size_f32());
+    }
+
+    #[test]
+    fn on_edge_pixel_is_invalid() {
+        let image = Image::new_fill(
+            Extent3d {
+                width: 5,
+                height: 10,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0, 0, 0, 255],
+            TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+        assert!(matches!(image.get_color_at(4, 9), Ok(Color::BLACK)));
+        assert!(matches!(
+            image.get_color_at(0, 10),
+            Err(TextureAccessError::OutOfBounds { x: 0, y: 10, z: 0 })
+        ));
+        assert!(matches!(
+            image.get_color_at(5, 10),
+            Err(TextureAccessError::OutOfBounds { x: 5, y: 10, z: 0 })
+        ));
+    }
+
+    #[test]
+    fn get_set_pixel_2d_with_layers() {
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 5,
+                height: 10,
+                depth_or_array_layers: 3,
+            },
+            TextureDimension::D2,
+            &[0, 0, 0, 255],
+            TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+        image.set_color_at_3d(0, 0, 0, Color::WHITE).unwrap();
+        assert!(matches!(image.get_color_at_3d(0, 0, 0), Ok(Color::WHITE)));
+        image.set_color_at_3d(2, 3, 1, Color::WHITE).unwrap();
+        assert!(matches!(image.get_color_at_3d(2, 3, 1), Ok(Color::WHITE)));
+        image.set_color_at_3d(4, 9, 2, Color::WHITE).unwrap();
+        assert!(matches!(image.get_color_at_3d(4, 9, 2), Ok(Color::WHITE)));
     }
 }

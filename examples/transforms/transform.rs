@@ -91,7 +91,7 @@ fn move_cube(mut cubes: Query<(&mut Transform, &mut CubeState)>, timer: Res<Time
     for (mut transform, cube) in &mut cubes {
         // Move the cube forward smoothly at a given move_speed.
         let forward = transform.forward();
-        transform.translation += forward * cube.move_speed * timer.delta_seconds();
+        transform.translation += forward * cube.move_speed * timer.delta_secs();
     }
 }
 
@@ -115,7 +115,7 @@ fn rotate_cube(
         // Interpolate between the current rotation and the fully turned rotation
         // when looking a the sphere,  with a given turn speed to get a smooth motion.
         // With higher speed the curvature of the orbit would be smaller.
-        let incremental_turn_weight = cube.turn_speed * timer.delta_seconds();
+        let incremental_turn_weight = cube.turn_speed * timer.delta_secs();
         let old_rotation = transform.rotation;
         transform.rotation = old_rotation.lerp(look_at_sphere.rotation, incremental_turn_weight);
     }

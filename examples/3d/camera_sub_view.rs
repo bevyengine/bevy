@@ -11,30 +11,11 @@ use bevy::{
     render::camera::{ScalingMode, SubCameraView, Viewport},
 };
 
-const PADDING: u32 = 10;
-const SMALL_SIZE: u32 = 100;
-const LARGE_SIZE: u32 = 450;
-
-const WINDOW_HEIGHT: f32 = (LARGE_SIZE + PADDING * 3 + SMALL_SIZE) as f32;
-const WINDOW_WIDTH: f32 = (LARGE_SIZE * 2 + PADDING * 3) as f32;
-
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                // Fix window size to avoid issues with viewports on resizing
-                resize_constraints: WindowResizeConstraints {
-                    min_width: WINDOW_WIDTH,
-                    min_height: WINDOW_HEIGHT,
-                    max_width: WINDOW_WIDTH,
-                    max_height: WINDOW_HEIGHT,
-                },
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, move_camera_view)
+        .add_systems(Update, (move_camera_view, resize_viewports))
         .run();
 }
 
@@ -71,32 +52,28 @@ fn setup(
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 
-    // Main perspective Camera
+    // Main perspective camera:
+    //
+    // The main perspective image to use as a comparison for the sub views.
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            viewport: Option::from(Viewport {
-                physical_size: UVec2::new(LARGE_SIZE, LARGE_SIZE),
-                physical_position: UVec2::new(PADDING, PADDING * 2 + SMALL_SIZE),
-                ..default()
-            }),
-            ..default()
-        },
+        Camera::default(),
+        ExampleViewports::PerspectiveMain,
         transform,
     ));
 
-    // Perspective camera left half
+    // Perspective camera right half:
+    //
+    // For this camera, the projection is perspective, and `size` is half the
+    // width of the `full_size`, while the x value of `offset` is set to half
+    // the value of the full width, causing the right half of the image to be
+    // shown. Since the viewport has an aspect ratio of 1x1 and the sub view has
+    // an aspect ratio of 1x2, the image appears stretched along the horizontal
+    // axis.
     commands.spawn((
         Camera3d::default(),
         Camera {
-            viewport: Option::from(Viewport {
-                physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
-                physical_position: UVec2::new(PADDING, PADDING),
-                ..default()
-            }),
             sub_camera_view: Some(SubCameraView {
-                // Set the sub view camera to the right half of the full image
-                //
                 // The values of `full_size` and `size` do not have to be the
                 // exact values of your physical viewport. The important part is
                 // the ratio between them.
@@ -109,21 +86,21 @@ fn setup(
             order: 1,
             ..default()
         },
+        ExampleViewports::PerspectiveStretched,
         transform,
     ));
 
-    // Perspective camera moving
+    // Perspective camera moving:
+    //
+    // For this camera, the projection is perspective, and the offset is updated
+    // continuously in 150 units per second in `move_camera_view`. Since the
+    // `full_size` is 500x500, the image should appear to be moving across the
+    // full image once every 3.3 seconds. `size` is a fifth of the size of
+    // `full_size`, so the image will appear zoomed in.
     commands.spawn((
         Camera3d::default(),
         Camera {
-            viewport: Option::from(Viewport {
-                physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
-                physical_position: UVec2::new(PADDING * 2 + SMALL_SIZE, PADDING),
-                ..default()
-            }),
             sub_camera_view: Some(SubCameraView {
-                // Set the sub view camera to a fifth of the full view and
-                // move it in another system
                 full_size: UVec2::new(500, 500),
                 offset: Vec2::ZERO,
                 size: UVec2::new(100, 100),
@@ -132,69 +109,67 @@ fn setup(
             ..default()
         },
         transform,
+        ExampleViewports::PerspectiveMoving,
         MovingCameraMarker,
     ));
 
-    // Perspective camera control
+    // Perspective camera different aspect ratio:
+    //
+    // For this camera, the projection is perspective, and the aspect ratio of
+    // the sub view (2x1) is different to the aspect ratio of the full view
+    // (2x2). The aspect ratio of the sub view matches the aspect ratio of
+    // the viewport and should show an unstretched image of the top half of the
+    // full perspective image.
     commands.spawn((
         Camera3d::default(),
         Camera {
-            viewport: Option::from(Viewport {
-                physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
-                physical_position: UVec2::new(PADDING * 3 + SMALL_SIZE * 2, PADDING),
-                ..default()
-            }),
             sub_camera_view: Some(SubCameraView {
-                // Set the sub view to the full image, to ensure that it matches
-                // the projection without sub view
-                full_size: UVec2::new(450, 450),
+                full_size: UVec2::new(800, 800),
                 offset: Vec2::ZERO,
-                size: UVec2::new(450, 450),
+                size: UVec2::new(800, 400),
             }),
             order: 3,
             ..default()
         },
+        ExampleViewports::PerspectiveControl,
         transform,
     ));
 
-    // Main orthographic camera
+    // Main orthographic camera:
+    //
+    // The main orthographic image to use as a comparison for the sub views.
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(6.0),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 6.0,
+            },
             ..OrthographicProjection::default_3d()
         }),
         Camera {
-            viewport: Option::from(Viewport {
-                physical_size: UVec2::new(LARGE_SIZE, LARGE_SIZE),
-                physical_position: UVec2::new(PADDING * 2 + LARGE_SIZE, PADDING * 2 + SMALL_SIZE),
-                ..default()
-            }),
             order: 4,
             ..default()
         },
+        ExampleViewports::OrthographicMain,
         transform,
     ));
 
-    // Orthographic camera left half
+    // Orthographic camera left half:
+    //
+    // For this camera, the projection is orthographic, and `size` is half the
+    // width of the `full_size`, causing the left half of the image to be shown.
+    // Since the viewport has an aspect ratio of 1x1 and the sub view has an
+    // aspect ratio of 1x2, the image appears stretched along the horizontal axis.
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(6.0),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 6.0,
+            },
             ..OrthographicProjection::default_3d()
         }),
         Camera {
-            viewport: Option::from(Viewport {
-                physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
-                physical_position: UVec2::new(PADDING * 5 + SMALL_SIZE * 4, PADDING),
-                ..default()
-            }),
             sub_camera_view: Some(SubCameraView {
-                // Set the sub view camera to the left half of the full image.
-                //
-                // The values of `full_size` and `size` do not have to be the
-                // exact values of your physical viewport. The important part is
-                // the ratio between them.
                 full_size: UVec2::new(2, 2),
                 offset: Vec2::ZERO,
                 size: UVec2::new(1, 2),
@@ -202,25 +177,27 @@ fn setup(
             order: 5,
             ..default()
         },
+        ExampleViewports::OrthographicStretched,
         transform,
     ));
 
-    // Orthographic camera moving
+    // Orthographic camera moving:
+    //
+    // For this camera, the projection is orthographic, and the offset is
+    // updated continuously in 150 units per second in `move_camera_view`. Since
+    // the `full_size` is 500x500, the image should appear to be moving across
+    // the full image once every 3.3 seconds. `size` is a fifth of the size of
+    // `full_size`, so the image will appear zoomed in.
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(6.0),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 6.0,
+            },
             ..OrthographicProjection::default_3d()
         }),
         Camera {
-            viewport: Option::from(Viewport {
-                physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
-                physical_position: UVec2::new(PADDING * 6 + SMALL_SIZE * 5, PADDING),
-                ..default()
-            }),
             sub_camera_view: Some(SubCameraView {
-                // Set the sub view camera to a fifth of the full view and
-                // move it in another system
                 full_size: UVec2::new(500, 500),
                 offset: Vec2::ZERO,
                 size: UVec2::new(100, 100),
@@ -229,32 +206,35 @@ fn setup(
             ..default()
         },
         transform,
+        ExampleViewports::OrthographicMoving,
         MovingCameraMarker,
     ));
 
-    // Orthographic camera control
+    // Orthographic camera different aspect ratio:
+    //
+    // For this camera, the projection is orthographic, and the aspect ratio of
+    // the sub view (2x1) is different to the aspect ratio of the full view
+    // (2x2). The aspect ratio of the sub view matches the aspect ratio of
+    // the viewport and should show an unstretched image of the top half of the
+    // full orthographic image.
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(6.0),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 6.0,
+            },
             ..OrthographicProjection::default_3d()
         }),
         Camera {
-            viewport: Option::from(Viewport {
-                physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
-                physical_position: UVec2::new(PADDING * 7 + SMALL_SIZE * 6, PADDING),
-                ..default()
-            }),
             sub_camera_view: Some(SubCameraView {
-                // Set the sub view to the full image, to ensure that it matches
-                // the projection without sub view
-                full_size: UVec2::new(450, 450),
+                full_size: UVec2::new(200, 200),
                 offset: Vec2::ZERO,
-                size: UVec2::new(450, 450),
+                size: UVec2::new(200, 100),
             }),
             order: 7,
             ..default()
         },
+        ExampleViewports::OrthographicControl,
         transform,
     ));
 }
@@ -265,8 +245,73 @@ fn move_camera_view(
 ) {
     for mut camera in movable_camera_query.iter_mut() {
         if let Some(sub_view) = &mut camera.sub_camera_view {
-            sub_view.offset.x = (time.elapsed_seconds() * 150.) % 450.0 - 50.0;
+            sub_view.offset.x = (time.elapsed_secs() * 150.) % 450.0 - 50.0;
             sub_view.offset.y = sub_view.offset.x;
         }
     }
+}
+
+// To ensure viewports remain the same at any window size
+fn resize_viewports(
+    window: Single<&Window, With<bevy::window::PrimaryWindow>>,
+    mut viewports: Query<(&mut Camera, &ExampleViewports)>,
+) {
+    let window_size = window.physical_size();
+
+    let small_height = window_size.y / 5;
+    let small_width = window_size.x / 8;
+
+    let large_height = small_height * 4;
+    let large_width = small_width * 4;
+
+    let large_size = UVec2::new(large_width, large_height);
+
+    // Enforce the aspect ratio of the small viewports to ensure the images
+    // appear unstretched
+    let small_dim = small_height.min(small_width);
+    let small_size = UVec2::new(small_dim, small_dim);
+
+    let small_wide_size = UVec2::new(small_dim * 2, small_dim);
+
+    for (mut camera, example_viewport) in viewports.iter_mut() {
+        if camera.viewport.is_none() {
+            camera.viewport = Some(Viewport::default());
+        };
+
+        let Some(viewport) = &mut camera.viewport else {
+            continue;
+        };
+
+        let (size, position) = match example_viewport {
+            ExampleViewports::PerspectiveMain => (large_size, UVec2::new(0, small_height)),
+            ExampleViewports::PerspectiveStretched => (small_size, UVec2::ZERO),
+            ExampleViewports::PerspectiveMoving => (small_size, UVec2::new(small_width, 0)),
+            ExampleViewports::PerspectiveControl => {
+                (small_wide_size, UVec2::new(small_width * 2, 0))
+            }
+            ExampleViewports::OrthographicMain => {
+                (large_size, UVec2::new(large_width, small_height))
+            }
+            ExampleViewports::OrthographicStretched => (small_size, UVec2::new(small_width * 4, 0)),
+            ExampleViewports::OrthographicMoving => (small_size, UVec2::new(small_width * 5, 0)),
+            ExampleViewports::OrthographicControl => {
+                (small_wide_size, UVec2::new(small_width * 6, 0))
+            }
+        };
+
+        viewport.physical_size = size;
+        viewport.physical_position = position;
+    }
+}
+
+#[derive(Component)]
+enum ExampleViewports {
+    PerspectiveMain,
+    PerspectiveStretched,
+    PerspectiveMoving,
+    PerspectiveControl,
+    OrthographicMain,
+    OrthographicStretched,
+    OrthographicMoving,
+    OrthographicControl,
 }

@@ -27,12 +27,12 @@ use super::IntoBinding;
 /// (vectors), or structures with fields that are vectors.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
 /// * [`DynamicUniformBuffer`]
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
-/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
@@ -164,14 +164,13 @@ impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a UniformBuffer<T> {
 /// (vectors), or structures with fields that are vectors.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-/// * [`UniformBuffer`]
-/// * [`DynamicUniformBuffer`]
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
 /// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
-/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`Texture`](crate::render_resource::Texture)
+/// * [`UniformBuffer`]
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
 pub struct DynamicUniformBuffer<T: ShaderType> {
@@ -279,11 +278,11 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         device: &RenderDevice,
         queue: &'a RenderQueue,
     ) -> Option<DynamicUniformBufferWriter<'a, T>> {
-        let alignment = if cfg!(feature = "ios_simulator") {
+        let alignment = if cfg!(target_abi = "sim") {
             // On iOS simulator on silicon macs, metal validation check that the host OS alignment
             // is respected, but the device reports the correct value for iOS, which is smaller.
             // Use the larger value.
-            // See https://github.com/bevyengine/bevy/pull/10178 - remove if it's not needed anymore.
+            // See https://github.com/gfx-rs/wgpu/issues/7057 - remove if it's not needed anymore.
             AlignmentValue::new(256)
         } else {
             AlignmentValue::new(device.limits().min_uniform_buffer_offset_alignment as u64)

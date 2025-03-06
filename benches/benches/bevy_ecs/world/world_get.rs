@@ -1,11 +1,13 @@
+use core::hint::black_box;
+
 use bevy_ecs::{
-    bundle::Bundle,
+    bundle::{Bundle, NoBundleEffect},
     component::Component,
     entity::Entity,
     system::{Query, SystemState},
     world::World,
 };
-use criterion::{black_box, Criterion};
+use criterion::Criterion;
 use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -34,7 +36,7 @@ fn setup<T: Component + Default>(entity_count: u32) -> World {
     black_box(world)
 }
 
-fn setup_wide<T: Bundle + Default>(entity_count: u32) -> World {
+fn setup_wide<T: Bundle<Effect: NoBundleEffect> + Default>(entity_count: u32) -> World {
     let mut world = World::default();
     world.spawn_batch((0..entity_count).map(|_| T::default()));
     black_box(world)
@@ -306,7 +308,7 @@ pub fn query_get(criterion: &mut Criterion) {
 }
 
 pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group(&format!("query_get_many_{N}"));
+    let mut group = criterion.benchmark_group(format!("query_get_many_{N}"));
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(2 * N as u64));
 

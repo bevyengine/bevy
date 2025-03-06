@@ -176,7 +176,7 @@ impl BlobVec {
     /// # Safety
     /// - index must be in bounds
     /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this [`BlobVec`]'s
-    ///     `item_layout`, must have been previously allocated.
+    ///   `item_layout`, must have been previously allocated.
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
@@ -189,10 +189,10 @@ impl BlobVec {
     /// # Safety
     /// - index must be in-bounds
     /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this
-    ///     [`BlobVec`]'s `item_layout`, must have been previously initialized with an item matching
-    ///     this [`BlobVec`]'s `item_layout`
+    ///   [`BlobVec`]'s `item_layout`, must have been previously initialized with an item matching
+    ///   this [`BlobVec`]'s `item_layout`
     /// - the memory at `*value` must also be previously initialized with an item matching this
-    ///     [`BlobVec`]'s `item_layout`
+    ///   [`BlobVec`]'s `item_layout`
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
 
@@ -497,11 +497,12 @@ const fn padding_needed_for(layout: &Layout, align: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs; // required for derive macros
-    use crate::{component::Component, ptr::OwningPtr, world::World};
-
     use super::BlobVec;
-    use alloc::rc::Rc;
+    use crate::{component::Component, ptr::OwningPtr, world::World};
+    use alloc::{
+        rc::Rc,
+        string::{String, ToString},
+    };
     use core::{alloc::Layout, cell::RefCell};
 
     /// # Safety

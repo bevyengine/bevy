@@ -9,6 +9,7 @@ use core::{
     hash::Hash,
     marker::PhantomData,
 };
+use derive_more::derive::From;
 use thiserror::Error;
 
 /// A unique runtime-only identifier for an [`Asset`]. This is cheap to [`Copy`]/[`Clone`] and is not directly tied to the
@@ -17,7 +18,7 @@ use thiserror::Error;
 /// For an identifier tied to the lifetime of an asset, see [`Handle`](`crate::Handle`).
 ///
 /// For an "untyped" / "generic-less" id, see [`UntypedAssetId`].
-#[derive(Reflect, Serialize, Deserialize)]
+#[derive(Reflect, Serialize, Deserialize, From)]
 pub enum AssetId<A: Asset> {
     /// A small / efficient runtime identifier that can be used to efficiently look up an asset stored in [`Assets`]. This is
     /// the "default" identifier used for assets. The alternative(s) (ex: [`AssetId::Uuid`]) will only be used if assets are
@@ -25,7 +26,9 @@ pub enum AssetId<A: Asset> {
     ///
     /// [`Assets`]: crate::Assets
     Index {
+        /// The unstable, opaque index of the asset.
         index: AssetIndex,
+        /// A marker to store the type information of the asset.
         #[reflect(ignore)]
         marker: PhantomData<fn() -> A>,
     },
@@ -33,7 +36,10 @@ pub enum AssetId<A: Asset> {
     /// with one.
     ///
     /// [`Assets`]: crate::Assets
-    Uuid { uuid: Uuid },
+    Uuid {
+        /// The UUID provided during asset registration.
+        uuid: Uuid,
+    },
 }
 
 impl<A: Asset> AssetId<A> {
@@ -154,13 +160,6 @@ impl<A: Asset> From<AssetIndex> for AssetId<A> {
     }
 }
 
-impl<A: Asset> From<Uuid> for AssetId<A> {
-    #[inline]
-    fn from(value: Uuid) -> Self {
-        Self::Uuid { uuid: value }
-    }
-}
-
 /// An "untyped" / "generic-less" [`Asset`] identifier that behaves much like [`AssetId`], but stores the [`Asset`] type
 /// information at runtime instead of compile-time. This increases the size of the type, but it enables storing asset ids
 /// across asset types together and enables comparisons between them.
@@ -171,12 +170,22 @@ pub enum UntypedAssetId {
     /// explicitly registered that way.
     ///
     /// [`Assets`]: crate::Assets
-    Index { type_id: TypeId, index: AssetIndex },
+    Index {
+        /// An identifier that records the underlying asset type.
+        type_id: TypeId,
+        /// The unstable, opaque index of the asset.
+        index: AssetIndex,
+    },
     /// A stable-across-runs / const asset identifier. This will only be used if an asset is explicitly registered in [`Assets`]
     /// with one.
     ///
     /// [`Assets`]: crate::Assets
-    Uuid { type_id: TypeId, uuid: Uuid },
+    Uuid {
+        /// An identifier that records the underlying asset type.
+        type_id: TypeId,
+        /// The UUID provided during asset registration.
+        uuid: Uuid,
+    },
 }
 
 impl UntypedAssetId {
@@ -310,7 +319,7 @@ impl PartialOrd for UntypedAssetId {
 /// Do not _ever_ use this across asset types for comparison.
 /// [`InternalAssetId`] contains no type information and will happily collide
 /// with indices across types.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, From)]
 pub(crate) enum InternalAssetId {
     Index(AssetIndex),
     Uuid(Uuid),
@@ -334,18 +343,6 @@ impl InternalAssetId {
             InternalAssetId::Index(index) => UntypedAssetId::Index { index, type_id },
             InternalAssetId::Uuid(uuid) => UntypedAssetId::Uuid { uuid, type_id },
         }
-    }
-}
-
-impl From<AssetIndex> for InternalAssetId {
-    fn from(value: AssetIndex) -> Self {
-        Self::Index(value)
-    }
-}
-
-impl From<Uuid> for InternalAssetId {
-    fn from(value: Uuid) -> Self {
-        Self::Uuid(value)
     }
 }
 
@@ -422,7 +419,12 @@ impl<A: Asset> TryFrom<UntypedAssetId> for AssetId<A> {
 pub enum UntypedAssetIdConversionError {
     /// Caused when trying to convert an [`UntypedAssetId`] into an [`AssetId`] of the wrong type.
     #[error("This UntypedAssetId is for {found:?} and cannot be converted into an AssetId<{expected:?}>")]
-    TypeIdMismatch { expected: TypeId, found: TypeId },
+    TypeIdMismatch {
+        /// The [`TypeId`] of the asset that we are trying to convert to.
+        expected: TypeId,
+        /// The [`TypeId`] of the asset that we are trying to convert from.
+        found: TypeId,
+    },
 }
 
 #[cfg(test)]
@@ -436,11 +438,9 @@ mod tests {
 
     /// Simple utility to directly hash a value using a fixed hasher
     fn hash<T: Hash>(data: &T) -> u64 {
-        use core::hash::Hasher;
+        use core::hash::BuildHasher;
 
-        let mut hasher = bevy_utils::AHasher::default();
-        data.hash(&mut hasher);
-        hasher.finish()
+        bevy_platform_support::hash::FixedHasher.hash_one(data)
     }
 
     /// Typed and Untyped `AssetIds` should be equivalent to each other and themselves

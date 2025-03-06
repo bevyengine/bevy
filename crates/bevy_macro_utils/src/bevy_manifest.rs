@@ -1,97 +1,54 @@
 extern crate proc_macro;
 
+use std::sync::MutexGuard;
+
+use cargo_manifest_proc_macros::{
+    CargoManifest, CrateReExportingPolicy, KnownReExportingCrate, PathPiece,
+    TryResolveCratePathError,
+};
 use proc_macro::TokenStream;
-use std::{env, path::PathBuf};
-use toml_edit::{DocumentMut, Item};
+
+struct BevyReExportingPolicy;
+
+impl CrateReExportingPolicy for BevyReExportingPolicy {
+    fn get_re_exported_crate_path(&self, crate_name: &str) -> Option<PathPiece> {
+        crate_name.strip_prefix("bevy_").map(|s| {
+            let mut path = PathPiece::new();
+            path.push(syn::parse_str::<syn::PathSegment>(s).unwrap());
+            path
+        })
+    }
+}
+
+const BEVY: &str = "bevy";
+
+const KNOWN_RE_EXPORTING_CRATE_BEVY: KnownReExportingCrate = KnownReExportingCrate {
+    re_exporting_crate_package_name: BEVY,
+    crate_re_exporting_policy: &BevyReExportingPolicy {},
+};
+
+const ALL_KNOWN_RE_EXPORTING_CRATES: &[&KnownReExportingCrate] = &[&KNOWN_RE_EXPORTING_CRATE_BEVY];
 
 /// The path to the `Cargo.toml` file for the Bevy project.
-pub struct BevyManifest {
-    manifest: DocumentMut,
-}
-
-impl Default for BevyManifest {
-    fn default() -> Self {
-        Self {
-            manifest: env::var_os("CARGO_MANIFEST_DIR")
-                .map(PathBuf::from)
-                .map(|mut path| {
-                    path.push("Cargo.toml");
-                    if !path.exists() {
-                        panic!(
-                            "No Cargo manifest found for crate. Expected: {}",
-                            path.display()
-                        );
-                    }
-                    let manifest = std::fs::read_to_string(path.clone()).unwrap_or_else(|_| {
-                        panic!("Unable to read cargo manifest: {}", path.display())
-                    });
-                    manifest.parse::<DocumentMut>().unwrap_or_else(|_| {
-                        panic!("Failed to parse cargo manifest: {}", path.display())
-                    })
-                })
-                .expect("CARGO_MANIFEST_DIR is not defined."),
-        }
-    }
-}
-const BEVY: &str = "bevy";
-const BEVY_INTERNAL: &str = "bevy_internal";
+pub struct BevyManifest(MutexGuard<'static, CargoManifest>);
 
 impl BevyManifest {
-    /// Attempt to retrieve the [path](syn::Path) of a particular package in
-    /// the [manifest](BevyManifest) by [name](str).
-    pub fn maybe_get_path(&self, name: &str) -> Option<syn::Path> {
-        fn dep_package(dep: &Item) -> Option<&str> {
-            if dep.as_str().is_some() {
-                None
-            } else {
-                dep.get("package").map(|name| name.as_str().unwrap())
-            }
-        }
-
-        let find_in_deps = |deps: &Item| -> Option<syn::Path> {
-            let package = if let Some(dep) = deps.get(name) {
-                return Some(Self::parse_str(dep_package(dep).unwrap_or(name)));
-            } else if let Some(dep) = deps.get(BEVY) {
-                dep_package(dep).unwrap_or(BEVY)
-            } else if let Some(dep) = deps.get(BEVY_INTERNAL) {
-                dep_package(dep).unwrap_or(BEVY_INTERNAL)
-            } else {
-                return None;
-            };
-
-            let mut path = Self::parse_str::<syn::Path>(package);
-            if let Some(module) = name.strip_prefix("bevy_") {
-                path.segments.push(Self::parse_str(module));
-            }
-            Some(path)
-        };
-
-        let deps = self.manifest.get("dependencies");
-        let deps_dev = self.manifest.get("dev-dependencies");
-
-        deps.and_then(find_in_deps)
-            .or_else(|| deps_dev.and_then(find_in_deps))
+    /// Returns a global shared instance of the [`BevyManifest`] struct.
+    pub fn shared() -> Self {
+        Self(CargoManifest::shared())
     }
 
-    /// Returns the path for the crate with the given name.
-    ///
-    /// This is a convenience method for constructing a [manifest] and
-    /// calling the [`get_path`] method.
-    ///
-    /// This method should only be used where you just need the path and can't
-    /// cache the [manifest]. If caching is possible, it's recommended to create
-    /// the [manifest] yourself and use the [`get_path`] method.
-    ///
-    /// [`get_path`]: Self::get_path
-    /// [manifest]: Self
-    pub fn get_path_direct(name: &str) -> syn::Path {
-        Self::default().get_path(name)
+    /// Attempt to retrieve the [path](syn::Path) of a particular package in
+    /// the [manifest](BevyManifest) by [name](str).
+    pub fn maybe_get_path(&self, name: &str) -> Result<syn::Path, TryResolveCratePathError> {
+        self.0
+            .try_resolve_crate_path(name, ALL_KNOWN_RE_EXPORTING_CRATES)
     }
 
     /// Returns the path for the crate with the given name.
     pub fn get_path(&self, name: &str) -> syn::Path {
         self.maybe_get_path(name)
-            .unwrap_or_else(|| Self::parse_str(name))
+            .expect("Failed to get path for crate")
     }
 
     /// Attempt to parse the provided [path](str) as a [syntax tree node](syn::parse::Parse)
@@ -111,7 +68,7 @@ impl BevyManifest {
     }
 
     /// Attempt to get a subcrate [path](syn::Path) under Bevy by [name](str)
-    pub fn get_subcrate(&self, subcrate: &str) -> Option<syn::Path> {
+    pub fn get_subcrate(&self, subcrate: &str) -> Result<syn::Path, TryResolveCratePathError> {
         self.maybe_get_path(BEVY)
             .map(|bevy_path| {
                 let mut segments = bevy_path.segments;
@@ -121,6 +78,6 @@ impl BevyManifest {
                     segments,
                 }
             })
-            .or_else(|| self.maybe_get_path(&format!("bevy_{subcrate}")))
+            .or_else(|_err| self.maybe_get_path(&format!("bevy_{subcrate}")))
     }
 }

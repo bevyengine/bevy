@@ -49,7 +49,7 @@ fn main() -> AnyhowResult<()> {
     let req = BrpRequest {
         jsonrpc: String::from("2.0"),
         method: String::from(BRP_QUERY_METHOD),
-        id: Some(ureq::json!(1)),
+        id: Some(serde_json::to_value(1)?),
         params: Some(
             serde_json::to_value(BrpQueryParams {
                 data: BrpQuery {
@@ -57,6 +57,7 @@ fn main() -> AnyhowResult<()> {
                     option: Vec::default(),
                     has: Vec::default(),
                 },
+                strict: false,
                 filter: BrpQueryFilter::default(),
             })
             .expect("Unable to convert query parameters to a valid JSON value"),
@@ -65,7 +66,8 @@ fn main() -> AnyhowResult<()> {
 
     let res = ureq::post(&url)
         .send_json(req)?
-        .into_json::<serde_json::Value>()?;
+        .body_mut()
+        .read_json::<serde_json::Value>()?;
 
     println!("{:#}", res);
 

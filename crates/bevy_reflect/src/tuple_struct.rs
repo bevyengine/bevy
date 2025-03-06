@@ -2,13 +2,13 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    self as bevy_reflect,
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     type_info::impl_type_methods,
     ApplyError, DynamicTuple, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut,
     ReflectOwned, ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
 };
-use alloc::sync::Arc;
+use alloc::{boxed::Box, vec::Vec};
+use bevy_platform_support::sync::Arc;
 use core::{
     fmt::{Debug, Formatter},
     slice::Iter,
@@ -57,6 +57,11 @@ pub trait TupleStruct: PartialReflect {
 
     /// Clones the struct into a [`DynamicTupleStruct`].
     fn clone_dynamic(&self) -> DynamicTupleStruct;
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_tuple_struct_info(&self) -> Option<&'static TupleStructInfo> {
+        self.get_represented_type_info()?.as_tuple_struct().ok()
+    }
 }
 
 /// A container for compile-time tuple struct info.
@@ -489,7 +494,6 @@ pub fn tuple_struct_debug(
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
     use crate::*;
     #[derive(Reflect)]
     struct Ts(u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8);

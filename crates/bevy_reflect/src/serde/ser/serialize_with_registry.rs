@@ -1,4 +1,5 @@
 use crate::{FromType, Reflect, TypeRegistry};
+use alloc::boxed::Box;
 use serde::{Serialize, Serializer};
 
 /// Trait used to provide finer control when serializing a reflected type with one of
@@ -74,7 +75,7 @@ impl<T: Reflect + SerializeWithRegistry> FromType<T> for ReflectSerializeWithReg
             serialize: |value: &dyn Reflect, registry| {
                 let value = value.downcast_ref::<T>().unwrap_or_else(|| {
                     panic!(
-                        "Expected value to be of type {:?} but received {:?}",
+                        "Expected value to be of type {} but received {}",
                         core::any::type_name::<T>(),
                         value.reflect_type_path()
                     )

@@ -1,5 +1,6 @@
 use crate::serde::de::error_utils::make_custom_error;
 use crate::{FromType, PartialReflect, TypeRegistry};
+use alloc::boxed::Box;
 use serde::Deserializer;
 
 /// Trait used to provide finer control when deserializing a reflected type with one of
@@ -40,7 +41,7 @@ use serde::Deserializer;
 /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
 /// [`ReflectDeserializer`]: crate::serde::ReflectDeserializer
 /// [via the registry]: TypeRegistry::register_type_data
-pub trait DeserializeWithRegistry<'de>: PartialReflect + Sized {
+pub trait DeserializeWithRegistry<'de>: Sized {
     fn deserialize<D>(deserializer: D, registry: &TypeRegistry) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>;

@@ -57,7 +57,7 @@ fn setup(
         .spawn((
             Camera2d,
             Camera {
-                target: RenderTarget::Image(image_handle.clone()),
+                target: RenderTarget::Image(image_handle.clone().into()),
                 ..default()
             },
         ))
@@ -65,29 +65,26 @@ fn setup(
 
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    // Cover the whole image
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                background_color: GOLD.into(),
+            Node {
+                // Cover the whole image
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
-            TargetCamera(texture_camera),
+            BackgroundColor(GOLD.into()),
+            UiTargetCamera(texture_camera),
         ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "This is a cube",
-                TextStyle {
+            parent.spawn((
+                Text::new("This is a cube"),
+                TextFont {
                     font_size: 40.0,
-                    color: Color::BLACK,
                     ..default()
                 },
+                TextColor::BLACK,
             ));
         });
 
@@ -122,7 +119,7 @@ const ROTATION_SPEED: f32 = 0.5;
 
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Cube>>) {
     for mut transform in &mut query {
-        transform.rotate_x(1.0 * time.delta_seconds() * ROTATION_SPEED);
-        transform.rotate_y(0.7 * time.delta_seconds() * ROTATION_SPEED);
+        transform.rotate_x(1.0 * time.delta_secs() * ROTATION_SPEED);
+        transform.rotate_y(0.7 * time.delta_secs() * ROTATION_SPEED);
     }
 }

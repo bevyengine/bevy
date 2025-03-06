@@ -10,8 +10,8 @@ pub use type_data::*;
 mod tests {
     use super::*;
     use crate::{
-        self as bevy_reflect, type_registry::TypeRegistry, DynamicStruct, DynamicTupleStruct,
-        FromReflect, PartialReflect, Reflect, Struct,
+        type_registry::TypeRegistry, DynamicStruct, DynamicTupleStruct, FromReflect,
+        PartialReflect, Reflect, Struct,
     };
     use serde::de::DeserializeSeed;
 
@@ -189,16 +189,18 @@ mod tests {
         use crate::serde::{DeserializeWithRegistry, ReflectDeserializeWithRegistry};
         use crate::serde::{ReflectSerializeWithRegistry, SerializeWithRegistry};
         use crate::{ReflectFromReflect, TypePath};
-        use alloc::sync::Arc;
+        use alloc::{format, string::String, vec, vec::Vec};
+        use bevy_platform_support::sync::Arc;
         use bevy_reflect_derive::reflect_trait;
+        use core::any::TypeId;
         use core::fmt::{Debug, Formatter};
         use serde::de::{SeqAccess, Visitor};
         use serde::ser::SerializeSeq;
-        use serde::{Deserializer, Serializer};
+        use serde::{Deserializer, Serialize, Serializer};
 
         #[reflect_trait]
         trait Enemy: Reflect + Debug {
-            #[allow(dead_code, reason = "this method is purely for testing purposes")]
+            #[expect(dead_code, reason = "this method is purely for testing purposes")]
             fn hp(&self) -> u8;
         }
 
@@ -335,6 +337,22 @@ mod tests {
             registry
         }
 
+        fn create_arc_dyn_enemy<T: Enemy>(enemy: T) -> Arc<dyn Enemy> {
+            let arc = Arc::new(enemy);
+
+            #[cfg(not(target_has_atomic = "ptr"))]
+            #[expect(
+                unsafe_code,
+                reason = "unsized coercion is an unstable feature for non-std types"
+            )]
+            // SAFETY:
+            // - Coercion from `T` to `dyn Enemy` is valid as `T: Enemy + 'static`
+            // - `Arc::from_raw` receives a valid pointer from a previous call to `Arc::into_raw`
+            let arc = unsafe { Arc::from_raw(Arc::into_raw(arc) as *const dyn Enemy) };
+
+            arc
+        }
+
         #[test]
         fn should_serialize_with_serialize_with_registry() {
             let registry = create_registry();
@@ -342,8 +360,8 @@ mod tests {
             let level = Level {
                 name: String::from("Level 1"),
                 enemies: EnemyList(vec![
-                    Arc::new(Skeleton(10)),
-                    Arc::new(Zombie {
+                    create_arc_dyn_enemy(Skeleton(10)),
+                    create_arc_dyn_enemy(Zombie {
                         health: 20,
                         walk_speed: 0.5,
                     }),
@@ -373,8 +391,8 @@ mod tests {
             let expected = Level {
                 name: String::from("Level 1"),
                 enemies: EnemyList(vec![
-                    Arc::new(Skeleton(10)),
-                    Arc::new(Zombie {
+                    create_arc_dyn_enemy(Skeleton(10)),
+                    create_arc_dyn_enemy(Zombie {
                         health: 20,
                         walk_speed: 0.5,
                     }),
@@ -387,8 +405,8 @@ mod tests {
             let unexpected = Level {
                 name: String::from("Level 1"),
                 enemies: EnemyList(vec![
-                    Arc::new(Skeleton(20)),
-                    Arc::new(Zombie {
+                    create_arc_dyn_enemy(Skeleton(20)),
+                    create_arc_dyn_enemy(Zombie {
                         health: 20,
                         walk_speed: 5.0,
                     }),
@@ -397,6 +415,62 @@ mod tests {
 
             // Poor man's comparison since we can't derive PartialEq for Arc<dyn Enemy>
             assert_ne!(format!("{:?}", unexpected), format!("{:?}", output));
+        }
+
+        #[test]
+        fn should_serialize_single_tuple_struct_as_newtype() {
+            #[derive(Reflect, Serialize, PartialEq, Debug)]
+            struct TupleStruct(u32);
+
+            #[derive(Reflect, Serialize, PartialEq, Debug)]
+            struct TupleStructWithSkip(
+                u32,
+                #[reflect(skip_serializing)]
+                #[serde(skip)]
+                u32,
+            );
+
+            #[derive(Reflect, Serialize, PartialEq, Debug)]
+            enum Enum {
+                TupleStruct(usize),
+                NestedTupleStruct(TupleStruct),
+                NestedTupleStructWithSkip(TupleStructWithSkip),
+            }
+
+            let mut registry = TypeRegistry::default();
+            registry.register::<TupleStruct>();
+            registry.register::<TupleStructWithSkip>();
+            registry.register::<Enum>();
+
+            let tuple_struct = TupleStruct(1);
+            let tuple_struct_with_skip = TupleStructWithSkip(2, 3);
+            let tuple_struct_enum = Enum::TupleStruct(4);
+            let nested_tuple_struct = Enum::NestedTupleStruct(TupleStruct(5));
+            let nested_tuple_struct_with_skip =
+                Enum::NestedTupleStructWithSkip(TupleStructWithSkip(6, 7));
+
+            fn assert_serialize<T: Reflect + FromReflect + Serialize + PartialEq + Debug>(
+                value: &T,
+                registry: &TypeRegistry,
+            ) {
+                let serializer = TypedReflectSerializer::new(value, registry);
+                let reflect_serialize = serde_json::to_string(&serializer).unwrap();
+                let serde_serialize = serde_json::to_string(value).unwrap();
+                assert_eq!(reflect_serialize, serde_serialize);
+
+                let registration = registry.get(TypeId::of::<T>()).unwrap();
+                let reflect_deserializer = TypedReflectDeserializer::new(registration, registry);
+
+                let mut deserializer = serde_json::Deserializer::from_str(&serde_serialize);
+                let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+                let _ = T::from_reflect(&*reflect_value).unwrap();
+            }
+
+            assert_serialize(&tuple_struct, &registry);
+            assert_serialize(&tuple_struct_with_skip, &registry);
+            assert_serialize(&tuple_struct_enum, &registry);
+            assert_serialize(&nested_tuple_struct, &registry);
+            assert_serialize(&nested_tuple_struct_with_skip, &registry);
         }
     }
 }

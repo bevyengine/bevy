@@ -1,24 +1,14 @@
-#![expect(deprecated)]
-
-use crate::{
-    clear_material_2d_instances, extract_default_materials_2d, AlphaMode2d, Material2d,
-    Material2dPlugin, MaterialMesh2dBundle,
-};
+use crate::{AlphaMode2d, Material2d, Material2dPlugin};
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
-use bevy_ecs::schedule::IntoSystemConfigs;
-use bevy_math::Vec4;
+use bevy_image::Image;
+use bevy_math::{Affine2, Mat3, Vec4};
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    render_asset::RenderAssets,
-    render_resource::*,
-    texture::{GpuImage, Image},
-    ExtractSchedule, RenderApp,
-};
+use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
 
 pub const COLOR_MATERIAL_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(3253086872234592509);
+    weak_handle!("92e0e6e9-ed0b-4db3-89ab-5f65d3678250");
 
 #[derive(Default)]
 pub struct ColorMaterialPlugin;
@@ -35,26 +25,16 @@ impl Plugin for ColorMaterialPlugin {
         app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
             .register_asset_reflect::<ColorMaterial>();
 
-        // Initialize the default material.
+        // Initialize the default material handle.
         app.world_mut()
             .resource_mut::<Assets<ColorMaterial>>()
             .insert(
                 &Handle::<ColorMaterial>::default(),
                 ColorMaterial {
-                    color: Color::WHITE,
+                    color: Color::srgb(1.0, 0.0, 1.0),
                     ..Default::default()
                 },
             );
-
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        // Extract default materials for entities with no material.
-        render_app.add_systems(
-            ExtractSchedule,
-            extract_default_materials_2d.after(clear_material_2d_instances::<ColorMaterial>),
-        );
     }
 }
 
@@ -65,6 +45,7 @@ impl Plugin for ColorMaterialPlugin {
 pub struct ColorMaterial {
     pub color: Color,
     pub alpha_mode: AlphaMode2d,
+    pub uv_transform: Affine2,
     #[texture(1)]
     #[sampler(2)]
     pub texture: Option<Handle<Image>>,
@@ -81,6 +62,7 @@ impl Default for ColorMaterial {
     fn default() -> Self {
         ColorMaterial {
             color: Color::WHITE,
+            uv_transform: Affine2::default(),
             texture: None,
             // TODO should probably default to AlphaMask once supported?
             alpha_mode: AlphaMode2d::Blend,
@@ -137,6 +119,7 @@ impl ColorMaterialFlags {
 #[derive(Clone, Default, ShaderType)]
 pub struct ColorMaterialUniform {
     pub color: Vec4,
+    pub uv_transform: Mat3,
     pub flags: u32,
     pub alpha_cutoff: f32,
 }
@@ -160,6 +143,7 @@ impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
         };
         ColorMaterialUniform {
             color: LinearRgba::from(self.color).to_f32_array().into(),
+            uv_transform: self.uv_transform.into(),
             flags: flags.bits(),
             alpha_cutoff,
         }
@@ -175,10 +159,3 @@ impl Material2d for ColorMaterial {
         self.alpha_mode
     }
 }
-
-/// A component bundle for entities with a [`Mesh2d`](crate::Mesh2d) and a [`ColorMaterial`].
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `Mesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
-)]
-pub type ColorMesh2dBundle = MaterialMesh2dBundle<ColorMaterial>;

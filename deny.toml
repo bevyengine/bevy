@@ -25,6 +25,7 @@ allow = [
 exceptions = [
   { name = "unicode-ident", allow = [
     "Unicode-DFS-2016",
+    "Unicode-3.0",
   ] },
   { name = "symphonia", allow = [
     "MPL-2.0",
@@ -74,9 +75,17 @@ deny = [
   { name = "glam", deny-multiple-versions = true },
   { name = "raw-window-handle", deny-multiple-versions = true },
 ]
+skip = [
+  { name = "bevy_math", reason = "bevy_math has a path dev dependency on itself without a version" },
+]
 
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []
+
+# thiserror is the preferred way to derive error types
+[[bans.features]]
+crate = "derive_more"
+deny = ["error"]

@@ -1,5 +1,5 @@
-use bevy_utils::all_tuples_with_size;
 use core::num::NonZero;
+use variadics_please::all_tuples_with_size;
 use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 
 /// Helper for constructing bind group layouts.
@@ -222,7 +222,7 @@ impl IntoBindGroupLayoutEntryBuilder for BindingType {
 impl IntoBindGroupLayoutEntryBuilder for BindGroupLayoutEntry {
     fn into_bind_group_layout_entry_builder(self) -> BindGroupLayoutEntryBuilder {
         if self.binding != u32::MAX {
-            bevy_utils::tracing::warn!("The BindGroupLayoutEntries api ignores the binding index when converting a raw wgpu::BindGroupLayoutEntry. You can ignore this warning by setting it to u32::MAX.");
+            tracing::warn!("The BindGroupLayoutEntries api ignores the binding index when converting a raw wgpu::BindGroupLayoutEntry. You can ignore this warning by setting it to u32::MAX.");
         }
         BindGroupLayoutEntryBuilder {
             ty: self.ty,
@@ -242,7 +242,8 @@ pub trait IntoBindGroupLayoutEntryBuilderArray<const N: usize> {
     fn into_array(self) -> [BindGroupLayoutEntryBuilder; N];
 }
 macro_rules! impl_to_binding_type_slice {
-    ($N: expr, $(($T: ident, $I: ident)),*) => {
+    ($N: expr, $(#[$meta:meta])* $(($T: ident, $I: ident)),*) => {
+        $(#[$meta])*
         impl<$($T: IntoBindGroupLayoutEntryBuilder),*> IntoBindGroupLayoutEntryBuilderArray<$N> for ($($T,)*) {
             #[inline]
             fn into_array(self) -> [BindGroupLayoutEntryBuilder; $N] {
@@ -252,7 +253,14 @@ macro_rules! impl_to_binding_type_slice {
         }
     }
 }
-all_tuples_with_size!(impl_to_binding_type_slice, 1, 32, T, s);
+all_tuples_with_size!(
+    #[doc(fake_variadic)]
+    impl_to_binding_type_slice,
+    1,
+    32,
+    T,
+    s
+);
 
 pub trait IntoIndexedBindGroupLayoutEntryBuilderArray<const N: usize> {
     fn into_array(self) -> [(u32, BindGroupLayoutEntryBuilder); N];
@@ -545,6 +553,18 @@ pub mod binding_types {
             access,
             format,
             view_dimension: TextureViewDimension::D2Array,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
+
+    pub fn texture_storage_3d(
+        format: TextureFormat,
+        access: StorageTextureAccess,
+    ) -> BindGroupLayoutEntryBuilder {
+        BindingType::StorageTexture {
+            access,
+            format,
+            view_dimension: TextureViewDimension::D3,
         }
         .into_bind_group_layout_entry_builder()
     }

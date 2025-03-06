@@ -20,6 +20,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
+            ..default()
         })
         .add_systems(Startup, setup_assets)
         .add_systems(Startup, setup_scene)
@@ -59,7 +60,7 @@ pub struct OneHundredThings([Handle<Gltf>; 100]);
 ///
 /// For sync only the easiest implementation is
 /// [`Arc<()>`] and use [`Arc::strong_count`] for completion.
-/// [`Arc<Atomic*>`] is a more robust alternative.
+/// [`Arc<Atomic>`] is a more robust alternative.
 #[derive(Debug, Resource, Deref)]
 pub struct AssetBarrier(Arc<AssetBarrierInner>);
 
@@ -104,7 +105,7 @@ impl AssetBarrier {
     }
 
     /// Wait for all [`AssetBarrierGuard`]s to be dropped asynchronously.
-    pub fn wait_async(&self) -> impl Future<Output = ()> + 'static {
+    pub fn wait_async(&self) -> impl Future<Output = ()> + 'static + use<> {
         let shared = self.0.clone();
         async move {
             loop {
@@ -168,37 +169,17 @@ fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn setup_ui(mut commands: Commands) {
     // Display the result of async loading.
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::End,
 
-                ..default()
-            },
+    commands.spawn((
+        LoadingText,
+        Text::new("Loading...".to_owned()),
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(12.0),
+            top: Val::Px(12.0),
             ..default()
-        })
-        .with_children(|b| {
-            b.spawn((
-                TextBundle {
-                    text: Text {
-                        sections: vec![TextSection {
-                            value: "Loading...".to_owned(),
-                            style: TextStyle {
-                                font_size: 53.0,
-                                color: Color::BLACK,
-                                ..Default::default()
-                            },
-                        }],
-                        justify: JustifyText::Right,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
-                LoadingText,
-            ));
-        });
+        },
+    ));
 }
 
 fn setup_scene(
@@ -277,8 +258,8 @@ fn get_async_loading_state(
     // If loaded, change the state.
     if is_loaded {
         next_loading_state.set(LoadingState::Loaded);
-        if let Ok(mut text) = text.get_single_mut() {
-            "Loaded!".clone_into(&mut text.sections[0].value);
+        if let Ok(mut text) = text.single_mut() {
+            "Loaded!".clone_into(&mut **text);
         }
     }
 }
@@ -287,7 +268,7 @@ fn get_async_loading_state(
 fn despawn_loading_state_entities(mut commands: Commands, loading: Query<Entity, With<Loading>>) {
     // Despawn entities in the loading phase.
     for entity in loading.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 
     // Despawn resources used in the loading phase.

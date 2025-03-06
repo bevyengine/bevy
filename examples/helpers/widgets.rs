@@ -22,11 +22,23 @@ pub struct RadioButton;
 #[derive(Clone, Copy, Component)]
 pub struct RadioButtonText;
 
-/// Returns a [`Style`] appropriate for the outer main UI node.
+/// The size of the border that surrounds buttons.
+pub const BUTTON_BORDER: UiRect = UiRect::all(Val::Px(1.0));
+
+/// The color of the border that surrounds buttons.
+pub const BUTTON_BORDER_COLOR: BorderColor = BorderColor(Color::WHITE);
+
+/// The amount of rounding to apply to button corners.
+pub const BUTTON_BORDER_RADIUS_SIZE: Val = Val::Px(6.0);
+
+/// The amount of space between the edge of the button and its label.
+pub const BUTTON_PADDING: UiRect = UiRect::axes(Val::Px(12.0), Val::Px(6.0));
+
+/// Returns a [`Node`] appropriate for the outer main UI node.
 ///
 /// This UI is in the bottom left corner and has flex column support
-pub fn main_ui_style() -> Style {
-    Style {
+pub fn main_ui_node() -> Node {
+    Node {
         flex_direction: FlexDirection::Column,
         position_type: PositionType::Absolute,
         row_gap: Val::Px(6.0),
@@ -41,7 +53,7 @@ pub fn main_ui_style() -> Style {
 /// The type parameter specifies the value that will be packaged up and sent in
 /// a [`WidgetClickEvent`] when the radio button is clicked.
 pub fn spawn_option_button<T>(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     option_value: T,
     option_name: &str,
     is_selected: bool,
@@ -58,25 +70,29 @@ pub fn spawn_option_button<T>(
 
     // Add the button node.
     parent
-        .spawn(ButtonBundle {
-            style: Style {
-                border: UiRect::all(Val::Px(1.0)).with_left(if is_first {
-                    Val::Px(1.0)
+        .spawn((
+            Button,
+            Node {
+                border: BUTTON_BORDER.with_left(if is_first { Val::Px(1.0) } else { Val::Px(0.0) }),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                padding: BUTTON_PADDING,
+                ..default()
+            },
+            BUTTON_BORDER_COLOR,
+            BorderRadius::ZERO
+                .with_left(if is_first {
+                    BUTTON_BORDER_RADIUS_SIZE
+                } else {
+                    Val::Px(0.0)
+                })
+                .with_right(if is_last {
+                    BUTTON_BORDER_RADIUS_SIZE
                 } else {
                     Val::Px(0.0)
                 }),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                ..default()
-            },
-            border_color: BorderColor(Color::WHITE),
-            border_radius: BorderRadius::ZERO
-                .with_left(if is_first { Val::Px(6.0) } else { Val::Px(0.0) })
-                .with_right(if is_last { Val::Px(6.0) } else { Val::Px(0.0) }),
-            background_color: BackgroundColor(bg_color),
-            ..default()
-        })
+            BackgroundColor(bg_color),
+        ))
         .insert(RadioButton)
         .insert(WidgetClickSender(option_value.clone()))
         .with_children(|parent| {
@@ -91,21 +107,21 @@ pub fn spawn_option_button<T>(
 /// The user may change the setting to any one of the labeled `options`. The
 /// value of the given type parameter will be packaged up and sent as a
 /// [`WidgetClickEvent`] when one of the radio buttons is clicked.
-pub fn spawn_option_buttons<T>(parent: &mut ChildBuilder, title: &str, options: &[(T, &str)])
-where
+pub fn spawn_option_buttons<T>(
+    parent: &mut ChildSpawnerCommands,
+    title: &str,
+    options: &[(T, &str)],
+) where
     T: Clone + Send + Sync + 'static,
 {
     // Add the parent node for the row.
     parent
-        .spawn(NodeBundle {
-            style: Style {
-                align_items: AlignItems::Center,
-                ..default()
-            },
+        .spawn(Node {
+            align_items: AlignItems::Center,
             ..default()
         })
         .with_children(|parent| {
-            spawn_ui_text(parent, title, Color::BLACK).insert(Style {
+            spawn_ui_text(parent, title, Color::BLACK).insert(Node {
                 width: Val::Px(125.0),
                 ..default()
             });
@@ -128,17 +144,17 @@ where
 /// Returns the `EntityCommands`, which allow further customization of the text
 /// style.
 pub fn spawn_ui_text<'a>(
-    parent: &'a mut ChildBuilder,
+    parent: &'a mut ChildSpawnerCommands,
     label: &str,
     color: Color,
 ) -> EntityCommands<'a> {
-    parent.spawn(TextBundle::from_section(
-        label,
-        TextStyle {
+    parent.spawn((
+        Text::new(label),
+        TextFont {
             font_size: 18.0,
-            color,
             ..default()
         },
+        TextColor(color),
     ))
 }
 
@@ -155,7 +171,7 @@ pub fn handle_ui_interactions<T>(
 {
     for (interaction, click_event) in interactions.iter_mut() {
         if *interaction == Interaction::Pressed {
-            widget_click_events.send(WidgetClickEvent((**click_event).clone()));
+            widget_click_events.write(WidgetClickEvent((**click_event).clone()));
         }
     }
 }
@@ -166,12 +182,12 @@ pub fn update_ui_radio_button(background_color: &mut BackgroundColor, selected: 
     background_color.0 = if selected { Color::WHITE } else { Color::BLACK };
 }
 
-/// Updates the style of the label of a radio button to reflect its selected
+/// Updates the color of the label of a radio button to reflect its selected
 /// status.
-pub fn update_ui_radio_button_text(text: &mut Text, selected: bool) {
+pub fn update_ui_radio_button_text(entity: Entity, writer: &mut TextUiWriter, selected: bool) {
     let text_color = if selected { Color::BLACK } else { Color::WHITE };
 
-    for section in &mut text.sections {
-        section.style.color = text_color;
-    }
+    writer.for_each_color(entity, |mut color| {
+        color.0 = text_color;
+    });
 }

@@ -1,17 +1,20 @@
 use core::ops::DerefMut;
 
-use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_ecs::{
+    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
+    prelude::*,
+};
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    camera::{Camera, CameraProjection},
+    camera::{Camera, CameraProjection, Projection},
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
     mesh::Mesh3d,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
-        InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange,
-        VisibleEntityRanges,
+        InheritedVisibility, NoFrustumCulling, PreviousVisibleEntities, RenderLayers,
+        ViewVisibility, VisibilityClass, VisibilityRange, VisibleEntityRanges,
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -51,7 +54,7 @@ pub mod light_consts {
     /// Predefined for lux values in several locations.
     ///
     /// The **lux** (symbol: **lx**) is the unit of [illuminance], or [luminous flux] per unit area,
-    /// in the [International System of Units] (SI). It is equal to one lumen per square metre.
+    /// in the [International System of Units] (SI). It is equal to one lumen per square meter.
     ///
     /// For more information, see [wikipedia](https://en.wikipedia.org/wiki/Lux)
     ///
@@ -75,7 +78,7 @@ pub mod light_consts {
         pub const OFFICE: f32 = 320.;
         /// The amount of light (lux) during sunrise or sunset on a clear day.
         pub const CLEAR_SUNRISE: f32 = 400.;
-        /// The amount of light (lux) on a overcast day; typical TV studio lighting
+        /// The amount of light (lux) on an overcast day; typical TV studio lighting
         pub const OVERCAST_DAY: f32 = 1000.;
         /// The amount of light (lux) from ambient daylight (not direct sunlight).
         pub const AMBIENT_DAYLIGHT: f32 = 10_000.;
@@ -83,6 +86,8 @@ pub mod light_consts {
         pub const FULL_DAYLIGHT: f32 = 20_000.;
         /// The amount of light (lux) in direct sunlight.
         pub const DIRECT_SUNLIGHT: f32 = 100_000.;
+        /// The amount of light (lux) of raw sunlight, not filtered by the atmosphere.
+        pub const RAW_SUNLIGHT: f32 = 130_000.;
     }
 }
 
@@ -241,27 +246,25 @@ impl CascadeShadowConfigBuilder {
 
 impl Default for CascadeShadowConfigBuilder {
     fn default() -> Self {
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            // Currently only support one cascade in webgl.
-            Self {
-                num_cascades: 1,
-                minimum_distance: 0.1,
-                maximum_distance: 100.0,
-                first_cascade_far_bound: 5.0,
-                overlap_proportion: 0.2,
-            }
-        } else {
-            Self {
-                num_cascades: 4,
-                minimum_distance: 0.1,
-                maximum_distance: 1000.0,
-                first_cascade_far_bound: 5.0,
-                overlap_proportion: 0.2,
-            }
+        // The defaults are chosen to be similar to be Unity, Unreal, and Godot.
+        // Unity: first cascade far bound = 10.05, maximum distance = 150.0
+        // Unreal Engine 5: maximum distance = 200.0
+        // Godot: first cascade far bound = 10.0, maximum distance = 100.0
+        Self {
+            // Currently only support one cascade in WebGL 2.
+            num_cascades: if cfg!(all(
+                feature = "webgl",
+                target_arch = "wasm32",
+                not(feature = "webgpu")
+            )) {
+                1
+            } else {
+                4
+            },
+            minimum_distance: 0.1,
+            maximum_distance: 150.0,
+            first_cascade_far_bound: 10.0,
+            overlap_proportion: 0.2,
         }
     }
 }
@@ -302,9 +305,9 @@ pub fn clear_directional_light_cascades(mut lights: Query<(&DirectionalLight, &m
     }
 }
 
-pub fn build_directional_light_cascades<P: CameraProjection + Component>(
+pub fn build_directional_light_cascades(
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    views: Query<(Entity, &GlobalTransform, &P, &Camera)>,
+    views: Query<(Entity, &GlobalTransform, &Projection, &Camera)>,
     mut lights: Query<(
         &GlobalTransform,
         &DirectionalLight,
@@ -500,6 +503,9 @@ pub enum ShadowFilteringMethod {
     Temporal,
 }
 
+/// The [`VisibilityClass`] used for all lights (point, directional, and spot).
+pub struct LightVisibilityClass;
+
 /// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
@@ -511,27 +517,9 @@ pub enum SimulationLightSystems {
     UpdateDirectionalLightCascades,
     UpdateLightFrusta,
     /// System order ambiguities between systems in this set are ignored:
-    /// the order of systems within this set is irrelevant, as the various visibility-checking systesms
+    /// the order of systems within this set is irrelevant, as the various visibility-checking systems
     /// assumes that their operations are irreversible during the frame.
     CheckLightVisibility,
-}
-
-// Sort lights by
-// - those with volumetric (and shadows) enabled first, so that the volumetric
-//   lighting pass can quickly find the volumetric lights;
-// - then those with shadows enabled second, so that the index can be used to
-//   render at most `directional_light_shadow_maps_count` directional light
-//   shadows;
-// - then by entity as a stable key to ensure that a consistent set of lights
-//   are chosen if the light count limit is exceeded.
-pub(crate) fn directional_light_order(
-    (entity_1, volumetric_1, shadows_enabled_1): (&Entity, &bool, &bool),
-    (entity_2, volumetric_2, shadows_enabled_2): (&Entity, &bool, &bool),
-) -> core::cmp::Ordering {
-    volumetric_2
-        .cmp(volumetric_1) // volumetric before shadows
-        .then_with(|| shadows_enabled_2.cmp(shadows_enabled_1)) // shadow casters before non-casters
-        .then_with(|| entity_1.cmp(entity_2)) // stable
 }
 
 pub fn update_directional_light_frusta(
@@ -826,13 +814,23 @@ pub fn check_dir_light_mesh_visibility(
     // TODO: use resource to avoid unnecessary memory alloc
     let mut defer_queue = core::mem::take(defer_visible_entities_queue.deref_mut());
     commands.queue(move |world: &mut World| {
-        let mut query = world.query::<&mut ViewVisibility>();
-        for entities in defer_queue.iter_mut() {
-            let mut iter = query.iter_many_mut(world, entities.iter());
-            while let Some(mut view_visibility) = iter.fetch_next() {
-                view_visibility.set();
-            }
-        }
+        world.resource_scope::<PreviousVisibleEntities, _>(
+            |world, mut previous_visible_entities| {
+                let mut query = world.query::<(Entity, &mut ViewVisibility)>();
+                for entities in defer_queue.iter_mut() {
+                    let mut iter = query.iter_many_mut(world, entities.iter());
+                    while let Some((entity, mut view_visibility)) = iter.fetch_next() {
+                        if !**view_visibility {
+                            view_visibility.set();
+                        }
+
+                        // Remove any entities that were discovered to be
+                        // visible from the `PreviousVisibleEntities` resource.
+                        previous_visible_entities.remove(&entity);
+                    }
+                }
+            },
+        );
     });
 }
 
@@ -870,12 +868,20 @@ pub fn check_point_light_mesh_visibility(
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
+    mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
     mut cubemap_visible_entities_queue: Local<Parallel<[Vec<Entity>; 6]>>,
     mut spot_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
+    mut checked_lights: Local<EntityHashSet>,
 ) {
+    checked_lights.clear();
+
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {
         for light_entity in visible_lights.entities.iter().copied() {
+            if !checked_lights.insert(light_entity) {
+                continue;
+            }
+
             // Point lights
             if let Ok((
                 point_light,
@@ -945,12 +951,16 @@ pub fn check_point_light_mesh_visibility(
                                 if has_no_frustum_culling
                                     || frustum.intersects_obb(aabb, &model_to_world, true, true)
                                 {
-                                    view_visibility.set();
+                                    if !**view_visibility {
+                                        view_visibility.set();
+                                    }
                                     visible_entities.push(entity);
                                 }
                             }
                         } else {
-                            view_visibility.set();
+                            if !**view_visibility {
+                                view_visibility.set();
+                            }
                             for visible_entities in cubemap_visible_entities_local_queue.iter_mut()
                             {
                                 visible_entities.push(entity);
@@ -960,10 +970,17 @@ pub fn check_point_light_mesh_visibility(
                 );
 
                 for entities in cubemap_visible_entities_queue.iter_mut() {
-                    cubemap_visible_entities
-                        .iter_mut()
-                        .zip(entities.iter_mut())
-                        .for_each(|(dst, source)| dst.entities.append(source));
+                    for (dst, source) in
+                        cubemap_visible_entities.iter_mut().zip(entities.iter_mut())
+                    {
+                        // Remove any entities that were discovered to be
+                        // visible from the `PreviousVisibleEntities` resource.
+                        for entity in source.iter() {
+                            previous_visible_entities.remove(entity);
+                        }
+
+                        dst.entities.append(source);
+                    }
                 }
 
                 for visible_entities in cubemap_visible_entities.iter_mut() {
@@ -1030,11 +1047,15 @@ pub fn check_point_light_mesh_visibility(
                             if has_no_frustum_culling
                                 || frustum.intersects_obb(aabb, &model_to_world, true, true)
                             {
-                                view_visibility.set();
+                                if !**view_visibility {
+                                    view_visibility.set();
+                                }
                                 spot_visible_entities_local_queue.push(entity);
                             }
                         } else {
-                            view_visibility.set();
+                            if !**view_visibility {
+                                view_visibility.set();
+                            }
                             spot_visible_entities_local_queue.push(entity);
                         }
                     },
@@ -1042,6 +1063,12 @@ pub fn check_point_light_mesh_visibility(
 
                 for entities in spot_visible_entities_queue.iter_mut() {
                     visible_entities.append(entities);
+
+                    // Remove any entities that were discovered to be visible
+                    // from the `PreviousVisibleEntities` resource.
+                    for entity in entities {
+                        previous_visible_entities.remove(entity);
+                    }
                 }
 
                 shrink_entities(visible_entities.deref_mut());

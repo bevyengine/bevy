@@ -1,11 +1,10 @@
 use crate::{
-    bundle::{Bundle, BundleSpawner},
-    entity::Entity,
+    bundle::{Bundle, BundleSpawner, NoBundleEffect},
+    change_detection::MaybeLocation,
+    entity::{Entity, EntitySetIterator},
     world::World,
 };
 use core::iter::FusedIterator;
-#[cfg(feature = "track_change_detection")]
-use core::panic::Location;
 
 /// An iterator that spawns a series of entities and returns the [ID](Entity) of
 /// each spawned entity.
@@ -18,22 +17,17 @@ where
 {
     inner: I,
     spawner: BundleSpawner<'w>,
-    #[cfg(feature = "track_change_detection")]
-    caller: &'static Location<'static>,
+    caller: MaybeLocation,
 }
 
 impl<'w, I> SpawnBatchIter<'w, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     #[inline]
     #[track_caller]
-    pub(crate) fn new(
-        world: &'w mut World,
-        iter: I,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
-    ) -> Self {
+    pub(crate) fn new(world: &'w mut World, iter: I, caller: MaybeLocation) -> Self {
         // Ensure all entity allocations are accounted for so `self.entities` can realloc if
         // necessary
         world.flush();
@@ -50,7 +44,6 @@ where
         Self {
             inner: iter,
             spawner,
-            #[cfg(feature = "track_change_detection")]
             caller,
         }
     }
@@ -80,13 +73,7 @@ where
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
         // SAFETY: bundle matches spawner type
-        unsafe {
-            Some(self.spawner.spawn(
-                bundle,
-                #[cfg(feature = "track_change_detection")]
-                self.caller,
-            ))
-        }
+        unsafe { Some(self.spawner.spawn(bundle, self.caller).0) }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -105,6 +92,14 @@ where
 }
 
 impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
+where
+    I: FusedIterator<Item = T>,
+    T: Bundle,
+{
+}
+
+// SAFETY: Newly spawned entities are unique.
+unsafe impl<I: Iterator, T> EntitySetIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
     T: Bundle,

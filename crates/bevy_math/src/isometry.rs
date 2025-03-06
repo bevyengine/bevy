@@ -192,6 +192,20 @@ impl From<Isometry2d> for Affine2 {
     }
 }
 
+impl From<Vec2> for Isometry2d {
+    #[inline]
+    fn from(translation: Vec2) -> Self {
+        Isometry2d::from_translation(translation)
+    }
+}
+
+impl From<Rot2> for Isometry2d {
+    #[inline]
+    fn from(rotation: Rot2) -> Self {
+        Isometry2d::from_rotation(rotation)
+    }
+}
+
 impl Mul for Isometry2d {
     type Output = Self;
 
@@ -466,6 +480,27 @@ impl From<Isometry3d> for Affine3A {
     }
 }
 
+impl From<Vec3> for Isometry3d {
+    #[inline]
+    fn from(translation: Vec3) -> Self {
+        Isometry3d::from_translation(translation)
+    }
+}
+
+impl From<Vec3A> for Isometry3d {
+    #[inline]
+    fn from(translation: Vec3A) -> Self {
+        Isometry3d::from_translation(translation)
+    }
+}
+
+impl From<Quat> for Isometry3d {
+    #[inline]
+    fn from(rotation: Quat) -> Self {
+        Isometry3d::from_rotation(rotation)
+    }
+}
+
 impl Mul for Isometry3d {
     type Output = Self;
 
@@ -554,6 +589,7 @@ impl UlpsEq for Isometry3d {
 }
 
 #[cfg(test)]
+#[cfg(feature = "approx")]
 mod tests {
     use super::*;
     use crate::{vec2, vec3, vec3a};

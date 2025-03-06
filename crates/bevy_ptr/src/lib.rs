@@ -9,7 +9,7 @@
 
 use core::{
     cell::UnsafeCell,
-    fmt::{self, Formatter, Pointer},
+    fmt::{self, Debug, Formatter, Pointer},
     marker::PhantomData,
     mem::ManuallyDrop,
     num::NonZeroUsize,
@@ -17,11 +17,11 @@ use core::{
 };
 
 /// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is aligned.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Aligned;
 
 /// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is not aligned.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Unaligned;
 
 /// Trait that is only implemented for [`Aligned`] and [`Unaligned`] to work around the lack of ability
@@ -159,7 +159,7 @@ impl<'a, T: ?Sized> From<&'a mut T> for ConstNonNull<T> {
 ///
 /// It may be helpful to think of this type as similar to `&'a dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>);
 
@@ -174,7 +174,6 @@ pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>
 ///
 /// It may be helpful to think of this type as similar to `&'a mut dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
-#[derive(Debug)]
 #[repr(transparent)]
 pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
@@ -194,7 +193,6 @@ pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut 
 ///
 /// It may be helpful to think of this type as similar to `&'a mut ManuallyDrop<dyn Any>` but
 /// without the metadata and able to point to data that does not correspond to a Rust type.
-#[derive(Debug)]
 #[repr(transparent)]
 pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
@@ -265,6 +263,19 @@ macro_rules! impl_ptr {
                 Pointer::fmt(&self.0, f)
             }
         }
+
+        impl Debug for $ptr<'_, Aligned> {
+            #[inline]
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                write!(f, "{}<Aligned>({:?})", stringify!($ptr), self.0)
+            }
+        }
+        impl Debug for $ptr<'_, Unaligned> {
+            #[inline]
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                write!(f, "{}<Unaligned>({:?})", stringify!($ptr), self.0)
+            }
+        }
     };
 }
 
@@ -289,7 +300,9 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// Transforms this [`Ptr`] into an [`PtrMut`]
     ///
     /// # Safety
-    /// Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
+    /// * The data pointed to by this `Ptr` must be valid for writes.
+    /// * There must be no active references (mutable or otherwise) to the data underlying this `Ptr`.
+    /// * Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
     #[inline]
     pub unsafe fn assert_unique(self) -> PtrMut<'a, A> {
         PtrMut(self.0, PhantomData)
@@ -397,13 +410,24 @@ impl<'a, T: ?Sized> From<&'a mut T> for PtrMut<'a> {
 }
 
 impl<'a> OwningPtr<'a> {
+    /// This exists mostly to reduce compile times;
+    /// code is only duplicated per type, rather than per function called.
+    ///
+    /// # Safety
+    ///
+    /// Safety constraints of [`PtrMut::promote`] must be upheld.
+    unsafe fn make_internal<T>(temp: &mut ManuallyDrop<T>) -> OwningPtr<'_> {
+        // SAFETY: The constraints of `promote` are upheld by caller.
+        unsafe { PtrMut::from(&mut *temp).promote() }
+    }
+
     /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not happen.
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
-        let mut temp = ManuallyDrop::new(val);
+        let mut val = ManuallyDrop::new(val);
         // SAFETY: The value behind the pointer will not get dropped or observed later,
         // so it's safe to promote it to an owning pointer.
-        f(unsafe { PtrMut::from(&mut *temp).promote() })
+        f(unsafe { Self::make_internal(&mut val) })
     }
 }
 
@@ -537,7 +561,7 @@ pub const fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
     debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
     // SAFETY: The pointer will not be null, since it was created
     // from the address of a `NonZero<usize>`.
-    // TODO: use https://doc.rust-lang.org/std/ptr/struct.NonNull.html#method.with_addr once stabilised
+    // TODO: use https://doc.rust-lang.org/std/ptr/struct.NonNull.html#method.with_addr once stabilized
     unsafe { NonNull::new_unchecked(ptr::null_mut::<u8>().wrapping_add(align.get())) }
 }
 

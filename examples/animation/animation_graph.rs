@@ -4,7 +4,6 @@
 //! playing animations by clicking and dragging left or right within the nodes.
 
 use bevy::{
-    animation::animate_targets,
     color::palettes::{
         basic::WHITE,
         css::{ANTIQUE_WHITE, DARK_GREEN},
@@ -83,7 +82,7 @@ fn main() {
             ..default()
         }))
         .add_systems(Startup, (setup_assets, setup_scene, setup_ui))
-        .add_systems(Update, init_animations.before(animate_targets))
+        .add_systems(Update, init_animations)
         .add_systems(
             Update,
             (handle_weight_drag, update_ui, sync_weights).chain(),
@@ -92,6 +91,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: WHITE.into(),
             brightness: 100.0,
+            ..default()
         })
         .run();
 }
@@ -250,16 +250,15 @@ fn setup_scene(
 
 /// Places the help text at the top left of the window.
 fn setup_help_text(commands: &mut Commands) {
-    commands.spawn(TextBundle {
-        text: Text::from_section(HELP_TEXT, TextStyle::default()),
-        style: Style {
+    commands.spawn((
+        Text::new(HELP_TEXT),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 }
 
 /// Initializes the node UI widgets.
@@ -271,42 +270,36 @@ fn setup_node_rects(commands: &mut Commands) {
         };
 
         let text = commands
-            .spawn(TextBundle {
-                text: Text::from_section(
-                    node_string,
-                    TextStyle {
-                        font_size: 16.0,
-                        color: ANTIQUE_WHITE.into(),
-                        ..default()
-                    },
-                )
-                .with_justify(JustifyText::Center),
-                ..default()
-            })
+            .spawn((
+                Text::new(node_string),
+                TextFont {
+                    font_size: 16.0,
+                    ..default()
+                },
+                TextColor(ANTIQUE_WHITE.into()),
+                TextLayout::new_with_justify(JustifyText::Center),
+            ))
             .id();
 
         let container = {
             let mut container = commands.spawn((
-                NodeBundle {
-                    style: Style {
-                        position_type: PositionType::Absolute,
-                        bottom: Val::Px(node_rect.bottom),
-                        left: Val::Px(node_rect.left),
-                        height: Val::Px(node_rect.height),
-                        width: Val::Px(node_rect.width),
-                        align_items: AlignItems::Center,
-                        justify_items: JustifyItems::Center,
-                        align_content: AlignContent::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                    border_color: WHITE.into(),
+                Node {
+                    position_type: PositionType::Absolute,
+                    bottom: Val::Px(node_rect.bottom),
+                    left: Val::Px(node_rect.left),
+                    height: Val::Px(node_rect.height),
+                    width: Val::Px(node_rect.width),
+                    align_items: AlignItems::Center,
+                    justify_items: JustifyItems::Center,
+                    align_content: AlignContent::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
+                BorderColor(WHITE.into()),
                 Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
             ));
 
-            if let NodeType::Clip(ref clip) = node_type {
+            if let NodeType::Clip(clip) = node_type {
                 container.insert((
                     Interaction::None,
                     RelativeCursorPosition::default(),
@@ -320,8 +313,8 @@ fn setup_node_rects(commands: &mut Commands) {
         // Create the background color.
         if let NodeType::Clip(_) = node_type {
             let background = commands
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         position_type: PositionType::Absolute,
                         top: Val::Px(0.),
                         left: Val::Px(0.),
@@ -329,9 +322,8 @@ fn setup_node_rects(commands: &mut Commands) {
                         width: Val::Px(node_rect.width),
                         ..default()
                     },
-                    background_color: DARK_GREEN.into(),
-                    ..default()
-                })
+                    BackgroundColor(DARK_GREEN.into()),
+                ))
                 .id();
 
             commands.entity(container).add_child(background);
@@ -347,8 +339,8 @@ fn setup_node_rects(commands: &mut Commands) {
 /// vertical and horizontal lines, respectively.
 fn setup_node_lines(commands: &mut Commands) {
     for line in &HORIZONTAL_LINES {
-        commands.spawn(NodeBundle {
-            style: Style {
+        commands.spawn((
+            Node {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(line.bottom),
                 left: Val::Px(line.left),
@@ -357,14 +349,13 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::bottom(Val::Px(1.0)),
                 ..default()
             },
-            border_color: WHITE.into(),
-            ..default()
-        });
+            BorderColor(WHITE.into()),
+        ));
     }
 
     for line in &VERTICAL_LINES {
-        commands.spawn(NodeBundle {
-            style: Style {
+        commands.spawn((
+            Node {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(line.bottom),
                 left: Val::Px(line.left),
@@ -373,9 +364,8 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::left(Val::Px(1.0)),
                 ..default()
             },
-            border_color: WHITE.into(),
-            ..default()
-        });
+            BorderColor(WHITE.into()),
+        ));
     }
 }
 
@@ -392,7 +382,7 @@ fn init_animations(
 
     for (entity, mut player) in query.iter_mut() {
         commands.entity(entity).insert((
-            animation_graph.0.clone(),
+            AnimationGraphHandle(animation_graph.0.clone()),
             ExampleAnimationWeights::default(),
         ));
         for &node_index in &CLIP_NODE_INDICES {
@@ -427,7 +417,7 @@ fn handle_weight_drag(
 // Updates the UI based on the weights that the user has chosen.
 fn update_ui(
     mut text_query: Query<&mut Text>,
-    mut background_query: Query<&mut Style, Without<Text>>,
+    mut background_query: Query<&mut Node, Without<Text>>,
     container_query: Query<(&Children, &ClipNode)>,
     animation_weights_query: Query<&ExampleAnimationWeights, Changed<ExampleAnimationWeights>>,
 ) {
@@ -435,16 +425,16 @@ fn update_ui(
         for (children, clip_node) in &container_query {
             // Draw the green background color to visually indicate the weight.
             let mut bg_iter = background_query.iter_many_mut(children);
-            if let Some(mut style) = bg_iter.fetch_next() {
+            if let Some(mut node) = bg_iter.fetch_next() {
                 // All nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
-                style.width =
+                node.width =
                     Val::Px(NODE_RECTS[0].width * animation_weights.weights[clip_node.index]);
             }
 
             // Update the node labels with the current weights.
             let mut text_iter = text_query.iter_many_mut(children);
             if let Some(mut text) = text_iter.fetch_next() {
-                text.sections[0].value = format!(
+                **text = format!(
                     "{}\n{:.2}",
                     clip_node.text, animation_weights.weights[clip_node.index]
                 );
@@ -462,7 +452,7 @@ fn sync_weights(mut query: Query<(&mut AnimationPlayer, &ExampleAnimationWeights
             .zip(animation_weights.weights.iter())
         {
             // If the animation happens to be no longer active, restart it.
-            if !animation_player.animation_is_playing(animation_node_index.into()) {
+            if !animation_player.is_playing_animation(animation_node_index.into()) {
                 animation_player.play(animation_node_index.into());
             }
 

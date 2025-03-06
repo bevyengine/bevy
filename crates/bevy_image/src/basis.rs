@@ -1,7 +1,7 @@
 use basis_universal::{
     BasisTextureType, DecodeFlags, TranscodeParameters, Transcoder, TranscoderTextureFormat,
 };
-use wgpu::{AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat};
+use wgpu_types::{AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat};
 
 use super::{CompressedImageFormats, Image, TextureError};
 
@@ -116,7 +116,7 @@ pub fn basis_buffer_to_image(
             )))
         }
     };
-    image.data = transcoded;
+    image.data = Some(transcoded);
     Ok(image)
 }
 

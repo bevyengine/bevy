@@ -3,7 +3,7 @@
 use bevy::{
     core_pipeline::{
         bloom::{Bloom, BloomCompositeMode},
-        tonemapping::Tonemapping,
+        tonemapping::{DebandDither, Tonemapping},
     },
     prelude::*,
 };
@@ -26,20 +26,19 @@ fn setup(
         Camera2d,
         Camera {
             hdr: true, // 1. HDR is required for bloom
+            clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
         Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
         Bloom::default(),           // 3. Enable bloom for the camera
+        DebandDither::Enabled,      // Optional: bloom causes gradients which cause banding
     ));
 
     // Sprite
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/bevy_bird_dark.png"),
-        sprite: Sprite {
-            color: Color::srgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
-            custom_size: Some(Vec2::splat(160.0)),
-            ..default()
-        },
+    commands.spawn(Sprite {
+        image: asset_server.load("branding/bevy_bird_dark.png"),
+        color: Color::srgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
+        custom_size: Some(Vec2::splat(160.0)),
         ..default()
     });
 
@@ -60,32 +59,31 @@ fn setup(
     ));
 
     // UI
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
+            top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // ------------------------------------------------------------------------------------------------
 
 fn update_bloom_settings(
-    mut camera: Query<(Entity, Option<&mut Bloom>), With<Camera>>,
-    mut text: Query<&mut Text>,
+    camera: Single<(Entity, &Tonemapping, Option<&mut Bloom>), With<Camera>>,
+    mut text: Single<&mut Text>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let bloom = camera.single_mut();
-    let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
+    let (camera_entity, tonemapping, bloom) = camera.into_inner();
 
     match bloom {
-        (entity, Some(mut bloom)) => {
-            *text = "Bloom (Toggle: Space)\n".to_string();
+        Some(mut bloom) => {
+            text.0 = "Bloom (Toggle: Space)\n".to_string();
             text.push_str(&format!("(Q/A) Intensity: {}\n", bloom.intensity));
             text.push_str(&format!(
                 "(W/S) Low-frequency boost: {}\n",
@@ -111,12 +109,13 @@ fn update_bloom_settings(
                 "(U/J) Threshold softness: {}\n",
                 bloom.prefilter.threshold_softness
             ));
+            text.push_str(&format!("(I/K) Horizontal Scale: {}\n", bloom.scale.x));
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).remove::<Bloom>();
+                commands.entity(camera_entity).remove::<Bloom>();
             }
 
-            let dt = time.delta_seconds();
+            let dt = time.delta_secs();
 
             if keycode.pressed(KeyCode::KeyA) {
                 bloom.intensity -= dt / 10.0;
@@ -173,14 +172,43 @@ fn update_bloom_settings(
                 bloom.prefilter.threshold_softness += dt / 10.0;
             }
             bloom.prefilter.threshold_softness = bloom.prefilter.threshold_softness.clamp(0.0, 1.0);
+
+            if keycode.pressed(KeyCode::KeyK) {
+                bloom.scale.x -= dt * 2.0;
+            }
+            if keycode.pressed(KeyCode::KeyI) {
+                bloom.scale.x += dt * 2.0;
+            }
+            bloom.scale.x = bloom.scale.x.clamp(0.0, 16.0);
         }
 
-        (entity, None) => {
-            *text = "Bloom: Off (Toggle: Space)".to_string();
+        None => {
+            text.0 = "Bloom: Off (Toggle: Space)\n".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).insert(Bloom::default());
+                commands.entity(camera_entity).insert(Bloom::default());
             }
         }
+    }
+
+    text.push_str(&format!("(O) Tonemapping: {:?}\n", tonemapping));
+    if keycode.just_pressed(KeyCode::KeyO) {
+        commands
+            .entity(camera_entity)
+            .insert(next_tonemap(tonemapping));
+    }
+}
+
+/// Get the next Tonemapping algorithm
+fn next_tonemap(tonemapping: &Tonemapping) -> Tonemapping {
+    match tonemapping {
+        Tonemapping::None => Tonemapping::AcesFitted,
+        Tonemapping::AcesFitted => Tonemapping::AgX,
+        Tonemapping::AgX => Tonemapping::BlenderFilmic,
+        Tonemapping::BlenderFilmic => Tonemapping::Reinhard,
+        Tonemapping::Reinhard => Tonemapping::ReinhardLuminance,
+        Tonemapping::ReinhardLuminance => Tonemapping::SomewhatBoringDisplayTransform,
+        Tonemapping::SomewhatBoringDisplayTransform => Tonemapping::TonyMcMapface,
+        Tonemapping::TonyMcMapface => Tonemapping::None,
     }
 }

@@ -4,10 +4,9 @@ use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::{entity::EntityHashMap, prelude::*};
-#[cfg(target_os = "linux")]
-use bevy_utils::warn_once;
-use bevy_utils::{default, tracing::debug, HashSet};
+use bevy_ecs::{entity::hash_map::EntityHashMap, prelude::*};
+use bevy_platform_support::collections::HashSet;
+use bevy_utils::default;
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
 };
@@ -15,12 +14,11 @@ use core::{
     num::NonZero,
     ops::{Deref, DerefMut},
 };
-use cursor::CursorPlugin;
+use tracing::{debug, warn};
 use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };
 
-pub mod cursor;
 pub mod screenshot;
 
 use screenshot::{ScreenshotPlugin, ScreenshotToScreenPipeline};
@@ -29,7 +27,7 @@ pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((ScreenshotPlugin, CursorPlugin));
+        app.add_plugins(ScreenshotPlugin);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -195,9 +193,6 @@ impl WindowSurfaces {
     }
 }
 
-#[cfg(target_os = "linux")]
-const NVIDIA_VENDOR_ID: u32 = 0x10DE;
-
 /// (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
@@ -219,7 +214,6 @@ const NVIDIA_VENDOR_ID: u32 = 0x10DE;
 ///   another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
 ///   [`Backends::GL`](crate::settings::Backends::GL) if your GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or
 ///   later.
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_windows(
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
@@ -252,60 +246,35 @@ pub fn prepare_windows(
                 })
         };
 
-        #[cfg(target_os = "linux")]
-        let is_nvidia = || {
-            render_instance
-                .enumerate_adapters(wgpu::Backends::VULKAN)
-                .iter()
-                .any(|adapter| adapter.get_info().vendor & 0xFFFF == NVIDIA_VENDOR_ID)
-        };
-
-        let not_already_configured = window_surfaces.configured_windows.insert(window.entity);
-
         let surface = &surface_data.surface;
-        if not_already_configured || window.size_changed || window.present_mode_changed {
-            match surface.get_current_texture() {
-                Ok(frame) => window.set_swapchain_texture(frame),
-                #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
-                    warn_once!(
-                        "Couldn't get swap chain texture. This often happens with \
-                        the NVIDIA drivers on Linux. It can be safely ignored."
-                    );
-                }
-                Err(err) => panic!("Error configuring surface: {err}"),
-            };
-        } else {
-            match surface.get_current_texture() {
-                Ok(frame) => {
-                    window.set_swapchain_texture(frame);
-                }
-                #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
-                    warn_once!(
-                        "Couldn't get swap chain texture. This often happens with \
-                        the NVIDIA drivers on Linux. It can be safely ignored."
-                    );
-                }
-                Err(wgpu::SurfaceError::Outdated) => {
-                    render_device.configure_surface(surface, &surface_data.configuration);
-                    let frame = surface
-                        .get_current_texture()
-                        .expect("Error reconfiguring surface");
-                    window.set_swapchain_texture(frame);
-                }
-                #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
-                    bevy_utils::tracing::trace!(
-                        "Couldn't get swap chain texture. This is probably a quirk \
-                        of your Linux GPU driver, so it can be safely ignored."
-                    );
-                }
-                Err(err) => {
-                    panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
-                }
+        match surface.get_current_texture() {
+            Ok(frame) => {
+                window.set_swapchain_texture(frame);
             }
-        };
+            Err(wgpu::SurfaceError::Outdated) => {
+                render_device.configure_surface(surface, &surface_data.configuration);
+                let frame = match surface.get_current_texture() {
+                    Ok(frame) => frame,
+                    Err(err) => {
+                        // This is a common occurrence on X11 and Xwayland with NVIDIA drivers
+                        // when opening and resizing the window.
+                        warn!("Couldn't get swap chain texture after configuring. Cause: '{err}'");
+                        continue;
+                    }
+                };
+                window.set_swapchain_texture(frame);
+            }
+            #[cfg(target_os = "linux")]
+            Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
+                tracing::trace!(
+                    "Couldn't get swap chain texture. This is probably a quirk \
+                        of your Linux GPU driver, so it can be safely ignored."
+                );
+            }
+            Err(err) => {
+                panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
+            }
+        }
         window.swap_chain_texture_format = Some(surface_data.configuration.format);
     }
 }
@@ -336,7 +305,7 @@ pub fn create_surfaces(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS's
     #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: Option<
-        NonSend<bevy_core::NonSendMarker>,
+        NonSend<bevy_app::NonSendMarker>,
     >,
     windows: Res<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
@@ -350,8 +319,8 @@ pub fn create_surfaces(
             .entry(window.entity)
             .or_insert_with(|| {
                 let surface_target = SurfaceTargetUnsafe::RawHandle {
-                    raw_display_handle: window.handle.display_handle,
-                    raw_window_handle: window.handle.window_handle,
+                    raw_display_handle: window.handle.get_display_handle(),
+                    raw_window_handle: window.handle.get_window_handle(),
                 };
                 // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
                 let surface = unsafe {
@@ -433,5 +402,7 @@ pub fn create_surfaces(
             };
             render_device.configure_surface(&data.surface, &data.configuration);
         }
+
+        window_surfaces.configured_windows.insert(window.entity);
     }
 }

@@ -3,7 +3,7 @@ use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
 use image::ImageDecoder;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads EXR textures as Texture assets
 #[derive(Clone, Default)]

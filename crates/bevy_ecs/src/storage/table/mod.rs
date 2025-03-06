@@ -5,16 +5,16 @@ use crate::{
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
 };
+use alloc::{boxed::Box, vec, vec::Vec};
+use bevy_platform_support::collections::HashMap;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use bevy_utils::HashMap;
 pub use column::*;
-#[cfg(feature = "track_change_detection")]
-use core::panic::Location;
 use core::{
     alloc::Layout,
     cell::UnsafeCell,
     num::NonZeroUsize,
     ops::{Index, IndexMut},
+    panic::Location,
 };
 mod column;
 
@@ -32,8 +32,6 @@ mod column;
 /// [`Archetype`]: crate::archetype::Archetype
 /// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
-#[repr(transparent)]
 pub struct TableId(u32);
 
 impl TableId {
@@ -86,11 +84,11 @@ impl TableId {
     }
 }
 
-/// A opaque newtype for rows in [`Table`]s. Specifies a single row in a specific table.
+/// An opaque newtype for rows in [`Table`]s. Specifies a single row in a specific table.
 ///
 /// Values of this type are retrievable from [`Archetype::entity_table_row`] and can be
 /// used alongside [`Archetype::table_id`] to fetch the exact table and row where an
-/// [`Entity`]'s
+/// [`Entity`]'s components are stored.
 ///
 /// Values of this type are only valid so long as entities have not moved around.
 /// Adding and removing components from an entity, or despawning it will invalidate
@@ -102,8 +100,6 @@ impl TableId {
 /// [`Archetype::entity_table_row`]: crate::archetype::Archetype::entity_table_row
 /// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
-#[repr(transparent)]
 pub struct TableRow(u32);
 
 impl TableRow {
@@ -119,7 +115,7 @@ impl TableRow {
     ///
     /// # Panics
     ///
-    /// Will panic if the provided value does not fit within a [`u32`].
+    /// Will panic in debug mode if the provided value does not fit within a [`u32`].
     #[inline]
     pub const fn from_usize(index: usize) -> Self {
         debug_assert!(index as u32 as usize == index);
@@ -186,7 +182,7 @@ impl TableBuilder {
 /// A column-oriented [structure-of-arrays] based storage for [`Component`]s of entities
 /// in a [`World`].
 ///
-/// Conceptually, a `Table` can be thought of as an `HashMap<ComponentId, Column>`, where
+/// Conceptually, a `Table` can be thought of as a `HashMap<ComponentId, Column>`, where
 /// each [`ThinColumn`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
 /// (i.e. index 3 in Column A and index 3 in Column B point to different components on the same
 /// entity). Fetching components from a table involves fetching the associated column for a
@@ -393,14 +389,15 @@ impl Table {
     }
 
     /// Fetches the calling locations that last changed the each component
-    #[cfg(feature = "track_change_detection")]
     pub fn get_changed_by_slice_for(
         &self,
         component_id: ComponentId,
-    ) -> Option<&[UnsafeCell<&'static Location<'static>>]> {
-        self.get_column(component_id)
-            // SAFETY: `self.len()` is guaranteed to be the len of the locations array
-            .map(|col| unsafe { col.get_changed_by_slice(self.entity_count()) })
+    ) -> MaybeLocation<Option<&[UnsafeCell<&'static Location<'static>>]>> {
+        MaybeLocation::new_with_flattened(|| {
+            self.get_column(component_id)
+                // SAFETY: `self.len()` is guaranteed to be the len of the locations array
+                .map(|col| unsafe { col.get_changed_by_slice(self.entity_count()) })
+        })
     }
 
     /// Get the specific [`change tick`](Tick) of the component matching `component_id` in `row`.
@@ -436,20 +433,22 @@ impl Table {
     }
 
     /// Get the specific calling location that changed the component matching `component_id` in `row`
-    #[cfg(feature = "track_change_detection")]
     pub fn get_changed_by(
         &self,
         component_id: ComponentId,
         row: TableRow,
-    ) -> Option<&UnsafeCell<&'static Location<'static>>> {
-        (row.as_usize() < self.entity_count()).then_some(
-            // SAFETY: `row.as_usize()` < `len`
-            unsafe {
-                self.get_column(component_id)?
-                    .changed_by
-                    .get_unchecked(row.as_usize())
-            },
-        )
+    ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
+        MaybeLocation::new_with_flattened(|| {
+            (row.as_usize() < self.entity_count()).then_some(
+                // SAFETY: `row.as_usize()` < `len`
+                unsafe {
+                    self.get_column(component_id)?
+                        .changed_by
+                        .as_ref()
+                        .map(|changed_by| changed_by.get_unchecked(row.as_usize()))
+                },
+            )
+        })
     }
 
     /// Get the [`ComponentTicks`] of the component matching `component_id` in `row`.
@@ -574,9 +573,12 @@ impl Table {
                 .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
             col.changed_ticks
                 .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            #[cfg(feature = "track_change_detection")]
             col.changed_by
-                .initialize_unchecked(len, UnsafeCell::new(Location::caller()));
+                .as_mut()
+                .zip(MaybeLocation::caller())
+                .map(|(changed_by, caller)| {
+                    changed_by.initialize_unchecked(len, UnsafeCell::new(caller));
+                });
         }
         TableRow::from_usize(len)
     }
@@ -746,6 +748,10 @@ impl Tables {
         component_ids: &[ComponentId],
         components: &Components,
     ) -> TableId {
+        if component_ids.is_empty() {
+            return TableId::empty();
+        }
+
         let tables = &mut self.tables;
         let (_key, value) = self
             .table_ids
@@ -814,24 +820,34 @@ impl Drop for Table {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
+        change_detection::MaybeLocation,
         component::{Component, Components, Tick},
         entity::Entity,
         ptr::OwningPtr,
-        storage::{Storages, TableBuilder, TableRow},
+        storage::{TableBuilder, TableId, TableRow, Tables},
     };
-    #[cfg(feature = "track_change_detection")]
-    use core::panic::Location;
+    use alloc::vec::Vec;
 
     #[derive(Component)]
     struct W<T>(T);
 
     #[test]
+    fn only_one_empty_table() {
+        let components = Components::default();
+        let mut tables = Tables::default();
+
+        let component_ids = &[];
+        // SAFETY: component_ids is empty, so we know it cannot reference invalid component IDs
+        let table_id = unsafe { tables.get_id_or_insert(component_ids, &components) };
+
+        assert_eq!(table_id, TableId::empty());
+    }
+
+    #[test]
     fn table() {
         let mut components = Components::default();
-        let mut storages = Storages::default();
-        let component_id = components.register_component::<W<TableRow>>(&mut storages);
+        let component_id = components.register_component::<W<TableRow>>();
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())
             .add_column(components.get_info(component_id).unwrap())
@@ -847,8 +863,7 @@ mod tests {
                         row,
                         value_ptr,
                         Tick::new(0),
-                        #[cfg(feature = "track_change_detection")]
-                        Location::caller(),
+                        MaybeLocation::caller(),
                     );
                 });
             };

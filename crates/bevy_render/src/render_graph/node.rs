@@ -13,16 +13,19 @@ use bevy_ecs::{
     query::{QueryItem, QueryState, ReadOnlyQueryData},
     world::{FromWorld, World},
 };
-use bevy_utils::all_tuples_with_size;
 use core::fmt::Debug;
 use downcast_rs::{impl_downcast, Downcast};
 use thiserror::Error;
+use variadics_please::all_tuples_with_size;
 
 pub use bevy_render_macros::RenderLabel;
 
 use super::{InternedRenderSubGraph, RenderSubGraph};
 
 define_label!(
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(RenderLabel)]`"
+    )]
     /// A strongly-typed class of labels used to identify a [`Node`] in a render graph.
     RenderLabel,
     RENDER_LABEL_INTERNER
@@ -36,7 +39,8 @@ pub trait IntoRenderNodeArray<const N: usize> {
 }
 
 macro_rules! impl_render_label_tuples {
-    ($N: expr, $(($T: ident, $I: ident)),*) => {
+    ($N: expr, $(#[$meta:meta])* $(($T: ident, $I: ident)),*) => {
+        $(#[$meta])*
         impl<$($T: RenderLabel),*> IntoRenderNodeArray<$N> for ($($T,)*) {
             #[inline]
             fn into_array(self) -> [InternedRenderLabel; $N] {
@@ -47,7 +51,14 @@ macro_rules! impl_render_label_tuples {
     }
 }
 
-all_tuples_with_size!(impl_render_label_tuples, 1, 32, T, l);
+all_tuples_with_size!(
+    #[doc(fake_variadic)]
+    impl_render_label_tuples,
+    1,
+    32,
+    T,
+    l
+);
 
 /// A render node that can be added to a [`RenderGraph`](super::RenderGraph).
 ///
@@ -230,7 +241,7 @@ pub struct NodeState {
 
 impl Debug for NodeState {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{:?} ({:?})", self.label, self.type_name)
+        writeln!(f, "{:?} ({})", self.label, self.type_name)
     }
 }
 

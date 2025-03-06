@@ -4,13 +4,12 @@
 mod camera_controller;
 
 use bevy::{
-    asset::LoadState,
     core_pipeline::Skybox,
+    image::CompressedImageFormats,
     prelude::*,
     render::{
         render_resource::{TextureViewDescriptor, TextureViewDimension},
         renderer::RenderDevice,
-        texture::CompressedImageFormats,
     },
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
@@ -87,6 +86,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(AmbientLight {
         color: Color::srgb_u8(210, 220, 240),
         brightness: 1.0,
+        ..default()
     });
 
     commands.insert_resource(Cubemap {
@@ -105,7 +105,7 @@ fn cycle_cubemap_asset(
     asset_server: Res<AssetServer>,
     render_device: Res<RenderDevice>,
 ) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     if *next_swap == 0.0 {
         *next_swap = now + CUBEMAP_SWAP_DELAY;
         return;
@@ -146,7 +146,7 @@ fn asset_loaded(
     mut cubemap: ResMut<Cubemap>,
     mut skyboxes: Query<&mut Skybox>,
 ) {
-    if !cubemap.is_loaded && asset_server.load_state(&cubemap.image_handle) == LoadState::Loaded {
+    if !cubemap.is_loaded && asset_server.load_state(&cubemap.image_handle).is_loaded() {
         info!("Swapping to {}...", CUBEMAPS[cubemap.index].0);
         let image = images.get_mut(&cubemap.image_handle).unwrap();
         // NOTE: PNGs do not have any metadata that could indicate they contain a cubemap texture,
@@ -172,6 +172,6 @@ fn animate_light_direction(
     mut query: Query<&mut Transform, With<DirectionalLight>>,
 ) {
     for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() * 0.5);
+        transform.rotate_y(time.delta_secs() * 0.5);
     }
 }

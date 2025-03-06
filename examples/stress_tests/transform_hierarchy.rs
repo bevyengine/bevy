@@ -193,7 +193,7 @@ fn main() {
                 exit_condition: ExitCondition::DontExit,
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, setup)
@@ -212,7 +212,6 @@ struct Cfg {
     update_filter: UpdateFilter,
 }
 
-#[allow(unused)]
 #[derive(Debug, Clone)]
 enum TestCase {
     /// a uniform tree, exponentially growing with depth
@@ -258,7 +257,7 @@ struct UpdateValue(f32);
 /// update positions system
 fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut UpdateValue)>) {
     for (mut t, mut u) in &mut query {
-        u.0 += time.delta_seconds() * 0.1;
+        u.0 += time.delta_secs() * 0.1;
         set_translation(&mut t.translation, u.0);
     }
 }
@@ -299,8 +298,8 @@ fn setup(mut commands: Commands, cfg: Res<Cfg>) {
                     &mut commands,
                     &cfg.update_filter,
                     Transform::from_xyz(
-                        rng.gen::<f32>() * 500.0 - 250.0,
-                        rng.gen::<f32>() * 500.0 - 250.0,
+                        rng.r#gen::<f32>() * 500.0 - 250.0,
+                        rng.r#gen::<f32>() * 500.0 - 250.0,
                         0.0,
                     ),
                 ));
@@ -316,8 +315,8 @@ fn setup(mut commands: Commands, cfg: Res<Cfg>) {
                         ..cfg.update_filter
                     },
                     Transform::from_xyz(
-                        rng.gen::<f32>() * 500.0 - 250.0,
-                        rng.gen::<f32>() * 500.0 - 250.0,
+                        rng.r#gen::<f32>() * 500.0 - 250.0,
+                        rng.r#gen::<f32>() * 500.0 - 250.0,
                         0.0,
                     ),
                 ));
@@ -406,7 +405,7 @@ fn spawn_tree(
             let mut cmd = commands.spawn_empty();
 
             // check whether or not to update this node
-            let update = (rng.gen::<f32>() <= update_filter.probability)
+            let update = (rng.r#gen::<f32>() <= update_filter.probability)
                 && (depth >= update_filter.min_depth && depth <= update_filter.max_depth);
 
             if update {
@@ -428,9 +427,7 @@ fn spawn_tree(
             cmd.id()
         };
 
-        commands
-            .get_or_spawn(ents[parent_idx])
-            .add_child(child_entity);
+        commands.entity(ents[parent_idx]).add_child(child_entity);
 
         ents.push(child_entity);
     }
@@ -450,7 +447,7 @@ fn gen_tree(depth: u32, branch_width: u32) -> Vec<usize> {
     // the tree is built using this pattern:
     // 0, 0, 0, ... 1, 1, 1, ... 2, 2, 2, ... (count - 1)
     (0..count)
-        .flat_map(|i| std::iter::repeat(i).take(branch_width.try_into().unwrap()))
+        .flat_map(|i| std::iter::repeat_n(i, branch_width.try_into().unwrap()))
         .collect()
 }
 

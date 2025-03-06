@@ -1,25 +1,31 @@
 [package]
 name = "bevy_remote"
-version = "0.15.0-dev"
-edition = "2021"
+version = "0.16.0-dev"
+edition = "2024"
 description = "The Bevy Remote Protocol"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
-readme = "README.md"
+
+[features]
+default = ["http"]
+http = ["dep:async-io", "dep:smol-hyper"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev", features = [
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", features = [
   "serialize",
 ] }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "std",
+  "serialize",
+] }
 
 # other
 anyhow = "1"
@@ -31,8 +37,8 @@ async-channel = "2"
 
 # dependencies that will not compile on wasm
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-async-io = "2"
-smol-hyper = "0.1"
+async-io = { version = "2", optional = true }
+smol-hyper = { version = "0.1", optional = true }
 
 [lints]
 workspace = true

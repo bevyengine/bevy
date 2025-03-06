@@ -41,7 +41,7 @@ pub struct Foo {
     _ignored: NonReflectedValue,
 }
 
-/// This `Bar` type is used in the `nested` field on the `Test` type. We must derive `Reflect` here
+/// This `Bar` type is used in the `nested` field of the `Foo` type. We must derive `Reflect` here
 /// too (or ignore it)
 #[derive(Reflect)]
 pub struct Bar {

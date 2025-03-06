@@ -78,18 +78,19 @@ fn setup(
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
     ));
 
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn update(
-    camera: Query<
+    camera: Single<
         (
             Entity,
             Option<&ScreenSpaceAmbientOcclusion>,
@@ -97,16 +98,15 @@ fn update(
         ),
         With<Camera>,
     >,
-    mut text: Query<&mut Text>,
-    mut sphere: Query<&mut Transform, With<SphereMarker>>,
+    mut text: Single<&mut Text>,
+    mut sphere: Single<&mut Transform, With<SphereMarker>>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let mut sphere = sphere.single_mut();
-    sphere.translation.y = ops::sin(time.elapsed_seconds() / 1.7) * 0.7;
+    sphere.translation.y = ops::sin(time.elapsed_secs() / 1.7) * 0.7;
 
-    let (camera_entity, ssao, temporal_jitter) = camera.single();
+    let (camera_entity, ssao, temporal_jitter) = *camera;
     let current_ssao = ssao.cloned().unwrap_or_default();
 
     let mut commands = commands.entity(camera_entity);
@@ -165,8 +165,6 @@ fn update(
         }
     }
 
-    let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
     text.clear();
 
     let (o, l, m, h, u) = match ssao.map(|s| s.quality_level) {

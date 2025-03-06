@@ -33,7 +33,7 @@ use super::{FilteredAccess, QueryData, QueryFilter};
 ///     .build();
 ///
 /// // Consume the QueryState
-/// let (entity, b) = query.single(&world);
+/// let (entity, b) = query.single(&world).unwrap();
 /// ```
 pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
     access: FilteredAccess<ComponentId>,
@@ -78,18 +78,17 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
             self.world()
                 .components()
                 .get_info(component_id)
-                .map_or(false, |info| info.storage_type() == StorageType::Table)
+                .is_some_and(|info| info.storage_type() == StorageType::Table)
         };
 
-        #[allow(deprecated)]
-        let (mut component_reads_and_writes, component_reads_and_writes_inverted) =
-            self.access.access().component_reads_and_writes();
-        if component_reads_and_writes_inverted {
+        let Ok(component_accesses) = self.access.access().try_iter_component_access() else {
+            // Access is unbounded, pessimistically assume it's sparse.
             return false;
-        }
+        };
 
-        component_reads_and_writes.all(is_dense)
-            && self.access.access().archetypal().all(is_dense)
+        component_accesses
+            .map(|access| *access.index())
+            .all(is_dense)
             && !self.access.access().has_read_all_components()
             && self.access.with_filters().all(is_dense)
             && self.access.without_filters().all(is_dense)
@@ -276,8 +275,8 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{prelude::*, world::FilteredEntityRef};
+    use std::dbg;
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);
@@ -298,13 +297,13 @@ mod tests {
             .with::<A>()
             .without::<C>()
             .build();
-        assert_eq!(entity_a, query_a.single(&world));
+        assert_eq!(entity_a, query_a.single(&world).unwrap());
 
         let mut query_b = QueryBuilder::<Entity>::new(&mut world)
             .with::<A>()
             .without::<B>()
             .build();
-        assert_eq!(entity_b, query_b.single(&world));
+        assert_eq!(entity_b, query_b.single(&world).unwrap());
     }
 
     #[test]
@@ -320,13 +319,13 @@ mod tests {
             .with_id(component_id_a)
             .without_id(component_id_c)
             .build();
-        assert_eq!(entity_a, query_a.single(&world));
+        assert_eq!(entity_a, query_a.single(&world).unwrap());
 
         let mut query_b = QueryBuilder::<Entity>::new(&mut world)
             .with_id(component_id_a)
             .without_id(component_id_b)
             .build();
-        assert_eq!(entity_b, query_b.single(&world));
+        assert_eq!(entity_b, query_b.single(&world).unwrap());
     }
 
     #[test]
@@ -386,7 +385,7 @@ mod tests {
             .data::<&B>()
             .build();
 
-        let entity_ref = query.single(&world);
+        let entity_ref = query.single(&world).unwrap();
 
         assert_eq!(entity, entity_ref.id());
 
@@ -409,7 +408,7 @@ mod tests {
             .ref_id(component_id_b)
             .build();
 
-        let entity_ref = query.single(&world);
+        let entity_ref = query.single(&world).unwrap();
 
         assert_eq!(entity, entity_ref.id());
 

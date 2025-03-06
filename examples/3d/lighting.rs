@@ -114,44 +114,40 @@ fn setup(
     commands.insert_resource(AmbientLight {
         color: ORANGE_RED.into(),
         brightness: 0.02,
+        ..default()
     });
 
     // red point light
-    commands
-        .spawn((
-            PointLight {
-                intensity: 100_000.0,
-                color: RED.into(),
-                shadows_enabled: true,
+    commands.spawn((
+        PointLight {
+            intensity: 100_000.0,
+            color: RED.into(),
+            shadows_enabled: true,
+            ..default()
+        },
+        Transform::from_xyz(1.0, 2.0, 0.0),
+        children![(
+            Mesh3d(meshes.add(Sphere::new(0.1).mesh().uv(32, 18))),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: RED.into(),
+                emissive: LinearRgba::new(4.0, 0.0, 0.0, 0.0),
                 ..default()
-            },
-            Transform::from_xyz(1.0, 2.0, 0.0),
-        ))
-        .with_children(|builder| {
-            builder.spawn((
-                Mesh3d(meshes.add(Sphere::new(0.1).mesh().uv(32, 18))),
-                MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: RED.into(),
-                    emissive: LinearRgba::new(4.0, 0.0, 0.0, 0.0),
-                    ..default()
-                })),
-            ));
-        });
+            })),
+        )],
+    ));
 
     // green spot light
-    commands
-        .spawn((
-            SpotLight {
-                intensity: 100_000.0,
-                color: LIME.into(),
-                shadows_enabled: true,
-                inner_angle: 0.6,
-                outer_angle: 0.8,
-                ..default()
-            },
-            Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
-        ))
-        .with_child((
+    commands.spawn((
+        SpotLight {
+            intensity: 100_000.0,
+            color: LIME.into(),
+            shadows_enabled: true,
+            inner_angle: 0.6,
+            outer_angle: 0.8,
+            ..default()
+        },
+        Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
+        children![(
             Mesh3d(meshes.add(Capsule3d::new(0.1, 0.125))),
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color: LIME.into(),
@@ -159,29 +155,27 @@ fn setup(
                 ..default()
             })),
             Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
-        ));
+        )],
+    ));
 
     // blue point light
-    commands
-        .spawn((
-            PointLight {
-                intensity: 100_000.0,
-                color: BLUE.into(),
-                shadows_enabled: true,
+    commands.spawn((
+        PointLight {
+            intensity: 100_000.0,
+            color: BLUE.into(),
+            shadows_enabled: true,
+            ..default()
+        },
+        Transform::from_xyz(0.0, 4.0, 0.0),
+        children![(
+            Mesh3d(meshes.add(Sphere::new(0.1).mesh().uv(32, 18))),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: BLUE.into(),
+                emissive: LinearRgba::new(0.0, 0.0, 713.0, 0.0),
                 ..default()
-            },
-            Transform::from_xyz(0.0, 4.0, 0.0),
-        ))
-        .with_children(|builder| {
-            builder.spawn((
-                Mesh3d(meshes.add(Sphere::new(0.1).mesh().uv(32, 18))),
-                MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: BLUE.into(),
-                    emissive: LinearRgba::new(0.0, 0.0, 713.0, 0.0),
-                    ..default()
-                })),
-            ));
-        });
+            })),
+        )],
+    ));
 
     // directional 'sun' light
     commands.spawn((
@@ -207,41 +201,35 @@ fn setup(
     ));
 
     // example instructions
-    let style = TextStyle::default();
 
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new(
-                format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops),
-                style.clone(),
-            ),
-            TextSection::new(
-                format!(
-                    "Shutter speed: 1/{:.0}s\n",
-                    1.0 / parameters.shutter_speed_s
-                ),
-                style.clone(),
-            ),
-            TextSection::new(
-                format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso),
-                style.clone(),
-            ),
-            TextSection::new("\n\n", style.clone()),
-            TextSection::new("Controls\n", style.clone()),
-            TextSection::new("---------------\n", style.clone()),
-            TextSection::new("Arrow keys - Move objects\n", style.clone()),
-            TextSection::new("1/2 - Decrease/Increase aperture\n", style.clone()),
-            TextSection::new("3/4 - Decrease/Increase shutter speed\n", style.clone()),
-            TextSection::new("5/6 - Decrease/Increase sensitivity\n", style.clone()),
-            TextSection::new("R - Reset exposure", style),
-        ])
-        .with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+        children![
+            TextSpan(format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops,)),
+            TextSpan(format!(
+                "Shutter speed: 1/{:.0}s\n",
+                1.0 / parameters.shutter_speed_s
+            )),
+            TextSpan(format!(
+                "Sensitivity: ISO {:.0}\n",
+                parameters.sensitivity_iso
+            )),
+            TextSpan::new("\n\n"),
+            TextSpan::new("Controls\n"),
+            TextSpan::new("---------------\n"),
+            TextSpan::new("Arrow keys - Move objects\n"),
+            TextSpan::new("1/2 - Decrease/Increase aperture\n"),
+            TextSpan::new("3/4 - Decrease/Increase shutter speed\n"),
+            TextSpan::new("5/6 - Decrease/Increase sensitivity\n"),
+            TextSpan::new("R - Reset exposure"),
+        ],
+    ));
 
     // camera
     commands.spawn((
@@ -254,11 +242,12 @@ fn setup(
 fn update_exposure(
     key_input: Res<ButtonInput<KeyCode>>,
     mut parameters: ResMut<Parameters>,
-    mut exposure: Query<&mut Exposure>,
-    mut text: Query<&mut Text>,
+    mut exposure: Single<&mut Exposure>,
+    text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
 ) {
     // TODO: Clamp values to a reasonable range
-    let mut text = text.single_mut();
+    let entity = *text;
     if key_input.just_pressed(KeyCode::Digit2) {
         parameters.aperture_f_stops *= 2.0;
     } else if key_input.just_pressed(KeyCode::Digit1) {
@@ -278,14 +267,14 @@ fn update_exposure(
         *parameters = Parameters::default();
     }
 
-    text.sections[0].value = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
-    text.sections[1].value = format!(
+    *writer.text(entity, 1) = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
+    *writer.text(entity, 2) = format!(
         "Shutter speed: 1/{:.0}s\n",
         1.0 / parameters.shutter_speed_s
     );
-    text.sections[2].value = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
+    *writer.text(entity, 3) = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
 
-    *exposure.single_mut() = Exposure::from_physical_camera(**parameters);
+    **exposure = Exposure::from_physical_camera(**parameters);
 }
 
 fn animate_light_direction(
@@ -293,7 +282,7 @@ fn animate_light_direction(
     mut query: Query<&mut Transform, With<DirectionalLight>>,
 ) {
     for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() * 0.5);
+        transform.rotate_y(time.delta_secs() * 0.5);
     }
 }
 
@@ -317,6 +306,6 @@ fn movement(
             direction.x += 1.0;
         }
 
-        transform.translation += time.delta_seconds() * 2.0 * direction;
+        transform.translation += time.delta_secs() * 2.0 * direction;
     }
 }

@@ -3,7 +3,7 @@
 use bevy::{
     asset::{
         io::{Reader, VecReader},
-        AssetLoader, ErasedLoadedAsset, LoadContext, LoadDirectError,
+        AssetLoader, CompleteErasedLoadedAsset, LoadContext, LoadDirectError,
     },
     prelude::*,
     reflect::TypePath,
@@ -14,7 +14,7 @@ use thiserror::Error;
 
 #[derive(Asset, TypePath)]
 struct GzAsset {
-    uncompressed: ErasedLoadedAsset,
+    uncompressed: CompleteErasedLoadedAsset,
 }
 
 #[derive(Default)]
@@ -99,25 +99,20 @@ fn main() {
         .init_asset::<GzAsset>()
         .init_asset_loader::<GzAssetLoader>()
         .add_systems(Startup, setup)
-        .add_systems(Update, decompress::<Image>)
+        .add_systems(Update, decompress::<Sprite, Image>)
         .run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
-    commands.spawn((
-        Compressed::<Image> {
-            compressed: asset_server.load("data/compressed_image.png.gz"),
-            ..default()
-        },
-        Sprite::default(),
-        Transform::default(),
-        Visibility::default(),
-    ));
+    commands.spawn(Compressed::<Image> {
+        compressed: asset_server.load("data/compressed_image.png.gz"),
+        ..default()
+    });
 }
 
-fn decompress<A: Asset>(
+fn decompress<T: Component + From<Handle<A>>, A: Asset>(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut compressed_assets: ResMut<Assets<GzAsset>>,
@@ -133,6 +128,6 @@ fn decompress<A: Asset>(
         commands
             .entity(entity)
             .remove::<Compressed<A>>()
-            .insert(asset_server.add(uncompressed));
+            .insert(T::from(asset_server.add(uncompressed)));
     }
 }

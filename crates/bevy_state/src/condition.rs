@@ -9,11 +9,14 @@ use bevy_ecs::{change_detection::DetectChanges, system::Res};
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_state::prelude::*;
+/// # use bevy_app::{App, Update};
+/// # use bevy_state::app::StatesPlugin;
 /// # #[derive(Resource, Default)]
 /// # struct Counter(u8);
-/// # let mut app = Schedule::default();
-/// # let mut world = World::new();
-/// # world.init_resource::<Counter>();
+/// # let mut app = App::new();
+/// # app
+/// #   .init_resource::<Counter>()
+/// #   .add_plugins(StatesPlugin);
 /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
 /// enum GameState {
 ///     #[default]
@@ -21,7 +24,7 @@ use bevy_ecs::{change_detection::DetectChanges, system::Res};
 ///     Paused,
 /// }
 ///
-/// app.add_systems(
+/// app.add_systems(Update,
 ///     // `state_exists` will only return true if the
 ///     // given state exists
 ///     my_system.run_if(state_exists::<GameState>),
@@ -31,15 +34,15 @@ use bevy_ecs::{change_detection::DetectChanges, system::Res};
 ///     counter.0 += 1;
 /// }
 ///
-/// // `GameState` does not yet exist `my_system` won't run
-/// app.run(&mut world);
-/// assert_eq!(world.resource::<Counter>().0, 0);
+/// // `GameState` does not yet exist so `my_system` won't run
+/// app.update();
+/// assert_eq!(app.world().resource::<Counter>().0, 0);
 ///
-/// world.init_resource::<State<GameState>>();
+/// app.init_state::<GameState>();
 ///
 /// // `GameState` now exists so `my_system` will run
-/// app.run(&mut world);
-/// assert_eq!(world.resource::<Counter>().0, 1);
+/// app.update();
+/// assert_eq!(app.world().resource::<Counter>().0, 1);
 /// ```
 pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
     current_state.is_some()
@@ -55,11 +58,14 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_state::prelude::*;
+/// # use bevy_app::{App, Update};
+/// # use bevy_state::app::StatesPlugin;
 /// # #[derive(Resource, Default)]
 /// # struct Counter(u8);
-/// # let mut app = Schedule::default();
-/// # let mut world = World::new();
-/// # world.init_resource::<Counter>();
+/// # let mut app = App::new();
+/// # app
+/// #   .init_resource::<Counter>()
+/// #   .add_plugins(StatesPlugin);
 /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
 /// enum GameState {
 ///     #[default]
@@ -67,14 +73,14 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 ///     Paused,
 /// }
 ///
-/// world.init_resource::<State<GameState>>();
-///
-/// app.add_systems((
-///     // `in_state` will only return true if the
-///     // given state equals the given value
-///     play_system.run_if(in_state(GameState::Playing)),
-///     pause_system.run_if(in_state(GameState::Paused)),
-/// ));
+/// app
+///     .init_state::<GameState>()
+///     .add_systems(Update, (
+///         // `in_state` will only return true if the
+///         // given state equals the given value
+///         play_system.run_if(in_state(GameState::Playing)),
+///         pause_system.run_if(in_state(GameState::Paused)),
+///     ));
 ///
 /// fn play_system(mut counter: ResMut<Counter>) {
 ///     counter.0 += 1;
@@ -85,14 +91,14 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 /// }
 ///
 /// // We default to `GameState::Playing` so `play_system` runs
-/// app.run(&mut world);
-/// assert_eq!(world.resource::<Counter>().0, 1);
+/// app.update();
+/// assert_eq!(app.world().resource::<Counter>().0, 1);
 ///
-/// *world.resource_mut::<State<GameState>>() = State::new(GameState::Paused);
+/// app.insert_state(GameState::Paused);
 ///
 /// // Now that we are in `GameState::Pause`, `pause_system` will run
-/// app.run(&mut world);
-/// assert_eq!(world.resource::<Counter>().0, 0);
+/// app.update();
+/// assert_eq!(app.world().resource::<Counter>().0, 0);
 /// ```
 pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
     move |current_state: Option<Res<State<S>>>| match current_state {
@@ -114,11 +120,14 @@ pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> boo
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_state::prelude::*;
+/// # use bevy_state::app::StatesPlugin;
+/// # use bevy_app::{App, Update};
 /// # #[derive(Resource, Default)]
 /// # struct Counter(u8);
-/// # let mut app = Schedule::default();
-/// # let mut world = World::new();
-/// # world.init_resource::<Counter>();
+/// # let mut app = App::new();
+/// # app
+/// #   .init_resource::<Counter>()
+/// #   .add_plugins(StatesPlugin);
 /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
 /// enum GameState {
 ///     #[default]
@@ -126,32 +135,32 @@ pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> boo
 ///     Paused,
 /// }
 ///
-/// world.init_resource::<State<GameState>>();
-///
-/// app.add_systems(
-///     // `state_changed` will only return true if the
-///     // given states value has just been updated or
-///     // the state has just been added
-///     my_system.run_if(state_changed::<GameState>),
-/// );
+/// app
+///     .init_state::<GameState>()
+///     .add_systems(Update,
+///         // `state_changed` will only return true if the
+///         // given states value has just been updated or
+///         // the state has just been added
+///         my_system.run_if(state_changed::<GameState>),
+///     );
 ///
 /// fn my_system(mut counter: ResMut<Counter>) {
 ///     counter.0 += 1;
 /// }
 ///
 /// // `GameState` has just been added so `my_system` will run
-/// app.run(&mut world);
-/// assert_eq!(world.resource::<Counter>().0, 1);
+/// app.update();
+/// assert_eq!(app.world().resource::<Counter>().0, 1);
 ///
 /// // `GameState` has not been updated so `my_system` will not run
-/// app.run(&mut world);
-/// assert_eq!(world.resource::<Counter>().0, 1);
+/// app.update();
+/// assert_eq!(app.world().resource::<Counter>().0, 1);
 ///
-/// *world.resource_mut::<State<GameState>>() = State::new(GameState::Paused);
+/// app.insert_state(GameState::Paused);
 ///
 /// // Now that `GameState` has been updated `my_system` will run
-/// app.run(&mut world);
-/// assert_eq!(world.resource::<Counter>().0, 2);
+/// app.update();
+/// assert_eq!(app.world().resource::<Counter>().0, 2);
 /// ```
 pub fn state_changed<S: States>(current_state: Option<Res<State<S>>>) -> bool {
     let Some(current_state) = current_state else {
@@ -162,8 +171,6 @@ pub fn state_changed<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_state;
-
     use bevy_ecs::schedule::{Condition, IntoSystemConfigs, Schedule};
 
     use crate::prelude::*;

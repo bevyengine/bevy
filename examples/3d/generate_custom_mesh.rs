@@ -57,18 +57,15 @@ fn setup(
     commands.spawn((PointLight::default(), camera_and_light_transform));
 
     // Text to describe the controls.
-    commands.spawn(
-        TextBundle::from_section(
-            "Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation"),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // System to receive input from the user,
@@ -81,23 +78,23 @@ fn input_handler(
     time: Res<Time>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        let mesh_handle = mesh_query.get_single().expect("Query not successful");
+        let mesh_handle = mesh_query.single().expect("Query not successful");
         let mesh = meshes.get_mut(mesh_handle).unwrap();
         toggle_texture(mesh);
     }
     if keyboard_input.pressed(KeyCode::KeyX) {
         for mut transform in &mut query {
-            transform.rotate_x(time.delta_seconds() / 1.2);
+            transform.rotate_x(time.delta_secs() / 1.2);
         }
     }
     if keyboard_input.pressed(KeyCode::KeyY) {
         for mut transform in &mut query {
-            transform.rotate_y(time.delta_seconds() / 1.2);
+            transform.rotate_y(time.delta_secs() / 1.2);
         }
     }
     if keyboard_input.pressed(KeyCode::KeyZ) {
         for mut transform in &mut query {
-            transform.rotate_z(time.delta_seconds() / 1.2);
+            transform.rotate_z(time.delta_secs() / 1.2);
         }
     }
     if keyboard_input.pressed(KeyCode::KeyR) {

@@ -1,78 +1,105 @@
-use crate::{UiRect, Val};
-use bevy_asset::Handle;
+use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    texture::{Image, TRANSPARENT_IMAGE_HANDLE},
+    view::Visibility,
+    view::VisibilityClass,
 };
 use bevy_sprite::BorderRect;
-use bevy_utils::warn_once;
+use bevy_transform::components::Transform;
+use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
+use derive_more::derive::From;
 use smallvec::SmallVec;
 use thiserror::Error;
+use tracing::warn;
 
-/// Base component for a UI node, which also provides the computed size of the node.
+/// Provides the computed size and layout properties of the node.
 ///
-/// # See also
-///
-/// - [`node_bundles`](crate::node_bundles) for the list of built-in bundles that set up UI node
-/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition)
-///   to obtain the cursor position relative to this node
-/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
+/// Fields in this struct are public but should not be modified under most circumstances.
+/// For example, in a scrollbar you may want to derive the handle's size from the proportion of
+/// scrollable content in-view. You can directly modify `ComputedNode` after layout to set the
+/// handle size without any delays.
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub struct Node {
+pub struct ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
-    pub(crate) stack_index: u32,
-    /// The size of the node as width and height in logical pixels
     ///
-    /// automatically calculated by [`super::layout::ui_layout_system`]
-    pub(crate) calculated_size: Vec2,
+    /// Automatically calculated in [`super::UiSystem::Stack`].
+    pub stack_index: u32,
+    /// The size of the node as width and height in physical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub size: Vec2,
+    /// Size of this node's content.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub content_size: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
     /// Outline updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub(crate) outline_width: f32,
+    pub outline_width: f32,
     /// The amount of space between the outline and the edge of the node.
     /// Outline updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub(crate) outline_offset: f32,
-    /// The unrounded size of the node as width and height in logical pixels.
+    pub outline_offset: f32,
+    /// The unrounded size of the node as width and height in physical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub(crate) unrounded_size: Vec2,
-    /// Resolved border values in logical pixels
+    pub unrounded_size: Vec2,
+    /// Resolved border values in physical pixels.
     /// Border updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub(crate) border: BorderRect,
-    /// Resolved border radius values in logical pixels.
+    pub border: BorderRect,
+    /// Resolved border radius values in physical pixels.
     /// Border radius updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub(crate) border_radius: ResolvedBorderRadius,
-}
-
-impl Node {
-    /// The calculated node size as width and height in logical pixels.
+    pub border_radius: ResolvedBorderRadius,
+    /// Resolved padding values in physical pixels.
+    /// Padding updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub padding: BorderRect,
+    /// Inverse scale factor for this Node.
+    /// Multiply physical coordinates by the inverse scale factor to give logical coordinates.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub inverse_scale_factor: f32,
+}
+
+impl ComputedNode {
+    /// The calculated node size as width and height in physical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
     pub const fn size(&self) -> Vec2 {
-        self.calculated_size
+        self.size
+    }
+
+    /// The calculated node content size as width and height in physical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
+    pub const fn content_size(&self) -> Vec2 {
+        self.content_size
     }
 
     /// Check if the node is empty.
     /// A node is considered empty if it has a zero or negative extent along either of its axes.
     #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.size().cmple(Vec2::ZERO).any()
+    pub const fn is_empty(&self) -> bool {
+        self.size.x <= 0. || self.size.y <= 0.
     }
 
     /// The order of the node in the UI layout.
@@ -83,27 +110,28 @@ impl Node {
         self.stack_index
     }
 
-    /// The calculated node size as width and height in logical pixels before rounding.
+    /// The calculated node size as width and height in physical pixels before rounding.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
     pub const fn unrounded_size(&self) -> Vec2 {
         self.unrounded_size
     }
 
-    /// Returns the thickness of the UI node's outline in logical pixels.
+    /// Returns the thickness of the UI node's outline in physical pixels.
     /// If this value is negative or `0.` then no outline will be rendered.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn outline_width(&self) -> f32 {
+    pub const fn outline_width(&self) -> f32 {
         self.outline_width
     }
 
-    /// Returns the amount of space between the outline and the edge of the node in logical pixels.
+    /// Returns the amount of space between the outline and the edge of the node in physical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn outline_offset(&self) -> f32 {
+    pub const fn outline_offset(&self) -> f32 {
         self.outline_offset
     }
 
@@ -111,8 +139,9 @@ impl Node {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn outlined_node_size(&self) -> Vec2 {
-        self.size() + 2. * (self.outline_offset + self.outline_width)
+    pub const fn outlined_node_size(&self) -> Vec2 {
+        let offset = 2. * (self.outline_offset + self.outline_width);
+        Vec2::new(self.size.x + offset, self.size.y + offset)
     }
 
     /// Returns the border radius for each corner of the outline
@@ -121,40 +150,40 @@ impl Node {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn outline_radius(&self) -> ResolvedBorderRadius {
+    pub const fn outline_radius(&self) -> ResolvedBorderRadius {
         let outer_distance = self.outline_width + self.outline_offset;
-        let compute_radius = |radius| {
+        const fn compute_radius(radius: f32, outer_distance: f32) -> f32 {
             if radius > 0. {
                 radius + outer_distance
             } else {
                 0.
             }
-        };
+        }
         ResolvedBorderRadius {
-            top_left: compute_radius(self.border_radius.top_left),
-            top_right: compute_radius(self.border_radius.top_right),
-            bottom_left: compute_radius(self.border_radius.bottom_left),
-            bottom_right: compute_radius(self.border_radius.bottom_right),
+            top_left: compute_radius(self.border_radius.top_left, outer_distance),
+            top_right: compute_radius(self.border_radius.top_right, outer_distance),
+            bottom_left: compute_radius(self.border_radius.bottom_left, outer_distance),
+            bottom_right: compute_radius(self.border_radius.bottom_right, outer_distance),
         }
     }
 
-    /// Returns the thickness of the node's border on each edge in logical pixels.
+    /// Returns the thickness of the node's border on each edge in physical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn border(&self) -> BorderRect {
+    pub const fn border(&self) -> BorderRect {
         self.border
     }
 
-    /// Returns the border radius for each of the node's corners in logical pixels.
+    /// Returns the border radius for each of the node's corners in physical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn border_radius(&self) -> ResolvedBorderRadius {
+    pub const fn border_radius(&self) -> ResolvedBorderRadius {
         self.border_radius
     }
 
-    /// Returns the inner border radius for each of the node's corners in logical pixels.
+    /// Returns the inner border radius for each of the node's corners in physical pixels.
     pub fn inner_radius(&self) -> ResolvedBorderRadius {
         fn clamp_corner(r: f32, size: Vec2, offset: Vec2) -> f32 {
             let s = 0.5 * size + offset;
@@ -175,21 +204,50 @@ impl Node {
             bottom_right: clamp_corner(self.border_radius.bottom_left, s, b.xw()),
         }
     }
+
+    /// Returns the thickness of the node's padding on each edge in physical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
+    pub const fn padding(&self) -> BorderRect {
+        self.padding
+    }
+
+    /// Returns the combined inset on each edge including both padding and border thickness in physical pixels.
+    #[inline]
+    pub const fn content_inset(&self) -> BorderRect {
+        BorderRect {
+            left: self.border.left + self.padding.left,
+            right: self.border.right + self.padding.right,
+            top: self.border.top + self.padding.top,
+            bottom: self.border.bottom + self.padding.bottom,
+        }
+    }
+
+    /// Returns the inverse of the scale factor for this node.
+    /// To convert from physical coordinates to logical coordinates multiply by this value.
+    #[inline]
+    pub const fn inverse_scale_factor(&self) -> f32 {
+        self.inverse_scale_factor
+    }
 }
 
-impl Node {
+impl ComputedNode {
     pub const DEFAULT: Self = Self {
         stack_index: 0,
-        calculated_size: Vec2::ZERO,
+        size: Vec2::ZERO,
+        content_size: Vec2::ZERO,
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
         border_radius: ResolvedBorderRadius::ZERO,
         border: BorderRect::ZERO,
+        padding: BorderRect::ZERO,
+        inverse_scale_factor: 1.,
     };
 }
 
-impl Default for Node {
+impl Default for ComputedNode {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -199,13 +257,13 @@ impl Default for Node {
 ///
 /// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount.
 /// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
-/// Changing this does nothing on a `Node` without a `Style` setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
+/// Changing this does nothing on a `Node` without setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct ScrollPosition {
-    /// How far across the node is scrolled, in pixels. (0 = not scrolled / scrolled to right)
+    /// How far across the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to right)
     pub offset_x: f32,
-    /// How far down the node is scrolled, in pixels. (0 = not scrolled / scrolled to top)
+    /// How far down the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to top)
     pub offset_y: f32,
 }
 
@@ -228,8 +286,8 @@ impl From<&ScrollPosition> for Vec2 {
     }
 }
 
-impl From<&Vec2> for ScrollPosition {
-    fn from(vec: &Vec2) -> Self {
+impl From<Vec2> for ScrollPosition {
+    fn from(vec: Vec2) -> Self {
         ScrollPosition {
             offset_x: vec.x,
             offset_y: vec.y,
@@ -237,7 +295,9 @@ impl From<&Vec2> for ScrollPosition {
     }
 }
 
-/// Describes the style of a UI container node
+/// The base component for UI entities. It describes UI layout and style properties.
+///
+/// When defining new types of UI entities, require [`Node`] to make them behave like UI nodes.
 ///
 /// Nodes can be laid out using either Flexbox or CSS Grid Layout.
 ///
@@ -254,15 +314,33 @@ impl From<&Vec2> for ScrollPosition {
 /// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
+///
+/// # See also
+///
+/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition) to obtain the cursor position relative to this node
+/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[require(
+    ComputedNode,
+    ComputedNodeTarget,
+    BackgroundColor,
+    BorderColor,
+    BorderRadius,
+    FocusPolicy,
+    ScrollPosition,
+    Transform,
+    Visibility,
+    VisibilityClass,
+    ZIndex
+)]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct Style {
+pub struct Node {
     /// Which layout algorithm to use when laying out this node's contents:
     ///   - [`Display::Flex`]: Use the Flexbox layout algorithm
     ///   - [`Display::Grid`]: Use the CSS Grid layout algorithm
@@ -270,6 +348,15 @@ pub struct Style {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/display>
     pub display: Display,
+
+    /// Which part of a Node's box length styles like width and height control
+    ///   - [`BoxSizing::BorderBox`]: They refer to the "border box" size (size including padding and border)
+    ///   - [`BoxSizing::ContentBox`]: They refer to the "content box" size (size excluding padding and border)
+    ///
+    /// `BoxSizing::BorderBox` is generally considered more intuitive and is the default in Bevy even though it is not on the web.
+    ///
+    /// See: <https://developer.mozilla.org/en-US/docs/Web/CSS/box-sizing>
+    pub box_sizing: BoxSizing,
 
     /// Whether a node should be laid out in-flow with, or independently of its siblings:
     ///  - [`PositionType::Relative`]: Layout this node in-flow with other nodes using the usual (flexbox/grid) layout algorithm.
@@ -282,6 +369,11 @@ pub struct Style {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>
     pub overflow: Overflow,
+
+    /// How the bounds of clipped content should be determined
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-clip-margin>
+    pub overflow_clip_margin: OverflowClipMargin,
 
     /// The horizontal position of the left edge of the node.
     ///  - For relatively positioned nodes, this is relative to the node's position as computed during regular layout.
@@ -402,8 +494,8 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
-    /// let style = Style {
+    /// # use bevy_ui::{Node, UiRect, Val};
+    /// let node = Node {
     ///     margin: UiRect {
     ///         left: Val::Percent(10.),
     ///         right: Val::Percent(10.),
@@ -424,8 +516,8 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
-    /// let style = Style {
+    /// # use bevy_ui::{Node, UiRect, Val};
+    /// let node = Node {
     ///     padding: UiRect {
     ///         left: Val::Percent(1.),
     ///         right: Val::Percent(2.),
@@ -471,7 +563,7 @@ pub struct Style {
 
     /// The initial length of a flexbox in the main axis, before flex growing/shrinking properties are applied.
     ///
-    /// `flex_basis` overrides `size` on the main axis if both are set, but it obeys the bounds defined by `min_size` and `max_size`.
+    /// `flex_basis` overrides `width` (if the main axis is horizontal) or `height` (if the main axis is vertical) when both are set, but it obeys the constraints defined by `min_width`/`min_height` and `max_width`/`max_height`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-basis>
     pub flex_basis: Val,
@@ -530,9 +622,10 @@ pub struct Style {
     pub grid_column: GridPlacement,
 }
 
-impl Style {
+impl Node {
     pub const DEFAULT: Self = Self {
         display: Display::DEFAULT,
+        box_sizing: BoxSizing::DEFAULT,
         position_type: PositionType::DEFAULT,
         left: Val::Auto,
         right: Val::Auto,
@@ -560,6 +653,7 @@ impl Style {
         max_height: Val::Auto,
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
+        overflow_clip_margin: OverflowClipMargin::DEFAULT,
         row_gap: Val::ZERO,
         column_gap: Val::ZERO,
         grid_auto_flow: GridAutoFlow::DEFAULT,
@@ -572,7 +666,7 @@ impl Style {
     };
 }
 
-impl Default for Style {
+impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -834,7 +928,7 @@ impl Default for JustifyContent {
 
 /// Defines the layout model used by this node.
 ///
-/// Part of the [`Style`] component.
+/// Part of the [`Node`] component.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
 #[reflect(Default, PartialEq)]
 #[cfg_attr(
@@ -852,7 +946,7 @@ pub enum Display {
     /// Use no layout, don't render this node and its children.
     ///
     /// If you want to hide a node and its children,
-    /// but keep its layout in place, set its [`Visibility`](bevy_render::view::Visibility) component instead.
+    /// but keep its layout in place, set its [`Visibility`] component instead.
     None,
 }
 
@@ -861,6 +955,31 @@ impl Display {
 }
 
 impl Default for Display {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// Which part of a Node's box length styles like width and height control
+///
+/// See: <https://developer.mozilla.org/en-US/docs/Web/CSS/box-sizing>
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum BoxSizing {
+    /// Length styles like width and height refer to the "border box" size (size including padding and border)
+    BorderBox,
+    /// Length styles like width and height refer to the "content box" size (size excluding padding and border)
+    ContentBox,
+}
+impl BoxSizing {
+    pub const DEFAULT: Self = Self::BorderBox;
+}
+impl Default for BoxSizing {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -948,6 +1067,30 @@ impl Overflow {
         }
     }
 
+    /// Hide overflowing items on both axes by influencing layout and then clipping
+    pub const fn hidden() -> Self {
+        Self {
+            x: OverflowAxis::Hidden,
+            y: OverflowAxis::Hidden,
+        }
+    }
+
+    /// Hide overflowing items on the x axis by influencing layout and then clipping
+    pub const fn hidden_x() -> Self {
+        Self {
+            x: OverflowAxis::Hidden,
+            y: OverflowAxis::Visible,
+        }
+    }
+
+    /// Hide overflowing items on the y axis by influencing layout and then clipping
+    pub const fn hidden_y() -> Self {
+        Self {
+            x: OverflowAxis::Visible,
+            y: OverflowAxis::Hidden,
+        }
+    }
+
     /// Overflow is visible on both axes
     pub const fn is_visible(&self) -> bool {
         self.x.is_visible() && self.y.is_visible()
@@ -1015,6 +1158,78 @@ impl Default for OverflowAxis {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+/// The bounds of the visible area when a UI node is clipped.
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct OverflowClipMargin {
+    /// Visible unclipped area
+    pub visual_box: OverflowClipBox,
+    /// Width of the margin on each edge of the visual box in logical pixels.
+    /// The width of the margin will be zero if a negative value is set.
+    pub margin: f32,
+}
+
+impl OverflowClipMargin {
+    pub const DEFAULT: Self = Self {
+        visual_box: OverflowClipBox::ContentBox,
+        margin: 0.,
+    };
+
+    /// Clip any content that overflows outside the content box
+    pub const fn content_box() -> Self {
+        Self {
+            visual_box: OverflowClipBox::ContentBox,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// Clip any content that overflows outside the padding box
+    pub const fn padding_box() -> Self {
+        Self {
+            visual_box: OverflowClipBox::PaddingBox,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// Clip any content that overflows outside the border box
+    pub const fn border_box() -> Self {
+        Self {
+            visual_box: OverflowClipBox::BorderBox,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// Add a margin on each edge of the visual box in logical pixels.
+    /// The width of the margin will be zero if a negative value is set.
+    pub const fn with_margin(mut self, margin: f32) -> Self {
+        self.margin = margin;
+        self
+    }
+}
+
+/// Used to determine the bounds of the visible area when a UI node is clipped.
+#[derive(Default, Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum OverflowClipBox {
+    /// Clip any content that overflows outside the content box
+    #[default]
+    ContentBox,
+    /// Clip any content that overflows outside the padding box
+    PaddingBox,
+    /// Clip any content that overflows outside the border box
+    BorderBox,
 }
 
 /// The strategy used to position this node
@@ -1333,7 +1548,7 @@ impl Default for GridTrack {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect, From)]
 #[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -1360,12 +1575,6 @@ pub enum GridTrackRepetition {
 impl Default for GridTrackRepetition {
     fn default() -> Self {
         Self::Count(1)
-    }
-}
-
-impl From<u16> for GridTrackRepetition {
-    fn from(count: u16) -> Self {
-        Self::Count(count)
     }
 }
 
@@ -1628,11 +1837,9 @@ pub struct GridPlacement {
 }
 
 impl GridPlacement {
-    #[allow(unsafe_code)]
     pub const DEFAULT: Self = Self {
         start: None,
-        // SAFETY: This is trivially safe as 1 is non-zero.
-        span: Some(unsafe { NonZero::<u16>::new_unchecked(1) }),
+        span: NonZero::<u16>::new(1),
         end: None,
     };
 
@@ -1858,22 +2065,19 @@ impl Default for BorderColor {
 /// The [`Outline`] component adds an outline outside the edge of a UI node.
 /// Outlines do not take up space in the layout.
 ///
-/// To add an [`Outline`] to a ui node you can spawn a `(NodeBundle, Outline)` tuple bundle:
+/// To add an [`Outline`] to a ui node you can spawn a `(Node, Outline)` tuple bundle:
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
 /// # use bevy_color::palettes::basic::{RED, BLUE};
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
-///         NodeBundle {
-///             style: Style {
-///                 width: Val::Px(100.),
-///                 height: Val::Px(100.),
-///                 ..Default::default()
-///             },
-///             background_color: BLUE.into(),
+///         Node {
+///             width: Val::Px(100.),
+///             height: Val::Px(100.),
 ///             ..Default::default()
 ///         },
+///         BackgroundColor(BLUE.into()),
 ///         Outline::new(Val::Px(10.), Val::ZERO, RED.into())
 ///     ));
 /// }
@@ -1932,110 +2136,6 @@ impl Outline {
     }
 }
 
-/// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
-pub struct UiImage {
-    /// The tint color used to draw the image.
-    ///
-    /// This is multiplied by the color of each pixel in the image.
-    /// The field value defaults to solid white, which will pass the image through unmodified.
-    pub color: Color,
-    /// Handle to the texture.
-    ///
-    /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
-    pub texture: Handle<Image>,
-    /// Whether the image should be flipped along its x-axis
-    pub flip_x: bool,
-    /// Whether the image should be flipped along its y-axis
-    pub flip_y: bool,
-    /// An optional rectangle representing the region of the image to render, instead of rendering
-    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`](bevy_sprite::TextureAtlas).
-    ///
-    /// When used with a [`TextureAtlas`](bevy_sprite::TextureAtlas), the rect
-    /// is offset by the atlas's minimal (top-left) corner position.
-    pub rect: Option<Rect>,
-}
-
-impl Default for UiImage {
-    /// A transparent 1x1 image with a solid white tint.
-    ///
-    /// # Warning
-    ///
-    /// This will be invisible by default.
-    /// To set this to a visible image, you need to set the `texture` field to a valid image handle,
-    /// or use [`Handle<Image>`]'s default 1x1 solid white texture (as is done in [`UiImage::solid_color`]).
-    fn default() -> Self {
-        UiImage {
-            // This should be white because the tint is multiplied with the image,
-            // so if you set an actual image with default tint you'd want its original colors
-            color: Color::WHITE,
-            // This texture needs to be transparent by default, to avoid covering the background color
-            texture: TRANSPARENT_IMAGE_HANDLE,
-            flip_x: false,
-            flip_y: false,
-            rect: None,
-        }
-    }
-}
-
-impl UiImage {
-    /// Create a new [`UiImage`] with the given texture.
-    pub fn new(texture: Handle<Image>) -> Self {
-        Self {
-            texture,
-            color: Color::WHITE,
-            ..Default::default()
-        }
-    }
-
-    /// Create a solid color [`UiImage`].
-    ///
-    /// This is primarily useful for debugging / mocking the extents of your image.
-    pub fn solid_color(color: Color) -> Self {
-        Self {
-            texture: Handle::default(),
-            color,
-            flip_x: false,
-            flip_y: false,
-            rect: None,
-        }
-    }
-
-    /// Set the color tint
-    #[must_use]
-    pub const fn with_color(mut self, color: Color) -> Self {
-        self.color = color;
-        self
-    }
-
-    /// Flip the image along its x-axis
-    #[must_use]
-    pub const fn with_flip_x(mut self) -> Self {
-        self.flip_x = true;
-        self
-    }
-
-    /// Flip the image along its y-axis
-    #[must_use]
-    pub const fn with_flip_y(mut self) -> Self {
-        self.flip_y = true;
-        self
-    }
-
-    #[must_use]
-    pub const fn with_rect(mut self, rect: Rect) -> Self {
-        self.rect = Some(rect);
-        self
-    }
-}
-
-impl From<Handle<Image>> for UiImage {
-    fn from(texture: Handle<Image>) -> Self {
-        Self::new(texture)
-    }
-}
-
 /// The calculated clip of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
@@ -2046,14 +2146,16 @@ pub struct CalculatedClip {
 
 /// Indicates that this [`Node`] entity's front-to-back ordering is not controlled solely
 /// by its location in the UI hierarchy. A node with a higher z-index will appear on top
-/// of other nodes with a lower z-index.
+/// of sibling nodes with a lower z-index.
 ///
 /// UI nodes that have the same z-index will appear according to the order in which they
 /// appear in the UI hierarchy. In such a case, the last node to be added to its parent
 /// will appear in front of its siblings.
 ///
-
 /// Nodes without this component will be treated as if they had a value of [`ZIndex(0)`].
+///
+/// Use [`GlobalZIndex`] if you need to order separate UI hierarchies or nodes that are
+/// not siblings in a given UI hierarchy.
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq)]
 pub struct ZIndex(pub i32);
@@ -2077,32 +2179,29 @@ pub struct GlobalZIndex(pub i32);
 /// dimension, either width or height.
 ///
 /// # Example
-/// ```
+/// ```rust
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
 /// # use bevy_color::palettes::basic::{BLUE};
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
-///         NodeBundle {
-///             style: Style {
-///                 width: Val::Px(100.),
-///                 height: Val::Px(100.),
-///                 border: UiRect::all(Val::Px(2.)),
-///                 ..Default::default()
-///             },
-///             background_color: BLUE.into(),
-///             border_radius: BorderRadius::new(
-///                 // top left
-///                 Val::Px(10.),
-///                 // top right
-///                 Val::Px(20.),
-///                 // bottom right
-///                 Val::Px(30.),
-///                 // bottom left
-///                 Val::Px(40.),
-///             ),
+///         Node {
+///             width: Val::Px(100.),
+///             height: Val::Px(100.),
+///             border: UiRect::all(Val::Px(2.)),
 ///             ..Default::default()
 ///         },
+///         BackgroundColor(BLUE.into()),
+///         BorderRadius::new(
+///             // top left
+///             Val::Px(10.),
+///             // top right
+///             Val::Px(20.),
+///             // bottom right
+///             Val::Px(30.),
+///             // bottom left
+///             Val::Px(40.),
+///         ),
 ///     ));
 /// }
 /// ```
@@ -2178,10 +2277,10 @@ impl BorderRadius {
         bottom_left: f32,
     ) -> Self {
         Self {
-            top_left: Val::Px(top_left),
-            top_right: Val::Px(top_right),
-            bottom_right: Val::Px(bottom_right),
-            bottom_left: Val::Px(bottom_left),
+            top_left: Val::Percent(top_left),
+            top_right: Val::Percent(top_right),
+            bottom_right: Val::Percent(bottom_right),
+            bottom_left: Val::Percent(bottom_left),
         }
     }
 
@@ -2329,11 +2428,17 @@ impl BorderRadius {
         self
     }
 
-    /// Compute the logical border radius for a single corner from the given values
-    pub fn resolve_single_corner(radius: Val, node_size: Vec2, viewport_size: Vec2) -> f32 {
+    /// Resolve the border radius for a single corner from the given context values.
+    /// Returns the radius of the corner in physical pixels.
+    pub fn resolve_single_corner(
+        radius: Val,
+        node_size: Vec2,
+        viewport_size: Vec2,
+        scale_factor: f32,
+    ) -> f32 {
         match radius {
             Val::Auto => 0.,
-            Val::Px(px) => px,
+            Val::Px(px) => px * scale_factor,
             Val::Percent(percent) => node_size.min_element() * percent / 100.,
             Val::Vw(percent) => viewport_size.x * percent / 100.,
             Val::Vh(percent) => viewport_size.y * percent / 100.,
@@ -2343,19 +2448,46 @@ impl BorderRadius {
         .clamp(0., 0.5 * node_size.min_element())
     }
 
-    pub fn resolve(&self, node_size: Vec2, viewport_size: Vec2) -> ResolvedBorderRadius {
+    /// Resolve the border radii for the corners from the given context values.
+    /// Returns the radii of the each corner in physical pixels.
+    pub fn resolve(
+        &self,
+        node_size: Vec2,
+        viewport_size: Vec2,
+        scale_factor: f32,
+    ) -> ResolvedBorderRadius {
         ResolvedBorderRadius {
-            top_left: Self::resolve_single_corner(self.top_left, node_size, viewport_size),
-            top_right: Self::resolve_single_corner(self.top_right, node_size, viewport_size),
-            bottom_left: Self::resolve_single_corner(self.bottom_left, node_size, viewport_size),
-            bottom_right: Self::resolve_single_corner(self.bottom_right, node_size, viewport_size),
+            top_left: Self::resolve_single_corner(
+                self.top_left,
+                node_size,
+                viewport_size,
+                scale_factor,
+            ),
+            top_right: Self::resolve_single_corner(
+                self.top_right,
+                node_size,
+                viewport_size,
+                scale_factor,
+            ),
+            bottom_left: Self::resolve_single_corner(
+                self.bottom_left,
+                node_size,
+                viewport_size,
+                scale_factor,
+            ),
+            bottom_right: Self::resolve_single_corner(
+                self.bottom_right,
+                node_size,
+                viewport_size,
+                scale_factor,
+            ),
         }
     }
 }
 
 /// Represents the resolved border radius values for a UI node.
 ///
-/// The values are in logical pixels.
+/// The values are in physical pixels.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
 pub struct ResolvedBorderRadius {
     pub top_left: f32,
@@ -2371,6 +2503,100 @@ impl ResolvedBorderRadius {
         bottom_left: 0.,
         bottom_right: 0.,
     };
+}
+
+#[derive(Component, Clone, Debug, Default, PartialEq, Reflect, Deref, DerefMut)]
+#[reflect(Component, PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+/// List of shadows to draw for a [`Node`].
+///
+/// Draw order is determined implicitly from the vector of [`ShadowStyle`]s, back-to-front.
+pub struct BoxShadow(pub Vec<ShadowStyle>);
+
+impl BoxShadow {
+    /// A single drop shadow
+    pub fn new(
+        color: Color,
+        x_offset: Val,
+        y_offset: Val,
+        spread_radius: Val,
+        blur_radius: Val,
+    ) -> Self {
+        Self(vec![ShadowStyle {
+            color,
+            x_offset,
+            y_offset,
+            spread_radius,
+            blur_radius,
+        }])
+    }
+}
+
+impl From<ShadowStyle> for BoxShadow {
+    fn from(value: ShadowStyle) -> Self {
+        Self(vec![value])
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct ShadowStyle {
+    /// The shadow's color
+    pub color: Color,
+    /// Horizontal offset
+    pub x_offset: Val,
+    /// Vertical offset
+    pub y_offset: Val,
+    /// How much the shadow should spread outward.
+    ///
+    /// Negative values will make the shadow shrink inwards.
+    /// Percentage values are based on the width of the UI node.
+    pub spread_radius: Val,
+    /// Blurriness of the shadow
+    pub blur_radius: Val,
+}
+
+impl Default for ShadowStyle {
+    fn default() -> Self {
+        Self {
+            color: Color::BLACK,
+            x_offset: Val::Percent(20.),
+            y_offset: Val::Percent(20.),
+            spread_radius: Val::ZERO,
+            blur_radius: Val::Percent(10.),
+        }
+    }
+}
+
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Debug, PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+/// This component can be added to any UI node to modify its layout behavior.
+pub struct LayoutConfig {
+    /// If set to true the coordinates for this node and its descendents will be rounded to the nearest physical pixel.
+    /// This can help prevent visual artifacts like blurry images or semi-transparent edges that can occur with sub-pixel positioning.
+    ///
+    /// Defaults to true.
+    pub use_rounding: bool,
+}
+
+impl Default for LayoutConfig {
+    fn default() -> Self {
+        Self { use_rounding: true }
+    }
 }
 
 #[cfg(test)]
@@ -2415,20 +2641,19 @@ mod tests {
 /// Optional if there is only one camera in the world. Required otherwise.
 #[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
 #[reflect(Component, Debug, PartialEq)]
-pub struct TargetCamera(pub Entity);
+pub struct UiTargetCamera(pub Entity);
 
-impl TargetCamera {
+impl UiTargetCamera {
     pub fn entity(&self) -> Entity {
         self.0
     }
 }
 
-#[derive(Component)]
 /// Marker used to identify default cameras, they will have priority over the [`PrimaryWindow`] camera.
 ///
 /// This is useful if the [`PrimaryWindow`] has two cameras, one of them used
 /// just for debug purposes and the user wants a way to choose the default [`Camera`]
-/// without having to add a [`TargetCamera`] to the root node.
+/// without having to add a [`UiTargetCamera`] to the root node.
 ///
 /// Another use is when the user wants the Ui to be in another window by default,
 /// all that is needed is to place this component on the camera
@@ -2452,11 +2677,12 @@ impl TargetCamera {
 ///             ..Default::default()
 ///         },
 ///         // We add the Marker here so all Ui will spawn in
-///         // another window if no TargetCamera is specified
+///         // another window if no UiTargetCamera is specified
 ///         IsDefaultUiCamera
 ///     ));
 /// }
 /// ```
+#[derive(Component, Default)]
 pub struct IsDefaultUiCamera;
 
 #[derive(SystemParam)]
@@ -2468,10 +2694,10 @@ pub struct DefaultUiCamera<'w, 's> {
 
 impl<'w, 's> DefaultUiCamera<'w, 's> {
     pub fn get(&self) -> Option<Entity> {
-        self.default_cameras.get_single().ok().or_else(|| {
+        self.default_cameras.single().ok().or_else(|| {
             // If there isn't a single camera and the query isn't empty, there is two or more cameras queried.
             if !self.default_cameras.is_empty() {
-                warn_once!("Two or more Entities with IsDefaultUiCamera found when only one Camera with this marker is allowed.");
+                once!(warn!("Two or more Entities with IsDefaultUiCamera found when only one Camera with this marker is allowed."));
             }
             self.cameras
                 .iter()
@@ -2491,7 +2717,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 /// Marker for controlling whether Ui is rendered with or without anti-aliasing
 /// in a camera. By default, Ui is always anti-aliased.
 ///
-/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`bevy_text::Text`] component.
+/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextFont`](bevy_text::TextFont) component.
 ///
 /// ```
 /// use bevy_core_pipeline::prelude::*;
@@ -2508,10 +2734,94 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 /// }
 /// ```
 #[derive(Component, Clone, Copy, Default, Debug, Reflect, Eq, PartialEq)]
+#[reflect(Component)]
 pub enum UiAntiAlias {
     /// UI will render with anti-aliasing
     #[default]
     On,
     /// UI will render without anti-aliasing
     Off,
+}
+
+/// Number of shadow samples.
+/// A larger value will result in higher quality shadows.
+/// Default is 4, values higher than ~10 offer diminishing returns.
+///
+/// ```
+/// use bevy_core_pipeline::prelude::*;
+/// use bevy_ecs::prelude::*;
+/// use bevy_ui::prelude::*;
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     commands.spawn((
+///         Camera2d,
+///         BoxShadowSamples(6),
+///     ));
+/// }
+/// ```
+#[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
+#[reflect(Component)]
+pub struct BoxShadowSamples(pub u32);
+
+impl Default for BoxShadowSamples {
+    fn default() -> Self {
+        Self(4)
+    }
+}
+
+/// Derived information about the camera target for this UI node.
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default)]
+pub struct ComputedNodeTarget {
+    pub(crate) camera: Entity,
+    pub(crate) scale_factor: f32,
+    pub(crate) physical_size: UVec2,
+}
+
+impl Default for ComputedNodeTarget {
+    fn default() -> Self {
+        Self {
+            camera: Entity::PLACEHOLDER,
+            scale_factor: 1.,
+            physical_size: UVec2::ZERO,
+        }
+    }
+}
+
+impl ComputedNodeTarget {
+    pub fn camera(&self) -> Option<Entity> {
+        Some(self.camera).filter(|&entity| entity != Entity::PLACEHOLDER)
+    }
+
+    pub const fn scale_factor(&self) -> f32 {
+        self.scale_factor
+    }
+
+    pub const fn physical_size(&self) -> UVec2 {
+        self.physical_size
+    }
+
+    pub fn logical_size(&self) -> Vec2 {
+        self.physical_size.as_vec2() / self.scale_factor
+    }
+}
+
+/// Adds a shadow behind text
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct TextShadow {
+    /// Shadow displacement in logical pixels
+    /// With a value of zero the shadow will be hidden directly behind the text
+    pub offset: Vec2,
+    /// Color of the shadow
+    pub color: Color,
+}
+
+impl Default for TextShadow {
+    fn default() -> Self {
+        Self {
+            offset: Vec2::splat(4.),
+            color: Color::linear_rgba(0., 0., 0., 0.75),
+        }
+    }
 }

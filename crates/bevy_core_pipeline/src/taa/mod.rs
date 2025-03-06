@@ -1,5 +1,3 @@
-#![expect(deprecated)]
-
 use crate::{
     core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
@@ -7,15 +5,17 @@ use crate::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
-use bevy_core::FrameCount;
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
-    prelude::{Bundle, Component, Entity, ReflectComponent},
+    prelude::{Component, Entity, ReflectComponent},
     query::{QueryItem, With},
+    resource::Resource,
     schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_image::BevyDefault as _;
 use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -32,14 +32,15 @@ use bevy_render::{
         TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
-    texture::{BevyDefault, CachedTexture, TextureCache},
+    sync_component::SyncComponentPlugin,
+    sync_world::RenderEntity,
+    texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
-    world_sync::RenderEntity,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
-use bevy_utils::tracing::warn;
+use tracing::warn;
 
-const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276);
+const TAA_SHADER_HANDLE: Handle<Shader> = weak_handle!("fea20d50-86b6-4069-aa32-374346aec00c");
 
 /// Plugin for temporal anti-aliasing.
 ///
@@ -51,6 +52,8 @@ impl Plugin for TemporalAntiAliasPlugin {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
         app.register_type::<TemporalAntiAliasing>();
+
+        app.add_plugins(SyncComponentPlugin::<TemporalAntiAliasing>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -86,19 +89,6 @@ impl Plugin for TemporalAntiAliasPlugin {
 
         render_app.init_resource::<TaaPipeline>();
     }
-}
-
-/// Bundle to apply temporal anti-aliasing.
-#[derive(Bundle, Default, Clone)]
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `TemporalAntiAlias` component instead. Inserting it will now also insert the other components required by it automatically."
-)]
-pub struct TemporalAntiAliasBundle {
-    pub settings: TemporalAntiAliasing,
-    pub jitter: TemporalJitter,
-    pub depth_prepass: DepthPrepass,
-    pub motion_vector_prepass: MotionVectorPrepass,
 }
 
 /// Component to apply temporal anti-aliasing to a 3D perspective camera.
@@ -154,9 +144,6 @@ pub struct TemporalAntiAliasing {
     /// back to false at the end of the frame.
     pub reset: bool,
 }
-
-#[deprecated(since = "0.15.0", note = "Renamed to `TemporalAntiAliasing`")]
-pub type TemporalAntiAliasSettings = TemporalAntiAliasing;
 
 impl Default for TemporalAntiAliasing {
     fn default() -> Self {
@@ -352,13 +339,14 @@ impl SpecializedRenderPipeline for TaaPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
 
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
     let mut cameras_3d = main_world.query_filtered::<(
-        &RenderEntity,
+        RenderEntity,
         &Camera,
         &Projection,
         &mut TemporalAntiAliasing,
@@ -373,11 +361,20 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
         cameras_3d.iter_mut(&mut main_world)
     {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
+        let mut entity_commands = commands
+            .get_entity(entity)
+            .expect("Camera entity wasn't synced.");
         if camera.is_active && has_perspective_projection {
-            commands
-                .get_or_spawn(entity.id())
-                .insert(taa_settings.clone());
+            entity_commands.insert(taa_settings.clone());
             taa_settings.reset = false;
+        } else {
+            // TODO: needs better strategy for cleaning up
+            entity_commands.remove::<(
+                TemporalAntiAliasing,
+                // components added in prepare systems (because `TemporalAntiAliasNode` does not query extracted components)
+                TemporalAntiAliasHistoryTextures,
+                TemporalAntiAliasPipelineId,
+            )>();
         }
     }
 }

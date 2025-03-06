@@ -7,8 +7,7 @@ use bevy::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         gpu_readback::{Readback, ReadbackComplete},
         render_asset::{RenderAssetUsages, RenderAssets},
-        render_graph,
-        render_graph::{RenderGraph, RenderLabel},
+        render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{
             binding_types::{storage_buffer, texture_storage_2d},
             *,
@@ -87,10 +86,11 @@ fn setup(
         height: 1,
         ..default()
     };
-    let mut image = Image::new_fill(
+    // We create an uninitialized image since this texture will only be used for getting data out
+    // of the compute shader, not getting data in, so there's no reason for it to exist on the CPU
+    let mut image = Image::new_uninit(
         size,
         TextureDimension::D2,
-        &[0, 0, 0, 0],
         TextureFormat::R32Uint,
         RenderAssetUsages::RENDER_WORLD,
     );
@@ -180,6 +180,7 @@ impl FromWorld for ComputePipeline {
             shader: shader.clone(),
             shader_defs: Vec::new(),
             entry_point: "main".into(),
+            zero_initialize_workgroup_memory: false,
         });
         ComputePipeline { layout, pipeline }
     }

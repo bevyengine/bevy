@@ -1,6 +1,7 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-use bevy::{asset::LoadState, prelude::*, render::camera::ScalingMode};
+use bevy::prelude::*;
+use bevy::render::camera::ScalingMode;
 
 fn main() {
     App::new()
@@ -58,57 +59,50 @@ fn setup(
     ));
 
     // labels
-    commands.spawn(
-        TextBundle::from_section(
-            "Perceptual Roughness",
-            TextStyle {
-                font_size: 30.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Perceptual Roughness"),
+        TextFont {
+            font_size: 30.0,
+            ..default()
+        },
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(20.0),
             left: Val::Px(100.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
-    commands.spawn(TextBundle {
-        text: Text::from_section(
-            "Metallic",
-            TextStyle {
-                font_size: 30.0,
-                ..default()
-            },
-        ),
-        style: Style {
+    commands.spawn((
+        Text::new("Metallic"),
+        TextFont {
+            font_size: 30.0,
+            ..default()
+        },
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(130.0),
             right: Val::ZERO,
             ..default()
         },
-        transform: Transform {
+        Transform {
             rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 
     commands.spawn((
-        TextBundle::from_section(
-            "Loading Environment Map...",
-            TextStyle {
-                font_size: 30.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        Text::new("Loading Environment Map..."),
+        TextFont {
+            font_size: 30.0,
+            ..default()
+        },
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(20.0),
             right: Val::Px(20.0),
             ..default()
-        }),
+        },
         EnvironmentMapLabel,
     ));
 
@@ -117,7 +111,8 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::WindowSize(100.0),
+            scale: 0.01,
+            scaling_mode: ScalingMode::WindowSize,
             ..OrthographicProjection::default_3d()
         }),
         EnvironmentMapLight {
@@ -132,16 +127,19 @@ fn setup(
 fn environment_map_load_finish(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    environment_maps: Query<&EnvironmentMapLight>,
-    label_query: Query<Entity, With<EnvironmentMapLabel>>,
+    environment_map: Single<&EnvironmentMapLight>,
+    label_entity: Option<Single<Entity, With<EnvironmentMapLabel>>>,
 ) {
-    if let Ok(environment_map) = environment_maps.get_single() {
-        if asset_server.load_state(&environment_map.diffuse_map) == LoadState::Loaded
-            && asset_server.load_state(&environment_map.specular_map) == LoadState::Loaded
-        {
-            if let Ok(label_entity) = label_query.get_single() {
-                commands.entity(label_entity).despawn();
-            }
+    if asset_server
+        .load_state(&environment_map.diffuse_map)
+        .is_loaded()
+        && asset_server
+            .load_state(&environment_map.specular_map)
+            .is_loaded()
+    {
+        // Do not attempt to remove `label_entity` if it has already been removed.
+        if let Some(label_entity) = label_entity {
+            commands.entity(*label_entity).despawn();
         }
     }
 }

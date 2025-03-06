@@ -1,12 +1,14 @@
+use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use bevy_app::{App, SubApp};
 use bevy_ecs::{
     event::{Event, EventReader, Events},
-    system::{Commands, Resource},
+    resource::Resource,
+    system::Commands,
     world::World,
 };
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 
 use crate::state::{FreelyMutableState, OnExit, StateTransitionEvent};
 

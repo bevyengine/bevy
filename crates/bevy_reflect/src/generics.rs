@@ -1,8 +1,9 @@
 use crate::type_info::impl_type_methods;
 use crate::{Reflect, Type, TypePath};
-use alloc::borrow::Cow;
-use alloc::sync::Arc;
+use alloc::{borrow::Cow, boxed::Box};
+use bevy_platform_support::sync::Arc;
 use core::ops::Deref;
+use derive_more::derive::From;
 
 /// The generic parameters of a type.
 ///
@@ -63,7 +64,7 @@ impl Deref for Generics {
 }
 
 /// An enum representing a generic parameter.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, From)]
 pub enum GenericInfo {
     /// A type parameter.
     ///
@@ -98,18 +99,6 @@ impl GenericInfo {
             Self::Const(info) => info.ty(),
         }
     });
-}
-
-impl From<TypeParamInfo> for GenericInfo {
-    fn from(info: TypeParamInfo) -> Self {
-        Self::Type(info)
-    }
-}
-
-impl From<ConstParamInfo> for GenericInfo {
-    fn from(info: ConstParamInfo) -> Self {
-        Self::Const(info)
-    }
 }
 
 /// Type information for a generic type parameter.
@@ -192,7 +181,19 @@ impl ConstParamInfo {
 
     /// Sets the default value for the parameter.
     pub fn with_default<T: Reflect + 'static>(mut self, default: T) -> Self {
-        self.default = Some(Arc::new(default));
+        let arc = Arc::new(default);
+
+        #[cfg(not(target_has_atomic = "ptr"))]
+        #[expect(
+            unsafe_code,
+            reason = "unsized coercion is an unstable feature for non-std types"
+        )]
+        // SAFETY:
+        // - Coercion from `T` to `dyn Reflect` is valid as `T: Reflect + 'static`
+        // - `Arc::from_raw` receives a valid pointer from a previous call to `Arc::into_raw`
+        let arc = unsafe { Arc::from_raw(Arc::into_raw(arc) as *const dyn Reflect) };
+
+        self.default = Some(arc);
         self
     }
 
@@ -251,8 +252,8 @@ pub(crate) use impl_generic_info_methods;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_reflect;
     use crate::{Reflect, Typed};
+    use alloc::string::String;
     use core::fmt::Debug;
 
     #[test]

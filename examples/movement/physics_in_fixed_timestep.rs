@@ -19,7 +19,7 @@
 //!
 //! The more sophisticated way is to update the player's position based on the time that has passed:
 //! ```no_run
-//! transform.translation += velocity * time.delta_seconds();
+//! transform.translation += velocity * time.delta_secs();
 //! ```
 //! This way, velocity represents a speed in units per second, and the player will move at the same speed
 //! regardless of the frame rate.
@@ -59,16 +59,16 @@
 //! - The player's previous position in the physics simulation is stored in a `PreviousPhysicalTranslation` component.
 //! - The player's visual representation is stored in Bevy's regular `Transform` component.
 //! - Every frame, we go through the following steps:
-//!    - Accumulate the player's input and set the current speed in the `handle_input` system.
-//!        This is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystem::BeforeFixedMainLoop`,
-//!        which runs before the fixed timestep loop. This is run every frame.
-//!    - Advance the physics simulation by one fixed timestep in the `advance_physics` system.
-//!        Accumulated input is consumed here.
-//!        This is run in the `FixedUpdate` schedule, which runs zero or multiple times per frame.
-//!    - Update the player's visual representation in the `interpolate_rendered_transform` system.
-//!        This interpolates between the player's previous and current position in the physics simulation.
-//!        It is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystem::AfterFixedMainLoop`,
-//!        which runs after the fixed timestep loop. This is run every frame.
+//!   - Accumulate the player's input and set the current speed in the `handle_input` system.
+//!     This is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystem::BeforeFixedMainLoop`,
+//!     which runs before the fixed timestep loop. This is run every frame.
+//!   - Advance the physics simulation by one fixed timestep in the `advance_physics` system.
+//!     Accumulated input is consumed here.
+//!     This is run in the `FixedUpdate` schedule, which runs zero or multiple times per frame.
+//!   - Update the player's visual representation in the `interpolate_rendered_transform` system.
+//!     This interpolates between the player's previous and current position in the physics simulation.
+//!     It is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystem::AfterFixedMainLoop`,
+//!     which runs after the fixed timestep loop. This is run every frame.
 //!
 //!
 //! ## Controls
@@ -133,11 +133,8 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn((
         Name::new("Player"),
-        SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
-            transform: Transform::from_scale(Vec3::splat(0.3)),
-            ..default()
-        },
+        Sprite::from_image(asset_server.load("branding/icon.png")),
+        Transform::from_scale(Vec3::splat(0.3)),
         AccumulatedInput::default(),
         Velocity::default(),
         PhysicalTranslation::default(),
@@ -148,24 +145,19 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Spawn a bit of UI text to explain how to move the player.
 fn spawn_text(mut commands: Commands) {
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         })
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Move the player with WASD",
-                TextStyle {
-                    font_size: 25.0,
-                    ..default()
-                },
-            ));
-        });
+        .with_child((
+            Text::new("Move the player with WASD"),
+            TextFont {
+                font_size: 25.0,
+                ..default()
+            },
+        ));
 }
 
 /// Handle keyboard input and accumulate it in the `AccumulatedInput` component.
@@ -222,7 +214,7 @@ fn advance_physics(
     ) in query.iter_mut()
     {
         previous_physical_translation.0 = current_physical_translation.0;
-        current_physical_translation.0 += velocity.0 * fixed_time.delta_seconds();
+        current_physical_translation.0 += velocity.0 * fixed_time.delta_secs();
 
         // Reset the input accumulator, as we are currently consuming all input that happened since the last fixed timestep.
         input.0 = Vec2::ZERO;

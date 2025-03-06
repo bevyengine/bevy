@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 use bevy::prelude::*;
 
 #[derive(Component, Default)]
@@ -26,8 +26,8 @@ fn despawn_dead_enemies(
 ) {
     for (entity, enemy) in &enemies {
         if enemy.hit_points == 0 {
-            commands.entity(entity).despawn_recursive();
-            dead_enemies.send(EnemyDied(enemy.score_value));
+            commands.entity(entity).despawn();
+            dead_enemies.write(EnemyDied(enemy.score_value));
         }
     }
 }

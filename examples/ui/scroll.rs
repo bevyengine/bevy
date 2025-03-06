@@ -1,12 +1,10 @@
 //! This example illustrates scrolling in Bevy UI.
 
+use accesskit::{Node as Accessible, Role};
 use bevy::{
-    a11y::{
-        accesskit::{NodeBuilder, Role},
-        AccessibilityNode,
-    },
+    a11y::AccessibilityNode,
     input::mouse::{MouseScrollUnit, MouseWheel},
-    picking::focus::HoverMap,
+    picking::hover::HoverMap,
     prelude::*,
     winit::WinitSettings,
 };
@@ -30,70 +28,58 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // root node
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::SpaceBetween,
-                flex_direction: FlexDirection::Column,
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            justify_content: JustifyContent::SpaceBetween,
+            flex_direction: FlexDirection::Column,
             ..default()
         })
         .insert(Pickable::IGNORE)
         .with_children(|parent| {
             // horizontal scroll example
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.),
-                        flex_direction: FlexDirection::Column,
-                        ..default()
-                    },
+                .spawn(Node {
+                    width: Val::Percent(100.),
+                    flex_direction: FlexDirection::Column,
                     ..default()
                 })
                 .with_children(|parent| {
                     // header
                     parent.spawn((
-                        TextBundle::from_section(
-                            "Horizontally Scrolling list (Ctrl + Mousewheel)",
-                            TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: FONT_SIZE,
-                                ..default()
-                            },
-                        ),
+                        Text::new("Horizontally Scrolling list (Ctrl + Mousewheel)"),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: FONT_SIZE,
+                            ..default()
+                        },
                         Label,
                     ));
 
                     // horizontal scroll container
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
+                        .spawn((
+                            Node {
                                 width: Val::Percent(80.),
                                 margin: UiRect::all(Val::Px(10.)),
                                 flex_direction: FlexDirection::Row,
                                 overflow: Overflow::scroll_x(), // n.b.
                                 ..default()
                             },
-                            background_color: Color::srgb(0.10, 0.10, 0.10).into(),
-                            ..default()
-                        })
+                            BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                        ))
                         .with_children(|parent| {
                             for i in 0..100 {
-                                parent.spawn((
-                                    TextBundle::from_section(
-                                        format!("Item {i}"),
-                                        TextStyle {
+                                parent.spawn((Text(format!("Item {i}")),
+                                        TextFont {
                                             font: asset_server
                                                 .load("fonts/FiraSans-Bold.ttf"),
                                             ..default()
                                         },
-                                    ),
                                     Label,
-                                    AccessibilityNode(NodeBuilder::new(Role::ListItem)),
+                                    AccessibilityNode(Accessible::new(Role::ListItem)),
                                 ))
-                                .insert(Style {
+                                .insert(Node {
                                     min_width: Val::Px(200.),
                                     align_content: AlignContent::Center,
                                     ..default()
@@ -103,11 +89,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 })
                                 .observe(|
-                                    trigger: Trigger<Pointer<Down>>,
+                                    trigger: Trigger<Pointer<Pressed>>,
                                     mut commands: Commands
                                 | {
                                     if trigger.event().button == PointerButton::Primary {
-                                        commands.entity(trigger.entity()).despawn_recursive();
+                                        commands.entity(trigger.target()).despawn();
                                     }
                                 });
                             }
@@ -116,65 +102,53 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             // container for all other examples
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
-                        flex_direction: FlexDirection::Row,
-                        justify_content: JustifyContent::SpaceBetween,
-                        ..default()
-                    },
+                .spawn(Node {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::SpaceBetween,
                     ..default()
                 })
                 .with_children(|parent| {
                     // vertical scroll example
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                width: Val::Px(200.),
-                                ..default()
-                            },
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            width: Val::Px(200.),
                             ..default()
                         })
                         .with_children(|parent| {
                             // Title
                             parent.spawn((
-                                TextBundle::from_section(
-                                    "Vertically Scrolling List",
-                                    TextStyle {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: FONT_SIZE,
-                                        ..default()
-                                    },
-                                ),
+                                Text::new("Vertically Scrolling List"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: FONT_SIZE,
+                                    ..default()
+                                },
                                 Label,
                             ));
                             // Scrolling list
                             parent
-                                .spawn(NodeBundle {
-                                    style: Style {
+                                .spawn((
+                                    Node {
                                         flex_direction: FlexDirection::Column,
                                         align_self: AlignSelf::Stretch,
                                         height: Val::Percent(50.),
                                         overflow: Overflow::scroll_y(), // n.b.
                                         ..default()
                                     },
-                                    background_color: Color::srgb(0.10, 0.10, 0.10).into(),
-                                    ..default()
-                                })
+                                    BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                                ))
                                 .with_children(|parent| {
                                     // List items
                                     for i in 0..25 {
                                         parent
-                                            .spawn(NodeBundle {
-                                                style: Style {
-                                                    min_height: Val::Px(LINE_HEIGHT),
-                                                    max_height: Val::Px(LINE_HEIGHT),
-                                                    ..default()
-                                                },
+                                            .spawn(Node {
+                                                min_height: Val::Px(LINE_HEIGHT),
+                                                max_height: Val::Px(LINE_HEIGHT),
                                                 ..default()
                                             })
                                             .insert(Pickable {
@@ -184,17 +158,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             .with_children(|parent| {
                                                 parent
                                                     .spawn((
-                                                        TextBundle::from_section(
-                                                            format!("Item {i}"),
-                                                            TextStyle {
-                                                                font: asset_server.load(
-                                                                    "fonts/FiraSans-Bold.ttf",
-                                                                ),
-                                                                ..default()
-                                                            },
-                                                        ),
+                                                        Text(format!("Item {i}")),
+                                                        TextFont {
+                                                            font: asset_server
+                                                                .load("fonts/FiraSans-Bold.ttf"),
+                                                            ..default()
+                                                        },
                                                         Label,
-                                                        AccessibilityNode(NodeBuilder::new(
+                                                        AccessibilityNode(Accessible::new(
                                                             Role::ListItem,
                                                         )),
                                                     ))
@@ -209,51 +180,42 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                     // Bidirectional scroll example
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                width: Val::Px(200.),
-                                ..default()
-                            },
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            width: Val::Px(200.),
                             ..default()
                         })
                         .with_children(|parent| {
                             // Title
                             parent.spawn((
-                                TextBundle::from_section(
-                                    "Bidirectionally Scrolling List",
-                                    TextStyle {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: FONT_SIZE,
-                                        ..default()
-                                    },
-                                ),
+                                Text::new("Bidirectionally Scrolling List"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: FONT_SIZE,
+                                    ..default()
+                                },
                                 Label,
                             ));
                             // Scrolling list
                             parent
-                                .spawn(NodeBundle {
-                                    style: Style {
+                                .spawn((
+                                    Node {
                                         flex_direction: FlexDirection::Column,
                                         align_self: AlignSelf::Stretch,
                                         height: Val::Percent(50.),
                                         overflow: Overflow::scroll(), // n.b.
                                         ..default()
                                     },
-                                    background_color: Color::srgb(0.10, 0.10, 0.10).into(),
-                                    ..default()
-                                })
+                                    BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                                ))
                                 .with_children(|parent| {
                                     // Rows in each column
                                     for oi in 0..10 {
                                         parent
-                                            .spawn(NodeBundle {
-                                                style: Style {
-                                                    flex_direction: FlexDirection::Row,
-                                                    ..default()
-                                                },
+                                            .spawn(Node {
+                                                flex_direction: FlexDirection::Row,
                                                 ..default()
                                             })
                                             .insert(Pickable::IGNORE)
@@ -262,17 +224,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 for i in 0..25 {
                                                     parent
                                                         .spawn((
-                                                            TextBundle::from_section(
-                                                                format!("Item {}", (oi * 25) + i),
-                                                                TextStyle {
-                                                                    font: asset_server.load(
-                                                                        "fonts/FiraSans-Bold.ttf",
-                                                                    ),
-                                                                    ..default()
-                                                                },
-                                                            ),
+                                                            Text(format!("Item {}", (oi * 25) + i)),
+                                                            TextFont {
+                                                                font: asset_server.load(
+                                                                    "fonts/FiraSans-Bold.ttf",
+                                                                ),
+                                                                ..default()
+                                                            },
                                                             Label,
-                                                            AccessibilityNode(NodeBuilder::new(
+                                                            AccessibilityNode(Accessible::new(
                                                                 Role::ListItem,
                                                             )),
                                                         ))
@@ -288,33 +248,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                     // Nested scrolls example
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                width: Val::Px(200.),
-                                ..default()
-                            },
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            width: Val::Px(200.),
                             ..default()
                         })
                         .with_children(|parent| {
                             // Title
                             parent.spawn((
-                                TextBundle::from_section(
-                                    "Nested Scrolling Lists",
-                                    TextStyle {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: FONT_SIZE,
-                                        ..default()
-                                    },
-                                ),
+                                Text::new("Nested Scrolling Lists"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: FONT_SIZE,
+                                    ..default()
+                                },
                                 Label,
                             ));
                             // Outer, horizontal scrolling container
                             parent
-                                .spawn(NodeBundle {
-                                    style: Style {
+                                .spawn((
+                                    Node {
                                         column_gap: Val::Px(20.),
                                         flex_direction: FlexDirection::Row,
                                         align_self: AlignSelf::Stretch,
@@ -322,24 +277,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         overflow: Overflow::scroll_x(), // n.b.
                                         ..default()
                                     },
-                                    background_color: Color::srgb(0.10, 0.10, 0.10).into(),
-                                    ..default()
-                                })
+                                    BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                                ))
                                 .with_children(|parent| {
                                     // Inner, scrolling columns
                                     for oi in 0..30 {
                                         parent
-                                            .spawn(NodeBundle {
-                                                style: Style {
+                                            .spawn((
+                                                Node {
                                                     flex_direction: FlexDirection::Column,
                                                     align_self: AlignSelf::Stretch,
                                                     overflow: Overflow::scroll_y(),
                                                     ..default()
                                                 },
-                                                background_color: Color::srgb(0.05, 0.05, 0.05)
-                                                    .into(),
-                                                ..default()
-                                            })
+                                                BackgroundColor(Color::srgb(0.05, 0.05, 0.05)),
+                                            ))
                                             .insert(Pickable {
                                                 should_block_lower: false,
                                                 ..default()
@@ -348,17 +300,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 for i in 0..25 {
                                                     parent
                                                         .spawn((
-                                                            TextBundle::from_section(
-                                                                format!("Item {}", (oi * 25) + i),
-                                                                TextStyle {
-                                                                    font: asset_server.load(
-                                                                        "fonts/FiraSans-Bold.ttf",
-                                                                    ),
-                                                                    ..default()
-                                                                },
-                                                            ),
+                                                            Text(format!("Item {}", (oi * 25) + i)),
+                                                            TextFont {
+                                                                font: asset_server.load(
+                                                                    "fonts/FiraSans-Bold.ttf",
+                                                                ),
+                                                                ..default()
+                                                            },
                                                             Label,
-                                                            AccessibilityNode(NodeBuilder::new(
+                                                            AccessibilityNode(Accessible::new(
                                                                 Role::ListItem,
                                                             )),
                                                         ))

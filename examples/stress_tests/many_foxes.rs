@@ -51,7 +51,7 @@ fn main() {
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
         .insert_resource(WinitSettings {
@@ -156,7 +156,8 @@ fn setup(
         let (base_rotation, ring_direction) = ring_directions[ring_index % 2];
         let ring_parent = commands
             .spawn((
-                SpatialBundle::INHERITED_IDENTITY,
+                Transform::default(),
+                Visibility::default(),
                 ring_direction,
                 Ring { radius },
             ))
@@ -239,7 +240,7 @@ fn setup_scene_once_loaded(
         for (entity, mut player) in &mut player {
             commands
                 .entity(entity)
-                .insert(animations.graph.clone())
+                .insert(AnimationGraphHandle(animations.graph.clone()))
                 .insert(AnimationTransitions::new());
 
             let playing_animation = player.play(animations.node_indices[0]).repeat();
@@ -260,7 +261,7 @@ fn update_fox_rings(
         return;
     }
 
-    let dt = time.delta_seconds();
+    let dt = time.delta_secs();
     for (ring, rotation_direction, mut transform) in &mut rings {
         let angular_velocity = foxes.speed / ring.radius;
         transform.rotate_y(rotation_direction.sign() * angular_velocity * dt);

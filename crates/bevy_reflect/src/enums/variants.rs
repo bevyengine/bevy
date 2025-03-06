@@ -2,10 +2,10 @@ use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     NamedField, UnnamedField,
 };
-use bevy_utils::HashMap;
+use alloc::boxed::Box;
+use bevy_platform_support::collections::HashMap;
+use bevy_platform_support::sync::Arc;
 use core::slice::Iter;
-
-use alloc::sync::Arc;
 use thiserror::Error;
 
 /// Describes the form of an enum variant.
@@ -359,7 +359,6 @@ impl UnitVariantInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_reflect;
     use crate::{Reflect, Typed};
 
     #[test]

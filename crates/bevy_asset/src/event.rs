@@ -1,5 +1,6 @@
 use crate::{Asset, AssetId, AssetLoadError, AssetPath, UntypedAssetId};
 use bevy_ecs::event::Event;
+use bevy_reflect::Reflect;
 use core::fmt::Debug;
 
 /// An event emitted when a specific [`Asset`] fails to load.
@@ -7,6 +8,7 @@ use core::fmt::Debug;
 /// For an untyped equivalent, see [`UntypedAssetLoadFailedEvent`].
 #[derive(Event, Clone, Debug)]
 pub struct AssetLoadFailedEvent<A: Asset> {
+    /// The stable identifier of the asset that failed to load.
     pub id: AssetId<A>,
     /// The asset path that was attempted.
     pub path: AssetPath<'static>,
@@ -24,6 +26,7 @@ impl<A: Asset> AssetLoadFailedEvent<A> {
 /// An untyped version of [`AssetLoadFailedEvent`].
 #[derive(Event, Clone, Debug)]
 pub struct UntypedAssetLoadFailedEvent {
+    /// The stable identifier of the asset that failed to load.
     pub id: UntypedAssetId,
     /// The asset path that was attempted.
     pub path: AssetPath<'static>,
@@ -42,7 +45,8 @@ impl<A: Asset> From<&AssetLoadFailedEvent<A>> for UntypedAssetLoadFailedEvent {
 }
 
 /// Events that occur for a specific loaded [`Asset`], such as "value changed" events and "dependency" events.
-#[derive(Event)]
+#[expect(missing_docs, reason = "Documenting the id fields is unhelpful.")]
+#[derive(Event, Reflect)]
 pub enum AssetEvent<A: Asset> {
     /// Emitted whenever an [`Asset`] is added.
     Added { id: AssetId<A> },

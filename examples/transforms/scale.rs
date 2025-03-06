@@ -90,6 +90,6 @@ fn change_scale_direction(mut cubes: Query<(&mut Transform, &mut Scaling)>) {
 // by cycling through the directions to scale.
 fn scale_cube(mut cubes: Query<(&mut Transform, &Scaling)>, timer: Res<Time>) {
     for (mut transform, cube) in &mut cubes {
-        transform.scale += cube.scale_direction * cube.scale_speed * timer.delta_seconds();
+        transform.scale += cube.scale_direction * cube.scale_speed * timer.delta_secs();
     }
 }

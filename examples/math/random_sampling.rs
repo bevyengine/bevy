@@ -109,23 +109,22 @@ fn setup(
     })));
 
     // Instructions for the example:
-    commands.spawn(
-        TextBundle::from_section(
+    commands.spawn((
+        Text::new(
             "Controls:\n\
             M: Toggle between sampling boundary and interior.\n\
             R: Restart (erase all samples).\n\
             S: Add one random sample.\n\
             D: Add 100 random samples.\n\
             Rotate camera by holding left mouse and panning left/right.",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+        ),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     // The mode starts with interior points.
     commands.insert_resource(Mode::Interior);
@@ -135,7 +134,6 @@ fn setup(
 }
 
 // Handle user inputs from the keyboard:
-#[allow(clippy::too_many_arguments)]
 fn handle_keypress(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -223,7 +221,7 @@ fn handle_keypress(
 fn handle_mouse(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut button_events: EventReader<MouseButtonInput>,
-    mut camera: Query<&mut Transform, With<Camera>>,
+    mut camera_transform: Single<&mut Transform, With<Camera>>,
     mut mouse_pressed: ResMut<MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource
@@ -240,7 +238,6 @@ fn handle_mouse(
     }
     if accumulated_mouse_motion.delta != Vec2::ZERO {
         let displacement = accumulated_mouse_motion.delta.x;
-        let mut camera_transform = camera.single_mut();
         camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(-displacement / 150.));
     }
 }

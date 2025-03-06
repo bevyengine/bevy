@@ -6,6 +6,7 @@ use crate::io::{
     PathStream, Reader, Writer,
 };
 
+use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 use core::{pin::Pin, task::Poll};
 use std::{
     fs::{read_dir, File},
@@ -202,6 +203,12 @@ impl AssetWriter for FileAssetWriter {
         let meta_path = get_meta_path(path);
         let full_path = self.root_path.join(meta_path);
         std::fs::remove_file(full_path)?;
+        Ok(())
+    }
+
+    async fn create_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
+        let full_path = self.root_path.join(path);
+        std::fs::create_dir_all(full_path)?;
         Ok(())
     }
 

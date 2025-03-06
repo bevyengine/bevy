@@ -29,13 +29,13 @@ use super::GpuArrayBufferable;
 /// from system RAM to VRAM.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`BufferVec`]
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
-/// * [`BufferVec`]
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`Texture`](crate::render_resource::Texture)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 pub struct RawBufferVec<T: NoUninit> {
     values: Vec<T>,
     buffer: Option<Buffer>,
@@ -101,6 +101,25 @@ impl<T: NoUninit> RawBufferVec<T> {
 
     pub fn append(&mut self, other: &mut RawBufferVec<T>) {
         self.values.append(&mut other.values);
+    }
+
+    /// Returns the value at the given index.
+    pub fn get(&self, index: u32) -> Option<&T> {
+        self.values.get(index as usize)
+    }
+
+    /// Sets the value at the given index.
+    ///
+    /// The index must be less than [`RawBufferVec::len`].
+    pub fn set(&mut self, index: u32, value: T) {
+        self.values[index as usize] = value;
+    }
+
+    /// Preallocates space for `count` elements in the internal CPU-side buffer.
+    ///
+    /// Unlike [`RawBufferVec::reserve`], this doesn't have any effect on the GPU buffer.
+    pub fn reserve_internal(&mut self, count: usize) {
+        self.values.reserve(count);
     }
 
     /// Changes the debugging label of the buffer.
@@ -174,12 +193,29 @@ impl<T: NoUninit> RawBufferVec<T> {
         self.values.clear();
     }
 
+    /// Removes and returns the last element in the buffer.
+    pub fn pop(&mut self) -> Option<T> {
+        self.values.pop()
+    }
+
     pub fn values(&self) -> &Vec<T> {
         &self.values
     }
 
     pub fn values_mut(&mut self) -> &mut Vec<T> {
         &mut self.values
+    }
+}
+
+impl<T> RawBufferVec<T>
+where
+    T: NoUninit + Default,
+{
+    pub fn grow_set(&mut self, index: u32, value: T) {
+        while index as usize + 1 > self.len() {
+            self.values.push(T::default());
+        }
+        self.values[index as usize] = value;
     }
 }
 
@@ -202,6 +238,15 @@ impl<T: NoUninit> Extend<T> for RawBufferVec<T> {
 /// CPU access to the data after it's been added via [`BufferVec::push`]. If you
 /// need CPU access to the data, consider another type, such as
 /// [`StorageBuffer`][super::StorageBuffer].
+///
+/// Other options for storing GPU-accessible data are:
+/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`RawBufferVec`]
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`Texture`](crate::render_resource::Texture)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 pub struct BufferVec<T>
 where
     T: ShaderType + WriteInto,
@@ -271,7 +316,7 @@ where
 
         // TODO: Consider using unsafe code to push uninitialized, to prevent
         // the zeroing. It shows up in profiles.
-        self.data.extend(iter::repeat(0).take(element_size));
+        self.data.extend(iter::repeat_n(0, element_size));
 
         // Take a slice of the new data for `write_into` to use. This is
         // important: it hoists the bounds check up here so that the compiler
@@ -411,8 +456,14 @@ where
 
     /// Reserves space for one more element in the buffer and returns its index.
     pub fn add(&mut self) -> usize {
+        self.add_multiple(1)
+    }
+
+    /// Reserves space for the given number of elements in the buffer and
+    /// returns the index of the first one.
+    pub fn add_multiple(&mut self, count: usize) -> usize {
         let index = self.len;
-        self.len += 1;
+        self.len += count;
         index
     }
 

@@ -2,6 +2,7 @@
 use bevy::{
     color::palettes::basic::{BLUE, LIME, RED},
     prelude::*,
+    time::Stopwatch,
 };
 
 fn main() {
@@ -10,6 +11,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, update_positions)
         .add_systems(Update, update_listener)
+        .add_systems(Update, mute)
         .run();
 }
 
@@ -28,13 +30,17 @@ fn setup(
         MeshMaterial3d(materials.add(Color::from(BLUE))),
         Transform::from_xyz(0.0, 0.0, 0.0),
         Emitter::default(),
-        AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
+        AudioPlayer::new(asset_server.load("sounds/Windless Slopes.ogg")),
         PlaybackSettings::LOOP.with_spatial(true),
     ));
 
     let listener = SpatialListener::new(gap);
     commands
-        .spawn((SpatialBundle::default(), listener.clone()))
+        .spawn((
+            Transform::default(),
+            Visibility::default(),
+            listener.clone(),
+        ))
         .with_children(|parent| {
             // left ear indicator
             parent.spawn((
@@ -58,18 +64,17 @@ fn setup(
     ));
 
     // example instructions
-    commands.spawn(
-        TextBundle::from_section(
-            "Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new(
+            "Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement\nM: Toggle Mute",
+        ),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     // camera
     commands.spawn((
@@ -80,7 +85,7 @@ fn setup(
 
 #[derive(Component, Default)]
 struct Emitter {
-    stopped: bool,
+    stopwatch: Stopwatch,
 }
 
 fn update_positions(
@@ -90,12 +95,18 @@ fn update_positions(
 ) {
     for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
         if keyboard.just_pressed(KeyCode::Space) {
-            emitter.stopped = !emitter.stopped;
+            if emitter.stopwatch.is_paused() {
+                emitter.stopwatch.unpause();
+            } else {
+                emitter.stopwatch.pause();
+            }
         }
 
-        if !emitter.stopped {
-            emitter_transform.translation.x = ops::sin(time.elapsed_seconds()) * 3.0;
-            emitter_transform.translation.z = ops::cos(time.elapsed_seconds()) * 3.0;
+        emitter.stopwatch.tick(time.delta());
+
+        if !emitter.stopwatch.is_paused() {
+            emitter_transform.translation.x = ops::sin(emitter.stopwatch.elapsed_secs()) * 3.0;
+            emitter_transform.translation.z = ops::cos(emitter.stopwatch.elapsed_secs()) * 3.0;
         }
     }
 }
@@ -103,22 +114,28 @@ fn update_positions(
 fn update_listener(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut listeners: Query<&mut Transform, With<SpatialListener>>,
+    mut listeners: Single<&mut Transform, With<SpatialListener>>,
 ) {
-    let mut transform = listeners.single_mut();
-
     let speed = 2.;
 
     if keyboard.pressed(KeyCode::ArrowRight) {
-        transform.translation.x += speed * time.delta_seconds();
+        listeners.translation.x += speed * time.delta_secs();
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        transform.translation.x -= speed * time.delta_seconds();
+        listeners.translation.x -= speed * time.delta_secs();
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        transform.translation.z += speed * time.delta_seconds();
+        listeners.translation.z += speed * time.delta_secs();
     }
     if keyboard.pressed(KeyCode::ArrowUp) {
-        transform.translation.z -= speed * time.delta_seconds();
+        listeners.translation.z -= speed * time.delta_secs();
+    }
+}
+
+fn mute(keyboard_input: Res<ButtonInput<KeyCode>>, mut sinks: Query<&mut SpatialAudioSink>) {
+    if keyboard_input.just_pressed(KeyCode::KeyM) {
+        for mut sink in sinks.iter_mut() {
+            sink.toggle_mute();
+        }
     }
 }

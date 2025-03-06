@@ -21,7 +21,7 @@
 # Mold is a newer linker written by one of the authors of LLD. It boasts even greater performance, specifically
 # through its high parallelism, though it only supports Linux.
 #
-# Mold is  disabled by default in this file. If you wish to enable it, follow the installation instructions for
+# Mold is disabled by default in this file. If you wish to enable it, follow the installation instructions for
 # your corresponding target, disable LLD by commenting out its `-Clink-arg=...` line, and enable Mold by
 # *uncommenting* its `-Clink-arg=...` line.
 #
@@ -32,7 +32,7 @@
 #
 # # Nightly configuration
 #
-# Be warned that the following features require nightly Rust, which is expiremental and may contain bugs. If you
+# Be warned that the following features require nightly Rust, which is experimental and may contain bugs. If you
 # are having issues, skip this section and use stable Rust instead.
 #
 # There are a few unstable features that can improve performance. To use them, first install nightly Rust
@@ -51,7 +51,7 @@
 # crates to share monomorphized generic code, so they do not duplicate work.
 #
 # In other words, instead of crate 1 generating `Foo<String>` and crate 2 generating `Foo<String>` separately,
-# only one crate generates `Foo<String>` and the other adds on to the pre-exiting work.
+# only one crate generates `Foo<String>` and the other adds on to the pre-existing work.
 #
 # Note that you may have some issues with this flag on Windows. If compiling fails due to the 65k symbol limit,
 # you may have to disable this setting. For more information and possible solutions to this error, see
@@ -150,7 +150,7 @@ rustflags = [
   # "-Zthreads=0",
 ]
 
-# Optional: Uncommenting the following improves compile times, but reduces the amount of debug info to 'line number tables only'
+# Optional: Uncommenting the following improves compile times, but reduces the amount of debug info to 'line number tables only'.
 # In most cases the gains are negligible, but if you are on macOS and have slow compile times you should see significant gains.
 # [profile.dev]
 # debug = 1
