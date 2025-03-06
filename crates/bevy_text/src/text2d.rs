@@ -204,24 +204,19 @@ pub fn extract_text2d_sprite(
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            extracted_sprites.sprites.insert(
-                (
-                    commands.spawn(TemporaryRenderEntity).id(),
-                    original_entity.into(),
-                ),
-                ExtractedSprite {
-                    transform: transform * GlobalTransform::from_translation(position.extend(0.)),
-                    color,
-                    rect: Some(atlas.textures[atlas_info.location.glyph_index].as_rect()),
-                    custom_size: None,
-                    image_handle_id: atlas_info.texture.id(),
-                    flip_x: false,
-                    flip_y: false,
-                    anchor: Anchor::Center.as_vec(),
-                    original_entity: Some(original_entity),
-                    scaling_mode: None,
-                },
-            );
+            extracted_sprites.sprites.push(ExtractedSprite {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                transform: transform * GlobalTransform::from_translation(position.extend(0.)),
+                color,
+                rect: Some(atlas.textures[atlas_info.location.glyph_index].as_rect()),
+                custom_size: None,
+                image_handle_id: atlas_info.texture.id(),
+                flip_x: false,
+                flip_y: false,
+                anchor: Anchor::Center.as_vec(),
+                original_entity,
+                scaling_mode: None,
+            });
         }
     }
 }
