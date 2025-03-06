@@ -37,10 +37,6 @@ struct MoveBackAndForthHorizontally {
 }
 
 fn main() {
-    #[expect(
-        deprecated,
-        reason = "Once AmbientLight is removed, the resource can be removed"
-    )]
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::Srgba(Srgba {

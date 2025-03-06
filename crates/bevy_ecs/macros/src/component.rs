@@ -1,4 +1,4 @@
-use proc_macro::{TokenStream, TokenTree};
+use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
 use std::collections::HashSet;
@@ -71,7 +71,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(err) => err.into_compile_error().into(),
     };
 
-    let visit_entities = visit_entities(&ast.data, &bevy_ecs_path, relationship.is_some());
+    let visit_entities = visit_entities(
+        &ast.data,
+        &bevy_ecs_path,
+        relationship.is_some(),
+        relationship_target.is_some(),
+    );
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
@@ -202,12 +207,24 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
+    let required_component_docs = attrs.requires.map(|r| {
+        let paths = r
+            .iter()
+            .map(|r| format!("[`{}`]", r.path.to_token_stream()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let doc = format!("**Required Components**: {paths}. \n\n A component's Required Components are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.");
+        quote! {
+            #[doc = #doc]
+        }
+    });
+
     let mutable_type = (attrs.immutable || relationship.is_some())
         .then_some(quote! { #bevy_ecs_path::component::Immutable })
         .unwrap_or(quote! { #bevy_ecs_path::component::Mutable });
 
     let clone_behavior = if relationship_target.is_some() {
-        quote!(#bevy_ecs_path::component::ComponentCloneBehavior::RelationshipTarget(#bevy_ecs_path::relationship::clone_relationship_target::<Self>))
+        quote!(#bevy_ecs_path::component::ComponentCloneBehavior::Custom(#bevy_ecs_path::relationship::clone_relationship_target::<Self>))
     } else {
         quote!(
             use #bevy_ecs_path::component::{DefaultCloneBehaviorBase, DefaultCloneBehaviorViaClone};
@@ -218,6 +235,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
+        #required_component_docs
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             type Mutability = #mutable_type;
@@ -255,7 +273,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     })
 }
 
-fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> TokenStream2 {
+fn visit_entities(
+    data: &Data,
+    bevy_ecs_path: &Path,
+    is_relationship: bool,
+    is_relationship_target: bool,
+) -> TokenStream2 {
     match data {
         Data::Struct(DataStruct { fields, .. }) => {
             let mut visited_fields = Vec::new();
@@ -288,7 +311,9 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                 }
                 Fields::Unnamed(fields) => {
                     for (index, field) in fields.unnamed.iter().enumerate() {
-                        if field
+                        if index == 0 && is_relationship_target {
+                            visited_indices.push(Index::from(0));
+                        } else if field
                             .attrs
                             .iter()
                             .any(|a| a.meta.path().is_ident(ENTITIES_ATTR))
@@ -400,34 +425,6 @@ pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
         || Member::Unnamed(index.into()),
         |ident| Member::Named(ident.clone()),
     )
-}
-
-pub fn document_required_components(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let paths = parse_macro_input!(attr with Punctuated::<Require, Comma>::parse_terminated)
-        .iter()
-        .map(|r| format!("[`{}`]", r.path.to_token_stream()))
-        .collect::<Vec<_>>()
-        .join(", ");
-
-    let bevy_ecs_path = crate::bevy_ecs_path()
-        .to_token_stream()
-        .to_string()
-        .replace(' ', "");
-    let required_components_path = bevy_ecs_path + "::component::Component#required-components";
-
-    // Insert information about required components after any existing doc comments
-    let mut out = TokenStream::new();
-    let mut end_of_attributes_reached = false;
-    for tt in item {
-        if !end_of_attributes_reached & matches!(tt, TokenTree::Ident(_)) {
-            end_of_attributes_reached = true;
-            let doc: TokenStream = format!("#[doc = \"\n\n# Required Components\n{paths} \n\n A component's [required components]({required_components_path}) are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.\"]").parse().unwrap();
-            out.extend(doc);
-        }
-        out.extend(Some(tt));
-    }
-
-    out
 }
 
 pub const COMPONENT: &str = "component";
