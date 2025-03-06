@@ -597,18 +597,10 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(
     Component,
-    attributes(component, relationship, relationship_target, entities)
+    attributes(component, require, relationship, relationship_target, entities)
 )]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
-}
-
-/// Allows specifying a component's required components.
-///
-/// See `Component` docs for usage.
-#[proc_macro_attribute]
-pub fn require(attr: TokenStream, item: TokenStream) -> TokenStream {
-    component::document_required_components(attr, item)
 }
 
 #[proc_macro_derive(States)]

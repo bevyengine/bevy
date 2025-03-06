@@ -81,14 +81,14 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
                 .is_some_and(|info| info.storage_type() == StorageType::Table)
         };
 
-        let (mut component_reads_and_writes, component_reads_and_writes_inverted) =
-            self.access.access().component_reads_and_writes();
-        if component_reads_and_writes_inverted {
+        let Ok(component_accesses) = self.access.access().try_iter_component_access() else {
+            // Access is unbounded, pessimistically assume it's sparse.
             return false;
-        }
+        };
 
-        component_reads_and_writes.all(is_dense)
-            && self.access.access().archetypal().all(is_dense)
+        component_accesses
+            .map(|access| *access.index())
+            .all(is_dense)
             && !self.access.access().has_read_all_components()
             && self.access.with_filters().all(is_dense)
             && self.access.without_filters().all(is_dense)

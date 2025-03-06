@@ -30,6 +30,10 @@ pub use filtered_resource::*;
 pub use identifier::WorldId;
 pub use spawn_batch::*;
 
+#[expect(
+    deprecated,
+    reason = "We need to support `AllocAtWithoutReplacement` for now."
+)]
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{
@@ -48,6 +52,7 @@ use crate::{
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
+    relationship::RelationshipInsertHookMode,
     removal_detection::RemovedComponentEvents,
     resource::Resource,
     schedule::{Schedule, ScheduleLabel, Schedules},
@@ -2153,18 +2158,28 @@ impl World {
     /// assert_eq!(world.get::<B>(e0), Some(&B(0.0)));
     /// ```
     #[track_caller]
+    #[deprecated(
+        note = "This can cause extreme performance problems when used with lots of arbitrary free entities. See #18054 on GitHub."
+    )]
     pub fn insert_or_spawn_batch<I, B>(&mut self, iter: I) -> Result<(), Vec<Entity>>
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle<Effect: NoBundleEffect>,
     {
+        #[expect(
+            deprecated,
+            reason = "This needs to be supported for now, and the outer function is deprecated too."
+        )]
         self.insert_or_spawn_batch_with_caller(iter, MaybeLocation::caller())
     }
 
     /// Split into a new function so we can pass the calling location into the function when using
     /// as a command.
     #[inline]
+    #[deprecated(
+        note = "This can cause extreme performance problems when used with lots of arbitrary free entities. See #18054 on GitHub."
+    )]
     pub(crate) fn insert_or_spawn_batch_with_caller<I, B>(
         &mut self,
         iter: I,
@@ -2202,6 +2217,10 @@ impl World {
 
         let mut invalid_entities = Vec::new();
         for (entity, bundle) in iter {
+            #[expect(
+                deprecated,
+                reason = "This needs to be supported for now, and the outer function is deprecated too."
+            )]
             match spawn_or_insert
                 .entities()
                 .alloc_at_without_replacement(entity)
@@ -2219,6 +2238,7 @@ impl World {
                                     bundle,
                                     InsertMode::Replace,
                                     caller,
+                                    RelationshipInsertHookMode::Run,
                                 )
                             };
                         }
@@ -2240,6 +2260,7 @@ impl World {
                                     bundle,
                                     InsertMode::Replace,
                                     caller,
+                                    RelationshipInsertHookMode::Run,
                                 )
                             };
                             spawn_or_insert =
@@ -2374,6 +2395,7 @@ impl World {
                         first_bundle,
                         insert_mode,
                         caller,
+                        RelationshipInsertHookMode::Run,
                     )
                 };
 
@@ -2395,9 +2417,14 @@ impl World {
                         }
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                         unsafe {
-                            cache
-                                .inserter
-                                .insert(entity, location, bundle, insert_mode, caller)
+                            cache.inserter.insert(
+                                entity,
+                                location,
+                                bundle,
+                                insert_mode,
+                                caller,
+                                RelationshipInsertHookMode::Run,
+                            )
                         };
                     } else {
                         panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
@@ -2515,6 +2542,7 @@ impl World {
                             first_bundle,
                             insert_mode,
                             caller,
+                            RelationshipInsertHookMode::Run,
                         )
                     };
                     break Some(cache);
@@ -2545,9 +2573,14 @@ impl World {
                     }
                     // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                     unsafe {
-                        cache
-                            .inserter
-                            .insert(entity, location, bundle, insert_mode, caller)
+                        cache.inserter.insert(
+                            entity,
+                            location,
+                            bundle,
+                            insert_mode,
+                            caller,
+                            RelationshipInsertHookMode::Run,
+                        )
                     };
                 } else {
                     invalid_entities.push(entity);

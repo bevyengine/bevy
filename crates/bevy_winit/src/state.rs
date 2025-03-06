@@ -491,11 +491,12 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         {
             let winit_windows = self.world().non_send_resource::<WinitWindows>();
             let headless = winit_windows.windows.is_empty();
+            let exiting = self.app_exit.is_some();
             let all_invisible = winit_windows
                 .windows
                 .iter()
                 .all(|(_, w)| !w.is_visible().unwrap_or(false));
-            if self.startup_forced_updates > 0 || headless || all_invisible {
+            if !exiting && (self.startup_forced_updates > 0 || headless || all_invisible) {
                 self.redraw_requested(event_loop);
             }
         }
@@ -899,16 +900,11 @@ impl<T: Event> WinitAppRunnerState<T> {
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.
-pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
+pub fn winit_runner<T: Event>(mut app: App, event_loop: EventLoop<T>) -> AppExit {
     if app.plugins_state() == PluginsState::Ready {
         app.finish();
         app.cleanup();
     }
-
-    let event_loop = app
-        .world_mut()
-        .remove_non_send_resource::<EventLoop<T>>()
-        .unwrap();
 
     app.world_mut()
         .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()));
