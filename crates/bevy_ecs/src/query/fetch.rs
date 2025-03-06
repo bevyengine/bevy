@@ -316,11 +316,14 @@ pub unsafe trait QueryData: WorldQuery {
 /// This must only be implemented for read-only [`QueryData`]'s.
 pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 
-/// A [`QueryData`] whose items can be compared as the original entity.
+/// A [`QueryData`] type that produces a [`TrustedEntityBorrow`] item
+/// equaling the `Entity` it is addressed by.
 ///
 /// # Safety
 ///
-/// Calling [`EntityBorrow::entity()`](crate::entity::EntityBorrow::entity) on the `Item` must return the `entity` that was passed to [`QueryData::fetch()`].
+/// [`<Self as QueryData>::fetch`](QueryData::fetch) must always return an item whose `Entity`
+/// equals the one the function was called with.
+/// I.e.: `Self::fetch(fetch, entity, table_row).entity() == entity` always holds.
 pub unsafe trait TrustedEntityQueryData: QueryData
 where
     for<'a> Self: QueryData<Item<'a>: TrustedEntityBorrow>,
