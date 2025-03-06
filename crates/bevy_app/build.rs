@@ -4,12 +4,12 @@ fn main() {
     // Collecting information that will be used to decide which cfg aliases
     // will be exported.
     // Using `cfg!(target_arch = "wasm32")` and such does not work because
-    // `build.rs` uses the host archtecture and other information, not the target's.
+    // `build.rs` uses the host architecture and other information, not the target's.
     // Cargo then defines environment variables for the information of the target
     let windows = std::env::var("CARGO_CFG_WINDOWS").is_ok();
     let unix = std::env::var("CARGO_CFG_UNIX").is_ok();
 
-    let is_wasm32 = target_archtecture("wasm32");
+    let is_wasm32 = target_architecture("wasm32");
 
     let feature_bevy_tasks = feature_present("bevy_tasks");
     let feature_std = feature_present("std");
@@ -36,7 +36,7 @@ fn feature_present(feature: &str) -> bool {
         .is_some()
 }
 
-fn target_archtecture(target: &str) -> bool {
+fn target_architecture(target: &str) -> bool {
     std::env::var("CARGO_CFG_TARGET_ARCH")
         .ok()
         .filter(|arch| arch == target)
