@@ -578,7 +578,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
         }
         ui_meta.vertices.write_buffer(&render_device, &render_queue);
         *previous_len = batches.len();
-        commands.insert_or_spawn_batch(batches);
+        commands.try_insert_batch(batches);
     }
     extracted_uinodes.uinodes.clear();
 }
