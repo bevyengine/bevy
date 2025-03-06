@@ -215,10 +215,7 @@ fn setup(mut commands: Commands) {
                             GradientNode(Gradient::Radial {
                                 stops: stops.clone(),
                                 center: RelativePosition::center(Val::Px(25.), Val::Px(25.)),
-                                shape: RadialGradientShape::Circle(
-                                    //RadialGradientAxis::FarthestSide,
-                                    RadialGradientAxis::ClosestSide,
-                                ),
+                                shape: RadialGradientShape::ClosestSide,
                             }),
                             GradientBorder(Gradient::Linear {
                                 angle: 3. * TAU / 8.,

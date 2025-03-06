@@ -1,4 +1,4 @@
-use crate::{FocusPolicy, RelativePosition, UiRect, Val};
+use crate::{FocusPolicy, RadialGradientShape, RelativePosition, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -2434,7 +2434,7 @@ impl BorderRadius {
         radius: Val,
         scale_factor: f32,
         min_length: f32,
-        viewport_size: UVec2,
+        viewport_size: Vec2,
     ) -> f32 {
         radius
             .resolve(scale_factor, min_length, viewport_size)
@@ -2448,7 +2448,7 @@ impl BorderRadius {
         &self,
         scale_factor: f32,
         node_size: Vec2,
-        viewport_size: UVec2,
+        viewport_size: Vec2,
     ) -> ResolvedBorderRadius {
         let length = node_size.min_element();
         ResolvedBorderRadius {
@@ -2809,6 +2809,13 @@ impl ColorStop {
     pub fn new(color: Color, point: Val) -> Self {
         Self { color, point }
     }
+
+    pub fn auto(color: Color) -> Self {
+        Self {
+            color,
+            point: Val::Auto,
+        }
+    }
 }
 
 impl From<(Color, Val)> for ColorStop {
@@ -2846,35 +2853,6 @@ impl Default for ColorStop {
 pub struct AngularColorStop {
     pub color: Color,
     pub angle: Option<f32>,
-}
-
-#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq, Default)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub enum RadialGradientAxis {
-    #[default]
-    ClosestSide,
-    FarthestSide,
-    Length(Val),
-}
-
-#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq, Default)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub enum RadialGradientShape {
-    #[default]
-    FarthestCorner,
-    Circle(RadialGradientAxis),
-    ClosestCorner,
-    Ellipse(RadialGradientAxis, RadialGradientAxis),
 }
 
 #[derive(Clone, PartialEq, Debug, Reflect)]

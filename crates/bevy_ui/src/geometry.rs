@@ -1,4 +1,4 @@
-use bevy_math::{UVec2, Vec2};
+use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 use thiserror::Error;
@@ -263,13 +263,13 @@ impl Val {
         self,
         scale_factor: f32,
         physical_base_value: f32,
-        physical_target_size: UVec2,
+        physical_target_size: Vec2,
     ) -> Result<f32, ValArithmeticError> {
         match self {
             Val::Percent(value) => Ok(physical_base_value * value / 100.0),
             Val::Px(value) => Ok(value * scale_factor),
-            Val::Vw(value) => Ok(physical_target_size.x as f32 * value / 100.0),
-            Val::Vh(value) => Ok(physical_target_size.y as f32 * value / 100.0),
+            Val::Vw(value) => Ok(physical_target_size.x * value / 100.0),
+            Val::Vh(value) => Ok(physical_target_size.y * value / 100.0),
             Val::VMin(value) => Ok(physical_target_size.min_element() as f32 * value / 100.0),
             Val::VMax(value) => Ok(physical_target_size.max_element() as f32 * value / 100.0),
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
@@ -692,6 +692,51 @@ impl Default for UiRect {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum RelativeVal {
+    Start(Val),
+    Center(Val),
+    End(Val),
+}
+
+impl RelativeVal {
+    pub const fn start() -> Self {
+        Self::Start(Val::ZERO)
+    }
+
+    pub const fn center() -> Self {
+        Self::Center(Val::ZERO)
+    }
+
+    pub const fn end() -> Self {
+        Self::End(Val::ZERO)
+    }
+
+    pub fn resolve(self, scale_factor: f32, length: f32, viewport_size: Vec2) -> f32 {
+        let (val, point) = match self {
+            Self::Start(val) => (val, -0.5 * length),
+            Self::Center(val) => (val, 0.),
+            Self::End(val) => (-val, 0.5 * length),
+        };
+        point
+            + val
+                .resolve(scale_factor, length, viewport_size)
+                .unwrap_or(0.)
+    }
+}
+
+impl Default for RelativeVal {
+    fn default() -> Self {
+        RelativeVal::Center(Val::Auto)
+    }
+}
+
 #[derive(Default, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Default, PartialEq)]
 #[cfg_attr(
@@ -753,7 +798,7 @@ impl RelativePosition {
         self,
         scale_factor: f32,
         physical_size: Vec2,
-        physical_target_size: UVec2,
+        physical_target_size: Vec2,
     ) -> Vec2 {
         Vec2::new(
             self.x
@@ -764,59 +809,88 @@ impl RelativePosition {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Default, PartialEq)]
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq, Default)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum RelativeVal {
-    Start(Val),
-    Center(Val),
-    End(Val),
+pub enum RadialGradientShape {
+    /// A circle with radius equal to the distance from its center to the closest side
+    #[default]
+    ClosestSide,
+    /// A circle with radius equal to the distance from its center to the farthest side
+    FarthestSide,
+    /// An ellipse with extents equal to the distance from its center to the nearest corner
+    ClosestCorner,
+    /// An ellipse with extents equal to the distance from its center to the farthest corner
+    FarthestCorner,
+    /// A circle
+    Circle(Val),
+    /// An ellipse
+    Ellipse(Val, Val),
 }
 
-impl RelativeVal {
-    pub const fn start() -> Self {
-        Self::Start(Val::ZERO)
-    }
-
-    pub const fn center() -> Self {
-        Self::Center(Val::ZERO)
-    }
-
-    pub const fn end() -> Self {
-        Self::End(Val::ZERO)
-    }
-
-    pub fn resolve(self, scale_factor: f32, length: f32, viewport_size: UVec2) -> f32 {
-        let (val, point) = match self {
-            Self::Start(val) => (val, -0.5 * length),
-            Self::Center(val) => (val, 0.),
-            Self::End(val) => (-val, 0.5 * length),
-        };
-        point
-            + val
-                .resolve(scale_factor, length, viewport_size)
-                .unwrap_or(0.)
-    }
+fn close_side(p: f32, h: f32) -> f32 {
+    (-h - p).abs().min((h - p).abs())
 }
 
-impl Default for RelativeVal {
-    fn default() -> Self {
-        RelativeVal::Center(Val::Auto)
+fn far_side(p: f32, h: f32) -> f32 {
+    (-h - p).abs().min((h - p).abs())
+}
+
+fn close_side2(p: Vec2, h: Vec2) -> f32 {
+    close_side(p.x, h.x).min(close_side(p.y, h.y))
+}
+
+fn far_side2(p: Vec2, h: Vec2) -> f32 {
+    far_side(p.x, h.x).max(far_side(p.y, h.y))
+}
+
+impl RadialGradientShape {
+    pub fn resolve(
+        self,
+        position: Vec2,
+        scale_factor: f32,
+        physical_size: Vec2,
+        physical_target_size: Vec2,
+    ) -> Vec2 {
+        let half_size = 0.5 * physical_size;
+        match self {
+            RadialGradientShape::ClosestSide => Vec2::splat(close_side2(position, half_size)),
+            RadialGradientShape::FarthestSide => Vec2::splat(far_side2(position, half_size)),
+            RadialGradientShape::ClosestCorner => Vec2::new(
+                close_side(position.x, half_size.x),
+                close_side(position.y, half_size.y),
+            ),
+            RadialGradientShape::FarthestCorner => Vec2::new(
+                far_side(position.x, half_size.x),
+                far_side(position.y, half_size.y),
+            ),
+            RadialGradientShape::Circle(val) => Vec2::splat(
+                val.resolve(scale_factor, physical_size.x, physical_target_size)
+                    .unwrap_or(0.),
+            ),
+            RadialGradientShape::Ellipse(x, y) => Vec2::new(
+                x.resolve(scale_factor, physical_size.x, physical_target_size)
+                    .unwrap_or(0.),
+                y.resolve(scale_factor, physical_size.y, physical_target_size)
+                    .unwrap_or(0.),
+            ),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::geometry::*;
+    use bevy_math::vec2;
 
     #[test]
     fn val_evaluate() {
         let size = 250.;
-        let viewport_size = UVec2::new(1000, 500);
+        let viewport_size = vec2(1000., 500.);
         let result = Val::Percent(80.).resolve(1., size, viewport_size).unwrap();
 
         assert_eq!(result, size * 0.8);
@@ -825,7 +899,7 @@ mod tests {
     #[test]
     fn val_resolve_px() {
         let size = 250.;
-        let viewport_size = UVec2::new(1000, 500);
+        let viewport_size = vec2(1000., 500.);
         let result = Val::Px(10.).resolve(1., size, viewport_size).unwrap();
 
         assert_eq!(result, 10.);
@@ -834,7 +908,7 @@ mod tests {
     #[test]
     fn val_resolve_viewport_coords() {
         let size = 250.;
-        let viewport_size = UVec2::new(500, 500);
+        let viewport_size = vec2(500., 500.);
 
         for value in (-10..10).map(|value| value as f32) {
             // for a square viewport there should be no difference between `Vw` and `Vh` and between `Vmin` and `Vmax`.
@@ -852,7 +926,7 @@ mod tests {
             );
         }
 
-        let viewport_size = UVec2::new(1000, 500);
+        let viewport_size = vec2(1000., 500.);
         assert_eq!(
             Val::Vw(100.).resolve(1., size, viewport_size).unwrap(),
             1000.
@@ -876,7 +950,7 @@ mod tests {
     #[test]
     fn val_auto_is_non_evaluable() {
         let size = 250.;
-        let viewport_size = UVec2::new(1000, 500);
+        let viewport_size = vec2(1000., 500.);
         let resolve_auto = Val::Auto.resolve(1., size, viewport_size);
 
         assert_eq!(resolve_auto, Err(ValArithmeticError::NonEvaluable));

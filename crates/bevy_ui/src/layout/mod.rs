@@ -12,7 +12,7 @@ use bevy_ecs::{
     system::{Commands, Query, ResMut},
     world::Ref,
 };
-use bevy_math::{UVec2, Vec2};
+use bevy_math::Vec2;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use thiserror::Error;
@@ -174,7 +174,7 @@ with UI components as a child of an entity without UI components, your UI layout
             ui_root_entity,
             &mut ui_surface,
             true,
-            computed_target.physical_size(),
+            computed_target.physical_size().as_vec2(),
             &mut node_transform_query,
             &ui_children,
             computed_target.scale_factor.recip(),
@@ -189,7 +189,7 @@ with UI components as a child of an entity without UI components, your UI layout
         entity: Entity,
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
-        target_size: UVec2,
+        target_size: Vec2,
         node_transform_query: &mut Query<(
             &mut ComputedNode,
             &mut Transform,

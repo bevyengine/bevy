@@ -1,5 +1,6 @@
 //! Simple example demonstrating radial gradients.
 
+use bevy::color::palettes::css::BLUE;
 use bevy::color::palettes::css::GREEN;
 use bevy::color::palettes::css::NAVY;
 use bevy::color::palettes::css::RED;
@@ -24,6 +25,8 @@ fn setup_grid(mut commands: Commands) {
         ColorStop::new(RED.into(), Val::Auto),
     ];
 
+    let stops_2 = vec![ColorStop::auto(RED.into()), ColorStop::auto(BLUE.into())];
+
     commands.spawn(Camera2d);
     commands
         .spawn((
@@ -46,10 +49,205 @@ fn setup_grid(mut commands: Commands) {
             BackgroundColor(NAVY.into()),
         ))
         .with_children(|commands| {
+            commands
+                .spawn((
+                    BackgroundColor(GREEN.into()),
+                    Node {
+                        display: Display::Grid,
+                        width: Val::Px(CELL_SIZE),
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|commands| {
+                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((
+                        Node {
+                            width: Val::Px(100.),
+                            height: Val::Px(100.),
+                            ..default()
+                        },
+                        GradientNode(Gradient::Radial {
+                            stops: vec![
+                                ColorStop::new(RED.into(), Val::Auto),
+                                ColorStop::new(BLUE.into(), Val::Auto),
+                            ],
+                            center: RelativePosition::center(Val::ZERO, Val::ZERO),
+                            shape: RadialGradientShape::ClosestSide,
+                        }),
+                    ));
+                });
+
+            commands
+                .spawn((
+                    BackgroundColor(GREEN.into()),
+                    Node {
+                        display: Display::Grid,
+                        width: Val::Px(CELL_SIZE),
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|commands| {
+                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((
+                        Node {
+                            width: Val::Px(100.),
+                            height: Val::Px(100.),
+                            ..default()
+                        },
+                        GradientNode(Gradient::Radial {
+                            stops: vec![
+                                ColorStop::new(RED.into(), Val::Auto),
+                                ColorStop::new(BLUE.into(), Val::Auto),
+                            ],
+                            center: RelativePosition::center(Val::ZERO, Val::ZERO),
+                            shape: RadialGradientShape::Circle(Val::Px(50.)),
+                        }),
+                    ));
+                });
+
+            commands
+                .spawn((
+                    BackgroundColor(GREEN.into()),
+                    Node {
+                        display: Display::Grid,
+                        width: Val::Px(CELL_SIZE),
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|commands| {
+                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((
+                        Node {
+                            width: Val::Px(100.),
+                            height: Val::Px(100.),
+                            ..default()
+                        },
+                        GradientNode(Gradient::Radial {
+                            stops: vec![
+                                ColorStop::new(RED.into(), Val::Auto),
+                                ColorStop::new(BLUE.into(), Val::Auto),
+                            ],
+                            center: RelativePosition::center(Val::ZERO, Val::ZERO),
+                            shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
+                        }),
+                    ));
+                });
+            commands
+                .spawn((
+                    BackgroundColor(GREEN.into()),
+                    Node {
+                        display: Display::Grid,
+                        width: Val::Px(CELL_SIZE),
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|commands| {
+                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((
+                        Node {
+                            width: Val::Px(100.),
+                            height: Val::Px(100.),
+                            ..default()
+                        },
+                        GradientNode(Gradient::Radial {
+                            stops: vec![
+                                ColorStop::new(RED.into(), Val::Auto),
+                                ColorStop::new(BLUE.into(), Val::Auto),
+                            ],
+                            center: RelativePosition::top_right(Val::ZERO, Val::ZERO),
+                            shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
+                        }),
+                    ));
+                });
+
+            commands
+                .spawn((
+                    BackgroundColor(GREEN.into()),
+                    Node {
+                        display: Display::Grid,
+                        width: Val::Px(CELL_SIZE),
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|commands| {
+                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((
+                        Node {
+                            width: Val::Px(100.),
+                            height: Val::Px(100.),
+                            ..default()
+                        },
+                        GradientNode(Gradient::Radial {
+                            stops: vec![
+                                ColorStop::new(RED.into(), Val::Auto),
+                                ColorStop::new(BLUE.into(), Val::Auto),
+                            ],
+                            center: RelativePosition::bottom_right(Val::ZERO, Val::ZERO),
+                            shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
+                        }),
+                    ));
+                });
+
+            commands
+                .spawn((
+                    BackgroundColor(GREEN.into()),
+                    Node {
+                        display: Display::Grid,
+                        width: Val::Px(CELL_SIZE),
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|commands| {
+                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((
+                        Node {
+                            width: Val::Px(100.),
+                            height: Val::Px(100.),
+                            ..default()
+                        },
+                        GradientNode(Gradient::Radial {
+                            stops: vec![
+                                ColorStop::new(RED.into(), Val::Auto),
+                                ColorStop::new(BLUE.into(), Val::Auto),
+                            ],
+                            center: RelativePosition::left(Val::ZERO),
+                            shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
+                        }),
+                    ));
+                });
+
+            commands
+                .spawn((
+                    BackgroundColor(GREEN.into()),
+                    Node {
+                        display: Display::Grid,
+                        width: Val::Px(CELL_SIZE),
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|commands| {
+                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((
+                        Node {
+                            width: Val::Px(100.),
+                            height: Val::Px(100.),
+                            ..default()
+                        },
+                        GradientNode(Gradient::Radial {
+                            stops: vec![
+                                ColorStop::new(RED.into(), Val::Auto),
+                                ColorStop::new(BLUE.into(), Val::Auto),
+                            ],
+                            center: RelativePosition::top(Val::ZERO),
+                            shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
+                        }),
+                    ));
+                });
+
             for (radial_gradient_axis, a) in [
-                (RadialGradientAxis::ClosestSide, "closest"),
-                (RadialGradientAxis::FarthestSide, "farthest"),
-                (RadialGradientAxis::Length(Val::Percent(110.)), "110%"),
+                (RadialGradientShape::ClosestSide, "closest"),
+                (RadialGradientShape::FarthestSide, "farthest"),
+                (RadialGradientShape::Circle(Val::Percent(55.)), "55%"),
             ] {
                 for (x, b) in [
                     (RelativeVal::Start(Val::ZERO), "start0"),
@@ -65,104 +263,95 @@ fn setup_grid(mut commands: Commands) {
                         for (w, h) in [(100., 100.)] {
                             //, (50., 100.), (100., 50.)] {
 
-                            commands
-                                .spawn((
-                                    BackgroundColor(GREEN.into()),
-                                    Node {
-                                        display: Display::Grid,
-                                        width: Val::Px(CELL_SIZE),
-                                        ..Default::default()
-                                    },
-                                ))
-                                .with_children(|commands| {
-                                    commands.spawn((
-                                        Text(format!("{a}\n{b}, {c}")),
-                                        TextFont::from_font_size(10.),
-                                    ));
-                                    commands.spawn((
+                            for stops in [color_stops.clone(), stops_2.clone()] {
+                                commands
+                                    .spawn((
+                                        BackgroundColor(GREEN.into()),
                                         Node {
-                                            width: Val::Px(w),
-                                            height: Val::Px(h),
-                                            ..default()
+                                            display: Display::Grid,
+                                            width: Val::Px(CELL_SIZE),
+                                            ..Default::default()
                                         },
-                                        GradientNode(Gradient::Radial {
-                                            stops: color_stops.clone(),
-                                            center: RelativePosition::new(x, y),
-                                            shape: RadialGradientShape::Circle(
-                                                radial_gradient_axis,
-                                            ),
-                                        }),
-                                    ));
-                                });
+                                    ))
+                                    .with_children(|commands| {
+                                        commands.spawn((
+                                            Text(format!("{a}\n{b}, {c}")),
+                                            TextFont::from_font_size(10.),
+                                        ));
+                                        commands.spawn((
+                                            Node {
+                                                width: Val::Px(w),
+                                                height: Val::Px(h),
+                                                ..default()
+                                            },
+                                            GradientNode(Gradient::Radial {
+                                                stops,
+                                                center: RelativePosition::new(x, y),
+                                                shape: radial_gradient_axis,
+                                            }),
+                                        ));
+                                    });
+                            }
                         }
                     }
                 }
             }
 
-            for (radial_gradient_axis_x, radial_gradient_axis_y, a) in [
-                (
-                    RadialGradientAxis::Length(Val::Px(50.)),
-                    RadialGradientAxis::Length(Val::Px(20.)),
-                    "50x20",
-                ),
-                (
-                    RadialGradientAxis::ClosestSide,
-                    RadialGradientAxis::FarthestSide,
-                    "close, far",
-                ),
-                (
-                    RadialGradientAxis::FarthestSide,
-                    RadialGradientAxis::ClosestSide,
-                    "far, close",
-                ),
-            ] {
-                for (x, b) in [
-                    (RelativeVal::Start(Val::ZERO), "start0"),
-                    (RelativeVal::Start(Val::Percent(20.)), "start"),
-                    (RelativeVal::center(), "center"),
-                    (RelativeVal::End(Val::Percent(20.)), "end"),
-                ] {
-                    for (y, c) in [
-                        (RelativeVal::Start(Val::Percent(20.)), "start"),
-                        (RelativeVal::center(), "center"),
-                        (RelativeVal::End(Val::Percent(20.)), "end"),
-                    ] {
-                        for (w, h) in [(100., 100.)] {
-                            //, (50., 100.), (100., 50.)] {
+            // for (radial_gradient_axis_x, radial_gradient_axis_y, a) in [
+            //     (
+            //         RadialGradie
+            //         "50x20",
+            //     ),
+            //     (Spread::ClosestSide, Spread::FarthestSide, "close, far"),
+            //     (Spread::FarthestSide, Spread::ClosestSide, "far, close"),
+            // ] {
+            //     for (x, b) in [
+            //         (RelativeVal::Start(Val::ZERO), "start0"),
+            //         (RelativeVal::Start(Val::Percent(20.)), "start"),
+            //         (RelativeVal::center(), "center"),
+            //         (RelativeVal::End(Val::Percent(20.)), "end"),
+            //     ] {
+            //         for (y, c) in [
+            //             (RelativeVal::Start(Val::Percent(20.)), "start"),
+            //             (RelativeVal::center(), "center"),
+            //             (RelativeVal::End(Val::Percent(20.)), "end"),
+            //         ] {
+            //             for (w, h) in [(100., 100.)] {
+            //                 //, (50., 100.), (100., 50.)] {
 
-                            commands
-                                .spawn((
-                                    BackgroundColor(GREEN.into()),
-                                    Node {
-                                        display: Display::Grid,
-                                        width: Val::Px(CELL_SIZE),
-                                        ..Default::default()
-                                    },
-                                ))
-                                .with_children(|commands| {
-                                    commands.spawn((
-                                        Text(format!("{a}\n{b}, {c}")),
-                                        TextFont::from_font_size(10.),
-                                    ));
-                                    commands.spawn((
-                                        Node {
-                                            width: Val::Px(w),
-                                            height: Val::Px(h),
-                                            ..default()
-                                        },
-                                        GradientNode(Gradient::Radial {
-                                            stops: color_stops.clone(),
-                                            center: RelativePosition::new(x, y),
-                                            shape: RadialGradientShape::Ellipse(
-                                                radial_gradient_axis_x,
-                                                radial_gradient_axis_y,
-                                            ),
-                                        }),
-                                    ));
-                                });
-                        }
-                    }
-                }
-            }
+            //                 commands
+            //                     .spawn((
+            //                         BackgroundColor(GREEN.into()),
+            //                         Node {
+            //                             display: Display::Grid,
+            //                             width: Val::Px(CELL_SIZE),
+            //                             ..Default::default()
+            //                         },
+            //                     ))
+            //                     .with_children(|commands| {
+            //                         commands.spawn((
+            //                             Text(format!("{a}\n{b}, {c}")),
+            //                             TextFont::from_font_size(10.),
+            //                         ));
+            //                         commands.spawn((
+            //                             Node {
+            //                                 width: Val::Px(w),
+            //                                 height: Val::Px(h),
+            //                                 ..default()
+            //                             },
+            //                             GradientNode(Gradient::Radial {
+            //                                 stops: color_stops.clone(),
+            //                                 center: RelativePosition::new(x, y),
+            //                                 shape: RadialGradientShape::Ellipse(
+            //                                     radial_gradient_axis_x,
+            //                                     radial_gradient_axis_y,
+            //                                 ),
+            //                             }),
+            //                         ));
+            //                     });
+            //             }
+            //         }
+            //     }
+            // }
         });
 }

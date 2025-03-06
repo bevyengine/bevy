@@ -13,7 +13,7 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::{
     ops::{cos, sin},
-    vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles,
+    FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles,
 };
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -352,7 +352,7 @@ pub fn extract_gradients(
                     // resolve the physical distances of explicit stops and sort them
                     sorted_stops.extend(stops.iter().filter_map(|stop| {
                         stop.point
-                            .resolve(target.scale_factor, length, target.physical_size)
+                            .resolve(target.scale_factor, length, target.physical_size.as_vec2())
                             .ok()
                             .map(|physical_point| (stop.color.to_linear(), physical_point))
                     }));
@@ -439,63 +439,18 @@ pub fn extract_gradients(
                     shape,
                     stops,
                 } => {
-                    let c = center.resolve(target.scale_factor, uinode.size, target.physical_size);
+                    let c = center.resolve(
+                        target.scale_factor,
+                        uinode.size,
+                        target.physical_size.as_vec2(),
+                    );
 
-                    let h = 0.5 * uinode.size;
-
-                    let size = match shape {
-                        RadialGradientShape::FarthestCorner => vec2(
-                            (-h.x - c.x).abs().max((h.x - c.x).abs()),
-                            (-h.y - c.y).abs().max((h.y - c.y).abs()),
-                        ),
-                        RadialGradientShape::Circle(radial_gradient_axis) => {
-                            let sides = [(-h.x - c.x), (h.x - c.x), (-h.y - c.y), (h.y - c.y)]
-                                .into_iter()
-                                .map(|r| FloatOrd(r.abs()));
-                            let r = match radial_gradient_axis {
-                                RadialGradientAxis::ClosestSide => sides.min().unwrap().0,
-                                RadialGradientAxis::FarthestSide => sides.max().unwrap().0,
-                                RadialGradientAxis::Length(val) => val
-                                    .resolve(target.scale_factor, h.x, target.physical_size)
-                                    .ok()
-                                    .unwrap_or_else(|| sides.min().unwrap().0),
-                            };
-                            Vec2::splat(r)
-                        }
-                        RadialGradientShape::ClosestCorner => vec2(
-                            (-h.x - c.x).abs().min((h.x - c.x).abs()),
-                            (-h.y - c.y).abs().min((h.y - c.y).abs()),
-                        ),
-                        RadialGradientShape::Ellipse(x_axis, y_axis) => {
-                            let x = match x_axis {
-                                RadialGradientAxis::ClosestSide => (-h.x - c.x).min(h.x - c.x),
-                                RadialGradientAxis::FarthestSide => (-h.x - c.x).max(h.x - c.x),
-                                RadialGradientAxis::Length(val) => val
-                                    .resolve(
-                                        target.scale_factor,
-                                        uinode.size.x,
-                                        target.physical_size,
-                                    )
-                                    .ok()
-                                    .unwrap_or_else(|| (-h.x - c.x).min(h.x - c.x)),
-                            };
-
-                            let y = match y_axis {
-                                RadialGradientAxis::ClosestSide => (-h.y - c.y).min(h.y - c.y),
-                                RadialGradientAxis::FarthestSide => (-h.y - c.y).max(h.y - c.y),
-                                RadialGradientAxis::Length(val) => val
-                                    .resolve(
-                                        target.scale_factor,
-                                        uinode.size.y,
-                                        target.physical_size,
-                                    )
-                                    .ok()
-                                    .unwrap_or_else(|| (-h.y - c.y).min(h.x - c.y)),
-                            };
-
-                            vec2(x, y)
-                        }
-                    };
+                    let size = shape.resolve(
+                        c,
+                        target.scale_factor,
+                        uinode.size,
+                        target.physical_size.as_vec2(),
+                    );
 
                     let length = size.x;
 
@@ -504,7 +459,7 @@ pub fn extract_gradients(
                     // resolve the physical distances of explicit stops and sort them high to low
                     sorted_stops.extend(stops.iter().filter_map(|stop| {
                         stop.point
-                            .resolve(target.scale_factor, length, target.physical_size)
+                            .resolve(target.scale_factor, length, target.physical_size.as_vec2())
                             .ok()
                             .map(|point| (stop.color.to_linear(), point))
                     }));
@@ -587,8 +542,11 @@ pub fn extract_gradients(
                     });
                 }
                 Gradient::Conic { center, stops } => {
-                    let g_start =
-                        center.resolve(target.scale_factor, uinode.size, target.physical_size);
+                    let g_start = center.resolve(
+                        target.scale_factor,
+                        uinode.size,
+                        target.physical_size.as_vec2(),
+                    );
                     let range_start = extracted_color_stops.0.len();
 
                     // sort the explicit stops
@@ -869,7 +827,7 @@ pub fn prepare_gradient(
                         }
                         ResolvedGradient::Radial { center, size } => (
                             center.into(),
-                            Vec2::splat(size.y / size.x).into(),
+                            Vec2::splat(if size.y != 0. { size.x / size.y } else { 0. }).into(),
                             shader_flags::RADIAL,
                         ),
                     };
