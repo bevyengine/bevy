@@ -220,7 +220,7 @@ impl<'a, const C: usize> Executor<'a, C> {
     }
 
     /// # Safety
-    /// 
+    ///
     /// Original implementation missing safety documentation
     unsafe fn spawn_unchecked<F>(&self, fut: F) -> Task<F::Output>
     where
@@ -267,7 +267,7 @@ impl<'a, const C: usize> Executor<'a, C> {
     }
 
     /// # Safety
-    /// 
+    ///
     /// Original implementation missing safety documentation
     async unsafe fn run_unchecked<F>(&self, fut: F) -> F::Output
     where
@@ -523,8 +523,8 @@ mod drop_tests {
     use alloc::string::String;
     use core::mem;
     use core::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::Mutex;
     use core::task::{Poll, Waker};
+    use std::sync::Mutex;
 
     use futures_lite::future;
     use once_cell::sync::Lazy;
