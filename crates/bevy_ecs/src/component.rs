@@ -456,7 +456,13 @@ pub trait Component: Send + Sync + 'static {
 }
 
 /// Indicates this [`Component`] requires another [`Component`] `C`.
-pub trait Require<C: Component>: Component {}
+/// This trait is similar to [`Eq`] in the sense that it is up to the implementer to ensure `C` is
+/// appropriately registered as a required component.
+///
+/// # Safety
+///
+/// Implementing this trait must be done in tandem with updating the implementation of [`Component::register_required_components`].
+pub unsafe trait Require<C: Component>: Component {}
 
 mod private {
     pub trait Seal {}

@@ -220,7 +220,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 quote! {
                     /// If not already present, the required component will be inserted using
                     #[doc = #insertion_info]
-                    impl #impl_generics #bevy_ecs_path::component::Require<#path> for #struct_name #type_generics #where_clause {}
+                    unsafe impl #impl_generics #bevy_ecs_path::component::Require<#path> for #struct_name #type_generics #where_clause {}
                 }
             });
 
