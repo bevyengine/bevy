@@ -1523,7 +1523,6 @@ impl Components {
         let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
         required_by.insert(requiree);
 
-
         self.register_inherited_required_components(requiree, required, required_components);
     }
 
