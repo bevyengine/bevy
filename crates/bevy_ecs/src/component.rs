@@ -2018,23 +2018,6 @@ impl RequiredComponents {
         }
     }
 
-    /// Forwards to [`register_dynamic_with`](RequiredComponents::register_dynamic_with).
-    ///
-    /// # Safety
-    ///
-    /// `component_id` must match the type initialized by `constructor`.
-    /// `constructor` _must_ initialize a component for `component_id` in such a way that
-    /// matches the storage type of the component. It must only use the given `table_row` or `Entity` to
-    /// initialize the storage for `component_id` corresponding to the given entity.
-    pub unsafe fn register_dynamic(
-        &mut self,
-        component_id: ComponentId,
-        constructor: RequiredComponentConstructor,
-        inheritance_depth: u16,
-    ) {
-        self.register_dynamic_with(component_id, inheritance_depth, || constructor);
-    }
-
     /// Registers a required component.
     ///
     /// If the component is already registered, it will be overwritten if the given inheritance depth
