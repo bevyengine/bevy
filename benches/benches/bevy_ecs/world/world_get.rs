@@ -307,8 +307,8 @@ pub fn query_get(criterion: &mut Criterion) {
     group.finish();
 }
 
-pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group(format!("query_get_many_{N}"));
+pub fn query_many<const N: usize>(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group(format!("query_many_{N}"));
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(2 * N as u64));
 
@@ -325,10 +325,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 let mut count = 0;
-                for comp in entity_groups
-                    .iter()
-                    .filter_map(|&ids| query.get_many(ids).ok())
-                {
+                for comp in entity_groups.iter().filter_map(|&ids| query.many(ids).ok()) {
                     black_box(comp);
                     count += 1;
                     black_box(count);
@@ -348,10 +345,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 let mut count = 0;
-                for comp in entity_groups
-                    .iter()
-                    .filter_map(|&ids| query.get_many(ids).ok())
-                {
+                for comp in entity_groups.iter().filter_map(|&ids| query.many(ids).ok()) {
                     black_box(comp);
                     count += 1;
                     black_box(count);

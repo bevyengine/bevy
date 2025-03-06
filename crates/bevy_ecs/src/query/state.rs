@@ -958,10 +958,23 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Returns the read-only query results for the given array of [`Entity`].
     ///
+    /// Deprecated alias for [`Self::many`].
+    #[inline]
+    #[deprecated(note = "Use `many` instead, which now returns a Result.")]
+    pub fn get_many<'w, const N: usize>(
+        &mut self,
+        world: &'w World,
+        entities: [Entity; N],
+    ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError<'w>> {
+        self.query(world).many_inner(entities)
+    }
+
+    /// Returns the read-only query results for the given array of [`Entity`].
+    ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
     /// returned instead.
     ///
-    /// Note that the unlike [`QueryState::get_many_mut`], the entities passed in do not need to be unique.
+    /// Note that the unlike [`QueryState::many_mut`], the entities passed in do not need to be unique.
     ///
     /// # Examples
     ///
@@ -980,21 +993,21 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let mut query_state = world.query::<&A>();
     ///
-    /// let component_values = query_state.get_many(&world, entities).unwrap();
+    /// let component_values = query_state.many(&world, entities).unwrap();
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
     /// let wrong_entity = Entity::from_raw(365);
     ///
-    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
     /// ```
     #[inline]
-    pub fn get_many<'w, const N: usize>(
+    pub fn many<'w, const N: usize>(
         &mut self,
         world: &'w World,
         entities: [Entity; N],
     ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError<'w>> {
-        self.query(world).get_many_inner(entities)
+        self.query(world).many_inner(entities)
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
@@ -1007,6 +1020,19 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         entity: Entity,
     ) -> Result<D::Item<'w>, QueryEntityError<'w>> {
         self.query_mut(world).get_inner(entity)
+    }
+
+    /// Returns the query results for the given array of [`Entity`].
+    ///
+    /// Deprecated alias for [`Self::many_mut`].
+    #[inline]
+    #[deprecated(note = "Use `many_mut` instead, which now returns a Result.")]
+    pub fn get_many_mut<'w, const N: usize>(
+        &mut self,
+        world: &'w mut World,
+        entities: [Entity; N],
+    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>> {
+        self.query_mut(world).many_inner(entities)
     }
 
     /// Returns the query results for the given array of [`Entity`].
@@ -1030,30 +1056,30 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let mut query_state = world.query::<&mut A>();
     ///
-    /// let mut mutable_component_values = query_state.get_many_mut(&mut world, entities).unwrap();
+    /// let mut mutable_component_values = query_state.many_mut(&mut world, entities).unwrap();
     ///
     /// for mut a in &mut mutable_component_values {
     ///     a.0 += 5;
     /// }
     ///
-    /// let component_values = query_state.get_many(&world, entities).unwrap();
+    /// let component_values = query_state.many(&world, entities).unwrap();
     ///
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
     /// let wrong_entity = Entity::from_raw(57);
     /// let invalid_entity = world.spawn_empty().id();
     ///
-    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
-    /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
-    /// assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
+    /// assert_eq!(match query_state.many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
+    /// assert_eq!(query_state.many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
     #[inline]
-    pub fn get_many_mut<'w, const N: usize>(
+    pub fn many_mut<'w, const N: usize>(
         &mut self,
         world: &'w mut World,
         entities: [Entity; N],
     ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>> {
-        self.query_mut(world).get_many_inner(entities)
+        self.query_mut(world).many_inner(entities)
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
@@ -1365,16 +1391,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///     a.0 += 5;
     /// });
     ///
-    /// # let component_values = query_state.get_many(&world, entities).unwrap();
+    /// # let component_values = query_state.many(&world, entities).unwrap();
     ///
     /// # assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
     /// # let wrong_entity = Entity::from_raw(57);
     /// # let invalid_entity = world.spawn_empty().id();
     ///
-    /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
-    /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
-    /// # assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
+    /// # assert_eq!(match query_state.many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
+    /// # assert_eq!(query_state.many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
     ///
     /// # Panics
@@ -1816,22 +1842,22 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn right_world_get_many() {
+    fn right_world_many() {
         let mut world_1 = World::new();
         let world_2 = World::new();
 
         let mut query_state = world_1.query::<Entity>();
-        let _panics = query_state.get_many(&world_2, []);
+        let _panics = query_state.many(&world_2, []);
     }
 
     #[test]
     #[should_panic]
-    fn right_world_get_many_mut() {
+    fn right_world_many_mut() {
         let mut world_1 = World::new();
         let mut world_2 = World::new();
 
         let mut query_state = world_1.query::<Entity>();
-        let _panics = query_state.get_many_mut(&mut world_2, []);
+        let _panics = query_state.many_mut(&mut world_2, []);
     }
 
     #[derive(Component, PartialEq, Debug)]

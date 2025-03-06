@@ -31,8 +31,8 @@ criterion_group!(
     world_despawn,
     world_despawn_recursive,
     query_get,
-    query_get_many::<2>,
-    query_get_many::<5>,
-    query_get_many::<10>,
+    query_many::<2>,
+    query_many::<5>,
+    query_many::<10>,
     entity_set_build_and_lookup,
 );
