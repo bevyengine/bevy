@@ -57,11 +57,7 @@ struct Cubemap {
     image_handle: Handle<Image>,
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut images: ResMut<Assets<Image>>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // directional 'sun' light
     commands.spawn((
         DirectionalLight {
@@ -82,14 +78,16 @@ fn setup(
             brightness: 1000.0,
             ..default()
         },
-        // This should ideally be using a convolved environment map for diffuse, but for simplicity
-        // we're just using a solid color here.
-        EnvironmentMapLight {
-            intensity: 1.0,
-            specular_map: skybox_handle.clone(),
-            ..EnvironmentMapLight::solid_color(&mut images, Color::srgb_u8(210, 220, 240))
-        },
     ));
+
+    // ambient light
+    // NOTE: The ambient light is used to scale how bright the environment map is so with a bright
+    // environment map, use an appropriate color and brightness to match
+    commands.insert_resource(AmbientLight {
+        color: Color::srgb_u8(210, 220, 240),
+        brightness: 1.0,
+        ..default()
+    });
 
     commands.insert_resource(Cubemap {
         is_loaded: false,

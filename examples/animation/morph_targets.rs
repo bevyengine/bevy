@@ -19,6 +19,10 @@ fn main() {
             }),
             ..default()
         }))
+        .insert_resource(AmbientLight {
+            brightness: 150.0,
+            ..default()
+        })
         .add_systems(Startup, setup)
         .add_systems(Update, (name_morphs, setup_animations))
         .run();
@@ -30,11 +34,7 @@ struct MorphData {
     mesh: Handle<Mesh>,
 }
 
-fn setup(
-    asset_server: Res<AssetServer>,
-    mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
-) {
+fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.insert_resource(MorphData {
         the_wave: asset_server
             .load(GltfAssetLabel::Animation(2).from_asset("models/animated/MorphStressTest.gltf")),
@@ -56,10 +56,6 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(3.0, 2.1, 10.2).looking_at(Vec3::ZERO, Vec3::Y),
-        EnvironmentMapLight {
-            intensity: 150.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
-        },
     ));
 }
 

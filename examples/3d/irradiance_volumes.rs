@@ -157,6 +157,11 @@ fn main() {
         .add_plugins(MaterialPlugin::<VoxelVisualizationMaterial>::default())
         .init_resource::<AppStatus>()
         .init_resource::<ExampleAssets>()
+        .insert_resource(AmbientLight {
+            color: Color::WHITE,
+            brightness: 0.0,
+            ..default()
+        })
         .add_systems(Startup, setup)
         .add_systems(PreUpdate, create_cubes)
         .add_systems(Update, rotate_camera)
@@ -211,14 +216,9 @@ fn main() {
 }
 
 // Spawns all the scene objects.
-fn setup(
-    mut commands: Commands,
-    images: ResMut<Assets<Image>>,
-    assets: Res<ExampleAssets>,
-    app_status: Res<AppStatus>,
-) {
+fn setup(mut commands: Commands, assets: Res<ExampleAssets>, app_status: Res<AppStatus>) {
     spawn_main_scene(&mut commands, &assets);
-    spawn_camera(&mut commands, images, &assets);
+    spawn_camera(&mut commands, &assets);
     spawn_irradiance_volume(&mut commands, &assets);
     spawn_light(&mut commands);
     spawn_sphere(&mut commands, &assets);
@@ -231,11 +231,7 @@ fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
     commands.spawn(SceneRoot(assets.main_scene.clone()));
 }
 
-fn spawn_camera(
-    commands: &mut Commands,
-    mut images: ResMut<Assets<Image>>,
-    assets: &ExampleAssets,
-) {
+fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
@@ -243,10 +239,6 @@ fn spawn_camera(
             image: assets.skybox.clone(),
             brightness: 150.0,
             ..default()
-        },
-        EnvironmentMapLight {
-            intensity: 0.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
         },
     ));
 }
@@ -423,7 +415,7 @@ fn toggle_irradiance_volumes(
     light_probe_query: Query<Entity, With<LightProbe>>,
     mut app_status: ResMut<AppStatus>,
     assets: Res<ExampleAssets>,
-    mut ambient_light: Query<&mut EnvironmentMapLight>,
+    mut ambient_light: ResMut<AmbientLight>,
 ) {
     if !keyboard.just_pressed(KeyCode::Space) {
         return;
@@ -435,9 +427,7 @@ fn toggle_irradiance_volumes(
 
     if app_status.irradiance_volume_present {
         commands.entity(light_probe).remove::<IrradianceVolume>();
-        for mut light in ambient_light.iter_mut() {
-            light.intensity = AMBIENT_LIGHT_BRIGHTNESS * IRRADIANCE_VOLUME_INTENSITY;
-        }
+        ambient_light.brightness = AMBIENT_LIGHT_BRIGHTNESS * IRRADIANCE_VOLUME_INTENSITY;
         app_status.irradiance_volume_present = false;
     } else {
         commands.entity(light_probe).insert(IrradianceVolume {
@@ -445,9 +435,7 @@ fn toggle_irradiance_volumes(
             intensity: IRRADIANCE_VOLUME_INTENSITY,
             ..default()
         });
-        for mut light in ambient_light.iter_mut() {
-            light.intensity = 0.0;
-        }
+        ambient_light.brightness = 0.0;
         app_status.irradiance_volume_present = true;
     }
 }
