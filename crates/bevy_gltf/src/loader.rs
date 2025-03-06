@@ -33,8 +33,8 @@ use bevy_render::{
     },
 };
 use bevy_scene::Scene;
-#[cfg(not(target_arch = "wasm32"))]
-use bevy_tasks::IoTaskPool;
+//#[cfg(not(target_arch = "wasm32"))]
+//use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::{error, info_span, warn};
 use bevy_utils::{HashMap, HashSet};
@@ -360,6 +360,26 @@ async fn load_gltf<'a, 'b, 'c>(
     // later in the loader when looking up handles for materials. However this would mean
     // that the material's load context would no longer track those images as dependencies.
     let mut _texture_handles = Vec::new();
+
+    // TODO: Remove this and fix the code below it that was commented out
+    // https://github.com/bevyengine/bevy/issues/15271
+    for texture in gltf.textures() {
+        let parent_path = load_context.path().parent().unwrap();
+        let image = load_image(
+            texture,
+            &buffer_data,
+            &linear_textures,
+            parent_path,
+            loader.supported_compressed_formats,
+            settings.load_materials,
+        )
+        .await?;
+        process_loaded_texture(load_context, &mut _texture_handles, image);
+    }
+
+    /*
+     * See https://github.com/bevyengine/bevy/issues/15271 for more details
+     *
     if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
         for texture in gltf.textures() {
             let parent_path = load_context.path().parent().unwrap();
@@ -405,6 +425,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 }
             });
     }
+    */
 
     let mut materials = vec![];
     let mut named_materials = HashMap::default();
