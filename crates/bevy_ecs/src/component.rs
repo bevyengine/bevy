@@ -1539,6 +1539,7 @@ impl<'w> ComponentsRegistrator<'w> {
         // components
         while let Some(registrator) = {
             let queued = self
+                .components
                 .queued
                 .get_mut()
                 .unwrap_or_else(PoisonError::into_inner);
@@ -1553,6 +1554,7 @@ impl<'w> ComponentsRegistrator<'w> {
         // resources
         while let Some(registrator) = {
             let queued = self
+                .components
                 .queued
                 .get_mut()
                 .unwrap_or_else(PoisonError::into_inner);
@@ -1566,6 +1568,7 @@ impl<'w> ComponentsRegistrator<'w> {
 
         // dynamic
         let queued = &mut self
+            .components
             .queued
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner);
@@ -1601,6 +1604,7 @@ impl<'w> ComponentsRegistrator<'w> {
         }
 
         if let Some(registrator) = self
+            .components
             .queued
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner)
@@ -1777,6 +1781,7 @@ impl<'w> ComponentsRegistrator<'w> {
         }
 
         if let Some(registrator) = self
+            .components
             .queued
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner)
