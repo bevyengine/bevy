@@ -455,14 +455,22 @@ pub trait Component: Send + Sync + 'static {
     fn visit_entities_mut(_this: &mut Self, _f: impl FnMut(&mut Entity)) {}
 }
 
-/// Indicates this [`Component`] requires another [`Component`] `C`.
-/// This trait is similar to [`Eq`] in the sense that it is up to the implementer to ensure `C` is
-/// appropriately registered as a required component.
-///
-/// # Safety
-///
-/// Implementing this trait must be done in tandem with updating the implementation of [`Component::register_required_components`].
-pub unsafe trait Require<C: Component>: Component {}
+// doc(hidden) module makes it clear that usage of this trait outside of `bevy_ecs` is unsupported.
+#[doc(hidden)]
+pub mod document_required_components {
+    use super::Component;
+
+    /// Indicates this [`Component`] requires another [`Component`] `C`.
+    ///
+    /// **This trait does not register required components on its own**
+    ///
+    /// This trait is similar to [`Eq`] in the sense that it is up to the implementer to ensure `C` is
+    /// appropriately registered as a required component.
+    ///
+    /// It is the implementor's responsibility to ensure the implementation of [`Component::register_required_components`]
+    /// matches any and all implementations of [`Require`] on this type.
+    pub trait Require<C: Component>: Component {}
+}
 
 mod private {
     pub trait Seal {}
