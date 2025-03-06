@@ -2008,25 +2008,47 @@ impl RequiredComponents {
     /// `constructor` _must_ initialize a component for `component_id` in such a way that
     /// matches the storage type of the component. It must only use the given `table_row` or `Entity` to
     /// initialize the storage for `component_id` corresponding to the given entity.
+    pub unsafe fn register_dynamic_with(
+        &mut self,
+        component_id: ComponentId,
+        inheritance_depth: u16,
+        constructor: impl FnOnce() -> RequiredComponentConstructor,
+    ) {
+        let entry = self.0.entry(component_id);
+        match entry {
+            bevy_platform_support::collections::hash_map::Entry::Occupied(mut occupied) => {
+                let current = occupied.get_mut();
+                if current.inheritance_depth > inheritance_depth {
+                    *current = RequiredComponent {
+                        constructor: constructor(),
+                        inheritance_depth,
+                    }
+                }
+            }
+            bevy_platform_support::collections::hash_map::Entry::Vacant(vacant) => {
+                vacant.insert(RequiredComponent {
+                    constructor: constructor(),
+                    inheritance_depth,
+                });
+            }
+        }
+    }
+
+    /// Forwards to [`register_dynamic_with`](RequiredComponents::register_dynamic_with).
+    ///
+    /// # Safety
+    ///
+    /// `component_id` must match the type initialized by `constructor`.
+    /// `constructor` _must_ initialize a component for `component_id` in such a way that
+    /// matches the storage type of the component. It must only use the given `table_row` or `Entity` to
+    /// initialize the storage for `component_id` corresponding to the given entity.
     pub unsafe fn register_dynamic(
         &mut self,
         component_id: ComponentId,
         constructor: RequiredComponentConstructor,
         inheritance_depth: u16,
     ) {
-        self.0
-            .entry(component_id)
-            .and_modify(|component| {
-                if component.inheritance_depth > inheritance_depth {
-                    // New registration is more specific than existing requirement
-                    component.constructor = constructor.clone();
-                    component.inheritance_depth = inheritance_depth;
-                }
-            })
-            .or_insert(RequiredComponent {
-                constructor,
-                inheritance_depth,
-            });
+        self.register_dynamic_with(component_id, inheritance_depth, || constructor);
     }
 
     /// Registers a required component.
