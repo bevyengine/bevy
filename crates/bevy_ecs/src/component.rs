@@ -1413,7 +1413,7 @@ impl Components {
             .collect();
 
         // Register the new required components.
-        for (component_id, component) in inherited_requirements.iter().cloned() {
+        for (component_id, component) in inherited_requirements.iter() {
             // SAFETY: The caller ensures that the `requiree` is valid.
             let required_components = unsafe {
                 self.get_required_components_mut(requiree)
@@ -1424,16 +1424,16 @@ impl Components {
             // SAFETY: Component ID and constructor match the ones on the original requiree.
             unsafe {
                 required_components.register_dynamic_with(
-                    component_id,
+                    *component_id,
                     component.inheritance_depth,
-                    || component.constructor,
+                    || component.constructor.clone(),
                 );
             };
 
             // Add the requiree to the list of components that require the required component.
             // SAFETY: The caller ensures that the required components are valid.
             let required_by = unsafe {
-                self.get_required_by_mut(component_id)
+                self.get_required_by_mut(*component_id)
                     .debug_checked_unwrap()
             };
             required_by.insert(requiree);
