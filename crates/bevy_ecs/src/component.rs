@@ -2173,7 +2173,7 @@ impl Components {
         self.components.contains_key(&id)
     }
 
-    /// Type-erased equivalent of [`Components::component_valid_id()`].
+    /// Type-erased equivalent of [`Components::valid_component_id()`].
     #[inline]
     pub fn get_valid_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.indices.get(&type_id).copied()
@@ -2205,7 +2205,7 @@ impl Components {
         self.get_id(TypeId::of::<T>())
     }
 
-    /// Type-erased equivalent of [`Components::resource_valid_id()`].
+    /// Type-erased equivalent of [`Components::valid_resource_id()`].
     #[inline]
     pub fn get_valid_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.resource_indices.get(&type_id).copied()
