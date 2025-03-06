@@ -12,9 +12,10 @@ use alloc::{
     boxed::Box,
     collections::{BTreeSet, BinaryHeap, TryReserveError, VecDeque},
     rc::Rc,
-    sync::Arc,
     vec::{self, Vec},
 };
+
+use bevy_platform_support::sync::Arc;
 
 use super::{
     unique_slice, EntitySet, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityArray,
