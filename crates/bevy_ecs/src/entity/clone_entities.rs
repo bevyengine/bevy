@@ -846,7 +846,6 @@ mod tests {
         world::{FromWorld, World},
     };
     use alloc::vec::Vec;
-    use bevy_ecs_macros::require;
     use bevy_ptr::OwningPtr;
     use bevy_reflect::Reflect;
     use core::{alloc::Layout, ops::Deref};

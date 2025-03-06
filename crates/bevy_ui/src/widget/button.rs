@@ -1,8 +1,5 @@
 use crate::{FocusPolicy, Interaction, Node};
-use bevy_ecs::{
-    prelude::{require, Component},
-    reflect::ReflectComponent,
-};
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Marker struct for buttons

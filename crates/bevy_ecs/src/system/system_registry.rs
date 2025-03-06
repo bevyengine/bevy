@@ -7,7 +7,7 @@ use crate::{
     world::World,
 };
 use alloc::boxed::Box;
-use bevy_ecs_macros::{require, Component, Resource};
+use bevy_ecs_macros::{Component, Resource};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use core::marker::PhantomData;

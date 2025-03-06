@@ -3,10 +3,7 @@
 use core::ops::{Deref, DerefMut};
 
 use bevy_asset::Handle;
-use bevy_ecs::{
-    component::{require, Component},
-    reflect::ReflectComponent,
-};
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
 use bevy_transform::components::Transform;
 

@@ -12,7 +12,6 @@ use bevy_ecs::{
     entity::Entity,
     event::{Event, EventReader, EventWriter},
     name::Name,
-    prelude::require,
     system::{Commands, Query},
 };
 use bevy_math::ops;

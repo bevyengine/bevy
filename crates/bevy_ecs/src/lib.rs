@@ -72,7 +72,7 @@ pub mod prelude {
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         children,
-        component::{require, Component},
+        component::Component,
         entity::{Entity, EntityBorrow, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
@@ -132,7 +132,7 @@ mod tests {
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
+        component::{Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::Entity,
         entity_disabling::DefaultQueryFilters,
         prelude::Or,

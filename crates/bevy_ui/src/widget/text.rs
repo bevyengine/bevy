@@ -7,8 +7,8 @@ use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
+    component::Component,
     entity::Entity,
-    prelude::{require, Component},
     query::With,
     reflect::ReflectComponent,
     system::{Query, Res, ResMut},

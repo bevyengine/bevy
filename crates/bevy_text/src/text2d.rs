@@ -10,7 +10,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::hash_set::EntityHashSet;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     prelude::{ReflectComponent, With},
     query::{Changed, Without},
