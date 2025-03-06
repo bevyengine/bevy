@@ -61,6 +61,7 @@ impl TextureAtlasSources {
     }
 
     /// Retrieves the texture *section* rectangle of the given `texture` handle in UV coordinates.
+    /// These are within the range [0..1], as a fraction of the entire texture atlas's size.
     pub fn uv_rect(
         &self,
         layout: &TextureAtlasLayout,
