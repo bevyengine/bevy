@@ -1,4 +1,4 @@
-use crate::{FocusPolicy, UiRect, Val};
+use crate::{FocusPolicy, RelativePosition, RelativeVal, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -2432,54 +2432,49 @@ impl BorderRadius {
     /// Returns the radius of the corner in physical pixels.
     pub fn resolve_single_corner(
         radius: Val,
-        node_size: Vec2,
-        viewport_size: Vec2,
         scale_factor: f32,
+        min_length: f32,
+        viewport_size: UVec2,
     ) -> f32 {
-        match radius {
-            Val::Auto => 0.,
-            Val::Px(px) => px * scale_factor,
-            Val::Percent(percent) => node_size.min_element() * percent / 100.,
-            Val::Vw(percent) => viewport_size.x * percent / 100.,
-            Val::Vh(percent) => viewport_size.y * percent / 100.,
-            Val::VMin(percent) => viewport_size.min_element() * percent / 100.,
-            Val::VMax(percent) => viewport_size.max_element() * percent / 100.,
-        }
-        .clamp(0., 0.5 * node_size.min_element())
+        radius
+            .resolve(scale_factor, min_length, viewport_size)
+            .unwrap_or(0.)
+            .clamp(0., 0.5 * min_length)
     }
 
     /// Resolve the border radii for the corners from the given context values.
     /// Returns the radii of the each corner in physical pixels.
     pub fn resolve(
         &self,
-        node_size: Vec2,
-        viewport_size: Vec2,
         scale_factor: f32,
+        node_size: Vec2,
+        viewport_size: UVec2,
     ) -> ResolvedBorderRadius {
+        let length = node_size.min_element();
         ResolvedBorderRadius {
             top_left: Self::resolve_single_corner(
                 self.top_left,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
             top_right: Self::resolve_single_corner(
                 self.top_right,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
             bottom_left: Self::resolve_single_corner(
                 self.bottom_left,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
             bottom_right: Self::resolve_single_corner(
                 self.bottom_right,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
         }
     }
@@ -2882,50 +2877,6 @@ pub enum RadialGradientShape {
     Ellipse(RadialGradientAxis, RadialGradientAxis),
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Default, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub enum RelativePosition {
-    Start(Val),
-    Center(Val),
-    End(Val),
-}
-
-impl RelativePosition {
-    pub fn start() -> Self {
-        Self::Start(Val::ZERO)
-    }
-
-    pub fn center() -> Self {
-        Self::Center(Val::ZERO)
-    }
-
-    pub fn end() -> Self {
-        Self::End(Val::ZERO)
-    }
-
-    pub fn resolve(self, scale_factor: f32, length: f32, viewport_size: Vec2) -> f32 {
-        let (val, point) = match self {
-            Self::Start(val) => (val, -0.5 * length),
-            Self::Center(val) => (val, 0.),
-            Self::End(val) => (-val, 0.5 * length),
-        };
-        point
-            + val
-                .resolve(scale_factor, length, viewport_size)
-                .unwrap_or(0.)
-    }
-}
-
-impl Default for RelativePosition {
-    fn default() -> Self {
-        RelativePosition::Center(Val::Auto)
-    }
-}
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 #[cfg_attr(
@@ -2939,12 +2890,12 @@ pub enum Gradient {
         stops: Vec<ColorStop>,
     },
     Radial {
-        center: [RelativePosition; 2],
+        center: RelativePosition,
         shape: RadialGradientShape,
         stops: Vec<ColorStop>,
     },
     Conic {
-        center: [RelativePosition; 2],
+        center: RelativePosition,
         stops: Vec<AngularColorStop>,
     },
 }

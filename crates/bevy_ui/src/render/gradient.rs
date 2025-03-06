@@ -352,7 +352,7 @@ pub fn extract_gradients(
                     // resolve the physical distances of explicit stops and sort them
                     sorted_stops.extend(stops.iter().filter_map(|stop| {
                         stop.point
-                            .resolve(target.scale_factor, length, target.physical_size.as_vec2())
+                            .resolve(target.scale_factor, length, target.physical_size)
                             .ok()
                             .map(|physical_point| (stop.color.to_linear(), physical_point))
                     }));
@@ -439,18 +439,7 @@ pub fn extract_gradients(
                     shape,
                     stops,
                 } => {
-                    let c = Vec2::new(
-                        center[0].resolve(
-                            target.scale_factor,
-                            uinode.size.x,
-                            target.physical_size.as_vec2(),
-                        ),
-                        center[1].resolve(
-                            target.scale_factor,
-                            uinode.size.y,
-                            target.physical_size.as_vec2(),
-                        ),
-                    );
+                    let c = center.resolve(target.scale_factor, uinode.size, target.physical_size);
 
                     let h = 0.5 * uinode.size;
 
@@ -467,11 +456,7 @@ pub fn extract_gradients(
                                 RadialGradientAxis::ClosestSide => sides.min().unwrap().0,
                                 RadialGradientAxis::FarthestSide => sides.max().unwrap().0,
                                 RadialGradientAxis::Length(val) => val
-                                    .resolve(
-                                        target.scale_factor,
-                                        h.x,
-                                        target.physical_size.as_vec2(),
-                                    )
+                                    .resolve(target.scale_factor, h.x, target.physical_size)
                                     .ok()
                                     .unwrap_or_else(|| sides.min().unwrap().0),
                             };
@@ -489,7 +474,7 @@ pub fn extract_gradients(
                                     .resolve(
                                         target.scale_factor,
                                         uinode.size.x,
-                                        target.physical_size.as_vec2(),
+                                        target.physical_size,
                                     )
                                     .ok()
                                     .unwrap_or_else(|| (-h.x - c.x).min(h.x - c.x)),
@@ -502,7 +487,7 @@ pub fn extract_gradients(
                                     .resolve(
                                         target.scale_factor,
                                         uinode.size.y,
-                                        target.physical_size.as_vec2(),
+                                        target.physical_size,
                                     )
                                     .ok()
                                     .unwrap_or_else(|| (-h.y - c.y).min(h.x - c.y)),
@@ -519,7 +504,7 @@ pub fn extract_gradients(
                     // resolve the physical distances of explicit stops and sort them high to low
                     sorted_stops.extend(stops.iter().filter_map(|stop| {
                         stop.point
-                            .resolve(target.scale_factor, length, target.physical_size.as_vec2())
+                            .resolve(target.scale_factor, length, target.physical_size)
                             .ok()
                             .map(|point| (stop.color.to_linear(), point))
                     }));
@@ -602,18 +587,8 @@ pub fn extract_gradients(
                     });
                 }
                 Gradient::Conic { center, stops } => {
-                    let g_start = Vec2::new(
-                        center[0].resolve(
-                            target.scale_factor,
-                            uinode.size.x,
-                            target.physical_size.as_vec2(),
-                        ),
-                        center[1].resolve(
-                            target.scale_factor,
-                            uinode.size.y,
-                            target.physical_size.as_vec2(),
-                        ),
-                    );
+                    let g_start =
+                        center.resolve(target.scale_factor, uinode.size, target.physical_size);
                     let range_start = extracted_color_stops.0.len();
 
                     // sort the explicit stops

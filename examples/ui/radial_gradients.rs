@@ -52,15 +52,15 @@ fn setup_grid(mut commands: Commands) {
                 (RadialGradientAxis::Length(Val::Percent(110.)), "110%"),
             ] {
                 for (x, b) in [
-                    (RelativePosition::Start(Val::ZERO), "start0"),
-                    (RelativePosition::Start(Val::Percent(20.)), "start"),
-                    (RelativePosition::center(), "center"),
-                    (RelativePosition::End(Val::Percent(20.)), "end"),
+                    (RelativeVal::Start(Val::ZERO), "start0"),
+                    (RelativeVal::Start(Val::Percent(20.)), "start"),
+                    (RelativeVal::center(), "center"),
+                    (RelativeVal::End(Val::Percent(20.)), "end"),
                 ] {
                     for (y, c) in [
-                        (RelativePosition::Start(Val::Percent(20.)), "start"),
-                        (RelativePosition::center(), "center"),
-                        (RelativePosition::End(Val::Percent(20.)), "end"),
+                        (RelativeVal::Start(Val::Percent(20.)), "start"),
+                        (RelativeVal::center(), "center"),
+                        (RelativeVal::End(Val::Percent(20.)), "end"),
                     ] {
                         for (w, h) in [(100., 100.)] {
                             //, (50., 100.), (100., 50.)] {
@@ -87,7 +87,7 @@ fn setup_grid(mut commands: Commands) {
                                         },
                                         GradientNode(Gradient::Radial {
                                             stops: color_stops.clone(),
-                                            center: [x, y],
+                                            center: RelativePosition::new(x, y),
                                             shape: RadialGradientShape::Circle(
                                                 radial_gradient_axis,
                                             ),
@@ -117,15 +117,15 @@ fn setup_grid(mut commands: Commands) {
                 ),
             ] {
                 for (x, b) in [
-                    (RelativePosition::Start(Val::ZERO), "start0"),
-                    (RelativePosition::Start(Val::Percent(20.)), "start"),
-                    (RelativePosition::center(), "center"),
-                    (RelativePosition::End(Val::Percent(20.)), "end"),
+                    (RelativeVal::Start(Val::ZERO), "start0"),
+                    (RelativeVal::Start(Val::Percent(20.)), "start"),
+                    (RelativeVal::center(), "center"),
+                    (RelativeVal::End(Val::Percent(20.)), "end"),
                 ] {
                     for (y, c) in [
-                        (RelativePosition::Start(Val::Percent(20.)), "start"),
-                        (RelativePosition::center(), "center"),
-                        (RelativePosition::End(Val::Percent(20.)), "end"),
+                        (RelativeVal::Start(Val::Percent(20.)), "start"),
+                        (RelativeVal::center(), "center"),
+                        (RelativeVal::End(Val::Percent(20.)), "end"),
                     ] {
                         for (w, h) in [(100., 100.)] {
                             //, (50., 100.), (100., 50.)] {
@@ -152,7 +152,7 @@ fn setup_grid(mut commands: Commands) {
                                         },
                                         GradientNode(Gradient::Radial {
                                             stops: color_stops.clone(),
-                                            center: [x, y],
+                                            center: RelativePosition::new(x, y),
                                             shape: RadialGradientShape::Ellipse(
                                                 radial_gradient_axis_x,
                                                 radial_gradient_axis_y,

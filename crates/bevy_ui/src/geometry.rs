@@ -1,4 +1,4 @@
-use bevy_math::Vec2;
+use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 use thiserror::Error;
@@ -255,23 +255,23 @@ pub enum ValArithmeticError {
 }
 
 impl Val {
-    /// Resolves this [`Val`] to a value in physical pixels from the given `scale_factor`, `parent_size`,
-    /// and `viewport_size`.
+    /// Resolves this [`Val`] to a value in physical pixels from the given `scale_factor`, `physical_base_value`,
+    /// and `physical_target_size` context values.
     ///
     /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
     pub fn resolve(
         self,
         scale_factor: f32,
-        parent_size: f32,
-        viewport_size: Vec2,
+        physical_base_value: f32,
+        physical_target_size: UVec2,
     ) -> Result<f32, ValArithmeticError> {
         match self {
-            Val::Percent(value) => Ok(parent_size * value / 100.0),
+            Val::Percent(value) => Ok(physical_base_value * value / 100.0),
             Val::Px(value) => Ok(value * scale_factor),
-            Val::Vw(value) => Ok(viewport_size.x * value / 100.0),
-            Val::Vh(value) => Ok(viewport_size.y * value / 100.0),
-            Val::VMin(value) => Ok(viewport_size.min_element() * value / 100.0),
-            Val::VMax(value) => Ok(viewport_size.max_element() * value / 100.0),
+            Val::Vw(value) => Ok(physical_target_size.x as f32 * value / 100.0),
+            Val::Vh(value) => Ok(physical_target_size.y as f32 * value / 100.0),
+            Val::VMin(value) => Ok(physical_target_size.min_element() as f32 * value / 100.0),
+            Val::VMax(value) => Ok(physical_target_size.max_element() as f32 * value / 100.0),
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
         }
     }
@@ -692,15 +692,131 @@ impl Default for UiRect {
     }
 }
 
+#[derive(Default, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct RelativePosition {
+    pub x: RelativeVal,
+    pub y: RelativeVal,
+}
+
+impl RelativePosition {
+    pub fn new(x: RelativeVal, y: RelativeVal) -> Self {
+        Self { x, y }
+    }
+
+    pub fn all(val: RelativeVal) -> Self {
+        Self::new(val, val)
+    }
+
+    pub fn top_left(left: Val, top: Val) -> Self {
+        Self::new(RelativeVal::Start(left), RelativeVal::Start(top))
+    }
+
+    pub fn left(val: Val) -> Self {
+        Self::new(RelativeVal::Start(val), RelativeVal::center())
+    }
+
+    pub fn bottom_left(left: Val, bottom: Val) -> Self {
+        Self::new(RelativeVal::Start(left), RelativeVal::End(bottom))
+    }
+
+    pub fn top(val: Val) -> Self {
+        Self::new(RelativeVal::center(), RelativeVal::Start(val))
+    }
+
+    pub fn center(x: Val, y: Val) -> Self {
+        Self::new(RelativeVal::Center(x), RelativeVal::Center(y))
+    }
+
+    pub fn bottom(val: Val) -> Self {
+        Self::new(RelativeVal::center(), RelativeVal::End(val))
+    }
+
+    pub fn top_right(right: Val, top: Val) -> Self {
+        Self::new(RelativeVal::End(right), RelativeVal::Start(top))
+    }
+
+    pub fn right(val: Val) -> Self {
+        Self::new(RelativeVal::End(val), RelativeVal::center())
+    }
+
+    pub fn bottom_right(right: Val, bottom: Val) -> Self {
+        Self::new(RelativeVal::End(right), RelativeVal::End(bottom))
+    }
+
+    pub fn resolve(
+        self,
+        scale_factor: f32,
+        physical_size: Vec2,
+        physical_target_size: UVec2,
+    ) -> Vec2 {
+        Vec2::new(
+            self.x
+                .resolve(scale_factor, physical_size.x, physical_target_size),
+            self.y
+                .resolve(scale_factor, physical_size.y, physical_target_size),
+        )
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum RelativeVal {
+    Start(Val),
+    Center(Val),
+    End(Val),
+}
+
+impl RelativeVal {
+    pub const fn start() -> Self {
+        Self::Start(Val::ZERO)
+    }
+
+    pub const fn center() -> Self {
+        Self::Center(Val::ZERO)
+    }
+
+    pub const fn end() -> Self {
+        Self::End(Val::ZERO)
+    }
+
+    pub fn resolve(self, scale_factor: f32, length: f32, viewport_size: UVec2) -> f32 {
+        let (val, point) = match self {
+            Self::Start(val) => (val, -0.5 * length),
+            Self::Center(val) => (val, 0.),
+            Self::End(val) => (-val, 0.5 * length),
+        };
+        point
+            + val
+                .resolve(scale_factor, length, viewport_size)
+                .unwrap_or(0.)
+    }
+}
+
+impl Default for RelativeVal {
+    fn default() -> Self {
+        RelativeVal::Center(Val::Auto)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::geometry::*;
-    use bevy_math::vec2;
 
     #[test]
     fn val_evaluate() {
         let size = 250.;
-        let viewport_size = vec2(1000., 500.);
+        let viewport_size = UVec2::new(1000, 500);
         let result = Val::Percent(80.).resolve(1., size, viewport_size).unwrap();
 
         assert_eq!(result, size * 0.8);
@@ -709,7 +825,7 @@ mod tests {
     #[test]
     fn val_resolve_px() {
         let size = 250.;
-        let viewport_size = vec2(1000., 500.);
+        let viewport_size = UVec2::new(1000, 500);
         let result = Val::Px(10.).resolve(1., size, viewport_size).unwrap();
 
         assert_eq!(result, 10.);
@@ -718,7 +834,7 @@ mod tests {
     #[test]
     fn val_resolve_viewport_coords() {
         let size = 250.;
-        let viewport_size = vec2(500., 500.);
+        let viewport_size = UVec2::new(500, 500);
 
         for value in (-10..10).map(|value| value as f32) {
             // for a square viewport there should be no difference between `Vw` and `Vh` and between `Vmin` and `Vmax`.
@@ -736,7 +852,7 @@ mod tests {
             );
         }
 
-        let viewport_size = vec2(1000., 500.);
+        let viewport_size = UVec2::new(1000, 500);
         assert_eq!(
             Val::Vw(100.).resolve(1., size, viewport_size).unwrap(),
             1000.
@@ -760,7 +876,7 @@ mod tests {
     #[test]
     fn val_auto_is_non_evaluable() {
         let size = 250.;
-        let viewport_size = vec2(1000., 500.);
+        let viewport_size = UVec2::new(1000, 500);
         let resolve_auto = Val::Auto.resolve(1., size, viewport_size);
 
         assert_eq!(resolve_auto, Err(ValArithmeticError::NonEvaluable));
