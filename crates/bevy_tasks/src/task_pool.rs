@@ -7,6 +7,7 @@ use std::{
 
 use crate::executor::FallibleTask;
 use bevy_platform_support::sync::Arc;
+use blocking::unblock;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
 
@@ -33,6 +34,10 @@ pub struct TaskPoolBuilder {
     /// If set, we'll set up the thread pool to use at most `num_threads` threads.
     /// Otherwise use the logical core count of the system
     num_threads: Option<usize>,
+    /// If set, this sets the maximum number of threads used for blocking operations.
+    /// Otherwise, it will default to the value set by the `BLOCKING_MAX_THREADS` environment variable,
+    /// or 500 if not set.
+    max_blocking_threads: Option<usize>,
     /// If set, we'll use the given stack size rather than the system default
     stack_size: Option<usize>,
     /// Allows customizing the name of the threads - helpful for debugging. If set, threads will
@@ -49,10 +54,27 @@ impl TaskPoolBuilder {
         Self::default()
     }
 
-    /// Override the number of threads created for the pool. If unset, we default to the number
+    /// Override the number of threads created for the pool. If unset, it will default to the number
     /// of logical cores of the system
     pub fn num_threads(mut self, num_threads: usize) -> Self {
         self.num_threads = Some(num_threads);
+        self
+    }
+
+    /// The task pool contains a dynamically scaling group of threads for handling blocking tasks.
+    /// The pool will spin up and down threads as needed, unlike the threads allocated by
+    /// [`Self::num_threads`] which are always available. By default, zero threads will be spawned at
+    /// initialization, and up to `num_blocking_threads` will be spun up. Upon reaching that limit,
+    /// calls to [`spawn_blocking`] and [`spawn_blocking_async`] will wait until one of the threads
+    /// becomes available.
+    ///
+    /// By default, this will use the `BLOCKING_MAX_THREADS` environment variable to determine,
+    /// the maximum, or 500 if that environment variable is not set.
+    ///
+    /// [`spawn_blocking`]: TaskPool::spawn_blocking
+    /// [`spawn_blocking_async`]: TaskPool::spawn_blocking_async
+    pub fn max_blocking_threads(mut self, num_blocking_threads: usize) -> Self {
+        self.max_blocking_threads = Some(num_blocking_threads);
         self
     }
 
@@ -158,6 +180,15 @@ impl TaskPool {
     }
 
     fn new_internal(builder: TaskPoolBuilder) -> Self {
+        // if let Some(thread_count) = builder.max_blocking_threads {
+        // Safety: This is likely unsafe as this could be called if the TaskPoolBuilder is called from
+        // multiple threads.
+        // #[expect(unsafe_code, reason = "TaskPools are only initialized from one thread")]
+        // unsafe {
+        //     env::set_var("BLOCKING_MAX_THREADS", thread_count.to_string().as_str());
+        // }
+        // }
+
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
         let executor = Arc::new(crate::executor::Executor::new());
@@ -554,8 +585,16 @@ impl TaskPool {
     /// any case, the pool will execute the task even without polling by the
     /// end-user.
     ///
-    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should
+    /// If the provided future is non-`Send`, [`spawn_local`] should
     /// be used instead.
+    ///
+    /// If the provided future performs blocking IO or may have long lasting
+    /// CPU-bound operations, use [`spawn_blocking`] or [`spawn_blocking_async`]
+    /// instead.
+    ///
+    /// [`spawn_local`]: Self::spawn_local
+    /// [`spawn_blocking`]: Self::spawn_blocking
+    /// [`spawn_blocking_async`]: Self::spawn_blocking_async
     pub fn spawn<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
     where
         T: Send + 'static,
@@ -579,6 +618,81 @@ impl TaskPool {
         T: 'static,
     {
         Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
+    }
+
+    /// Runs the provided closure on a thread where blocking is acceptable.
+    ///
+    /// In general, issuing a blocking call or performing a lot of compute in a
+    /// future without yielding is not okay, as it may prevent the task pool
+    /// from driving other futures forward. This function runs the provided
+    /// closure on a thread dedicated to blocking operations.
+    ///
+    /// This call will spawn more blocking threads when they are requested
+    /// through this function until the upper limit configured.
+    /// This limit is very large by default (500), because `spawn_blocking` is often
+    /// used for various kinds of IO operations that cannot be performed
+    /// asynchronously. When you run CPU-bound code using `spawn_blocking`,
+    /// you should keep this large upper limit in mind; to run your
+    /// CPU-bound computations on only a few threads. Spawning too many threads
+    /// will cause the OS to [thrash], which may impact the performance
+    /// of the non-blocking tasks scheduled onto the `TaskPool`.  
+    ///
+    /// Closures spawned using `spawn_blocking` cannot be cancelled. When the
+    /// executor is shutdown, it will wait indefinitely for all blocking operations
+    /// to finish.
+    ///
+    /// ## Platform Specific Behavior
+    /// Long running blocking operations in browser environments will panic, so the app
+    /// must yield back to the browser periodically. If you're targeting web platforms,
+    /// consider using [`Self::spawn_blocking_async`].
+    ///
+    /// [thrash]: https://en.wikipedia.org/wiki/Thrashing_(computer_science)
+    pub fn spawn_blocking<T>(&self, f: impl FnOnce() -> T + Send + 'static) -> Task<T>
+    where
+        T: Send + 'static,
+    {
+        Task::new(unblock(f))
+    }
+
+    /// Spawns a static future onto on a thread where blocking is acceptable.
+    /// The returned [`Task`] is a future that can be polled for the result.
+    /// It can also be "detached", allowing the task to continue
+    /// running even if dropped. In any case, the pool will execute the task
+    /// even without polling by the end-user.
+    ///
+    /// This function is equivalent to calling `task_pool.spawn_blocking(|| block_on(f))`.
+    ///
+    /// If the future is expected to terminate quickly, or will not spend a
+    /// significant amount of time performing blocking CPU-bound or IO-bound
+    /// operations, [`spawn`] should be used instead. The ideal use case for
+    /// this function is for launching a future that may involve a combination
+    /// of async IO and blocking operations (i.e. loading large scenes).
+    ///
+    /// This call will spawn more blocking threads when they are requested
+    /// through this function until the upper limit configured.
+    /// This limit is very large by default (500), because `spawn_blocking` is often
+    /// used for various kinds of IO operations that cannot be performed
+    /// asynchronously. When you run CPU-bound code using `spawn_blocking`,
+    /// you should keep this large upper limit in mind; to run your
+    /// CPU-bound computations on only a few threads. Spawning too many threads
+    /// will cause the OS to thrash, which may impact the performance
+    /// of the non-blocking tasks scheduled onto the `TaskPool`.  
+    ///
+    /// The returned task can be detached or cancelled; however, any long standing
+    /// blocking operations will continue until the future yields.
+    ///
+    /// ## Platform Specific Behavior
+    /// This function behaves identically to `spawn` on `wasm` targets, or if
+    /// the `multi-threaded` feature on the crate is not enabled.
+    ///
+    /// [`spawn`]: Self::spawn
+    /// [`spawn_blocking_async`]: Self::spawn_blocking_async
+    #[inline]
+    pub fn spawn_blocking_async<T>(&self, f: impl Future<Output = T> + Send + 'static) -> Task<T>
+    where
+        T: Send + 'static,
+    {
+        self.spawn_blocking(|| block_on(f))
     }
 
     /// Runs a function with the local executor. Typically used to tick
@@ -669,7 +783,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
         self.spawned.push(task).unwrap();
     }
 
-    /// Spawns a scoped future onto the thread of the external thread executor.
+    /// Spawns a scoped future onto the thread pool.
     /// This is typically the main thread. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
@@ -684,6 +798,45 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
+    }
+
+    /// Spawns a closure onto the blocking thread pool. This is useful when longer running
+    /// work is necessary, but blocking the task pool needs to be avoided.
+    /// The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
+    /// [`Scope::spawn`] instead, unless the provided future needs to run on the external thread.
+    ///
+    /// For more information, see [`TaskPool::scope`].
+    pub fn spawn_blocking(&self, f: impl FnOnce() -> T + Send + 'scope)
+    where
+        T: Send + 'static,
+    {
+        // We box the closure so we can name the type and transmute it to 'scope.
+        let f: Box<dyn FnOnce() -> T + Send + 'scope> = Box::new(f);
+        #[expect(unsafe_code, reason = "required to transmute lifetimes")]
+        // SAFETY: task is forced to complete before scope is done.
+        let f: Box<dyn FnOnce() -> T + Send + 'static> = unsafe { mem::transmute(f) };
+
+        let task = unblock(|| Ok(f())).fallible();
+
+        self.spawned.push(task).unwrap();
+    }
+
+    /// Spawns a scoped future onto the blocking thread pool. This is useful when longer running
+    /// work is necessary, but blocking the task pool needs to be avoided.
+    /// The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
+    /// [`Scope::spawn`] instead, unless the provided future needs to run on the external thread.
+    ///
+    /// For more information, see [`TaskPool::scope`].
+    #[inline]
+    pub fn spawn_blocking_async(&self, f: impl Future<Output = T> + Send + 'scope)
+    where
+        T: Send + 'static,
+    {
+        self.spawn_blocking(|| block_on(f));
     }
 }
 

@@ -59,7 +59,7 @@ use crate::{
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, sync::Arc, vec, vec::Vec};
 use bevy_ecs::prelude::*;
 use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_tasks::IoTaskPool;
+use bevy_tasks::ComputeTaskPool;
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use parking_lot::RwLock;
@@ -218,7 +218,7 @@ impl AssetProcessor {
     pub fn process_assets(&self) {
         let start_time = std::time::Instant::now();
         debug!("Processing Assets");
-        IoTaskPool::get().scope(|scope| {
+        ComputeTaskPool::get().scope(|scope| {
             scope.spawn(async move {
                 self.initialize().await.unwrap();
                 for source in self.sources().iter_processed() {
@@ -420,7 +420,7 @@ impl AssetProcessor {
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         error!("AddFolder event cannot be handled in single threaded mode (or Wasm) yet.");
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-        IoTaskPool::get().scope(|scope| {
+        ComputeTaskPool::get().scope(|scope| {
             scope.spawn(async move {
                 self.process_assets_internal(scope, source, path)
                     .await
@@ -562,7 +562,7 @@ impl AssetProcessor {
         loop {
             let mut check_reprocess_queue =
                 core::mem::take(&mut self.data.asset_infos.write().await.check_reprocess_queue);
-            IoTaskPool::get().scope(|scope| {
+            ComputeTaskPool::get().scope(|scope| {
                 for path in check_reprocess_queue.drain(..) {
                     let processor = self.clone();
                     let source = self.get_source(path.source()).unwrap();

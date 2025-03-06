@@ -14,7 +14,7 @@ use bevy_ecs::{
 use bevy_platform_support::collections::{hash_map::EntryRef, HashMap, HashSet};
 use bevy_tasks::Task;
 use bevy_utils::default;
-use core::{future::Future, hash::Hash, mem, ops::Deref};
+use core::{hash::Hash, mem, ops::Deref};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
@@ -680,7 +680,7 @@ impl PipelineCache {
         let layout_cache = self.layout_cache.clone();
 
         create_pipeline_task(
-            async move {
+            move || {
                 let mut shader_cache = shader_cache.lock().unwrap();
                 let mut layout_cache = layout_cache.lock().unwrap();
 
@@ -791,7 +791,7 @@ impl PipelineCache {
         let layout_cache = self.layout_cache.clone();
 
         create_pipeline_task(
-            async move {
+            move || {
                 let mut shader_cache = shader_cache.lock().unwrap();
                 let mut layout_cache = layout_cache.lock().unwrap();
 
@@ -955,14 +955,16 @@ impl PipelineCache {
     feature = "multi_threaded"
 ))]
 fn create_pipeline_task(
-    task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
+    task: impl FnOnce() -> Result<Pipeline, PipelineCacheError> + Send + 'static,
     sync: bool,
 ) -> CachedPipelineState {
     if !sync {
-        return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
+        return CachedPipelineState::Creating(
+            bevy_tasks::ComputeTaskPool::get().spawn_blocking(task),
+        );
     }
 
-    match futures_lite::future::block_on(task) {
+    match task() {
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),
     }
@@ -974,10 +976,10 @@ fn create_pipeline_task(
     not(feature = "multi_threaded")
 ))]
 fn create_pipeline_task(
-    task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
+    task: impl FnOnce() -> Result<Pipeline, PipelineCacheError> + Send + 'static,
     _sync: bool,
 ) -> CachedPipelineState {
-    match futures_lite::future::block_on(task) {
+    match task() {
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),
     }
