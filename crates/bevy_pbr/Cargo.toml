@@ -16,6 +16,8 @@ pbr_multi_layer_material_textures = []
 pbr_anisotropy_texture = []
 experimental_pbr_pcss = []
 pbr_specular_textures = []
+pbr_clustered_decals = []
+pbr_light_textures = []
 shader_format_glsl = ["bevy_render/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
