@@ -18,9 +18,9 @@ fn main() {
     app.add_plugins(MeshPickingPlugin);
 
     // Fallible systems can be used the same way as regular systems. The only difference is they
-    // return a `Result<(), Box<dyn Error>>` instead of a `()` (unit) type. Bevy will handle both
+    // return a `Result<(), BevyError>` instead of a `()` (unit) type. Bevy will handle both
     // types of systems the same way, except for the error handling.
-    app.add_systems(Startup, (setup, failing_system));
+    app.add_systems(Startup, setup);
 
     // By default, fallible systems that return an error will panic.
     //
@@ -36,7 +36,7 @@ fn main() {
     // In this instance we provide our own non-capturing closure that coerces to the expected error
     // handler function pointer:
     //
-    //     fn(bevy_ecs::result::Error, bevy_ecs::result::SystemErrorContext)
+    //     fn(bevy_ecs::error::BevyError, bevy_ecs::error::SystemErrorContext)
     //
     app.add_systems(PostStartup, failing_system)
         .get_schedule_mut(PostStartup)
@@ -138,7 +138,7 @@ fn fallible_observer(
 ) -> Result {
     let mut transform = world
         .get_mut::<Transform>(trigger.target)
-        .ok_or_message("No transform found.")?;
+        .ok_or("No transform found.")?;
 
     *step = if transform.translation.x > 3. {
         -0.1
@@ -161,8 +161,8 @@ fn failing_system(world: &mut World) -> Result {
         // `get_resource` returns an `Option<T>`, so we use `ok_or` to convert it to a `Result` on
         // which we can call `?` to propagate the error.
         .get_resource::<UninitializedResource>()
-        // We can provide a `str` here because `Box<dyn Error>` implements `From<&str>`.
-        .ok_or_message("Resource not initialized")?;
+        // We can provide a `str` here because `BevyError` implements `From<&str>`.
+        .ok_or("Resource not initialized")?;
 
     Ok(())
 }

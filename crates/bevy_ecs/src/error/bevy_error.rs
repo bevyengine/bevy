@@ -26,59 +26,37 @@ use core::{
 /// }
 /// ```
 pub struct BevyError {
-    inner: Box<dyn InnerError>,
+    inner: Box<InnerBevyError>,
 }
 
 impl BevyError {
-    /// Creates a new error with the given message.
-    pub fn message<M: Display + Debug + Send + Sync + 'static>(message: M) -> Self {
-        BevyError {
-            inner: Box::new(ErrorImpl {
-                #[cfg(feature = "backtrace")]
-                backtrace: std::backtrace::Backtrace::capture(),
-                error: MessageError(message),
-            }),
-        }
-    }
-
     /// Attempts to downcast the internal error to the given type.
     pub fn downcast_ref<E: Error + 'static>(&self) -> Option<&E> {
-        self.inner.error().downcast_ref::<E>()
+        self.inner.error.downcast_ref::<E>()
     }
 }
 
-trait InnerError: Send + Sync + 'static {
-    #[cfg(feature = "backtrace")]
-    fn backtrace(&self) -> &std::backtrace::Backtrace;
-    fn error(&self) -> &(dyn Error + Send + Sync + 'static);
-}
-
-struct ErrorImpl<E: Error + Send + Sync + 'static> {
-    error: E,
+/// This type exists (rather than having a `BevyError(Box<dyn InnerBevyError)`) to make [`BevyError`] use a "thin pointer" instead of
+/// a "fat pointer", which reduces the size of our Result by a usize. This does introduce an extra indirection, but error handling is a "cold path".
+/// We don't need to optimize it to that degree.
+/// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but thats not a huge priority right now and the code simplicity
+/// of the current impl is nice.
+struct InnerBevyError {
+    error: Box<dyn Error + Send + Sync + 'static>,
     #[cfg(feature = "backtrace")]
     backtrace: std::backtrace::Backtrace,
 }
 
-impl<E: Error + Send + Sync + 'static> InnerError for ErrorImpl<E> {
-    #[cfg(feature = "backtrace")]
-    fn backtrace(&self) -> &std::backtrace::Backtrace {
-        &self.backtrace
-    }
-
-    fn error(&self) -> &(dyn Error + Send + Sync + 'static) {
-        &self.error
-    }
-}
-
+// NOTE: writing the impl this way gives us From<&str> ... nice!
 impl<E> From<E> for BevyError
 where
-    E: Error + Send + Sync + 'static,
+    Box<dyn Error + Send + Sync + 'static>: From<E>,
 {
     #[cold]
     fn from(error: E) -> Self {
         BevyError {
-            inner: Box::new(ErrorImpl {
-                error,
+            inner: Box::new(InnerBevyError {
+                error: error.into(),
                 #[cfg(feature = "backtrace")]
                 backtrace: std::backtrace::Backtrace::capture(),
             }),
@@ -88,17 +66,17 @@ where
 
 impl Display for BevyError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{}", self.inner.error())?;
+        writeln!(f, "{}", self.inner.error)?;
         Ok(())
     }
 }
 
 impl Debug for BevyError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{:?}", self.inner.error())?;
+        writeln!(f, "{:?}", self.inner.error)?;
         #[cfg(feature = "backtrace")]
         {
-            let backtrace = self.inner.backtrace();
+            let backtrace = &self.inner.backtrace;
             if let std::backtrace::BacktraceStatus::Captured = backtrace.status() {
                 let full_backtrace = std::env::var("BEVY_BACKTRACE").is_ok_and(|val| val == "full");
 
@@ -170,49 +148,6 @@ pub fn bevy_error_panic_hook(
         }
 
         current_hook(info);
-    }
-}
-
-/// An error containing a print-able message.
-pub struct MessageError<M>(pub(crate) M);
-
-impl<M> Display for MessageError<M>
-where
-    M: Display + Debug,
-{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-impl<M> Debug for MessageError<M>
-where
-    M: Display + Debug,
-{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        Debug::fmt(&self.0, f)
-    }
-}
-
-impl<M> Error for MessageError<M> where M: Display + Debug + 'static {}
-
-/// Returns a Result containing a given message if the given value does not exist.
-pub trait OkOrMessage<T> {
-    /// Returns a Result containing a given message if the given value does not exist.
-    fn ok_or_message<M: Display + Debug + Send + Sync + 'static>(
-        self,
-        message: M,
-    ) -> Result<T, MessageError<M>>;
-}
-
-impl<T> OkOrMessage<T> for Option<T> {
-    fn ok_or_message<M: Display + Debug + Send + Sync + 'static>(
-        self,
-        message: M,
-    ) -> Result<T, MessageError<M>> {
-        match self {
-            Some(value) => Ok(value),
-            None => Err(MessageError(message)),
-        }
     }
 }
 

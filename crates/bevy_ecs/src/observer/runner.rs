@@ -488,7 +488,7 @@ mod tests {
     #[should_panic(expected = "I failed!")]
     fn test_fallible_observer() {
         fn system(_: Trigger<TriggerEvent>) -> Result {
-            Err(BevyError::message("I failed!"))
+            Err("I failed!".into())
         }
 
         let mut world = World::default();
@@ -504,7 +504,7 @@ mod tests {
 
         fn system(_: Trigger<TriggerEvent>, mut ran: ResMut<Ran>) -> Result {
             ran.0 = true;
-            Err(BevyError::message("I failed!"))
+            Err("I failed!".into())
         }
 
         let mut world = World::default();

@@ -335,7 +335,7 @@ mod tests {
         change_detection::DetectChanges,
         component::{Component, Components},
         entity::{Entities, Entity},
-        error::{BevyError, Result},
+        error::Result,
         prelude::{AnyOf, EntityRef},
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
@@ -1810,7 +1810,7 @@ mod tests {
     #[should_panic]
     fn simple_fallible_system() {
         fn sys() -> Result {
-            Err(BevyError::message("error"))?;
+            Err("error")?;
             Ok(())
         }
 
