@@ -9,8 +9,8 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Comma, Paren},
-    Data, DataStruct, DeriveInput, Expr, ExprCall, ExprClosure, ExprPath, Field, Fields, Ident,
-    Index, LitStr, Member, Path, Result, Token, Type, Visibility,
+    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprClosure, ExprPath, Field, Fields,
+    Ident, LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
 pub const EVENT: &str = "event";
@@ -306,18 +306,18 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
 const ENTITIES: &str = "entities";
 
-
 fn visit_entities(
     data: &Data,
     bevy_ecs_path: &Path,
     is_relationship: bool,
+    is_relationship_target: bool,
 ) -> TokenStream2 {
     match data {
         Data::Struct(DataStruct { fields, .. }) => {
             let mut visit = Vec::with_capacity(fields.len());
             let mut visit_mut = Vec::with_capacity(fields.len());
 
-            let relationship = if is_relationship {
+            let relationship = if is_relationship || is_relationship_target {
                 relationship_field(fields, "VisitEntities", fields.span()).ok()
             } else {
                 None
@@ -412,34 +412,6 @@ fn visit_entities(
         }
         Data::Union(_) => quote!(),
     }
-}
-
-pub fn document_required_components(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let paths = parse_macro_input!(attr with Punctuated::<Require, Comma>::parse_terminated)
-        .iter()
-        .map(|r| format!("[`{}`]", r.path.to_token_stream()))
-        .collect::<Vec<_>>()
-        .join(", ");
-
-    let bevy_ecs_path = crate::bevy_ecs_path()
-        .to_token_stream()
-        .to_string()
-        .replace(' ', "");
-    let required_components_path = bevy_ecs_path + "::component::Component#required-components";
-
-    // Insert information about required components after any existing doc comments
-    let mut out = TokenStream::new();
-    let mut end_of_attributes_reached = false;
-    for tt in item {
-        if !end_of_attributes_reached & matches!(tt, TokenTree::Ident(_)) {
-            end_of_attributes_reached = true;
-            let doc: TokenStream = format!("#[doc = \"\n\n# Required Components\n{paths} \n\n A component's [required components]({required_components_path}) are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.\"]").parse().unwrap();
-            out.extend(doc);
-        }
-        out.extend(Some(tt));
-    }
-
-    out
 }
 
 pub const COMPONENT: &str = "component";
