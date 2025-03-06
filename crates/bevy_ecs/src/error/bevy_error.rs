@@ -157,18 +157,16 @@ pub fn bevy_error_panic_hook(
 
 #[cfg(test)]
 mod tests {
-    use crate::error::{bevy_error::FILTER_MESSAGE, Result};
-    use alloc::format;
-
-    fn i_fail() -> Result {
-        let _: usize = "I am not a number".parse()?;
-        Ok(())
-    }
 
     #[test]
     #[cfg(not(miri))] // miri backtraces are weird
     #[cfg(not(windows))] // the windows backtrace in this context is ... unhelpful and not worth testing
     fn filtered_backtrace_test() {
+        fn i_fail() -> crate::error::Result {
+            let _: usize = "I am not a number".parse()?;
+            Ok(())
+        }
+
         // SAFETY: this is not safe ...  this test could run in parallel with another test
         // that writes the environment variable. We either accept that so we can write this test,
         // or we don't.
@@ -176,8 +174,7 @@ mod tests {
         unsafe { std::env::set_var("RUST_BACKTRACE", "1") };
 
         let error = i_fail().err().unwrap();
-        let debug_message = format!("{error:?}");
-        std::eprintln!("{debug_message}");
+        let debug_message = alloc::format!("{error:?}");
         let mut lines = debug_message.lines().peekable();
         assert_eq!(
             "ParseIntError { kind: InvalidDigit }",
@@ -197,7 +194,7 @@ mod tests {
         }
 
         let expected_lines = alloc::vec![
-            "bevy_ecs::error::bevy_error::tests::i_fail",
+            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::i_fail",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{{closure}}",
             "core::ops::function::FnOnce::call_once",
@@ -238,7 +235,7 @@ mod tests {
         if skip {
             lines.next().unwrap();
         }
-        assert_eq!(FILTER_MESSAGE, lines.next().unwrap());
+        assert_eq!(super::FILTER_MESSAGE, lines.next().unwrap());
         assert!(lines.next().is_none());
     }
 }
