@@ -1516,18 +1516,10 @@ impl<'w> ComponentsRegistrator<'w> {
         Self { components, ids }
     }
 
-    /// Splits this [`ComponentsRegistrator`] into its parts.
-    /// This can then be used to initialize either [`ComponentsRegistrator`] or [`ComponentsQueuedRegistrator`].
-    /// This is intended for use to pass this value to a function that requires [`ComponentsQueuedRegistrator`] without dropping the references mutability.
-    /// See also [`as_queued`](Self::as_queued).
-    pub fn split(self) -> (&'w mut Components, &'w mut ComponentIds) {
-        (self.components, self.ids)
-    }
-
     /// Converts this [`ComponentsRegistrator`] into a [`ComponentsQueuedRegistrator`].
     /// This is intended for use to pass this value to a function that requires [`ComponentsQueuedRegistrator`].
-    /// See also [`split`](Self::split).
-    pub fn as_queued(self) -> ComponentsQueuedRegistrator<'w> {
+    /// It is generally not a good idea to queue a registration when you can instead register directly on this type.
+    pub fn as_queued(&self) -> ComponentsQueuedRegistrator<'_> {
         // SAFETY: ensured by the caller that created self.
         unsafe { ComponentsQueuedRegistrator::new(self.components, self.ids) }
     }
