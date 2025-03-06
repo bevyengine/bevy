@@ -777,7 +777,7 @@ mod tests {
         let _: Option<&Foo> = q.get(e).ok();
         let _: Option<[&Foo; 1]> = q.get_many([e]).ok();
         let _: Option<&Foo> = q.single().ok();
-        let _: [&Foo; 1] = q.many([e]);
+        let _: [&Foo; 1] = q.get_many([e]).unwrap();
         let _: &Foo = q.single().unwrap();
     }
 
