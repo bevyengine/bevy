@@ -39,8 +39,8 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentIds, ComponentInfo,
-        ComponentTicks, Components, ComponentsRegistrator, Mutable, RequiredComponents,
-        RequiredComponentsError, Tick,
+        ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
+        RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{
         AllocAtWithoutReplacement, Entities, Entity, EntityDoesNotExistError, EntityLocation,
@@ -221,6 +221,15 @@ impl World {
     #[inline]
     pub fn components(&self) -> &Components {
         &self.components
+    }
+
+    /// Prepares a [`ComponentsQueuedRegistrator`] for the world.
+    /// **NOTE:** [`ComponentsQueuedRegistrator`] is easily misused.
+    /// See its docs for important notes on when and how it should be used.
+    #[inline]
+    pub fn components_queue(&self) -> ComponentsQueuedRegistrator {
+        // SAFETY: These are from the same world.
+        unsafe { ComponentsQueuedRegistrator::new(&self.components, &self.component_ids) }
     }
 
     /// Prepares a [`ComponentsRegistrator`] for the world.
@@ -2817,12 +2826,22 @@ impl World {
         }
     }
 
+    /// Applies any queued component registration.
+    /// For spawning vanilla rust component types and resources, this is not strictly necessary.
+    /// However, flushing components can make information available more quickly,and can have performance benefits.
+    /// Additionally, for components and resources registered dynamically through a raw descriptor or similar,
+    /// this is the only way to complete their registration.
+    pub(crate) fn flush_components(&mut self) {
+        self.components_registrator().apply_queued_registrations();
+    }
+
     /// Flushes queued entities and commands.
     ///
     /// Queued entities will be spawned, and then commands will be applied.
     #[inline]
     pub fn flush(&mut self) {
         self.flush_entities();
+        self.flush_components();
         self.flush_commands();
     }
 

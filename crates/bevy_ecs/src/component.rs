@@ -1253,6 +1253,21 @@ impl ComponentIds {
 }
 
 /// A type that enables queuing registration in [`Components`].
+///
+/// # Note
+///
+/// These queued registrations return [`ComponentId`]s.
+/// These ids are not yet valid, but they will become valid
+/// when either [`ComponentRegistrator::apply_queued_registrations`] is called or the same registration is made directly.
+/// In either case, the returned [`ComponentId`]s will be correct, but they are not correct yet.
+///
+/// Generally, that means these [`ComponentId`]s can be safely used for read-only purposes.
+/// Modifying the contents of the world through these [`ComponentId`]s directly without waiting for them to be fully registered
+/// and without then confirming that they have been fully registered is not supported.
+/// Hence, extra care is needed with these [`ComponentId`]s to ensure all safety rules are followed.
+///
+/// As a rule of thumb, if you have mutable access to [`ComponentRegistrator`], prefer to use that instead.
+/// Use this only if you need to know the id of a component but do not need to modify the contents of the world based on that id.
 pub struct ComponentsQueuedRegistrator<'w> {
     components: &'w Components,
     ids: &'w ComponentIds,
@@ -1303,7 +1318,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         id
     }
 
-    /// Queues this function to run as a component registrator.
+    /// Queues this function to run as a resource registrator.
     ///
     /// # Safety
     ///
@@ -1350,6 +1365,11 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// This is a queued version of [`ComponentsRegistrator::register_component`].
     /// This will reserve an id and queue the registration.
     /// These registrations will be carried out at the next opportunity.
+    ///
+    /// # Note
+    ///
+    /// Technically speaking, the returned [`ComponentId`] is not valid, but it will become valid later.
+    /// See type level docs for details.
     #[inline]
     pub fn queue_register_component<T: Component>(&self) -> ComponentId {
         self.component_id::<T>().unwrap_or_else(|| {
@@ -1369,6 +1389,11 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// This is a queued version of [`ComponentsRegistrator::register_component_with_descriptor`].
     /// This will reserve an id and queue the registration.
     /// These registrations will be carried out at the next opportunity.
+    ///
+    /// # Note
+    ///
+    /// Technically speaking, the returned [`ComponentId`] is not valid, but it will become valid later.
+    /// See type level docs for details.
     #[inline]
     pub fn queue_register_component_with_descriptor(
         &self,
@@ -1385,6 +1410,11 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// This is a queued version of [`ComponentsRegistrator::register_resource`].
     /// This will reserve an id and queue the registration.
     /// These registrations will be carried out at the next opportunity.
+    ///
+    /// # Note
+    ///
+    /// Technically speaking, the returned [`ComponentId`] is not valid, but it will become valid later.
+    /// See type level docs for details.
     #[inline]
     pub fn queue_register_resource<T: Resource>(&self) -> ComponentId {
         let type_id = TypeId::of::<T>();
@@ -1408,6 +1438,11 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// This is a queued version of [`ComponentsRegistrator::register_non_send`].
     /// This will reserve an id and queue the registration.
     /// These registrations will be carried out at the next opportunity.
+    ///
+    /// # Note
+    ///
+    /// Technically speaking, the returned [`ComponentId`] is not valid, but it will become valid later.
+    /// See type level docs for details.
     #[inline]
     pub fn queue_register_non_send<T: Any>(&self) -> ComponentId {
         let type_id = TypeId::of::<T>();
@@ -1431,6 +1466,11 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// This is a queued version of [`ComponentsRegistrator::register_resource_with_descriptor`].
     /// This will reserve an id and queue the registration.
     /// These registrations will be carried out at the next opportunity.
+    ///
+    /// # Note
+    ///
+    /// Technically speaking, the returned [`ComponentId`] is not valid, but it will become valid later.
+    /// See type level docs for details.
     #[inline]
     pub fn queue_register_resource_with_descriptor(
         &self,
@@ -1476,10 +1516,30 @@ impl<'w> ComponentsRegistrator<'w> {
         Self { components, ids }
     }
 
+    /// Splits this [`ComponentsRegistrator`] into its parts.
+    /// This can then be used to initialize either [`ComponentsRegistrator`] or [`ComponentsQueuedRegistrator`].
+    /// This is intended for use to pass this value to a function that requires [`ComponentsQueuedRegistrator`] without dropping the references mutability.
+    /// See also [`as_queued`](Self::as_queued).
+    pub fn split(self) -> (&'w mut Components, &'w mut ComponentIds) {
+        (self.components, self.ids)
+    }
+
+    /// Converts this [`ComponentsRegistrator`] into a [`ComponentsQueuedRegistrator`].
+    /// This is intended for use to pass this value to a function that requires [`ComponentsQueuedRegistrator`].
+    /// See also [`split`](Self::split).
+    pub fn as_queued(self) -> ComponentsQueuedRegistrator<'w> {
+        // SAFETY: ensured by the caller that created self.
+        unsafe { ComponentsQueuedRegistrator::new(self.components, self.ids) }
+    }
+
     /// Applies every queued registration.
     /// This ensures that every valid [`ComponentId`] is registered,
     /// enabling retrieving [`ComponentInfo`], etc.
     pub fn apply_queued_registrations(&mut self) {
+        if !self.any_queued_mut() {
+            return;
+        }
+
         // components
         while let Some((id, mut registrator)) = {
             let queued = self
@@ -1834,6 +1894,22 @@ impl Components {
     #[inline]
     pub fn any_queued(&self) -> bool {
         self.num_queued() > 0
+    }
+
+    /// A faster version of [`Self::num_queued`].
+    #[inline]
+    pub fn num_queued_mut(&mut self) -> usize {
+        let queued = self
+            .queued
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner);
+        queued.components.len() + queued.dynamic_registrations.len() + queued.resources.len()
+    }
+
+    /// A faster version of [`Self::any_queued`].
+    #[inline]
+    pub fn any_queued_mut(&mut self) -> bool {
+        self.num_queued_mut() > 0
     }
 
     /// Returns the number of components registered with this instance.
