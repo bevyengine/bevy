@@ -1,0 +1,9 @@
+error[E0425]: cannot find value `Bar` in this scope
+  --> tests/ui/component_hook_struct_path.rs:11:14
+   |
+11 |     on_add = Bar,
+   |              ^^^ not found in this scope
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0425`.
