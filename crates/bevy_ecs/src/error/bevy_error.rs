@@ -232,10 +232,12 @@ mod tests {
         // SAFETY: this is not safe ...  this test could run in parallel with another test
         // that writes the environment variable. We either accept that so we can write this test,
         // or we don't.
+
         unsafe { std::env::set_var("RUST_BACKTRACE", "1") };
 
         let error = i_fail().err().unwrap();
         let debug_message = format!("{error:?}");
+        std::println!("{debug_message}");
         let mut lines = debug_message.lines().peekable();
         assert_eq!(
             "ParseIntError { kind: InvalidDigit }",
