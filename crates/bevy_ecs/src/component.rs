@@ -1368,10 +1368,10 @@ impl Components {
                     // SAFETY: Component ID and constructor match the ones on the original requiree.
                     //         The original requiree is responsible for making sure the registration is safe.
                     unsafe {
-                        required_components.register_dynamic(
+                        required_components.register_dynamic_with(
                             *component_id,
-                            component.constructor.clone(),
                             component.inheritance_depth + depth + 1,
+                            || component.constructor.clone(),
                         );
                     };
                 }
@@ -1423,10 +1423,10 @@ impl Components {
             // Register the required component for the requiree.
             // SAFETY: Component ID and constructor match the ones on the original requiree.
             unsafe {
-                required_components.register_dynamic(
+                required_components.register_dynamic_with(
                     component_id,
-                    component.constructor,
                     component.inheritance_depth,
+                    || component.constructor,
                 );
             };
 
@@ -1533,11 +1533,9 @@ impl Components {
         for (id, component) in required {
             // Register the inherited required components for the requiree.
             // The inheritance depth is increased by `1` since this is a component required by the original required component.
-            required_components.register_dynamic(
-                id,
-                component.constructor.clone(),
-                component.inheritance_depth + 1,
-            );
+            required_components.register_dynamic_with(id, component.inheritance_depth + 1, || {
+                component.constructor.clone()
+            });
             self.get_required_by_mut(id).unwrap().insert(requiree);
         }
     }
@@ -2075,64 +2073,66 @@ impl RequiredComponents {
         constructor: fn() -> C,
         inheritance_depth: u16,
     ) {
-        let erased: RequiredComponentConstructor = RequiredComponentConstructor({
-            // `portable-atomic-util` `Arc` is not able to coerce an unsized
-            // type like `std::sync::Arc` can. Creating a `Box` first does the
-            // coercion.
-            //
-            // This would be resolved by https://github.com/rust-lang/rust/issues/123430
+        let erased = || {
+            RequiredComponentConstructor({
+                // `portable-atomic-util` `Arc` is not able to coerce an unsized
+                // type like `std::sync::Arc` can. Creating a `Box` first does the
+                // coercion.
+                //
+                // This would be resolved by https://github.com/rust-lang/rust/issues/123430
 
-            #[cfg(not(target_has_atomic = "ptr"))]
-            use alloc::boxed::Box;
+                #[cfg(not(target_has_atomic = "ptr"))]
+                use alloc::boxed::Box;
 
-            type Constructor = dyn for<'a, 'b> Fn(
-                &'a mut Table,
-                &'b mut SparseSets,
-                Tick,
-                TableRow,
-                Entity,
-                MaybeLocation,
-            );
+                type Constructor = dyn for<'a, 'b> Fn(
+                    &'a mut Table,
+                    &'b mut SparseSets,
+                    Tick,
+                    TableRow,
+                    Entity,
+                    MaybeLocation,
+                );
 
-            #[cfg(not(target_has_atomic = "ptr"))]
-            type Intermediate<T> = Box<T>;
+                #[cfg(not(target_has_atomic = "ptr"))]
+                type Intermediate<T> = Box<T>;
 
-            #[cfg(target_has_atomic = "ptr")]
-            type Intermediate<T> = Arc<T>;
+                #[cfg(target_has_atomic = "ptr")]
+                type Intermediate<T> = Arc<T>;
 
-            let boxed: Intermediate<Constructor> = Intermediate::new(
-                move |table, sparse_sets, change_tick, table_row, entity, caller| {
-                    OwningPtr::make(constructor(), |ptr| {
-                        // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
-                        // pass in a valid table_row and entity requiring a C constructor
-                        // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
-                        // `ptr` points to valid `C` data, which matches the type associated with `component_id`
-                        unsafe {
-                            BundleInfo::initialize_required_component(
-                                table,
-                                sparse_sets,
-                                change_tick,
-                                table_row,
-                                entity,
-                                component_id,
-                                C::STORAGE_TYPE,
-                                ptr,
-                                caller,
-                            );
-                        }
-                    });
-                },
-            );
+                let boxed: Intermediate<Constructor> = Intermediate::new(
+                    move |table, sparse_sets, change_tick, table_row, entity, caller| {
+                        OwningPtr::make(constructor(), |ptr| {
+                            // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
+                            // pass in a valid table_row and entity requiring a C constructor
+                            // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
+                            // `ptr` points to valid `C` data, which matches the type associated with `component_id`
+                            unsafe {
+                                BundleInfo::initialize_required_component(
+                                    table,
+                                    sparse_sets,
+                                    change_tick,
+                                    table_row,
+                                    entity,
+                                    component_id,
+                                    C::STORAGE_TYPE,
+                                    ptr,
+                                    caller,
+                                );
+                            }
+                        });
+                    },
+                );
 
-            Arc::from(boxed)
-        });
+                Arc::from(boxed)
+            })
+        };
 
         // SAFETY:
         // `component_id` matches the type initialized by the `erased` constructor above.
         // `erased` initializes a component for `component_id` in such a way that
         // matches the storage type of the component. It only uses the given `table_row` or `Entity` to
         // initialize the storage corresponding to the given entity.
-        unsafe { self.register_dynamic(component_id, erased, inheritance_depth) };
+        unsafe { self.register_dynamic_with(component_id, inheritance_depth, erased) };
     }
 
     /// Iterates the ids of all required components' ids. This includes recursive required components.
@@ -2159,14 +2159,13 @@ impl RequiredComponents {
                 constructor,
                 inheritance_depth,
             },
-        ) in required_components
-            .0
-            .iter()
-            .map(|(id, req)| (*id, req.clone()))
+        ) in required_components.0.iter()
         {
             // SAFETY: This exact registration must have been done on `required_components`, so safety is ensured by that caller.
             unsafe {
-                self.register_dynamic(component_id, constructor, inheritance_depth);
+                self.register_dynamic_with(*component_id, *inheritance_depth, || {
+                    constructor.clone()
+                });
             }
         }
     }
