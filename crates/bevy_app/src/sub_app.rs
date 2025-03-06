@@ -62,7 +62,7 @@ type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 pub struct SubApp {
     /// The data of this application.
     world: World,
-    /// List of plugins that have been added.
+    /// List of plugins that have been added but have not yet have `build_async` called.
     pub(crate) plugin_registry: Vec<Box<dyn ErasedPlugin>>,
     /// The names of plugins that have been added to this app. (used to track duplicates and
     /// already-registered plugins)

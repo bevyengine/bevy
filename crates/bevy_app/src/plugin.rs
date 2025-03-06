@@ -85,7 +85,10 @@ pub trait Plugin: Any + Send + Sync {
     ///
     /// This runs concurrently with other plugins (but in a single thread), so you can use the
     /// methods on [`PluginContext`] to wait for data to be made available by other plugins.
-    fn build_async<'ctx>(&self, _ctx: PluginContext<'ctx>) -> impl Future<Output = ()> + 'ctx {
+    fn build_async<'ctx>(
+        self: Box<Self>,
+        _ctx: PluginContext<'ctx>,
+    ) -> impl Future<Output = ()> + 'ctx {
         async {}
     }
 
@@ -134,7 +137,10 @@ impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {
 /// Dyn-compatible version of [`Plugin`].
 pub trait ErasedPlugin: Downcast + Send + Sync {
     /// See [`Plugin::build_async`].
-    fn build_async<'a>(&self, ctx: PluginContext<'a>) -> Pin<Box<dyn Future<Output = ()> + 'a>>;
+    fn build_async<'a>(
+        self: Box<Self>,
+        ctx: PluginContext<'a>,
+    ) -> Pin<Box<dyn Future<Output = ()> + 'a>>;
 
     /// See [`Plugin::build`].
     fn build(&self, app: &mut App);
@@ -162,7 +168,7 @@ where
     P: Plugin,
 {
     fn build_async<'ctx>(
-        &self,
+        self: Box<Self>,
         ctx: PluginContext<'ctx>,
     ) -> Pin<Box<dyn Future<Output = ()> + 'ctx>> {
         Box::pin(<P as Plugin>::build_async(self, ctx))

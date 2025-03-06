@@ -260,17 +260,18 @@ impl App {
                 app: self,
                 progress: TickProgress::NoProgress,
             });
-            let mut plugin_cursor = 0;
             let mut futures = Vec::new();
             loop {
                 let mut progress_made = false;
 
                 // Consume any newly added plugins
                 futures.extend(
-                    ctx.borrow_mut().app.main_mut().plugin_registry[plugin_cursor..]
-                        .iter()
+                    ctx.borrow_mut()
+                        .app
+                        .main_mut()
+                        .plugin_registry
+                        .drain(..)
                         .map(|erased| {
-                            plugin_cursor += 1;
                             // The first time the future runs, it can make progress before waiting
                             progress_made = true;
                             // Turn the plugin into a future
