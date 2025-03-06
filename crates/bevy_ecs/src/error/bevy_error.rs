@@ -237,13 +237,13 @@ mod tests {
 
         let error = i_fail().err().unwrap();
         let debug_message = format!("{error:?}");
-        std::println!("{debug_message}");
         let mut lines = debug_message.lines().peekable();
         assert_eq!(
             "ParseIntError { kind: InvalidDigit }",
             lines.next().unwrap()
         );
 
+        // On mac backtraces can start with Backtrace::create
         let mut skip = false;
         if let Some(line) = lines.peek() {
             if &line[6..] == "std::backtrace::Backtrace::create" {
@@ -260,22 +260,44 @@ mod tests {
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{{closure}}",
             "core::ops::function::FnOnce::call_once",
-            "core::ops::function::FnOnce::call_once",
         ];
 
         for expected in expected_lines {
-            let mut line = lines.next().unwrap();
-            if line.starts_with("             at") {
-                line = lines.next().unwrap();
-            }
+            let line = lines.next().unwrap();
             assert_eq!(&line[6..], expected);
+            let mut skip = false;
+            if let Some(line) = lines.peek() {
+                if line.starts_with("             at") {
+                    skip = true;
+                }
+            }
+
+            if skip {
+                lines.next().unwrap();
+            }
         }
 
-        let mut line = lines.next().unwrap();
-        if line.starts_with("             at") {
-            line = lines.next().unwrap();
+        // on linux there is a second call_once
+        let mut skip = false;
+        if let Some(line) = lines.peek() {
+            if &line[6..] == "core::ops::function::FnOnce::call_once" {
+                skip = true;
+            }
         }
-        assert_eq!(FILTER_MESSAGE, line);
+        if skip {
+            lines.next().unwrap();
+        }
+        let mut skip = false;
+        if let Some(line) = lines.peek() {
+            if line.starts_with("             at") {
+                skip = true;
+            }
+        }
+
+        if skip {
+            lines.next().unwrap();
+        }
+        assert_eq!(FILTER_MESSAGE, lines.next().unwrap());
         assert!(lines.next().is_none());
     }
 }
