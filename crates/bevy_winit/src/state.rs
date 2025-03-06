@@ -435,8 +435,12 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 // https://github.com/bevyengine/bevy/issues/17488
                 #[cfg(target_os = "windows")]
                 {
-                    self.redraw_requested = true;
-                    self.redraw_requested(_event_loop);
+                    // Have the startup behavior run in about_to_wait, which prevents issues with
+                    // invisible window creation. https://github.com/bevyengine/bevy/issues/18027
+                    if self.startup_forced_updates == 0 {
+                        self.redraw_requested = true;
+                        self.redraw_requested(_event_loop);
+                    }
                 }
             }
             _ => {}
@@ -480,6 +484,21 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         //       The monitor sync logic likely belongs in monitor event handlers and not here.
         #[cfg(not(target_os = "windows"))]
         self.redraw_requested(event_loop);
+
+        // Have the startup behavior run in about_to_wait, which prevents issues with
+        // invisible window creation. https://github.com/bevyengine/bevy/issues/18027
+        #[cfg(target_os = "windows")]
+        {
+            let winit_windows = self.world().non_send_resource::<WinitWindows>();
+            let headless = winit_windows.windows.is_empty();
+            let all_invisible = winit_windows
+                .windows
+                .iter()
+                .all(|(_, w)| !w.is_visible().unwrap_or(false));
+            if self.startup_forced_updates > 0 || headless || all_invisible {
+                self.redraw_requested(event_loop);
+            }
+        }
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
@@ -532,7 +551,7 @@ impl<T: Event> WinitAppRunnerState<T> {
                 let mut query = self
                     .world_mut()
                     .query_filtered::<Entity, With<PrimaryWindow>>();
-                let entity = query.single(&self.world());
+                let entity = query.single(&self.world()).unwrap();
                 self.world_mut()
                     .entity_mut(entity)
                     .remove::<RawHandleWrapper>();
@@ -552,7 +571,7 @@ impl<T: Event> WinitAppRunnerState<T> {
                 // handle wrapper removed when the app was suspended.
                 let mut query = self.world_mut()
                     .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
-                if let Ok((entity, window)) = query.get_single(&self.world()) {
+                if let Ok((entity, window)) = query.single(&self.world()) {
                     let window = window.clone();
 
                     let mut create_window =
@@ -880,16 +899,11 @@ impl<T: Event> WinitAppRunnerState<T> {
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.
-pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
+pub fn winit_runner<T: Event>(mut app: App, event_loop: EventLoop<T>) -> AppExit {
     if app.plugins_state() == PluginsState::Ready {
         app.finish();
         app.cleanup();
     }
-
-    let event_loop = app
-        .world_mut()
-        .remove_non_send_resource::<EventLoop<T>>()
-        .unwrap();
 
     app.world_mut()
         .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()));

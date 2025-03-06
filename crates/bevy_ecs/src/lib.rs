@@ -72,7 +72,7 @@ pub mod prelude {
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         children,
-        component::{require, Component},
+        component::Component,
         entity::{Entity, EntityBorrow, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
@@ -132,7 +132,7 @@ mod tests {
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
+        component::{Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::Entity,
         entity_disabling::DefaultQueryFilters,
         prelude::Or,
@@ -1702,6 +1702,10 @@ mod tests {
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C))];
 
+        #[expect(
+            deprecated,
+            reason = "This needs to be supported for now, and therefore still needs the test."
+        )]
         world.insert_or_spawn_batch(values).unwrap();
 
         assert_eq!(
@@ -1742,6 +1746,10 @@ mod tests {
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
 
+        #[expect(
+            deprecated,
+            reason = "This needs to be supported for now, and therefore still needs the test."
+        )]
         let result = world.insert_or_spawn_batch(values);
 
         assert_eq!(

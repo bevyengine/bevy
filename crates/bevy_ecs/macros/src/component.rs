@@ -1,4 +1,4 @@
-use proc_macro::{TokenStream, TokenTree};
+use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
 use std::collections::HashSet;
@@ -9,8 +9,8 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Comma, Paren},
-    Data, DataStruct, DeriveInput, ExprClosure, ExprPath, Field, Fields, Ident, Index, LitStr,
-    Member, Path, Result, Token, Visibility,
+    Data, DataStruct, DeriveInput, Expr, ExprCall, ExprClosure, ExprPath, Field, Fields, Ident,
+    Index, LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
@@ -71,12 +71,21 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(err) => err.into_compile_error().into(),
     };
 
-    let visit_entities = visit_entities(&ast.data, &bevy_ecs_path, relationship.is_some());
+    let visit_entities = visit_entities(
+        &ast.data,
+        &bevy_ecs_path,
+        relationship.is_some(),
+        relationship_target.is_some(),
+    );
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
-    let on_add_path = attrs.on_add.map(|path| path.to_token_stream());
-    let on_remove_path = attrs.on_remove.map(|path| path.to_token_stream());
+    let on_add_path = attrs
+        .on_add
+        .map(|path| path.to_token_stream(&bevy_ecs_path));
+    let on_remove_path = attrs
+        .on_remove
+        .map(|path| path.to_token_stream(&bevy_ecs_path));
 
     let on_insert_path = if relationship.is_some() {
         if attrs.on_insert.is_some() {
@@ -90,7 +99,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
         Some(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert))
     } else {
-        attrs.on_insert.map(|path| path.to_token_stream())
+        attrs
+            .on_insert
+            .map(|path| path.to_token_stream(&bevy_ecs_path))
     };
 
     let on_replace_path = if relationship.is_some() {
@@ -116,7 +127,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
         Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace))
     } else {
-        attrs.on_replace.map(|path| path.to_token_stream())
+        attrs
+            .on_replace
+            .map(|path| path.to_token_stream(&bevy_ecs_path))
     };
 
     let on_despawn_path = if attrs
@@ -134,7 +147,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
         Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn))
     } else {
-        attrs.on_despawn.map(|path| path.to_token_stream())
+        attrs
+            .on_despawn
+            .map(|path| path.to_token_stream(&bevy_ecs_path))
     };
 
     let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path);
@@ -202,12 +217,24 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
+    let required_component_docs = attrs.requires.map(|r| {
+        let paths = r
+            .iter()
+            .map(|r| format!("[`{}`]", r.path.to_token_stream()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let doc = format!("**Required Components**: {paths}. \n\n A component's Required Components are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.");
+        quote! {
+            #[doc = #doc]
+        }
+    });
+
     let mutable_type = (attrs.immutable || relationship.is_some())
         .then_some(quote! { #bevy_ecs_path::component::Immutable })
         .unwrap_or(quote! { #bevy_ecs_path::component::Mutable });
 
     let clone_behavior = if relationship_target.is_some() {
-        quote!(#bevy_ecs_path::component::ComponentCloneBehavior::RelationshipTarget(#bevy_ecs_path::relationship::clone_relationship_target::<Self>))
+        quote!(#bevy_ecs_path::component::ComponentCloneBehavior::Custom(#bevy_ecs_path::relationship::clone_relationship_target::<Self>))
     } else {
         quote!(
             use #bevy_ecs_path::component::{DefaultCloneBehaviorBase, DefaultCloneBehaviorViaClone};
@@ -218,6 +245,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
+        #required_component_docs
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             type Mutability = #mutable_type;
@@ -255,7 +283,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     })
 }
 
-fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> TokenStream2 {
+fn visit_entities(
+    data: &Data,
+    bevy_ecs_path: &Path,
+    is_relationship: bool,
+    is_relationship_target: bool,
+) -> TokenStream2 {
     match data {
         Data::Struct(DataStruct { fields, .. }) => {
             let mut visited_fields = Vec::new();
@@ -288,7 +321,9 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                 }
                 Fields::Unnamed(fields) => {
                     for (index, field) in fields.unnamed.iter().enumerate() {
-                        if field
+                        if index == 0 && is_relationship_target {
+                            visited_indices.push(Index::from(0));
+                        } else if field
                             .attrs
                             .iter()
                             .any(|a| a.meta.path().is_ident(ENTITIES_ATTR))
@@ -402,34 +437,6 @@ pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
     )
 }
 
-pub fn document_required_components(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let paths = parse_macro_input!(attr with Punctuated::<Require, Comma>::parse_terminated)
-        .iter()
-        .map(|r| format!("[`{}`]", r.path.to_token_stream()))
-        .collect::<Vec<_>>()
-        .join(", ");
-
-    let bevy_ecs_path = crate::bevy_ecs_path()
-        .to_token_stream()
-        .to_string()
-        .replace(' ', "");
-    let required_components_path = bevy_ecs_path + "::component::Component#required-components";
-
-    // Insert information about required components after any existing doc comments
-    let mut out = TokenStream::new();
-    let mut end_of_attributes_reached = false;
-    for tt in item {
-        if !end_of_attributes_reached & matches!(tt, TokenTree::Ident(_)) {
-            end_of_attributes_reached = true;
-            let doc: TokenStream = format!("#[doc = \"\n\n# Required Components\n{paths} \n\n A component's [required components]({required_components_path}) are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.\"]").parse().unwrap();
-            out.extend(doc);
-        }
-        out.extend(Some(tt));
-    }
-
-    out
-}
-
 pub const COMPONENT: &str = "component";
 pub const STORAGE: &str = "storage";
 pub const REQUIRE: &str = "require";
@@ -444,14 +451,64 @@ pub const ON_DESPAWN: &str = "on_despawn";
 
 pub const IMMUTABLE: &str = "immutable";
 
+/// All allowed attribute value expression kinds for component hooks
+#[derive(Debug)]
+enum HookAttributeKind {
+    /// expressions like function or struct names
+    ///
+    /// structs will throw compile errors on the code generation so this is safe
+    Path(ExprPath),
+    /// function call like expressions
+    Call(ExprCall),
+}
+
+impl HookAttributeKind {
+    fn from_expr(value: Expr) -> Result<Self> {
+        match value {
+            Expr::Path(path) => Ok(HookAttributeKind::Path(path)),
+            Expr::Call(call) => Ok(HookAttributeKind::Call(call)),
+            // throw meaningful error on all other expressions
+            _ => Err(syn::Error::new(
+                value.span(),
+                [
+                    "Not supported in this position, please use one of the following:",
+                    "- path to function",
+                    "- call to function yielding closure",
+                ]
+                .join("\n"),
+            )),
+        }
+    }
+
+    fn to_token_stream(&self, bevy_ecs_path: &Path) -> TokenStream2 {
+        match self {
+            HookAttributeKind::Path(path) => path.to_token_stream(),
+            HookAttributeKind::Call(call) => {
+                quote!({
+                    fn _internal_hook(world: #bevy_ecs_path::world::DeferredWorld, ctx: #bevy_ecs_path::component::HookContext) {
+                        (#call)(world, ctx)
+                    }
+                    _internal_hook
+                })
+            }
+        }
+    }
+}
+
+impl Parse for HookAttributeKind {
+    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
+        input.parse::<Expr>().and_then(Self::from_expr)
+    }
+}
+
 struct Attrs {
     storage: StorageTy,
     requires: Option<Punctuated<Require, Comma>>,
-    on_add: Option<ExprPath>,
-    on_insert: Option<ExprPath>,
-    on_replace: Option<ExprPath>,
-    on_remove: Option<ExprPath>,
-    on_despawn: Option<ExprPath>,
+    on_add: Option<HookAttributeKind>,
+    on_insert: Option<HookAttributeKind>,
+    on_replace: Option<HookAttributeKind>,
+    on_remove: Option<HookAttributeKind>,
+    on_despawn: Option<HookAttributeKind>,
     relationship: Option<Relationship>,
     relationship_target: Option<RelationshipTarget>,
     immutable: bool,
@@ -474,11 +531,11 @@ enum RequireFunc {
 }
 
 struct Relationship {
-    relationship_target: Ident,
+    relationship_target: Type,
 }
 
 struct RelationshipTarget {
-    relationship: Ident,
+    relationship: Type,
     linked_spawn: bool,
 }
 
@@ -516,19 +573,19 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     };
                     Ok(())
                 } else if nested.path.is_ident(ON_ADD) {
-                    attrs.on_add = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_add = Some(nested.value()?.parse::<HookAttributeKind>()?);
                     Ok(())
                 } else if nested.path.is_ident(ON_INSERT) {
-                    attrs.on_insert = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_insert = Some(nested.value()?.parse::<HookAttributeKind>()?);
                     Ok(())
                 } else if nested.path.is_ident(ON_REPLACE) {
-                    attrs.on_replace = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_replace = Some(nested.value()?.parse::<HookAttributeKind>()?);
                     Ok(())
                 } else if nested.path.is_ident(ON_REMOVE) {
-                    attrs.on_remove = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_remove = Some(nested.value()?.parse::<HookAttributeKind>()?);
                     Ok(())
                 } else if nested.path.is_ident(ON_DESPAWN) {
-                    attrs.on_despawn = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_despawn = Some(nested.value()?.parse::<HookAttributeKind>()?);
                     Ok(())
                 } else if nested.path.is_ident(IMMUTABLE) {
                     attrs.immutable = true;
@@ -613,14 +670,14 @@ impl Parse for Relationship {
         input.parse::<relationship_target>()?;
         input.parse::<Token![=]>()?;
         Ok(Relationship {
-            relationship_target: input.parse::<Ident>()?,
+            relationship_target: input.parse::<Type>()?,
         })
     }
 }
 
 impl Parse for RelationshipTarget {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        let mut relationship_ident = None;
+        let mut relationship_type: Option<Type> = None;
         let mut linked_spawn_exists = false;
         syn::custom_keyword!(relationship);
         syn::custom_keyword!(linked_spawn);
@@ -629,7 +686,7 @@ impl Parse for RelationshipTarget {
             if input.peek(relationship) {
                 input.parse::<relationship>()?;
                 input.parse::<Token![=]>()?;
-                relationship_ident = Some(input.parse::<Ident>()?);
+                relationship_type = Some(input.parse()?);
             } else if input.peek(linked_spawn) {
                 input.parse::<linked_spawn>()?;
                 linked_spawn_exists = true;
@@ -644,7 +701,7 @@ impl Parse for RelationshipTarget {
             }
         }
 
-        let relationship = relationship_ident.ok_or_else(|| syn::Error::new(input.span(), "RelationshipTarget derive must specify a relationship via #[relationship_target(relationship = X)"))?;
+        let relationship = relationship_type.ok_or_else(|| syn::Error::new(input.span(), "RelationshipTarget derive must specify a relationship via #[relationship_target(relationship = X)"))?;
         Ok(RelationshipTarget {
             relationship,
             linked_spawn: linked_spawn_exists,
