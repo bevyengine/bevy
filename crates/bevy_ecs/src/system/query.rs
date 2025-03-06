@@ -182,8 +182,7 @@ use core::{
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)]
 /// # struct Health;
-/// # #[derive(Component)]>>>>>>> main
-312
+/// # #[derive(Component)]
 
 /// # struct Player;
 /// # #[derive(Component)]
