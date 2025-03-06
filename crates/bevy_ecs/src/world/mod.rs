@@ -2198,7 +2198,7 @@ impl World {
         self.flush();
         let change_tick = self.change_tick();
 
-        // SAFETY: These come from the same world.
+        // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let bundle_id = self
@@ -2370,7 +2370,7 @@ impl World {
 
         self.flush();
         let change_tick = self.change_tick();
-        // SAFETY: These come from the same world.
+        // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let bundle_id = self
@@ -2515,7 +2515,7 @@ impl World {
 
         self.flush();
         let change_tick = self.change_tick();
-        // SAFETY: These come from the same world.
+        // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let bundle_id = self
@@ -2843,7 +2843,7 @@ impl World {
 
     /// Applies any queued component registration.
     /// For spawning vanilla rust component types and resources, this is not strictly necessary.
-    /// However, flushing components can make information available more quickly,and can have performance benefits.
+    /// However, flushing components can make information available more quickly, and can have performance benefits.
     /// Additionally, for components and resources registered dynamically through a raw descriptor or similar,
     /// this is the only way to complete their registration.
     pub(crate) fn flush_components(&mut self) {
@@ -3090,7 +3090,7 @@ impl World {
     /// component in the bundle.
     #[inline]
     pub fn register_bundle<B: Bundle>(&mut self) -> &BundleInfo {
-        // SAFETY: These come from the same world.
+        // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let id = self

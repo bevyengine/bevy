@@ -1144,7 +1144,8 @@ trait QueuedComponentRegistration {
     ///
     /// # Safery
     ///
-    /// This must only ever be called once with a unique id.
+    /// This must only ever be called once.
+    /// The [`ComponentId`] must be unique.
     unsafe fn register(&mut self, registrator: &mut ComponentsRegistrator, this_id: ComponentId);
 }
 
@@ -1628,7 +1629,7 @@ impl<'w> ComponentsRegistrator<'w> {
 
     /// # Safety
     ///
-    /// Neither this component, nor it's id may be registered or queued. This must be a new registration.
+    /// Neither this component, nor its id may be registered or queued. This must be a new registration.
     #[inline]
     unsafe fn register_component_unchecked<T: Component>(
         &mut self,
