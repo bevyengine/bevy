@@ -1519,6 +1519,23 @@ impl<'w> ComponentsRegistrator<'w> {
             return;
         }
 
+        // Note:
+        //
+        // This is not just draining the queue. We need to empty the queue without removing the information from `Components`.
+        // If we drained directly, we could break invariance.
+        //
+        // For example, say `ComponentA` and `ComponentB` are queued, and `ComponentA` requires `ComponentB`.
+        // If we drain directly, and `ComponentA` was the first to be registered, then, when `ComponentA`
+        // registers `ComponentB` in `Component::register_required_components`,
+        // `Components` will not know that `ComponentB` was queued
+        // (since it will have been drained from the queue.)
+        // If that happened, `Components` would assign a new `ComponentId` to `ComponentB`
+        // which would be *different* than the id it was assigned in the queue.
+        // Then, when the drain iterator gets to `ComponentB`,
+        // it would be unsafely registering `ComponentB`, which is already registered.
+        //
+        // As a result, we need to pop from each queue one by one instead of draining.
+
         // components
         while let Some(registrator) = {
             let queued = self
@@ -1548,14 +1565,14 @@ impl<'w> ComponentsRegistrator<'w> {
         }
 
         // dynamic
-        for registrator in core::mem::take(
-            &mut self
-                .queued
-                .get_mut()
-                .unwrap_or_else(PoisonError::into_inner)
-                .dynamic_registrations,
-        ) {
-            registrator.register(self);
+        let queued = &mut self
+            .queued
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner);
+        if !queued.dynamic_registrations.is_empty() {
+            for registrator in core::mem::take(&mut queued.dynamic_registrations) {
+                registrator.register(self);
+            }
         }
     }
 
