@@ -71,7 +71,7 @@ pub mod internal {
     use bevy_ecs::resource::Resource;
     use bevy_ecs::{prelude::ResMut, system::Local};
     use bevy_platform_support::time::Instant;
-    use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
+    use bevy_tasks::{available_parallelism, block_on, poll_once, ComputeTaskPool, Task};
     use log::info;
     use std::sync::Mutex;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
@@ -123,7 +123,7 @@ pub mod internal {
 
         let last_refresh = last_refresh.get_or_insert_with(Instant::now);
 
-        let thread_pool = AsyncComputeTaskPool::get();
+        let thread_pool = ComputeTaskPool::get();
 
         // Only queue a new system refresh task when necessary
         // Queuing earlier than that will not give new data
@@ -133,7 +133,7 @@ pub mod internal {
             && tasks.tasks.len() * 2 < available_parallelism()
         {
             let sys = Arc::clone(sysinfo);
-            let task = thread_pool.spawn(async move {
+            let task = thread_pool.spawn_blocking(move || {
                 let mut sys = sys.lock().unwrap();
 
                 sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
