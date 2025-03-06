@@ -9,8 +9,8 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Comma, Paren},
-    Data, DataStruct, DeriveInput, ExprClosure, ExprPath, Field, Fields, Ident, Index, LitStr,
-    Member, Path, Result, Token, Type, Visibility,
+    Data, DataStruct, DeriveInput, Expr, ExprCall, ExprClosure, ExprPath, Field, Fields, Ident,
+    Index, LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
@@ -80,8 +80,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
-    let on_add_path = attrs.on_add.map(|path| path.to_token_stream());
-    let on_remove_path = attrs.on_remove.map(|path| path.to_token_stream());
+    let on_add_path = attrs
+        .on_add
+        .map(|path| path.to_token_stream(&bevy_ecs_path));
+    let on_remove_path = attrs
+        .on_remove
+        .map(|path| path.to_token_stream(&bevy_ecs_path));
 
     let on_insert_path = if relationship.is_some() {
         if attrs.on_insert.is_some() {
@@ -95,7 +99,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
         Some(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert))
     } else {
-        attrs.on_insert.map(|path| path.to_token_stream())
+        attrs
+            .on_insert
+            .map(|path| path.to_token_stream(&bevy_ecs_path))
     };
 
     let on_replace_path = if relationship.is_some() {
@@ -121,7 +127,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
         Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace))
     } else {
-        attrs.on_replace.map(|path| path.to_token_stream())
+        attrs
+            .on_replace
+            .map(|path| path.to_token_stream(&bevy_ecs_path))
     };
 
     let on_despawn_path = if attrs
@@ -139,7 +147,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
         Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn))
     } else {
-        attrs.on_despawn.map(|path| path.to_token_stream())
+        attrs
+            .on_despawn
+            .map(|path| path.to_token_stream(&bevy_ecs_path))
     };
 
     let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path);
@@ -441,14 +451,64 @@ pub const ON_DESPAWN: &str = "on_despawn";
 
 pub const IMMUTABLE: &str = "immutable";
 
+/// All allowed attribute value expression kinds for component hooks
+#[derive(Debug)]
+enum HookAttributeKind {
+    /// expressions like function or struct names
+    ///
+    /// structs will throw compile errors on the code generation so this is safe
+    Path(ExprPath),
+    /// function call like expressions
+    Call(ExprCall),
+}
+
+impl HookAttributeKind {
+    fn from_expr(value: Expr) -> Result<Self> {
+        match value {
+            Expr::Path(path) => Ok(HookAttributeKind::Path(path)),
+            Expr::Call(call) => Ok(HookAttributeKind::Call(call)),
+            // throw meaningful error on all other expressions
+            _ => Err(syn::Error::new(
+                value.span(),
+                [
+                    "Not supported in this position, please use one of the following:",
+                    "- path to function",
+                    "- call to function yielding closure",
+                ]
+                .join("\n"),
+            )),
+        }
+    }
+
+    fn to_token_stream(&self, bevy_ecs_path: &Path) -> TokenStream2 {
+        match self {
+            HookAttributeKind::Path(path) => path.to_token_stream(),
+            HookAttributeKind::Call(call) => {
+                quote!({
+                    fn _internal_hook(world: #bevy_ecs_path::world::DeferredWorld, ctx: #bevy_ecs_path::component::HookContext) {
+                        (#call)(world, ctx)
+                    }
+                    _internal_hook
+                })
+            }
+        }
+    }
+}
+
+impl Parse for HookAttributeKind {
+    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
+        input.parse::<Expr>().and_then(Self::from_expr)
+    }
+}
+
 struct Attrs {
     storage: StorageTy,
     requires: Option<Punctuated<Require, Comma>>,
-    on_add: Option<ExprPath>,
-    on_insert: Option<ExprPath>,
-    on_replace: Option<ExprPath>,
-    on_remove: Option<ExprPath>,
-    on_despawn: Option<ExprPath>,
+    on_add: Option<HookAttributeKind>,
+    on_insert: Option<HookAttributeKind>,
+    on_replace: Option<HookAttributeKind>,
+    on_remove: Option<HookAttributeKind>,
+    on_despawn: Option<HookAttributeKind>,
     relationship: Option<Relationship>,
     relationship_target: Option<RelationshipTarget>,
     immutable: bool,
@@ -513,19 +573,19 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     };
                     Ok(())
                 } else if nested.path.is_ident(ON_ADD) {
-                    attrs.on_add = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_add = Some(nested.value()?.parse::<HookAttributeKind>()?);
                     Ok(())
                 } else if nested.path.is_ident(ON_INSERT) {
-                    attrs.on_insert = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_insert = Some(nested.value()?.parse::<HookAttributeKind>()?);
                     Ok(())
                 } else if nested.path.is_ident(ON_REPLACE) {
-                    attrs.on_replace = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_replace = Some(nested.value()?.parse::<HookAttributeKind>()?);
                     Ok(())
                 } else if nested.path.is_ident(ON_REMOVE) {
-                    attrs.on_remove = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_remove = Some(nested.value()?.parse::<HookAttributeKind>()?);
                     Ok(())
                 } else if nested.path.is_ident(ON_DESPAWN) {
-                    attrs.on_despawn = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_despawn = Some(nested.value()?.parse::<HookAttributeKind>()?);
                     Ok(())
                 } else if nested.path.is_ident(IMMUTABLE) {
                     attrs.immutable = true;
