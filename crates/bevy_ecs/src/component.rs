@@ -1138,47 +1138,41 @@ impl ComponentCloneBehavior {
     }
 }
 
-/// Coordinates a registration that is reserved, but not registered.
-trait QueuedComponentRegistration {
-    /// Performs the registration.
-    ///
-    /// # Safery
-    ///
-    /// This must only ever be called once.
-    /// The [`ComponentId`] must be unique.
-    unsafe fn register(&mut self, registrator: &mut ComponentsRegistrator, this_id: ComponentId);
+/// A queued component registration.
+struct QueuedRegistration {
+    registrator: Box<dyn FnOnce(&mut ComponentsRegistrator, ComponentId)>,
+    id: ComponentId,
 }
 
-/// A [`QueuedComponentRegistration`] from an arbitrary function.
-struct ArbitraryQueuedComponentRegistration<F: FnOnce(&mut ComponentsRegistrator, ComponentId)>(
-    Option<F>,
-);
-
-impl<F: FnOnce(&mut ComponentsRegistrator, ComponentId)> QueuedComponentRegistration
-    for ArbitraryQueuedComponentRegistration<F>
-{
-    unsafe fn register(&mut self, registrator: &mut ComponentsRegistrator, this_id: ComponentId) {
-        // SAFETY: The inner value is always `Some` until this is called, and this is only called once.
-        let func = unsafe { self.0.take().debug_checked_unwrap() };
-        func(registrator, this_id);
+impl QueuedRegistration {
+    /// Creates the [`QueuedRegistration`].
+    ///
+    /// # Safety
+    ///
+    /// [`ComponentId`] must be unique.
+    unsafe fn new(
+        id: ComponentId,
+        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId) + 'static,
+    ) -> Self {
+        Self {
+            registrator: Box::new(func),
+            id,
+        }
     }
-}
 
-impl<F: FnOnce(&mut ComponentsRegistrator, ComponentId)> ArbitraryQueuedComponentRegistration<F> {
-    fn new(func: F) -> Self {
-        Self(Some(func))
+    /// Performs the registration, returning the now valid [`ComponentId`].
+    fn register(self, registrator: &mut ComponentsRegistrator) -> ComponentId {
+        (self.registrator)(registrator, self.id);
+        self.id
     }
 }
 
 /// Allows queuing components to be registered.
 #[derive(Default)]
 pub struct QueuedComponents {
-    // SAFETY: These `ComponentId`s must be unique
-    components: TypeIdMap<(ComponentId, Box<dyn QueuedComponentRegistration>)>,
-    // SAFETY: These `ComponentId`s must be unique
-    resources: TypeIdMap<(ComponentId, Box<dyn QueuedComponentRegistration>)>,
-    // SAFETY: These `ComponentId`s must be unique
-    dynamic_registrations: Vec<(ComponentId, Box<dyn QueuedComponentRegistration>)>,
+    components: TypeIdMap<QueuedRegistration>,
+    resources: TypeIdMap<QueuedRegistration>,
+    dynamic_registrations: Vec<QueuedRegistration>,
 }
 
 impl Debug for QueuedComponents {
@@ -1186,17 +1180,17 @@ impl Debug for QueuedComponents {
         let components = self
             .components
             .iter()
-            .map(|(type_id, (id, _))| (type_id, id))
+            .map(|(type_id, queued)| (type_id, queued.id))
             .collect::<Vec<_>>();
         let resources = self
             .resources
             .iter()
-            .map(|(type_id, (id, _))| (type_id, id))
+            .map(|(type_id, queued)| (type_id, queued.id))
             .collect::<Vec<_>>();
         let dynamic_registrations = self
             .dynamic_registrations
             .iter()
-            .map(|(id, _)| id)
+            .map(|queued| queued.id)
             .collect::<Vec<_>>();
         write!(f, "components: {components:?}, resources: {resources:?}, dynamic_registrations: {dynamic_registrations:?}")
     }
@@ -1307,10 +1301,8 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
             .components
             .insert(
                 type_id,
-                (
-                    id,
-                    Box::new(ArbitraryQueuedComponentRegistration::new(func)),
-                ),
+                // SAFETY: The id was just generated.
+                unsafe { QueuedRegistration::new(id, func) },
             );
         id
     }
@@ -1333,10 +1325,8 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
             .resources
             .insert(
                 type_id,
-                (
-                    id,
-                    Box::new(ArbitraryQueuedComponentRegistration::new(func)),
-                ),
+                // SAFETY: The id was just generated.
+                unsafe { QueuedRegistration::new(id, func) },
             );
         id
     }
@@ -1352,10 +1342,10 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
             .write()
             .unwrap_or_else(PoisonError::into_inner)
             .dynamic_registrations
-            .push((
-                id,
-                Box::new(ArbitraryQueuedComponentRegistration::new(func)),
-            ));
+            .push(
+                // SAFETY: The id was just generated.
+                unsafe { QueuedRegistration::new(id, func) },
+            );
         id
     }
 
@@ -1530,7 +1520,7 @@ impl<'w> ComponentsRegistrator<'w> {
         }
 
         // components
-        while let Some((id, mut registrator)) = {
+        while let Some(registrator) = {
             let queued = self
                 .queued
                 .get_mut()
@@ -1540,14 +1530,11 @@ impl<'w> ComponentsRegistrator<'w> {
                 unsafe { queued.components.remove(&type_id).debug_checked_unwrap() }
             })
         } {
-            // SAFETY: we own this value and it is being dropped, and the id came from the unique queue.
-            unsafe {
-                registrator.register(self, id);
-            }
+            registrator.register(self);
         }
 
         // resources
-        while let Some((id, mut registrator)) = {
+        while let Some(registrator) = {
             let queued = self
                 .queued
                 .get_mut()
@@ -1557,24 +1544,18 @@ impl<'w> ComponentsRegistrator<'w> {
                 unsafe { queued.resources.remove(&type_id).debug_checked_unwrap() }
             })
         } {
-            // SAFETY: we own this value and it is being dropped, and the id came from the unique queue.
-            unsafe {
-                registrator.register(self, id);
-            }
+            registrator.register(self);
         }
 
         // dynamic
-        for (id, mut registrator) in core::mem::take(
+        for registrator in core::mem::take(
             &mut self
                 .queued
                 .get_mut()
                 .unwrap_or_else(PoisonError::into_inner)
                 .dynamic_registrations,
         ) {
-            // SAFETY: we own this value and it is being dropped, and the id came from the unique queue.
-            unsafe {
-                registrator.register(self, id);
-            }
+            registrator.register(self);
         }
     }
 
@@ -1602,7 +1583,7 @@ impl<'w> ComponentsRegistrator<'w> {
             return *id;
         }
 
-        if let Some((id, mut registrator)) = self
+        if let Some(registrator) = self
             .queued
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner)
@@ -1611,12 +1592,7 @@ impl<'w> ComponentsRegistrator<'w> {
         {
             // If we are trying to register something that has already been queued, we respect the queue.
             // Just like if we are trying to register something that already is, we respect the first registration.
-            //
-            // SAFETY: we own this value and it is being dropped, and the id came from the unique queue.
-            unsafe {
-                registrator.register(self, id);
-            }
-            return id;
+            return registrator.register(self);
         }
 
         let id = self.ids.next_mut();
@@ -1783,7 +1759,7 @@ impl<'w> ComponentsRegistrator<'w> {
             return *id;
         }
 
-        if let Some((id, mut registrator)) = self
+        if let Some(registrator) = self
             .queued
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner)
@@ -1792,12 +1768,7 @@ impl<'w> ComponentsRegistrator<'w> {
         {
             // If we are trying to register something that has already been queued, we respect the queue.
             // Just like if we are trying to register something that already is, we respect the first registration.
-            //
-            // SAFETY: we own this value and it is being dropped, and the id came from the unique queue.
-            unsafe {
-                registrator.register(self, id);
-            }
-            return id;
+            return registrator.register(self);
         }
 
         let id = self.ids.next_mut();
@@ -2181,7 +2152,7 @@ impl Components {
                 .unwrap_or_else(PoisonError::into_inner)
                 .components
                 .get(&type_id)
-                .map(|queued| queued.0)
+                .map(|queued| queued.id)
         })
     }
 
@@ -2226,7 +2197,7 @@ impl Components {
                 .unwrap_or_else(PoisonError::into_inner)
                 .resources
                 .get(&type_id)
-                .map(|queued| queued.0)
+                .map(|queued| queued.id)
         })
     }
 
