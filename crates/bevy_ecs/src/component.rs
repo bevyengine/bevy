@@ -2165,6 +2165,77 @@ impl Components {
             .map(|info| &mut info.required_by)
     }
 
+    /// Returns true if the [`ComponentId`] is fully registered and valid.
+    /// Ids may be invalid if they are still queued to be registered.
+    /// Those ids are still correct, but they are not usable in every context yet.
+    #[inline]
+    pub fn is_id_valid(&self, id: ComponentId) -> bool {
+        self.components.contains_key(&id)
+    }
+
+    /// Type-erased equivalent of [`Components::component_valid_id()`].
+    #[inline]
+    pub fn get_valid_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.indices.get(&type_id).copied()
+    }
+
+    /// Returns the [`ComponentId`] of the given [`Component`] type `T` if it is fully registered.
+    /// If you want to include queued registration, see [`Components::component_id()`].
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// #[derive(Component)]
+    /// struct ComponentA;
+    ///
+    /// let component_a_id = world.register_component::<ComponentA>();
+    ///
+    /// assert_eq!(component_a_id, world.components().valid_component_id::<ComponentA>().unwrap())
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// * [`Components::get_valid_id()`]
+    /// * [`Components::valid_resource_id()`]
+    /// * [`World::component_id()`]
+    #[inline]
+    pub fn valid_component_id<T: Component>(&self) -> Option<ComponentId> {
+        self.get_id(TypeId::of::<T>())
+    }
+
+    /// Type-erased equivalent of [`Components::resource_valid_id()`].
+    #[inline]
+    pub fn get_valid_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.resource_indices.get(&type_id).copied()
+    }
+
+    /// Returns the [`ComponentId`] of the given [`Resource`] type `T` if it is fully registered.
+    /// If you want to include queued registration, see [`Components::resource_id()`].
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// #[derive(Resource, Default)]
+    /// struct ResourceA;
+    ///
+    /// let resource_a_id = world.init_resource::<ResourceA>();
+    ///
+    /// assert_eq!(resource_a_id, world.components().valid_resource_id::<ResourceA>().unwrap())
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// * [`Components::valid_component_id()`]
+    /// * [`Components::get_resource_id()`]
+    #[inline]
+    pub fn valid_resource_id<T: Resource>(&self) -> Option<ComponentId> {
+        self.get_resource_id(TypeId::of::<T>())
+    }
+
     /// Type-erased equivalent of [`Components::component_id()`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
