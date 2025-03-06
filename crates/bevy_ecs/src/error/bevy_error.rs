@@ -90,15 +90,19 @@ impl Debug for BevyError {
                             }
                             skip_next_location_line = false;
                         }
-                        if line.starts_with("   0: std::backtrace::Backtrace::create") {
+                        if line.contains("std::backtrace_rs::backtrace::") {
                             skip_next_location_line = true;
                             continue;
                         }
-                        if (line.starts_with("   0:") ||line.starts_with("   1:")) && line.contains("<bevy_ecs::error::bevy_error::BevyError as core::convert::From<E>>::from") {
+                        if line.contains("std::backtrace::Backtrace::") {
                             skip_next_location_line = true;
                             continue;
                         }
-                        if (line.starts_with("   1:") ||line.starts_with("   2:")) && line.contains("<core::result::Result<T,F> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible,E>>>::from_residual") {
+                        if line.contains("<bevy_ecs::error::bevy_error::BevyError as core::convert::From<E>>::from") {
+                            skip_next_location_line = true;
+                            continue;
+                        }
+                        if line.contains("<core::result::Result<T,F> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible,E>>>::from_residual") {
                             skip_next_location_line = true;
                             continue;
                         }
@@ -163,6 +167,7 @@ mod tests {
 
     #[test]
     #[cfg(not(miri))] // miri backtraces are weird
+    #[cfg(not(windows))] // the windows backtrace in this context is ... unhelpful and not worth testing
     fn filtered_backtrace_test() {
         // SAFETY: this is not safe ...  this test could run in parallel with another test
         // that writes the environment variable. We either accept that so we can write this test,
