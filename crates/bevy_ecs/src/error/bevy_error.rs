@@ -103,19 +103,25 @@ impl Debug for BevyError {
                 let full_backtrace = std::env::var("BEVY_BACKTRACE").is_ok_and(|val| val == "full");
 
                 let backtrace_str = alloc::string::ToString::to_string(backtrace);
-                let mut skip_next = false;
+                let mut skip_next_location_line = false;
                 for line in backtrace_str.split('\n') {
-                    if skip_next {
-                        skip_next = false;
-                        continue;
-                    }
                     if !full_backtrace {
-                        if line.starts_with("   0: <bevy_ecs::error::bevy_error::BevyError as core::convert::From<E>>::from") {
-                            skip_next = true;
+                        if skip_next_location_line {
+                            if line.starts_with("             at") {
+                                continue;
+                            }
+                            skip_next_location_line = false;
+                        }
+                        if line.starts_with("   0: std::backtrace::Backtrace::create") {
+                            skip_next_location_line = true;
                             continue;
                         }
-                        if line.starts_with("   1: <core::result::Result<T,F> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible,E>>>::from_residual") {
-                            skip_next = true;
+                        if (line.starts_with("   0:") ||line.starts_with("   1:")) && line.contains("<bevy_ecs::error::bevy_error::BevyError as core::convert::From<E>>::from") {
+                            skip_next_location_line = true;
+                            continue;
+                        }
+                        if (line.starts_with("   1:") ||line.starts_with("   2:")) && line.contains("<core::result::Result<T,F> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible,E>>>::from_residual") {
+                            skip_next_location_line = true;
                             continue;
                         }
                         if line.contains("__rust_begin_short_backtrace") {
@@ -221,6 +227,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(miri))] // miri backtraces are weird
     fn filtered_backtrace_test() {
         // SAFETY: this is not safe ...  this test could run in parallel with another test
         // that writes the environment variable. We either accept that so we can write this test,
@@ -229,40 +236,44 @@ mod tests {
 
         let error = i_fail().err().unwrap();
         let debug_message = format!("{error:?}");
-        let mut lines = debug_message.lines();
+        let mut lines = debug_message.lines().peekable();
         assert_eq!(
             "ParseIntError { kind: InvalidDigit }",
             lines.next().unwrap()
         );
-        if "   2: bevy_ecs::error::bevy_error::tests::i_fail" != lines.next().unwrap() {
-            panic!("{}", error.inner.backtrace());
+
+        let mut skip = false;
+        if let Some(line) = lines.peek() {
+            if &line[6..] == "std::backtrace::Backtrace::create" {
+                skip = true;
+            }
         }
-        // assert_eq!(
-        //     "   2: bevy_ecs::error::bevy_error::tests::i_fail",
-        //     lines.next().unwrap(),
-        // );
-        lines.next().unwrap();
-        assert_eq!(
-            "   3: bevy_ecs::error::bevy_error::tests::filtered_backtrace_test",
-            lines.next().unwrap()
-        );
-        lines.next().unwrap();
-        assert_eq!(
-            "   4: bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{{closure}}",
-            lines.next().unwrap()
-        );
-        lines.next().unwrap();
-        assert_eq!(
-            "   5: core::ops::function::FnOnce::call_once",
-            lines.next().unwrap()
-        );
-        lines.next().unwrap();
-        assert_eq!(
-            "   6: core::ops::function::FnOnce::call_once",
-            lines.next().unwrap()
-        );
-        lines.next().unwrap();
-        assert_eq!(FILTER_MESSAGE, lines.next().unwrap());
+
+        if skip {
+            lines.next().unwrap();
+        }
+
+        let expected_lines = alloc::vec![
+            "bevy_ecs::error::bevy_error::tests::i_fail",
+            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test",
+            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{{closure}}",
+            "core::ops::function::FnOnce::call_once",
+            "core::ops::function::FnOnce::call_once",
+        ];
+
+        for expected in expected_lines {
+            let mut line = lines.next().unwrap();
+            if line.starts_with("             at") {
+                line = lines.next().unwrap();
+            }
+            assert_eq!(&line[6..], expected);
+        }
+
+        let mut line = lines.next().unwrap();
+        if line.starts_with("             at") {
+            line = lines.next().unwrap();
+        }
+        assert_eq!(FILTER_MESSAGE, line);
         assert!(lines.next().is_none());
     }
 }
