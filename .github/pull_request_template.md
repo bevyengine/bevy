@@ -27,7 +27,6 @@
 - If the Migration Guide adequately covers the changes, you can delete this section
 
 While a showcase should aim to be brief and digestible, you can use a toggleable section to save space on longer showcases:
-
 <details>
   <summary>Click to view showcase</summary>
 
