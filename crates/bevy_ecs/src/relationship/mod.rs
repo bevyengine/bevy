@@ -12,7 +12,7 @@ pub use relationship_source_collection::*;
 
 use crate::{
     component::{Component, HookContext, Mutable},
-    entity::{ComponentCloneCtx, Entity},
+    entity::{ComponentCloneCtx, Entity, SourceComponent},
     system::{
         command::HandleError,
         entity_command::{self, CommandWithEntity},
@@ -85,7 +85,24 @@ pub trait Relationship: Component + Sized {
     fn from(entity: Entity) -> Self;
 
     /// The `on_insert` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
-    fn on_insert(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
+    fn on_insert(
+        mut world: DeferredWorld,
+        HookContext {
+            entity,
+            caller,
+            relationship_insert_hook_mode,
+            ..
+        }: HookContext,
+    ) {
+        match relationship_insert_hook_mode {
+            RelationshipInsertHookMode::Run => {}
+            RelationshipInsertHookMode::Skip => return,
+            RelationshipInsertHookMode::RunIfNotLinked => {
+                if <Self::RelationshipTarget as RelationshipTarget>::LINKED_SPAWN {
+                    return;
+                }
+            }
+        }
         let target_entity = world.entity(entity).get::<Self>().unwrap().get();
         if target_entity == entity {
             warn!(
@@ -155,7 +172,7 @@ pub type SourceIter<'w, R> =
 /// A [`Component`] containing the collection of entities that relate to this [`Entity`] via the associated `Relationship` type.
 /// See the [`Relationship`] documentation for more information.
 pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
-    /// If this is true, when despawning or cloning (when [recursion is enabled](crate::entity::EntityClonerBuilder::recursive)), the related entities targeting this entity will also be despawned or cloned.
+    /// If this is true, when despawning or cloning (when [linked cloning is enabled](crate::entity::EntityClonerBuilder::linked_cloning)), the related entities targeting this entity will also be despawned or cloned.
     ///
     /// For example, this is set to `true` for Bevy's built-in parent-child relation, defined by [`ChildOf`](crate::prelude::ChildOf) and [`Children`](crate::prelude::Children).
     /// This means that when a parent is despawned, any children targeting that parent are also despawned (and the same applies to cloning).
@@ -284,16 +301,31 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 /// to spawn recursively.
 pub fn clone_relationship_target<T: RelationshipTarget>(
     _commands: &mut Commands,
+    source: &SourceComponent,
     context: &mut ComponentCloneCtx,
 ) {
-    if let Some(component) = context.read_source_component::<T>() {
-        if context.is_recursive() && T::LINKED_SPAWN {
+    if let Some(component) = source.read::<T>() {
+        let mut cloned = T::with_capacity(component.len());
+        if context.linked_cloning() && T::LINKED_SPAWN {
+            let collection = cloned.collection_mut_risky();
             for entity in component.iter() {
+                collection.add(entity);
                 context.queue_entity_clone(entity);
             }
         }
-        context.write_target_component(T::with_capacity(component.len()));
+        context.write_target_component(cloned);
     }
+}
+
+/// Configures the conditions under which the Relationship insert hook will be run.
+#[derive(Copy, Clone, Debug)]
+pub enum RelationshipInsertHookMode {
+    /// Relationship insert hooks will always run
+    Run,
+    /// Relationship insert hooks will run if [`RelationshipTarget::LINKED_SPAWN`] is false
+    RunIfNotLinked,
+    /// Relationship insert hooks will always be skipped
+    Skip,
 }
 
 #[cfg(test)]
