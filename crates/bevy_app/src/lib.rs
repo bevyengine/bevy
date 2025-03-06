@@ -32,7 +32,7 @@ mod schedule_runner;
 mod sub_app;
 #[cfg(feature = "bevy_tasks")]
 mod task_pool_plugin;
-#[cfg(all(any(unix, windows), feature = "std"))]
+#[cfg(std_windows_or_unix)]
 mod terminal_ctrl_c_handler;
 
 pub use app::*;
@@ -44,7 +44,7 @@ pub use schedule_runner::*;
 pub use sub_app::*;
 #[cfg(feature = "bevy_tasks")]
 pub use task_pool_plugin::*;
-#[cfg(all(any(unix, windows), feature = "std"))]
+#[cfg(std_windows_or_unix)]
 pub use terminal_ctrl_c_handler::*;
 
 /// The app prelude.
