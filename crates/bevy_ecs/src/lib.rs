@@ -1702,6 +1702,10 @@ mod tests {
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C))];
 
+        #[expect(
+            deprecated,
+            reason = "This needs to be supported for now, and therefore still needs the test."
+        )]
         world.insert_or_spawn_batch(values).unwrap();
 
         assert_eq!(
@@ -1742,6 +1746,10 @@ mod tests {
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
 
+        #[expect(
+            deprecated,
+            reason = "This needs to be supported for now, and therefore still needs the test."
+        )]
         let result = world.insert_or_spawn_batch(values);
 
         assert_eq!(

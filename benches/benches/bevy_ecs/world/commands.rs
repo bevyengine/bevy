@@ -106,6 +106,10 @@ pub fn insert_commands(criterion: &mut Criterion) {
             for entity in &entities {
                 values.push((*entity, (Matrix::default(), Vec3::default())));
             }
+            #[expect(
+                deprecated,
+                reason = "This needs to be supported for now, and therefore still needs the benchmark."
+            )]
             commands.insert_or_spawn_batch(values);
             command_queue.apply(&mut world);
         });
