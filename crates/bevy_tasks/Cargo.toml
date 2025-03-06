@@ -20,7 +20,7 @@ multi_threaded = [
   "std",
   "dep:async-channel",
   "dep:concurrent-queue",
-  "dep:blocking"
+  "dep:blocking",
 ]
 async_executor = ["std", "dep:async-executor"]
 edge_executor = ["dep:edge-executor"]

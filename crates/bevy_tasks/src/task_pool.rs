@@ -183,7 +183,7 @@ impl TaskPool {
         // if let Some(thread_count) = builder.max_blocking_threads {
         // Safety: This is likely unsafe as this could be called if the TaskPoolBuilder is called from
         // multiple threads.
-        // #[expect(unsafe_code, reason = "TaskPools are only initialiazed from one thread")]
+        // #[expect(unsafe_code, reason = "TaskPools are only initialized from one thread")]
         // unsafe {
         //     env::set_var("BLOCKING_MAX_THREADS", thread_count.to_string().as_str());
         // }
