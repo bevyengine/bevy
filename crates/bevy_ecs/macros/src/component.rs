@@ -207,6 +207,28 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
+    let required_component_impls = attrs.requires.as_ref().map(|r| {
+        let impls = r
+            .iter()
+            .map(|r| {
+                let path = &r.path;
+                let insertion_info = match &r.func {
+                    Some(RequireFunc::Closure(closure)) => format!("`{}`", closure.body.to_token_stream()),
+                    Some(RequireFunc::Path(path)) => format!("[`{}`].", path.to_token_stream()),
+                    None => "the [default](Default::default) value.".to_string(),
+                };
+                quote! {
+                    /// If not already present, the required component will be inserted using
+                    #[doc = #insertion_info]
+                    impl #impl_generics #bevy_ecs_path::component::Require<#path> for #struct_name #type_generics #where_clause {}
+                }
+            });
+
+        quote! {
+            #(#impls)*
+        }
+    });
+
     let required_component_docs = attrs.requires.map(|r| {
         let paths = r
             .iter()
@@ -270,6 +292,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         #relationship
 
         #relationship_target
+
+        #required_component_impls
     })
 }
 

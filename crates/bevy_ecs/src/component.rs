@@ -455,6 +455,9 @@ pub trait Component: Send + Sync + 'static {
     fn visit_entities_mut(_this: &mut Self, _f: impl FnMut(&mut Entity)) {}
 }
 
+/// Indicates this [`Component`] requires another [`Component`] `C`.
+pub trait Require<C: Component>: Component {}
+
 mod private {
     pub trait Seal {}
 }
