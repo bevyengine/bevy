@@ -282,6 +282,11 @@ use thiserror::Error;
 /// Note that requirements must currently be registered before the requiring component is inserted
 /// into the world for the first time. Registering requirements after this will lead to a panic.
 ///
+/// # Relationships between Components
+///
+/// Sometimes it is useful to define relationships between entities.  Bevy allows you to do this by
+/// implementing the [`Relationship`](`crate::relationship::Relationship`) trait.
+///
 /// # Adding component's hooks
 ///
 /// See [`ComponentHooks`] for a detailed explanation of component's hooks.
