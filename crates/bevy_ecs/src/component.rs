@@ -11,7 +11,6 @@ use crate::{
     system::{Commands, Local, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
-#[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
@@ -1173,7 +1172,7 @@ impl<F: FnOnce(&mut ComponentsRegistrator, ComponentId)> ArbitraryQueuedComponen
     }
 }
 
-/// Allows queueing components to be registered.
+/// Allows queuing components to be registered.
 #[derive(Default)]
 pub struct QueuedComponents {
     // SAFETY: These `ComponentId`s must be unique
@@ -1258,7 +1257,7 @@ impl ComponentIds {
 ///
 /// These queued registrations return [`ComponentId`]s.
 /// These ids are not yet valid, but they will become valid
-/// when either [`ComponentRegistrator::apply_queued_registrations`] is called or the same registration is made directly.
+/// when either [`ComponentsRegistrator::apply_queued_registrations`] is called or the same registration is made directly.
 /// In either case, the returned [`ComponentId`]s will be correct, but they are not correct yet.
 ///
 /// Generally, that means these [`ComponentId`]s can be safely used for read-only purposes.
@@ -1266,7 +1265,7 @@ impl ComponentIds {
 /// and without then confirming that they have been fully registered is not supported.
 /// Hence, extra care is needed with these [`ComponentId`]s to ensure all safety rules are followed.
 ///
-/// As a rule of thumb, if you have mutable access to [`ComponentRegistrator`], prefer to use that instead.
+/// As a rule of thumb, if you have mutable access to [`ComponentsRegistrator`], prefer to use that instead.
 /// Use this only if you need to know the id of a component but do not need to modify the contents of the world based on that id.
 pub struct ComponentsQueuedRegistrator<'w> {
     components: &'w Components,
