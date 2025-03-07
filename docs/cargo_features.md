@@ -119,6 +119,7 @@ The default feature set enables most of the expected features of a game engine, 
 |track_location|Enables source location tracking for change detection and spawning/despawning, which can assist with debugging|
 |wav|WAV audio format support|
 |wayland|Wayland display server support|
+|web|Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.|
 |webgpu|Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.|
 |webp|WebP image format support|
 |zlib|For KTX2 supercompression|

@@ -65,7 +65,7 @@ critical-section = [
 ## Note this is currently only applicable on `wasm32` architectures.
 web = [
   "bevy_platform_support/web",
-  "bevy_tasks?/web",
+  "bevy_tasks/web",
   "bevy_reflect?/web",
   "dep:wasm-bindgen",
   "dep:web-sys",
