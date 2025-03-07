@@ -102,7 +102,8 @@ impl PluginContext<'_> {
     /// or no other plugin is making progress either.
     ///
     /// ```rust
-    /// # fn build_async<'ctx>(ctx: PluginContext<'ctx>) -> impl Future<Output = ()> + 'ctx {
+    /// # use bevy_ecs::resource::Resource;
+    /// # let ctx: bevy_app::PluginContext<'static> = todo!();
     /// # async move {
     /// ctx.wait(|app| {
     ///     app.world()
@@ -113,9 +114,8 @@ impl PluginContext<'_> {
     /// .await
     /// .unwrap();
     /// # }
-    /// # }
     /// # #[derive(Resource, PartialEq, Eq)]
-    /// # enum LoadState { Done }
+    /// # enum MyLoadState { Done }
     /// ```
     pub fn wait<'ctx, F>(
         &'ctx self,

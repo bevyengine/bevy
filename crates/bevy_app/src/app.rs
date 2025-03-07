@@ -1,7 +1,6 @@
 use crate::{
-    plugin_context::{PluginContext, PluginContextInner, TickProgress},
-    ErasedPlugin, First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins,
-    PluginsState, SubApp, SubApps,
+    ErasedPlugin, First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, PluginContext,
+    PluginContextInner, Plugins, PluginsState, SubApp, SubApps, TickProgress,
 };
 use alloc::{
     boxed::Box,

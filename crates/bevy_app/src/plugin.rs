@@ -1,4 +1,4 @@
-use crate::{plugin_context::PluginContext, App};
+use crate::{App, PluginContext};
 use alloc::boxed::Box;
 use core::{any::Any, pin::Pin};
 use downcast_rs::{impl_downcast, Downcast};
@@ -66,6 +66,7 @@ use downcast_rs::{impl_downcast, Downcast};
 /// # struct Settings {
 /// #    pub flicker_damping: bool,
 /// # }
+/// # struct AccessibilityPlugin;
 ///
 /// impl Plugin for AccessibilityPlugin {
 ///     fn build_async<'ctx>(&self, ctx: PluginContext<'ctx>) -> impl Future<Output = ()> + 'ctx {
