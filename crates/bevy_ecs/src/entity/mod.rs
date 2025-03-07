@@ -1079,6 +1079,7 @@ impl Entities {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
         let new_free_cursor = current_free_cursor.max(0);
+        *free_cursor = new_free_cursor;
 
         // pending
         for index in self.pending.drain((new_free_cursor as usize)..) {
