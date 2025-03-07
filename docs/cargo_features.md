@@ -75,7 +75,6 @@ The default feature set enables most of the expected features of a game engine, 
 |default_no_std|Recommended defaults for no_std applications|
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
-|edge_executor|Uses `edge-executor` as a task execution backend.|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
 |experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
