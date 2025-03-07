@@ -462,13 +462,14 @@ pub mod document_required_components {
 
     /// Indicates this [`Component`] requires another [`Component`] `C`.
     ///
-    /// **This trait does not register required components on its own**
+    /// **This trait does not register required components on its own.**
     ///
-    /// This trait is similar to [`Eq`] in the sense that it is up to the implementer to ensure `C` is
-    /// appropriately registered as a required component.
+    /// This trait is similar to [`Eq`] in the sense that it is up to the implementer to ensure `C`
+    /// is appropriately registered as a required component.
     ///
-    /// It is the implementor's responsibility to ensure the implementation of [`Component::register_required_components`]
-    /// matches any and all implementations of [`Require`] on this type.
+    /// You should never manually implement this trait, but it is the implementor's responsibility
+    /// to ensure the implementation of [`Component::register_required_components`] matches any and
+    /// all implementations of [`Require`] on this type.
     pub trait Require<C: Component>: Component {}
 }
 
