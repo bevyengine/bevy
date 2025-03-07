@@ -785,12 +785,12 @@ impl Entities {
             None
         } else {
             // SAFETY: we checked above that it existed.
-            let meta = unsafe { self.get_mut_by_id(entity.index()).unwrap_unchecked() };
+            let meta = unsafe { self.get_mut_by_id_unchecked(entity.index()) };
             Some(mem::replace(&mut meta.location, EntityMeta::EMPTY.location))
         };
 
         // SAFETY: We just ensured it exists.
-        let meta = unsafe { self.get_mut_by_id(entity.index()).debug_checked_unwrap() };
+        let meta = unsafe { self.get_mut_by_id_unchecked(entity.index()) };
         meta.generation = entity.generation;
 
         loc
@@ -838,7 +838,7 @@ impl Entities {
         };
 
         // SAFETY: We just ensured it exists.
-        let meta = unsafe { self.get_mut_by_id(entity.index()).debug_checked_unwrap() };
+        let meta = unsafe { self.get_mut_by_id_unchecked(entity.index()) };
         meta.generation = entity.generation;
         result
     }
@@ -931,14 +931,7 @@ impl Entities {
     #[inline]
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
         // SAFETY: Caller guarantees that `index` a valid entity index
-        let meta = unsafe {
-            if index as usize > self.meta.len() {
-                self.remote_entities
-                    .get_unchecked_mut((u32::MAX - index) as usize)
-            } else {
-                self.meta.get_unchecked_mut(index as usize)
-            }
-        };
+        let meta = unsafe { self.get_mut_by_id_unchecked(index) };
         meta.location = location;
     }
 
@@ -972,6 +965,18 @@ impl Entities {
         self.meta
             .get_mut(index as usize)
             .or_else(|| self.remote_entities.get_mut((u32::MAX - index) as usize))
+    }
+
+    /// # Safety
+    ///  - `index` must be a valid entity index.
+    #[inline]
+    unsafe fn get_mut_by_id_unchecked(&mut self, index: u32) -> &mut EntityMeta {
+        if index as usize > self.meta.len() {
+            self.remote_entities
+                .get_unchecked_mut((u32::MAX - index) as usize)
+        } else {
+            self.meta.get_unchecked_mut(index as usize)
+        }
     }
 
     /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
