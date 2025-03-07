@@ -181,6 +181,7 @@ impl ShaderCache {
         Self {
             composer,
             data: Default::default(),
+            #[cfg(feature = "shader_format_wesl")]
             asset_paths: Default::default(),
             shaders: Default::default(),
             import_path_shaders: Default::default(),
