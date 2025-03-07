@@ -21,10 +21,10 @@ use crate::{
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
+    error::BevyError,
     event::Event,
     observer::{Observer, TriggerTargets},
     resource::Resource,
-    result::Error,
     schedule::ScheduleLabel,
     system::{
         command::HandleError, entity_command::CommandWithEntity, input::SystemInput, Deferred,
@@ -88,7 +88,7 @@ use crate::{
 ///
 /// # Error handling
 ///
-/// A [`Command`] can return a [`Result`](crate::result::Result),
+/// A [`Command`] can return a [`Result`](crate::error::Result),
 /// which will be passed to an error handler if the `Result` is an error.
 ///
 /// Error handlers are functions/closures of the form `fn(&mut World, Error)`.
@@ -639,7 +639,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn queue_handled<C: Command<T> + HandleError<T>, T>(
         &mut self,
         command: C,
-        error_handler: fn(&mut World, Error),
+        error_handler: fn(&mut World, BevyError),
     ) {
         self.queue_internal(command.handle_error_with(error_handler));
     }
@@ -1160,7 +1160,7 @@ impl<'w, 's> Commands<'w, 's> {
 ///
 /// # Error handling
 ///
-/// An [`EntityCommand`] can return a [`Result`](crate::result::Result),
+/// An [`EntityCommand`] can return a [`Result`](crate::error::Result),
 /// which will be passed to an error handler if the `Result` is an error.
 ///
 /// Error handlers are functions/closures of the form `fn(&mut World, Error)`.
@@ -1853,7 +1853,7 @@ impl<'a> EntityCommands<'a> {
     pub fn queue_handled<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
         &mut self,
         command: C,
-        error_handler: fn(&mut World, Error),
+        error_handler: fn(&mut World, BevyError),
     ) -> &mut Self {
         self.commands
             .queue_handled(command.with_entity(self.entity), error_handler);

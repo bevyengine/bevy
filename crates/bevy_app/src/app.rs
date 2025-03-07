@@ -10,10 +10,10 @@ use alloc::{
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
+    error::{BevyError, SystemErrorContext},
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
-    result::{Error, SystemErrorContext},
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, SystemId, SystemInput},
 };
@@ -1280,7 +1280,7 @@ impl App {
     /// for more information.
     pub fn set_system_error_handler(
         &mut self,
-        error_handler: fn(Error, SystemErrorContext),
+        error_handler: fn(BevyError, SystemErrorContext),
     ) -> &mut Self {
         self.main_mut().set_system_error_handler(error_handler);
         self

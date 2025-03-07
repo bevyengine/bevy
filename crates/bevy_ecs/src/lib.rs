@@ -36,6 +36,7 @@ pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod entity_disabling;
+pub mod error;
 pub mod event;
 pub mod hierarchy;
 pub mod identifier;
@@ -49,7 +50,6 @@ pub mod reflect;
 pub mod relationship;
 pub mod removal_detection;
 pub mod resource;
-pub mod result;
 pub mod schedule;
 pub mod spawn;
 pub mod storage;
@@ -74,6 +74,7 @@ pub mod prelude {
         children,
         component::Component,
         entity::{Entity, EntityBorrow, EntityMapper},
+        error::{BevyError, Result},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         name::{Name, NameOrEntity},
@@ -83,7 +84,6 @@ pub mod prelude {
         relationship::RelationshipTarget,
         removal_detection::RemovedComponents,
         resource::Resource,
-        result::{Error, Result},
         schedule::{
             apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoSystemConfigs,
             IntoSystemSet, IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
