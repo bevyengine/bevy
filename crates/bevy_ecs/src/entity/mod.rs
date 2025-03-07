@@ -983,6 +983,7 @@ impl Entities {
     }
 
     /// The count of all entities in the [`World`] that have ever been allocated or reserved, including those that are freed.
+    /// This is the value that [`Self::total_count()`] would return if [`Self::flush()`] were called right now.
     ///
     /// [`World`]: crate::world::World
     #[inline]
