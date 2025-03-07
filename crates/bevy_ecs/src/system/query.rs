@@ -1079,7 +1079,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`par_iter_mut`]: Self::par_iter_mut
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn par_iter(&self) -> QueryParIter<'_, '_, D::ReadOnly, F> {
+    pub fn par_iter(&self) -> QueryParIter<'_, 's, D::ReadOnly, F> {
         self.as_readonly().par_iter_inner()
     }
 
@@ -1114,7 +1114,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`par_iter`]: Self::par_iter
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn par_iter_mut(&mut self) -> QueryParIter<'_, '_, D, F> {
+    pub fn par_iter_mut(&mut self) -> QueryParIter<'_, 's, D, F> {
         self.reborrow().par_iter_inner()
     }
 
@@ -1174,7 +1174,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn par_iter_many<EntityList: IntoIterator<Item: EntityBorrow>>(
         &self,
         entities: EntityList,
-    ) -> QueryParManyIter<'_, '_, D::ReadOnly, F, EntityList::Item> {
+    ) -> QueryParManyIter<'_, 's, D::ReadOnly, F, EntityList::Item> {
         QueryParManyIter {
             world: self.world,
             state: self.state.as_readonly(),
@@ -1203,7 +1203,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn par_iter_many_unique<EntityList: EntitySet<Item: Sync>>(
         &self,
         entities: EntityList,
-    ) -> QueryParManyUniqueIter<'_, '_, D::ReadOnly, F, EntityList::Item> {
+    ) -> QueryParManyUniqueIter<'_, 's, D::ReadOnly, F, EntityList::Item> {
         QueryParManyUniqueIter {
             world: self.world,
             state: self.state.as_readonly(),
@@ -1232,7 +1232,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn par_iter_many_unique_mut<EntityList: EntitySet<Item: Sync>>(
         &mut self,
         entities: EntityList,
-    ) -> QueryParManyUniqueIter<'_, '_, D, F, EntityList::Item> {
+    ) -> QueryParManyUniqueIter<'_, 's, D, F, EntityList::Item> {
         QueryParManyUniqueIter {
             world: self.world,
             state: self.state,
@@ -1620,7 +1620,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     unsafe fn get_many_impl<const N: usize>(
         self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>> {
+    ) -> Result<[D::Item<'w, 's>; N], QueryEntityError<'w>> {
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
         for (value, entity) in core::iter::zip(&mut values, entities) {
@@ -1684,7 +1684,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     #[track_caller]
     #[deprecated(note = "Use `get_many_mut` instead and handle the Result.")]
-    pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [D::Item<'_, '_>; N] {
+    pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [D::Item<'_, 's>; N] {
         match self.get_many_mut(entities) {
             Ok(items) => items,
             Err(error) => panic!("Cannot get query result: {error}"),

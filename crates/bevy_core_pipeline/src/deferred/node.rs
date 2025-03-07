@@ -36,7 +36,7 @@ impl ViewNode for EarlyDeferredGBufferPrepassNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        view_query: QueryItem<'w, Self::ViewQuery>,
+        view_query: QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         run_deferred_prepass(
@@ -107,6 +107,7 @@ fn run_deferred_prepass<'w>(
     render_context: &mut RenderContext<'w>,
     (camera, extracted_view, view_depth_texture, view_prepass_textures, _, _): QueryItem<
         'w,
+        '_,
         <LateDeferredGBufferPrepassNode as ViewNode>::ViewQuery,
     >,
     is_late: bool,

@@ -189,7 +189,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, D>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_init(|| {}, |_, item| func(item));
     }
 
@@ -246,7 +246,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
-        FN: Fn(&mut T, QueryItem<'w, D>) + Send + Sync + Clone,
+        FN: Fn(&mut T, QueryItem<'w, 's, D>) + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         let func = |mut init, item| {
@@ -349,7 +349,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, D>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_init(|| {}, |_, item| func(item));
     }
 
@@ -406,7 +406,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
-        FN: Fn(&mut T, QueryItem<'w, D>) + Send + Sync + Clone,
+        FN: Fn(&mut T, QueryItem<'w, 's, D>) + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         let func = |mut init, item| {

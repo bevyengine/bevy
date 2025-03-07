@@ -1567,7 +1567,7 @@ fn extract_mesh_for_gpu_building(
         not_shadow_caster,
         no_automatic_batching,
         visibility_range,
-    ): <GpuMeshExtractionQuery as QueryData>::Item<'_>,
+    ): <GpuMeshExtractionQuery as QueryData>::Item<'_, '_>,
     render_visibility_ranges: &RenderVisibilityRanges,
     render_mesh_instances: &RenderMeshInstancesGpu,
     queue: &mut RenderMeshInstanceGpuQueue,
