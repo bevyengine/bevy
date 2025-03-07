@@ -506,7 +506,11 @@ impl SparseSetIndex for Entity {
     }
 }
 
-/// An [`Iterator`] returning a sequence of [`Entity`] values from
+/// An [`Iterator`] returning a sequence of [`Entity`] values from [`Entities`].
+///
+/// # Droping
+///
+/// If this is dropped, the remaining entities will remain reserved and unused. This is effectively a memory leak.
 pub struct ReserveEntitiesIterator<'a> {
     // Metas, so we can recover the current generation for anything in the freelist.
     meta: &'a [EntityMeta],
@@ -541,6 +545,37 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
+
+/// An [`Iterator`] returning a sequence of [`Entity`] values from a [`RemoteEntityReserver`].
+///
+/// # Droping
+///
+/// If this is dropped, the remaining entities will remain reserved and unused. This is effectively a memory leak.
+pub struct RemoteReserveEntitiesIterator {
+    // New Entity indices to hand out, outside the range of meta.len().
+    new_indices: core::ops::Range<u32>,
+}
+
+impl Iterator for RemoteReserveEntitiesIterator {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.new_indices.next().map(|index| {
+            Entity::from_raw_and_generation(index, RemoteEntityReserver::REMOTE_FIRST_GENERATION)
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.new_indices.len();
+        (len, Some(len))
+    }
+}
+
+impl ExactSizeIterator for RemoteReserveEntitiesIterator {}
+impl core::iter::FusedIterator for RemoteReserveEntitiesIterator {}
+
+// SAFETY: Newly reserved entity values are unique.
+unsafe impl EntitySetIterator for RemoteReserveEntitiesIterator {}
 
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
@@ -617,7 +652,7 @@ impl RemoteEntityReserver {
 
     const REMOTE_FIRST_META: EntityMeta = const {
         let mut default = EntityMeta::EMPTY;
-        default.generation = RemoteEntityReserver::REMOTE_FIRST_GENERATION;
+        default.generation = Self::REMOTE_FIRST_GENERATION;
         default
     };
 
@@ -643,8 +678,14 @@ impl RemoteEntityReserver {
     }
 
     /// Reserves `count` entities that will be allocated in [`Entities::flush`].
-    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
-        todo!()
+    pub fn reserve_entities(&self, count: u32) -> RemoteReserveEntitiesIterator {
+        let list_index_start = self.0.fetch_add(count as RemoteInner, Ordering::Relaxed);
+        let list_index_start = u32::try_from(list_index_start).expect("Too many entities.");
+        let index_end = u32::MAX - list_index_start;
+        let index_start = index_end - count;
+        RemoteReserveEntitiesIterator {
+            new_indices: index_start..index_end,
+        }
     }
 }
 
@@ -661,7 +702,7 @@ impl Entities {
 
     /// Constructs a new [`RemoteEntityReserver`] for this [`Entities`].
     ///
-    /// Prefer to use [`Entities::reserve`] and [`Entities::reserve_entities`] where possible.
+    /// Prefer to use [`Entities::reserve_entity`] and [`Entities::reserve_entities`] where possible.
     pub fn remote_reserer(&self) -> RemoteEntityReserver {
         self.remote_reservations.clone()
     }
