@@ -11,18 +11,6 @@ extern crate std;
 
 extern crate alloc;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async_executor")] {
-        // Using async executor backend.
-        mod executor;
-    } else if #[cfg(feature = "edge_executor")] {
-        // Using edge executor backend.
-        mod executor;
-    } else {
-        compile_error!("Either of the `async_executor` or the `edge_executor` features must be enabled.");
-    }
-}
-
 mod conditional_send {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
@@ -52,6 +40,11 @@ use alloc::boxed::Box;
 pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
 
 pub mod futures;
+
+#[cfg(not(feature = "async_executor"))]
+mod edge_executor;
+
+mod executor;
 
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};

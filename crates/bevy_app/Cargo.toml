@@ -9,13 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = [
-  "std",
-  "bevy_reflect",
-  "bevy_tasks",
-  "bevy_ecs/default",
-  "error_panic_hook",
-]
+default = ["std", "bevy_reflect", "bevy_ecs/default", "error_panic_hook"]
 
 # Functionality
 
@@ -28,9 +22,6 @@ reflect_functions = [
   "bevy_reflect/functions",
   "bevy_ecs/reflect_functions",
 ]
-
-## Adds support for running async background tasks
-bevy_tasks = ["dep:bevy_tasks"]
 
 # Debugging Features
 
@@ -57,14 +48,14 @@ std = [
   "dep:ctrlc",
   "downcast-rs/std",
   "bevy_utils/std",
-  "bevy_tasks?/std",
+  "bevy_tasks/std",
   "bevy_platform_support/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
 critical-section = [
-  "bevy_tasks?/critical-section",
+  "bevy_tasks/critical-section",
   "bevy_ecs/critical-section",
   "bevy_platform_support/critical-section",
   "bevy_reflect?/critical-section",
@@ -89,7 +80,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-featu
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
 
 # other
