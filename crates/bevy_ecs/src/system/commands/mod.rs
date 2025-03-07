@@ -681,6 +681,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
     /// worked out to share an ID space (which doesn't happen by default).
     #[track_caller]
+    #[deprecated(
+        note = "This can cause extreme performance problems when used with lots of arbitrary free entities. See #18054 on GitHub."
+    )]
     pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
@@ -688,6 +691,11 @@ impl<'w, 's> Commands<'w, 's> {
     {
         let caller = MaybeLocation::caller();
         self.queue(move |world: &mut World| {
+
+            #[expect(
+                deprecated,
+                reason = "This needs to be supported for now, and the outer item is deprecated too."
+            )]
             if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
                 bundles_iter,
                 caller,
@@ -2222,7 +2230,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        component::{require, Component},
+        component::Component,
         resource::Resource,
         system::Commands,
         world::{CommandQueue, FromWorld, World},
