@@ -13,10 +13,10 @@ use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
+use core::f32::consts::TAU;
 use core::{f32, num::NonZero};
 use derive_more::derive::From;
 use smallvec::SmallVec;
-use std::f32::consts::TAU;
 use thiserror::Error;
 use tracing::warn;
 

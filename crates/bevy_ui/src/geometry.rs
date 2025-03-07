@@ -270,8 +270,8 @@ impl Val {
             Val::Px(value) => Ok(value * scale_factor),
             Val::Vw(value) => Ok(physical_target_size.x * value / 100.0),
             Val::Vh(value) => Ok(physical_target_size.y * value / 100.0),
-            Val::VMin(value) => Ok(physical_target_size.min_element() as f32 * value / 100.0),
-            Val::VMax(value) => Ok(physical_target_size.max_element() as f32 * value / 100.0),
+            Val::VMin(value) => Ok(physical_target_size.min_element() * value / 100.0),
+            Val::VMax(value) => Ok(physical_target_size.max_element() * value / 100.0),
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
         }
     }
