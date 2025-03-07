@@ -3349,6 +3349,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "overlaid_gradients"
+path = "examples/ui/overlaid_gradients.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.overlaid_gradients]
+name = "Gradients"
+description = "An example demonstrating overlaid gradients"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "radial_gradients"
 path = "examples/ui/radial_gradients.rs"
 doc-scrape-examples = true
