@@ -151,7 +151,31 @@ jobs:
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
-        run: cargo run -p ci -- compile-check-no-std
+        run: cargo check -p bevy --no-default-features --features default_no_std --target x86_64-unknown-none
+  check-compiles-no-std-portable-atomic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            crates/bevy_ecs_compile_fail_tests/target/
+            crates/bevy_reflect_compile_fail_tests/target/
+          key: ${{ runner.os }}-cargo-check-compiles-no-std-portable-atomic-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv6m-none-eabi
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Check Compile
+        run: cargo check -p bevy --no-default-features --features default_no_std --target thumbv6m-none-eabi
 
   build-wasm:
     runs-on: ubuntu-latest
