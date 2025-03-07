@@ -231,6 +231,8 @@ impl Plugin for UiPlugin {
         #[cfg(feature = "bevy_ui_debug")]
         app.init_resource::<UiDebugOptions>();
 
+        app.add_plugins(observers::NodeObserversPlugin);
+
         build_ui_render(app);
     }
 
