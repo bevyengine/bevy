@@ -2800,7 +2800,7 @@ impl Default for TextShadow {
     reflect(Serialize, Deserialize)
 )]
 pub struct ColorStop {
-    /// color
+    /// Color
     pub color: Color,
     /// Logical position along the gradient line.
     /// Stop positions are relative to the start of the gradient and not other stops.
@@ -2808,7 +2808,7 @@ pub struct ColorStop {
 }
 
 impl ColorStop {
-    /// create a new color stop
+    /// Ceate a new color stop
     pub fn new(color: Color, point: Val) -> Self {
         Self { color, point }
     }
