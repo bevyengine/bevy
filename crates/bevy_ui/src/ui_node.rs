@@ -2808,7 +2808,7 @@ pub struct ColorStop {
 }
 
 impl ColorStop {
-    /// Ceate a new color stop
+    /// Create a new color stop
     pub fn new(color: Color, point: Val) -> Self {
         Self { color, point }
     }
@@ -2941,7 +2941,7 @@ impl Gradient {
         }
     }
 
-    /// A linear gradient transtioning from bottom to top
+    /// A linear gradient transitioning from bottom to top
     pub fn linear_to_top(stops: Vec<ColorStop>) -> Gradient {
         Self::Linear {
             angle: Self::TO_TOP,
@@ -2949,7 +2949,7 @@ impl Gradient {
         }
     }
 
-    /// A linear gradient transtioning from bottom-left to top-right
+    /// A linear gradient transitioning from bottom-left to top-right
     pub fn linear_to_top_right(stops: Vec<ColorStop>) -> Gradient {
         Self::Linear {
             angle: Self::TO_TOP_RIGHT,
@@ -2957,7 +2957,7 @@ impl Gradient {
         }
     }
 
-    /// A linear gradient transtioning from left to right
+    /// A linear gradient transitioning from left to right
     pub fn linear_to_right(stops: Vec<ColorStop>) -> Gradient {
         Self::Linear {
             angle: Self::TO_RIGHT,
@@ -2965,7 +2965,7 @@ impl Gradient {
         }
     }
 
-    /// A linear gradient transtioning from top-left to bottom right
+    /// A linear gradient transitioning from top-left to bottom right
     pub fn linear_to_bottom_right(stops: Vec<ColorStop>) -> Gradient {
         Self::Linear {
             angle: Self::TO_BOTTOM_RIGHT,
@@ -2973,7 +2973,7 @@ impl Gradient {
         }
     }
 
-    /// A linear gradient transtioning from top to bottom
+    /// A linear gradient transitioning from top to bottom
     pub fn linear_to_bottom(stops: Vec<ColorStop>) -> Gradient {
         Self::Linear {
             angle: Self::TO_BOTTOM,
@@ -2981,7 +2981,7 @@ impl Gradient {
         }
     }
 
-    /// A linear gradient transtioning from top-right to bottom-left
+    /// A linear gradient transitioning from top-right to bottom-left
     pub fn linear_to_bottom_left(stops: Vec<ColorStop>) -> Gradient {
         Self::Linear {
             angle: Self::TO_BOTTOM_LEFT,
@@ -2989,7 +2989,7 @@ impl Gradient {
         }
     }
 
-    /// A linear gradient transtioning from right-to-left
+    /// A linear gradient transitioning from right-to-left
     pub fn linear_to_left(stops: Vec<ColorStop>) -> Gradient {
         Self::Linear {
             angle: Self::TO_LEFT,
@@ -2997,7 +2997,7 @@ impl Gradient {
         }
     }
 
-    /// A linear gradient transtioning from bottom-right to top-left
+    /// A linear gradient transitioning from bottom-right to top-left
     pub fn linear_to_top_left(stops: Vec<ColorStop>) -> Gradient {
         Self::Linear {
             angle: Self::TO_TOP_LEFT,
