@@ -279,7 +279,7 @@ pub fn extract_gradients(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            AnyOf<(&GradientNode, &GradientBorder)>,
+            AnyOf<(&BackgroundGradient, &BorderGradients)>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,

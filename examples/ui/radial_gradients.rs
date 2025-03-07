@@ -66,7 +66,7 @@ fn setup_grid(mut commands: Commands) {
                             height: Val::Px(100.),
                             ..default()
                         },
-                        GradientNode(Gradient::Radial {
+                        BackgroundGradient(Gradient::Radial {
                             stops: vec![
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
@@ -94,7 +94,7 @@ fn setup_grid(mut commands: Commands) {
                             height: Val::Px(100.),
                             ..default()
                         },
-                        GradientNode(Gradient::Radial {
+                        BackgroundGradient(Gradient::Radial {
                             stops: vec![
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
@@ -122,7 +122,7 @@ fn setup_grid(mut commands: Commands) {
                             height: Val::Px(100.),
                             ..default()
                         },
-                        GradientNode(Gradient::Radial {
+                        BackgroundGradient(Gradient::Radial {
                             stops: vec![
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
@@ -149,7 +149,7 @@ fn setup_grid(mut commands: Commands) {
                             height: Val::Px(100.),
                             ..default()
                         },
-                        GradientNode(Gradient::Radial {
+                        BackgroundGradient(Gradient::Radial {
                             stops: vec![
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
@@ -177,7 +177,7 @@ fn setup_grid(mut commands: Commands) {
                             height: Val::Px(100.),
                             ..default()
                         },
-                        GradientNode(Gradient::Radial {
+                        BackgroundGradient(Gradient::Radial {
                             stops: vec![
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
@@ -205,7 +205,7 @@ fn setup_grid(mut commands: Commands) {
                             height: Val::Px(100.),
                             ..default()
                         },
-                        GradientNode(Gradient::Radial {
+                        BackgroundGradient(Gradient::Radial {
                             stops: vec![
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
@@ -233,7 +233,7 @@ fn setup_grid(mut commands: Commands) {
                             height: Val::Px(100.),
                             ..default()
                         },
-                        GradientNode(Gradient::Radial {
+                        BackgroundGradient(Gradient::Radial {
                             stops: vec![
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
@@ -284,7 +284,7 @@ fn setup_grid(mut commands: Commands) {
                                                 height: Val::Px(h),
                                                 ..default()
                                             },
-                                            GradientNode(Gradient::Radial {
+                                            BackgroundGradient(Gradient::Radial {
                                                 stops,
                                                 position: RelativePosition::new(x, y),
                                                 shape: radial_gradient_axis,

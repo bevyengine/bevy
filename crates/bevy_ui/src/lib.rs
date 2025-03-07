@@ -171,8 +171,8 @@ impl Plugin for UiPlugin {
             .register_type::<UiAntiAlias>()
             .register_type::<TextShadow>()
             .register_type::<Gradient>()
-            .register_type::<GradientNode>()
-            .register_type::<GradientBorder>()
+            .register_type::<BackgroundGradient>()
+            .register_type::<BorderGradients>()
             .configure_sets(
                 PostUpdate,
                 (

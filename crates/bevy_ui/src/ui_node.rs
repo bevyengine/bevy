@@ -3029,7 +3029,7 @@ impl Gradient {
     reflect(Serialize, Deserialize)
 )]
 /// A UI node that displays a gradient
-pub struct GradientNode(pub Gradient);
+pub struct BackgroundGradient(pub Gradient);
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
@@ -3039,7 +3039,7 @@ pub struct GradientNode(pub Gradient);
     reflect(Serialize, Deserialize)
 )]
 /// A UI node border that displays a gradient
-pub struct GradientBorder(pub Gradient);
+pub struct BorderGradients(pub Gradient);
 
 #[cfg(test)]
 mod tests {

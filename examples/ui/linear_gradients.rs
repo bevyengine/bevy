@@ -148,11 +148,11 @@ fn setup(mut commands: Commands) {
                                                     ..default()
                                                 },
                                                 BorderRadius::all(Val::Px(20.)),
-                                                GradientNode(Gradient::Linear {
+                                                BackgroundGradient(Gradient::Linear {
                                                     angle,
                                                     stops: stops.clone(),
                                                 }),
-                                                GradientBorder(Gradient::Linear {
+                                                BorderGradients(Gradient::Linear {
                                                     angle: 3. * TAU / 8.,
                                                     stops: vec![
                                                         ColorStop {
@@ -182,11 +182,11 @@ fn setup(mut commands: Commands) {
                                 ..default()
                             },
                             BorderRadius::all(Val::Px(20.)),
-                            GradientNode(Gradient::Linear {
+                            BackgroundGradient(Gradient::Linear {
                                 angle: 0.,
                                 stops: stops.clone(),
                             }),
-                            GradientBorder(Gradient::Linear {
+                            BorderGradients(Gradient::Linear {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![
                                     ColorStop {
@@ -212,12 +212,12 @@ fn setup(mut commands: Commands) {
                                 ..default()
                             },
                             BorderRadius::all(Val::Px(20.)),
-                            GradientNode(Gradient::Radial {
+                            BackgroundGradient(Gradient::Radial {
                                 stops: stops.clone(),
                                 position: RelativePosition::center(Val::Px(25.), Val::Px(25.)),
                                 shape: RadialGradientShape::ClosestSide,
                             }),
-                            GradientBorder(Gradient::Linear {
+                            BorderGradients(Gradient::Linear {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![
                                     ColorStop {
@@ -242,7 +242,7 @@ fn setup(mut commands: Commands) {
                                 ..default()
                             },
                             BorderRadius::all(Val::Px(20.)),
-                            GradientNode(Gradient::Conic {
+                            BackgroundGradient(Gradient::Conic {
                                 stops: stops
                                     .clone()
                                     .into_iter()
@@ -256,7 +256,7 @@ fn setup(mut commands: Commands) {
                                     RelativeVal::Center(Val::ZERO),
                                 ),
                             }),
-                            GradientBorder(Gradient::Linear {
+                            BorderGradients(Gradient::Linear {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![
                                     ColorStop {
@@ -281,7 +281,7 @@ fn setup(mut commands: Commands) {
 #[derive(Component)]
 struct AnimateMarker;
 
-fn update(time: Res<Time>, mut query: Query<&mut GradientNode, With<AnimateMarker>>) {
+fn update(time: Res<Time>, mut query: Query<&mut BackgroundGradient, With<AnimateMarker>>) {
     for mut gradient in query.iter_mut() {
         if let Gradient::Linear { angle, .. } = &mut gradient.0 {
             *angle += 0.5 * time.delta_secs();
