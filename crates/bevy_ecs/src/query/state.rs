@@ -1698,7 +1698,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This allows you to globally control how errors are handled in your application,
     /// by setting up a custom error handler.
-    /// See the [`bevy_ecs::result`] module docs for more information!
+    /// See the [`bevy_ecs::error`] module docs for more information!
     /// Commonly, you might want to panic on an error during development, but log the error and continue
     /// execution in production.
     ///
