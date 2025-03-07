@@ -141,7 +141,7 @@ impl App {
         Self {
             sub_apps: SubApps {
                 main: SubApp::new(),
-                sub_apps: HashMap::default(),
+                ..Default::default()
             },
             runner: Box::new(run_once),
         }
