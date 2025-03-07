@@ -359,6 +359,7 @@ impl AssetLoader for ShaderLoader {
             "comp" => {
                 Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Compute, path)
             }
+            #[cfg(feature = "shader_format_wesl")]
             "wesl" => Shader::from_wesl(String::from_utf8(bytes)?, path),
             _ => panic!("unhandled extension: {ext}"),
         };
