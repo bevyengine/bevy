@@ -55,15 +55,15 @@ fn setup(mut commands: Commands) {
             Gradient::Linear {
                 angle: TAU / 16.,
                 stops: vec![
-                    ColorStop::auto(Color::BLACK.into()),
-                    ColorStop::auto(Color::BLACK.with_alpha(0.).into()),
+                    ColorStop::auto(Color::BLACK),
+                    ColorStop::auto(Color::BLACK.with_alpha(0.)),
                 ],
             },
             Gradient::Linear {
                 angle: 15. * TAU / 16.,
                 stops: vec![
-                    ColorStop::auto(Color::BLACK.into()),
-                    ColorStop::auto(Color::BLACK.with_alpha(0.).into()),
+                    ColorStop::auto(Color::BLACK),
+                    ColorStop::auto(Color::BLACK.with_alpha(0.)),
                 ],
             },
         ]),
