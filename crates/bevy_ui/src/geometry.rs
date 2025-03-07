@@ -701,8 +701,14 @@ impl Default for UiRect {
 )]
 /// A `Val` that represents a displacement relative to the edges of a UI node.
 pub enum RelativeVal {
+    /// Positioned relative to the left or top of the UI node.
+    /// Increasing rightwards and downwards towards the center of the node.
     Start(Val),
+    /// Positioned relative to the left or top of the UI node.
+    /// Increasing rightwards and downwards away from the center of the node.
     Center(Val),
+    /// Positioned relative to the right or bottom of the UI node.
+    /// Increasing leftwards and upwards towards the center of the node.
     End(Val),
 }
 
@@ -883,8 +889,9 @@ impl RadialGradientShape {
                 far_side(position.x, half_size.x),
                 far_side(position.y, half_size.y),
             ),
-            RadialGradientShape::Circle(val) => Vec2::splat(
-                val.resolve(scale_factor, physical_size.x, physical_target_size)
+            RadialGradientShape::Circle(radius) => Vec2::splat(
+                radius
+                    .resolve(scale_factor, physical_size.x, physical_target_size)
                     .unwrap_or(0.),
             ),
             RadialGradientShape::Ellipse(x, y) => Vec2::new(
