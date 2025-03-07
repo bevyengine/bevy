@@ -1441,8 +1441,9 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
+    use alloc::boxed::Box;
     use core::{marker::PhantomData, sync::atomic::AtomicBool};
-    use std::{boxed::Box, sync::Mutex};
+    use std::sync::Mutex;
 
     use bevy_ecs::{
         change_detection::{DetectChanges, ResMut},
@@ -1861,9 +1862,8 @@ mod tests {
 
         app.update();
 
-        assert_eq!(
+        assert!(
             invocation_check.load(core::sync::atomic::Ordering::SeqCst),
-            true,
             "Failed to run the app's custom update function."
         );
     }
