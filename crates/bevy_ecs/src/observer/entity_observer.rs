@@ -2,7 +2,7 @@ use crate::{
     component::{
         Component, ComponentCloneBehavior, ComponentHook, HookContext, Mutable, StorageType,
     },
-    entity::{ComponentCloneCtx, Entity, EntityClonerBuilder},
+    entity::{ComponentCloneCtx, Entity, EntityClonerBuilder, SourceComponent},
     observer::ObserverState,
     system::Commands,
     world::World,
@@ -64,7 +64,11 @@ impl EntityClonerBuilder<'_> {
     }
 }
 
-fn component_clone_observed_by(commands: &mut Commands, ctx: &mut ComponentCloneCtx) {
+fn component_clone_observed_by(
+    commands: &mut Commands,
+    _source: &SourceComponent,
+    ctx: &mut ComponentCloneCtx,
+) {
     let target = ctx.target();
     let source = ctx.source();
 
