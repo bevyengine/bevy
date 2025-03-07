@@ -109,12 +109,16 @@ type IdCursor = isize;
 
 #[cfg(target_has_atomic = "64")]
 use bevy_platform_support::sync::atomic::AtomicU64 as RemoteIdCursor;
+#[cfg(target_has_atomic = "64")]
+type RemoteInner = u64;
 
 /// Most modern platforms support 64-bit atomics, but some less-common platforms
 /// do not. This fallback allows compilation using a 32-bit cursor instead, with
 /// the caveat that some conversions may fail (and panic) at runtime.
 #[cfg(not(target_has_atomic = "64"))]
 use bevy_platform_support::sync::atomic::AtomicUsize as AtomicUdCursor;
+#[cfg(not(target_has_atomic = "64"))]
+type RemoteInner = usize;
 
 /// Lightweight identifier of an [entity](crate::entity).
 ///
@@ -633,6 +637,11 @@ impl RemoteEntityReserver {
         Entity::from_raw_and_generation(index, Self::REMOTE_FIRST_GENERATION)
     }
 
+    /// returns true if this index is from a remote reservation.
+    pub fn is_index_from_remote(&self, index: u32) -> bool {
+        self.0.load(Ordering::Relaxed) > (u32::MAX - index) as RemoteInner
+    }
+
     /// Reserves `count` entities that will be allocated in [`Entities::flush`].
     pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
         todo!()
@@ -1102,7 +1111,8 @@ impl Entities {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn used_count(&self) -> usize {
-        (self.meta.len() as isize - self.free_cursor.load(Ordering::Relaxed) as isize) as usize
+        ((self.remote_reservations.0.load(Ordering::Relaxed) as usize + self.meta.len()) as isize
+            - self.free_cursor.load(Ordering::Relaxed) as isize) as usize
     }
 
     /// The count of all entities in the [`World`] that have ever been allocated or reserved, including those that are freed.
@@ -1111,14 +1121,16 @@ impl Entities {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn total_prospective_count(&self) -> usize {
-        self.meta.len() + (-self.free_cursor.load(Ordering::Relaxed)).min(0) as usize
+        self.meta.len()
+            + (-self.free_cursor.load(Ordering::Relaxed)).min(0) as usize
+            + self.remote_reservations.0.load(Ordering::Relaxed) as usize
     }
 
     /// The count of currently allocated entities.
     #[inline]
     pub fn len(&self) -> u32 {
         // `pending`, by definition, can't be bigger than `meta`.
-        (self.meta.len() - self.pending.len()) as u32
+        (self.total_count() - self.pending.len()) as u32
     }
 
     /// Checks if any entity is currently active.
