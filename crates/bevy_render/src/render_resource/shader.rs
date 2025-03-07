@@ -4,7 +4,6 @@ use alloc::borrow::Cow;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
 use core::marker::Copy;
-use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 define_atomic_id!(ShaderId);
@@ -164,7 +163,7 @@ impl Shader {
 
         match import_path {
             ShaderImport::AssetPath(asset_path) => {
-                let asset_path = PathBuf::from(&asset_path);
+                let asset_path = std::path::PathBuf::from(&asset_path);
                 // Resolve and normalize the path
                 let asset_path = asset_path.canonicalize().unwrap_or(asset_path);
                 // Strip the asset root
@@ -175,7 +174,7 @@ impl Shader {
                     .strip_prefix(&base_path)
                     .unwrap_or_else(|_| &asset_path);
                 // Wesl paths are provided as absolute relative to the asset root
-                let asset_path = Path::new("/").join(asset_path);
+                let asset_path = std::path::Path::new("/").join(asset_path);
                 // And with a striped file name
                 let asset_path = asset_path.with_extension("");
                 let asset_path = asset_path.to_str().unwrap_or_else(|| {
