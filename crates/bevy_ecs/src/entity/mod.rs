@@ -982,6 +982,14 @@ impl Entities {
         (self.meta.len() as isize - self.free_cursor.load(Ordering::Relaxed) as isize) as usize
     }
 
+    /// The count of all entities in the [`World`] that have ever been allocated or reserved, including those that are freed.
+    ///
+    /// [`World`]: crate::world::World
+    #[inline]
+    pub fn total_prospective_count(&self) -> usize {
+        self.total_count() + (-self.free_cursor.load(Ordering::Relaxed)).min(0) as usize
+    }
+
     /// The count of currently allocated entities.
     #[inline]
     pub fn len(&self) -> u32 {
