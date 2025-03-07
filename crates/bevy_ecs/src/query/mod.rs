@@ -777,7 +777,6 @@ mod tests {
         let _: Option<&Foo> = q.get(e).ok();
         let _: Option<[&Foo; 1]> = q.get_many([e]).ok();
         let _: Option<&Foo> = q.single().ok();
-        let _: [&Foo; 1] = q.many([e]);
         let _: &Foo = q.single().unwrap();
     }
 
@@ -881,6 +880,7 @@ mod tests {
 
     /// SAFETY: `Self` is the same as `Self::ReadOnly`
     unsafe impl QueryData for ReadsRData {
+        const IS_READ_ONLY: bool = true;
         type ReadOnly = Self;
         type Item<'w> = ();
 
