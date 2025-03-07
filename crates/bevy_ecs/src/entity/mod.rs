@@ -86,7 +86,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::atomic::Ordering;
+use bevy_platform_support::sync::{atomic::Ordering, Arc};
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
@@ -105,6 +105,15 @@ type IdCursor = i64;
 use bevy_platform_support::sync::atomic::AtomicIsize as AtomicIdCursor;
 #[cfg(not(target_has_atomic = "64"))]
 type IdCursor = isize;
+
+#[cfg(target_has_atomic = "64")]
+use bevy_platform_support::sync::atomic::AtomicU64 as RemoteIdCursor;
+
+/// Most modern platforms support 64-bit atomics, but some less-common platforms
+/// do not. This fallback allows compilation using a 32-bit cursor instead, with
+/// the caveat that some conversions may fail (and panic) at runtime.
+#[cfg(not(target_has_atomic = "64"))]
+use bevy_platform_support::sync::atomic::AtomicUsize as AtomicUdCursor;
 
 /// Lightweight identifier of an [entity](crate::entity).
 ///
@@ -582,15 +591,63 @@ pub struct Entities {
     /// [`flush`]: Entities::flush
     pending: Vec<u32>,
     free_cursor: AtomicIdCursor,
+
+    /// This functions exactly like [`Self::meta`], only it counts backwards instead of forwards.
+    remote_entities: Vec<EntityMeta>,
+    /// The counter for [`Self::remote_entities`]. This will equal it's length after flushing.
+    remote_reservations: RemoteEntityReserver,
+}
+
+/// Provides remote reservation of an entity from anywhere.
+#[derive(Debug, Clone)]
+pub struct RemoteEntityReserver(Arc<RemoteIdCursor>);
+
+impl RemoteEntityReserver {
+    /// We do this because [`Entity::PLACEHOLDER`] has index of `u32::MAX` and generation of 1.
+    /// By starting at 2, we ensure we don't conflict with that, and, we allow similar Entity constants to be made in the future.
+    const REMOTE_FIRST_GENERATION: NonZero<u32> = const {
+        // SAFETY: We pass 2, which is greater than 0.
+        unsafe { NonZero::new_unchecked(2) }
+    };
+
+    /// Reserves an entity that will be allocated in [`Entities::flush`].
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
+    )]
+    #[allow(
+        clippy::unnecessary_fallible_conversions,
+        reason = "`RemoteIdCursor` may already be a u32."
+    )]
+    pub fn reserve(&self) -> Entity {
+        let index_from_top = self.0.fetch_add(1, Ordering::Relaxed);
+        let index_from_top = u32::try_from(index_from_top).expect("Too many entities.");
+        let index = u32::MAX - index_from_top;
+        Entity::from_raw_and_generation(index, Self::REMOTE_FIRST_GENERATION)
+    }
+
+    /// Reserves `count` entities that will be allocated in [`Entities::flush`].
+    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
+        todo!()
+    }
 }
 
 impl Entities {
-    pub(crate) const fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Entities {
             meta: Vec::new(),
             pending: Vec::new(),
             free_cursor: AtomicIdCursor::new(0),
+            remote_entities: Vec::new(),
+            remote_reservations: RemoteEntityReserver(Arc::new(RemoteIdCursor::new(0))),
         }
+    }
+
+    /// Constructs a new [`RemoteEntityReserver`] for this [`Entities`].
+    ///
+    /// Prefer to use [`Entities::reserve`] and [`Entities::reserve_entities`] where possible.
+    pub fn remote_reserer(&self) -> RemoteEntityReserver {
+        self.remote_reservations.clone()
     }
 
     /// Reserve entity IDs concurrently.
