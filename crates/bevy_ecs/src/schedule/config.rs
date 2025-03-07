@@ -38,13 +38,13 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: InternedSystemSet) {
 
 /// Stores data to differentiate different Node types
 pub trait NodeType {
-    /// Additional data used to configure a node. Stored in [`NodeConfig`].
+    /// Additional data used to configure a node. Stored in [`ScheduleConfig`].
     type Metadata;
     /// Additional data used to configure a group of nodes. Stored in [`ScheduleConfigs`].
     type GroupMetadata;
 
     /// Initializes a configuration from this node.
-    fn into_config(self) -> NodeConfig<Self>
+    fn into_config(self) -> ScheduleConfig<Self>
     where
         Self: Sized;
 }
@@ -53,9 +53,9 @@ impl NodeType for ScheduleSystem {
     type Metadata = GraphInfo;
     type GroupMetadata = Chain;
 
-    fn into_config(self) -> NodeConfig<Self> {
+    fn into_config(self) -> ScheduleConfig<Self> {
         let sets = self.default_system_sets().clone();
-        NodeConfig {
+        ScheduleConfig {
             node: self,
             metadata: GraphInfo {
                 hierarchy: sets,
@@ -70,13 +70,13 @@ impl NodeType for InternedSystemSet {
     type Metadata = GraphInfo;
     type GroupMetadata = Chain;
 
-    fn into_config(self) -> NodeConfig<Self> {
+    fn into_config(self) -> ScheduleConfig<Self> {
         assert!(
             self.system_type().is_none(),
             "configuring system type sets is not allowed"
         );
 
-        NodeConfig {
+        ScheduleConfig {
             node: self,
             metadata: GraphInfo::default(),
             conditions: Vec::new(),
@@ -90,16 +90,16 @@ impl NodeType for InternedSystemSet {
 /// (hierarchy: in which sets is the node contained,
 /// dependencies: before/after which other nodes should this node run)
 /// and the run conditions associated with this node.
-pub struct NodeConfig<T: NodeType> {
+pub struct ScheduleConfig<T: NodeType> {
     pub(crate) node: T,
     pub(crate) metadata: T::Metadata,
     pub(crate) conditions: Vec<BoxedCondition>,
 }
 
-/// A collections of generic [`NodeConfig`]s.
+/// A collections of generic [`ScheduleConfig`]s.
 pub enum ScheduleConfigs<T: NodeType> {
     /// Configuration for a single node.
-    NodeConfig(NodeConfig<T>),
+    ScheduleConfig(ScheduleConfig<T>),
     /// Configuration for a tuple of nested `Configs` instances.
     Configs {
         /// Configuration for each element of the tuple.
@@ -115,7 +115,7 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T
     /// Adds a new boxed system set to the systems.
     pub fn in_set_inner(&mut self, set: InternedSystemSet) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::ScheduleConfig(config) => {
                 config.metadata.hierarchy.push(set);
             }
             Self::Configs { configs, .. } => {
@@ -128,7 +128,7 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T
 
     fn before_inner(&mut self, set: InternedSystemSet) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::ScheduleConfig(config) => {
                 config
                     .metadata
                     .dependencies
@@ -144,7 +144,7 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T
 
     fn after_inner(&mut self, set: InternedSystemSet) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::ScheduleConfig(config) => {
                 config
                     .metadata
                     .dependencies
@@ -160,7 +160,7 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T
 
     fn before_ignore_deferred_inner(&mut self, set: InternedSystemSet) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::ScheduleConfig(config) => {
                 config
                     .metadata
                     .dependencies
@@ -176,7 +176,7 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T
 
     fn after_ignore_deferred_inner(&mut self, set: InternedSystemSet) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::ScheduleConfig(config) => {
                 config
                     .metadata
                     .dependencies
@@ -192,7 +192,7 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T
 
     fn distributive_run_if_inner<M>(&mut self, condition: impl Condition<M> + Clone) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::ScheduleConfig(config) => {
                 config.conditions.push(new_condition(condition));
             }
             Self::Configs { configs, .. } => {
@@ -205,7 +205,7 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T
 
     fn ambiguous_with_inner(&mut self, set: InternedSystemSet) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::ScheduleConfig(config) => {
                 ambiguous_with(&mut config.metadata, set);
             }
             Self::Configs { configs, .. } => {
@@ -218,7 +218,7 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T
 
     fn ambiguous_with_all_inner(&mut self) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::ScheduleConfig(config) => {
                 config.metadata.ambiguous_with = Ambiguity::IgnoreAll;
             }
             Self::Configs { configs, .. } => {
@@ -235,7 +235,7 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T
     /// Prefer `run_if` for run conditions whose type is known at compile time.
     pub fn run_if_dyn(&mut self, condition: BoxedCondition) {
         match self {
-            Self::NodeConfig(config) => {
+            Self::ScheduleConfig(config) => {
                 config.conditions.push(condition);
             }
             Self::Configs {
@@ -249,7 +249,7 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T
 
     fn chain_inner(mut self) -> Self {
         match &mut self {
-            Self::NodeConfig(_) => { /* no op */ }
+            Self::ScheduleConfig(_) => { /* no op */ }
             Self::Configs { metadata, .. } => {
                 metadata.set_chained();
             }
@@ -259,7 +259,7 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T
 
     fn chain_ignore_deferred_inner(mut self) -> Self {
         match &mut self {
-            Self::NodeConfig(_) => { /* no op */ }
+            Self::ScheduleConfig(_) => { /* no op */ }
             Self::Configs { metadata, .. } => {
                 metadata.set_chained_with_config(IgnoreDeferred);
             }
@@ -566,7 +566,7 @@ where
 {
     fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
         let wrapper = InfallibleSystemWrapper::new(IntoSystem::into_system(self));
-        ScheduleConfigs::NodeConfig(ScheduleSystem::into_config(Box::new(wrapper)))
+        ScheduleConfigs::ScheduleConfig(ScheduleSystem::into_config(Box::new(wrapper)))
     }
 }
 
@@ -580,29 +580,29 @@ where
 {
     fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
         let boxed_system = Box::new(IntoSystem::into_system(self));
-        ScheduleConfigs::NodeConfig(ScheduleSystem::into_config(boxed_system))
+        ScheduleConfigs::ScheduleConfig(ScheduleSystem::into_config(boxed_system))
     }
 }
 
 impl IntoScheduleConfigs<ScheduleSystem, ()> for BoxedSystem<(), Result> {
     fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
-        ScheduleConfigs::NodeConfig(ScheduleSystem::into_config(self))
+        ScheduleConfigs::ScheduleConfig(ScheduleSystem::into_config(self))
     }
 }
 
 impl<S: SystemSet> IntoScheduleConfigs<InternedSystemSet, ()> for S {
     fn into_configs(self) -> ScheduleConfigs<InternedSystemSet> {
-        ScheduleConfigs::NodeConfig(InternedSystemSet::into_config(self.intern()))
+        ScheduleConfigs::ScheduleConfig(InternedSystemSet::into_config(self.intern()))
     }
 }
 
 #[doc(hidden)]
-pub struct NodeConfigTupleMarker;
+pub struct ScheduleConfigTupleMarker;
 
 macro_rules! impl_node_type_collection {
     ($(#[$meta:meta])* $(($param: ident, $sys: ident)),*) => {
         $(#[$meta])*
-        impl<$($param, $sys),*, T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleConfigs<T, (NodeConfigTupleMarker, $($param,)*)> for ($($sys,)*)
+        impl<$($param, $sys),*, T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleConfigs<T, (ScheduleConfigTupleMarker, $($param,)*)> for ($($sys,)*)
         where
             $($sys: IntoScheduleConfigs<T, $param>),*
         {
