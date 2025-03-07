@@ -2,8 +2,9 @@
 //! for 100ms. It's expected to take about a second to run (assuming the machine has >= 4 logical
 //! cores)
 
+use bevy_platform_support::time::Instant;
 use bevy_tasks::TaskPoolBuilder;
-use web_time::{Duration, Instant};
+use core::time::Duration;
 
 fn main() {
     let pool = TaskPoolBuilder::new()

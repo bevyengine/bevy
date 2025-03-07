@@ -69,6 +69,10 @@ critical-section = [
   "bevy_utils/critical-section",
 ]
 
+## Enables use of browser APIs.
+## Note this is currently only applicable on `wasm32` architectures.
+web = ["bevy_platform_support/web", "uuid?/js"]
+
 [dependencies]
 # bevy
 bevy_reflect_derive = { path = "derive", version = "0.16.0-dev" }
@@ -110,9 +114,6 @@ variadics_please = "1.1"
 wgpu-types = { version = "24", features = [
   "serde",
 ], optional = true, default-features = false }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-uuid = { version = "1.13.1", default-features = false, features = ["js"] }
 
 [dev-dependencies]
 ron = "0.8.0"

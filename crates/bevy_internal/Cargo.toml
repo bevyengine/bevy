@@ -333,6 +333,15 @@ libm = [
 # This backend is incompatible with `no_std` targets.
 async_executor = ["std", "bevy_tasks/async_executor", "bevy_ecs/async_executor"]
 
+# Enables use of browser APIs.
+# Note this is currently only applicable on `wasm32` architectures.
+web = [
+  "bevy_app/web",
+  "bevy_platform_support/web",
+  "bevy_reflect/web",
+  "bevy_tasks/web",
+]
+
 [dependencies]
 # bevy (no_std)
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
