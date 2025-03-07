@@ -508,7 +508,7 @@ impl SparseSetIndex for Entity {
 
 /// An [`Iterator`] returning a sequence of [`Entity`] values from [`Entities`].
 ///
-/// # Droping
+/// # Dropping
 ///
 /// If this is dropped, the remaining entities will remain reserved and unused. This is effectively a memory leak.
 pub struct ReserveEntitiesIterator<'a> {
@@ -548,7 +548,7 @@ unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 
 /// An [`Iterator`] returning a sequence of [`Entity`] values from a [`RemoteEntityReserver`].
 ///
-/// # Droping
+/// # Dropping
 ///
 /// If this is dropped, the remaining entities will remain reserved and unused. This is effectively a memory leak.
 pub struct RemoteReserveEntitiesIterator {
