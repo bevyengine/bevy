@@ -329,18 +329,13 @@ libm = [
   "bevy_window?/libm",
 ]
 
-# Executor Backend (choose one)
 # Uses `async-executor` as a task execution backend.
 # This backend is incompatible with `no_std` targets.
 async_executor = ["std", "bevy_tasks/async_executor", "bevy_ecs/async_executor"]
-# Uses `edge-executor` as a task execution backend.
-# Use this instead of `async-executor` if working on a `no_std` target.
-edge_executor = ["bevy_tasks/edge_executor", "bevy_ecs/edge_executor"]
 
 [dependencies]
 # bevy (no_std)
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
-  "bevy_tasks",
   "bevy_reflect",
 ] }
 bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev", default-features = false }
@@ -350,10 +345,10 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = fa
 ] }
 bevy_input = { path = "../bevy_input", version = "0.16.0-dev", default-features = false, features = [
   "bevy_reflect",
-] }
+], optional = true }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev", default-features = false, features = [
   "bevy_reflect",
-] }
+], optional = true }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
@@ -367,7 +362,7 @@ bevy_time = { path = "../bevy_time", version = "0.16.0-dev", default-features = 
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev", default-features = false, features = [
   "bevy-support",
   "bevy_reflect",
-] }
+], optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }

@@ -11,17 +11,6 @@ extern crate std;
 
 extern crate alloc;
 
-#[cfg(not(any(feature = "async_executor", feature = "edge_executor")))]
-compile_error!("Either of the `async_executor` or the `edge_executor` features must be enabled.");
-
-#[cfg(all(
-    feature = "edge_executor",
-    not(any(feature = "std", feature = "critical-section"))
-))]
-compile_error!(
-    "`edge_executor` requires either `std` or `critical-section` features to be enabled."
-);
-
 #[cfg(not(target_arch = "wasm32"))]
 mod conditional_send {
     /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
@@ -51,19 +40,9 @@ pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Outpu
 
 pub mod futures;
 
-#[cfg(all(
-    feature = "edge_executor",
-    any(feature = "std", feature = "critical-section")
-))]
+#[cfg(not(feature = "async_executor"))]
 mod edge_executor;
 
-#[cfg(any(
-    feature = "async_executor",
-    all(
-        feature = "edge_executor",
-        any(feature = "std", feature = "critical-section")
-    )
-))]
 mod executor;
 
 mod slice;

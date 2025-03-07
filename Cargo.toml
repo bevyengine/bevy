@@ -161,13 +161,7 @@ default = [
 ]
 
 # Recommended defaults for no_std applications
-default_no_std = [
-  "edge_executor",
-  "libm",
-  "critical-section",
-  "bevy_color",
-  "bevy_state",
-]
+default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 
 # Provides an implementation for picking meshes
 bevy_mesh_picking_backend = [
@@ -509,9 +503,6 @@ ghost_nodes = ["bevy_internal/ghost_nodes"]
 
 # Uses `async-executor` as a task execution backend.
 async_executor = ["std", "bevy_internal/async_executor"]
-
-# Uses `edge-executor` as a task execution backend.
-edge_executor = ["bevy_internal/edge_executor"]
 
 # Allows access to the `std` crate.
 std = ["bevy_internal/std"]
