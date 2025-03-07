@@ -214,7 +214,7 @@ fn setup(mut commands: Commands) {
                             BorderRadius::all(Val::Px(20.)),
                             GradientNode(Gradient::Radial {
                                 stops: stops.clone(),
-                                center: RelativePosition::center(Val::Px(25.), Val::Px(25.)),
+                                position: RelativePosition::center(Val::Px(25.), Val::Px(25.)),
                                 shape: RadialGradientShape::ClosestSide,
                             }),
                             GradientBorder(Gradient::Linear {
@@ -251,7 +251,7 @@ fn setup(mut commands: Commands) {
                                         angle: None,
                                     })
                                     .collect(),
-                                center: RelativePosition::new(
+                                position: RelativePosition::new(
                                     RelativeVal::Center(Val::ZERO),
                                     RelativeVal::Center(Val::ZERO),
                                 ),

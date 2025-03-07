@@ -16,6 +16,7 @@ use bevy_window::{PrimaryWindow, WindowRef};
 use core::{f32, num::NonZero};
 use derive_more::derive::From;
 use smallvec::SmallVec;
+use std::f32::consts::TAU;
 use thiserror::Error;
 use tracing::warn;
 
@@ -2863,22 +2864,45 @@ pub struct AngularColorStop {
     reflect(Serialize, Deserialize)
 )]
 pub enum Gradient {
+    /// A linear gradient
+    ///
+    /// https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/linear-gradient
     Linear {
+        /// The direction of the gradient.
+        /// An angle of `0.` points upward, angles increasing clockwise.
         angle: f32,
         stops: Vec<ColorStop>,
     },
+    /// A radial gradient
+    ///
+    /// https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient
     Radial {
-        center: RelativePosition,
+        /// The center of the radial gradient
+        position: RelativePosition,
+        /// Defines the end shape of the radial gradient
         shape: RadialGradientShape,
         stops: Vec<ColorStop>,
     },
+    /// A conic gradient
+    ///
+    /// https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient
     Conic {
-        center: RelativePosition,
+        /// The center of the conic gradient
+        position: RelativePosition,
         stops: Vec<AngularColorStop>,
     },
 }
 
 impl Gradient {
+    pub const TO_TOP: f32 = 0.;
+    pub const TO_TOP_RIGHT: f32 = TAU / 8.;
+    pub const TO_RIGHT: f32 = 2. * Self::TO_TOP_RIGHT;
+    pub const TO_BOTTOM_RIGHT: f32 = 3. * Self::TO_TOP_RIGHT;
+    pub const TO_BOTTOM: f32 = 4. * Self::TO_TOP_RIGHT;
+    pub const TO_BOTTOM_LEFT: f32 = 5. * Self::TO_TOP_RIGHT;
+    pub const TO_LEFT: f32 = 6. * Self::TO_TOP_RIGHT;
+    pub const TO_TOP_LEFT: f32 = 7. * Self::TO_TOP_RIGHT;
+
     /// Returns true if the gradient has no stops.
     pub fn is_empty(&self) -> bool {
         match self {
@@ -2898,6 +2922,88 @@ impl Gradient {
                 .and_then(|stop| (stops.len() == 1).then_some(stop.color)),
         }
     }
+
+    /// A linear gradient transtioning from bottom to top
+    pub fn linear_to_top(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_TOP,
+            stops,
+        }
+    }
+
+    /// A linear gradient transtioning from bottom left to top right
+    pub fn linear_to_top_right(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_TOP_RIGHT,
+            stops,
+        }
+    }
+
+    /// A linear gradient transtioning from left to right
+    pub fn linear_to_right(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_RIGHT,
+            stops,
+        }
+    }
+
+    /// A linear gradient transtioning from top left to bottom right
+    pub fn linear_to_bottom_right(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_BOTTOM_RIGHT,
+            stops,
+        }
+    }
+
+    /// A linear gradient transtioning from top to bottom
+    pub fn linear_to_bottom(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_BOTTOM,
+            stops,
+        }
+    }
+
+    /// A linear gradient transtioning from top right to bottom left
+    pub fn linear_to_bottom_left(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_BOTTOM_LEFT,
+            stops,
+        }
+    }
+
+    /// A linear gradient transtioning from right to left
+    pub fn linear_to_left(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_LEFT,
+            stops,
+        }
+    }
+
+    /// A linear gradient transtioning from bottom right to top left
+    pub fn linear_to_top_left(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_TOP_LEFT,
+            stops,
+        }
+    }
+
+    /// A radial gradient
+    pub fn radial(
+        position: RelativePosition,
+        shape: RadialGradientShape,
+        stops: Vec<ColorStop>,
+    ) -> Gradient {
+        Self::Radial {
+            position,
+            shape,
+            stops,
+        }
+    }
+
+    /// A conic gradient
+    pub fn conic(position: RelativePosition, stops: Vec<AngularColorStop>) -> Gradient {
+        Self::Conic { position, stops }
+    }
 }
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
@@ -2907,6 +3013,7 @@ impl Gradient {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+/// A UI node that displays a gradient
 pub struct GradientNode(pub Gradient);
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
@@ -2916,6 +3023,7 @@ pub struct GradientNode(pub Gradient);
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+/// A UI node border that displays a gradient
 pub struct GradientBorder(pub Gradient);
 
 #[cfg(test)]

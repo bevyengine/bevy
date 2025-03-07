@@ -435,7 +435,7 @@ pub fn extract_gradients(
                     });
                 }
                 Gradient::Radial {
-                    center,
+                    position: center,
                     shape,
                     stops,
                 } => {
@@ -541,7 +541,10 @@ pub fn extract_gradients(
                         resolved_gradient: ResolvedGradient::Radial { center: c, size },
                     });
                 }
-                Gradient::Conic { center, stops } => {
+                Gradient::Conic {
+                    position: center,
+                    stops,
+                } => {
                     let g_start = center.resolve(
                         target.scale_factor,
                         uinode.size,

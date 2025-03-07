@@ -699,6 +699,7 @@ impl Default for UiRect {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+/// A `Val` that represents a displacment relative to the edges of a UI node.
 pub enum RelativeVal {
     Start(Val),
     Center(Val),
@@ -744,53 +745,66 @@ impl Default for RelativeVal {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+/// Represents a position relative to a UI node
 pub struct RelativePosition {
+    /// Position relative to the horizontal bounds of the UI node
     pub x: RelativeVal,
+    /// Position relative to the vertical bounds of the UI node
     pub y: RelativeVal,
 }
 
 impl RelativePosition {
-    pub fn new(x: RelativeVal, y: RelativeVal) -> Self {
+    pub const TOP_LEFT: Self = Self::top_left(Val::ZERO, Val::ZERO);
+    pub const LEFT: Self = Self::left(Val::ZERO);
+    pub const BOTTOM_LEFT: Self = Self::bottom_left(Val::ZERO, Val::ZERO);
+    pub const TOP: Self = Self::top(Val::ZERO);
+    pub const CENTER: Self = Self::center(Val::ZERO, Val::ZERO);
+    pub const BOTTOM: Self = Self::bottom(Val::ZERO);
+    pub const TOP_RIGHT: Self = Self::top_right(Val::ZERO, Val::ZERO);
+    pub const RIGHT: Self = Self::right(Val::ZERO);
+    pub const BOTTOM_RIGHT: Self = Self::bottom_right(Val::ZERO, Val::ZERO);
+
+    pub const fn new(x: RelativeVal, y: RelativeVal) -> Self {
         Self { x, y }
     }
 
-    pub fn all(val: RelativeVal) -> Self {
+    pub const fn all(val: RelativeVal) -> Self {
         Self::new(val, val)
     }
 
-    pub fn top_left(left: Val, top: Val) -> Self {
+    pub const fn top_left(left: Val, top: Val) -> Self {
         Self::new(RelativeVal::Start(left), RelativeVal::Start(top))
     }
 
-    pub fn left(val: Val) -> Self {
+    pub const fn left(val: Val) -> Self {
         Self::new(RelativeVal::Start(val), RelativeVal::center())
     }
 
-    pub fn bottom_left(left: Val, bottom: Val) -> Self {
+    pub const fn bottom_left(left: Val, bottom: Val) -> Self {
         Self::new(RelativeVal::Start(left), RelativeVal::End(bottom))
     }
 
-    pub fn top(val: Val) -> Self {
+    pub const fn top(val: Val) -> Self {
         Self::new(RelativeVal::center(), RelativeVal::Start(val))
     }
 
-    pub fn center(x: Val, y: Val) -> Self {
+    pub const fn center(x: Val, y: Val) -> Self {
         Self::new(RelativeVal::Center(x), RelativeVal::Center(y))
     }
 
-    pub fn bottom(val: Val) -> Self {
+    pub const fn bottom(val: Val) -> Self {
         Self::new(RelativeVal::center(), RelativeVal::End(val))
     }
 
-    pub fn top_right(right: Val, top: Val) -> Self {
+    pub const fn top_right(right: Val, top: Val) -> Self {
         Self::new(RelativeVal::End(right), RelativeVal::Start(top))
     }
 
-    pub fn right(val: Val) -> Self {
+    pub const fn right(val: Val) -> Self {
         Self::new(RelativeVal::End(val), RelativeVal::center())
     }
 
-    pub fn bottom_right(right: Val, bottom: Val) -> Self {
+    pub const fn bottom_right(right: Val, bottom: Val) -> Self {
         Self::new(RelativeVal::End(right), RelativeVal::End(bottom))
     }
 
@@ -849,6 +863,7 @@ fn far_side2(p: Vec2, h: Vec2) -> f32 {
 }
 
 impl RadialGradientShape {
+    /// Resolve the physical dimensions of the end shape of the radial gradient
     pub fn resolve(
         self,
         position: Vec2,

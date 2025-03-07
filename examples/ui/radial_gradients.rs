@@ -71,7 +71,7 @@ fn setup_grid(mut commands: Commands) {
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
                             ],
-                            center: RelativePosition::center(Val::ZERO, Val::ZERO),
+                            position: RelativePosition::center(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::ClosestSide,
                         }),
                     ));
@@ -99,7 +99,7 @@ fn setup_grid(mut commands: Commands) {
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
                             ],
-                            center: RelativePosition::center(Val::ZERO, Val::ZERO),
+                            position: RelativePosition::center(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::Circle(Val::Px(50.)),
                         }),
                     ));
@@ -127,7 +127,7 @@ fn setup_grid(mut commands: Commands) {
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
                             ],
-                            center: RelativePosition::center(Val::ZERO, Val::ZERO),
+                            position: RelativePosition::center(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),
                     ));
@@ -154,35 +154,7 @@ fn setup_grid(mut commands: Commands) {
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
                             ],
-                            center: RelativePosition::top_right(Val::ZERO, Val::ZERO),
-                            shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
-                        }),
-                    ));
-                });
-
-            commands
-                .spawn((
-                    BackgroundColor(GREEN.into()),
-                    Node {
-                        display: Display::Grid,
-                        width: Val::Px(CELL_SIZE),
-                        ..Default::default()
-                    },
-                ))
-                .with_children(|commands| {
-                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
-                    commands.spawn((
-                        Node {
-                            width: Val::Px(100.),
-                            height: Val::Px(100.),
-                            ..default()
-                        },
-                        GradientNode(Gradient::Radial {
-                            stops: vec![
-                                ColorStop::new(RED.into(), Val::Auto),
-                                ColorStop::new(BLUE.into(), Val::Auto),
-                            ],
-                            center: RelativePosition::bottom_right(Val::ZERO, Val::ZERO),
+                            position: RelativePosition::top_right(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),
                     ));
@@ -210,7 +182,7 @@ fn setup_grid(mut commands: Commands) {
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
                             ],
-                            center: RelativePosition::left(Val::ZERO),
+                            position: RelativePosition::bottom_right(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),
                     ));
@@ -238,7 +210,35 @@ fn setup_grid(mut commands: Commands) {
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
                             ],
-                            center: RelativePosition::top(Val::ZERO),
+                            position: RelativePosition::left(Val::ZERO),
+                            shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
+                        }),
+                    ));
+                });
+
+            commands
+                .spawn((
+                    BackgroundColor(GREEN.into()),
+                    Node {
+                        display: Display::Grid,
+                        width: Val::Px(CELL_SIZE),
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|commands| {
+                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((
+                        Node {
+                            width: Val::Px(100.),
+                            height: Val::Px(100.),
+                            ..default()
+                        },
+                        GradientNode(Gradient::Radial {
+                            stops: vec![
+                                ColorStop::new(RED.into(), Val::Auto),
+                                ColorStop::new(BLUE.into(), Val::Auto),
+                            ],
+                            position: RelativePosition::top(Val::ZERO),
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),
                     ));
@@ -286,7 +286,7 @@ fn setup_grid(mut commands: Commands) {
                                             },
                                             GradientNode(Gradient::Radial {
                                                 stops,
-                                                center: RelativePosition::new(x, y),
+                                                position: RelativePosition::new(x, y),
                                                 shape: radial_gradient_axis,
                                             }),
                                         ));
