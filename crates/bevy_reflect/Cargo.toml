@@ -29,7 +29,7 @@ bevy = ["smallvec", "smol_str"]
 debug = ["debug_stack"]
 
 ## When enabled, keeps track of the current serialization/deserialization context for better error messages
-debug_stack = []
+debug_stack = ["std"]
 
 # Integrations
 
@@ -46,7 +46,7 @@ smallvec = ["dep:smallvec"]
 uuid = ["dep:uuid"]
 
 ## Adds reflection support to `wgpu-types` types.
-wgpu-types = ["dep:wgpu-types", "std"]
+wgpu-types = ["dep:wgpu-types"]
 
 # Platform Compatibility
 
@@ -62,6 +62,7 @@ std = [
   "smol_str?/std",
   "uuid?/std",
   "bevy_platform_support/std",
+  "wgpu-types?/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -113,7 +114,9 @@ uuid = { version = "1.13.1", default-features = false, optional = true, features
   "serde",
 ] }
 variadics_please = "1.1"
-wgpu-types = { version = "24", features = ["serde"], optional = true }
+wgpu-types = { version = "24", features = [
+  "serde",
+], optional = true, default-features = false }
 
 [dev-dependencies]
 ron = "0.8.0"
