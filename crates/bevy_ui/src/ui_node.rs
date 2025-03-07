@@ -2863,6 +2863,19 @@ pub struct AngularColorStop {
     pub angle: Option<f32>,
 }
 
+impl AngularColorStop {
+    pub fn new(color: Color, angle: f32) -> Self {
+        Self {
+            color,
+            angle: Some(angle),
+        }
+    }
+
+    pub fn auto(color: Color) -> Self {
+        Self { color, angle: None }
+    }
+}
+
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 #[cfg_attr(
