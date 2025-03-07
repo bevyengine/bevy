@@ -1003,6 +1003,11 @@ impl Entities {
     pub fn resolve_from_id(&self, index: u32) -> Option<Entity> {
         if let Some(&EntityMeta { generation, .. }) = self.get_by_id(index) {
             Some(Entity::from_raw_and_generation(index, generation))
+        } else if self.remote_reservations.is_index_from_remote(index) {
+            Some(Entity::from_raw_and_generation(
+                index,
+                RemoteEntityReserver::REMOTE_FIRST_GENERATION,
+            ))
         } else {
             // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
             let free_cursor = self.free_cursor.load(Ordering::Relaxed);
@@ -1144,10 +1149,7 @@ impl Entities {
     #[inline]
     pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: MaybeLocation) {
         caller.map(|caller| {
-            let meta = self
-                .meta
-                .get_mut(index as usize)
-                .expect("Entity index invalid");
+            let meta = self.get_mut_by_id(index).expect("Entity index invalid");
             meta.spawned_or_despawned_by = MaybeLocation::new(Some(caller));
         });
     }
@@ -1160,8 +1162,7 @@ impl Entities {
         entity: Entity,
     ) -> MaybeLocation<Option<&'static Location<'static>>> {
         MaybeLocation::new_with_flattened(|| {
-            self.meta
-                .get(entity.index() as usize)
+            self.get_by_id(entity.index())
                 .filter(|meta|
                 // Generation is incremented immediately upon despawn
                 (meta.generation == entity.generation)
