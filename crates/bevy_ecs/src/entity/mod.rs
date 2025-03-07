@@ -778,7 +778,7 @@ impl Entities {
             //
             // As `self.free_cursor` goes more and more negative, we return IDs farther
             // and farther beyond `meta.len()`.
-            self.verify_room_for(1 - n as usize);
+            self.verify_room_for((1 - n) as usize);
             Entity::from_raw((self.meta.len() as IdCursor - n) as u32)
         }
     }
