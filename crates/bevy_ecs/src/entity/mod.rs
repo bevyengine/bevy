@@ -987,7 +987,7 @@ impl Entities {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn total_prospective_count(&self) -> usize {
-        self.total_count() + (-self.free_cursor.load(Ordering::Relaxed)).min(0) as usize
+        self.meta.len() + (-self.free_cursor.load(Ordering::Relaxed)).min(0) as usize
     }
 
     /// The count of currently allocated entities.
