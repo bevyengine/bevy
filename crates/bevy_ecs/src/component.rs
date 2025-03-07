@@ -4,8 +4,9 @@ use crate::{
     archetype::ArchetypeFlags,
     bundle::BundleInfo,
     change_detection::{MaybeLocation, MAX_CHANGE_AGE},
-    entity::{ComponentCloneCtx, Entity},
+    entity::{ComponentCloneCtx, Entity, SourceComponent},
     query::DebugCheckedUnwrap,
+    relationship::RelationshipInsertHookMode,
     resource::Resource,
     storage::{SparseSetIndex, SparseSets, Table, TableRow},
     system::{Commands, Local, SystemParam},
@@ -31,8 +32,6 @@ use core::{
 };
 use disqualified::ShortName;
 use thiserror::Error;
-
-pub use bevy_ecs_macros::require;
 
 /// A data type that can be used to store data for an [entity].
 ///
@@ -320,6 +319,25 @@ pub use bevy_ecs_macros::require;
 /// }
 /// ```
 ///
+/// This also supports function calls that yield closures
+///
+/// ```
+/// # use bevy_ecs::component::{Component, HookContext};
+/// # use bevy_ecs::world::DeferredWorld;
+/// #
+/// #[derive(Component)]
+/// #[component(on_add = my_msg_hook("hello"))]
+/// #[component(on_despawn = my_msg_hook("yoink"))]
+/// struct ComponentA;
+///
+/// // a hook closure generating function
+/// fn my_msg_hook(message: &'static str) -> impl Fn(DeferredWorld, HookContext) {
+///     move |_world, _ctx| {
+///         println!("{message}");
+///     }
+/// }
+/// ```
+///
 /// # Implementing the trait for foreign types
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
@@ -544,6 +562,8 @@ pub struct HookContext {
     pub component_id: ComponentId,
     /// The caller location is `Some` if the `track_caller` feature is enabled.
     pub caller: MaybeLocation,
+    /// Configures how relationship hooks will run
+    pub relationship_insert_hook_mode: RelationshipInsertHookMode,
 }
 
 /// [`World`]-mutating functions that run as part of lifecycle events of a [`Component`].
@@ -1085,7 +1105,7 @@ impl ComponentDescriptor {
 }
 
 /// Function type that can be used to clone an entity.
-pub type ComponentCloneFn = fn(&mut Commands, &mut ComponentCloneCtx);
+pub type ComponentCloneFn = fn(&mut Commands, &SourceComponent, &mut ComponentCloneCtx);
 
 /// The clone behavior to use when cloning a [`Component`].
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -1097,11 +1117,6 @@ pub enum ComponentCloneBehavior {
     Ignore,
     /// Uses a custom [`ComponentCloneFn`].
     Custom(ComponentCloneFn),
-    /// Uses a [`ComponentCloneFn`] that produces an empty version of the given relationship target.
-    // TODO: this exists so that the current scene spawning code can know when to skip these components.
-    // When we move to actually cloning entities in scene spawning code, this should be removed in favor of Custom, as the
-    // distinction will no longer be necessary.
-    RelationshipTarget(ComponentCloneFn),
 }
 
 impl ComponentCloneBehavior {
@@ -1132,8 +1147,7 @@ impl ComponentCloneBehavior {
         match self {
             ComponentCloneBehavior::Default => default,
             ComponentCloneBehavior::Ignore => component_clone_ignore,
-            ComponentCloneBehavior::Custom(custom)
-            | ComponentCloneBehavior::RelationshipTarget(custom) => *custom,
+            ComponentCloneBehavior::Custom(custom) => *custom,
         }
     }
 }
@@ -1337,9 +1351,22 @@ impl Components {
         let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
         required_by.insert(requiree);
 
+        let mut required_components_tmp = RequiredComponents::default();
         // SAFETY: The caller ensures that the `requiree` and `required` components are valid.
-        let inherited_requirements =
-            unsafe { self.register_inherited_required_components(requiree, required) };
+        let inherited_requirements = unsafe {
+            self.register_inherited_required_components(
+                requiree,
+                required,
+                &mut required_components_tmp,
+            )
+        };
+
+        // SAFETY: The caller ensures that the `requiree` is valid.
+        let required_components = unsafe {
+            self.get_required_components_mut(requiree)
+                .debug_checked_unwrap()
+        };
+        required_components.0.extend(required_components_tmp.0);
 
         // Propagate the new required components up the chain to all components that require the requiree.
         if let Some(required_by) = self.get_required_by(requiree).cloned() {
@@ -1391,6 +1418,7 @@ impl Components {
         &mut self,
         requiree: ComponentId,
         required: ComponentId,
+        required_components: &mut RequiredComponents,
     ) -> Vec<(ComponentId, RequiredComponent)> {
         // Get required components inherited from the `required` component.
         // SAFETY: The caller ensures that the `required` component is valid.
@@ -1414,12 +1442,6 @@ impl Components {
 
         // Register the new required components.
         for (component_id, component) in inherited_requirements.iter().cloned() {
-            // SAFETY: The caller ensures that the `requiree` is valid.
-            let required_components = unsafe {
-                self.get_required_components_mut(requiree)
-                    .debug_checked_unwrap()
-            };
-
             // Register the required component for the requiree.
             // SAFETY: Component ID and constructor match the ones on the original requiree.
             unsafe {
@@ -1520,26 +1542,7 @@ impl Components {
         let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
         required_by.insert(requiree);
 
-        // Register the inherited required components for the requiree.
-        let required: Vec<(ComponentId, RequiredComponent)> = self
-            .get_info(required)
-            .unwrap()
-            .required_components()
-            .0
-            .iter()
-            .map(|(id, component)| (*id, component.clone()))
-            .collect();
-
-        for (id, component) in required {
-            // Register the inherited required components for the requiree.
-            // The inheritance depth is increased by `1` since this is a component required by the original required component.
-            required_components.register_dynamic(
-                id,
-                component.constructor.clone(),
-                component.inheritance_depth + 1,
-            );
-            self.get_required_by_mut(id).unwrap().insert(requiree);
-        }
+        self.register_inherited_required_components(requiree, required, required_components);
     }
 
     #[inline]
@@ -2060,7 +2063,7 @@ impl RequiredComponents {
             //
             // This would be resolved by https://github.com/rust-lang/rust/issues/123430
 
-            #[cfg(feature = "portable-atomic")]
+            #[cfg(not(target_has_atomic = "ptr"))]
             use alloc::boxed::Box;
 
             type Constructor = dyn for<'a, 'b> Fn(
@@ -2072,10 +2075,10 @@ impl RequiredComponents {
                 MaybeLocation,
             );
 
-            #[cfg(feature = "portable-atomic")]
+            #[cfg(not(target_has_atomic = "ptr"))]
             type Intermediate<T> = Box<T>;
 
-            #[cfg(not(feature = "portable-atomic"))]
+            #[cfg(target_has_atomic = "ptr")]
             type Intermediate<T> = Arc<T>;
 
             let boxed: Intermediate<Constructor> = Intermediate::new(
@@ -2177,9 +2180,10 @@ pub fn enforce_no_required_components_recursion(
 ///
 pub fn component_clone_via_clone<C: Clone + Component>(
     _commands: &mut Commands,
+    source: &SourceComponent,
     ctx: &mut ComponentCloneCtx,
 ) {
-    if let Some(component) = ctx.read_source_component::<C>() {
+    if let Some(component) = source.read::<C>() {
         ctx.write_target_component(component.clone());
     }
 }
@@ -2200,17 +2204,21 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 ///
 /// See [`EntityClonerBuilder`](crate::entity::EntityClonerBuilder) for details.
 #[cfg(feature = "bevy_reflect")]
-pub fn component_clone_via_reflect(commands: &mut Commands, ctx: &mut ComponentCloneCtx) {
+pub fn component_clone_via_reflect(
+    commands: &mut Commands,
+    source: &SourceComponent,
+    ctx: &mut ComponentCloneCtx,
+) {
     let Some(app_registry) = ctx.type_registry().cloned() else {
         return;
     };
-    let Some(source_component_reflect) = ctx.read_source_component_reflect() else {
+    let registry = app_registry.read();
+    let Some(source_component_reflect) = source.read_reflect(&registry) else {
         return;
     };
     let component_info = ctx.component_info();
     // checked in read_source_component_reflect
     let type_id = component_info.type_id().unwrap();
-    let registry = app_registry.read();
 
     // Try to clone using ReflectFromReflect
     if let Some(reflect_from_reflect) =
@@ -2295,7 +2303,12 @@ pub fn component_clone_via_reflect(commands: &mut Commands, ctx: &mut ComponentC
 /// Noop implementation of component clone handler function.
 ///
 /// See [`EntityClonerBuilder`](crate::entity::EntityClonerBuilder) for details.
-pub fn component_clone_ignore(_commands: &mut Commands, _ctx: &mut ComponentCloneCtx) {}
+pub fn component_clone_ignore(
+    _commands: &mut Commands,
+    _source: &SourceComponent,
+    _ctx: &mut ComponentCloneCtx,
+) {
+}
 
 /// Wrapper for components clone specialization using autoderef.
 #[doc(hidden)]

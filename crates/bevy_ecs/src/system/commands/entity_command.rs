@@ -5,6 +5,7 @@
 //! [`EntityCommands`](crate::system::EntityCommands).
 
 use alloc::vec::Vec;
+use core::fmt;
 use log::info;
 
 use crate::{
@@ -12,8 +13,9 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentInfo},
     entity::{Entity, EntityClonerBuilder},
+    error::Result,
     event::Event,
-    result::Result,
+    relationship::RelationshipInsertHookMode,
     system::{command::HandleError, Command, IntoObserverSystem},
     world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld, World},
 };
@@ -79,8 +81,7 @@ use bevy_ptr::OwningPtr;
 /// }
 /// ```
 pub trait EntityCommand<Out = ()>: Send + 'static {
-    /// Executes this command for the given [`Entity`] and
-    /// returns a [`Result`] for error handling.
+    /// Executes this command for the given [`Entity`].
     fn apply(self, entity: EntityWorldMut) -> Out;
 }
 /// Passes in a specific entity to an [`EntityCommand`], resulting in a [`Command`] that
@@ -96,7 +97,10 @@ pub trait CommandWithEntity<Out> {
     fn with_entity(self, entity: Entity) -> impl Command<Out> + HandleError<Out>;
 }
 
-impl<C: EntityCommand> CommandWithEntity<Result<(), EntityMutableFetchError>> for C {
+impl<C> CommandWithEntity<Result<(), EntityMutableFetchError>> for C
+where
+    C: EntityCommand,
+{
     fn with_entity(
         self,
         entity: Entity,
@@ -110,11 +114,10 @@ impl<C: EntityCommand> CommandWithEntity<Result<(), EntityMutableFetchError>> fo
     }
 }
 
-impl<
-        C: EntityCommand<Result<T, Err>>,
-        T,
-        Err: core::fmt::Debug + core::fmt::Display + Send + Sync + 'static,
-    > CommandWithEntity<Result<T, EntityCommandError<Err>>> for C
+impl<C, T, Err> CommandWithEntity<Result<T, EntityCommandError<Err>>> for C
+where
+    C: EntityCommand<Result<T, Err>>,
+    Err: fmt::Debug + fmt::Display + Send + Sync + 'static,
 {
     fn with_entity(
         self,
@@ -149,36 +152,40 @@ where
     }
 }
 
-/// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity,
-/// replacing any that were already present.
+/// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
 #[track_caller]
-pub fn insert(bundle: impl Bundle) -> impl EntityCommand {
+pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.insert_with_caller(bundle, InsertMode::Replace, caller);
-    }
-}
-
-/// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity,
-/// except for any that were already present.
-#[track_caller]
-pub fn insert_if_new(bundle: impl Bundle) -> impl EntityCommand {
-    let caller = MaybeLocation::caller();
-    move |mut entity: EntityWorldMut| {
-        entity.insert_with_caller(bundle, InsertMode::Keep, caller);
+        entity.insert_with_caller(bundle, mode, caller, RelationshipInsertHookMode::Run);
     }
 }
 
 /// An [`EntityCommand`] that adds a dynamic component to an entity.
+///
+/// # Safety
+///
+/// - [`ComponentId`] must be from the same world as the target entity.
+/// - `T` must have the same layout as the one passed during `component_id` creation.
 #[track_caller]
-pub fn insert_by_id<T: Send + 'static>(component_id: ComponentId, value: T) -> impl EntityCommand {
+pub unsafe fn insert_by_id<T: Send + 'static>(
+    component_id: ComponentId,
+    value: T,
+    mode: InsertMode,
+) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         // SAFETY:
         // - `component_id` safety is ensured by the caller
         // - `ptr` is valid within the `make` block
         OwningPtr::make(value, |ptr| unsafe {
-            entity.insert_by_id_with_caller(component_id, ptr, caller);
+            entity.insert_by_id_with_caller(
+                component_id,
+                ptr,
+                mode,
+                caller,
+                RelationshipInsertHookMode::Run,
+            );
         });
     }
 }
@@ -190,7 +197,7 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         let value = entity.world_scope(|world| T::from_world(world));
-        entity.insert_with_caller(value, mode, caller);
+        entity.insert_with_caller(value, mode, caller, RelationshipInsertHookMode::Run);
     }
 }
 
@@ -245,8 +252,9 @@ pub fn retain<T: Bundle>() -> impl EntityCommand {
 ///
 /// # Note
 ///
-/// This will also despawn any [`Children`](crate::hierarchy::Children) entities, and any other [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
-/// to despawn descendants. This results in "recursive despawn" behavior.
+/// This will also despawn any [`Children`](crate::hierarchy::Children) entities,
+/// and any other [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured to despawn descendants.
+/// This results in "recursive despawn" behavior.
 #[track_caller]
 pub fn despawn() -> impl EntityCommand {
     let caller = MaybeLocation::caller();
@@ -264,6 +272,19 @@ pub fn observe<E: Event, B: Bundle, M>(
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         entity.observe_with_caller(observer, caller);
+    }
+}
+
+/// An [`EntityCommand`] that sends a [`Trigger`](crate::observer::Trigger) targeting an entity.
+/// This will run any [`Observer`](crate::observer::Observer) of the given [`Event`] watching the entity.
+#[track_caller]
+pub fn trigger(event: impl Event) -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
+    move |mut entity: EntityWorldMut| {
+        let id = entity.id();
+        entity.world_scope(|world| {
+            world.trigger_targets_with_caller(event, id, caller);
+        });
     }
 }
 

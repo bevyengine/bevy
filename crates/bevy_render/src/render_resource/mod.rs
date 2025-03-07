@@ -3,6 +3,7 @@ mod bind_group;
 mod bind_group_entries;
 mod bind_group_layout;
 mod bind_group_layout_entries;
+mod bindless;
 mod buffer;
 mod buffer_vec;
 mod gpu_array_buffer;
@@ -19,6 +20,7 @@ pub use bind_group::*;
 pub use bind_group_entries::*;
 pub use bind_group_layout::*;
 pub use bind_group_layout_entries::*;
+pub use bindless::*;
 pub use buffer::*;
 pub use buffer_vec::*;
 pub use gpu_array_buffer::*;
@@ -49,10 +51,11 @@ pub use wgpu::{
     PrimitiveState, PrimitiveTopology, PushConstantRange, RenderPassColorAttachment,
     RenderPassDepthStencilAttachment, RenderPassDescriptor,
     RenderPipelineDescriptor as RawRenderPipelineDescriptor, Sampler as WgpuSampler,
-    SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
-    ShaderStages, StencilFaceState, StencilOperation, StencilState, StorageTextureAccess, StoreOp,
-    TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+    SamplerBindingType, SamplerBindingType as WgpuSamplerBindingType, SamplerDescriptor,
+    ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages, StencilFaceState,
+    StencilOperation, StencilState, StorageTextureAccess, StoreOp, TexelCopyBufferInfo,
+    TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect, TextureDescriptor,
+    TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     TextureView as WgpuTextureView, TextureViewDescriptor, TextureViewDimension, VertexAttribute,
     VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
     VertexStepMode, COPY_BUFFER_ALIGNMENT,

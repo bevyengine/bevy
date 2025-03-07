@@ -25,7 +25,7 @@ use bevy_ecs::{
     component::{Component, HookContext},
     entity::{Entity, EntityBorrow},
     event::EventReader,
-    prelude::{require, With},
+    prelude::With,
     query::Has,
     reflect::ReflectComponent,
     resource::Resource,

@@ -90,6 +90,7 @@ The default feature set enables most of the expected features of a game engine, 
 |pbr_transmission_textures|Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |qoi|QOI image format support|
+|reflect_documentation|Enable documentation reflection|
 |reflect_functions|Enable function reflection|
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|

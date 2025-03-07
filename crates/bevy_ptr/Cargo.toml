@@ -1,13 +1,13 @@
 [package]
 name = "bevy_ptr"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "Utilities for working with untyped pointers in a more safe way"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy", "no_std"]
-rust-version = "1.81.0"
+rust-version = "1.85.0"
 
 [dependencies]
 
