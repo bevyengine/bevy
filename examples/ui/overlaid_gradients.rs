@@ -1,9 +1,10 @@
 //! An example demonstrating overlaid gradients
+
 use bevy::color::palettes::css::BLUE;
-use bevy::color::palettes::css::GREEN;
 use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
+use core::f32::consts::TAU;
 
 fn main() {
     App::new()
@@ -49,6 +50,20 @@ fn setup(mut commands: Commands) {
                     ColorStop::auto(YELLOW.into()),
                     ColorStop::auto(YELLOW.with_alpha(0.1).into()),
                     ColorStop::auto(YELLOW.with_alpha(0.).into()),
+                ],
+            },
+            Gradient::Linear {
+                angle: TAU / 16.,
+                stops: vec![
+                    ColorStop::auto(Color::BLACK.into()),
+                    ColorStop::auto(Color::BLACK.with_alpha(0.).into()),
+                ],
+            },
+            Gradient::Linear {
+                angle: 15. * TAU / 16.,
+                stops: vec![
+                    ColorStop::auto(Color::BLACK.into()),
+                    ColorStop::auto(Color::BLACK.with_alpha(0.).into()),
                 ],
             },
         ]),
