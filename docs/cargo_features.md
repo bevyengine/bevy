@@ -44,6 +44,7 @@ The default feature set enables most of the expected features of a game engine, 
 |ktx2|KTX2 compressed texture support|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
+|reflect_auto_register|Enable automatic reflect registration|
 |smaa_luts|Include SMAA Look Up Tables KTX2 Files|
 |std|Allows access to the `std` crate.|
 |sysinfo_plugin|Enables system information diagnostic plugin|

@@ -68,6 +68,8 @@ critical-section = [
   "bevy_platform_support/critical-section",
   "bevy_utils/critical-section",
 ]
+# Enables automatic reflect registration
+auto_register = ["bevy_reflect_derive/auto_register", "dep:inventory"]
 
 [dependencies]
 # bevy
@@ -111,8 +113,12 @@ wgpu-types = { version = "24", features = [
   "serde",
 ], optional = true, default-features = false }
 
+# deps for automatic type registration
+inventory = { version = "0.3", optional = true }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 uuid = { version = "1.13.1", default-features = false, features = ["js"] }
+
 
 [dev-dependencies]
 ron = "0.8.0"

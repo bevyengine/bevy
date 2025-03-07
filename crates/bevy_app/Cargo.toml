@@ -22,6 +22,11 @@ reflect_functions = [
   "bevy_reflect/functions",
   "bevy_ecs/reflect_functions",
 ]
+reflect_auto_register = [
+  "bevy_reflect",
+  "bevy_reflect/auto_register",
+  "bevy_ecs/reflect_auto_register",
+]
 
 # Debugging Features
 
