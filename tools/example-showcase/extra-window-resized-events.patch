@@ -6,7 +6,7 @@ index df0aab42d..6e28a6e9c 100644
              }
          }
  
-+        window_resized.send(WindowResized {
++        window_resized.write(WindowResized {
 +            window,
 +            width: win.width(),
 +            height: win.height(),

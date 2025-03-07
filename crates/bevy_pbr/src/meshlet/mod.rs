@@ -65,7 +65,7 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     query::Has,
     reflect::ReflectComponent,
@@ -253,13 +253,11 @@ impl Plugin for MeshletPlugin {
                 Core3d,
                 (
                     NodeMeshlet::VisibilityBufferRasterPass,
-                    NodePbr::ShadowPass,
+                    NodePbr::EarlyShadowPass,
                     //
                     NodeMeshlet::Prepass,
                     //
                     NodeMeshlet::DeferredPrepass,
-                    Node3d::DeferredPrepass,
-                    Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
                     //
                     Node3d::StartMainPass,

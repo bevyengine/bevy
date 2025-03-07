@@ -5,7 +5,6 @@ use bevy_image::Image;
 use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
-use core::iter;
 use thiserror::Error;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
@@ -77,7 +76,7 @@ impl MorphTargetImage {
                     buffer.extend_from_slice(bytemuck::bytes_of(&to_add));
                 }
                 // Pad each layer so that they fit width * height
-                buffer.extend(iter::repeat(0).take(padding as usize * size_of::<f32>()));
+                buffer.extend(core::iter::repeat_n(0, padding as usize * size_of::<f32>()));
                 debug_assert_eq!(buffer.len(), layer_byte_count);
                 buffer
             })

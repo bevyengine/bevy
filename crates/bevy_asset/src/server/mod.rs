@@ -5,7 +5,8 @@ use crate::{
     folder::LoadedFolder,
     io::{
         AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
-        ErasedAssetReader, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
+        AssetWriterError, ErasedAssetReader, MissingAssetSourceError, MissingAssetWriterError,
+        MissingProcessedAssetReaderError, Reader,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
     meta::{
@@ -38,12 +39,13 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::{error, info};
 
-/// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader). This can be used to kick off new asset loads and
-/// retrieve their current load states.
+/// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader).
+/// This can be used to kick off new asset loads and retrieve their current load states.
 ///
 /// The general process to load an asset is:
-/// 1. Initialize a new [`Asset`] type with the [`AssetServer`] via [`AssetApp::init_asset`], which will internally call [`AssetServer::register_asset`]
-///     and set up related ECS [`Assets`] storage and systems.
+/// 1. Initialize a new [`Asset`] type with the [`AssetServer`] via [`AssetApp::init_asset`], which
+///    will internally call [`AssetServer::register_asset`] and set up related ECS [`Assets`]
+///    storage and systems.
 /// 2. Register one or more [`AssetLoader`]s for that asset with [`AssetApp::init_asset_loader`]
 /// 3. Add the asset to your asset folder (defaults to `assets`).
 /// 4. Call [`AssetServer::load`] with a path to your asset.
@@ -923,8 +925,8 @@ impl AssetServer {
                 };
 
                 let asset_reader = match server.data.mode {
-                    AssetServerMode::Unprocessed { .. } => source.reader(),
-                    AssetServerMode::Processed { .. } => match source.processed_reader() {
+                    AssetServerMode::Unprocessed => source.reader(),
+                    AssetServerMode::Processed => match source.processed_reader() {
                         Ok(reader) => reader,
                         Err(_) => {
                             error!(
@@ -1235,8 +1237,8 @@ impl AssetServer {
         // Then the meta reader, if meta exists, will correspond to the meta for the current "version" of the asset.
         // See ProcessedAssetInfo::file_transaction_lock for more context
         let asset_reader = match self.data.mode {
-            AssetServerMode::Unprocessed { .. } => source.reader(),
-            AssetServerMode::Processed { .. } => source.processed_reader()?,
+            AssetServerMode::Unprocessed => source.reader(),
+            AssetServerMode::Processed => source.processed_reader()?,
         };
         let reader = asset_reader.read(asset_path.path()).await?;
         let read_meta = match &self.data.meta_check {
@@ -1478,6 +1480,50 @@ impl AssetServer {
             }
         }
     }
+
+    /// Writes the default loader meta file for the provided `path`.
+    ///
+    /// This function only generates meta files that simply load the path directly. To generate a
+    /// meta file that will use the default asset processor for the path, see
+    /// [`AssetProcessor::write_default_meta_file_for_path`].
+    ///
+    /// Note if there is already a meta file for `path`, this function returns
+    /// `Err(WriteDefaultMetaError::MetaAlreadyExists)`.
+    ///
+    /// [`AssetProcessor::write_default_meta_file_for_path`]:  crate::AssetProcessor::write_default_meta_file_for_path
+    pub async fn write_default_loader_meta_file_for_path(
+        &self,
+        path: impl Into<AssetPath<'_>>,
+    ) -> Result<(), WriteDefaultMetaError> {
+        let path = path.into();
+        let loader = self.get_path_asset_loader(&path).await?;
+
+        let meta = loader.default_meta();
+        let serialized_meta = meta.serialize();
+
+        let source = self.get_source(path.source())?;
+
+        let reader = source.reader();
+        match reader.read_meta_bytes(path.path()).await {
+            Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
+            Err(AssetReaderError::NotFound(_)) => {
+                // The meta file couldn't be found so just fall through.
+            }
+            Err(AssetReaderError::Io(err)) => {
+                return Err(WriteDefaultMetaError::IoErrorFromExistingMetaCheck(err))
+            }
+            Err(AssetReaderError::HttpError(err)) => {
+                return Err(WriteDefaultMetaError::HttpErrorFromExistingMetaCheck(err))
+            }
+        }
+
+        let writer = source.writer()?;
+        writer
+            .write_meta_bytes(path.path(), &serialized_meta)
+            .await?;
+
+        Ok(())
+    }
 }
 
 /// A system that manages internal [`AssetServer`] events, such as finalizing asset loads.
@@ -1584,14 +1630,14 @@ pub fn handle_internal_asset_events(world: &mut World) {
 
         for source in server.data.sources.iter() {
             match server.data.mode {
-                AssetServerMode::Unprocessed { .. } => {
+                AssetServerMode::Unprocessed => {
                     if let Some(receiver) = source.event_receiver() {
                         for event in receiver.try_iter() {
                             handle_event(source.id(), event);
                         }
                     }
                 }
-                AssetServerMode::Processed { .. } => {
+                AssetServerMode::Processed => {
                     if let Some(receiver) = source.processed_event_receiver() {
                         for event in receiver.try_iter() {
                             handle_event(source.id(), event);
@@ -1884,4 +1930,22 @@ pub enum WaitForAssetError {
     /// A dependency of the asset failed to load.
     #[error(transparent)]
     DependencyFailed(Arc<AssetLoadError>),
+}
+
+#[derive(Error, Debug)]
+pub enum WriteDefaultMetaError {
+    #[error(transparent)]
+    MissingAssetLoader(#[from] MissingAssetLoaderForExtensionError),
+    #[error(transparent)]
+    MissingAssetSource(#[from] MissingAssetSourceError),
+    #[error(transparent)]
+    MissingAssetWriter(#[from] MissingAssetWriterError),
+    #[error("failed to write default asset meta file: {0}")]
+    FailedToWriteMeta(#[from] AssetWriterError),
+    #[error("asset meta file already exists, so avoiding overwrite")]
+    MetaAlreadyExists,
+    #[error("encountered an I/O error while reading the existing meta file: {0}")]
+    IoErrorFromExistingMetaCheck(Arc<std::io::Error>),
+    #[error("encountered HTTP status {0} when reading the existing meta file")]
+    HttpErrorFromExistingMetaCheck(u16),
 }
