@@ -83,6 +83,7 @@ use crate::{
         masks::{IdentifierMask, HIGH_MASK},
         Identifier,
     },
+    query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
@@ -690,8 +691,8 @@ impl Entities {
             // Then we negate these values to indicate how far beyond the end of `meta.end()`
             // to go, yielding `meta.len()+0 .. meta.len()+3`.
             let base = self.meta.len() as IdCursor;
-
-            let new_id_end = u32::try_from(base - range_start).expect("too many entities");
+            self.verify_room_for((-range_start) as usize);
+            let new_id_end = (base - range_start) as u32;
 
             // `new_id_end` is in range, so no need to check `start`.
             let new_id_start = (base - range_end.min(0)) as u32;
@@ -721,9 +722,15 @@ impl Entities {
             //
             // As `self.free_cursor` goes more and more negative, we return IDs farther
             // and farther beyond `meta.len()`.
-            Entity::from_raw(
-                u32::try_from(self.meta.len() as IdCursor - n).expect("too many entities"),
-            )
+            self.verify_room_for(1 - n as usize);
+            Entity::from_raw((self.meta.len() as IdCursor - n) as u32)
+        }
+    }
+
+    #[inline]
+    fn verify_room_for(&self, new: usize) {
+        if (self.total_count() + new) >= u32::MAX as usize {
+            panic!("too many entities")
         }
     }
 
@@ -741,9 +748,13 @@ impl Entities {
         if let Some(index) = self.pending.pop() {
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
+
+            // SAFETY: It was in pending, so it exists.
+            let meta = unsafe { self.get_by_id(index).debug_checked_unwrap() };
+            Entity::from_raw_and_generation(index, meta.generation)
         } else {
-            let index = u32::try_from(self.meta.len()).expect("too many entities");
+            self.verify_room_for(1);
+            let index = self.meta.len() as u32;
             self.meta.push(EntityMeta::EMPTY);
             Entity::from_raw(index)
         }
@@ -759,7 +770,7 @@ impl Entities {
     pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
         self.verify_flushed();
 
-        let loc = if entity.index() as usize >= self.meta.len() {
+        let loc = if self.get_by_id(entity.index).is_none() {
             self.pending
                 .extend((self.meta.len() as u32)..entity.index());
             let new_free_cursor = self.pending.len() as IdCursor;
@@ -773,13 +784,14 @@ impl Entities {
             *self.free_cursor.get_mut() = new_free_cursor;
             None
         } else {
-            Some(mem::replace(
-                &mut self.meta[entity.index() as usize].location,
-                EntityMeta::EMPTY.location,
-            ))
+            // SAFETY: we checked above that it existed.
+            let meta = unsafe { self.get_mut_by_id(entity.index()).unwrap_unchecked() };
+            Some(mem::replace(&mut meta.location, EntityMeta::EMPTY.location))
         };
 
-        self.meta[entity.index() as usize].generation = entity.generation;
+        // SAFETY: We just ensured it exists.
+        let meta = unsafe { self.get_mut_by_id(entity.index()).debug_checked_unwrap() };
+        meta.generation = entity.generation;
 
         loc
     }
@@ -800,7 +812,7 @@ impl Entities {
     ) -> AllocAtWithoutReplacement {
         self.verify_flushed();
 
-        let result = if entity.index() as usize >= self.meta.len() {
+        let result = if self.get_by_id(entity.index).is_none() {
             self.pending
                 .extend((self.meta.len() as u32)..entity.index());
             let new_free_cursor = self.pending.len() as IdCursor;
@@ -814,7 +826,8 @@ impl Entities {
             *self.free_cursor.get_mut() = new_free_cursor;
             AllocAtWithoutReplacement::DidNotExist
         } else {
-            let current_meta = &self.meta[entity.index() as usize];
+            // SAFETY: we chucked at the start that it would be some
+            let current_meta = unsafe { self.get_by_id(entity.index()).unwrap_unchecked() };
             if current_meta.location.archetype_id == ArchetypeId::INVALID {
                 AllocAtWithoutReplacement::DidNotExist
             } else if current_meta.generation == entity.generation {
@@ -824,7 +837,9 @@ impl Entities {
             }
         };
 
-        self.meta[entity.index() as usize].generation = entity.generation;
+        // SAFETY: We just ensured it exists.
+        let meta = unsafe { self.get_mut_by_id(entity.index()).debug_checked_unwrap() };
+        meta.generation = entity.generation;
         result
     }
 
@@ -834,7 +849,7 @@ impl Entities {
     pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
         self.verify_flushed();
 
-        let meta = &mut self.meta[entity.index() as usize];
+        let meta = self.get_mut_by_id(entity.index())?;
         if meta.generation != entity.generation {
             return None;
         }
@@ -889,24 +904,21 @@ impl Entities {
     /// Clears all [`Entity`] from the World.
     pub fn clear(&mut self) {
         self.meta.clear();
-        self.pending.clear();
         *self.free_cursor.get_mut() = 0;
+        self.pending.clear();
+        self.remote_entities.clear();
+        self.remote_reservations.0.fetch_and(0, Ordering::Relaxed);
     }
 
     /// Returns the location of an [`Entity`].
     /// Note: for pending entities, returns `None`.
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
-        if let Some(meta) = self.meta.get(entity.index() as usize) {
-            if meta.generation != entity.generation
-                || meta.location.archetype_id == ArchetypeId::INVALID
-            {
-                return None;
-            }
-            Some(meta.location)
-        } else {
-            None
-        }
+        self.get_by_id(entity.index()).and_then(|meta| {
+            (meta.generation == entity.generation
+                && meta.location.archetype_id != ArchetypeId::INVALID)
+                .then_some(meta.location)
+        })
     }
 
     /// Updates the location of an [`Entity`]. This must be called when moving the components of
@@ -919,7 +931,14 @@ impl Entities {
     #[inline]
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
         // SAFETY: Caller guarantees that `index` a valid entity index
-        let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
+        let meta = unsafe {
+            if index as usize > self.meta.len() {
+                self.remote_entities
+                    .get_unchecked_mut((u32::MAX - index) as usize)
+            } else {
+                self.meta.get_unchecked_mut(index as usize)
+            }
+        };
         meta.location = location;
     }
 
@@ -929,17 +948,30 @@ impl Entities {
     ///
     /// Does nothing if no entity with this `index` has been allocated yet.
     pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
-        if (index as usize) >= self.meta.len() {
+        let Some(meta) = self.get_mut_by_id(index) else {
             return false;
-        }
+        };
 
-        let meta = &mut self.meta[index as usize];
         if meta.location.archetype_id == ArchetypeId::INVALID {
             meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, generations);
             true
         } else {
             false
         }
+    }
+
+    #[inline]
+    fn get_by_id(&self, index: u32) -> Option<&EntityMeta> {
+        self.meta
+            .get(index as usize)
+            .or_else(|| self.remote_entities.get((u32::MAX - index) as usize))
+    }
+
+    #[inline]
+    fn get_mut_by_id(&mut self, index: u32) -> Option<&mut EntityMeta> {
+        self.meta
+            .get_mut(index as usize)
+            .or_else(|| self.remote_entities.get_mut((u32::MAX - index) as usize))
     }
 
     /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
@@ -949,8 +981,7 @@ impl Entities {
     /// Note that [`contains`](Entities::contains) will correctly return false for freed
     /// entities, since it checks the generation
     pub fn resolve_from_id(&self, index: u32) -> Option<Entity> {
-        let idu = index as usize;
-        if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
+        if let Some(&EntityMeta { generation, .. }) = self.get_by_id(index) {
             Some(Entity::from_raw_and_generation(index, generation))
         } else {
             // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
@@ -958,11 +989,13 @@ impl Entities {
             // If this entity was manually created, then free_cursor might be positive
             // Returning None handles that case correctly
             let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then_some(Entity::from_raw(index))
+            ((index as usize) < self.meta.len() + num_pending).then_some(Entity::from_raw(index))
         }
     }
 
     fn needs_flush(&mut self) -> bool {
+        // we don't check [`Self::remote_reservations`] since that may have changed at any time.
+        // we never *need* to flush those; it doesn't affect soundness of *being* flushed.
         *self.free_cursor.get_mut() != self.pending.len() as IdCursor
     }
 
@@ -1027,7 +1060,7 @@ impl Entities {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn total_count(&self) -> usize {
-        self.meta.len()
+        self.meta.len() + self.remote_entities.len()
     }
 
     /// The count of all entities in the [`World`] that are used,
