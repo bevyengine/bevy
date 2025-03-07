@@ -974,7 +974,7 @@ impl Entities {
     }
 
     /// The count of all entities in the [`World`] that are used,
-    /// indluding both those allocated and those reserved, but not those freed.
+    /// including both those allocated and those reserved, but not those freed.
     ///
     /// [`World`]: crate::world::World
     #[inline]
