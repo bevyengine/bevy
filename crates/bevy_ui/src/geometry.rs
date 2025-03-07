@@ -734,7 +734,7 @@ impl RelativeVal {
 
 impl Default for RelativeVal {
     fn default() -> Self {
-        RelativeVal::Center(Val::Auto)
+        RelativeVal::Center(Val::ZERO)
     }
 }
 
