@@ -97,12 +97,16 @@ mod vertex_attributes;
 
 extern crate alloc;
 
+use std::sync::{Arc, Mutex};
+
 use bevy_platform_support::collections::HashMap;
 
 use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
-use bevy_image::CompressedImageFormats;
-use bevy_render::{mesh::MeshVertexAttribute, renderer::RenderDevice};
+use bevy_image::{CompressedImageFormats, ImageSamplerDescriptor};
+use bevy_render::{
+    mesh::MeshVertexAttribute, renderer::RenderDevice, texture::DefaultImageSamplerDescriptor,
+};
 
 /// The glTF prelude.
 ///
@@ -156,9 +160,15 @@ impl Plugin for GltfPlugin {
             Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
             None => CompressedImageFormats::NONE,
         };
+        let default_sampler = match app.world().get_resource::<DefaultImageSamplerDescriptor>() {
+            Some(resource) => resource.get_mutex(),
+            // Probably should drop a WARN here.
+            None => Arc::new(Mutex::new(ImageSamplerDescriptor::default())),
+        };
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
+            default_sampler,
         });
     }
 }
