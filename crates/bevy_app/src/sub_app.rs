@@ -496,7 +496,7 @@ pub struct SubApps {
     /// Other, labeled sub-apps.
     pub sub_apps: HashMap<InternedAppLabel, SubApp>,
     /// The function called by [`update`](SubApps::update) to update all subapps in the collection.
-    /// Replacing the update function can be used to customize how and when [SubApp::update] and [SubApp::extract] are called.
+    /// Replacing the update function can be used to customize how and when [`SubApp::update`] and [`SubApp::extract`] are called.
     pub update_fn: Option<UpdateFn>,
 }
 
@@ -543,7 +543,7 @@ impl Default for SubApps {
 /// Calls [`update`](SubApp::update) for the main sub-app, and then calls
 /// [`extract`](SubApp::extract) and [`update`](SubApp::update) for the rest.
 ///
-/// This serves as the default for [SubApps::update] if none is provided.
+/// This serves as the default for [`SubApps::update`] if none is provided.
 pub fn update_subapps(sub_apps: &mut SubApps) {
     #[cfg(feature = "trace")]
     let _bevy_update_span = info_span!("update").entered();

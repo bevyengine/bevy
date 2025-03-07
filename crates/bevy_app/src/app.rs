@@ -157,7 +157,7 @@ impl App {
         self.sub_apps.update();
     }
 
-    /// Sets the update function to use for [`update`](Self::update) on the [SubApps] collection to the provided function.
+    /// Sets the update function to use for [`update`](Self::update) on the [`SubApps`] collection to the provided function.
     pub fn set_update_fn(&mut self, func: impl Fn(&mut SubApps) + 'static) {
         self.sub_apps.update_fn = Some(Box::new(func));
     }
@@ -1441,8 +1441,8 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use core::marker::PhantomData;
-    use std::sync::Mutex;
+    use core::{marker::PhantomData, sync::atomic::AtomicBool};
+    use std::{boxed::Box, sync::Mutex};
 
     use bevy_ecs::{
         change_detection::{DetectChanges, ResMut},
@@ -1847,5 +1847,24 @@ mod tests {
         let test_events = app.world().resource::<Events<TestEvent>>();
         assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
         assert_eq!(test_events.iter_current_update_events().count(), 0);
+    }
+
+    #[test]
+    fn custom_update_fn_invoked() {
+        let invocation_check = &*Box::leak(Box::new(AtomicBool::new(false)));
+
+        let mut app = App::new();
+
+        app.set_update_fn(|_sub_apps| {
+            invocation_check.fetch_or(true, core::sync::atomic::Ordering::SeqCst);
+        });
+
+        app.update();
+
+        assert_eq!(
+            invocation_check.load(core::sync::atomic::Ordering::SeqCst),
+            true,
+            "Failed to run the app's custom update function."
+        );
     }
 }
