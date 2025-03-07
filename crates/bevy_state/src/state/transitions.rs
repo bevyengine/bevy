@@ -2,7 +2,7 @@ use core::{marker::PhantomData, mem};
 
 use bevy_ecs::{
     event::{Event, EventReader, EventWriter},
-    schedule::{IntoNodeConfigs, Schedule, ScheduleLabel, Schedules, SystemSet},
+    schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, Schedules, SystemSet},
     system::{Commands, In, ResMut},
     world::World,
 };

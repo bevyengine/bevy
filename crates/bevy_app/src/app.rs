@@ -302,7 +302,7 @@ impl App {
     pub fn add_systems<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        systems: impl IntoNodeConfigs<ScheduleSystem, M>,
+        systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
     ) -> &mut Self {
         self.main_mut().add_systems(schedule, systems);
         self
@@ -333,7 +333,7 @@ impl App {
     pub fn configure_sets<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        sets: impl IntoNodeConfigs<InternedSystemSet, M>,
+        sets: impl IntoScheduleConfigs<InternedSystemSet, M>,
     ) -> &mut Self {
         self.main_mut().configure_sets(schedule, sets);
         self
@@ -1446,7 +1446,7 @@ mod tests {
         query::With,
         removal_detection::RemovedComponents,
         resource::Resource,
-        schedule::{IntoNodeConfigs, ScheduleLabel},
+        schedule::{IntoScheduleConfigs, ScheduleLabel},
         system::{Commands, Query},
         world::{FromWorld, World},
     };

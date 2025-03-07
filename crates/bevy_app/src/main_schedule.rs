@@ -3,7 +3,7 @@ use alloc::{vec, vec::Vec};
 use bevy_ecs::{
     resource::Resource,
     schedule::{
-        ExecutorKind, InternedScheduleLabel, IntoNodeConfigs, Schedule, ScheduleLabel, SystemSet,
+        ExecutorKind, InternedScheduleLabel, IntoScheduleConfigs, Schedule, ScheduleLabel, SystemSet,
     },
     system::Local,
     world::{Mut, World},
@@ -315,7 +315,7 @@ impl Plugin for MainSchedulePlugin {
 
         #[cfg(feature = "bevy_debug_stepping")]
         {
-            use bevy_ecs::schedule::{IntoNodeConfigs, Stepping};
+            use bevy_ecs::schedule::{IntoScheduleConfigs, Stepping};
             app.add_systems(Main, Stepping::begin_frame.before(Main::run_main));
         }
     }

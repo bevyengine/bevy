@@ -21,7 +21,7 @@ use core::hash::Hash;
 ///
 /// ```
 /// use bevy_state::prelude::*;
-/// use bevy_ecs::prelude::IntoNodeConfigs;
+/// use bevy_ecs::prelude::IntoScheduleConfigs;
 /// use bevy_ecs::system::{ResMut, ScheduleSystem};
 ///
 ///
@@ -46,7 +46,7 @@ use core::hash::Hash;
 ///
 /// # struct AppMock;
 /// # impl AppMock {
-/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoNodeConfigs<ScheduleSystem, M>) {}
+/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoScheduleConfigs<ScheduleSystem, M>) {}
 /// # }
 /// # struct Update;
 /// # let mut app = AppMock;

@@ -1267,7 +1267,7 @@ mod tests {
     use crate::{
         change_detection::ResMut,
         component::Component,
-        schedule::{IntoNodeConfigs, Schedule},
+        schedule::{IntoScheduleConfigs, Schedule},
         system::Local,
         world::World,
     };

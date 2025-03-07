@@ -173,7 +173,7 @@ impl Schedules {
     pub fn add_systems<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        systems: impl IntoNodeConfigs<ScheduleSystem, M>,
+        systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
     ) -> &mut Self {
         self.entry(schedule).add_systems(systems);
 
@@ -185,7 +185,7 @@ impl Schedules {
     pub fn configure_sets<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        sets: impl IntoNodeConfigs<InternedSystemSet, M>,
+        sets: impl IntoScheduleConfigs<InternedSystemSet, M>,
     ) -> &mut Self {
         self.entry(schedule).configure_sets(sets);
 
@@ -336,7 +336,7 @@ impl Schedule {
     /// Add a collection of systems to the schedule.
     pub fn add_systems<M>(
         &mut self,
-        systems: impl IntoNodeConfigs<ScheduleSystem, M>,
+        systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
     ) -> &mut Self {
         self.graph.process_configs(systems.into_configs(), false);
         self
@@ -377,7 +377,7 @@ impl Schedule {
     #[track_caller]
     pub fn configure_sets<M>(
         &mut self,
-        sets: impl IntoNodeConfigs<InternedSystemSet, M>,
+        sets: impl IntoScheduleConfigs<InternedSystemSet, M>,
     ) -> &mut Self {
         self.graph.configure_sets(sets);
         self
@@ -849,7 +849,7 @@ impl ScheduleGraph {
         T: ProcessNodeConfig + NodeType<Metadata = GraphInfo, GroupMetadata = Chain>,
     >(
         &mut self,
-        configs: &mut [NodeConfigs<T>],
+        configs: &mut [ScheduleConfigs<T>],
         collective_conditions: Vec<BoxedCondition>,
     ) {
         if !collective_conditions.is_empty() {
@@ -875,19 +875,19 @@ impl ScheduleGraph {
     /// `process_config` is the function which processes each individual config node and returns a corresponding `NodeId`.
     ///
     /// The fields on the returned [`ProcessConfigsResult`] are:
-    /// - `nodes`: a vector of all node ids contained in the nested `NodeConfigs`
+    /// - `nodes`: a vector of all node ids contained in the nested `ScheduleConfigs`
     /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
     #[track_caller]
     fn process_configs<
         T: ProcessNodeConfig + NodeType<Metadata = GraphInfo, GroupMetadata = Chain>,
     >(
         &mut self,
-        configs: NodeConfigs<T>,
+        configs: ScheduleConfigs<T>,
         collect_nodes: bool,
     ) -> ProcessConfigsResult {
         match configs {
-            NodeConfigs::NodeConfig(config) => self.process_config(config, collect_nodes),
-            NodeConfigs::Configs {
+            ScheduleConfigs::NodeConfig(config) => self.process_config(config, collect_nodes),
+            ScheduleConfigs::Configs {
                 metadata,
                 mut configs,
                 collective_conditions,
@@ -983,7 +983,7 @@ impl ScheduleGraph {
     }
 
     #[track_caller]
-    fn configure_sets<M>(&mut self, sets: impl IntoNodeConfigs<InternedSystemSet, M>) {
+    fn configure_sets<M>(&mut self, sets: impl IntoScheduleConfigs<InternedSystemSet, M>) {
         self.process_configs(sets.into_configs(), false);
     }
 
@@ -1561,7 +1561,7 @@ impl ScheduleGraph {
 
 /// Values returned by [`ScheduleGraph::process_configs`]
 struct ProcessConfigsResult {
-    /// All nodes contained inside this `process_configs` call's [`NodeConfigs`] hierarchy,
+    /// All nodes contained inside this `process_configs` call's [`ScheduleConfigs`] hierarchy,
     /// if `ancestor_chained` is true
     nodes: Vec<NodeId>,
     /// True if and only if all nodes are "densely chained", meaning that all nested nodes
@@ -2073,7 +2073,9 @@ mod tests {
 
     use crate::{
         prelude::{ApplyDeferred, Res, Resource},
-        schedule::{tests::ResMut, IntoNodeConfigs, Schedule, ScheduleBuildSettings, SystemSet},
+        schedule::{
+            tests::ResMut, IntoScheduleConfigs, Schedule, ScheduleBuildSettings, SystemSet,
+        },
         system::Commands,
         world::World,
     };

@@ -69,7 +69,7 @@ use bevy_ecs::{
     entity::Entity,
     query::Has,
     reflect::ReflectComponent,
-    schedule::IntoNodeConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};

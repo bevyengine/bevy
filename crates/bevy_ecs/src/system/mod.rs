@@ -341,7 +341,7 @@ mod tests {
         removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
-            common_conditions::resource_exists, ApplyDeferred, Condition, IntoNodeConfigs, Schedule,
+            common_conditions::resource_exists, ApplyDeferred, Condition, IntoScheduleConfigs, Schedule,
         },
         system::{
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
@@ -390,7 +390,7 @@ mod tests {
         system.run((), &mut world);
     }
 
-    fn run_system<Marker, S: IntoNodeConfigs<ScheduleSystem, Marker>>(
+    fn run_system<Marker, S: IntoScheduleConfigs<ScheduleSystem, Marker>>(
         world: &mut World,
         system: S,
     ) {

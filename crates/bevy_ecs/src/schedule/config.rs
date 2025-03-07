@@ -40,7 +40,7 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: InternedSystemSet) {
 pub trait NodeType {
     /// Additional data used to configure a node. Stored in [`NodeConfig`].
     type Metadata;
-    /// Additional data used to configure a group of nodes. Stored in [`NodeConfigs`].
+    /// Additional data used to configure a group of nodes. Stored in [`ScheduleConfigs`].
     type GroupMetadata;
 
     /// Initializes a configuration from this node.
@@ -97,13 +97,13 @@ pub struct NodeConfig<T: NodeType> {
 }
 
 /// A collections of generic [`NodeConfig`]s.
-pub enum NodeConfigs<T: NodeType> {
+pub enum ScheduleConfigs<T: NodeType> {
     /// Configuration for a single node.
     NodeConfig(NodeConfig<T>),
     /// Configuration for a tuple of nested `Configs` instances.
     Configs {
         /// Configuration for each element of the tuple.
-        configs: Vec<NodeConfigs<T>>,
+        configs: Vec<ScheduleConfigs<T>>,
         /// Run conditions applied to everything in the tuple.
         collective_conditions: Vec<BoxedCondition>,
         /// Metadata to be applied to all elements in the tuple.
@@ -111,7 +111,7 @@ pub enum NodeConfigs<T: NodeType> {
     },
 }
 
-impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> NodeConfigs<T> {
+impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T> {
     /// Adds a new boxed system set to the systems.
     pub fn in_set_inner(&mut self, set: InternedSystemSet) {
         match self {
@@ -268,7 +268,7 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> NodeConfigs<T> {
     }
 }
 
-/// Types that can convert into a [`NodeConfigs`].
+/// Types that can convert into a [`ScheduleConfigs`].
 ///
 /// This trait is implemented for "systems" (functions whose arguments all implement
 /// [`SystemParam`](crate::system::SystemParam)), or tuples thereof.
@@ -278,19 +278,19 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> NodeConfigs<T> {
 ///
 /// This trait should only be used as a bound for trait implementations or as an
 /// argument to a function. If system configs need to be returned from a
-/// function or stored somewhere, use [`NodeConfigs`] instead of this trait.
+/// function or stored somewhere, use [`ScheduleConfigs`] instead of this trait.
 ///
 /// # Examples
 ///
 /// ```
-/// # use bevy_ecs::{schedule::IntoNodeConfigs, system::ScheduleSystem};
+/// # use bevy_ecs::{schedule::IntoScheduleConfigs, system::ScheduleSystem};
 /// # struct AppMock;
 /// # struct Update;
 /// # impl AppMock {
 /// #     pub fn add_systems<M>(
 /// #         &mut self,
 /// #         schedule: Update,
-/// #         systems: impl IntoNodeConfigs<ScheduleSystem, M>,
+/// #         systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
 /// #    ) -> &mut Self { self }
 /// # }
 /// # let mut app = AppMock;
@@ -312,15 +312,15 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> NodeConfigs<T> {
     message = "`{Self}` does not describe a valid system configuration",
     label = "invalid system configuration"
 )]
-pub trait IntoNodeConfigs<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>, Marker>:
+pub trait IntoScheduleConfigs<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>, Marker>:
     Sized
 {
-    /// Convert into a [`NodeConfigs`].
-    fn into_configs(self) -> NodeConfigs<T>;
+    /// Convert into a [`ScheduleConfigs`].
+    fn into_configs(self) -> ScheduleConfigs<T>;
 
     /// Add these systems to the provided `set`.
     #[track_caller]
-    fn in_set(self, set: impl SystemSet) -> NodeConfigs<T> {
+    fn in_set(self, set: impl SystemSet) -> ScheduleConfigs<T> {
         self.into_configs().in_set(set)
     }
 
@@ -332,7 +332,7 @@ pub trait IntoNodeConfigs<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chai
     ///
     /// Calling [`.chain`](Self::chain) is often more convenient and ensures that all systems are added to the schedule.
     /// Please check the [caveats section of `.after`](Self::after) for details.
-    fn before<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T> {
+    fn before<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
         self.into_configs().before(set)
     }
 
@@ -359,7 +359,7 @@ pub trait IntoNodeConfigs<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chai
     /// any ordering calls between them—whether using `.before`, `.after`, or `.chain`—will be silently ignored.
     ///
     /// [`configure_sets`]: https://docs.rs/bevy/latest/bevy/app/struct.App.html#method.configure_sets
-    fn after<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T> {
+    fn after<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
         self.into_configs().after(set)
     }
 
@@ -367,7 +367,7 @@ pub trait IntoNodeConfigs<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chai
     ///
     /// Unlike [`before`](Self::before), this will not cause the systems in
     /// `set` to wait for the deferred effects of `self` to be applied.
-    fn before_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T> {
+    fn before_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
         self.into_configs().before_ignore_deferred(set)
     }
 
@@ -375,7 +375,7 @@ pub trait IntoNodeConfigs<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chai
     ///
     /// Unlike [`after`](Self::after), this will not wait for the deferred
     /// effects of systems in `set` to be applied.
-    fn after_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T> {
+    fn after_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
         self.into_configs().after_ignore_deferred(set)
     }
 
@@ -387,7 +387,7 @@ pub trait IntoNodeConfigs<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chai
     /// Each individual condition will be evaluated at most once (per schedule run),
     /// right before the corresponding system prepares to run.
     ///
-    /// This is equivalent to calling [`run_if`](IntoNodeConfigs::run_if) on each individual
+    /// This is equivalent to calling [`run_if`](IntoScheduleConfigs::run_if) on each individual
     /// system, as shown below:
     ///
     /// ```
@@ -406,10 +406,10 @@ pub trait IntoNodeConfigs<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chai
     /// that all evaluations in a single schedule run will yield the same result. If another
     /// system is run inbetween two evaluations it could cause the result of the condition to change.
     ///
-    /// Use [`run_if`](NodeConfigs::run_if) on a [`SystemSet`] if you want to make sure
+    /// Use [`run_if`](ScheduleConfigs::run_if) on a [`SystemSet`] if you want to make sure
     /// that either all or none of the systems are run, or you don't want to evaluate the run
     /// condition for each contained system separately.
-    fn distributive_run_if<M>(self, condition: impl Condition<M> + Clone) -> NodeConfigs<T> {
+    fn distributive_run_if<M>(self, condition: impl Condition<M> + Clone) -> ScheduleConfigs<T> {
         self.into_configs().distributive_run_if(condition)
     }
 
@@ -441,21 +441,21 @@ pub trait IntoNodeConfigs<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chai
     /// is upheld after the first system has run. You need to make sure that no other systems that
     /// could invalidate the condition are scheduled inbetween the first and last run system.
     ///
-    /// Use [`distributive_run_if`](IntoNodeConfigs::distributive_run_if) if you want the
+    /// Use [`distributive_run_if`](IntoScheduleConfigs::distributive_run_if) if you want the
     /// condition to be evaluated for each individual system, right before one is run.
-    fn run_if<M>(self, condition: impl Condition<M>) -> NodeConfigs<T> {
+    fn run_if<M>(self, condition: impl Condition<M>) -> ScheduleConfigs<T> {
         self.into_configs().run_if(condition)
     }
 
     /// Suppress warnings and errors that would result from these systems having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
-    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T> {
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
         self.into_configs().ambiguous_with(set)
     }
 
     /// Suppress warnings and errors that would result from these systems having ambiguities
     /// (conflicting access but indeterminate order) with any other system.
-    fn ambiguous_with_all(self) -> NodeConfigs<T> {
+    fn ambiguous_with_all(self) -> ScheduleConfigs<T> {
         self.into_configs().ambiguous_with_all()
     }
 
@@ -466,7 +466,7 @@ pub trait IntoNodeConfigs<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chai
     /// If the preceding node on an edge has deferred parameters, an [`ApplyDeferred`](crate::schedule::ApplyDeferred)
     /// will be inserted on the edge. If this behavior is not desired consider using
     /// [`chain_ignore_deferred`](Self::chain_ignore_deferred) instead.
-    fn chain(self) -> NodeConfigs<T> {
+    fn chain(self) -> ScheduleConfigs<T> {
         self.into_configs().chain()
     }
 
@@ -475,13 +475,13 @@ pub trait IntoNodeConfigs<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chai
     /// Ordering constraints will be applied between the successive elements.
     ///
     /// Unlike [`chain`](Self::chain) this will **not** add [`ApplyDeferred`](crate::schedule::ApplyDeferred) on the edges.
-    fn chain_ignore_deferred(self) -> NodeConfigs<T> {
+    fn chain_ignore_deferred(self) -> ScheduleConfigs<T> {
         self.into_configs().chain_ignore_deferred()
     }
 }
 
-impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> IntoNodeConfigs<T, ()>
-    for NodeConfigs<T>
+impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleConfigs<T, ()>
+    for ScheduleConfigs<T>
 {
     fn into_configs(self) -> Self {
         self
@@ -523,12 +523,15 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> IntoNodeConfigs<T
         self
     }
 
-    fn distributive_run_if<M>(mut self, condition: impl Condition<M> + Clone) -> NodeConfigs<T> {
+    fn distributive_run_if<M>(
+        mut self,
+        condition: impl Condition<M> + Clone,
+    ) -> ScheduleConfigs<T> {
         self.distributive_run_if_inner(condition);
         self
     }
 
-    fn run_if<M>(mut self, condition: impl Condition<M>) -> NodeConfigs<T> {
+    fn run_if<M>(mut self, condition: impl Condition<M>) -> ScheduleConfigs<T> {
         self.run_if_dyn(new_condition(condition));
         self
     }
@@ -553,43 +556,43 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> IntoNodeConfigs<T
     }
 }
 
-/// Marker component to allow for conflicting implementations of [`IntoNodeConfigs`]
+/// Marker component to allow for conflicting implementations of [`IntoScheduleConfigs`]
 #[doc(hidden)]
 pub struct Infallible;
 
-impl<F, Marker> IntoNodeConfigs<ScheduleSystem, (Infallible, Marker)> for F
+impl<F, Marker> IntoScheduleConfigs<ScheduleSystem, (Infallible, Marker)> for F
 where
     F: IntoSystem<(), (), Marker>,
 {
-    fn into_configs(self) -> NodeConfigs<ScheduleSystem> {
+    fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
         let wrapper = InfallibleSystemWrapper::new(IntoSystem::into_system(self));
-        NodeConfigs::NodeConfig(ScheduleSystem::into_config(Box::new(wrapper)))
+        ScheduleConfigs::NodeConfig(ScheduleSystem::into_config(Box::new(wrapper)))
     }
 }
 
-/// Marker component to allow for conflicting implementations of [`IntoNodeConfigs`]
+/// Marker component to allow for conflicting implementations of [`IntoScheduleConfigs`]
 #[doc(hidden)]
 pub struct Fallible;
 
-impl<F, Marker> IntoNodeConfigs<ScheduleSystem, (Fallible, Marker)> for F
+impl<F, Marker> IntoScheduleConfigs<ScheduleSystem, (Fallible, Marker)> for F
 where
     F: IntoSystem<(), Result, Marker>,
 {
-    fn into_configs(self) -> NodeConfigs<ScheduleSystem> {
+    fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
         let boxed_system = Box::new(IntoSystem::into_system(self));
-        NodeConfigs::NodeConfig(ScheduleSystem::into_config(boxed_system))
+        ScheduleConfigs::NodeConfig(ScheduleSystem::into_config(boxed_system))
     }
 }
 
-impl IntoNodeConfigs<ScheduleSystem, ()> for BoxedSystem<(), Result> {
-    fn into_configs(self) -> NodeConfigs<ScheduleSystem> {
-        NodeConfigs::NodeConfig(ScheduleSystem::into_config(self))
+impl IntoScheduleConfigs<ScheduleSystem, ()> for BoxedSystem<(), Result> {
+    fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
+        ScheduleConfigs::NodeConfig(ScheduleSystem::into_config(self))
     }
 }
 
-impl<S: SystemSet> IntoNodeConfigs<InternedSystemSet, ()> for S {
-    fn into_configs(self) -> NodeConfigs<InternedSystemSet> {
-        NodeConfigs::NodeConfig(InternedSystemSet::into_config(self.intern()))
+impl<S: SystemSet> IntoScheduleConfigs<InternedSystemSet, ()> for S {
+    fn into_configs(self) -> ScheduleConfigs<InternedSystemSet> {
+        ScheduleConfigs::NodeConfig(InternedSystemSet::into_config(self.intern()))
     }
 }
 
@@ -599,9 +602,9 @@ pub struct NodeConfigTupleMarker;
 macro_rules! impl_node_type_collection {
     ($(#[$meta:meta])* $(($param: ident, $sys: ident)),*) => {
         $(#[$meta])*
-        impl<$($param, $sys),*, T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> IntoNodeConfigs<T, (NodeConfigTupleMarker, $($param,)*)> for ($($sys,)*)
+        impl<$($param, $sys),*, T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleConfigs<T, (NodeConfigTupleMarker, $($param,)*)> for ($($sys,)*)
         where
-            $($sys: IntoNodeConfigs<T, $param>),*
+            $($sys: IntoScheduleConfigs<T, $param>),*
         {
             #[expect(
                 clippy::allow_attributes,
@@ -611,9 +614,9 @@ macro_rules! impl_node_type_collection {
                 non_snake_case,
                 reason = "Variable names are provided by the macro caller, not by us."
             )]
-            fn into_configs(self) -> NodeConfigs<T> {
+            fn into_configs(self) -> ScheduleConfigs<T> {
                 let ($($sys,)*) = self;
-                NodeConfigs::Configs {
+                ScheduleConfigs::Configs {
                     metadata: Default::default(),
                     configs: vec![$($sys.into_configs(),)*],
                     collective_conditions: Vec::new(),
