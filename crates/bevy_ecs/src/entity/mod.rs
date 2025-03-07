@@ -611,6 +611,12 @@ impl RemoteEntityReserver {
         unsafe { NonZero::new_unchecked(2) }
     };
 
+    const REMOTE_FIRST_META: EntityMeta = const {
+        let mut default = EntityMeta::EMPTY;
+        default.generation = RemoteEntityReserver::REMOTE_FIRST_GENERATION;
+        default
+    };
+
     /// Reserves an entity that will be allocated in [`Entities::flush`].
     #[expect(
         clippy::allow_attributes,
@@ -1017,28 +1023,50 @@ impl Entities {
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
+        let new_free_cursor = current_free_cursor.max(0);
 
-        let new_free_cursor = if current_free_cursor >= 0 {
-            current_free_cursor as usize
-        } else {
-            let old_meta_len = self.meta.len();
-            let new_meta_len = old_meta_len + -current_free_cursor as usize;
-            self.meta.resize(new_meta_len, EntityMeta::EMPTY);
-            for (index, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
-                init(
-                    Entity::from_raw_and_generation(index as u32, meta.generation),
-                    &mut meta.location,
-                );
-            }
-
-            *free_cursor = 0;
-            0
-        };
-
-        for index in self.pending.drain(new_free_cursor..) {
-            let meta = &mut self.meta[index as usize];
+        // pending
+        for index in self.pending.drain((new_free_cursor as usize)..) {
+            // SAFETY: it was in pending, so it exists
+            let meta = unsafe {
+                // We can't do get_mut_by_id_unchecked because of lifetimes
+                if index as usize > self.meta.len() {
+                    self.remote_entities
+                        .get_unchecked_mut((u32::MAX - index) as usize)
+                } else {
+                    self.meta.get_unchecked_mut(index as usize)
+                }
+            };
             init(
                 Entity::from_raw_and_generation(index, meta.generation),
+                &mut meta.location,
+            );
+        }
+
+        // reserved meta
+        let old_meta_len = self.meta.len();
+        let new_meta_len = old_meta_len + -(current_free_cursor.min(0)) as usize;
+        self.meta.resize(new_meta_len, EntityMeta::EMPTY);
+        for index in old_meta_len..new_meta_len {
+            // SAFETY: we just resized to make the id valid
+            let meta = unsafe { self.meta.get_unchecked_mut(index) };
+            init(
+                Entity::from_raw_and_generation(index as u32, meta.generation),
+                &mut meta.location,
+            );
+        }
+
+        // remote reserved
+        let new_remote_len = self.remote_reservations.0.load(Ordering::Relaxed) as usize;
+        let current_remote_len = self.remote_entities.len();
+        self.verify_room_for(new_remote_len - current_remote_len);
+        self.remote_entities
+            .resize(new_remote_len, RemoteEntityReserver::REMOTE_FIRST_META);
+        for index_in_list in current_remote_len..new_remote_len {
+            // SAFETY: we just resized to make the id valid
+            let meta = unsafe { self.remote_entities.get_unchecked_mut(index_in_list) };
+            init(
+                Entity::from_raw_and_generation(u32::MAX - index_in_list as u32, meta.generation),
                 &mut meta.location,
             );
         }
