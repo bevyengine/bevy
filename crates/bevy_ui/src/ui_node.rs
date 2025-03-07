@@ -2802,15 +2802,19 @@ impl Default for TextShadow {
 pub struct ColorStop {
     /// color
     pub color: Color,
-    /// logical distance along the gradient line
+    /// Logical position along the gradient line.
+    /// Stop positions are relative to the start of the gradient and not other stops.
     pub point: Val,
 }
 
 impl ColorStop {
+    /// create a new color stop
     pub fn new(color: Color, point: Val) -> Self {
         Self { color, point }
     }
 
+    /// An automatic color stop.
+    /// The position of the stop
     pub fn auto(color: Color) -> Self {
         Self {
             color,
@@ -2853,6 +2857,9 @@ impl Default for ColorStop {
 )]
 pub struct AngularColorStop {
     pub color: Color,
+    /// The angle of the stop.
+    /// Angles are relative to the start of the gradient and not other stops.
+    /// If set to `None` the angle of the stop will be interpolated between the explicit stops or 0 and 2 PI degrees if there no explicit stops.
     pub angle: Option<f32>,
 }
 
@@ -2894,13 +2901,21 @@ pub enum Gradient {
 }
 
 impl Gradient {
+    /// A linear gradient transitioning from bottom to top
     pub const TO_TOP: f32 = 0.;
+    /// A linear gradient transitioning from bottom-left to top-right
     pub const TO_TOP_RIGHT: f32 = TAU / 8.;
+    /// A linear gradient transitioning from left to right
     pub const TO_RIGHT: f32 = 2. * Self::TO_TOP_RIGHT;
+    /// A linear gradient transitioning from top-left to bottom-right
     pub const TO_BOTTOM_RIGHT: f32 = 3. * Self::TO_TOP_RIGHT;
+    /// A linear gradient transitioning from top to bottom
     pub const TO_BOTTOM: f32 = 4. * Self::TO_TOP_RIGHT;
+    /// A linear gradient transitioning from top-right to bottom-left
     pub const TO_BOTTOM_LEFT: f32 = 5. * Self::TO_TOP_RIGHT;
+    /// A linear gradient transitioning from right to left
     pub const TO_LEFT: f32 = 6. * Self::TO_TOP_RIGHT;
+    /// A linear gradient transitioning from bottom-right to top-left
     pub const TO_TOP_LEFT: f32 = 7. * Self::TO_TOP_RIGHT;
 
     /// Returns true if the gradient has no stops.
@@ -2931,7 +2946,7 @@ impl Gradient {
         }
     }
 
-    /// A linear gradient transtioning from bottom left to top right
+    /// A linear gradient transtioning from bottom-left to top-right
     pub fn linear_to_top_right(stops: Vec<ColorStop>) -> Gradient {
         Self::Linear {
             angle: Self::TO_TOP_RIGHT,
@@ -2947,7 +2962,7 @@ impl Gradient {
         }
     }
 
-    /// A linear gradient transtioning from top left to bottom right
+    /// A linear gradient transtioning from top-left to bottom right
     pub fn linear_to_bottom_right(stops: Vec<ColorStop>) -> Gradient {
         Self::Linear {
             angle: Self::TO_BOTTOM_RIGHT,
@@ -2963,7 +2978,7 @@ impl Gradient {
         }
     }
 
-    /// A linear gradient transtioning from top right to bottom left
+    /// A linear gradient transtioning from top-right to bottom-left
     pub fn linear_to_bottom_left(stops: Vec<ColorStop>) -> Gradient {
         Self::Linear {
             angle: Self::TO_BOTTOM_LEFT,
@@ -2971,7 +2986,7 @@ impl Gradient {
         }
     }
 
-    /// A linear gradient transtioning from right to left
+    /// A linear gradient transtioning from right-to-left
     pub fn linear_to_left(stops: Vec<ColorStop>) -> Gradient {
         Self::Linear {
             angle: Self::TO_LEFT,
@@ -2979,7 +2994,7 @@ impl Gradient {
         }
     }
 
-    /// A linear gradient transtioning from bottom right to top left
+    /// A linear gradient transtioning from bottom-right to top-left
     pub fn linear_to_top_left(stops: Vec<ColorStop>) -> Gradient {
         Self::Linear {
             angle: Self::TO_TOP_LEFT,
