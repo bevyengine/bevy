@@ -59,7 +59,7 @@ fn setup_grid(mut commands: Commands) {
                     },
                 ))
                 .with_children(|commands| {
-                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
                     commands.spawn((
                         Node {
                             width: Val::Px(100.),
@@ -87,7 +87,7 @@ fn setup_grid(mut commands: Commands) {
                     },
                 ))
                 .with_children(|commands| {
-                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
                     commands.spawn((
                         Node {
                             width: Val::Px(100.),
@@ -115,7 +115,7 @@ fn setup_grid(mut commands: Commands) {
                     },
                 ))
                 .with_children(|commands| {
-                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
                     commands.spawn((
                         Node {
                             width: Val::Px(100.),
@@ -142,7 +142,7 @@ fn setup_grid(mut commands: Commands) {
                     },
                 ))
                 .with_children(|commands| {
-                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
                     commands.spawn((
                         Node {
                             width: Val::Px(100.),
@@ -170,7 +170,7 @@ fn setup_grid(mut commands: Commands) {
                     },
                 ))
                 .with_children(|commands| {
-                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
                     commands.spawn((
                         Node {
                             width: Val::Px(100.),
@@ -198,7 +198,7 @@ fn setup_grid(mut commands: Commands) {
                     },
                 ))
                 .with_children(|commands| {
-                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
                     commands.spawn((
                         Node {
                             width: Val::Px(100.),
@@ -226,7 +226,7 @@ fn setup_grid(mut commands: Commands) {
                     },
                 ))
                 .with_children(|commands| {
-                    commands.spawn((Text(format!("-\n-")), TextFont::from_font_size(10.)));
+                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
                     commands.spawn((
                         Node {
                             width: Val::Px(100.),
