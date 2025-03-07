@@ -16,9 +16,9 @@ use fixedbitset::FixedBitSet;
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
+    error::{BevyError, Result, SystemErrorContext},
     prelude::{IntoSystemSet, SystemSet},
     query::Access,
-    result::{Error, Result, SystemErrorContext},
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
     system::{ScheduleSystem, System, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -33,7 +33,7 @@ pub(super) trait SystemExecutor: Send + Sync {
         schedule: &mut SystemSchedule,
         world: &mut World,
         skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(Error, SystemErrorContext),
+        error_handler: fn(BevyError, SystemErrorContext),
     );
     fn set_apply_final_deferred(&mut self, value: bool);
 }
@@ -265,7 +265,7 @@ mod __rust_begin_short_backtrace {
     use core::hint::black_box;
 
     use crate::{
-        result::Result,
+        error::Result,
         system::{ReadOnlySystem, ScheduleSystem},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };

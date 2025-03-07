@@ -11,6 +11,7 @@ use bevy_reflect::{PartialReflect, TypePath, TypeRegistry};
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
 use bevy_ecs::component::ComponentCloneBehavior;
+use bevy_ecs::relationship::RelationshipInsertHookMode;
 #[cfg(feature = "serialize")]
 use serde::Serialize;
 
@@ -110,10 +111,8 @@ impl DynamicScene {
                     #[expect(unsafe_code, reason = "this is faster")]
                     let component_info =
                         unsafe { world.components().get_info_unchecked(component_id) };
-                    match component_info.clone_behavior() {
-                        ComponentCloneBehavior::Ignore
-                        | ComponentCloneBehavior::RelationshipTarget(_) => continue,
-                        _ => {}
+                    if *component_info.clone_behavior() == ComponentCloneBehavior::Ignore {
+                        continue;
                     }
                 }
 
@@ -123,6 +122,7 @@ impl DynamicScene {
                         component.as_partial_reflect(),
                         &type_registry,
                         mapper,
+                        RelationshipInsertHookMode::Skip,
                     );
                 });
             }
@@ -316,7 +316,7 @@ mod tests {
                 .unwrap()
                 .get::<ChildOf>()
                 .unwrap()
-                .get(),
+                .parent,
             "something about reloading the scene is touching entities with the same scene Ids"
         );
         assert_eq!(
@@ -326,7 +326,7 @@ mod tests {
                 .unwrap()
                 .get::<ChildOf>()
                 .unwrap()
-                .get(),
+                .parent,
             "something about reloading the scene is touching components not defined in the scene but on entities defined in the scene"
         );
         assert_eq!(
@@ -336,7 +336,7 @@ mod tests {
                 .unwrap()
                 .get::<ChildOf>()
                 .expect("something is wrong with this test, and the scene components don't have a parent/child relationship")
-                .get(),
+                .parent,
             "something is wrong with this test or the code reloading scenes since the relationship between scene entities is broken"
         );
     }

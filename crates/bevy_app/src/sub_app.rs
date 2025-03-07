@@ -1,6 +1,7 @@
 use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
+    error::{DefaultSystemErrorHandler, SystemErrorContext},
     event::EventRegistry,
     prelude::*,
     result::{DefaultSystemErrorHandler, SystemErrorContext},
@@ -342,7 +343,7 @@ impl SubApp {
     /// for more information.
     pub fn set_system_error_handler(
         &mut self,
-        error_handler: fn(Error, SystemErrorContext),
+        error_handler: fn(BevyError, SystemErrorContext),
     ) -> &mut Self {
         let mut default_handler = self
             .world_mut()
