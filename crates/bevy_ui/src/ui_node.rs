@@ -2873,29 +2873,32 @@ pub struct AngularColorStop {
 pub enum Gradient {
     /// A linear gradient
     ///
-    /// https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/linear-gradient
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/linear-gradient>
     Linear {
         /// The direction of the gradient.
         /// An angle of `0.` points upward, angles increasing clockwise.
         angle: f32,
+        /// The list of color stops
         stops: Vec<ColorStop>,
     },
     /// A radial gradient
     ///
-    /// https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient>
     Radial {
         /// The center of the radial gradient
         position: RelativePosition,
         /// Defines the end shape of the radial gradient
         shape: RadialGradientShape,
+        /// The list of color stops
         stops: Vec<ColorStop>,
     },
     /// A conic gradient
     ///
-    /// https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient>
     Conic {
         /// The center of the conic gradient
         position: RelativePosition,
+        /// The list of color stops
         stops: Vec<AngularColorStop>,
     },
 }
