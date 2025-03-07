@@ -116,7 +116,7 @@ type RemoteInner = u64;
 /// do not. This fallback allows compilation using a 32-bit cursor instead, with
 /// the caveat that some conversions may fail (and panic) at runtime.
 #[cfg(not(target_has_atomic = "64"))]
-use bevy_platform_support::sync::atomic::AtomicUsize as AtomicUdCursor;
+use bevy_platform_support::sync::atomic::AtomicUsize as RemoteIdCursor;
 #[cfg(not(target_has_atomic = "64"))]
 type RemoteInner = usize;
 
