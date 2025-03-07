@@ -4,18 +4,15 @@ use bevy_ecs::{
     system::{ResMut, SystemParam, SystemParamItem},
 };
 use bytemuck::Pod;
+use gpu_preprocessing::UntypedPhaseIndirectParametersBuffers;
 use nonmax::NonMaxU32;
 
-use self::gpu_preprocessing::IndirectParametersBuffers;
 use crate::{
     render_phase::{
-        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, SortedPhaseItem,
-        SortedRenderPhase, ViewBinnedRenderPhases,
+        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItemExtraIndex,
+        SortedPhaseItem, SortedRenderPhase, ViewBinnedRenderPhases,
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
-};
-use crate::{
-    render_phase::{InputUniformIndex, PhaseItemExtraIndex},
     sync_world::MainEntity,
 };
 
@@ -151,14 +148,12 @@ pub trait GetFullBatchData: GetBatchData {
         query_item: MainEntity,
     ) -> Option<NonMaxU32>;
 
-    /// Writes the [`gpu_preprocessing::IndirectParametersMetadata`] necessary
-    /// to draw this batch into the given metadata buffer at the given index.
+    /// Writes the [`gpu_preprocessing::IndirectParametersGpuMetadata`]
+    /// necessary to draw this batch into the given metadata buffer at the given
+    /// index.
     ///
     /// This is only used if GPU culling is enabled (which requires GPU
     /// preprocessing).
-    ///
-    /// * `mesh_index` describes the index of the first mesh instance in this
-    ///   batch in the `MeshInputUniform` buffer.
     ///
     /// * `indexed` is true if the mesh is indexed or false if it's non-indexed.
     ///
@@ -175,11 +170,10 @@ pub trait GetFullBatchData: GetBatchData {
     /// * `indirect_parameters_offset` is the index in that buffer at which to
     ///   write the metadata.
     fn write_batch_indirect_parameters_metadata(
-        mesh_index: InputUniformIndex,
         indexed: bool,
         base_output_index: u32,
         batch_set_index: Option<NonMaxU32>,
-        indirect_parameters_buffers: &mut IndirectParametersBuffers,
+        indirect_parameters_buffers: &mut UntypedPhaseIndirectParametersBuffers,
         indirect_parameters_offset: u32,
     );
 }
@@ -190,23 +184,9 @@ where
     BPI: BinnedPhaseItem,
 {
     for phase in phases.values_mut() {
-        phase.multidrawable_mesh_keys.clear();
-        phase
-            .multidrawable_mesh_keys
-            .extend(phase.multidrawable_mesh_values.keys().cloned());
-        phase.multidrawable_mesh_keys.sort_unstable();
-
-        phase.batchable_mesh_keys.clear();
-        phase
-            .batchable_mesh_keys
-            .extend(phase.batchable_mesh_values.keys().cloned());
-        phase.batchable_mesh_keys.sort_unstable();
-
-        phase.unbatchable_mesh_keys.clear();
-        phase
-            .unbatchable_mesh_keys
-            .extend(phase.unbatchable_mesh_values.keys().cloned());
-        phase.unbatchable_mesh_keys.sort_unstable();
+        phase.multidrawable_meshes.sort_unstable_keys();
+        phase.batchable_meshes.sort_unstable_keys();
+        phase.unbatchable_meshes.sort_unstable_keys();
     }
 }
 

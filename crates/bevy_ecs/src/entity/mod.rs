@@ -70,6 +70,10 @@ mod unique_slice;
 
 pub use unique_slice::*;
 
+mod unique_array;
+
+pub use unique_array::UniqueEntityArray;
+
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     change_detection::MaybeLocation,
@@ -242,6 +246,9 @@ impl Hash for Entity {
     }
 }
 
+#[deprecated(
+    note = "This is exclusively used with the now deprecated `Entities::alloc_at_without_replacement`."
+)]
 pub(crate) enum AllocAtWithoutReplacement {
     Exists(EntityLocation),
     DidNotExist,
@@ -693,6 +700,9 @@ impl Entities {
     ///
     /// Returns the location of the entity currently using the given ID, if any. Location should be
     /// written immediately.
+    #[deprecated(
+        note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
+    )]
     pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
         self.verify_flushed();
 
@@ -726,6 +736,13 @@ impl Entities {
     /// Allocate a specific entity ID, overwriting its generation.
     ///
     /// Returns the location of the entity currently using the given ID, if any.
+    #[deprecated(
+        note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
+    )]
+    #[expect(
+        deprecated,
+        reason = "We need to support `AllocAtWithoutReplacement` for now."
+    )]
     pub(crate) fn alloc_at_without_replacement(
         &mut self,
         entity: Entity,
@@ -1013,13 +1030,32 @@ impl Entities {
         .map(Option::flatten)
     }
 
-    /// Constructs a message explaining why an entity does not exists, if known.
+    /// Constructs a message explaining why an entity does not exist, if known.
     pub(crate) fn entity_does_not_exist_error_details(
         &self,
-        _entity: Entity,
+        entity: Entity,
     ) -> EntityDoesNotExistDetails {
         EntityDoesNotExistDetails {
-            location: self.entity_get_spawned_or_despawned_by(_entity),
+            location: self.entity_get_spawned_or_despawned_by(entity),
+        }
+    }
+}
+
+/// An error that occurs when a specified [`Entity`] does not exist.
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+#[error("The entity with ID {entity} {details}")]
+pub struct EntityDoesNotExistError {
+    /// The entity's ID.
+    pub entity: Entity,
+    /// Details on why the entity does not exist, if available.
+    pub details: EntityDoesNotExistDetails,
+}
+
+impl EntityDoesNotExistError {
+    pub(crate) fn new(entity: Entity, entities: &Entities) -> Self {
+        Self {
+            entity,
+            details: entities.entity_does_not_exist_error_details(entity),
         }
     }
 }

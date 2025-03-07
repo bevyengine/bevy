@@ -358,6 +358,7 @@ mod render_entities_world_query_impls {
     // SAFETY: Component access of Self::ReadOnly is a subset of Self.
     // Self::ReadOnly matches exactly the same archetypes/tables as Self.
     unsafe impl QueryData for RenderEntity {
+        const IS_READ_ONLY: bool = true;
         type ReadOnly = RenderEntity;
         type Item<'w, 's> = Entity;
 
@@ -465,6 +466,7 @@ mod render_entities_world_query_impls {
     // SAFETY: Component access of Self::ReadOnly is a subset of Self.
     // Self::ReadOnly matches exactly the same archetypes/tables as Self.
     unsafe impl QueryData for MainEntity {
+        const IS_READ_ONLY: bool = true;
         type ReadOnly = MainEntity;
         type Item<'w, 's> = Entity;
 
@@ -555,7 +557,7 @@ mod tests {
         // Only one synchronized entity
         assert!(q.iter(&render_world).count() == 1);
 
-        let render_entity = q.get_single(&render_world).unwrap();
+        let render_entity = q.single(&render_world).unwrap();
         let render_entity_component = main_world.get::<RenderEntity>(main_entity).unwrap();
 
         assert!(render_entity_component.id() == render_entity);

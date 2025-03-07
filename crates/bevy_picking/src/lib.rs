@@ -7,7 +7,7 @@
 //! allows you to express more complex interactions, like detecting when a touch input drags a UI
 //! element and drops it on a 3d mesh rendered to a different camera.
 //!
-//! Pointer events bubble up the entity hieararchy and can be used with observers, allowing you to
+//! Pointer events bubble up the entity hierarchy and can be used with observers, allowing you to
 //! succinctly express rich interaction behaviors by attaching pointer callbacks to entities:
 //!
 //! ```rust
@@ -64,7 +64,7 @@
 //!             commands.entity(trigger.target()).despawn();
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Over>>, mut events: EventWriter<Greeting>| {
-//!             events.send(Greeting);
+//!             events.write(Greeting);
 //!         });
 //! }
 //! ```
