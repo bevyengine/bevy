@@ -167,9 +167,9 @@ impl SkinUniforms {
         })
     }
 
-    /// Returns an iterator over all skins in the scene.
-    pub fn all_skins(&self) -> impl Iterator<Item = &MainEntity> {
-        self.skin_uniform_info.keys()
+    /// Returns true if the given entity has a skin.
+    pub fn contains(&self, skin: MainEntity) -> bool {
+        self.skin_uniform_info.contains_key(&skin)
     }
 }
 
@@ -229,12 +229,25 @@ pub fn prepare_skins(
         } else {
             BufferUsages::STORAGE
         } | BufferUsages::COPY_DST;
+
         uniform.current_buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("skin uniform buffer"),
             usage: buffer_usages,
             size: new_size,
             mapped_at_creation: false,
         });
+        uniform.prev_buffer = render_device.create_buffer(&BufferDescriptor {
+            label: Some("skin uniform buffer"),
+            usage: buffer_usages,
+            size: new_size,
+            mapped_at_creation: false,
+        });
+        // TODO: This is wrong. We should be using last frame's data for prev_buffer.
+        render_queue.write_buffer(
+            &uniform.prev_buffer,
+            0,
+            bytemuck::must_cast_slice(&uniform.current_staging_buffer[..]),
+        );
     }
 
     // Write the data from `uniform.current_staging_buffer` into
