@@ -1,7 +1,6 @@
 use super::ShaderDefVal;
 use crate::define_atomic_id;
 use alloc::borrow::Cow;
-use bevy_asset::io::file::FileAssetReader;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
 use core::marker::Copy;
@@ -157,6 +156,7 @@ impl Shader {
         }
     }
 
+    #[cfg(feature = "shader_format_wesl")]
     pub fn from_wesl(source: impl Into<Cow<'static, str>>, path: impl Into<String>) -> Shader {
         let source = source.into();
         let path = path.into();
@@ -168,7 +168,7 @@ impl Shader {
                 // Resolve and normalize the path
                 let asset_path = asset_path.canonicalize().unwrap_or(asset_path);
                 // Strip the asset root
-                let mut base_path = FileAssetReader::get_base_path();
+                let mut base_path = bevy_asset::io::file::FileAssetReader::get_base_path();
                 // TODO: integrate better with the asset system rather than hard coding this
                 base_path.push("assets");
                 let asset_path = asset_path
