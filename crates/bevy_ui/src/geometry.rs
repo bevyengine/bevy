@@ -699,7 +699,7 @@ impl Default for UiRect {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-/// A `Val` that represents a displacment relative to the edges of a UI node.
+/// A `Val` that represents a displacement relative to the edges of a UI node.
 pub enum RelativeVal {
     Start(Val),
     Center(Val),
