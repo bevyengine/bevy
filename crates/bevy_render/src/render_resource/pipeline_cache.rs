@@ -440,6 +440,7 @@ impl ShaderCache {
             }
         }
 
+        #[cfg(feature = "shader_format_wesl")]
         if let Source::Wesl(_) = shader.source {
             if let ShaderImport::AssetPath(path) = shader.import_path() {
                 self.asset_paths
