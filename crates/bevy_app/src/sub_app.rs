@@ -4,7 +4,6 @@ use bevy_ecs::{
     error::{DefaultSystemErrorHandler, SystemErrorContext},
     event::EventRegistry,
     prelude::*,
-    result::{DefaultSystemErrorHandler, SystemErrorContext},
     schedule::{InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
     system::{ScheduleSystem, SystemId, SystemInput},
 };

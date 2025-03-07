@@ -14,7 +14,6 @@ use bevy_ecs::{
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
-    result::{Error, SystemErrorContext},
     schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
 };
