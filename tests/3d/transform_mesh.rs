@@ -70,20 +70,20 @@ fn setup_meshes(
 ) {
     let material = MeshMaterial3d(material_assets.add(StandardMaterial {
         base_color: Color::srgb(0.2, 0.4, 0.2),
-        // Add anisotropy so that tangents affect lighting.
+        // Add anisotropy so that lighting is dependent on tangents.
         anisotropy_rotation: 0.5,
         anisotropy_strength: 1.0,
         ..Default::default()
     }));
 
+    let transform = Transform::from_scale(Vec3::new(1.5, 0.5, 1.0)).with_rotation(
+        Quat::from_axis_angle(Vec3::splat(1.0).normalize(), 135.0_f32.to_radians()),
+    );
+
     let original_mesh = Mesh::from(Sphere::new(1.0))
         .with_computed_normals()
         .with_generated_tangents()
         .unwrap();
-
-    let transform = Transform::from_scale(Vec3::new(1.5, 0.5, 1.0)).with_rotation(
-        Quat::from_axis_angle(Vec3::splat(1.0).normalize(), 135.0_f32.to_radians()),
-    );
 
     let transformed_mesh = original_mesh.clone().transformed_by(transform);
 
