@@ -496,6 +496,7 @@ pub struct SubApps {
     /// Other, labeled sub-apps.
     pub sub_apps: HashMap<InternedAppLabel, SubApp>,
     /// The function called by [`update`](SubApps::update) to update all subapps in the collection.
+    /// Replacing the update function can be used to customize how and when [SubApp::update] and [SubApp::extract] are called.
     pub update_fn: Option<UpdateFn>,
 }
 

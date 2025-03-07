@@ -17,7 +17,7 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, SystemId, SystemInput},
 };
-use bevy_platform_support::collections::HashMap;
+
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
 
@@ -147,13 +147,19 @@ impl App {
         }
     }
 
-    /// Runs the default schedules of all sub-apps (starting with the "main" app) once.
+    /// Runs the app update function, by default this runs the default schedules of all sub-apps (starting with the "main" app) once.
+    /// See [`SubApps::update`].
     pub fn update(&mut self) {
         if self.is_building_plugins() {
             panic!("App::update() was called while a plugin was building.");
         }
 
         self.sub_apps.update();
+    }
+
+    /// Sets the update function to use for [`update`](Self::update) on the [SubApps] collection to the provided function.
+    pub fn set_update_fn(&mut self, func: impl Fn(&mut SubApps) + 'static) {
+        self.sub_apps.update_fn = Some(Box::new(func));
     }
 
     /// Runs the [`App`] by calling its [runner](Self::set_runner).
