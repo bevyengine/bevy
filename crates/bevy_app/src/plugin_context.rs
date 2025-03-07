@@ -42,7 +42,7 @@ impl PluginContext<'_> {
         RefMut::map_split(inner, |inner| (inner.app, &mut inner.progress))
     }
 
-    /// Aquire a lock on the app.
+    /// Acquire a lock on the app.
     #[track_caller]
     pub fn app(&self) -> RefMut<'_, App> {
         self.borrow_mut().0

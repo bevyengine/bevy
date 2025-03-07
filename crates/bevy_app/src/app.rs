@@ -284,7 +284,7 @@ impl App {
                         ctx.borrow_mut().progress = TickProgress::Unknown;
                     }
                     // Run the future.
-                    // This sets progress to `NoProgress` only if it's still unsucessfully waiting
+                    // This sets progress to `NoProgress` only if it's still unsuccessfully waiting
                     // on the app to have the desired state.
                     // Waiting for an external resource is fine.
                     let pending = Future::poll(
