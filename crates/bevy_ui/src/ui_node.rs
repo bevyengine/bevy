@@ -3029,7 +3029,13 @@ impl Gradient {
     reflect(Serialize, Deserialize)
 )]
 /// A UI node that displays a gradient
-pub struct BackgroundGradient(pub Gradient);
+pub struct BackgroundGradient(pub Vec<Gradient>);
+
+impl From<Gradient> for BackgroundGradient {
+    fn from(value: Gradient) -> Self {
+        Self(vec![value])
+    }
+}
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
@@ -3039,7 +3045,13 @@ pub struct BackgroundGradient(pub Gradient);
     reflect(Serialize, Deserialize)
 )]
 /// A UI node border that displays a gradient
-pub struct BorderGradients(pub Gradient);
+pub struct BorderGradient(pub Vec<Gradient>);
+
+impl From<Gradient> for BorderGradient {
+    fn from(value: Gradient) -> Self {
+        Self(vec![value])
+    }
+}
 
 #[cfg(test)]
 mod tests {

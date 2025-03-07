@@ -148,11 +148,11 @@ fn setup(mut commands: Commands) {
                                                     ..default()
                                                 },
                                                 BorderRadius::all(Val::Px(20.)),
-                                                BackgroundGradient(Gradient::Linear {
+                                                BackgroundGradient::from(Gradient::Linear {
                                                     angle,
                                                     stops: stops.clone(),
                                                 }),
-                                                BorderGradients(Gradient::Linear {
+                                                BorderGradient::from(Gradient::Linear {
                                                     angle: 3. * TAU / 8.,
                                                     stops: vec![
                                                         ColorStop {
@@ -182,11 +182,11 @@ fn setup(mut commands: Commands) {
                                 ..default()
                             },
                             BorderRadius::all(Val::Px(20.)),
-                            BackgroundGradient(Gradient::Linear {
+                            BackgroundGradient::from(Gradient::Linear {
                                 angle: 0.,
                                 stops: stops.clone(),
                             }),
-                            BorderGradients(Gradient::Linear {
+                            BorderGradient::from(Gradient::Linear {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![
                                     ColorStop {
@@ -212,12 +212,12 @@ fn setup(mut commands: Commands) {
                                 ..default()
                             },
                             BorderRadius::all(Val::Px(20.)),
-                            BackgroundGradient(Gradient::Radial {
+                            BackgroundGradient::from(Gradient::Radial {
                                 stops: stops.clone(),
                                 position: RelativePosition::center(Val::Px(25.), Val::Px(25.)),
                                 shape: RadialGradientShape::ClosestSide,
                             }),
-                            BorderGradients(Gradient::Linear {
+                            BorderGradient::from(Gradient::Linear {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![
                                     ColorStop {
@@ -242,7 +242,7 @@ fn setup(mut commands: Commands) {
                                 ..default()
                             },
                             BorderRadius::all(Val::Px(20.)),
-                            BackgroundGradient(Gradient::Conic {
+                            BackgroundGradient::from(Gradient::Conic {
                                 stops: stops
                                     .clone()
                                     .into_iter()
@@ -256,7 +256,7 @@ fn setup(mut commands: Commands) {
                                     RelativeVal::Center(Val::ZERO),
                                 ),
                             }),
-                            BorderGradients(Gradient::Linear {
+                            BorderGradient::from(Gradient::Linear {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![
                                     ColorStop {
@@ -282,9 +282,11 @@ fn setup(mut commands: Commands) {
 struct AnimateMarker;
 
 fn update(time: Res<Time>, mut query: Query<&mut BackgroundGradient, With<AnimateMarker>>) {
-    for mut gradient in query.iter_mut() {
-        if let Gradient::Linear { angle, .. } = &mut gradient.0 {
-            *angle += 0.5 * time.delta_secs();
+    for mut gradients in query.iter_mut() {
+        for gradient in gradients.0.iter_mut() {
+            if let Gradient::Linear { angle, .. } = gradient {
+                *angle += 0.5 * time.delta_secs();
+            }
         }
     }
 }

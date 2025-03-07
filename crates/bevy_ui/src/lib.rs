@@ -172,7 +172,7 @@ impl Plugin for UiPlugin {
             .register_type::<TextShadow>()
             .register_type::<Gradient>()
             .register_type::<BackgroundGradient>()
-            .register_type::<BorderGradients>()
+            .register_type::<BorderGradient>()
             .configure_sets(
                 PostUpdate,
                 (

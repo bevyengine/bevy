@@ -3338,13 +3338,13 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "linear_gradients"
-path = "examples/ui/linear_gradients.rs"
+name = "gradients"
+path = "examples/ui/gradients.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.linear_gradients]
-name = "Linear Gradients"
-description = "An example demonstrating linear gradients"
+[package.metadata.example.gradients]
+name = "Gradients"
+description = "An example demonstrating gradients"
 category = "UI (User Interface)"
 wasm = true
 

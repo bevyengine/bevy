@@ -279,7 +279,7 @@ pub fn extract_gradients(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            AnyOf<(&BackgroundGradient, &BorderGradients)>,
+            AnyOf<(&BackgroundGradient, &BorderGradient)>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -306,317 +306,329 @@ pub fn extract_gradients(
             continue;
         };
 
-        for (gradient, node_type) in [
+        for (gradients, node_type) in [
             (gradient.map(|g| &g.0), NodeType::Rect),
             (gradient_border.map(|g| &g.0), NodeType::Border),
         ]
         .iter()
         .filter_map(|(g, n)| g.map(|g| (g, *n)))
         {
-            if gradient.is_empty() {
-                continue;
-            }
-            if let Some(color) = gradient.get_single() {
-                // With a single color stop there's no gradient, fill the node with the color
-                extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    stack_index: uinode.stack_index,
-                    color: color.into(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: uinode.size,
-                    },
-                    image: AssetId::default(),
-                    clip: clip.map(|clip| clip.clip),
-                    extracted_camera_entity,
-                    item: ExtractedUiItem::Node {
-                        atlas_scaling: None,
-                        flip_x: false,
-                        flip_y: false,
-                        border_radius: uinode.border_radius,
-                        border: uinode.border,
-                        node_type,
-                        transform: transform.compute_matrix(),
-                    },
-                    main_entity: entity.into(),
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                });
-                continue;
-            }
-            match gradient {
-                Gradient::Linear { angle, stops } => {
-                    let length =
-                        compute_gradient_line_length(*angle, uinode.size * transform.scale().xy());
-
-                    let range_start = extracted_color_stops.0.len();
-
-                    // resolve the physical distances of explicit stops and sort them
-                    sorted_stops.extend(stops.iter().filter_map(|stop| {
-                        stop.point
-                            .resolve(target.scale_factor, length, target.physical_size.as_vec2())
-                            .ok()
-                            .map(|physical_point| (stop.color.to_linear(), physical_point))
-                    }));
-                    sorted_stops.sort_by_key(|(_, point)| FloatOrd(*point));
-
-                    let min = sorted_stops
-                        .first()
-                        .map(|(_, min)| *min)
-                        .unwrap_or(0.)
-                        .min(0.);
-
-                    // get the position of the last explicit stop and use the full length of the gradient if no explicit stops
-                    let max = sorted_stops
-                        .last()
-                        .map(|(_, max)| *max)
-                        .unwrap_or(length)
-                        .max(length);
-
-                    let mut sorted_stops_drain = sorted_stops.drain(..);
-
-                    // Fill the extracted color stops buffer
-                    extracted_color_stops.0.extend(stops.iter().map(|stop| {
-                        if stop.point == Val::Auto {
-                            (stop.color.to_linear(), f32::NAN)
-                        } else {
-                            sorted_stops_drain.next().unwrap()
-                        }
-                    }));
-
-                    let stops_out = &mut extracted_color_stops.0[range_start..];
-
-                    // Interpolate implicit stops (where position is `f32::NAN`)
-                    // If the first and last stops are implicit set them to the `min` and `max` values
-                    // so that we always have explicit start and end points to interpolate between.
-                    if stops_out[0].1.is_nan() {
-                        stops_out[0].1 = min;
-                    }
-                    if stops_out.last().unwrap().1.is_nan() {
-                        stops_out.last_mut().unwrap().1 = max;
-                    }
-
-                    let mut i = 1;
-
-                    while i < stops_out.len() - 1 {
-                        let point = stops_out[i].1;
-                        if point.is_nan() {
-                            let start = i;
-                            let mut end = i + 1;
-                            while end < stops_out.len() - 1 && stops_out[end].1.is_nan() {
-                                end += 1;
-                            }
-                            let start_point = stops_out[start - 1].1;
-                            let end_point = stops_out[end].1;
-                            let steps = end - start;
-                            let step = (end_point - start_point) / (steps + 1) as f32;
-                            for j in 0..steps {
-                                stops_out[i + j].1 = start_point + step * (j + 1) as f32;
-                            }
-                            i = end;
-                        }
-                        i += 1;
-                    }
-
-                    extracted_gradients.items.push(ExtractedGradient {
-                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                        stack_index: uinode.stack_index,
-                        transform: transform.compute_matrix(),
-                        stops_range: range_start..extracted_color_stops.0.len(),
-                        rect: Rect {
-                            min: Vec2::ZERO,
-                            max: uinode.size,
-                        },
-                        clip: clip.map(|clip| clip.clip),
-                        extracted_camera_entity,
-                        main_entity: entity.into(),
-                        node_type,
-                        border_radius: uinode.border_radius,
-                        border: uinode.border,
-                        resolved_gradient: ResolvedGradient::Linear { angle: *angle },
-                    });
+            for gradient in gradients.iter() {
+                if gradient.is_empty() {
+                    continue;
                 }
-                Gradient::Radial {
-                    position: center,
-                    shape,
-                    stops,
-                } => {
-                    let c = center.resolve(
-                        target.scale_factor,
-                        uinode.size,
-                        target.physical_size.as_vec2(),
-                    );
-
-                    let size = shape.resolve(
-                        c,
-                        target.scale_factor,
-                        uinode.size,
-                        target.physical_size.as_vec2(),
-                    );
-
-                    let length = size.x;
-
-                    let range_start = extracted_color_stops.0.len();
-
-                    // resolve the physical distances of explicit stops and sort them high to low
-                    sorted_stops.extend(stops.iter().filter_map(|stop| {
-                        stop.point
-                            .resolve(target.scale_factor, length, target.physical_size.as_vec2())
-                            .ok()
-                            .map(|point| (stop.color.to_linear(), point))
-                    }));
-                    sorted_stops.sort_by_key(|(_, point)| FloatOrd(*point));
-
-                    let min = sorted_stops
-                        .first()
-                        .map(|(_, min)| *min)
-                        .unwrap_or(0.)
-                        .min(0.);
-
-                    // get the position of the last explicit stop and use the full length of the gradient if no explicit stops
-                    let max = sorted_stops
-                        .last()
-                        .map(|(_, max)| *max)
-                        .unwrap_or(length)
-                        .max(length);
-
-                    let mut sorted_stops_drain = sorted_stops.drain(..);
-
-                    // Fill the extracted color stops buffer
-                    extracted_color_stops.0.extend(stops.iter().map(|stop| {
-                        if stop.point == Val::Auto {
-                            (stop.color.to_linear(), f32::NAN)
-                        } else {
-                            sorted_stops_drain.next().unwrap()
-                        }
-                    }));
-
-                    let stops_out = &mut extracted_color_stops.0[range_start..];
-
-                    // Interpolate implicit stops (where position is `f32::NAN`)
-                    // If the first and last stops are implicit set them to the `min` and `max` values
-                    // so that we always have explicit start and end points to interpolate between.
-                    if stops_out[0].1.is_nan() {
-                        stops_out[0].1 = min;
-                    }
-                    if stops_out.last().unwrap().1.is_nan() {
-                        stops_out.last_mut().unwrap().1 = max;
-                    }
-
-                    let mut i = 1;
-
-                    while i < stops_out.len() - 1 {
-                        let point = stops_out[i].1;
-                        if point.is_nan() {
-                            let start = i;
-                            let mut end = i + 1;
-                            while end < stops_out.len() - 1 && stops_out[end].1.is_nan() {
-                                end += 1;
-                            }
-                            let start_point = stops_out[start - 1].1;
-                            let end_point = stops_out[end].1;
-                            let steps = end - start;
-                            let step = (end_point - start_point) / (steps + 1) as f32;
-                            for j in 0..steps {
-                                stops_out[i + j].1 = start_point + step * (j + 1) as f32;
-                            }
-                            i = end;
-                        }
-                        i += 1;
-                    }
-
-                    extracted_gradients.items.push(ExtractedGradient {
-                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                if let Some(color) = gradient.get_single() {
+                    // With a single color stop there's no gradient, fill the node with the color
+                    extracted_uinodes.uinodes.push(ExtractedUiNode {
                         stack_index: uinode.stack_index,
-                        transform: transform.compute_matrix(),
-                        stops_range: range_start..extracted_color_stops.0.len(),
+                        color: color.into(),
                         rect: Rect {
                             min: Vec2::ZERO,
                             max: uinode.size,
                         },
+                        image: AssetId::default(),
                         clip: clip.map(|clip| clip.clip),
                         extracted_camera_entity,
+                        item: ExtractedUiItem::Node {
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border_radius: uinode.border_radius,
+                            border: uinode.border,
+                            node_type,
+                            transform: transform.compute_matrix(),
+                        },
                         main_entity: entity.into(),
-                        node_type,
-                        border_radius: uinode.border_radius,
-                        border: uinode.border,
-                        resolved_gradient: ResolvedGradient::Radial { center: c, size },
+                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     });
+                    continue;
                 }
-                Gradient::Conic {
-                    position: center,
-                    stops,
-                } => {
-                    let g_start = center.resolve(
-                        target.scale_factor,
-                        uinode.size,
-                        target.physical_size.as_vec2(),
-                    );
-                    let range_start = extracted_color_stops.0.len();
+                match gradient {
+                    Gradient::Linear { angle, stops } => {
+                        let length = compute_gradient_line_length(
+                            *angle,
+                            uinode.size * transform.scale().xy(),
+                        );
 
-                    // sort the explicit stops
-                    sorted_stops.extend(stops.iter().filter_map(|stop| {
-                        stop.angle.map(|angle| (stop.color.to_linear(), angle))
-                    }));
-                    sorted_stops.sort_by_key(|(_, angle)| FloatOrd(*angle));
-                    let mut sorted_stops_drain = sorted_stops.drain(..);
+                        let range_start = extracted_color_stops.0.len();
 
-                    // fill the extracted stops buffer
-                    extracted_color_stops.0.extend(stops.iter().map(|stop| {
-                        if stop.angle.is_none() {
-                            (stop.color.to_linear(), f32::NAN)
-                        } else {
-                            sorted_stops_drain.next().unwrap()
-                        }
-                    }));
+                        // resolve the physical distances of explicit stops and sort them
+                        sorted_stops.extend(stops.iter().filter_map(|stop| {
+                            stop.point
+                                .resolve(
+                                    target.scale_factor,
+                                    length,
+                                    target.physical_size.as_vec2(),
+                                )
+                                .ok()
+                                .map(|physical_point| (stop.color.to_linear(), physical_point))
+                        }));
+                        sorted_stops.sort_by_key(|(_, point)| FloatOrd(*point));
 
-                    // interpolation
-                    let stops_out = &mut extracted_color_stops.0[range_start..];
+                        let min = sorted_stops
+                            .first()
+                            .map(|(_, min)| *min)
+                            .unwrap_or(0.)
+                            .min(0.);
 
-                    if stops_out[0].1.is_nan() {
-                        stops_out[0].1 = 0.;
-                    }
-                    if stops_out.last().unwrap().1.is_nan() {
-                        stops_out.last_mut().unwrap().1 = TAU;
-                    }
+                        // get the position of the last explicit stop and use the full length of the gradient if no explicit stops
+                        let max = sorted_stops
+                            .last()
+                            .map(|(_, max)| *max)
+                            .unwrap_or(length)
+                            .max(length);
 
-                    let mut i = 1;
+                        let mut sorted_stops_drain = sorted_stops.drain(..);
 
-                    while i < stops_out.len() - 1 {
-                        let point = stops_out[i].1;
-                        if point.is_nan() {
-                            let start = i;
-                            let mut end = i + 1;
-                            while end < stops_out.len() - 1 && stops_out[end].1.is_nan() {
-                                end += 1;
+                        // Fill the extracted color stops buffer
+                        extracted_color_stops.0.extend(stops.iter().map(|stop| {
+                            if stop.point == Val::Auto {
+                                (stop.color.to_linear(), f32::NAN)
+                            } else {
+                                sorted_stops_drain.next().unwrap()
                             }
-                            let start_point = stops_out[start - 1].1;
-                            let end_point = stops_out[end].1;
-                            let steps = end - start;
-                            let step = (end_point - start_point) / (steps + 1) as f32;
-                            for j in 0..steps {
-                                stops_out[i + j].1 = start_point + step * (j + 1) as f32;
-                            }
-                            i = end;
-                        }
-                        i += 1;
-                    }
+                        }));
 
-                    extracted_gradients.items.push(ExtractedGradient {
-                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                        stack_index: uinode.stack_index,
-                        transform: transform.compute_matrix(),
-                        stops_range: range_start..extracted_color_stops.0.len(),
-                        rect: Rect {
-                            min: Vec2::ZERO,
-                            max: uinode.size,
-                        },
-                        clip: clip.map(|clip| clip.clip),
-                        extracted_camera_entity,
-                        main_entity: entity.into(),
-                        node_type,
-                        border_radius: uinode.border_radius,
-                        border: uinode.border,
-                        resolved_gradient: ResolvedGradient::Conic { center: g_start },
-                    });
+                        let stops_out = &mut extracted_color_stops.0[range_start..];
+
+                        // Interpolate implicit stops (where position is `f32::NAN`)
+                        // If the first and last stops are implicit set them to the `min` and `max` values
+                        // so that we always have explicit start and end points to interpolate between.
+                        if stops_out[0].1.is_nan() {
+                            stops_out[0].1 = min;
+                        }
+                        if stops_out.last().unwrap().1.is_nan() {
+                            stops_out.last_mut().unwrap().1 = max;
+                        }
+
+                        let mut i = 1;
+
+                        while i < stops_out.len() - 1 {
+                            let point = stops_out[i].1;
+                            if point.is_nan() {
+                                let start = i;
+                                let mut end = i + 1;
+                                while end < stops_out.len() - 1 && stops_out[end].1.is_nan() {
+                                    end += 1;
+                                }
+                                let start_point = stops_out[start - 1].1;
+                                let end_point = stops_out[end].1;
+                                let steps = end - start;
+                                let step = (end_point - start_point) / (steps + 1) as f32;
+                                for j in 0..steps {
+                                    stops_out[i + j].1 = start_point + step * (j + 1) as f32;
+                                }
+                                i = end;
+                            }
+                            i += 1;
+                        }
+
+                        extracted_gradients.items.push(ExtractedGradient {
+                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                            stack_index: uinode.stack_index,
+                            transform: transform.compute_matrix(),
+                            stops_range: range_start..extracted_color_stops.0.len(),
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: uinode.size,
+                            },
+                            clip: clip.map(|clip| clip.clip),
+                            extracted_camera_entity,
+                            main_entity: entity.into(),
+                            node_type,
+                            border_radius: uinode.border_radius,
+                            border: uinode.border,
+                            resolved_gradient: ResolvedGradient::Linear { angle: *angle },
+                        });
+                    }
+                    Gradient::Radial {
+                        position: center,
+                        shape,
+                        stops,
+                    } => {
+                        let c = center.resolve(
+                            target.scale_factor,
+                            uinode.size,
+                            target.physical_size.as_vec2(),
+                        );
+
+                        let size = shape.resolve(
+                            c,
+                            target.scale_factor,
+                            uinode.size,
+                            target.physical_size.as_vec2(),
+                        );
+
+                        let length = size.x;
+
+                        let range_start = extracted_color_stops.0.len();
+
+                        // resolve the physical distances of explicit stops and sort them high to low
+                        sorted_stops.extend(stops.iter().filter_map(|stop| {
+                            stop.point
+                                .resolve(
+                                    target.scale_factor,
+                                    length,
+                                    target.physical_size.as_vec2(),
+                                )
+                                .ok()
+                                .map(|point| (stop.color.to_linear(), point))
+                        }));
+                        sorted_stops.sort_by_key(|(_, point)| FloatOrd(*point));
+
+                        let min = sorted_stops
+                            .first()
+                            .map(|(_, min)| *min)
+                            .unwrap_or(0.)
+                            .min(0.);
+
+                        // get the position of the last explicit stop and use the full length of the gradient if no explicit stops
+                        let max = sorted_stops
+                            .last()
+                            .map(|(_, max)| *max)
+                            .unwrap_or(length)
+                            .max(length);
+
+                        let mut sorted_stops_drain = sorted_stops.drain(..);
+
+                        // Fill the extracted color stops buffer
+                        extracted_color_stops.0.extend(stops.iter().map(|stop| {
+                            if stop.point == Val::Auto {
+                                (stop.color.to_linear(), f32::NAN)
+                            } else {
+                                sorted_stops_drain.next().unwrap()
+                            }
+                        }));
+
+                        let stops_out = &mut extracted_color_stops.0[range_start..];
+
+                        // Interpolate implicit stops (where position is `f32::NAN`)
+                        // If the first and last stops are implicit set them to the `min` and `max` values
+                        // so that we always have explicit start and end points to interpolate between.
+                        if stops_out[0].1.is_nan() {
+                            stops_out[0].1 = min;
+                        }
+                        if stops_out.last().unwrap().1.is_nan() {
+                            stops_out.last_mut().unwrap().1 = max;
+                        }
+
+                        let mut i = 1;
+
+                        while i < stops_out.len() - 1 {
+                            let point = stops_out[i].1;
+                            if point.is_nan() {
+                                let start = i;
+                                let mut end = i + 1;
+                                while end < stops_out.len() - 1 && stops_out[end].1.is_nan() {
+                                    end += 1;
+                                }
+                                let start_point = stops_out[start - 1].1;
+                                let end_point = stops_out[end].1;
+                                let steps = end - start;
+                                let step = (end_point - start_point) / (steps + 1) as f32;
+                                for j in 0..steps {
+                                    stops_out[i + j].1 = start_point + step * (j + 1) as f32;
+                                }
+                                i = end;
+                            }
+                            i += 1;
+                        }
+
+                        extracted_gradients.items.push(ExtractedGradient {
+                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                            stack_index: uinode.stack_index,
+                            transform: transform.compute_matrix(),
+                            stops_range: range_start..extracted_color_stops.0.len(),
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: uinode.size,
+                            },
+                            clip: clip.map(|clip| clip.clip),
+                            extracted_camera_entity,
+                            main_entity: entity.into(),
+                            node_type,
+                            border_radius: uinode.border_radius,
+                            border: uinode.border,
+                            resolved_gradient: ResolvedGradient::Radial { center: c, size },
+                        });
+                    }
+                    Gradient::Conic {
+                        position: center,
+                        stops,
+                    } => {
+                        let g_start = center.resolve(
+                            target.scale_factor,
+                            uinode.size,
+                            target.physical_size.as_vec2(),
+                        );
+                        let range_start = extracted_color_stops.0.len();
+
+                        // sort the explicit stops
+                        sorted_stops.extend(stops.iter().filter_map(|stop| {
+                            stop.angle.map(|angle| (stop.color.to_linear(), angle))
+                        }));
+                        sorted_stops.sort_by_key(|(_, angle)| FloatOrd(*angle));
+                        let mut sorted_stops_drain = sorted_stops.drain(..);
+
+                        // fill the extracted stops buffer
+                        extracted_color_stops.0.extend(stops.iter().map(|stop| {
+                            if stop.angle.is_none() {
+                                (stop.color.to_linear(), f32::NAN)
+                            } else {
+                                sorted_stops_drain.next().unwrap()
+                            }
+                        }));
+
+                        // interpolation
+                        let stops_out = &mut extracted_color_stops.0[range_start..];
+
+                        if stops_out[0].1.is_nan() {
+                            stops_out[0].1 = 0.;
+                        }
+                        if stops_out.last().unwrap().1.is_nan() {
+                            stops_out.last_mut().unwrap().1 = TAU;
+                        }
+
+                        let mut i = 1;
+
+                        while i < stops_out.len() - 1 {
+                            let point = stops_out[i].1;
+                            if point.is_nan() {
+                                let start = i;
+                                let mut end = i + 1;
+                                while end < stops_out.len() - 1 && stops_out[end].1.is_nan() {
+                                    end += 1;
+                                }
+                                let start_point = stops_out[start - 1].1;
+                                let end_point = stops_out[end].1;
+                                let steps = end - start;
+                                let step = (end_point - start_point) / (steps + 1) as f32;
+                                for j in 0..steps {
+                                    stops_out[i + j].1 = start_point + step * (j + 1) as f32;
+                                }
+                                i = end;
+                            }
+                            i += 1;
+                        }
+
+                        extracted_gradients.items.push(ExtractedGradient {
+                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                            stack_index: uinode.stack_index,
+                            transform: transform.compute_matrix(),
+                            stops_range: range_start..extracted_color_stops.0.len(),
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: uinode.size,
+                            },
+                            clip: clip.map(|clip| clip.clip),
+                            extracted_camera_entity,
+                            main_entity: entity.into(),
+                            node_type,
+                            border_radius: uinode.border_radius,
+                            border: uinode.border,
+                            resolved_gradient: ResolvedGradient::Conic { center: g_start },
+                        });
+                    }
                 }
             }
         }
