@@ -3,8 +3,8 @@ use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, Data,
-    DataStruct, DeriveInput, Meta,
+    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, Data, DataStruct,
+    DeriveInput, Meta,
 };
 
 use crate::{
@@ -36,10 +36,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
     let mut attributes = QueryDataAttributes::default();
     for attr in &ast.attrs {
-        if !attr
-            .path()
-            .is_ident(QUERY_DATA_ATTRIBUTE_NAME)
-        {
+        if !attr.path().is_ident(QUERY_DATA_ATTRIBUTE_NAME) {
             continue;
         }
         let result = attr.parse_nested_meta(|meta| {
