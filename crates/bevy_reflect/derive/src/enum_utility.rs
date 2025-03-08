@@ -1,8 +1,10 @@
 use crate::{
     derive_data::ReflectEnum, derive_data::StructField, field_attributes::DefaultBehavior,
-    ident::ident_or_index,
 };
-use bevy_macro_utils::fq_std::{FQDefault, FQOption};
+use bevy_macro_utils::{
+    as_member,
+    fq_std::{FQDefault, FQOption},
+};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 
@@ -149,7 +151,7 @@ pub(crate) trait VariantBuilder: Sized {
             let fields = variant.fields();
 
             let field_constructors = fields.iter().map(|field| {
-                let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                let member = as_member(field.data.ident.as_ref(), field.declaration_index);
                 let alias = format_ident!("_{}", member);
 
                 let variant_field = VariantField {

@@ -10,13 +10,15 @@ mod states;
 mod world_query;
 
 use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
-use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
+use bevy_macro_utils::{
+    as_member, derive_label, ensure_no_collision, get_struct_fields, BevyManifest,
+};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, TypeParam,
+    ConstParam, Data, DataStruct, DeriveInput, GenericParam, Member, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -64,7 +66,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let field = named_fields
         .iter()
-        .map(|field| field.ident.as_ref())
+        .enumerate()
+        .map(|(index, field)| as_member(field.ident.as_ref(), index))
         .collect::<Vec<_>>();
 
     let field_type = named_fields
@@ -77,11 +80,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
     let mut field_required_components = Vec::new();
-    for (((i, field_type), field_kind), field) in field_type
-        .iter()
-        .enumerate()
-        .zip(field_kind.iter())
-        .zip(field.iter())
+    for ((field, field_kind), field_type) in
+        field.iter().zip(field_kind.iter()).zip(field_type.iter())
     {
         match field_kind {
             BundleFieldKind::Component => {
@@ -94,27 +94,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 field_get_component_ids.push(quote! {
                     <#field_type as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);
                 });
-                match field {
-                    Some(field) => {
-                        field_get_components.push(quote! {
-                            self.#field.get_components(&mut *func);
-                        });
-                        field_from_components.push(quote! {
-                            #field: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
-                        });
-                    }
-                    None => {
-                        let index = Index::from(i);
-                        field_get_components.push(quote! {
-                            self.#index.get_components(&mut *func);
-                        });
-                        field_from_components.push(quote! {
-                            #index: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
-                        });
-                    }
-                }
+                field_get_components.push(quote! {
+                    self.#field.get_components(&mut *func);
+                });
+                field_from_components.push(quote! {
+                    #field: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
+                });
             }
-
             BundleFieldKind::Ignore => {
                 field_from_components.push(quote! {
                     #field: ::core::default::Default::default(),
@@ -188,47 +174,47 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 fn derive_visit_entities_base(
     input: TokenStream,
     trait_name: TokenStream2,
-    gen_methods: impl FnOnce(Vec<TokenStream2>) -> TokenStream2,
+    gen_methods: impl FnOnce(Vec<Member>) -> TokenStream2,
 ) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
-    let named_fields = match get_struct_fields(&ast.data) {
+    let fields = match get_struct_fields(&ast.data) {
         Ok(fields) => fields,
         Err(e) => return e.into_compile_error().into(),
     };
 
-    let field = named_fields
+    let fields = fields
         .iter()
-        .filter_map(|field| {
+        .enumerate()
+        .filter_map(|(index, field)| {
             if let Some(attr) = field
                 .attrs
                 .iter()
                 .find(|a| a.path().is_ident("visit_entities"))
             {
-                let ignore = attr.parse_nested_meta(|meta| {
+                let has_ignore = attr.parse_nested_meta(|meta| {
                     if meta.path.is_ident("ignore") {
                         Ok(())
                     } else {
                         Err(meta.error("Invalid visit_entities attribute. Use `ignore`"))
                     }
                 });
-                return match ignore {
+                return match has_ignore {
                     Ok(()) => None,
                     Err(e) => Some(Err(e)),
                 };
             }
-            Some(Ok(field))
+            Some(Ok(as_member(field.ident.as_ref(), index)))
         })
-        .map(|res| res.map(|field| field.ident.as_ref()))
         .collect::<Result<Vec<_>, _>>();
 
-    let field = match field {
-        Ok(field) => field,
+    let fields = match fields {
+        Ok(f) => f,
         Err(e) => return e.into_compile_error().into(),
     };
 
-    if field.is_empty() {
+    if fields.is_empty() {
         return syn::Error::new(
             ast.span(),
             format!("Invalid `{}` type: at least one field", trait_name),
@@ -236,26 +222,7 @@ fn derive_visit_entities_base(
         .into_compile_error()
         .into();
     }
-
-    let field_access = field
-        .iter()
-        .enumerate()
-        .map(|(n, f)| {
-            if let Some(ident) = f {
-                quote! {
-                    self.#ident
-                }
-            } else {
-                let idx = Index::from(n);
-                quote! {
-                    self.#idx
-                }
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let methods = gen_methods(field_access);
-
+    let methods = gen_methods(fields);
     let generics = ast.generics;
     let (impl_generics, ty_generics, _) = generics.split_for_impl();
     let struct_name = &ast.ident;
@@ -269,10 +236,10 @@ fn derive_visit_entities_base(
 
 #[proc_macro_derive(VisitEntitiesMut, attributes(visit_entities))]
 pub fn derive_visit_entities_mut(input: TokenStream) -> TokenStream {
-    derive_visit_entities_base(input, quote! { VisitEntitiesMut }, |field| {
+    derive_visit_entities_base(input, quote! { VisitEntitiesMut }, |fields| {
         quote! {
             fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
-                #(#field.visit_entities_mut(&mut f);)*
+                #(self.#fields.visit_entities_mut(&mut f);)*
             }
         }
     })
@@ -280,10 +247,10 @@ pub fn derive_visit_entities_mut(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(VisitEntities, attributes(visit_entities))]
 pub fn derive_visit_entities(input: TokenStream) -> TokenStream {
-    derive_visit_entities_base(input, quote! { VisitEntities }, |field| {
+    derive_visit_entities_base(input, quote! { VisitEntities }, |fields| {
         quote! {
             fn visit_entities<F: FnMut(Entity)>(&self, mut f: F) {
-                #(#field.visit_entities(&mut f);)*
+                #(self.#fields.visit_entities(&mut f);)*
             }
         }
     })
@@ -294,11 +261,7 @@ pub fn derive_visit_entities(input: TokenStream) -> TokenStream {
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let token_stream = input.clone();
     let ast = parse_macro_input!(input as DeriveInput);
-    let Data::Struct(DataStruct {
-        fields: field_definitions,
-        ..
-    }) = ast.data
-    else {
+    let Data::Struct(DataStruct { fields, .. }) = ast.data else {
         return syn::Error::new(
             ast.span(),
             "Invalid `SystemParam` type: expected a `struct`",
@@ -308,21 +271,12 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     };
     let path = bevy_ecs_path();
 
-    let mut field_locals = Vec::new();
-    let mut fields = Vec::new();
-    let mut field_types = Vec::new();
-    for (i, field) in field_definitions.iter().enumerate() {
-        field_locals.push(format_ident!("f{i}"));
-        let i = Index::from(i);
-        fields.push(
-            field
-                .ident
-                .as_ref()
-                .map(|f| quote! { #f })
-                .unwrap_or_else(|| quote! { #i }),
-        );
-        field_types.push(&field.ty);
-    }
+    let field_locals = fields
+        .members()
+        .map(|m| format_ident!("__self{}", m))
+        .collect::<Vec<_>>();
+    let field_members = fields.members().collect::<Vec<_>>();
+    let field_types = fields.iter().map(|f| &f.ty).collect::<Vec<_>>();
 
     let generics = ast.generics;
 
@@ -366,14 +320,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => unreachable!(),
     }));
 
-    let mut punctuated_generic_idents = Punctuated::<_, Comma>::new();
-    punctuated_generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
+    let mut generic_idents = Punctuated::<_, Comma>::new();
+    generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
         GenericParam::Type(g) => &g.ident,
         GenericParam::Const(g) => &g.ident,
         _ => unreachable!(),
     }));
 
-    let punctuated_generics_no_bounds: Punctuated<_, Comma> = lifetimeless_generics
+    let generics_without_bounds: Punctuated<_, Comma> = lifetimeless_generics
         .iter()
         .map(|&g| match g.clone() {
             GenericParam::Type(mut g) => {
@@ -439,11 +393,11 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         let builder_struct = quote! {
             #[doc = #builder_doc_comment]
             struct #builder_name<#(#builder_type_parameters,)*> {
-                #(#fields: #builder_type_parameters,)*
+                #(#field_members: #builder_type_parameters,)*
             }
         };
         let lifetimes: Vec<_> = generics.lifetimes().collect();
-        let generic_struct = quote!{ #struct_name <#(#lifetimes,)* #punctuated_generic_idents> };
+        let generic_struct = quote!{ #struct_name <#(#lifetimes,)* #generic_idents> };
         let builder_impl = quote!{
             // SAFETY: This delegates to the `SystemParamBuilder` for tuples.
             unsafe impl<
@@ -454,7 +408,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 #where_clause
             {
                 fn build(self, world: &mut #path::world::World, meta: &mut #path::system::SystemMeta) -> <#generic_struct as #path::system::SystemParam>::State {
-                    let #builder_name { #(#fields: #field_locals,)* } = self;
+                    let #builder_name { #(#field_members: #field_locals,)* } = self;
                     #state_struct_name {
                         state: #path::system::SystemParamBuilder::build((#(#tuple_patterns,)*), world, meta)
                     }
@@ -471,37 +425,37 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             // Allows rebinding the lifetimes of each field type.
-            type #fields_alias <'w, 's, #punctuated_generics_no_bounds> = (#(#tuple_types,)*);
+            type #fields_alias <'w, 's, #generics_without_bounds> = (#(#tuple_types,)*);
 
             #[doc(hidden)]
             #state_struct_visibility struct #state_struct_name <#(#lifetimeless_generics,)*>
             #where_clause {
-                state: <#fields_alias::<'static, 'static, #punctuated_generic_idents> as #path::system::SystemParam>::State,
+                state: <#fields_alias::<'static, 'static, #generic_idents> as #path::system::SystemParam>::State,
             }
 
             unsafe impl<#punctuated_generics> #path::system::SystemParam for
-                #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents> #where_clause
+                #struct_name <#(#shadowed_lifetimes,)* #generic_idents> #where_clause
             {
-                type State = #state_struct_name<#punctuated_generic_idents>;
+                type State = #state_struct_name<#generic_idents>;
                 type Item<'w, 's> = #struct_name #ty_generics;
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
                     #state_struct_name {
-                        state: <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_state(world, system_meta),
+                        state: <#fields_alias::<'_, '_, #generic_idents> as #path::system::SystemParam>::init_state(world, system_meta),
                     }
                 }
 
                 unsafe fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
                     // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-                    unsafe { <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta) }
+                    unsafe { <#fields_alias::<'_, '_, #generic_idents> as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta) }
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
-                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
+                    <#fields_alias::<'_, '_, #generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
 
                 fn queue(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: #path::world::DeferredWorld) {
-                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::queue(&mut state.state, system_meta, world);
+                    <#fields_alias::<'_, '_, #generic_idents> as #path::system::SystemParam>::queue(&mut state.state, system_meta, world);
                 }
 
                 #[inline]
@@ -524,7 +478,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                         (#(#tuple_types,)*) as #path::system::SystemParam
                     >::get_param(&mut state.state, system_meta, world, change_tick);
                     #struct_name {
-                        #(#fields: #field_locals,)*
+                        #(#field_members: #field_locals,)*
                     }
                 }
             }
