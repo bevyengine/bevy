@@ -1,10 +1,13 @@
 use syn::{Ident, Member};
 
-/// Converts an optional identifier or index into a `Member` variant.
+/// Converts an optional identifier or index into a [`syn::Member`] variant.
 ///
 /// This is useful for when u want to acces a field inside a `quote!` block regardless of whether it is an identifier or an index.
 /// There is also [`syn::Field::members`], but when u are working with single fields this method won't work.
 ///
+/// Rust struct syntax allows for `Struct { foo: "string" }` with explicitly
+/// named fields. It allows the `Struct { 0: "string" }` syntax when the struct
+/// is declared as a tuple struct.
 /// # Example
 /// ```rust
 /// use syn::{Ident, parse_str, DeriveInput, Data, DataStruct};
