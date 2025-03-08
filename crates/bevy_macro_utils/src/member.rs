@@ -40,6 +40,6 @@ use syn::{Ident, Member};
 ///
 /// ```
 ///
-pub fn as_member(ident: &Option<Ident>, index: usize) -> Member {
-    ident.clone().map_or(Member::from(index), Member::Named)
+pub fn as_member(ident: Option<&Ident>, index: usize) -> Member {
+    ident.map_or_else(|| Member::from(index), |ident| Member::Named(ident.clone()))
 }

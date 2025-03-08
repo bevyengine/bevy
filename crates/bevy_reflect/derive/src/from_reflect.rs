@@ -218,7 +218,7 @@ fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
         reflect_struct
             .ignored_fields()
             .map(|field| {
-                let member = as_member(&field.data.ident, field.declaration_index);
+                let member = as_member(field.data.ident.as_ref(), field.declaration_index);
 
                 let value = match &field.attrs.default {
                     DefaultBehavior::Func(path) => quote! {#path()},
@@ -247,7 +247,7 @@ fn get_active_fields(
         reflect_struct
             .active_fields()
             .map(|field| {
-                let member = as_member(&field.data.ident, field.declaration_index);
+                let member = as_member(field.data.ident.as_ref(), field.declaration_index);
                 let accessor = get_field_accessor(
                     field.data,
                     field.reflection_index.expect("field should be active"),

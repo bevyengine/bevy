@@ -108,7 +108,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let field = named_fields
         .iter()
         .enumerate()
-        .map(|(index, field)| as_member(&field.ident, index))
+        .map(|(index, field)| as_member(field.ident.as_ref(), index))
         .collect::<Vec<_>>();
 
     let field_type = named_fields

@@ -269,7 +269,7 @@ pub(crate) fn map_entities(
                         || relationship.is_some_and(|relationship| relationship == *field)
                 })
                 .for_each(|(index, field)| {
-                    let member = as_member(&field.ident, index);
+                    let member = as_member(field.ident.as_ref(), index);
 
                     map.push(quote!(#self_ident.#field_member.map_entities(mapper);));
                 });
@@ -289,7 +289,7 @@ pub(crate) fn map_entities(
                     .iter()
                     .enumerate()
                     .filter(|(_, field)| field.attrs.iter().any(|a| a.path().is_ident(ENTITIES)))
-                    .map(|(index, field)| as_member(&field.ident, index))
+                    .map(|(index, field)| as_member(field.ident.as_ref(), index))
                     .collect::<Vec<_>>();
 
                 let ident = &variant.ident;

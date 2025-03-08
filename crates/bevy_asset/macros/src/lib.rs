@@ -57,7 +57,7 @@ fn derive_dependency_visitor_internal(
                 .iter()
                 .enumerate()
                 .filter(|(_, f)| field_has_dep(f))
-                .map(|(i, field)| as_member(&field.ident, i))
+                .map(|(i, field)| as_member(field.ident.as_ref(), i))
                 .map(|member| visit_dep(quote!(&self.#member)));
             Some(quote!(#(#field_visitors)*))
         }
@@ -72,7 +72,7 @@ fn derive_dependency_visitor_internal(
                     .iter()
                     .enumerate()
                     .filter(|(_, f)| field_has_dep(f))
-                    .map(|(i, field)| as_member(&field.ident, i));
+                    .map(|(i, field)| as_member(field.ident.as_ref(), i));
                 let field_locals = field_members.clone().map(|m| format_ident!("__self_{}", m));
                 let field_visitors = field_locals.clone().map(|i| visit_dep(quote!(#i)));
                 quote!(Self::#ident {#(#field_members: #field_locals,)* ..} => {
