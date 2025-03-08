@@ -3,7 +3,7 @@ use syn::{Ident, Member};
 /// Converts an optional identifier or index into a [`syn::Member`] variant.
 ///
 /// This is useful for when you want to access a field inside a `quote!` block regardless of whether it is an identifier or an index.
-/// There is also [syn::Field::members], but this method doesn't work when you're dealing with single / filtered fields.
+/// There is also [`syn::Fields::members`], but this method doesn't work when you're dealing with single / filtered fields.
 ///
 /// Rust struct syntax allows for `Struct { foo: "string" }` with explicitly
 /// named fields. It allows the `Struct { 0: "string" }` syntax when the struct
