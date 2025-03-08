@@ -331,7 +331,7 @@ fn visit_entities(
                         || relationship.is_some_and(|relationship| relationship == *field)
                 })
                 .for_each(|(index, field)| {
-                    let member = as_member(&field.ident, index);
+                    let member = as_member(field.ident.as_ref(), index);
 
                     visit.push(quote!(this.#member.visit_entities(&mut func);));
                     visit_mut.push(quote!(this.#member.visit_entities_mut(&mut func);));
@@ -361,7 +361,7 @@ fn visit_entities(
                     .iter()
                     .enumerate()
                     .filter(|(_, field)| field.attrs.iter().any(|a| a.path().is_ident(ENTITIES)))
-                    .map(|(index, field)| as_member(&field.ident, index))
+                    .map(|(index, field)| as_member(field.ident.as_ref(), index))
                     .collect::<Vec<_>>();
 
                 let ident = &variant.ident;
