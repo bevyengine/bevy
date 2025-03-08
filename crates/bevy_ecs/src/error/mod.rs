@@ -4,7 +4,7 @@
 //! considers those systems to be "fallible", and the ECS scheduler will special-case the [`Err`]
 //! variant of the returned `Result`.
 //!
-//! All [`Error`]s returned by a system are handled by an "error handler". By default, the
+//! All [`BevyError`]s returned by a system are handled by an "error handler". By default, the
 //! [`panic`] error handler function is used, resulting in a panic with the error message attached.
 //!
 //! You can change the default behavior by registering a custom error handler, either globally or
@@ -29,7 +29,7 @@
 //! signature:
 //!
 //! ```rust,ignore
-//! fn(Error, SystemErrorContext)
+//! fn(BevyError, SystemErrorContext)
 //! ```
 //!
 //! The [`SystemErrorContext`] allows you to access additional details relevant to providing
@@ -53,7 +53,7 @@
 //!         return;
 //!     }
 //!
-//!     bevy_ecs::result::error(error, ctx);
+//!     bevy_ecs::error::error(error, ctx);
 //! });
 //! # }
 //! ```
@@ -70,84 +70,11 @@
 //! [`App::set_system_error_handler`]: ../../bevy_app/struct.App.html#method.set_system_error_handler
 //! [`system piping feature`]: crate::system::In
 
-use crate::{component::Tick, resource::Resource};
-use alloc::{borrow::Cow, boxed::Box};
+mod bevy_error;
+mod handler;
 
-/// A dynamic error type for use in fallible systems.
-pub type Error = Box<dyn core::error::Error + Send + Sync + 'static>;
+pub use bevy_error::*;
+pub use handler::*;
 
 /// A result type for use in fallible systems.
-pub type Result<T = (), E = Error> = core::result::Result<T, E>;
-
-/// Additional context for a failed system run.
-pub struct SystemErrorContext {
-    /// The name of the system that failed.
-    pub name: Cow<'static, str>,
-
-    /// The last tick that the system was run.
-    pub last_run: Tick,
-}
-
-/// The default systems error handler stored as a resource in the [`World`](crate::world::World).
-pub struct DefaultSystemErrorHandler(pub fn(Error, SystemErrorContext));
-
-impl Resource for DefaultSystemErrorHandler {}
-
-impl Default for DefaultSystemErrorHandler {
-    fn default() -> Self {
-        Self(panic)
-    }
-}
-
-macro_rules! inner {
-    ($call:path, $e:ident, $c:ident) => {
-        $call!("Encountered an error in system `{}`: {:?}", $c.name, $e);
-    };
-}
-
-/// Error handler that panics with the system error.
-#[track_caller]
-#[inline]
-pub fn panic(error: Error, ctx: SystemErrorContext) {
-    inner!(panic, error, ctx);
-}
-
-/// Error handler that logs the system error at the `error` level.
-#[track_caller]
-#[inline]
-pub fn error(error: Error, ctx: SystemErrorContext) {
-    inner!(log::error, error, ctx);
-}
-
-/// Error handler that logs the system error at the `warn` level.
-#[track_caller]
-#[inline]
-pub fn warn(error: Error, ctx: SystemErrorContext) {
-    inner!(log::warn, error, ctx);
-}
-
-/// Error handler that logs the system error at the `info` level.
-#[track_caller]
-#[inline]
-pub fn info(error: Error, ctx: SystemErrorContext) {
-    inner!(log::info, error, ctx);
-}
-
-/// Error handler that logs the system error at the `debug` level.
-#[track_caller]
-#[inline]
-pub fn debug(error: Error, ctx: SystemErrorContext) {
-    inner!(log::debug, error, ctx);
-}
-
-/// Error handler that logs the system error at the `trace` level.
-#[track_caller]
-#[inline]
-pub fn trace(error: Error, ctx: SystemErrorContext) {
-    inner!(log::trace, error, ctx);
-}
-
-/// Error handler that ignores the system error.
-#[track_caller]
-#[inline]
-pub fn ignore(_: Error, _: SystemErrorContext) {}
+pub type Result<T = (), E = BevyError> = core::result::Result<T, E>;

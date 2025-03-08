@@ -2602,10 +2602,16 @@ mod tests {
     #[test]
     fn query_iter_sorts() {
         let mut world = World::new();
+        for i in 0..100 {
+            world.spawn(A(i as f32));
+            world.spawn((A(i as f32), Sparse(i)));
+            world.spawn(Sparse(i));
+        }
 
         let mut query = world.query::<Entity>();
 
         let sort = query.iter(&world).sort::<Entity>().collect::<Vec<_>>();
+        assert_eq!(sort.len(), 300);
 
         let sort_unstable = query
             .iter(&world)

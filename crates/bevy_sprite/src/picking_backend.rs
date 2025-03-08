@@ -117,7 +117,8 @@ fn sprite_picking(
     radsort::sort_by_key(&mut sorted_sprites, |(_, _, transform, _, _)| {
         -transform.translation().z
     });
-    let primary_window = primary_window.get_single().ok();
+
+    let primary_window = primary_window.single().ok();
 
     for (ray_id, ray) in ray_map.iter() {
         let Ok((
