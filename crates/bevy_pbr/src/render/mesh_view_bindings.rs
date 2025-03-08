@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 use bevy_core_pipeline::{
     core_3d::ViewTransmissionTexture,
-    oit::{OitBuffers, OrderIndependentTransparencySettings},
+    oit::{resolve::is_oit_supported, OitBuffers, OrderIndependentTransparencySettings},
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -380,15 +380,10 @@ fn layout_entries(
 
     // OIT
     if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
-        // Check if the GPU supports writable storage buffers in the fragment shader
-        // If not, we can't use OIT, so we skip the OIT bindings.
-        // This is a hack to avoid errors on webgl -- the OIT plugin will warn the user that OIT
-        // is not supported on their platform, so we don't need to do it here.
-        if render_adapter
-            .get_downlevel_capabilities()
-            .flags
-            .contains(DownlevelFlags::FRAGMENT_WRITABLE_STORAGE)
-        {
+        // Check if we can use OIT. This is a hack to avoid errors on webgl --
+        // the OIT plugin will warn the user that OIT is not supported on their
+        // platform, so we don't need to do it here.
+        if is_oit_supported(render_adapter, render_device, false) {
             entries = entries.extend_with_indices((
                 // oit_layers
                 (34, storage_buffer_sized(false, None)),
