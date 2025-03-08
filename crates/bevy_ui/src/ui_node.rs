@@ -2814,7 +2814,7 @@ impl ColorStop {
     }
 
     /// An automatic color stop.
-    /// The position of the stop
+    /// The positions of automatic stops are interpolated evenly between explicit stops.
     pub fn auto(color: Color) -> Self {
         Self {
             color,
@@ -2856,6 +2856,7 @@ impl Default for ColorStop {
     reflect(Serialize, Deserialize)
 )]
 pub struct AngularColorStop {
+    /// Color of the stop
     pub color: Color,
     /// The angle of the stop.
     /// Angles are relative to the start of the gradient and not other stops.
@@ -2864,6 +2865,7 @@ pub struct AngularColorStop {
 }
 
 impl AngularColorStop {
+    // Create a new color stop
     pub fn new(color: Color, angle: f32) -> Self {
         Self {
             color,
@@ -2871,6 +2873,8 @@ impl AngularColorStop {
         }
     }
 
+    /// An angular stop without an explicit angle. The angles of automatic stops
+    /// are interpolated evenly between explicit stops.
     pub fn auto(color: Color) -> Self {
         Self { color, angle: None }
     }
@@ -2942,7 +2946,7 @@ impl Gradient {
         }
     }
 
-    /// If the gradient has only a single stop returns its color.
+    /// If the gradient has only a single color stop `get_single` returns its color.
     pub fn get_single(&self) -> Option<Color> {
         match self {
             Gradient::Linear { stops, .. } | Gradient::Radial { stops, .. } => stops
