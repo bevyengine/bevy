@@ -5,7 +5,6 @@ use thread_local::ThreadLocal;
 /// A cohesive set of thread-local values of a given type.
 ///
 /// Mutable references can be fetched if `T: Default` via [`Parallel::scope`].
-#[derive(Default)]
 pub struct Parallel<T: Send> {
     locals: ThreadLocal<RefCell<T>>,
 }
@@ -21,6 +20,25 @@ impl<T: Send> Parallel<T> {
     pub fn clear(&mut self) {
         self.locals.clear();
     }
+
+    /// Retrieves the thread-local value for the current thread and runs `f` on it.
+    ///
+    /// If there is no thread-local value, it will be initialized to the result
+    /// of `create`.
+    pub fn scope_or<R>(&self, create: impl FnOnce() -> T, f: impl FnOnce(&mut T) -> R) -> R {
+        f(&mut self.borrow_local_mut_or(create))
+    }
+
+    /// Mutably borrows the thread-local value.
+    ///
+    /// If there is no thread-local value, it will be initialized to the result
+    /// of `create`.
+    pub fn borrow_local_mut_or(
+        &self,
+        create: impl FnOnce() -> T,
+    ) -> impl DerefMut<Target = T> + '_ {
+        self.locals.get_or(|| RefCell::new(create())).borrow_mut()
+    }
 }
 
 impl<T: Default + Send> Parallel<T> {
@@ -28,16 +46,14 @@ impl<T: Default + Send> Parallel<T> {
     ///
     /// If there is no thread-local value, it will be initialized to its default.
     pub fn scope<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
-        let mut cell = self.locals.get_or_default().borrow_mut();
-        let ret = f(cell.deref_mut());
-        ret
+        self.scope_or(Default::default, f)
     }
 
     /// Mutably borrows the thread-local value.
     ///
     /// If there is no thread-local value, it will be initialized to it's default.
     pub fn borrow_local_mut(&self) -> impl DerefMut<Target = T> + '_ {
-        self.locals.get_or_default().borrow_mut()
+        self.borrow_local_mut_or(Default::default)
     }
 }
 
@@ -72,6 +88,15 @@ impl<T: Send> Parallel<Vec<T>> {
         out.reserve(size);
         for queue in self.locals.iter_mut() {
             out.append(queue.get_mut());
+        }
+    }
+}
+
+// `Default` is manually implemented to avoid the `T: Default` bound.
+impl<T: Send> Default for Parallel<T> {
+    fn default() -> Self {
+        Self {
+            locals: ThreadLocal::default(),
         }
     }
 }
