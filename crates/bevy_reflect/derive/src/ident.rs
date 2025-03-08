@@ -1,5 +1,4 @@
 use proc_macro2::{Ident, Span};
-use syn::Member;
 
 /// Returns the "reflected" ident for a given string.
 ///
