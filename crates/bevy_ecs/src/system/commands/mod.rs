@@ -20,11 +20,11 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
-    entity::{Entities, Entity, EntityClonerBuilder},
+    entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
+    error::BevyError,
     event::Event,
     observer::{Observer, TriggerTargets},
     resource::Resource,
-    result::Error,
     schedule::ScheduleLabel,
     system::{
         command::HandleError, entity_command::CommandWithEntity, input::SystemInput, Deferred,
@@ -88,7 +88,7 @@ use crate::{
 ///
 /// # Error handling
 ///
-/// A [`Command`] can return a [`Result`](crate::result::Result),
+/// A [`Command`] can return a [`Result`](crate::error::Result),
 /// which will be passed to an error handler if the `Result` is an error.
 ///
 /// Error handlers are functions/closures of the form `fn(&mut World, Error)`.
@@ -404,12 +404,8 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Returns the [`EntityCommands`] for the requested [`Entity`].
     ///
-    /// This method does not guarantee that commands queued by the `EntityCommands`
+    /// This method does not guarantee that commands queued by the returned `EntityCommands`
     /// will be successful, since the entity could be despawned before they are executed.
-    ///
-    /// # Panics
-    ///
-    /// This method panics if the requested entity does not exist.
     ///
     /// # Example
     ///
@@ -442,32 +438,20 @@ impl<'w, 's> Commands<'w, 's> {
     #[inline]
     #[track_caller]
     pub fn entity(&mut self, entity: Entity) -> EntityCommands {
-        #[inline(never)]
-        #[cold]
-        #[track_caller]
-        fn panic_no_entity(entities: &Entities, entity: Entity) -> ! {
-            panic!(
-                "Attempting to create an EntityCommands for entity {entity}, which {}",
-                entities.entity_does_not_exist_error_details(entity)
-            );
-        }
-
-        if self.get_entity(entity).is_some() {
-            EntityCommands {
-                entity,
-                commands: self.reborrow(),
-            }
-        } else {
-            panic_no_entity(self.entities, entity)
+        EntityCommands {
+            entity,
+            commands: self.reborrow(),
         }
     }
 
     /// Returns the [`EntityCommands`] for the requested [`Entity`], if it exists.
     ///
-    /// Returns `None` if the entity does not exist.
-    ///
-    /// This method does not guarantee that commands queued by the `EntityCommands`
+    /// This method does not guarantee that commands queued by the returned `EntityCommands`
     /// will be successful, since the entity could be despawned before they are executed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityDoesNotExistError`] if the requested entity does not exist.
     ///
     /// # Example
     ///
@@ -476,29 +460,41 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// #[derive(Component)]
     /// struct Label(&'static str);
-    /// fn example_system(mut commands: Commands) {
-    ///     // Create a new, empty entity
+    /// fn example_system(mut commands: Commands) -> Result {
+    ///     // Create a new, empty entity.
     ///     let entity = commands.spawn_empty().id();
     ///
-    ///     // Get the entity if it still exists, which it will in this case
-    ///     if let Some(mut entity_commands) = commands.get_entity(entity) {
-    ///         // adds a single component to the entity
-    ///         entity_commands.insert(Label("hello world"));
-    ///     }
+    ///     // Get the entity if it still exists, which it will in this case.
+    ///     // If it didn't, the `?` operator would propagate the returned error
+    ///     // to the system, and the system would pass it to an error handler.
+    ///     let mut entity_commands = commands.get_entity(entity)?;
+    ///
+    ///     // Add a single component to the entity.
+    ///     entity_commands.insert(Label("hello world"));
+    ///
+    ///     // Return from the system with a success.
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
     ///
     /// # See also
     ///
-    /// - [`entity`](Self::entity) for the panicking version.
+    /// - [`entity`](Self::entity) for the infallible version.
     #[inline]
     #[track_caller]
-    pub fn get_entity(&mut self, entity: Entity) -> Option<EntityCommands> {
-        self.entities.contains(entity).then_some(EntityCommands {
-            entity,
-            commands: self.reborrow(),
-        })
+    pub fn get_entity(
+        &mut self,
+        entity: Entity,
+    ) -> Result<EntityCommands, EntityDoesNotExistError> {
+        if self.entities.contains(entity) {
+            Ok(EntityCommands {
+                entity,
+                commands: self.reborrow(),
+            })
+        } else {
+            Err(EntityDoesNotExistError::new(entity, self.entities))
+        }
     }
 
     /// Pushes a [`Command`] to the queue for creating entities with a particular [`Bundle`] type.
@@ -643,7 +639,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn queue_handled<C: Command<T> + HandleError<T>, T>(
         &mut self,
         command: C,
-        error_handler: fn(&mut World, Error),
+        error_handler: fn(&mut World, BevyError),
     ) {
         self.queue_internal(command.handle_error_with(error_handler));
     }
@@ -685,6 +681,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
     /// worked out to share an ID space (which doesn't happen by default).
     #[track_caller]
+    #[deprecated(
+        note = "This can cause extreme performance problems when used with lots of arbitrary free entities. See #18054 on GitHub."
+    )]
     pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
@@ -692,6 +691,11 @@ impl<'w, 's> Commands<'w, 's> {
     {
         let caller = MaybeLocation::caller();
         self.queue(move |world: &mut World| {
+
+            #[expect(
+                deprecated,
+                reason = "This needs to be supported for now, and the outer item is deprecated too."
+            )]
             if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
                 bundles_iter,
                 caller,
@@ -1156,7 +1160,7 @@ impl<'w, 's> Commands<'w, 's> {
 ///
 /// # Error handling
 ///
-/// An [`EntityCommand`] can return a [`Result`](crate::result::Result),
+/// An [`EntityCommand`] can return a [`Result`](crate::error::Result),
 /// which will be passed to an error handler if the `Result` is an error.
 ///
 /// Error handlers are functions/closures of the form `fn(&mut World, Error)`.
@@ -1290,7 +1294,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(entity_command::insert(bundle))
+        self.queue(entity_command::insert(bundle, InsertMode::Replace))
     }
 
     /// Similar to [`Self::insert`] but will only insert if the predicate returns true.
@@ -1350,7 +1354,7 @@ impl<'a> EntityCommands<'a> {
     /// To avoid a panic in this case, use the command [`Self::try_insert_if_new`] instead.
     #[track_caller]
     pub fn insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(entity_command::insert_if_new(bundle))
+        self.queue(entity_command::insert(bundle, InsertMode::Keep))
     }
 
     /// Adds a [`Bundle`] of components to the entity without overwriting if the
@@ -1399,7 +1403,12 @@ impl<'a> EntityCommands<'a> {
         component_id: ComponentId,
         value: T,
     ) -> &mut Self {
-        self.queue(entity_command::insert_by_id(component_id, value))
+        self.queue(
+            // SAFETY:
+            // - `ComponentId` safety is ensured by the caller.
+            // - `T` safety is ensured by the caller.
+            unsafe { entity_command::insert_by_id(component_id, value, InsertMode::Replace) },
+        )
     }
 
     /// Attempts to add a dynamic component to an entity.
@@ -1417,7 +1426,10 @@ impl<'a> EntityCommands<'a> {
         value: T,
     ) -> &mut Self {
         self.queue_handled(
-            entity_command::insert_by_id(component_id, value),
+            // SAFETY:
+            // - `ComponentId` safety is ensured by the caller.
+            // - `T` safety is ensured by the caller.
+            unsafe { entity_command::insert_by_id(component_id, value, InsertMode::Replace) },
             error_handler::silent(),
         )
     }
@@ -1472,7 +1484,10 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue_handled(entity_command::insert(bundle), error_handler::silent())
+        self.queue_handled(
+            entity_command::insert(bundle, InsertMode::Replace),
+            error_handler::silent(),
+        )
     }
 
     /// Similar to [`Self::try_insert`] but will only try to insert if the predicate returns true.
@@ -1572,7 +1587,7 @@ impl<'a> EntityCommands<'a> {
     #[track_caller]
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
         self.queue_handled(
-            entity_command::insert_if_new(bundle),
+            entity_command::insert(bundle, InsertMode::Keep),
             error_handler::silent(),
         )
     }
@@ -1838,7 +1853,7 @@ impl<'a> EntityCommands<'a> {
     pub fn queue_handled<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
         &mut self,
         command: C,
-        error_handler: fn(&mut World, Error),
+        error_handler: fn(&mut World, BevyError),
     ) -> &mut Self {
         self.commands
             .queue_handled(command.with_entity(self.entity), error_handler);
@@ -1909,13 +1924,11 @@ impl<'a> EntityCommands<'a> {
         &mut self.commands
     }
 
-    /// Sends a [`Trigger`] targeting this entity. This will run any [`Observer`] of the `event` that
-    /// watches this entity.
-    ///
-    /// [`Trigger`]: crate::observer::Trigger
+    /// Sends a [`Trigger`](crate::observer::Trigger) targeting the entity.
+    /// This will run any [`Observer`] of the given [`Event`] watching this entity.
+    #[track_caller]
     pub fn trigger(&mut self, event: impl Event) -> &mut Self {
-        self.commands.trigger_targets(event, self.entity);
-        self
+        self.queue(entity_command::trigger(event))
     }
 
     /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
@@ -2217,7 +2230,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        component::{require, Component},
+        component::Component,
         resource::Resource,
         system::Commands,
         world::{CommandQueue, FromWorld, World},

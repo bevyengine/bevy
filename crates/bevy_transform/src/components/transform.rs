@@ -3,7 +3,7 @@ use bevy_math::{Affine3A, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
 use core::ops::Mul;
 
 #[cfg(feature = "bevy-support")]
-use bevy_ecs::{component::Component, prelude::require};
+use bevy_ecs::component::Component;
 
 #[cfg(feature = "bevy_reflect")]
 use {bevy_ecs::reflect::ReflectComponent, bevy_reflect::prelude::*};

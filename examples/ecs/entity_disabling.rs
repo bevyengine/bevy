@@ -69,7 +69,7 @@ fn list_all_named_entities(
         text_string.push_str(&format!("{:?}\n", name));
     }
 
-    if let Ok(mut text) = name_text_query.get_single_mut() {
+    if let Ok(mut text) = name_text_query.single_mut() {
         *text = Text::new(text_string);
     } else {
         commands.spawn((

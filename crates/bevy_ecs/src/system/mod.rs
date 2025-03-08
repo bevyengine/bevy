@@ -82,7 +82,7 @@
 //! # System return type
 //!
 //! Systems added to a schedule through [`add_systems`](crate::schedule::Schedule) may either return
-//! empty `()` or a [`Result`](crate::result::Result). Other contexts (like one shot systems) allow
+//! empty `()` or a [`Result`](crate::error::Result). Other contexts (like one shot systems) allow
 //! systems to return arbitrary values.
 //!
 //! # System parameter list
@@ -335,11 +335,11 @@ mod tests {
         change_detection::DetectChanges,
         component::{Component, Components},
         entity::{Entities, Entity},
+        error::Result,
         prelude::{AnyOf, EntityRef},
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
         resource::Resource,
-        result::Result,
         schedule::{
             common_conditions::resource_exists, ApplyDeferred, Condition, IntoSystemConfigs,
             Schedule,
