@@ -34,7 +34,7 @@ pub trait ExtractInstance: Send + Sync + Sized + 'static {
     type QueryFilter: QueryFilter;
 
     /// Defines how the component is transferred into the "render world".
-    fn extract(item: QueryItem<'_, Self::QueryData>) -> Option<Self>;
+    fn extract(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self>;
 }
 
 /// This plugin extracts one or more components into the "render world" as
