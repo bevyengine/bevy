@@ -1,4 +1,4 @@
-use crate::{FocusPolicy, RadialGradientShape, RelativePosition, UiRect, Val};
+use crate::{FocusPolicy, Position, RadialGradientShape, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -2903,7 +2903,7 @@ pub enum Gradient {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient>
     Radial {
         /// The center of the radial gradient
-        position: RelativePosition,
+        position: Position,
         /// Defines the end shape of the radial gradient
         shape: RadialGradientShape,
         /// The list of color stops
@@ -2914,7 +2914,7 @@ pub enum Gradient {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient>
     Conic {
         /// The center of the conic gradient
-        position: RelativePosition,
+        position: Position,
         /// The list of color stops
         stops: Vec<AngularColorStop>,
     },
@@ -3024,7 +3024,7 @@ impl Gradient {
 
     /// A radial gradient
     pub fn radial(
-        position: RelativePosition,
+        position: Position,
         shape: RadialGradientShape,
         stops: Vec<ColorStop>,
     ) -> Gradient {
@@ -3036,7 +3036,7 @@ impl Gradient {
     }
 
     /// A conic gradient
-    pub fn conic(position: RelativePosition, stops: Vec<AngularColorStop>) -> Gradient {
+    pub fn conic(position: Position, stops: Vec<AngularColorStop>) -> Gradient {
         Self::Conic { position, stops }
     }
 }

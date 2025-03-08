@@ -214,8 +214,8 @@ fn setup(mut commands: Commands) {
                             BorderRadius::all(Val::Px(20.)),
                             BackgroundGradient::from(Gradient::Radial {
                                 stops: stops.clone(),
-                                position: RelativePosition::center(Val::Px(25.), Val::Px(25.)),
                                 shape: RadialGradientShape::ClosestSide,
+                                position: Position::CENTER,
                             }),
                             BorderGradient::from(Gradient::Linear {
                                 angle: 3. * TAU / 8.,
@@ -251,7 +251,7 @@ fn setup(mut commands: Commands) {
                                         angle: None,
                                     })
                                     .collect(),
-                                position: RelativePosition::CENTER,
+                                position: Position::CENTER,
                             }),
                             BorderGradient::from(Gradient::Linear {
                                 angle: 3. * TAU / 8.,

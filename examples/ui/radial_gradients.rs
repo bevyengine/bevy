@@ -71,7 +71,7 @@ fn setup_grid(mut commands: Commands) {
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
                             ],
-                            position: RelativePosition::center(Val::ZERO, Val::ZERO),
+                            position: Position::Center(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::ClosestSide,
                         }),
                     ));
@@ -99,7 +99,7 @@ fn setup_grid(mut commands: Commands) {
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
                             ],
-                            position: RelativePosition::center(Val::ZERO, Val::ZERO),
+                            position: Position::Center(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::Circle(Val::Px(50.)),
                         }),
                     ));
@@ -127,7 +127,7 @@ fn setup_grid(mut commands: Commands) {
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
                             ],
-                            position: RelativePosition::center(Val::ZERO, Val::ZERO),
+                            position: Position::Center(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),
                     ));
@@ -154,35 +154,7 @@ fn setup_grid(mut commands: Commands) {
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
                             ],
-                            position: RelativePosition::top_right(Val::ZERO, Val::ZERO),
-                            shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
-                        }),
-                    ));
-                });
-
-            commands
-                .spawn((
-                    BackgroundColor(GREEN.into()),
-                    Node {
-                        display: Display::Grid,
-                        width: Val::Px(CELL_SIZE),
-                        ..Default::default()
-                    },
-                ))
-                .with_children(|commands| {
-                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
-                    commands.spawn((
-                        Node {
-                            width: Val::Px(100.),
-                            height: Val::Px(100.),
-                            ..default()
-                        },
-                        BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![
-                                ColorStop::new(RED.into(), Val::Auto),
-                                ColorStop::new(BLUE.into(), Val::Auto),
-                            ],
-                            position: RelativePosition::bottom_right(Val::ZERO, Val::ZERO),
+                            position: Position::TopRight(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),
                     ));
@@ -210,7 +182,7 @@ fn setup_grid(mut commands: Commands) {
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
                             ],
-                            position: RelativePosition::LEFT,
+                            position: Position::BottomLeft(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),
                     ));
@@ -238,7 +210,35 @@ fn setup_grid(mut commands: Commands) {
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
                             ],
-                            position: RelativePosition::TOP,
+                            position: Position::LEFT,
+                            shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
+                        }),
+                    ));
+                });
+
+            commands
+                .spawn((
+                    BackgroundColor(GREEN.into()),
+                    Node {
+                        display: Display::Grid,
+                        width: Val::Px(CELL_SIZE),
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|commands| {
+                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
+                    commands.spawn((
+                        Node {
+                            width: Val::Px(100.),
+                            height: Val::Px(100.),
+                            ..default()
+                        },
+                        BackgroundGradient::from(Gradient::Radial {
+                            stops: vec![
+                                ColorStop::new(RED.into(), Val::Auto),
+                                ColorStop::new(BLUE.into(), Val::Auto),
+                            ],
+                            position: Position::TOP,
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),
                     ));
@@ -250,15 +250,15 @@ fn setup_grid(mut commands: Commands) {
                 (RadialGradientShape::Circle(Val::Percent(55.)), "55%"),
             ] {
                 for position in [
-                    RelativePosition::TOP_LEFT,
-                    RelativePosition::LEFT,
-                    RelativePosition::BOTTOM_LEFT,
-                    RelativePosition::TOP,
-                    RelativePosition::CENTER,
-                    RelativePosition::BOTTOM,
-                    RelativePosition::TOP_RIGHT,
-                    RelativePosition::RIGHT,
-                    RelativePosition::BOTTOM_RIGHT,
+                    Position::TOP_LEFT,
+                    Position::LEFT,
+                    Position::BOTTOM_LEFT,
+                    Position::TOP,
+                    Position::CENTER,
+                    Position::BOTTOM,
+                    Position::TOP_RIGHT,
+                    Position::RIGHT,
+                    Position::BOTTOM_RIGHT,
                 ] {
                     for (w, h) in [(100., 100.)] {
                         //, (50., 100.), (100., 50.)] {
