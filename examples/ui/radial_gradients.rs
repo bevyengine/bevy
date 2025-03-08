@@ -22,10 +22,10 @@ fn setup_grid(mut commands: Commands) {
         ColorStop::new(Color::BLACK, Val::Px(5.)),
         ColorStop::new(Color::WHITE, Val::Px(5.)),
         ColorStop::new(Color::WHITE, Val::Percent(100.)),
-        ColorStop::new(RED.into(), Val::Auto),
+        ColorStop::auto(RED),
     ];
 
-    let stops_2 = vec![ColorStop::auto(RED.into()), ColorStop::auto(BLUE.into())];
+    let stops_2 = vec![ColorStop::auto(RED), ColorStop::auto(BLUE)];
 
     commands.spawn(Camera2d);
     commands
@@ -67,10 +67,7 @@ fn setup_grid(mut commands: Commands) {
                             ..default()
                         },
                         BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![
-                                ColorStop::new(RED.into(), Val::Auto),
-                                ColorStop::new(BLUE.into(), Val::Auto),
-                            ],
+                            stops: vec![ColorStop::auto(RED), ColorStop::auto(BLUE)],
                             position: Position::Center(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::ClosestSide,
                         }),
@@ -95,10 +92,7 @@ fn setup_grid(mut commands: Commands) {
                             ..default()
                         },
                         BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![
-                                ColorStop::new(RED.into(), Val::Auto),
-                                ColorStop::new(BLUE.into(), Val::Auto),
-                            ],
+                            stops: vec![ColorStop::auto(RED), ColorStop::auto(BLUE)],
                             position: Position::Center(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::Circle(Val::Px(50.)),
                         }),
@@ -123,10 +117,7 @@ fn setup_grid(mut commands: Commands) {
                             ..default()
                         },
                         BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![
-                                ColorStop::new(RED.into(), Val::Auto),
-                                ColorStop::new(BLUE.into(), Val::Auto),
-                            ],
+                            stops: vec![ColorStop::auto(RED), ColorStop::auto(BLUE)],
                             position: Position::Center(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),
@@ -150,10 +141,7 @@ fn setup_grid(mut commands: Commands) {
                             ..default()
                         },
                         BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![
-                                ColorStop::new(RED.into(), Val::Auto),
-                                ColorStop::new(BLUE.into(), Val::Auto),
-                            ],
+                            stops: vec![ColorStop::auto(RED), ColorStop::auto(BLUE)],
                             position: Position::TopRight(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),
@@ -178,10 +166,7 @@ fn setup_grid(mut commands: Commands) {
                             ..default()
                         },
                         BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![
-                                ColorStop::new(RED.into(), Val::Auto),
-                                ColorStop::new(BLUE.into(), Val::Auto),
-                            ],
+                            stops: vec![ColorStop::auto(RED), ColorStop::auto(BLUE)],
                             position: Position::BottomLeft(Val::ZERO, Val::ZERO),
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),
@@ -206,10 +191,7 @@ fn setup_grid(mut commands: Commands) {
                             ..default()
                         },
                         BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![
-                                ColorStop::new(RED.into(), Val::Auto),
-                                ColorStop::new(BLUE.into(), Val::Auto),
-                            ],
+                            stops: vec![ColorStop::auto(RED), ColorStop::auto(BLUE)],
                             position: Position::LEFT,
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),
@@ -234,10 +216,7 @@ fn setup_grid(mut commands: Commands) {
                             ..default()
                         },
                         BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![
-                                ColorStop::new(RED.into(), Val::Auto),
-                                ColorStop::new(BLUE.into(), Val::Auto),
-                            ],
+                            stops: vec![ColorStop::auto(RED), ColorStop::auto(BLUE)],
                             position: Position::TOP,
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),

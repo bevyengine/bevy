@@ -2809,15 +2809,18 @@ pub struct ColorStop {
 
 impl ColorStop {
     /// Create a new color stop
-    pub fn new(color: Color, point: Val) -> Self {
-        Self { color, point }
+    pub fn new(color: impl Into<Color>, point: Val) -> Self {
+        Self {
+            color: color.into(),
+            point,
+        }
     }
 
     /// An automatic color stop.
     /// The positions of automatic stops are interpolated evenly between explicit stops.
-    pub fn auto(color: Color) -> Self {
+    pub fn auto(color: impl Into<Color>) -> Self {
         Self {
-            color,
+            color: color.into(),
             point: Val::Auto,
         }
     }
@@ -2866,17 +2869,20 @@ pub struct AngularColorStop {
 
 impl AngularColorStop {
     // Create a new color stop
-    pub fn new(color: Color, angle: f32) -> Self {
+    pub fn new(color: impl Into<Color>, angle: f32) -> Self {
         Self {
-            color,
+            color: color.into(),
             angle: Some(angle),
         }
     }
 
     /// An angular stop without an explicit angle. The angles of automatic stops
     /// are interpolated evenly between explicit stops.
-    pub fn auto(color: Color) -> Self {
-        Self { color, angle: None }
+    pub fn auto(color: impl Into<Color>) -> Self {
+        Self {
+            color: color.into(),
+            angle: None,
+        }
     }
 }
 

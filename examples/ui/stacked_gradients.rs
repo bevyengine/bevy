@@ -33,31 +33,31 @@ fn setup(mut commands: Commands) {
                 BackgroundColor(Color::BLACK),
                 BackgroundGradient(vec![
                     Gradient::linear_to_top_right(vec![
-                        ColorStop::auto(RED.into()),
-                        ColorStop::auto(RED.with_alpha(0.).into()),
+                        ColorStop::auto(RED),
+                        ColorStop::auto(RED.with_alpha(0.)),
                     ]),
                     Gradient::linear_to_top_left(vec![
-                        ColorStop::auto(BLUE.into()),
-                        ColorStop::auto(BLUE.with_alpha(0.).into()),
+                        ColorStop::auto(BLUE),
+                        ColorStop::auto(BLUE.with_alpha(0.)),
                     ]),
                     Gradient::Conic {
                         position: Position::CENTER,
                         stops: vec![
-                            AngularColorStop::auto(YELLOW.with_alpha(0.).into()),
-                            AngularColorStop::auto(YELLOW.with_alpha(0.).into()),
-                            AngularColorStop::auto(YELLOW.into()),
-                            AngularColorStop::auto(YELLOW.with_alpha(0.).into()),
-                            AngularColorStop::auto(YELLOW.with_alpha(0.).into()),
+                            AngularColorStop::auto(YELLOW.with_alpha(0.)),
+                            AngularColorStop::auto(YELLOW.with_alpha(0.)),
+                            AngularColorStop::auto(YELLOW),
+                            AngularColorStop::auto(YELLOW.with_alpha(0.)),
+                            AngularColorStop::auto(YELLOW.with_alpha(0.)),
                         ],
                     },
                     Gradient::Radial {
-                        position: Position::Top(Val::Percent(5.), Val::ZERO),
+                        position: Position::Top(Val::ZERO, Val::Percent(5.)),
                         shape: RadialGradientShape::Circle(Val::Vh(30.)),
                         stops: vec![
                             ColorStop::auto(Color::WHITE),
-                            ColorStop::auto(YELLOW.into()),
-                            ColorStop::auto(YELLOW.with_alpha(0.1).into()),
-                            ColorStop::auto(YELLOW.with_alpha(0.).into()),
+                            ColorStop::auto(YELLOW),
+                            ColorStop::auto(YELLOW.with_alpha(0.1)),
+                            ColorStop::auto(YELLOW.with_alpha(0.)),
                         ],
                     },
                     Gradient::Linear {

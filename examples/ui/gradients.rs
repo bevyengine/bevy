@@ -48,27 +48,15 @@ fn setup(mut commands: Commands) {
                 (
                     5.,
                     vec![
-                        ColorStop {
-                            color: RED.into(),
-                            point: Val::Auto,
-                        },
-                        ColorStop {
-                            color: BLUE.into(),
-                            point: Val::Auto,
-                        },
-                        ColorStop {
-                            color: LIME.into(),
-                            point: Val::Auto,
-                        },
+                        ColorStop::auto(RED),
+                        ColorStop::auto(BLUE),
+                        ColorStop::auto(LIME),
                     ],
                 ),
                 (
                     0.,
                     vec![
-                        ColorStop {
-                            color: RED.into(),
-                            point: Val::Auto,
-                        },
+                        ColorStop::auto(RED),
                         ColorStop {
                             color: RED.into(),
                             point: Val::Percent(100. / 7.),
@@ -117,10 +105,7 @@ fn setup(mut commands: Commands) {
                             color: VIOLET.into(),
                             point: Val::Percent(600. / 7.),
                         },
-                        ColorStop {
-                            color: VIOLET.into(),
-                            point: Val::Auto,
-                        },
+                        ColorStop::auto(VIOLET),
                     ],
                 ),
             ] {
@@ -155,15 +140,9 @@ fn setup(mut commands: Commands) {
                                                 BorderGradient::from(Gradient::Linear {
                                                     angle: 3. * TAU / 8.,
                                                     stops: vec![
-                                                        ColorStop {
-                                                            color: YELLOW.into(),
-                                                            point: Val::Auto,
-                                                        },
+                                                        ColorStop::auto(YELLOW),
                                                         Color::WHITE.into(),
-                                                        ColorStop {
-                                                            color: ORANGE.into(),
-                                                            point: Val::Auto,
-                                                        },
+                                                        ColorStop::auto(ORANGE),
                                                     ],
                                                 }),
                                             ));
