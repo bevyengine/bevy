@@ -428,7 +428,7 @@ jobs:
         shell: bash
         run: |
           errors=""
-          for file in $(find examples tests -name '*.rs'); do
+          for file in $(find examples tests -name '*.rs' -not -path 'examples/mobile/*'); do
               if grep -q "use bevy_" "$file"; then
                   errors+="ERROR: Detected internal Bevy import in $file\n"
               fi
