@@ -385,7 +385,8 @@ fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_ma
                 }
 
                 for field in variant.fields() {
-                    let field_member = as_member(field.data.ident.as_ref(), field.declaration_index);
+                    let field_member =
+                        as_member(field.data.ident.as_ref(), field.declaration_index);
                     let field_ident = format_ident!("field_{}", field_member);
                     let field_ty = &field.data.ty;
                     let span = create_assertion_span(field_ty.span());
