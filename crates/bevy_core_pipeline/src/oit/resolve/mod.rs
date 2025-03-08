@@ -64,14 +64,18 @@ impl Plugin for OitResolvePlugin {
             return;
         }
 
-        if render_app
+        let max_storage_buffers_per_shader_stage = render_app
             .world()
             .resource::<RenderDevice>()
             .limits()
-            .max_storage_buffers_per_shader_stage
-            < OIT_REQUIRED_STORAGE_BUFFERS
-        {
-            warn!("OrderIndependentTransparencyPlugin not loaded. RenderDevice lacks support: max_storage_buffers_per_shader_stage < OIT_REQUIRED_STORAGE_BUFFERS.");
+            .max_storage_buffers_per_shader_stage;
+
+        if max_storage_buffers_per_shader_stage < OIT_REQUIRED_STORAGE_BUFFERS {
+            warn!(
+                max_storage_buffers_per_shader_stage,
+                OIT_REQUIRED_STORAGE_BUFFERS,
+                "OrderIndependentTransparencyPlugin not loaded. RenderDevice lacks support: max_storage_buffers_per_shader_stage < OIT_REQUIRED_STORAGE_BUFFERS."
+            );
             return;
         }
 
