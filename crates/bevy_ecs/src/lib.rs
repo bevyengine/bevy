@@ -2644,6 +2644,37 @@ mod tests {
     }
 
     #[test]
+    fn required_components_inheritance_depth_bias() {
+        #[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
+        struct MyRequired(bool);
+
+        #[derive(Component, Default)]
+        #[require(MyRequired(|| MyRequired(false)))]
+        struct MiddleMan;
+
+        #[derive(Component, Default)]
+        #[require(MiddleMan)]
+        struct ConflictingRequire;
+
+        #[derive(Component, Default)]
+        #[require(MyRequired(|| MyRequired(true)))]
+        struct MyComponent;
+
+        let mut world = World::new();
+        let order_a = world
+            .spawn((ConflictingRequire, MyComponent))
+            .get::<MyRequired>()
+            .cloned();
+        let order_b = world
+            .spawn((MyComponent, ConflictingRequire))
+            .get::<MyRequired>()
+            .cloned();
+
+        assert_eq!(order_a, Some(MyRequired(true)));
+        assert_eq!(order_b, Some(MyRequired(true)));
+    }
+
+    #[test]
     #[should_panic = "Recursive required components detected: A → B → C → B\nhelp: If this is intentional, consider merging the components."]
     fn required_components_recursion_errors() {
         #[derive(Component, Default)]
