@@ -83,10 +83,11 @@ use crate::{
         masks::{IdentifierMask, HIGH_MASK},
         Identifier,
     },
+    query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::atomic::Ordering;
+use bevy_platform_support::sync::{atomic::Ordering, Arc};
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
@@ -105,6 +106,19 @@ type IdCursor = i64;
 use bevy_platform_support::sync::atomic::AtomicIsize as AtomicIdCursor;
 #[cfg(not(target_has_atomic = "64"))]
 type IdCursor = isize;
+
+#[cfg(target_has_atomic = "64")]
+use bevy_platform_support::sync::atomic::AtomicU64 as RemoteIdCursor;
+#[cfg(target_has_atomic = "64")]
+type RemoteInner = u64;
+
+/// Most modern platforms support 64-bit atomics, but some less-common platforms
+/// do not. This fallback allows compilation using a 32-bit cursor instead, with
+/// the caveat that some conversions may fail (and panic) at runtime.
+#[cfg(not(target_has_atomic = "64"))]
+use bevy_platform_support::sync::atomic::AtomicUsize as RemoteIdCursor;
+#[cfg(not(target_has_atomic = "64"))]
+type RemoteInner = usize;
 
 /// Lightweight identifier of an [entity](crate::entity).
 ///
@@ -492,7 +506,11 @@ impl SparseSetIndex for Entity {
     }
 }
 
-/// An [`Iterator`] returning a sequence of [`Entity`] values from
+/// An [`Iterator`] returning a sequence of [`Entity`] values from [`Entities`].
+///
+/// # Dropping
+///
+/// If this is dropped, the remaining entities will remain reserved and unused. This is effectively a memory leak.
 pub struct ReserveEntitiesIterator<'a> {
     // Metas, so we can recover the current generation for anything in the freelist.
     meta: &'a [EntityMeta],
@@ -527,6 +545,37 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
+
+/// An [`Iterator`] returning a sequence of [`Entity`] values from a [`RemoteEntityReserver`].
+///
+/// # Dropping
+///
+/// If this is dropped, the remaining entities will remain reserved and unused. This is effectively a memory leak.
+pub struct RemoteReserveEntitiesIterator {
+    // New Entity indices to hand out, outside the range of meta.len().
+    new_indices: core::ops::Range<u32>,
+}
+
+impl Iterator for RemoteReserveEntitiesIterator {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.new_indices.next().map(|index| {
+            Entity::from_raw_and_generation(index, RemoteEntityReserver::REMOTE_FIRST_GENERATION)
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.new_indices.len();
+        (len, Some(len))
+    }
+}
+
+impl ExactSizeIterator for RemoteReserveEntitiesIterator {}
+impl core::iter::FusedIterator for RemoteReserveEntitiesIterator {}
+
+// SAFETY: Newly reserved entity values are unique.
+unsafe impl EntitySetIterator for RemoteReserveEntitiesIterator {}
 
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
@@ -582,18 +631,80 @@ pub struct Entities {
     /// [`flush`]: Entities::flush
     pending: Vec<u32>,
     free_cursor: AtomicIdCursor,
-    /// Stores the number of free entities for [`len`](Entities::len)
-    len: u32,
+
+    /// This functions exactly like [`Self::meta`], only it counts backwards instead of forwards.
+    remote_entities: Vec<EntityMeta>,
+    /// The counter for [`Self::remote_entities`]. This will equal it's length after flushing.
+    remote_reservations: RemoteEntityReserver,
+}
+
+/// Provides remote reservation of an entity from anywhere.
+#[derive(Debug, Clone)]
+pub struct RemoteEntityReserver(Arc<RemoteIdCursor>);
+
+impl RemoteEntityReserver {
+    /// We do this because [`Entity::PLACEHOLDER`] has index of `u32::MAX` and generation of 1.
+    /// By starting at 2, we ensure we don't conflict with that, and, we allow similar Entity constants to be made in the future.
+    const REMOTE_FIRST_GENERATION: NonZero<u32> = const {
+        // SAFETY: We pass 2, which is greater than 0.
+        unsafe { NonZero::new_unchecked(2) }
+    };
+
+    const REMOTE_FIRST_META: EntityMeta = const {
+        let mut default = EntityMeta::EMPTY;
+        default.generation = Self::REMOTE_FIRST_GENERATION;
+        default
+    };
+
+    /// Reserves an entity that will be allocated in [`Entities::flush`].
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
+    )]
+    #[allow(
+        clippy::unnecessary_fallible_conversions,
+        reason = "`RemoteIdCursor` may already be a u32."
+    )]
+    pub fn reserve(&self) -> Entity {
+        let index_from_top = self.0.fetch_add(1, Ordering::Relaxed);
+        let index_from_top = u32::try_from(index_from_top).expect("Too many entities.");
+        let index = u32::MAX - index_from_top;
+        Entity::from_raw_and_generation(index, Self::REMOTE_FIRST_GENERATION)
+    }
+
+    /// returns true if this index is from a remote reservation.
+    pub fn is_index_from_remote(&self, index: u32) -> bool {
+        self.0.load(Ordering::Relaxed) > (u32::MAX - index) as RemoteInner
+    }
+
+    /// Reserves `count` entities that will be allocated in [`Entities::flush`].
+    pub fn reserve_entities(&self, count: u32) -> RemoteReserveEntitiesIterator {
+        let list_index_start = self.0.fetch_add(count as RemoteInner, Ordering::Relaxed);
+        let list_index_start = u32::try_from(list_index_start).expect("Too many entities.");
+        let index_end = u32::MAX - list_index_start;
+        let index_start = index_end - count;
+        RemoteReserveEntitiesIterator {
+            new_indices: index_start..index_end,
+        }
+    }
 }
 
 impl Entities {
-    pub(crate) const fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Entities {
             meta: Vec::new(),
             pending: Vec::new(),
             free_cursor: AtomicIdCursor::new(0),
-            len: 0,
+            remote_entities: Vec::new(),
+            remote_reservations: RemoteEntityReserver(Arc::new(RemoteIdCursor::new(0))),
         }
+    }
+
+    /// Constructs a new [`RemoteEntityReserver`] for this [`Entities`].
+    ///
+    /// Prefer to use [`Entities::reserve_entity`] and [`Entities::reserve_entities`] where possible.
+    pub fn remote_reserer(&self) -> RemoteEntityReserver {
+        self.remote_reservations.clone()
     }
 
     /// Reserve entity IDs concurrently.
@@ -636,8 +747,8 @@ impl Entities {
             // Then we negate these values to indicate how far beyond the end of `meta.end()`
             // to go, yielding `meta.len()+0 .. meta.len()+3`.
             let base = self.meta.len() as IdCursor;
-
-            let new_id_end = u32::try_from(base - range_start).expect("too many entities");
+            self.verify_room_for((-range_start) as usize);
+            let new_id_end = (base - range_start) as u32;
 
             // `new_id_end` is in range, so no need to check `start`.
             let new_id_start = (base - range_end.min(0)) as u32;
@@ -667,9 +778,15 @@ impl Entities {
             //
             // As `self.free_cursor` goes more and more negative, we return IDs farther
             // and farther beyond `meta.len()`.
-            Entity::from_raw(
-                u32::try_from(self.meta.len() as IdCursor - n).expect("too many entities"),
-            )
+            self.verify_room_for((1 - n) as usize);
+            Entity::from_raw((self.meta.len() as IdCursor - n) as u32)
+        }
+    }
+
+    #[inline]
+    fn verify_room_for(&self, new: usize) {
+        if (self.total_count() + new) >= u32::MAX as usize {
+            panic!("too many entities")
         }
     }
 
@@ -684,13 +801,16 @@ impl Entities {
     /// Allocate an entity ID directly.
     pub fn alloc(&mut self) -> Entity {
         self.verify_flushed();
-        self.len += 1;
         if let Some(index) = self.pending.pop() {
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
+
+            // SAFETY: It was in pending, so it exists.
+            let meta = unsafe { self.get_by_id(index).debug_checked_unwrap() };
+            Entity::from_raw_and_generation(index, meta.generation)
         } else {
-            let index = u32::try_from(self.meta.len()).expect("too many entities");
+            self.verify_room_for(1);
+            let index = self.meta.len() as u32;
             self.meta.push(EntityMeta::EMPTY);
             Entity::from_raw(index)
         }
@@ -706,29 +826,28 @@ impl Entities {
     pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
         self.verify_flushed();
 
-        let loc = if entity.index() as usize >= self.meta.len() {
+        let loc = if self.get_by_id(entity.index).is_none() {
             self.pending
                 .extend((self.meta.len() as u32)..entity.index());
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.meta
                 .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
-            self.len += 1;
             None
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
             self.pending.swap_remove(index);
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            self.len += 1;
             None
         } else {
-            Some(mem::replace(
-                &mut self.meta[entity.index() as usize].location,
-                EntityMeta::EMPTY.location,
-            ))
+            // SAFETY: we checked above that it existed.
+            let meta = unsafe { self.get_mut_by_id_unchecked(entity.index()) };
+            Some(mem::replace(&mut meta.location, EntityMeta::EMPTY.location))
         };
 
-        self.meta[entity.index() as usize].generation = entity.generation;
+        // SAFETY: We just ensured it exists.
+        let meta = unsafe { self.get_mut_by_id_unchecked(entity.index()) };
+        meta.generation = entity.generation;
 
         loc
     }
@@ -749,23 +868,22 @@ impl Entities {
     ) -> AllocAtWithoutReplacement {
         self.verify_flushed();
 
-        let result = if entity.index() as usize >= self.meta.len() {
+        let result = if self.get_by_id(entity.index).is_none() {
             self.pending
                 .extend((self.meta.len() as u32)..entity.index());
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.meta
                 .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
-            self.len += 1;
             AllocAtWithoutReplacement::DidNotExist
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
             self.pending.swap_remove(index);
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            self.len += 1;
             AllocAtWithoutReplacement::DidNotExist
         } else {
-            let current_meta = &self.meta[entity.index() as usize];
+            // SAFETY: we chucked at the start that it would be some
+            let current_meta = unsafe { self.get_by_id(entity.index()).unwrap_unchecked() };
             if current_meta.location.archetype_id == ArchetypeId::INVALID {
                 AllocAtWithoutReplacement::DidNotExist
             } else if current_meta.generation == entity.generation {
@@ -775,7 +893,9 @@ impl Entities {
             }
         };
 
-        self.meta[entity.index() as usize].generation = entity.generation;
+        // SAFETY: We just ensured it exists.
+        let meta = unsafe { self.get_mut_by_id_unchecked(entity.index()) };
+        meta.generation = entity.generation;
         result
     }
 
@@ -785,7 +905,7 @@ impl Entities {
     pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
         self.verify_flushed();
 
-        let meta = &mut self.meta[entity.index() as usize];
+        let meta = self.get_mut_by_id(entity.index())?;
         if meta.generation != entity.generation {
             return None;
         }
@@ -805,7 +925,6 @@ impl Entities {
 
         let new_free_cursor = self.pending.len() as IdCursor;
         *self.free_cursor.get_mut() = new_free_cursor;
-        self.len -= 1;
         Some(loc)
     }
 
@@ -841,25 +960,21 @@ impl Entities {
     /// Clears all [`Entity`] from the World.
     pub fn clear(&mut self) {
         self.meta.clear();
-        self.pending.clear();
         *self.free_cursor.get_mut() = 0;
-        self.len = 0;
+        self.pending.clear();
+        self.remote_entities.clear();
+        self.remote_reservations.0.fetch_and(0, Ordering::Relaxed);
     }
 
     /// Returns the location of an [`Entity`].
     /// Note: for pending entities, returns `None`.
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
-        if let Some(meta) = self.meta.get(entity.index() as usize) {
-            if meta.generation != entity.generation
-                || meta.location.archetype_id == ArchetypeId::INVALID
-            {
-                return None;
-            }
-            Some(meta.location)
-        } else {
-            None
-        }
+        self.get_by_id(entity.index()).and_then(|meta| {
+            (meta.generation == entity.generation
+                && meta.location.archetype_id != ArchetypeId::INVALID)
+                .then_some(meta.location)
+        })
     }
 
     /// Updates the location of an [`Entity`]. This must be called when moving the components of
@@ -872,7 +987,7 @@ impl Entities {
     #[inline]
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
         // SAFETY: Caller guarantees that `index` a valid entity index
-        let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
+        let meta = unsafe { self.get_mut_by_id_unchecked(index) };
         meta.location = location;
     }
 
@@ -882,16 +997,41 @@ impl Entities {
     ///
     /// Does nothing if no entity with this `index` has been allocated yet.
     pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
-        if (index as usize) >= self.meta.len() {
+        let Some(meta) = self.get_mut_by_id(index) else {
             return false;
-        }
+        };
 
-        let meta = &mut self.meta[index as usize];
         if meta.location.archetype_id == ArchetypeId::INVALID {
             meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, generations);
             true
         } else {
             false
+        }
+    }
+
+    #[inline]
+    fn get_by_id(&self, index: u32) -> Option<&EntityMeta> {
+        self.meta
+            .get(index as usize)
+            .or_else(|| self.remote_entities.get((u32::MAX - index) as usize))
+    }
+
+    #[inline]
+    fn get_mut_by_id(&mut self, index: u32) -> Option<&mut EntityMeta> {
+        self.meta
+            .get_mut(index as usize)
+            .or_else(|| self.remote_entities.get_mut((u32::MAX - index) as usize))
+    }
+
+    /// # Safety
+    ///  - `index` must be a valid entity index.
+    #[inline]
+    unsafe fn get_mut_by_id_unchecked(&mut self, index: u32) -> &mut EntityMeta {
+        if index as usize > self.meta.len() {
+            self.remote_entities
+                .get_unchecked_mut((u32::MAX - index) as usize)
+        } else {
+            self.meta.get_unchecked_mut(index as usize)
         }
     }
 
@@ -902,20 +1042,26 @@ impl Entities {
     /// Note that [`contains`](Entities::contains) will correctly return false for freed
     /// entities, since it checks the generation
     pub fn resolve_from_id(&self, index: u32) -> Option<Entity> {
-        let idu = index as usize;
-        if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
+        if let Some(&EntityMeta { generation, .. }) = self.get_by_id(index) {
             Some(Entity::from_raw_and_generation(index, generation))
+        } else if self.remote_reservations.is_index_from_remote(index) {
+            Some(Entity::from_raw_and_generation(
+                index,
+                RemoteEntityReserver::REMOTE_FIRST_GENERATION,
+            ))
         } else {
             // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
             let free_cursor = self.free_cursor.load(Ordering::Relaxed);
             // If this entity was manually created, then free_cursor might be positive
             // Returning None handles that case correctly
             let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then_some(Entity::from_raw(index))
+            ((index as usize) < self.meta.len() + num_pending).then_some(Entity::from_raw(index))
         }
     }
 
     fn needs_flush(&mut self) -> bool {
+        // we don't check [`Self::remote_reservations`] since that may have changed at any time.
+        // we never *need* to flush those; it doesn't affect soundness of *being* flushed.
         *self.free_cursor.get_mut() != self.pending.len() as IdCursor
     }
 
@@ -932,30 +1078,51 @@ impl Entities {
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
+        let new_free_cursor = current_free_cursor.max(0);
+        *free_cursor = new_free_cursor;
 
-        let new_free_cursor = if current_free_cursor >= 0 {
-            current_free_cursor as usize
-        } else {
-            let old_meta_len = self.meta.len();
-            let new_meta_len = old_meta_len + -current_free_cursor as usize;
-            self.meta.resize(new_meta_len, EntityMeta::EMPTY);
-            self.len += -current_free_cursor as u32;
-            for (index, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
-                init(
-                    Entity::from_raw_and_generation(index as u32, meta.generation),
-                    &mut meta.location,
-                );
-            }
-
-            *free_cursor = 0;
-            0
-        };
-
-        self.len += (self.pending.len() - new_free_cursor) as u32;
-        for index in self.pending.drain(new_free_cursor..) {
-            let meta = &mut self.meta[index as usize];
+        // pending
+        for index in self.pending.drain((new_free_cursor as usize)..) {
+            // SAFETY: it was in pending, so it exists
+            let meta = unsafe {
+                // We can't do get_mut_by_id_unchecked because of lifetimes
+                if index as usize > self.meta.len() {
+                    self.remote_entities
+                        .get_unchecked_mut((u32::MAX - index) as usize)
+                } else {
+                    self.meta.get_unchecked_mut(index as usize)
+                }
+            };
             init(
                 Entity::from_raw_and_generation(index, meta.generation),
+                &mut meta.location,
+            );
+        }
+
+        // reserved meta
+        let old_meta_len = self.meta.len();
+        let new_meta_len = old_meta_len + -(current_free_cursor.min(0)) as usize;
+        self.meta.resize(new_meta_len, EntityMeta::EMPTY);
+        for index in old_meta_len..new_meta_len {
+            // SAFETY: we just resized to make the id valid
+            let meta = unsafe { self.meta.get_unchecked_mut(index) };
+            init(
+                Entity::from_raw_and_generation(index as u32, meta.generation),
+                &mut meta.location,
+            );
+        }
+
+        // remote reserved
+        let new_remote_len = self.remote_reservations.0.load(Ordering::Relaxed) as usize;
+        let current_remote_len = self.remote_entities.len();
+        self.verify_room_for(new_remote_len - current_remote_len);
+        self.remote_entities
+            .resize(new_remote_len, RemoteEntityReserver::REMOTE_FIRST_META);
+        for index_in_list in current_remote_len..new_remote_len {
+            // SAFETY: we just resized to make the id valid
+            let meta = unsafe { self.remote_entities.get_unchecked_mut(index_in_list) };
+            init(
+                Entity::from_raw_and_generation(u32::MAX - index_in_list as u32, meta.generation),
                 &mut meta.location,
             );
         }
@@ -982,19 +1149,41 @@ impl Entities {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn total_count(&self) -> usize {
+        self.meta.len() + self.remote_entities.len()
+    }
+
+    /// The count of all entities in the [`World`] that are used,
+    /// including both those allocated and those reserved, but not those freed.
+    ///
+    /// [`World`]: crate::world::World
+    #[inline]
+    pub fn used_count(&self) -> usize {
+        ((self.remote_reservations.0.load(Ordering::Relaxed) as usize + self.meta.len()) as isize
+            - self.free_cursor.load(Ordering::Relaxed) as isize) as usize
+    }
+
+    /// The count of all entities in the [`World`] that have ever been allocated or reserved, including those that are freed.
+    /// This is the value that [`Self::total_count()`] would return if [`Self::flush()`] were called right now.
+    ///
+    /// [`World`]: crate::world::World
+    #[inline]
+    pub fn total_prospective_count(&self) -> usize {
         self.meta.len()
+            + (-self.free_cursor.load(Ordering::Relaxed)).min(0) as usize
+            + self.remote_reservations.0.load(Ordering::Relaxed) as usize
     }
 
     /// The count of currently allocated entities.
     #[inline]
     pub fn len(&self) -> u32 {
-        self.len
+        // `pending`, by definition, can't be bigger than `meta`.
+        (self.total_count() - self.pending.len()) as u32
     }
 
     /// Checks if any entity is currently active.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+        self.len() == 0
     }
 
     /// Sets the source code location from which this entity has last been spawned
@@ -1002,10 +1191,7 @@ impl Entities {
     #[inline]
     pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: MaybeLocation) {
         caller.map(|caller| {
-            let meta = self
-                .meta
-                .get_mut(index as usize)
-                .expect("Entity index invalid");
+            let meta = self.get_mut_by_id(index).expect("Entity index invalid");
             meta.spawned_or_despawned_by = MaybeLocation::new(Some(caller));
         });
     }
@@ -1018,8 +1204,7 @@ impl Entities {
         entity: Entity,
     ) -> MaybeLocation<Option<&'static Location<'static>>> {
         MaybeLocation::new_with_flattened(|| {
-            self.meta
-                .get(entity.index() as usize)
+            self.get_by_id(entity.index())
                 .filter(|meta|
                 // Generation is incremented immediately upon despawn
                 (meta.generation == entity.generation)
