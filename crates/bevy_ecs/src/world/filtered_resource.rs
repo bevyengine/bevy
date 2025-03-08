@@ -542,7 +542,7 @@ impl<'w> FilteredResourcesBuilder<'w> {
 
     /// Add accesses required to read the resource of the given type.
     pub fn add_read<R: Resource>(&mut self) -> &mut Self {
-        let component_id = self.world.components.register_resource::<R>();
+        let component_id = self.world.components_registrator().register_resource::<R>();
         self.add_read_by_id(component_id)
     }
 
@@ -588,7 +588,7 @@ impl<'w> FilteredResourcesMutBuilder<'w> {
 
     /// Add accesses required to read the resource of the given type.
     pub fn add_read<R: Resource>(&mut self) -> &mut Self {
-        let component_id = self.world.components.register_resource::<R>();
+        let component_id = self.world.components_registrator().register_resource::<R>();
         self.add_read_by_id(component_id)
     }
 
@@ -606,7 +606,7 @@ impl<'w> FilteredResourcesMutBuilder<'w> {
 
     /// Add accesses required to get mutable access to the resource of the given type.
     pub fn add_write<R: Resource>(&mut self) -> &mut Self {
-        let component_id = self.world.components.register_resource::<R>();
+        let component_id = self.world.components_registrator().register_resource::<R>();
         self.add_write_by_id(component_id)
     }
 
