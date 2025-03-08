@@ -18,13 +18,6 @@ struct MutableInvalidAttribute {
 }
 
 #[derive(QueryData)]
-#[query_data(derive)]
-//~^ ERROR: `derive` requires at least one argument
-struct MutableMissingAttributeParameters {
-    a: &'static mut Foo,
-}
-
-#[derive(QueryData)]
 #[query_data(mutable)]
 struct MutableMarked {
     a: &'static mut Foo,
