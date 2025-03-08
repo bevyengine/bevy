@@ -136,5 +136,5 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
 
         impl #impl_generics #state_mutation_trait_path for #struct_name #ty_generics #where_clause {
         }
-    }.into();
+    }.into()
 }
