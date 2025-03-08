@@ -7,7 +7,7 @@ pub mod ui_texture_slice_pipeline;
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
 
-use crate::widget::ImageNode;
+use crate::widget::{ImageNode, TextCursor, TextCursorStyle, TextCursorWidth};
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
     ComputedNodeTarget, DefaultUiCamera, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
@@ -707,6 +707,8 @@ pub fn extract_text_sections(
             &ComputedNodeTarget,
             &ComputedTextBlock,
             &TextLayoutInfo,
+            Option<&TextCursor>,
+            Option<&TextCursorStyle>,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
@@ -722,9 +724,11 @@ pub fn extract_text_sections(
         global_transform,
         inherited_visibility,
         clip,
-        camera,
+        target,
         computed_block,
         text_layout_info,
+        maybe_cursor,
+        maybe_cursor_style,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -732,12 +736,12 @@ pub fn extract_text_sections(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
             continue;
         };
 
-        let transform = global_transform.affine()
-            * bevy_math::Affine3A::from_translation((-0.5 * uinode.size()).extend(0.));
+        let transform: Mat4 = global_transform.compute_matrix()
+            * Mat4::from_translation((-0.5 * uinode.size()).extend(0.));
 
         for (
             i,
@@ -788,6 +792,74 @@ pub fn extract_text_sections(
 
             end += 1;
         }
+
+        let Some(cursor) = maybe_cursor else {
+            continue;
+        };
+
+        let Some(cursor_style) =
+            maybe_cursor_style.filter(|cursor_style| !cursor_style.color.is_fully_transparent())
+        else {
+            continue;
+        };
+
+        let line_height = computed_block.buffer().metrics().line_height * cursor_style.height;
+        let Some(line) = computed_block.buffer().layout_runs().nth(cursor.line) else {
+            continue;
+        };
+
+        let (glyph_x, glyph_width) = if let Some(last_glyph) = line.glyphs.last() {
+            line.glyphs
+                .iter()
+                // Find the width of the glyph the cursor is over
+                .find_map(|glyph| {
+                    if cursor.index <= glyph.end {
+                        Some((glyph.x, glyph.w))
+                    } else {
+                        None
+                    }
+                })
+                // If the cursor is past the end of the line, use the width of the last glyph.
+                .unwrap_or((last_glyph.x + last_glyph.w, last_glyph.w))
+        } else {
+            // Used with `TextCursorWidth::All` if the string is empty and there is no previous glyph to base the width on.
+            (0., 3. * target.scale_factor)
+        };
+
+        let width = match cursor_style.width {
+            TextCursorWidth::Block => glyph_width,
+            TextCursorWidth::Line(width) => width * target.scale_factor,
+        };
+
+        let x = glyph_x + width * 0.5;
+        let y = line.line_top + 0.5 * line_height;
+        extracted_uinodes.uinodes.push(ExtractedUiNode {
+            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            stack_index: uinode.stack_index,
+            color: LinearRgba::from(cursor_style.color),
+            image: AssetId::default(),
+            clip: clip.map(|clip| clip.clip),
+            extracted_camera_entity,
+            rect: Rect {
+                min: Vec2::ZERO,
+                max: Vec2::new(width, line_height),
+            },
+            item: ExtractedUiItem::Node {
+                atlas_scaling: None,
+                flip_x: false,
+                flip_y: false,
+                border_radius: ResolvedBorderRadius {
+                    top_left: cursor_style.radius * target.scale_factor,
+                    top_right: cursor_style.radius * target.scale_factor,
+                    bottom_left: cursor_style.radius * target.scale_factor,
+                    bottom_right: cursor_style.radius * target.scale_factor,
+                },
+                border: BorderRect::ZERO,
+                node_type: NodeType::Rect,
+                transform: transform * Mat4::from_translation(Vec3::new(x, y, 0.)),
+            },
+            main_entity: entity.into(),
+        });
     }
 }
 
