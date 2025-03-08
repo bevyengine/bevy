@@ -49,184 +49,11 @@ fn setup_grid(mut commands: Commands) {
             BackgroundColor(NAVY.into()),
         ))
         .with_children(|commands| {
-            commands
-                .spawn((
-                    BackgroundColor(GREEN.into()),
-                    Node {
-                        display: Display::Grid,
-                        width: Val::Px(CELL_SIZE),
-                        ..Default::default()
-                    },
-                ))
-                .with_children(|commands| {
-                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
-                    commands.spawn((
-                        Node {
-                            width: Val::Px(100.),
-                            height: Val::Px(100.),
-                            ..default()
-                        },
-                        BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![ColorStop::auto(RED), ColorStop::auto(BLUE)],
-                            position: Position::Center(Val::ZERO, Val::ZERO),
-                            shape: RadialGradientShape::ClosestSide,
-                        }),
-                    ));
-                });
-
-            commands
-                .spawn((
-                    BackgroundColor(GREEN.into()),
-                    Node {
-                        display: Display::Grid,
-                        width: Val::Px(CELL_SIZE),
-                        ..Default::default()
-                    },
-                ))
-                .with_children(|commands| {
-                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
-                    commands.spawn((
-                        Node {
-                            width: Val::Px(100.),
-                            height: Val::Px(100.),
-                            ..default()
-                        },
-                        BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![ColorStop::auto(RED), ColorStop::auto(BLUE)],
-                            position: Position::Center(Val::ZERO, Val::ZERO),
-                            shape: RadialGradientShape::Circle(Val::Px(50.)),
-                        }),
-                    ));
-                });
-
-            commands
-                .spawn((
-                    BackgroundColor(GREEN.into()),
-                    Node {
-                        display: Display::Grid,
-                        width: Val::Px(CELL_SIZE),
-                        ..Default::default()
-                    },
-                ))
-                .with_children(|commands| {
-                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
-                    commands.spawn((
-                        Node {
-                            width: Val::Px(100.),
-                            height: Val::Px(100.),
-                            ..default()
-                        },
-                        BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![ColorStop::auto(RED), ColorStop::auto(BLUE)],
-                            position: Position::Center(Val::ZERO, Val::ZERO),
-                            shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
-                        }),
-                    ));
-                });
-            commands
-                .spawn((
-                    BackgroundColor(GREEN.into()),
-                    Node {
-                        display: Display::Grid,
-                        width: Val::Px(CELL_SIZE),
-                        ..Default::default()
-                    },
-                ))
-                .with_children(|commands| {
-                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
-                    commands.spawn((
-                        Node {
-                            width: Val::Px(100.),
-                            height: Val::Px(100.),
-                            ..default()
-                        },
-                        BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![ColorStop::auto(RED), ColorStop::auto(BLUE)],
-                            position: Position::TopRight(Val::ZERO, Val::ZERO),
-                            shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
-                        }),
-                    ));
-                });
-
-            commands
-                .spawn((
-                    BackgroundColor(GREEN.into()),
-                    Node {
-                        display: Display::Grid,
-                        width: Val::Px(CELL_SIZE),
-                        ..Default::default()
-                    },
-                ))
-                .with_children(|commands| {
-                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
-                    commands.spawn((
-                        Node {
-                            width: Val::Px(100.),
-                            height: Val::Px(100.),
-                            ..default()
-                        },
-                        BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![ColorStop::auto(RED), ColorStop::auto(BLUE)],
-                            position: Position::BottomLeft(Val::ZERO, Val::ZERO),
-                            shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
-                        }),
-                    ));
-                });
-
-            commands
-                .spawn((
-                    BackgroundColor(GREEN.into()),
-                    Node {
-                        display: Display::Grid,
-                        width: Val::Px(CELL_SIZE),
-                        ..Default::default()
-                    },
-                ))
-                .with_children(|commands| {
-                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
-                    commands.spawn((
-                        Node {
-                            width: Val::Px(100.),
-                            height: Val::Px(100.),
-                            ..default()
-                        },
-                        BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![ColorStop::auto(RED), ColorStop::auto(BLUE)],
-                            position: Position::LEFT,
-                            shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
-                        }),
-                    ));
-                });
-
-            commands
-                .spawn((
-                    BackgroundColor(GREEN.into()),
-                    Node {
-                        display: Display::Grid,
-                        width: Val::Px(CELL_SIZE),
-                        ..Default::default()
-                    },
-                ))
-                .with_children(|commands| {
-                    commands.spawn((Text::new("---\n---"), TextFont::from_font_size(10.)));
-                    commands.spawn((
-                        Node {
-                            width: Val::Px(100.),
-                            height: Val::Px(100.),
-                            ..default()
-                        },
-                        BackgroundGradient::from(Gradient::Radial {
-                            stops: vec![ColorStop::auto(RED), ColorStop::auto(BLUE)],
-                            position: Position::TOP,
-                            shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
-                        }),
-                    ));
-                });
-
-            for (radial_gradient_axis, a) in [
-                (RadialGradientShape::ClosestSide, "closest"),
-                (RadialGradientShape::FarthestSide, "farthest"),
-                (RadialGradientShape::Circle(Val::Percent(55.)), "55%"),
+            for shape in [
+                RadialGradientShape::ClosestSide,
+                RadialGradientShape::FarthestSide,
+                RadialGradientShape::Circle(Val::Percent(55.)),
+                RadialGradientShape::FarthestCorner,
             ] {
                 for position in [
                     Position::TOP_LEFT,
@@ -254,7 +81,7 @@ fn setup_grid(mut commands: Commands) {
                                 ))
                                 .with_children(|commands| {
                                     commands.spawn((
-                                        Text(format!("{a}\n{position:?}")),
+                                        Text(format!("{shape:#?}\n{position:#?}")),
                                         TextFont::from_font_size(10.),
                                     ));
                                     commands.spawn((
@@ -266,7 +93,7 @@ fn setup_grid(mut commands: Commands) {
                                         BackgroundGradient::from(Gradient::Radial {
                                             stops,
                                             position,
-                                            shape: radial_gradient_axis,
+                                            shape,
                                         }),
                                     ));
                                 });
