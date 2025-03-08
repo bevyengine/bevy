@@ -50,7 +50,7 @@ use log::warn;
 /// #[relationship(relationship_target = Children)]
 /// pub struct ChildOf {
 ///     #[relationship]
-///     pub child: Entity,
+///     pub parent: Entity,
 ///     internal: u8,
 /// };
 ///

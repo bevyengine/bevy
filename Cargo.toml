@@ -513,6 +513,9 @@ critical-section = ["bevy_internal/critical-section"]
 # Uses the `libm` maths library instead of the one provided in `std` and `core`.
 libm = ["bevy_internal/libm"]
 
+# Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.
+web = ["bevy_internal/web"]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
