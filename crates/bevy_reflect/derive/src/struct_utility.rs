@@ -65,7 +65,7 @@ impl FieldAccessors {
         reflect_struct
             .active_fields()
             .map(|field| {
-                let member = as_member(&field.data.ident, field.declaration_index);
+                let member = as_member(field.data.ident.as_ref(), field.declaration_index);
                 let accessor = if is_remote {
                     quote!(self.0.#member)
                 } else {

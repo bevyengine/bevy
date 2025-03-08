@@ -67,7 +67,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let field = named_fields
         .iter()
         .enumerate()
-        .map(|(index, field)| as_member(&field.ident, index))
+        .map(|(index, field)| as_member(field.ident.as_ref(), index))
         .collect::<Vec<_>>();
 
     let field_type = named_fields
@@ -205,7 +205,7 @@ fn derive_visit_entities_base(
                     Err(e) => Some(Err(e)),
                 };
             }
-            Some(Ok(as_member(&field.ident, index)))
+            Some(Ok(as_member(field.ident.as_ref(), index)))
         })
         .collect::<Result<Vec<_>, _>>();
 

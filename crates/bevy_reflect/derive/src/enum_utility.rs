@@ -151,7 +151,7 @@ pub(crate) trait VariantBuilder: Sized {
             let fields = variant.fields();
 
             let field_constructors = fields.iter().map(|field| {
-                let member = as_member(&field.data.ident, field.declaration_index);
+                let member = as_member(field.data.ident.as_ref(), field.declaration_index);
                 let alias = format_ident!("_{}", member);
 
                 let variant_field = VariantField {
