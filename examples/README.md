@@ -530,7 +530,7 @@ Example | Description
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 [Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Gradients](../examples/ui/gradients.rs) | An example demonstrating gradients
-[Gradients](../examples/ui/overlaid_gradients.rs) | An example demonstrating overlaid gradients
+[Stacked Gradients](../examples/ui/overlaid_gradients.rs) | An example demonstrating stacked gradients
 [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow Clip Margin](../examples/ui/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
 [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
