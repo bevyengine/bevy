@@ -187,7 +187,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     if enabled(in.flags, RADIAL) {
         g_distance = radial_distance(in.point, in.g_start, in.dir.x);
     } else if enabled(in.flags, CONIC) {
-        g_distance = conic_distance(in.g_start, in.point);
+        g_distance = conic_distance(in.point, in.g_start);
     } else {
         g_distance = linear_distance(in.point, in.g_start, in.dir);
     }

@@ -839,7 +839,7 @@ pub fn prepare_gradient(
                         }
                         ResolvedGradient::Radial { center, size } => (
                             center.into(),
-                            Vec2::splat(if size.y != 0. { size.x / size.y } else { 0. }).into(),
+                            Vec2::splat(if size.y != 0. { size.x / size.y } else { 1. }).into(),
                             shader_flags::RADIAL,
                         ),
                     };
