@@ -4,18 +4,6 @@ error: invalid attribute, expected `mutable` or `derive`
 14 | #[query_data(mut)]
    |              ^^^
 
-error: `mutable` does not take any arguments
-  --> tests/ui/world_query_derive.rs:21:14
-   |
-21 | #[query_data(mutable(foo))]
-   |              ^^^^^^^
-
-error: `derive` requires at least one argument
-  --> tests/ui/world_query_derive.rs:28:14
-   |
-28 | #[query_data(derive)]
-   |              ^^^^^^
-
 error[E0277]: the trait bound `&'static mut Foo: ReadOnlyQueryData` is not satisfied
   --> tests/ui/world_query_derive.rs:10:8
    |
