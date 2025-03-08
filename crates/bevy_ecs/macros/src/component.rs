@@ -628,7 +628,7 @@ fn hook_register_function_call(
     function.map(|meta| {
         quote! {
             fn #hook() -> #FQOption<#bevy_ecs_path::component::ComponentHook> {
-                #FQOption(#meta)
+                #FQOption::Some(#meta)
             }
         }
     })
