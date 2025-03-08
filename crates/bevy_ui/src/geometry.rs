@@ -814,7 +814,7 @@ fn close_side(p: f32, h: f32) -> f32 {
 }
 
 fn far_side(p: f32, h: f32) -> f32 {
-    (-h - p).abs().min((h - p).abs())
+    (-h - p).abs().max((h - p).abs())
 }
 
 fn close_side2(p: Vec2, h: Vec2) -> f32 {
