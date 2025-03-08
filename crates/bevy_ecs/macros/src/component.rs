@@ -1,4 +1,4 @@
-use bevy_macro_utils::as_member;
+use bevy_macro_utils::{fq_std::FQOption, as_member};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
@@ -653,8 +653,8 @@ fn hook_register_function_call(
 ) -> Option<TokenStream2> {
     function.map(|meta| {
         quote! {
-            fn #hook() -> ::core::option::Option<#bevy_ecs_path::lifecycle::ComponentHook> {
-                ::core::option::Option::Some(#meta)
+            fn #hook() -> #FQOption<#bevy_ecs_path::component::ComponentHook> {
+                #FQOption(#meta)
             }
         }
     })

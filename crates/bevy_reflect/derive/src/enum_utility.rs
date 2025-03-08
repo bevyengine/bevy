@@ -1,9 +1,11 @@
 use crate::field_attributes::CloneBehavior;
 use crate::{
     derive_data::ReflectEnum, derive_data::StructField, field_attributes::DefaultBehavior,
-    ident::ident_or_index,
 };
-use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption, FQResult};
+use bevy_macro_utils::{
+    as_member,
+    fq_std::{FQDefault, FQOption},
+};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 

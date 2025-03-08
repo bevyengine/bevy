@@ -1,4 +1,6 @@
-use crate::ReflectStruct;
+use crate::{derive_data::StructField, ReflectStruct};
+use bevy_macro_utils::as_member;
+use quote::quote;
 
 /// A helper struct for creating remote-aware field accessors.
 ///
