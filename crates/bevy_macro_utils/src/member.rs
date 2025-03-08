@@ -4,11 +4,11 @@ use syn::{Ident, Member};
 ///
 /// This is useful for when you want to access a field inside a `quote!` block regardless of whether it is an identifier or an index.
 /// There is also [syn::Field::members], but this method doesn't work when you're dealing with single / filtered fields.
-/// 
+///
 /// Rust struct syntax allows for `Struct { foo: "string" }` with explicitly
 /// named fields. It allows the `Struct { 0: "string" }` syntax when the struct
 /// is declared as a tuple struct.
-/// 
+///
 /// # Example
 /// ```rust
 /// use syn::{Ident, parse_str, DeriveInput, Data, DataStruct};
