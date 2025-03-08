@@ -345,10 +345,7 @@ pub fn extract_gradients(
                 }
                 match gradient {
                     Gradient::Linear { angle, stops } => {
-                        let length = compute_gradient_line_length(
-                            *angle,
-                            uinode.size * transform.scale().xy(),
-                        );
+                        let length = compute_gradient_line_length(*angle, uinode.size);
 
                         let range_start = extracted_color_stops.0.len();
 
