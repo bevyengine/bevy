@@ -695,6 +695,11 @@ impl Default for UiRect {
 /// The corner or edge of a UI Node that a position is relative to.
 #[derive(Debug, Clone, Copy, PartialEq, Default, Reflect)]
 #[reflect(Default, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum NodeAnchor {
     #[default]
     TopLeft,
