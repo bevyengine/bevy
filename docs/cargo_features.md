@@ -102,6 +102,7 @@ The default feature set enables most of the expected features of a game engine, 
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|
+|shader_format_wesl|Enable support for shaders in WESL|
 |spirv_shader_passthrough|Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)|
 |statically-linked-dxc|Statically linked DXC shader compiler for DirectX 12|
 |symphonia-aac|AAC audio format support (through symphonia)|

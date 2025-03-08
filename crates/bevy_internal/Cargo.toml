@@ -88,6 +88,7 @@ shader_format_glsl = [
   "bevy_pbr?/shader_format_glsl",
 ]
 shader_format_spirv = ["bevy_render/shader_format_spirv"]
+shader_format_wesl = ["bevy_render/shader_format_wesl"]
 
 serialize = [
   "bevy_a11y?/serialize",
