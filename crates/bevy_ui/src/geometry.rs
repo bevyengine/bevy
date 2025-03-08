@@ -692,6 +692,22 @@ impl Default for UiRect {
     }
 }
 
+/// The corner or edge of a UI Node that a position is relative to.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Reflect)]
+#[reflect(Default, Debug, PartialEq)]
+pub enum NodeAnchor {
+    #[default]
+    TopLeft,
+    Top,
+    TopRight,
+    Left,
+    Center,
+    Right,
+    BottomLeft,
+    Bottom,
+    BottomRight,
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Default, PartialEq)]
 #[cfg_attr(
@@ -699,133 +715,168 @@ impl Default for UiRect {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-/// A `Val` that represents a displacement relative to the edges of a UI node.
-pub enum RelativeVal {
-    /// Positioned relative to the left or top of the UI node.
-    /// Increasing rightwards and downwards towards the center of the node.
-    Start(Val),
-    /// Positioned relative to the left or top of the UI node.
-    /// Increasing rightwards and downwards away from the center of the node.
-    Center(Val),
-    /// Positioned relative to the right or bottom of the UI node.
-    /// Increasing leftwards and upwards towards the center of the node.
-    End(Val),
-}
-
-impl RelativeVal {
-    pub const fn start() -> Self {
-        Self::Start(Val::ZERO)
-    }
-
-    pub const fn center() -> Self {
-        Self::Center(Val::ZERO)
-    }
-
-    pub const fn end() -> Self {
-        Self::End(Val::ZERO)
-    }
-
-    pub fn resolve(self, scale_factor: f32, length: f32, viewport_size: Vec2) -> f32 {
-        let (val, point) = match self {
-            Self::Start(val) => (val, -0.5 * length),
-            Self::Center(val) => (val, 0.),
-            Self::End(val) => (-val, 0.5 * length),
-        };
-        point
-            + val
-                .resolve(scale_factor, length, viewport_size)
-                .unwrap_or(0.)
-    }
-}
-
-impl Default for RelativeVal {
-    fn default() -> Self {
-        RelativeVal::Center(Val::ZERO)
-    }
-}
-
-#[derive(Default, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Default, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-/// Represents a position relative to a UI node
+/// Responsive position relative to a UI node
 pub struct RelativePosition {
-    /// Position relative to the horizontal bounds of the UI node
-    pub x: RelativeVal,
-    /// Position relative to the vertical bounds of the UI node
-    pub y: RelativeVal,
+    /// The corner or edge of the UI Node that the position is relative to.
+    pub anchor: NodeAnchor,
+    /// x offset from the anchor
+    /// Positive values move right if the anchor is on the left or center, but move left if the anchor is on the right.
+    pub x: Val,
+    /// y offset from the anchor
+    /// Positive values move down if the anchor is at the top or center, but move up if the anchor is at the bottom.  
+    pub y: Val,
+}
+
+impl Default for RelativePosition {
+    fn default() -> Self {
+        Self {
+            anchor: NodeAnchor::TopLeft,
+            x: Val::ZERO,
+            y: Val::ZERO,
+        }
+    }
 }
 
 impl RelativePosition {
-    pub const TOP_LEFT: Self = Self::top_left(Val::ZERO, Val::ZERO);
-    pub const LEFT: Self = Self::left(Val::ZERO);
-    pub const BOTTOM_LEFT: Self = Self::bottom_left(Val::ZERO, Val::ZERO);
-    pub const TOP: Self = Self::top(Val::ZERO);
-    pub const CENTER: Self = Self::center(Val::ZERO, Val::ZERO);
-    pub const BOTTOM: Self = Self::bottom(Val::ZERO);
-    pub const TOP_RIGHT: Self = Self::top_right(Val::ZERO, Val::ZERO);
-    pub const RIGHT: Self = Self::right(Val::ZERO);
-    pub const BOTTOM_RIGHT: Self = Self::bottom_right(Val::ZERO, Val::ZERO);
+    pub const TOP_LEFT: Self = Self {
+        anchor: NodeAnchor::TopLeft,
+        x: Val::ZERO,
+        y: Val::ZERO,
+    };
+    pub const LEFT: Self = Self {
+        anchor: NodeAnchor::Left,
+        x: Val::ZERO,
+        y: Val::ZERO,
+    };
+    pub const BOTTOM_LEFT: Self = Self {
+        anchor: NodeAnchor::BottomLeft,
+        x: Val::ZERO,
+        y: Val::ZERO,
+    };
+    pub const TOP: Self = Self {
+        anchor: NodeAnchor::Top,
+        x: Val::ZERO,
+        y: Val::ZERO,
+    };
+    pub const CENTER: Self = Self {
+        anchor: NodeAnchor::Center,
+        x: Val::ZERO,
+        y: Val::ZERO,
+    };
+    pub const BOTTOM: Self = Self {
+        anchor: NodeAnchor::Bottom,
+        x: Val::ZERO,
+        y: Val::ZERO,
+    };
+    pub const TOP_RIGHT: Self = Self {
+        anchor: NodeAnchor::TopRight,
+        x: Val::ZERO,
+        y: Val::ZERO,
+    };
+    pub const RIGHT: Self = Self {
+        anchor: NodeAnchor::Right,
+        x: Val::ZERO,
+        y: Val::ZERO,
+    };
+    pub const BOTTOM_RIGHT: Self = Self {
+        anchor: NodeAnchor::BottomRight,
+        x: Val::ZERO,
+        y: Val::ZERO,
+    };
 
-    pub const fn new(x: RelativeVal, y: RelativeVal) -> Self {
-        Self { x, y }
+    /// Creates a new `RelativePosition` with the specified anchor and offset values.
+    pub const fn new(anchor: NodeAnchor, x: Val, y: Val) -> Self {
+        Self { anchor, x, y }
     }
 
-    pub const fn all(val: RelativeVal) -> Self {
-        Self::new(val, val)
+    /// Returns a position relative to the top-left corner of the UI node.
+    pub const fn top_left(x: Val, y: Val) -> Self {
+        Self::new(NodeAnchor::TopLeft, x, y)
     }
 
-    pub const fn top_left(left: Val, top: Val) -> Self {
-        Self::new(RelativeVal::Start(left), RelativeVal::Start(top))
+    /// Returns a position relative to the center of the left edge.
+    pub const fn left(x: Val, y: Val) -> Self {
+        Self::new(NodeAnchor::Left, x, y)
     }
 
-    pub const fn left(val: Val) -> Self {
-        Self::new(RelativeVal::Start(val), RelativeVal::center())
+    /// Returns a position relative to the bottom-left corner of the UI node.
+    pub const fn bottom_left(x: Val, y: Val) -> Self {
+        Self::new(NodeAnchor::BottomLeft, x, y)
     }
 
-    pub const fn bottom_left(left: Val, bottom: Val) -> Self {
-        Self::new(RelativeVal::Start(left), RelativeVal::End(bottom))
+    /// Returns a position relative to the center of the top edge.
+    pub const fn top(x: Val, y: Val) -> Self {
+        Self::new(NodeAnchor::Top, x, y)
     }
 
-    pub const fn top(val: Val) -> Self {
-        Self::new(RelativeVal::center(), RelativeVal::Start(val))
-    }
-
+    /// Returns a position relative to the center of the UI node.
     pub const fn center(x: Val, y: Val) -> Self {
-        Self::new(RelativeVal::Center(x), RelativeVal::Center(y))
+        Self::new(NodeAnchor::Center, x, y)
     }
 
-    pub const fn bottom(val: Val) -> Self {
-        Self::new(RelativeVal::center(), RelativeVal::End(val))
+    /// Returns a position relative to the center of the bottom edge.
+    pub const fn bottom(x: Val, y: Val) -> Self {
+        Self::new(NodeAnchor::Bottom, x, y)
     }
 
-    pub const fn top_right(right: Val, top: Val) -> Self {
-        Self::new(RelativeVal::End(right), RelativeVal::Start(top))
+    /// Returns a position relative to the top-right corner of the UI node.
+    pub const fn top_right(x: Val, y: Val) -> Self {
+        Self::new(NodeAnchor::TopRight, x, y)
     }
 
-    pub const fn right(val: Val) -> Self {
-        Self::new(RelativeVal::End(val), RelativeVal::center())
+    /// Returns a position relative to the center of the right edge.
+    pub const fn right(x: Val, y: Val) -> Self {
+        Self::new(NodeAnchor::Right, x, y)
     }
 
-    pub const fn bottom_right(right: Val, bottom: Val) -> Self {
-        Self::new(RelativeVal::End(right), RelativeVal::End(bottom))
+    /// Returns a position relative to the bottom-right corner of the UI node.
+    pub const fn bottom_right(x: Val, y: Val) -> Self {
+        Self::new(NodeAnchor::BottomRight, x, y)
     }
 
+    /// Resolve a relative position to physical coordinates
     pub fn resolve(
         self,
         scale_factor: f32,
         physical_size: Vec2,
         physical_target_size: Vec2,
     ) -> Vec2 {
-        Vec2::new(
+        let mut position = Vec2::new(
             self.x
-                .resolve(scale_factor, physical_size.x, physical_target_size),
+                .resolve(scale_factor, physical_size.x, physical_target_size)
+                .unwrap_or(0.),
             self.y
-                .resolve(scale_factor, physical_size.y, physical_target_size),
-        )
+                .resolve(scale_factor, physical_size.y, physical_target_size)
+                .unwrap_or(0.),
+        );
+
+        if matches!(
+            self.anchor,
+            NodeAnchor::BottomRight | NodeAnchor::Right | NodeAnchor::TopRight
+        ) {
+            position.x *= -1.;
+        }
+
+        if matches!(
+            self.anchor,
+            NodeAnchor::BottomLeft | NodeAnchor::Bottom | NodeAnchor::BottomRight
+        ) {
+            position.y *= -1.;
+        }
+
+        position
+    }
+}
+
+impl From<Val> for RelativePosition {
+    fn from(x: Val) -> Self {
+        Self::top_left(x, Val::ZERO)
+    }
+}
+
+impl From<(Val, Val)> for RelativePosition {
+    fn from((x, y): (Val, Val)) -> Self {
+        Self::top_left(x, y)
     }
 }
 

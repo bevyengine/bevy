@@ -210,7 +210,7 @@ fn setup_grid(mut commands: Commands) {
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
                             ],
-                            position: RelativePosition::left(Val::ZERO),
+                            position: RelativePosition::LEFT,
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),
                     ));
@@ -238,7 +238,7 @@ fn setup_grid(mut commands: Commands) {
                                 ColorStop::new(RED.into(), Val::Auto),
                                 ColorStop::new(BLUE.into(), Val::Auto),
                             ],
-                            position: RelativePosition::top(Val::ZERO),
+                            position: RelativePosition::TOP,
                             shape: RadialGradientShape::Ellipse(Val::Px(50.), Val::Px(25.)),
                         }),
                     ));
@@ -286,7 +286,11 @@ fn setup_grid(mut commands: Commands) {
                                             },
                                             BackgroundGradient::from(Gradient::Radial {
                                                 stops,
-                                                position: RelativePosition::new(x, y),
+                                                position: RelativePosition::new(
+                                                    NodeAnchor::TopLeft,
+                                                    x,
+                                                    y,
+                                                ),
                                                 shape: radial_gradient_axis,
                                             }),
                                         ));
@@ -296,62 +300,5 @@ fn setup_grid(mut commands: Commands) {
                     }
                 }
             }
-
-            // for (radial_gradient_axis_x, radial_gradient_axis_y, a) in [
-            //     (
-            //         RadialGradie
-            //         "50x20",
-            //     ),
-            //     (Spread::ClosestSide, Spread::FarthestSide, "close, far"),
-            //     (Spread::FarthestSide, Spread::ClosestSide, "far, close"),
-            // ] {
-            //     for (x, b) in [
-            //         (RelativeVal::Start(Val::ZERO), "start0"),
-            //         (RelativeVal::Start(Val::Percent(20.)), "start"),
-            //         (RelativeVal::center(), "center"),
-            //         (RelativeVal::End(Val::Percent(20.)), "end"),
-            //     ] {
-            //         for (y, c) in [
-            //             (RelativeVal::Start(Val::Percent(20.)), "start"),
-            //             (RelativeVal::center(), "center"),
-            //             (RelativeVal::End(Val::Percent(20.)), "end"),
-            //         ] {
-            //             for (w, h) in [(100., 100.)] {
-            //                 //, (50., 100.), (100., 50.)] {
-
-            //                 commands
-            //                     .spawn((
-            //                         BackgroundColor(GREEN.into()),
-            //                         Node {
-            //                             display: Display::Grid,
-            //                             width: Val::Px(CELL_SIZE),
-            //                             ..Default::default()
-            //                         },
-            //                     ))
-            //                     .with_children(|commands| {
-            //                         commands.spawn((
-            //                             Text(format!("{a}\n{b}, {c}")),
-            //                             TextFont::from_font_size(10.),
-            //                         ));
-            //                         commands.spawn((
-            //                             Node {
-            //                                 width: Val::Px(w),
-            //                                 height: Val::Px(h),
-            //                                 ..default()
-            //                             },
-            //                             GradientNode(Gradient::Radial {
-            //                                 stops: color_stops.clone(),
-            //                                 center: RelativePosition::new(x, y),
-            //                                 shape: RadialGradientShape::Ellipse(
-            //                                     radial_gradient_axis_x,
-            //                                     radial_gradient_axis_y,
-            //                                 ),
-            //                             }),
-            //                         ));
-            //                     });
-            //             }
-            //         }
-            //     }
-            // }
         });
 }
