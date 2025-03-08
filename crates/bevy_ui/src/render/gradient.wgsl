@@ -187,7 +187,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     if enabled(in.flags, RADIAL) {
         g_distance = radial_distance(in.point, in.g_start, in.dir.x);
     } else if enabled(in.flags, CONIC) {
-        g_distance = conic_distance(in.point, in.g_start);
+        g_distance = conic_distance(in.g_start, in.point);
     } else {
         g_distance = linear_distance(in.point, in.g_start, in.dir);
     }
@@ -228,7 +228,8 @@ fn radial_distance(
     center: vec2<f32>,
     ratio: f32,
 ) -> f32 {
-    return length(center - vec2(point.x, point.y * ratio));
+    let d = point - center;
+    return length(vec2(d.x, d.y * ratio));
 }
 
 fn conic_distance(

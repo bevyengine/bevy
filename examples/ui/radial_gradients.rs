@@ -1,6 +1,5 @@
 //! Simple example demonstrating radial gradients.
 
-use bevy::color::palettes::css::BLUE;
 use bevy::color::palettes::css::GREEN;
 use bevy::color::palettes::css::NAVY;
 use bevy::color::palettes::css::RED;
@@ -24,8 +23,6 @@ fn setup_grid(mut commands: Commands) {
         ColorStop::new(Color::WHITE, Val::Percent(100.)),
         ColorStop::auto(RED),
     ];
-
-    let stops_2 = vec![ColorStop::auto(RED), ColorStop::auto(BLUE)];
 
     commands.spawn(Camera2d);
     commands
@@ -66,10 +63,8 @@ fn setup_grid(mut commands: Commands) {
                     Position::RIGHT,
                     Position::BOTTOM_RIGHT,
                 ] {
-                    for (w, h) in [(100., 100.)] {
-                        //, (50., 100.), (100., 50.)] {
-
-                        for stops in [color_stops.clone(), stops_2.clone()] {
+                    for (w, h) in [(100., 100.), (100., 50.)] {
+                        for stops in [color_stops.clone()] {
                             commands
                                 .spawn((
                                     BackgroundColor(GREEN.into()),
