@@ -49,7 +49,7 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use crate::{
     accessibility::AccessKitAdapters,
     converters, create_windows,
-    system::{create_monitors, CachedWindow},
+    system::{create_monitors, CachedWindow, WinitWindowPressedKeys},
     AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper,
     RawWinitWindowEvent, UpdateMode, WinitSettings, WinitWindows,
 };
@@ -93,7 +93,15 @@ struct WinitAppRunnerState<T: Event> {
         EventWriter<'static, WindowBackendScaleFactorChanged>,
         EventWriter<'static, WindowScaleFactorChanged>,
         NonSend<'static, WinitWindows>,
-        Query<'static, 'static, (&'static mut Window, &'static mut CachedWindow)>,
+        Query<
+            'static,
+            'static,
+            (
+                &'static mut Window,
+                &'static mut CachedWindow,
+                &'static mut WinitWindowPressedKeys,
+            ),
+        >,
         NonSendMut<'static, AccessKitAdapters>,
     )>,
 }
@@ -108,7 +116,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             EventWriter<WindowBackendScaleFactorChanged>,
             EventWriter<WindowScaleFactorChanged>,
             NonSend<WinitWindows>,
-            Query<(&mut Window, &mut CachedWindow)>,
+            Query<(&mut Window, &mut CachedWindow, &mut WinitWindowPressedKeys)>,
             NonSendMut<AccessKitAdapters>,
         )> = SystemState::new(app.world_mut());
 
@@ -259,7 +267,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             return;
         };
 
-        let Ok((mut win, _)) = windows.get_mut(window) else {
+        let Ok((mut win, _, mut pressed_keys)) = windows.get_mut(window) else {
             warn!("Window {window:?} is missing `Window` component, skipping event {event:?}");
             return;
         };
@@ -297,13 +305,21 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             WindowEvent::KeyboardInput {
                 ref event,
                 // On some platforms, winit sends "synthetic" key press events when the window
-                // gains or loses focus. These should not be handled, so we only process key
-                // events if they are not synthetic key presses.
+                // gains or loses focus. These are not implemented on every platform, so we ignore
+                // winit's synthetic key pressed and implement the same mechanism ourselves.
+                // (See the `WinitWindowPressedKeys` component)
                 is_synthetic: false,
                 ..
             } => {
-                self.bevy_window_events
-                    .send(converters::convert_keyboard_input(event, window));
+                let keyboard_input = converters::convert_keyboard_input(event, window);
+                if event.state.is_pressed() {
+                    pressed_keys
+                        .0
+                        .insert(keyboard_input.key_code, keyboard_input.logical_key.clone());
+                } else {
+                    pressed_keys.0.remove(&keyboard_input.key_code);
+                }
+                self.bevy_window_events.send(keyboard_input);
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let physical_position = DVec2::new(position.x, position.y);
