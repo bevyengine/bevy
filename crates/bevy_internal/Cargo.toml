@@ -331,7 +331,12 @@ libm = [
 
 # Uses `async-executor` as a task execution backend.
 # This backend is incompatible with `no_std` targets.
-async_executor = ["std", "bevy_tasks/async_executor", "bevy_ecs/async_executor"]
+async_executor = [
+  "std",
+  "bevy_tasks/async_executor",
+  "bevy_ecs/async_executor",
+  "bevy_transform/async_executor",
+]
 
 # Enables use of browser APIs.
 # Note this is currently only applicable on `wasm32` architectures.
