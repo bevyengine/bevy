@@ -251,10 +251,7 @@ fn setup(mut commands: Commands) {
                                         angle: None,
                                     })
                                     .collect(),
-                                position: RelativePosition::new(
-                                    RelativeVal::Center(Val::ZERO),
-                                    RelativeVal::Center(Val::ZERO),
-                                ),
+                                position: RelativePosition::CENTER,
                             }),
                             BorderGradient::from(Gradient::Linear {
                                 angle: 3. * TAU / 8.,

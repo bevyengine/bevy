@@ -249,53 +249,48 @@ fn setup_grid(mut commands: Commands) {
                 (RadialGradientShape::FarthestSide, "farthest"),
                 (RadialGradientShape::Circle(Val::Percent(55.)), "55%"),
             ] {
-                for (x, b) in [
-                    (RelativeVal::Start(Val::ZERO), "start0"),
-                    (RelativeVal::Start(Val::Percent(20.)), "start"),
-                    (RelativeVal::center(), "center"),
-                    (RelativeVal::End(Val::Percent(20.)), "end"),
+                for position in [
+                    RelativePosition::TOP_LEFT,
+                    RelativePosition::LEFT,
+                    RelativePosition::BOTTOM_LEFT,
+                    RelativePosition::TOP,
+                    RelativePosition::CENTER,
+                    RelativePosition::BOTTOM,
+                    RelativePosition::TOP_RIGHT,
+                    RelativePosition::RIGHT,
+                    RelativePosition::BOTTOM_RIGHT,
                 ] {
-                    for (y, c) in [
-                        (RelativeVal::Start(Val::Percent(20.)), "start"),
-                        (RelativeVal::center(), "center"),
-                        (RelativeVal::End(Val::Percent(20.)), "end"),
-                    ] {
-                        for (w, h) in [(100., 100.)] {
-                            //, (50., 100.), (100., 50.)] {
+                    for (w, h) in [(100., 100.)] {
+                        //, (50., 100.), (100., 50.)] {
 
-                            for stops in [color_stops.clone(), stops_2.clone()] {
-                                commands
-                                    .spawn((
-                                        BackgroundColor(GREEN.into()),
+                        for stops in [color_stops.clone(), stops_2.clone()] {
+                            commands
+                                .spawn((
+                                    BackgroundColor(GREEN.into()),
+                                    Node {
+                                        display: Display::Grid,
+                                        width: Val::Px(CELL_SIZE),
+                                        ..Default::default()
+                                    },
+                                ))
+                                .with_children(|commands| {
+                                    commands.spawn((
+                                        Text(format!("{a}\n{position:?}")),
+                                        TextFont::from_font_size(10.),
+                                    ));
+                                    commands.spawn((
                                         Node {
-                                            display: Display::Grid,
-                                            width: Val::Px(CELL_SIZE),
-                                            ..Default::default()
+                                            width: Val::Px(w),
+                                            height: Val::Px(h),
+                                            ..default()
                                         },
-                                    ))
-                                    .with_children(|commands| {
-                                        commands.spawn((
-                                            Text(format!("{a}\n{b}, {c}")),
-                                            TextFont::from_font_size(10.),
-                                        ));
-                                        commands.spawn((
-                                            Node {
-                                                width: Val::Px(w),
-                                                height: Val::Px(h),
-                                                ..default()
-                                            },
-                                            BackgroundGradient::from(Gradient::Radial {
-                                                stops,
-                                                position: RelativePosition::new(
-                                                    NodeAnchor::TopLeft,
-                                                    x,
-                                                    y,
-                                                ),
-                                                shape: radial_gradient_axis,
-                                            }),
-                                        ));
-                                    });
-                            }
+                                        BackgroundGradient::from(Gradient::Radial {
+                                            stops,
+                                            position,
+                                            shape: radial_gradient_axis,
+                                        }),
+                                    ));
+                                });
                         }
                     }
                 }

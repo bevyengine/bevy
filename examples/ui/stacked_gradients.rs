@@ -43,7 +43,7 @@ fn setup(mut commands: Commands) {
                 ],
             },
             Gradient::Radial {
-                position: RelativePosition::top(Val::Percent(5.)),
+                position: RelativePosition::top(Val::Percent(5.), Val::ZERO),
                 shape: RadialGradientShape::Circle(Val::Vh(30.)),
                 stops: vec![
                     ColorStop::auto(Color::WHITE),

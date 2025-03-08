@@ -841,30 +841,28 @@ impl RelativePosition {
         physical_size: Vec2,
         physical_target_size: Vec2,
     ) -> Vec2 {
-        let mut position = Vec2::new(
-            self.x
-                .resolve(scale_factor, physical_size.x, physical_target_size)
-                .unwrap_or(0.),
-            self.y
-                .resolve(scale_factor, physical_size.y, physical_target_size)
-                .unwrap_or(0.),
-        );
-
-        if matches!(
-            self.anchor,
-            NodeAnchor::BottomRight | NodeAnchor::Right | NodeAnchor::TopRight
-        ) {
-            position.x *= -1.;
-        }
-
-        if matches!(
-            self.anchor,
-            NodeAnchor::BottomLeft | NodeAnchor::Bottom | NodeAnchor::BottomRight
-        ) {
-            position.y *= -1.;
-        }
-
-        position
+        let (a, (dx, dy)) = match self.anchor {
+            NodeAnchor::TopLeft => ((-0.5, -0.5), (1., 1.)),
+            NodeAnchor::Top => ((0., -0.5), (1., 1.)),
+            NodeAnchor::TopRight => ((0.5, -0.5), (-1., 1.)),
+            NodeAnchor::Left => ((-0.5, 0.), (1., 1.)),
+            NodeAnchor::Center => ((0., 0.), (1., 1.)),
+            NodeAnchor::Right => ((0.5, 0.), (-1., 1.)),
+            NodeAnchor::BottomLeft => ((-0.5, 0.5), (1., -1.)),
+            NodeAnchor::Bottom => ((0., 0.5), (1., -1.)),
+            NodeAnchor::BottomRight => ((0.5, 0.5), (-1., -1.)),
+        };
+        Vec2::from(a) * physical_size
+            + Vec2::new(
+                dx * self
+                    .x
+                    .resolve(scale_factor, physical_size.x, physical_target_size)
+                    .unwrap_or(0.),
+                dy * self
+                    .y
+                    .resolve(scale_factor, physical_size.y, physical_target_size)
+                    .unwrap_or(0.),
+            )
     }
 }
 
