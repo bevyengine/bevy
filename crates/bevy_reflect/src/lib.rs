@@ -568,6 +568,7 @@ extern crate alloc;
 extern crate self as bevy_reflect;
 
 mod array;
+mod error;
 mod fields;
 mod from_reflect;
 #[cfg(feature = "functions")]
@@ -633,6 +634,7 @@ pub mod prelude {
 
 pub use array::*;
 pub use enums::*;
+pub use error::*;
 pub use fields::*;
 pub use from_reflect::*;
 pub use generics::*;
@@ -984,6 +986,296 @@ mod tests {
             .map(|value| *value.try_downcast_ref::<u32>().unwrap())
             .collect();
         assert_eq!(values, vec![1]);
+    }
+
+    #[test]
+    fn should_reflect_clone() {
+        // Struct
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo(usize);
+
+        let value = Foo(123);
+        let clone = value.reflect_clone().expect("should reflect_clone struct");
+        assert_eq!(value, clone.take::<Foo>().unwrap());
+
+        // Tuple
+        let foo = (123, 4.56);
+        let clone = foo.reflect_clone().expect("should reflect_clone tuple");
+        assert_eq!(foo, clone.take::<(u32, f32)>().unwrap());
+    }
+
+    #[test]
+    fn should_reflect_clone_generic_type() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo<T, U>(T, #[reflect(ignore, clone)] PhantomData<U>);
+        #[derive(TypePath, Debug, PartialEq)]
+        struct Bar;
+
+        // `usize` will be cloned via `Reflect::reflect_clone`
+        // `PhantomData<Bar>` will be cloned via `Clone::clone`
+        let value = Foo::<usize, Bar>(123, PhantomData);
+        let clone = value
+            .reflect_clone()
+            .expect("should reflect_clone generic struct");
+        assert_eq!(value, clone.take::<Foo<usize, Bar>>().unwrap());
+    }
+
+    #[test]
+    fn should_reflect_clone_with_clone() {
+        // A custom clone function to verify that the `#[reflect(Clone)]` container attribute
+        // takes precedence over the `#[reflect(clone)]` field attribute.
+        #[expect(
+            dead_code,
+            reason = "if things are working correctly, this function should never be called"
+        )]
+        fn custom_clone(_value: &usize) -> usize {
+            panic!("should not be called");
+        }
+
+        // Tuple Struct
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        #[reflect(Clone)]
+        struct Foo(#[reflect(clone = "custom_clone")] usize);
+
+        let value = Foo(123);
+        let clone = value
+            .reflect_clone()
+            .expect("should reflect_clone tuple struct");
+        assert_eq!(value, clone.take::<Foo>().unwrap());
+
+        // Struct
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        #[reflect(Clone)]
+        struct Bar {
+            #[reflect(clone = "custom_clone")]
+            value: usize,
+        }
+
+        let value = Bar { value: 123 };
+        let clone = value.reflect_clone().expect("should reflect_clone struct");
+        assert_eq!(value, clone.take::<Bar>().unwrap());
+
+        // Enum
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        #[reflect(Clone)]
+        enum Baz {
+            Unit,
+            Tuple(#[reflect(clone = "custom_clone")] usize),
+            Struct {
+                #[reflect(clone = "custom_clone")]
+                value: usize,
+            },
+        }
+
+        let value = Baz::Unit;
+        let clone = value
+            .reflect_clone()
+            .expect("should reflect_clone unit variant");
+        assert_eq!(value, clone.take::<Baz>().unwrap());
+
+        let value = Baz::Tuple(123);
+        let clone = value
+            .reflect_clone()
+            .expect("should reflect_clone tuple variant");
+        assert_eq!(value, clone.take::<Baz>().unwrap());
+
+        let value = Baz::Struct { value: 123 };
+        let clone = value
+            .reflect_clone()
+            .expect("should reflect_clone struct variant");
+        assert_eq!(value, clone.take::<Baz>().unwrap());
+    }
+
+    #[test]
+    fn should_custom_reflect_clone() {
+        #[derive(Reflect, Debug, PartialEq)]
+        #[reflect(Clone(clone_foo))]
+        struct Foo(usize);
+
+        fn clone_foo(foo: &Foo) -> Foo {
+            Foo(foo.0 + 198)
+        }
+
+        let foo = Foo(123);
+        let clone = foo.reflect_clone().unwrap();
+        assert_eq!(Foo(321), clone.take::<Foo>().unwrap());
+    }
+
+    #[test]
+    fn should_not_clone_ignored_fields() {
+        // Tuple Struct
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Foo(#[reflect(ignore)] usize);
+
+        let foo = Foo(123);
+        let clone = foo.reflect_clone();
+        assert_eq!(
+            clone.unwrap_err(),
+            ReflectCloneError::FieldNotCloneable {
+                field: FieldId::Unnamed(0),
+                variant: None,
+                container_type_path: Cow::Borrowed(Foo::type_path()),
+            }
+        );
+
+        // Struct
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Bar {
+            #[reflect(ignore)]
+            value: usize,
+        }
+
+        let bar = Bar { value: 123 };
+        let clone = bar.reflect_clone();
+        assert_eq!(
+            clone.unwrap_err(),
+            ReflectCloneError::FieldNotCloneable {
+                field: FieldId::Named(Cow::Borrowed("value")),
+                variant: None,
+                container_type_path: Cow::Borrowed(Bar::type_path()),
+            }
+        );
+
+        // Enum
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        enum Baz {
+            Tuple(#[reflect(ignore)] usize),
+            Struct {
+                #[reflect(ignore)]
+                value: usize,
+            },
+        }
+
+        let baz = Baz::Tuple(123);
+        let clone = baz.reflect_clone();
+        assert_eq!(
+            clone.unwrap_err(),
+            ReflectCloneError::FieldNotCloneable {
+                field: FieldId::Unnamed(0),
+                variant: Some(Cow::Borrowed("Tuple")),
+                container_type_path: Cow::Borrowed(Baz::type_path()),
+            }
+        );
+
+        let baz = Baz::Struct { value: 123 };
+        let clone = baz.reflect_clone();
+        assert_eq!(
+            clone.unwrap_err(),
+            ReflectCloneError::FieldNotCloneable {
+                field: FieldId::Named(Cow::Borrowed("value")),
+                variant: Some(Cow::Borrowed("Struct")),
+                container_type_path: Cow::Borrowed(Baz::type_path()),
+            }
+        );
+    }
+
+    #[test]
+    fn should_clone_ignored_fields_with_clone_attributes() {
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Foo(#[reflect(ignore, clone)] usize);
+
+        let foo = Foo(123);
+        let clone = foo.reflect_clone().unwrap();
+        assert_eq!(Foo(123), clone.take::<Foo>().unwrap());
+
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Bar(#[reflect(ignore, clone = "clone_usize")] usize);
+
+        fn clone_usize(this: &usize) -> usize {
+            *this + 198
+        }
+
+        let bar = Bar(123);
+        let clone = bar.reflect_clone().unwrap();
+        assert_eq!(Bar(321), clone.take::<Bar>().unwrap());
+    }
+
+    #[test]
+    fn should_composite_reflect_clone() {
+        #[derive(Reflect, Debug, PartialEq)]
+        enum MyEnum {
+            Unit,
+            Tuple(
+                Foo,
+                #[reflect(ignore, clone)] Bar,
+                #[reflect(clone = "clone_baz")] Baz,
+            ),
+            Struct {
+                foo: Foo,
+                #[reflect(ignore, clone)]
+                bar: Bar,
+                #[reflect(clone = "clone_baz")]
+                baz: Baz,
+            },
+        }
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo {
+            #[reflect(clone = "clone_bar")]
+            bar: Bar,
+            baz: Baz,
+        }
+
+        #[derive(Reflect, Default, Clone, Debug, PartialEq)]
+        #[reflect(Clone)]
+        struct Bar(String);
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Baz(String);
+
+        fn clone_bar(bar: &Bar) -> Bar {
+            Bar(format!("{}!", bar.0))
+        }
+
+        fn clone_baz(baz: &Baz) -> Baz {
+            Baz(format!("{}!", baz.0))
+        }
+
+        let my_enum = MyEnum::Unit;
+        let clone = my_enum.reflect_clone().unwrap();
+        assert_eq!(MyEnum::Unit, clone.take::<MyEnum>().unwrap());
+
+        let my_enum = MyEnum::Tuple(
+            Foo {
+                bar: Bar("bar".to_string()),
+                baz: Baz("baz".to_string()),
+            },
+            Bar("bar".to_string()),
+            Baz("baz".to_string()),
+        );
+        let clone = my_enum.reflect_clone().unwrap();
+        assert_eq!(
+            MyEnum::Tuple(
+                Foo {
+                    bar: Bar("bar!".to_string()),
+                    baz: Baz("baz".to_string()),
+                },
+                Bar("bar".to_string()),
+                Baz("baz!".to_string()),
+            ),
+            clone.take::<MyEnum>().unwrap()
+        );
+
+        let my_enum = MyEnum::Struct {
+            foo: Foo {
+                bar: Bar("bar".to_string()),
+                baz: Baz("baz".to_string()),
+            },
+            bar: Bar("bar".to_string()),
+            baz: Baz("baz".to_string()),
+        };
+        let clone = my_enum.reflect_clone().unwrap();
+        assert_eq!(
+            MyEnum::Struct {
+                foo: Foo {
+                    bar: Bar("bar!".to_string()),
+                    baz: Baz("baz".to_string()),
+                },
+                bar: Bar("bar".to_string()),
+                baz: Baz("baz!".to_string()),
+            },
+            clone.take::<MyEnum>().unwrap()
+        );
     }
 
     #[test]

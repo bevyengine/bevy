@@ -156,20 +156,25 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///
 /// There are a few "special" identifiers that work a bit differently:
 ///
+/// * `#[reflect(Clone)]` will force the implementation of `Reflect::reflect_clone` to rely on
+///   the type's [`Clone`] implementation.
+///   A custom implementation may be provided using `#[reflect(Clone(my_clone_func))]` where
+///   `my_clone_func` is the path to a function matching the signature:
+///   `(&Self) -> Self`.
 /// * `#[reflect(Debug)]` will force the implementation of `Reflect::reflect_debug` to rely on
 ///   the type's [`Debug`] implementation.
 ///   A custom implementation may be provided using `#[reflect(Debug(my_debug_func))]` where
 ///   `my_debug_func` is the path to a function matching the signature:
-///   `(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result`.
+///   `(&Self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result`.
 /// * `#[reflect(PartialEq)]` will force the implementation of `Reflect::reflect_partial_eq` to rely on
 ///   the type's [`PartialEq`] implementation.
 ///   A custom implementation may be provided using `#[reflect(PartialEq(my_partial_eq_func))]` where
 ///   `my_partial_eq_func` is the path to a function matching the signature:
-///   `(&self, value: &dyn #bevy_reflect_path::Reflect) -> bool`.
+///   `(&Self, value: &dyn #bevy_reflect_path::Reflect) -> bool`.
 /// * `#[reflect(Hash)]` will force the implementation of `Reflect::reflect_hash` to rely on
 ///   the type's [`Hash`] implementation.
 ///   A custom implementation may be provided using `#[reflect(Hash(my_hash_func))]` where
-///   `my_hash_func` is the path to a function matching the signature: `(&self) -> u64`.
+///   `my_hash_func` is the path to a function matching the signature: `(&Self) -> u64`.
 /// * `#[reflect(Default)]` will register the `ReflectDefault` type data as normal.
 ///   However, it will also affect how certain other operations are performed in order
 ///   to improve performance and/or robustness.
@@ -338,6 +343,18 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///
 /// What this does is register the `SerializationData` type within the `GetTypeRegistration` implementation,
 /// which will be used by the reflection serializers to determine whether or not the field is serializable.
+///
+/// ## `#[reflect(clone)]`
+///
+/// This attribute affects the `Reflect::reflect_clone` implementation.
+///
+/// Without this attribute, the implementation will rely on the field's own `Reflect::reflect_clone` implementation.
+/// When this attribute is present, the implementation will instead use the field's `Clone` implementation directly.
+///
+/// The attribute may also take the path to a custom function like `#[reflect(clone = "path::to::my_clone_func")]`,
+/// where `my_clone_func` matches the signature `(&Self) -> Self`.
+///
+/// This attribute does nothing if the containing struct/enum has the `#[reflect(Clone)]` attribute.
 ///
 /// ## `#[reflect(@...)]`
 ///
