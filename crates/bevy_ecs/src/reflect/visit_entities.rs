@@ -1,5 +1,5 @@
 use crate::entity::{Entity, VisitEntities, VisitEntitiesMut};
-use bevy_reflect::{FromReflect, FromType, PartialReflect};
+use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect};
 
 /// For a reflected value, apply an operation to all contained entities.
 ///
@@ -49,7 +49,7 @@ impl ReflectVisitEntitiesMut {
     }
 }
 
-impl<C: FromReflect + VisitEntitiesMut> FromType<C> for ReflectVisitEntitiesMut {
+impl<C: FromReflect + Reflect + VisitEntitiesMut> FromType<C> for ReflectVisitEntitiesMut {
     fn from_type() -> Self {
         ReflectVisitEntitiesMut {
             visit_entities_mut: |component, f| {

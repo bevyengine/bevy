@@ -3,6 +3,7 @@ use bevy_reflect_derive::impl_type_path;
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
+    cast::impl_cast_partial_reflect,
     type_info::impl_type_methods,
     ApplyError, DynamicTuple, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut,
     ReflectOwned, ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
@@ -298,21 +299,6 @@ impl PartialReflect for DynamicTupleStruct {
         self.represented_type
     }
 
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Err(self)
     }
@@ -380,6 +366,7 @@ impl PartialReflect for DynamicTupleStruct {
 }
 
 impl_type_path!((in bevy_reflect) DynamicTupleStruct);
+impl_cast_partial_reflect!(for DynamicTupleStruct);
 
 impl Debug for DynamicTupleStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
