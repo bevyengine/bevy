@@ -3052,6 +3052,20 @@ impl World {
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
+
+    /// Registers the given component ids as a dynamic bundle and returns both the required component
+    /// ids and the bundle id.
+    ///
+    /// # Panics
+    /// This function will panic if any of the provided [`ComponentId`]s do not exist in this [`World`].
+    #[inline]
+    pub fn register_dynamic_bundle(&mut self, component_ids: &[ComponentId]) -> &BundleInfo {
+        let id =
+            self.bundles
+                .init_dynamic_info(&mut self.storages, &self.components, component_ids);
+        // SAFETY: We just initialized the bundle so its id should definitely be valid.
+        unsafe { self.bundles.get(id).debug_checked_unwrap() }
+    }
 }
 
 impl World {
