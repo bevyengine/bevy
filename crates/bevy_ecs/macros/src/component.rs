@@ -1,3 +1,4 @@
+use bevy_macro_utils::as_member;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
@@ -268,10 +269,7 @@ pub(crate) fn map_entities(
                         || relationship.is_some_and(|relationship| relationship == *field)
                 })
                 .for_each(|(index, field)| {
-                    let field_member = field
-                        .ident
-                        .clone()
-                        .map_or(Member::from(index), Member::Named);
+                    let member = as_member(&field.ident, index);
 
                     map.push(quote!(#self_ident.#field_member.map_entities(mapper);));
                 });
@@ -291,12 +289,7 @@ pub(crate) fn map_entities(
                     .iter()
                     .enumerate()
                     .filter(|(_, field)| field.attrs.iter().any(|a| a.path().is_ident(ENTITIES)))
-                    .map(|(index, field)| {
-                        field
-                            .ident
-                            .clone()
-                            .map_or(Member::from(index), Member::Named)
-                    })
+                    .map(|(index, field)| as_member(&field.ident, index))
                     .collect::<Vec<_>>();
 
                 let ident = &variant.ident;

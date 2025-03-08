@@ -3,8 +3,8 @@ use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, token, token::Comma, Attribute, Data,
-    DataStruct, DeriveInput, Field, Index, Meta,
+    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, Data,
+    DataStruct, DeriveInput, Meta,
 };
 
 use crate::{
@@ -36,22 +36,16 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
     let mut attributes = QueryDataAttributes::default();
     for attr in &ast.attrs {
-        if attr
+        if !attr
             .path()
-            .get_ident()
-            .is_none_or(|ident| ident != QUERY_DATA_ATTRIBUTE_NAME)
+            .is_ident(QUERY_DATA_ATTRIBUTE_NAME)
         {
             continue;
         }
-
         let result = attr.parse_nested_meta(|meta| {
             if meta.path.is_ident(MUTABLE_ATTRIBUTE_NAME) {
                 attributes.is_mutable = true;
-                if meta.input.peek(token::Paren) {
-                    Err(meta.error(format_args!("`{MUTABLE_ATTRIBUTE_NAME}` does not take any arguments")))
-                } else {
-                    Ok(())
-                }
+                Ok(())
             } else if meta.path.is_ident(DERIVE_ATTRIBUTE_NAME) {
                 meta.parse_nested_meta(|meta| {
                     attributes.derive_args.push(Meta::Path(meta.path));
@@ -133,31 +127,16 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     };
 
     let mut field_attrs = Vec::new();
-    let mut field_visibilities = Vec::new();
     let mut field_idents = Vec::new();
-    let mut named_field_idents = Vec::new();
+    let field_members = fields.members().collect::<Vec<_>>();
+    let mut field_visibilities = Vec::new();
     let mut field_types = Vec::new();
     let mut read_only_field_types = Vec::new();
     for (i, field) in fields.iter().enumerate() {
-        let attrs = match read_world_query_field_info(field) {
-            Ok(QueryDataFieldInfo { attrs }) => attrs,
-            Err(e) => return e.into_compile_error().into(),
-        };
-
-        let named_field_ident = field
-            .ident
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| format_ident!("f{i}"));
-        let i = Index::from(i);
-        let field_ident = field
-            .ident
-            .as_ref()
-            .map_or(quote! { #i }, |i| quote! { #i });
-        field_idents.push(field_ident);
-        named_field_idents.push(named_field_ident);
-        field_attrs.push(attrs);
+        field_attrs.push(field.attrs.clone());
         field_visibilities.push(field.vis.clone());
+        field_idents.push(field.ident.clone().unwrap_or(format_ident!("f{i}")));
+
         let field_ty = field.ty.clone();
         field_types.push(quote!(#field_ty));
         read_only_field_types.push(quote!(<#field_ty as #path::query::QueryData>::ReadOnly));
@@ -178,7 +157,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         &user_impl_generics_with_world_and_state,
         &field_attrs,
         &field_visibilities,
-        &field_idents,
+        &field_members,
         &user_ty_generics,
         &user_ty_generics_with_world_and_state,
         user_where_clauses_with_world_and_state,
@@ -193,7 +172,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         &user_impl_generics_with_world,
         &user_ty_generics,
         &user_ty_generics_with_world,
-        &named_field_idents,
+        &field_idents,
         &marker_name,
         &state_struct_name,
         user_where_clauses,
@@ -213,7 +192,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             &user_impl_generics_with_world_and_state,
             &field_attrs,
             &field_visibilities,
-            &field_idents,
+            &field_members,
             &user_ty_generics,
             &user_ty_generics_with_world_and_state,
             user_where_clauses_with_world_and_state,
@@ -228,7 +207,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             &user_impl_generics_with_world,
             &user_ty_generics,
             &user_ty_generics_with_world,
-            &named_field_idents,
+            &field_idents,
             &marker_name,
             &state_struct_name,
             user_where_clauses,
@@ -248,7 +227,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     #[doc = "Automatically generated read-only field for accessing `"]
                     #[doc = stringify!(#field_types)]
                     #[doc = "`."]
-                    #field_visibilities #named_field_idents: #read_only_field_types,
+                    #field_visibilities #field_idents: #read_only_field_types,
                 )*
             }
 
@@ -274,9 +253,17 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     ) -> Self::Item<'__wshort, '__s> {
                         #read_only_item_struct_name {
                             #(
-                                #field_idents: <#read_only_field_types>::shrink(item.#field_idents),
+                                #field_members: <#read_only_field_types>::shrink(item.#field_members),
                             )*
                         }
+                    }
+
+                    fn provide_extra_access(
+                        state: &mut Self::State,
+                        access: &mut #path::query::Access,
+                        available_access: &#path::query::Access,
+                    ) {
+                        #(<#field_types>::provide_extra_access(&mut state.#named_field_idents, access, available_access);)*
                     }
 
                     fn provide_extra_access(
@@ -308,7 +295,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 where #(for<'__a> #field_types: #path::query::QueryData<ReadOnly: #path::query::ReleaseStateQueryData>,)* {
                     fn release_state<'__w>(_item: Self::Item<'__w, '_>) -> Self::Item<'__w, 'static> {
                         Self::Item {
-                            #(#field_idents: <#read_only_field_types>::release_state(_item.#field_idents),)*
+                            #(#field_members: <#read_only_field_types>::fetch(&mut _fetch.#field_idents, _entity, _table_row),)*
                         }
                     }
                 }
@@ -332,9 +319,17 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 ) -> Self::Item<'__wshort, '__s> {
                     #item_struct_name {
                         #(
-                            #field_idents: <#field_types>::shrink(item.#field_idents),
+                            #field_members: <#field_types>::shrink(item.#field_members),
                         )*
                     }
+                }
+
+                fn provide_extra_access(
+                    state: &mut Self::State,
+                    access: &mut #path::query::Access,
+                    available_access: &#path::query::Access,
+                ) {
+                    #(<#field_types>::provide_extra_access(&mut state.#named_field_idents, access, available_access);)*
                 }
 
                 fn provide_extra_access(
@@ -366,7 +361,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             where #(for<'__a> #field_types: #path::query::ReleaseStateQueryData,)* {
                 fn release_state<'__w>(_item: Self::Item<'__w, '_>) -> Self::Item<'__w, 'static> {
                     Self::Item {
-                        #(#field_idents: <#field_types>::release_state(_item.#field_idents),)*
+                        #(#field_members: <#field_types>::fetch(&mut _fetch.#field_idents, _entity, _table_row),)*
                     }
                 }
             }
@@ -421,7 +416,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             )]
             #[automatically_derived]
             #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
-                #(#named_field_idents: <#field_types as #path::query::WorldQuery>::State,)*
+                #(#field_idents: <#field_types as #path::query::WorldQuery>::State,)*
             }
 
             #mutable_world_query_impl
@@ -463,33 +458,9 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 q: #struct_name #user_ty_generics,
                 q2: #read_only_struct_name #user_ty_generics
             ) #user_where_clauses {
-                #(q.#field_idents;)*
-                #(q2.#field_idents;)*
+                #(q.#field_members;)*
+                #(q2.#field_members;)*
             }
         };
     })
-}
-
-struct QueryDataFieldInfo {
-    /// All field attributes except for `query_data` ones.
-    attrs: Vec<Attribute>,
-}
-
-fn read_world_query_field_info(field: &Field) -> syn::Result<QueryDataFieldInfo> {
-    let mut attrs = Vec::new();
-    for attr in &field.attrs {
-        if attr
-            .path()
-            .get_ident()
-            .is_some_and(|ident| ident == QUERY_DATA_ATTRIBUTE_NAME)
-        {
-            return Err(syn::Error::new_spanned(
-                attr,
-                "#[derive(QueryData)] does not support field attributes.",
-            ));
-        }
-        attrs.push(attr.clone());
-    }
-
-    Ok(QueryDataFieldInfo { attrs })
 }
