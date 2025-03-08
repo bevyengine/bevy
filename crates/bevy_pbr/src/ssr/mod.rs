@@ -17,7 +17,7 @@ use bevy_ecs::{
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };

@@ -15,7 +15,7 @@ use crate::{
     render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_ecs::schedule::IntoScheduleConfigs;
 
 #[derive(Default)]
 pub struct CameraPlugin;

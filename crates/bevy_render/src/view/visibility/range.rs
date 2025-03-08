@@ -14,7 +14,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     removal_detection::RemovedComponents,
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{Query, Res, ResMut},
 };
 use bevy_math::{vec4, FloatOrd, Vec4};

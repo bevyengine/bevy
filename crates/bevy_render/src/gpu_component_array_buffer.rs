@@ -6,7 +6,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
     prelude::{Component, Entity},
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
 use core::marker::PhantomData;

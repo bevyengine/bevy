@@ -15,7 +15,7 @@ use bevy_ecs::{
     prelude::Entity,
     query::Has,
     resource::Resource,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
+    schedule::IntoScheduleConfigs,
     system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
