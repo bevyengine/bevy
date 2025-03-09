@@ -64,35 +64,33 @@ fn setup_grid(mut commands: Commands) {
                     Position::BOTTOM_RIGHT,
                 ] {
                     for (w, h) in [(100., 100.), (100., 50.)] {
-                        for stops in [color_stops.clone()] {
-                            commands
-                                .spawn((
-                                    BackgroundColor(GREEN.into()),
+                        commands
+                            .spawn((
+                                BackgroundColor(GREEN.into()),
+                                Node {
+                                    display: Display::Grid,
+                                    width: Val::Px(CELL_SIZE),
+                                    ..Default::default()
+                                },
+                            ))
+                            .with_children(|commands| {
+                                commands.spawn((
+                                    Text(format!("{shape:#?}\n{position:#?}")),
+                                    TextFont::from_font_size(10.),
+                                ));
+                                commands.spawn((
                                     Node {
-                                        display: Display::Grid,
-                                        width: Val::Px(CELL_SIZE),
-                                        ..Default::default()
+                                        width: Val::Px(w),
+                                        height: Val::Px(h),
+                                        ..default()
                                     },
-                                ))
-                                .with_children(|commands| {
-                                    commands.spawn((
-                                        Text(format!("{shape:#?}\n{position:#?}")),
-                                        TextFont::from_font_size(10.),
-                                    ));
-                                    commands.spawn((
-                                        Node {
-                                            width: Val::Px(w),
-                                            height: Val::Px(h),
-                                            ..default()
-                                        },
-                                        BackgroundGradient::from(Gradient::Radial {
-                                            stops,
-                                            position,
-                                            shape,
-                                        }),
-                                    ));
-                                });
-                        }
+                                    BackgroundGradient::from(Gradient::Radial {
+                                        stops,
+                                        position,
+                                        shape,
+                                    }),
+                                ));
+                            });
                     }
                 }
             }
