@@ -426,6 +426,13 @@ impl Segment3d {
         self.vertices[1]
     }
 
+    /// Compute the midpoint between the two endpoints of the line segment.
+    #[inline(always)]
+    #[doc(alias = "midpoint")]
+    pub fn center(&self) -> Vec3 {
+        self.point1().midpoint(self.point2())
+    }
+
     /// Compute the length of the line segment.
     #[inline(always)]
     pub fn length(&self) -> f32 {
@@ -465,13 +472,6 @@ impl Segment3d {
     #[inline(always)]
     pub fn scaled_direction(&self) -> Vec3 {
         self.point2() - self.point1()
-    }
-
-    /// Compute the midpoint between the two endpoints of the line segment.
-    #[inline(always)]
-    #[doc(alias = "midpoint")]
-    pub fn center(&self) -> Vec3 {
-        self.point1().midpoint(self.point2())
     }
 
     /// Compute the segment transformed by the given [`Isometry3d`].

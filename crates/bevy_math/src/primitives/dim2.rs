@@ -1288,6 +1288,13 @@ impl Segment2d {
         self.vertices[1]
     }
 
+    /// Compute the midpoint between the two endpoints of the line segment.
+    #[inline(always)]
+    #[doc(alias = "midpoint")]
+    pub fn center(&self) -> Vec2 {
+        self.point1().midpoint(self.point2())
+    }
+
     /// Compute the length of the line segment.
     #[inline(always)]
     pub fn length(&self) -> f32 {
@@ -1391,13 +1398,6 @@ impl Segment2d {
     pub fn scaled_right_normal(&self) -> Vec2 {
         let scaled_direction = self.scaled_direction();
         Vec2::new(-scaled_direction.y, scaled_direction.x)
-    }
-
-    /// Compute the midpoint between the two endpoints of the line segment.
-    #[inline(always)]
-    #[doc(alias = "midpoint")]
-    pub fn center(&self) -> Vec2 {
-        self.point1().midpoint(self.point2())
     }
 
     /// Compute the segment transformed by the given [`Isometry2d`].
