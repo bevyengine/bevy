@@ -1253,7 +1253,7 @@ impl Segment2d {
         }
     }
 
-    /// Create a new `Segment2d` at the origin from a vector representing
+    /// Create a new `Segment2d` centered at the origin from a vector representing
     /// the direction and length of the line segment.
     ///
     /// The endpoints will be at `-scaled_direction / 2.0` and `scaled_direction / 2.0`.

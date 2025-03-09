@@ -380,7 +380,7 @@ impl Segment3d {
         (Self::new(point1, point2), (point1 + point2) / 2.)
     }
 
-    /// Create a new `Segment3d` at the origin with the given direction and length.
+    /// Create a new `Segment3d` centered at the origin with the given direction and length.
     ///
     /// The endpoints will be at `-direction * length / 2.0` and `direction * length / 2.0`.
     #[inline(always)]
@@ -391,7 +391,7 @@ impl Segment3d {
         }
     }
 
-    /// Create a new `Segment3d` at the origin from a vector representing
+    /// Create a new `Segment3d` centered at the origin from a vector representing
     /// the direction and length of the line segment.
     ///
     /// The endpoints will be at `-scaled_direction / 2.0` and `scaled_direction / 2.0`.
@@ -530,9 +530,8 @@ impl Segment3d {
 
     /// Swaps the two endpoints of the line segment.
     #[inline(always)]
-    pub fn swap(&mut self) {
-        let [a, b] = &mut self.vertices;
-        core::mem::swap(a, b);
+    pub fn reversed(&self) -> Self {
+        Segment3d::new(self.point2(), self.point1())
     }
 }
 
