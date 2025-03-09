@@ -399,7 +399,7 @@ pub fn text_system(
 }
 
 /// Add to a UI [`Text`] entity to display a cursor for  block of text.
-/// Does nothing if added to a `TextSpan` and not supported by [`Text2d`].
+/// Does nothing if added to a `TextSpan` and not supported by `Text2d`.
 #[derive(Component, Default, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq)]
 #[require(TextCursorStyle)]
