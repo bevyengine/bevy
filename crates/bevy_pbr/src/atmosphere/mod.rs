@@ -368,7 +368,7 @@ impl ExtractComponent for Atmosphere {
 
     type Out = Atmosphere;
 
-    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
     }
 }
@@ -463,7 +463,7 @@ impl ExtractComponent for AtmosphereSettings {
 
     type Out = AtmosphereSettings;
 
-    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
     }
 }

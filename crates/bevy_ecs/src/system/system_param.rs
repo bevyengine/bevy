@@ -378,9 +378,11 @@ fn assert_component_access_compatibility(
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Single<'a, D, F> {
+unsafe impl<'a, 'b, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for Single<'a, 'b, D, F>
+{
     type State = QueryState<D, F>;
-    type Item<'w, 's> = Single<'w, D, F>;
+    type Item<'w, 's> = Single<'w, 's, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         Query::init_state(world, system_meta)
@@ -442,11 +444,11 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
-    for Option<Single<'a, D, F>>
+unsafe impl<'a, 'b, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for Option<Single<'a, 'b, D, F>>
 {
     type State = QueryState<D, F>;
-    type Item<'w, 's> = Option<Single<'w, D, F>>;
+    type Item<'w, 's> = Option<Single<'w, 's, D, F>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         Single::init_state(world, system_meta)
@@ -510,14 +512,14 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
 }
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
-    for Single<'a, D, F>
+unsafe impl<'a, 'b, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for Single<'a, 'b, D, F>
 {
 }
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
-    for Option<Single<'a, D, F>>
+unsafe impl<'a, 'b, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for Option<Single<'a, 'b, D, F>>
 {
 }
 
