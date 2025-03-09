@@ -8,7 +8,7 @@ use syn::{
 ///
 /// This is functionally the same as [`Punctuated::parse_terminated`],
 /// but accepts a closure rather than a function pointer.
-pub(crate) fn terminated_parser<T, P, F: FnMut(ParseStream) -> syn::Result<T>>(
+pub fn terminated_parser<T, P, F: FnMut(ParseStream) -> syn::Result<T>>(
     terminator: P,
     mut parser: F,
 ) -> impl FnOnce(ParseStream) -> syn::Result<Punctuated<T, P::Token>>
