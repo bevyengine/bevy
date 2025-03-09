@@ -1242,7 +1242,7 @@ impl Segment2d {
         (Self::new(point1, point2), (point1 + point2) / 2.)
     }
 
-    /// Create a new `Segment2d` at the origin with the given direction and length.
+    /// Create a new `Segment2d` centered at the origin with the given direction and length.
     ///
     /// The endpoints will be at `-direction * length / 2.0` and `direction * length / 2.0`.
     #[inline(always)]
