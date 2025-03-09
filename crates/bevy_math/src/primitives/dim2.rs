@@ -1454,10 +1454,19 @@ impl Segment2d {
         segment.translated(offset_from_origin)
     }
 
-    /// Swaps the two endpoints of the line segment.
+    /// Reverses the direction of the line segment by swapping the endpoints.
     #[inline(always)]
-    pub fn reversed(&self) -> Self {
-        Segment2d::new(self.point2(), self.point1())
+    pub fn reverse(&mut self) {
+        let [point1, point2] = &mut self.vertices;
+        core::mem::swap(point1, point2);
+    }
+
+    /// Returns the line segment with its direction reversed by swapping the endpoints.
+    #[inline(always)]
+    #[must_use]
+    pub fn reversed(mut self) -> Self {
+        self.reverse();
+        self
     }
 }
 
