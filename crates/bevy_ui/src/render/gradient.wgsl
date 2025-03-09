@@ -215,6 +215,9 @@ fn srgb_mix(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
     return vec4(pow(mixed_srgb, vec3(2.2)), mix(a.a, b.a, t));
 }
 
+// These functions are used to calculate the distance in gradient space from the start of the gradient to the point.
+// The distance in gradient space is then used to interpolate between the start and end colors.
+
 fn linear_distance(
     point: vec2<f32>,
     g_start: vec2<f32>,
@@ -261,5 +264,7 @@ fn interpolate_gradient(
         }
         return vec4(0.0);
     }
+    
+    // Only color interpolation in SRGB space is supported atm.
     return srgb_mix(start_color, end_color, t);
 }
