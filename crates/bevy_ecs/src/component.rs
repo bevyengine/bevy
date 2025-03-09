@@ -2104,7 +2104,7 @@ impl RequiredComponents {
         unsafe { self.register_dynamic_with(component_id, inheritance_depth, erased) };
     }
 
-    /// Iterates the ids of all required components' ids. This includes recursive required components.
+    /// Iterates the ids of all required components. This includes recursive required components.
     pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.0.keys().copied()
     }
