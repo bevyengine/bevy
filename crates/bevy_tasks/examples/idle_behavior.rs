@@ -2,8 +2,9 @@
 //! spinning. Other than the one thread, the system should remain idle, demonstrating good behavior
 //! for small workloads.
 
+use bevy_platform_support::time::Instant;
 use bevy_tasks::TaskPoolBuilder;
-use web_time::{Duration, Instant};
+use core::time::Duration;
 
 fn main() {
     let pool = TaskPoolBuilder::new()

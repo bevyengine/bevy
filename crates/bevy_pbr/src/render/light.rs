@@ -347,7 +347,7 @@ pub fn extract_lights(
         ));
     }
     *previous_point_lights_len = point_lights_values.len();
-    commands.insert_or_spawn_batch(point_lights_values);
+    commands.try_insert_batch(point_lights_values);
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
@@ -410,7 +410,7 @@ pub fn extract_lights(
         }
     }
     *previous_spot_lights_len = spot_lights_values.len();
-    commands.insert_or_spawn_batch(spot_lights_values);
+    commands.try_insert_batch(spot_lights_values);
 
     for (
         main_entity,
@@ -525,7 +525,7 @@ pub(crate) fn add_light_view_entities(
     trigger: Trigger<OnAdd, (ExtractedDirectionalLight, ExtractedPointLight)>,
     mut commands: Commands,
 ) {
-    if let Some(mut v) = commands.get_entity(trigger.target()) {
+    if let Ok(mut v) = commands.get_entity(trigger.target()) {
         v.insert(LightViewEntities::default());
     }
 }
@@ -535,7 +535,7 @@ pub(crate) fn extracted_light_removed(
     trigger: Trigger<OnRemove, (ExtractedDirectionalLight, ExtractedPointLight)>,
     mut commands: Commands,
 ) {
-    if let Some(mut v) = commands.get_entity(trigger.target()) {
+    if let Ok(mut v) = commands.get_entity(trigger.target()) {
         v.try_remove::<LightViewEntities>();
     }
 }
@@ -548,7 +548,7 @@ pub(crate) fn remove_light_view_entities(
     if let Ok(entities) = query.get(trigger.target()) {
         for v in entities.0.values() {
             for e in v.iter().copied() {
-                if let Some(mut v) = commands.get_entity(e) {
+                if let Ok(mut v) = commands.get_entity(e) {
                     v.despawn();
                 }
             }

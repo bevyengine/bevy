@@ -183,7 +183,7 @@ fn update_accessibility_nodes(
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
 ) {
-    let Ok((primary_window_id, primary_window)) = primary_window.get_single() else {
+    let Ok((primary_window_id, primary_window)) = primary_window.single() else {
         return;
     };
     let Some(adapter) = adapters.get_mut(&primary_window_id) else {
@@ -227,9 +227,9 @@ fn update_adapter(
 ) -> TreeUpdate {
     let mut to_update = vec![];
     let mut window_children = vec![];
-    for (entity, node, children, parent) in &nodes {
+    for (entity, node, children, child_of) in &nodes {
         let mut node = (**node).clone();
-        queue_node_for_update(entity, parent, &node_entities, &mut window_children);
+        queue_node_for_update(entity, child_of, &node_entities, &mut window_children);
         add_children_nodes(children, &node_entities, &mut node);
         let node_id = NodeId(entity.to_bits());
         to_update.push((node_id, node));
@@ -258,7 +258,7 @@ fn queue_node_for_update(
     window_children: &mut Vec<NodeId>,
 ) {
     let should_push = if let Some(child_of) = child_of {
-        !node_entities.contains(child_of.get())
+        !node_entities.contains(child_of.parent)
     } else {
         true
     };

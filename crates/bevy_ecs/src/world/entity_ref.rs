@@ -13,6 +13,7 @@ use crate::{
     event::Event,
     observer::Observer,
     query::{Access, ReadOnlyQueryData},
+    relationship::RelationshipInsertHookMode,
     removal_detection::RemovedComponentEvents,
     resource::Resource,
     storage::Storages,
@@ -1526,7 +1527,40 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        self.insert_with_caller(bundle, InsertMode::Replace, MaybeLocation::caller())
+        self.insert_with_caller(
+            bundle,
+            InsertMode::Replace,
+            MaybeLocation::caller(),
+            RelationshipInsertHookMode::Run,
+        )
+    }
+
+    /// Adds a [`Bundle`] of components to the entity.
+    /// [`Relationship`](crate::relationship::Relationship) components in the bundle will follow the configuration
+    /// in `relationship_insert_hook_mode`.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
+    ///
+    /// # Warning
+    ///
+    /// This can easily break the integrity of relationships. This is intended to be used for cloning and spawning code internals,
+    /// not most user-facing scenarios.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[track_caller]
+    pub fn insert_with_relationship_insert_hook_mode<T: Bundle>(
+        &mut self,
+        bundle: T,
+        relationship_insert_hook_mode: RelationshipInsertHookMode,
+    ) -> &mut Self {
+        self.insert_with_caller(
+            bundle,
+            InsertMode::Replace,
+            MaybeLocation::caller(),
+            relationship_insert_hook_mode,
+        )
     }
 
     /// Adds a [`Bundle`] of components to the entity without overwriting.
@@ -1539,7 +1573,12 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        self.insert_with_caller(bundle, InsertMode::Keep, MaybeLocation::caller())
+        self.insert_with_caller(
+            bundle,
+            InsertMode::Keep,
+            MaybeLocation::caller(),
+            RelationshipInsertHookMode::Run,
+        )
     }
 
     /// Split into a new function so we can pass the calling location into the function when using
@@ -1550,14 +1589,23 @@ impl<'w> EntityWorldMut<'w> {
         bundle: T,
         mode: InsertMode,
         caller: MaybeLocation,
+        relationship_insert_hook_mode: RelationshipInsertHookMode,
     ) -> &mut Self {
         self.assert_not_despawned();
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, self.location.archetype_id, change_tick);
         // SAFETY: location matches current entity. `T` matches `bundle_info`
-        let (location, after_effect) =
-            unsafe { bundle_inserter.insert(self.entity, self.location, bundle, mode, caller) };
+        let (location, after_effect) = unsafe {
+            bundle_inserter.insert(
+                self.entity,
+                self.location,
+                bundle,
+                mode,
+                caller,
+                relationship_insert_hook_mode,
+            )
+        };
         self.location = location;
         self.world.flush();
         self.update_location();
@@ -1585,17 +1633,27 @@ impl<'w> EntityWorldMut<'w> {
         component_id: ComponentId,
         component: OwningPtr<'_>,
     ) -> &mut Self {
-        self.insert_by_id_with_caller(component_id, component, MaybeLocation::caller())
+        self.insert_by_id_with_caller(
+            component_id,
+            component,
+            InsertMode::Replace,
+            MaybeLocation::caller(),
+            RelationshipInsertHookMode::Run,
+        )
     }
 
     /// # Safety
-    /// See [`EntityWorldMut::insert_by_id`]
+    ///
+    /// - [`ComponentId`] must be from the same world as [`EntityWorldMut`]
+    /// - [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
     #[inline]
     pub(crate) unsafe fn insert_by_id_with_caller(
         &mut self,
         component_id: ComponentId,
         component: OwningPtr<'_>,
+        mode: InsertMode,
         caller: MaybeLocation,
+        relationship_hook_insert_mode: RelationshipInsertHookMode,
     ) -> &mut Self {
         self.assert_not_despawned();
         let change_tick = self.world.change_tick();
@@ -1619,7 +1677,9 @@ impl<'w> EntityWorldMut<'w> {
             self.location,
             Some(component).into_iter(),
             Some(storage_type).iter().cloned(),
+            mode,
             caller,
+            relationship_hook_insert_mode,
         );
         self.world.flush();
         self.update_location();
@@ -1648,6 +1708,20 @@ impl<'w> EntityWorldMut<'w> {
         component_ids: &[ComponentId],
         iter_components: I,
     ) -> &mut Self {
+        self.insert_by_ids_internal(
+            component_ids,
+            iter_components,
+            RelationshipInsertHookMode::Run,
+        )
+    }
+
+    #[track_caller]
+    pub(crate) unsafe fn insert_by_ids_internal<'a, I: Iterator<Item = OwningPtr<'a>>>(
+        &mut self,
+        component_ids: &[ComponentId],
+        iter_components: I,
+        relationship_hook_insert_mode: RelationshipInsertHookMode,
+    ) -> &mut Self {
         self.assert_not_despawned();
         let change_tick = self.world.change_tick();
         let bundle_id = self.world.bundles.init_dynamic_info(
@@ -1670,7 +1744,9 @@ impl<'w> EntityWorldMut<'w> {
             self.location,
             iter_components,
             (*storage_types).iter().cloned(),
+            InsertMode::Replace,
             MaybeLocation::caller(),
+            relationship_hook_insert_mode,
         );
         *self.world.bundles.get_storages_unchecked(bundle_id) = core::mem::take(&mut storage_types);
         self.world.flush();
@@ -2420,11 +2496,11 @@ impl<'w> EntityWorldMut<'w> {
     /// let mut entity = world.spawn_empty();
     /// entity.entry().or_insert_with(|| Comp(4));
     /// # let entity_id = entity.id();
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
+    /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 4);
     ///
     /// # let mut entity = world.get_entity_mut(entity_id).unwrap();
     /// entity.entry::<Comp>().and_modify(|mut c| c.0 += 1);
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 5);
+    /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 5);
     /// ```
     ///
     /// # Panics
@@ -2704,7 +2780,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> Entry<'w, 'a, T> {
     /// let mut entity = world.spawn(Comp(0));
     ///
     /// entity.entry::<Comp>().and_modify(|mut c| c.0 += 1);
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 1);
+    /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 1);
     /// ```
     #[inline]
     pub fn and_modify<F: FnOnce(Mut<'_, T>)>(self, f: F) -> Self {
@@ -2763,11 +2839,11 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     ///
     /// entity.entry().or_insert(Comp(4));
     /// # let entity_id = entity.id();
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
+    /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 4);
     ///
     /// # let mut entity = world.get_entity_mut(entity_id).unwrap();
     /// entity.entry().or_insert(Comp(15)).into_mut().0 *= 2;
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 8);
+    /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 8);
     /// ```
     #[inline]
     pub fn or_insert(self, default: T) -> OccupiedEntry<'w, 'a, T> {
@@ -2791,7 +2867,7 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     /// let mut entity = world.spawn_empty();
     ///
     /// entity.entry().or_insert_with(|| Comp(4));
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
+    /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 4);
     /// ```
     #[inline]
     pub fn or_insert_with<F: FnOnce() -> T>(self, default: F) -> OccupiedEntry<'w, 'a, T> {
@@ -2817,7 +2893,7 @@ impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
     /// let mut entity = world.spawn_empty();
     ///
     /// entity.entry::<Comp>().or_default();
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 0);
+    /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 0);
     /// ```
     #[inline]
     pub fn or_default(self) -> OccupiedEntry<'w, 'a, T> {
@@ -2875,7 +2951,7 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     ///     o.insert(Comp(10));
     /// }
     ///
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
+    /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 10);
     /// ```
     #[inline]
     pub fn insert(&mut self, component: T) {
@@ -2933,7 +3009,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedEntry<'w, 'a, T> {
     ///     o.get_mut().0 += 2
     /// }
     ///
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 17);
+    /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 17);
     /// ```
     #[inline]
     pub fn get_mut(&mut self) -> Mut<'_, T> {
@@ -2962,7 +3038,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedEntry<'w, 'a, T> {
     ///     o.into_mut().0 += 10;
     /// }
     ///
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 15);
+    /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 15);
     /// ```
     #[inline]
     pub fn into_mut(self) -> Mut<'a, T> {
@@ -2994,7 +3070,7 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
     ///     v.insert(Comp(10));
     /// }
     ///
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
+    /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 10);
     /// ```
     #[inline]
     pub fn insert(self, component: T) -> OccupiedEntry<'w, 'a, T> {
@@ -3026,7 +3102,7 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
 ///     .data::<&A>()
 ///     .build();
 ///
-/// let filtered_entity: FilteredEntityRef = query.single(&mut world);
+/// let filtered_entity: FilteredEntityRef = query.single(&mut world).unwrap();
 /// let component: &A = filtered_entity.get().unwrap();
 ///
 /// // Here `FilteredEntityRef` is nested in a tuple, so it does not have access to `&A`.
@@ -3034,7 +3110,7 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
 ///     .data::<&A>()
 ///     .build();
 ///
-/// let (_, filtered_entity) = query.single(&mut world);
+/// let (_, filtered_entity) = query.single(&mut world).unwrap();
 /// assert!(filtered_entity.get::<A>().is_none());
 /// ```
 #[derive(Clone)]
@@ -3357,7 +3433,7 @@ unsafe impl TrustedEntityBorrow for FilteredEntityRef<'_> {}
 ///     .data::<&mut A>()
 ///     .build();
 ///
-/// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world);
+/// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world).unwrap();
 /// let component: Mut<A> = filtered_entity.get_mut().unwrap();
 ///
 /// // Here `FilteredEntityMut` is nested in a tuple, so it does not have access to `&mut A`.
@@ -3365,7 +3441,7 @@ unsafe impl TrustedEntityBorrow for FilteredEntityRef<'_> {}
 ///     .data::<&mut A>()
 ///     .build();
 ///
-/// let (_, mut filtered_entity) = query.single_mut(&mut world);
+/// let (_, mut filtered_entity) = query.single_mut(&mut world).unwrap();
 /// assert!(filtered_entity.get_mut::<A>().is_none());
 /// ```
 pub struct FilteredEntityMut<'w> {
@@ -4153,7 +4229,9 @@ unsafe fn insert_dynamic_bundle<
     location: EntityLocation,
     components: I,
     storage_types: S,
+    mode: InsertMode,
     caller: MaybeLocation,
+    relationship_hook_insert_mode: RelationshipInsertHookMode,
 ) -> EntityLocation {
     struct DynamicInsertBundle<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> {
         components: I,
@@ -4175,7 +4253,14 @@ unsafe fn insert_dynamic_bundle<
     // SAFETY: location matches current entity.
     unsafe {
         bundle_inserter
-            .insert(entity, location, bundle, InsertMode::Replace, caller)
+            .insert(
+                entity,
+                location,
+                bundle,
+                mode,
+                caller,
+                relationship_hook_insert_mode,
+            )
             .0
     }
 }

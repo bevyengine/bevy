@@ -6,11 +6,19 @@ use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuil
 use core::{fmt::Debug, marker::PhantomData};
 use log::trace;
 
-#[cfg(not(target_arch = "wasm32"))]
-use {crate::Last, bevy_ecs::prelude::NonSend};
+cfg_if::cfg_if! {
+    if #[cfg(not(all(target_arch = "wasm32", feature = "web")))] {
+        use {crate::Last, bevy_ecs::prelude::NonSend, bevy_tasks::tick_global_task_pools_on_main_thread};
 
-#[cfg(not(target_arch = "wasm32"))]
-use bevy_tasks::tick_global_task_pools_on_main_thread;
+        /// A system used to check and advanced our task pools.
+        ///
+        /// Calls [`tick_global_task_pools_on_main_thread`],
+        /// and uses [`NonSendMarker`] to ensure that this system runs on the main thread
+        fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
+            tick_global_task_pools_on_main_thread();
+        }
+    }
+}
 
 /// Setup of default task pools: [`AsyncComputeTaskPool`], [`ComputeTaskPool`], [`IoTaskPool`].
 #[derive(Default)]
@@ -24,21 +32,12 @@ impl Plugin for TaskPoolPlugin {
         // Setup the default bevy task pools
         self.task_pool_options.create_default_pools();
 
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         _app.add_systems(Last, tick_global_task_pools);
     }
 }
 /// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
 pub struct NonSendMarker(PhantomData<*mut ()>);
-
-/// A system used to check and advanced our task pools.
-///
-/// Calls [`tick_global_task_pools_on_main_thread`],
-/// and uses [`NonSendMarker`] to ensure that this system runs on the main thread
-#[cfg(not(target_arch = "wasm32"))]
-fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
-    tick_global_task_pools_on_main_thread();
-}
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
 /// and number of total cores
@@ -176,20 +175,21 @@ impl TaskPoolOptions {
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
             IoTaskPool::get_or_init(|| {
-                #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
-                let mut builder = TaskPoolBuilder::default()
+                let builder = TaskPoolBuilder::default()
                     .num_threads(io_threads)
                     .thread_name("IO Task Pool".to_string());
 
-                #[cfg(not(target_arch = "wasm32"))]
-                {
+                #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+                let builder = {
+                    let mut builder = builder;
                     if let Some(f) = self.io.on_thread_spawn.clone() {
                         builder = builder.on_thread_spawn(move || f());
                     }
                     if let Some(f) = self.io.on_thread_destroy.clone() {
                         builder = builder.on_thread_destroy(move || f());
                     }
-                }
+                    builder
+                };
 
                 builder.build()
             });
@@ -205,20 +205,21 @@ impl TaskPoolOptions {
             remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
             AsyncComputeTaskPool::get_or_init(|| {
-                #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
-                let mut builder = TaskPoolBuilder::default()
+                let builder = TaskPoolBuilder::default()
                     .num_threads(async_compute_threads)
                     .thread_name("Async Compute Task Pool".to_string());
 
-                #[cfg(not(target_arch = "wasm32"))]
-                {
+                #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+                let builder = {
+                    let mut builder = builder;
                     if let Some(f) = self.async_compute.on_thread_spawn.clone() {
                         builder = builder.on_thread_spawn(move || f());
                     }
                     if let Some(f) = self.async_compute.on_thread_destroy.clone() {
                         builder = builder.on_thread_destroy(move || f());
                     }
-                }
+                    builder
+                };
 
                 builder.build()
             });
@@ -234,20 +235,21 @@ impl TaskPoolOptions {
             trace!("Compute Threads: {}", compute_threads);
 
             ComputeTaskPool::get_or_init(|| {
-                #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
-                let mut builder = TaskPoolBuilder::default()
+                let builder = TaskPoolBuilder::default()
                     .num_threads(compute_threads)
                     .thread_name("Compute Task Pool".to_string());
 
-                #[cfg(not(target_arch = "wasm32"))]
-                {
+                #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+                let builder = {
+                    let mut builder = builder;
                     if let Some(f) = self.compute.on_thread_spawn.clone() {
                         builder = builder.on_thread_spawn(move || f());
                     }
                     if let Some(f) = self.compute.on_thread_destroy.clone() {
                         builder = builder.on_thread_destroy(move || f());
                     }
-                }
+                    builder
+                };
 
                 builder.build()
             });

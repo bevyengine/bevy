@@ -120,6 +120,8 @@ unused_qualifications = "warn"
 
 [features]
 default = [
+  "std",
+  "async_executor",
   "android-game-activity",
   "android_shared_stdcxx",
   "animation",
@@ -130,6 +132,8 @@ default = [
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
+  "bevy_input_focus",
+  "bevy_log",
   "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
@@ -155,6 +159,9 @@ default = [
   "webgl2",
   "x11",
 ]
+
+# Recommended defaults for no_std applications
+default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 
 # Provides an implementation for picking meshes
 bevy_mesh_picking_backend = [
@@ -262,6 +269,12 @@ bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
+
+# Enable integration with `tracing` and `log`
+bevy_log = ["bevy_internal/bevy_log"]
+
+# Enable input focus subsystem
+bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -488,6 +501,21 @@ custom_cursor = ["bevy_internal/custom_cursor"]
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_internal/ghost_nodes"]
 
+# Uses `async-executor` as a task execution backend.
+async_executor = ["std", "bevy_internal/async_executor"]
+
+# Allows access to the `std` crate.
+std = ["bevy_internal/std"]
+
+# `critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.
+critical-section = ["bevy_internal/critical-section"]
+
+# Uses the `libm` maths library instead of the one provided in `std` and `core`.
+libm = ["bevy_internal/libm"]
+
+# Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.
+web = ["bevy_internal/web"]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
@@ -530,7 +558,7 @@ nonmax = "0.5"
 smol = "2"
 smol-macros = "0.1"
 smol-hyper = "0.1"
-ureq = { version = "2.10.1", features = ["json"] }
+ureq = { version = "3.0.8", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { version = "0.2" }
@@ -4179,11 +4207,11 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
-name = "testbed_ui_layout_rounding"
-path = "examples/testbed/ui_layout_rounding.rs"
+name = "testbed_full_ui"
+path = "examples/testbed/full_ui.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.testbed_ui_layout_rounding]
+[package.metadata.example.testbed_full_ui]
 hidden = true
 
 [[example]]
