@@ -1892,7 +1892,8 @@ mod tests {
         run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
             LoadState::Loading => None,
             LoadState::Failed(err) => {
-                assert!(matches!(*err, AssetLoadError::AssetLoaderError(_)));
+                let error_message = format!("{err}");
+                assert!(error_message.contains("Requested to load an asset path (a.cool.ron#A) with a subasset, but this is unsupported"), "what? \"{error_message}\"");
                 Some(())
             }
             state => panic!("Unexpected asset state: {state:?}"),
