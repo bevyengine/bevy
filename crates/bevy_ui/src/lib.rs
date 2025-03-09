@@ -72,7 +72,7 @@ use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
-use update::{update_clipping_system, update_ui_context_system};
+use update::{compute_node_targets_system, update_clipping_system};
 
 /// The basic plugin for Bevy UI
 pub struct UiPlugin {
@@ -198,7 +198,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                update_ui_context_system.in_set(UiSystem::Prepare),
+                compute_node_targets_system.in_set(UiSystem::Prepare),
                 ui_layout_system_config,
                 ui_stack_system
                     .in_set(UiSystem::Stack)
