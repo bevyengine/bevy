@@ -175,7 +175,7 @@ impl Saturation for Hsla {
 
     #[inline]
     fn set_saturation(&mut self, saturation: f32) {
-        self.saturation = saturation
+        self.saturation = saturation;
     }
 }
 

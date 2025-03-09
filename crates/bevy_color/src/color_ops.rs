@@ -99,7 +99,6 @@ pub trait Hue: Sized {
 ///
 /// When working with color spaces that do not have native saturation components
 /// the operations are performed in ['Hsla`].
-
 pub trait Saturation: Sized {
     /// Return a new version of this color with the saturation channel set to the given value.
     fn with_saturation(&self, saturation: f32) -> Self;
