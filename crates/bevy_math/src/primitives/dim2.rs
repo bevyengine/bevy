@@ -1365,7 +1365,7 @@ impl Segment2d {
     #[inline(always)]
     pub fn scaled_left_normal(&self) -> Vec2 {
         let scaled_direction = self.scaled_direction();
-        Vec2::new(scaled_direction.y, -scaled_direction.x)
+        Vec2::new(-scaled_direction.y, scaled_direction.x)
     }
 
     /// Compute the normalized clockwise normal on the right-hand side of the line segment.
@@ -1397,7 +1397,7 @@ impl Segment2d {
     #[inline(always)]
     pub fn scaled_right_normal(&self) -> Vec2 {
         let scaled_direction = self.scaled_direction();
-        Vec2::new(-scaled_direction.y, scaled_direction.x)
+        Vec2::new(scaled_direction.y, -scaled_direction.x)
     }
 
     /// Compute the segment transformed by the given [`Isometry2d`].
