@@ -1,9 +1,6 @@
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
-use bevy_ecs::{
-    component::{require, Component},
-    reflect::ReflectComponent,
-};
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
