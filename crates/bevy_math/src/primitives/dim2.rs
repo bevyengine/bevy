@@ -1456,9 +1456,8 @@ impl Segment2d {
 
     /// Swaps the two endpoints of the line segment.
     #[inline(always)]
-    pub fn swap(&mut self) {
-        let [a, b] = &mut self.vertices;
-        core::mem::swap(a, b);
+    pub fn reversed(&self) -> Self {
+        Segment2d::new(self.point2(), self.point1())
     }
 }
 
