@@ -85,7 +85,7 @@ fn setup_grid(mut commands: Commands) {
                                         ..default()
                                     },
                                     BackgroundGradient::from(Gradient::Radial {
-                                        stops,
+                                        stops: color_stops.clone(),
                                         position,
                                         shape,
                                     }),
