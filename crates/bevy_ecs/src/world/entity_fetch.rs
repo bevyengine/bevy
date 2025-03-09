@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-/// Provides a safe interface for acccessing *just* the entities in a [`World`].
+/// Provides a safe interface for accessing *just* the entities in a [`World`].
 ///
 /// [`World`]: crate::world::World
 pub struct EntityFetcher<'w> {

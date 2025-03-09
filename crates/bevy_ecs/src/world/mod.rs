@@ -3647,7 +3647,7 @@ mod tests {
         entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,
         resource::Resource,
-        world::error::EntityMutableFetchError,
+        world::{error::EntityMutableFetchError, DeferredWorld},
     };
     use alloc::{
         borrow::ToOwned,
@@ -4342,5 +4342,45 @@ mod tests {
         // If we explicitly remove the resource, no entities should be filtered anymore
         world.remove_resource::<DefaultQueryFilters>();
         assert_eq!(2, world.query::<&Foo>().iter(&world).count());
+    }
+
+    #[test]
+    fn entities_and_commands() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Foo(u32);
+
+        let mut world = World::new();
+
+        let eid = world.spawn(Foo(35)).id();
+
+        let (mut fetcher, mut commands) = world.entities_and_commands();
+        let emut = fetcher.get_mut(eid).unwrap();
+        commands.entity(eid).despawn();
+        assert_eq!(emut.get::<Foo>().unwrap(), &Foo(35));
+
+        world.flush();
+
+        assert!(world.get_entity(eid).is_err());
+    }
+
+    #[test]
+    fn entities_and_commands_deferred() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Foo(u32);
+
+        let mut world = World::new();
+
+        let eid = world.spawn(Foo(1)).id();
+
+        let mut dworld = DeferredWorld::from(&mut world);
+
+        let (mut fetcher, mut commands) = dworld.entities_and_commands();
+        let emut = fetcher.get_mut(eid).unwrap();
+        commands.entity(eid).despawn();
+        assert_eq!(emut.get::<Foo>().unwrap(), &Foo(1));
+
+        world.flush();
+
+        assert!(world.get_entity(eid).is_err());
     }
 }
