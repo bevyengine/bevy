@@ -430,75 +430,55 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Adds all access from `other`.
     pub fn extend(&mut self, other: &Access<T>) {
-        let component_read_and_writes_inverted =
-            self.component_read_and_writes_inverted || other.component_read_and_writes_inverted;
-        let component_writes_inverted =
-            self.component_writes_inverted || other.component_writes_inverted;
-
-        match (
-            self.component_read_and_writes_inverted,
+        invertible_union_with(
+            &mut self.component_read_and_writes,
+            &mut self.component_read_and_writes_inverted,
+            &other.component_read_and_writes,
             other.component_read_and_writes_inverted,
-        ) {
-            (true, true) => {
-                self.component_read_and_writes
-                    .intersect_with(&other.component_read_and_writes);
-            }
-            (true, false) => {
-                self.component_read_and_writes
-                    .difference_with(&other.component_read_and_writes);
-            }
-            (false, true) => {
-                // We have to grow here because the new bits are going to get flipped to 1.
-                self.component_read_and_writes.grow(
-                    self.component_read_and_writes
-                        .len()
-                        .max(other.component_read_and_writes.len()),
-                );
-                self.component_read_and_writes.toggle_range(..);
-                self.component_read_and_writes
-                    .intersect_with(&other.component_read_and_writes);
-            }
-            (false, false) => {
-                self.component_read_and_writes
-                    .union_with(&other.component_read_and_writes);
-            }
-        }
-
-        match (
-            self.component_writes_inverted,
+        );
+        invertible_union_with(
+            &mut self.component_writes,
+            &mut self.component_writes_inverted,
+            &other.component_writes,
             other.component_writes_inverted,
-        ) {
-            (true, true) => {
-                self.component_writes
-                    .intersect_with(&other.component_writes);
-            }
-            (true, false) => {
-                self.component_writes
-                    .difference_with(&other.component_writes);
-            }
-            (false, true) => {
-                // We have to grow here because the new bits are going to get flipped to 1.
-                self.component_writes.grow(
-                    self.component_writes
-                        .len()
-                        .max(other.component_writes.len()),
-                );
-                self.component_writes.toggle_range(..);
-                self.component_writes
-                    .intersect_with(&other.component_writes);
-            }
-            (false, false) => {
-                self.component_writes.union_with(&other.component_writes);
-            }
-        }
+        );
 
         self.reads_all_resources = self.reads_all_resources || other.reads_all_resources;
         self.writes_all_resources = self.writes_all_resources || other.writes_all_resources;
-        self.component_read_and_writes_inverted = component_read_and_writes_inverted;
-        self.component_writes_inverted = component_writes_inverted;
         self.resource_read_and_writes
             .union_with(&other.resource_read_and_writes);
         self.resource_writes.union_with(&other.resource_writes);
+    }
+
+    /// Removes any access from `self` that would conflict with `other`.
+    /// This removes any reads and writes for any component written by `other`,
+    /// and removes any writes for any component read by `other`.
+    pub fn remove_conflicting_access(&mut self, other: &Access<T>) {
+        invertible_difference_with(
+            &mut self.component_read_and_writes,
+            &mut self.component_read_and_writes_inverted,
+            &other.component_writes,
+            other.component_writes_inverted,
+        );
+        invertible_difference_with(
+            &mut self.component_writes,
+            &mut self.component_writes_inverted,
+            &other.component_read_and_writes,
+            other.component_read_and_writes_inverted,
+        );
+
+        if other.reads_all_resources {
+            self.writes_all_resources = false;
+            self.resource_writes.clear();
+        }
+        if other.writes_all_resources {
+            self.reads_all_resources = false;
+            self.resource_read_and_writes.clear();
+        }
+        self.resource_read_and_writes
+            .difference_with(&other.resource_writes);
+        self.resource_writes
+            .difference_with(&other.resource_read_and_writes);
     }
 
     /// Returns `true` if the access and `other` can be active at the same time,
@@ -836,6 +816,40 @@ impl<T: SparseSetIndex> Access<T> {
 
         Ok(reads_and_writes.chain(archetypal))
     }
+}
+
+/// Performs an in-place union of `other` into `self`, where either set may be inverted.
+fn invertible_union_with(
+    self_set: &mut FixedBitSet,
+    self_inverted: &mut bool,
+    other_set: &FixedBitSet,
+    other_inverted: bool,
+) {
+    match (*self_inverted, other_inverted) {
+        (true, true) => self_set.intersect_with(other_set),
+        (true, false) => self_set.difference_with(other_set),
+        (false, true) => {
+            *self_inverted = true;
+            // We have to grow here because the new bits are going to get flipped to 1.
+            self_set.grow(other_set.len());
+            self_set.toggle_range(..);
+            self_set.intersect_with(other_set);
+        }
+        (false, false) => self_set.union_with(other_set),
+    }
+}
+
+/// Performs an in-place set difference of `other` from `self`, where either set may be inverted.
+fn invertible_difference_with(
+    self_set: &mut FixedBitSet,
+    self_inverted: &mut bool,
+    other_set: &FixedBitSet,
+    other_inverted: bool,
+) {
+    // A - B = A & !B = !(!A | B)
+    *self_inverted = !*self_inverted;
+    invertible_union_with(self_set, self_inverted, other_set, other_inverted);
+    *self_inverted = !*self_inverted;
 }
 
 /// Error returned when attempting to iterate over items included in an [`Access`]
