@@ -536,6 +536,20 @@ impl Segment3d {
     }
 }
 
+impl From<[Vec3; 2]> for Segment3d {
+    #[inline(always)]
+    fn from(vertices: [Vec3; 2]) -> Self {
+        Self { vertices }
+    }
+}
+
+impl From<(Vec3, Vec3)> for Segment3d {
+    #[inline(always)]
+    fn from((point1, point2): (Vec3, Vec3)) -> Self {
+        Self::new(point1, point2)
+    }
+}
+
 /// A series of connected line segments in 3D space.
 ///
 /// For a version without generics: [`BoxedPolyline3d`]

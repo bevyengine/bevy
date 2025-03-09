@@ -1462,6 +1462,20 @@ impl Segment2d {
     }
 }
 
+impl From<[Vec2; 2]> for Segment2d {
+    #[inline(always)]
+    fn from(vertices: [Vec2; 2]) -> Self {
+        Self { vertices }
+    }
+}
+
+impl From<(Vec2, Vec2)> for Segment2d {
+    #[inline(always)]
+    fn from((point1, point2): (Vec2, Vec2)) -> Self {
+        Self::new(point1, point2)
+    }
+}
+
 /// A series of connected line segments in 2D space.
 ///
 /// For a version without generics: [`BoxedPolyline2d`]
