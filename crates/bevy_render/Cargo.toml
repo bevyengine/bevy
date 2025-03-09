@@ -9,20 +9,17 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["coupled_naga"]
-
-# Bevy users should _always_ leave this feature on.
+# Bevy users should _never_ turn this feature on.
 #
-# Bevy/wgpu developers can turn this feature off (see `default` above) to test a newer version of wgpu
-# without needing to also update naga_oil. Make sure to update both wgpu and wgpu-types.
+# Bevy/wgpu developers can turn this feature on to test a newer version of wgpu without needing to also update naga_oil.
 #
-# When turning this feature off, you can add the following to bevy/Cargo.toml, and then run `cargo update`:
+# When turning this feature on, you can add the following to bevy/Cargo.toml (not this file), and then run `cargo update`:
 # [patch.crates-io]
 # wgpu = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
 # wgpu-core = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
 # wgpu-hal = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
 # wgpu-types = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
-coupled_naga = ["wgpu/naga-ir"]
+decoupled_naga = []
 
 # Texture formats (require more than just image support)
 basis-universal = ["bevy_image/basis-universal"]
@@ -92,6 +89,7 @@ wgpu = { version = "24", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
+  "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
 naga = { version = "24", features = ["wgsl-in"] }

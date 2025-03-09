@@ -306,12 +306,12 @@ impl ShaderCache {
                             },
                         )?;
 
-                        #[cfg(feature = "coupled_naga")]
+                        #[cfg(not(feature = "decoupled_naga"))]
                         {
                             ShaderSource::Naga(Cow::Owned(naga))
                         }
 
-                        #[cfg(not(feature = "coupled_naga"))]
+                        #[cfg(feature = "decoupled_naga")]
                         {
                             let mut validator = naga::valid::Validator::new(
                                 naga::valid::ValidationFlags::all(),
