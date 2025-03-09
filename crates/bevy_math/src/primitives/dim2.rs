@@ -1258,7 +1258,7 @@ impl Segment2d {
     ///
     /// The endpoints will be at `-scaled_direction / 2.0` and `scaled_direction / 2.0`.
     #[inline(always)]
-    pub fn from_scaled_direction(scaled_direction: Dir2) -> Self {
+    pub fn from_scaled_direction(scaled_direction: Vec2) -> Self {
         let endpoint = 0.5 * scaled_direction;
         Self {
             vertices: [-endpoint, endpoint],
