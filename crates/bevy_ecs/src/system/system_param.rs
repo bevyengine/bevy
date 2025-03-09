@@ -807,6 +807,8 @@ macro_rules! impl_param_set {
 
 all_tuples_enumerated!(impl_param_set, 1, 8, P, m, p);
 
+impl Resource for () {}
+
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 
