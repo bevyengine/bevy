@@ -3,7 +3,7 @@ use core::f32::consts::{FRAC_PI_3, PI};
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{
     ops::{self, FloatPow},
-    Dir3, InvalidDirectionError, Isometry3d, Mat3, Vec2, Vec3,
+    Dir3, InvalidDirectionError, Isometry3d, Mat3, Ray3d, Vec2, Vec3,
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -376,7 +376,7 @@ impl Segment3d {
     /// Create a new `Segment3d` from its endpoints and compute its geometric center.
     #[inline(always)]
     #[deprecated(since = "0.16.0", note = "Use the `new` constructor instead")]
-    pub const fn from_points(point1: Vec3, point2: Vec3) -> (Self, Vec3) {
+    pub fn from_points(point1: Vec3, point2: Vec3) -> (Self, Vec3) {
         (Self::new(point1, point2), (point1 + point2) / 2.)
     }
 
@@ -384,7 +384,7 @@ impl Segment3d {
     ///
     /// The endpoints will be at `-direction * length / 2.0` and `direction * length / 2.0`.
     #[inline(always)]
-    pub const fn from_direction_and_length(direction: Dir3, length: f32) -> Self {
+    pub fn from_direction_and_length(direction: Dir3, length: f32) -> Self {
         let endpoint = 0.5 * length * direction;
         Self {
             vertices: [-endpoint, endpoint],
@@ -396,7 +396,7 @@ impl Segment3d {
     ///
     /// The endpoints will be at `-scaled_direction / 2.0` and `scaled_direction / 2.0`.
     #[inline(always)]
-    pub const fn from_scaled_direction(scaled_direction: Dir3) -> Self {
+    pub fn from_scaled_direction(scaled_direction: Dir3) -> Self {
         let endpoint = 0.5 * scaled_direction;
         Self {
             vertices: [-endpoint, endpoint],
@@ -408,7 +408,7 @@ impl Segment3d {
     ///
     /// The endpoints will be at `ray.origin` and `ray.origin + length * ray.direction`.
     #[inline(always)]
-    pub const fn from_ray_and_length(ray: Ray2d, length: f32) -> Self {
+    pub fn from_ray_and_length(ray: Ray3d, length: f32) -> Self {
         Self {
             vertices: [ray.origin, ray.get_point(length)],
         }
@@ -479,8 +479,8 @@ impl Segment3d {
     pub fn transformed(&self, isometry: impl Into<Isometry3d>) -> Self {
         let isometry: Isometry3d = isometry.into();
         Self::new(
-            isometry.transform_point(self.point1()),
-            isometry.transform_point(self.point2()),
+            isometry.transform_point(self.point1()).into(),
+            isometry.transform_point(self.point2()).into(),
         )
     }
 
@@ -531,8 +531,8 @@ impl Segment3d {
     /// Swaps the two endpoints of the line segment.
     #[inline(always)]
     pub fn swap(&mut self) {
-        let [ref mut a, ref mut b] = &mut self.vertices;
-        std::mem::swap(a, b);
+        let [a, b] = &mut self.vertices;
+        core::mem::swap(a, b);
     }
 }
 
