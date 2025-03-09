@@ -3,7 +3,11 @@ all-features = true
 
 [advisories]
 version = 2
-ignore = []
+ignore = [
+  "RUSTSEC-2024-0436",
+] # paste was announced as unmaintained with no explanation or replacement
+# See: https://rustsec.org/advisories/RUSTSEC-2024-0436
+# Bevy relies on this in multiple indirect ways, so ignoring it is the only feasible current solution
 
 [licenses]
 version = 2
