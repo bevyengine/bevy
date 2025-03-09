@@ -442,6 +442,9 @@ shader_format_glsl = ["bevy_internal/shader_format_glsl"]
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 
+# Enable support for shaders in WESL
+shader_format_wesl = ["bevy_internal/shader_format_wesl"]
+
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 
@@ -2761,6 +2764,18 @@ required-features = ["shader_format_glsl"]
 [package.metadata.example.shader_material_glsl]
 name = "Material - GLSL"
 description = "A shader that uses the GLSL shading language"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "shader_material_wesl"
+path = "examples/shader/shader_material_wesl.rs"
+doc-scrape-examples = true
+required-features = ["shader_format_wesl"]
+
+[package.metadata.example.shader_material_wesl]
+name = "Material - WESL"
+description = "A shader that uses WESL"
 category = "Shaders"
 wasm = true
 
