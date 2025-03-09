@@ -21,7 +21,7 @@ pub use crate::{
 pub use bevy_ecs_macros::FromWorld;
 pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
-pub use entity_fetch::WorldEntityFetch;
+pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use entity_ref::{
     DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut,
     Entry, FilteredEntityMut, FilteredEntityRef, OccupiedEntry, TryFromFilteredError, VacantEntry,
@@ -994,6 +994,21 @@ impl World {
                     unsafe { EntityMut::new(cell) }
                 })
         })
+    }
+
+    /// Provides split access to fetching entities and to queuing commands.
+    pub fn entities_and_commands(&mut self) -> (EntityFetcher, Commands) {
+        let cell = self.as_unsafe_world_cell();
+        // SAFETY: `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
+        let fetcher = unsafe { EntityFetcher::new(cell) };
+        // SAFETY:
+        // - `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
+        // - Command queue access does not conflict with entity access.
+        let raw_queue = unsafe { cell.get_raw_command_queue() };
+        // SAFETY: `&mut self` ensures the commands does not outlive the world.
+        let commands = unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities()) };
+
+        (fetcher, commands)
     }
 
     /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
