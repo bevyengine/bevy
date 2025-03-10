@@ -831,7 +831,7 @@ impl ScheduleGraph {
         &self.conflicting_systems
     }
 
-    fn process_config<T: ProcessScheduleConfig + NodeType>(
+    fn process_config<T: ProcessScheduleConfig + Schedulable>(
         &mut self,
         config: ScheduleConfig<T>,
         collect_nodes: bool,
@@ -846,7 +846,7 @@ impl ScheduleGraph {
     }
 
     fn apply_collective_conditions<
-        T: ProcessScheduleConfig + NodeType<Metadata = GraphInfo, GroupMetadata = Chain>,
+        T: ProcessScheduleConfig + Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>,
     >(
         &mut self,
         configs: &mut [ScheduleConfigs<T>],
@@ -879,7 +879,7 @@ impl ScheduleGraph {
     /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
     #[track_caller]
     fn process_configs<
-        T: ProcessScheduleConfig + NodeType<Metadata = GraphInfo, GroupMetadata = Chain>,
+        T: ProcessScheduleConfig + Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>,
     >(
         &mut self,
         configs: ScheduleConfigs<T>,
@@ -1571,7 +1571,7 @@ struct ProcessConfigsResult {
 }
 
 /// Trait used by [`ScheduleGraph::process_configs`] to process a single [`ScheduleConfig`].
-trait ProcessScheduleConfig: NodeType + Sized {
+trait ProcessScheduleConfig: Schedulable + Sized {
     /// Process a single [`ScheduleConfig`].
     fn process_config(schedule_graph: &mut ScheduleGraph, config: ScheduleConfig<Self>) -> NodeId;
 }

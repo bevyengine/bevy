@@ -36,11 +36,11 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: InternedSystemSet) {
     }
 }
 
-/// Stores data to differentiate different Node types
-pub trait NodeType {
-    /// Additional data used to configure a node. Stored in [`ScheduleConfig`].
+/// Stores data to differentiate different schedulable structs.
+pub trait Schedulable {
+    /// Additional data used to configure independent scheduling. Stored in [`ScheduleConfig`].
     type Metadata;
-    /// Additional data used to configure a group of nodes. Stored in [`ScheduleConfigs`].
+    /// Additional data used to configure a schedulable group. Stored in [`ScheduleConfigs`].
     type GroupMetadata;
 
     /// Initializes a configuration from this node.
@@ -49,7 +49,7 @@ pub trait NodeType {
         Self: Sized;
 }
 
-impl NodeType for ScheduleSystem {
+impl Schedulable for ScheduleSystem {
     type Metadata = GraphInfo;
     type GroupMetadata = Chain;
 
@@ -66,7 +66,7 @@ impl NodeType for ScheduleSystem {
     }
 }
 
-impl NodeType for InternedSystemSet {
+impl Schedulable for InternedSystemSet {
     type Metadata = GraphInfo;
     type GroupMetadata = Chain;
 
@@ -90,15 +90,15 @@ impl NodeType for InternedSystemSet {
 /// (hierarchy: in which sets is the node contained,
 /// dependencies: before/after which other nodes should this node run)
 /// and the run conditions associated with this node.
-pub struct ScheduleConfig<T: NodeType> {
+pub struct ScheduleConfig<T: Schedulable> {
     pub(crate) node: T,
     pub(crate) metadata: T::Metadata,
     pub(crate) conditions: Vec<BoxedCondition>,
 }
 
-/// A collections of generic [`ScheduleConfig`]s.
-pub enum ScheduleConfigs<T: NodeType> {
-    /// Configuration for a single node.
+/// Single or nested configurations for [`Schedulable`]s.
+pub enum ScheduleConfigs<T: Schedulable> {
+    /// Configuration for a single [`Schedulable`].
     ScheduleConfig(ScheduleConfig<T>),
     /// Configuration for a tuple of nested `Configs` instances.
     Configs {
@@ -111,7 +111,7 @@ pub enum ScheduleConfigs<T: NodeType> {
     },
 }
 
-impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T> {
+impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T> {
     /// Adds a new boxed system set to the systems.
     pub fn in_set_inner(&mut self, set: InternedSystemSet) {
         match self {
@@ -312,7 +312,7 @@ impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfigs<T
     message = "`{Self}` does not describe a valid system configuration",
     label = "invalid system configuration"
 )]
-pub trait IntoScheduleConfigs<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>, Marker>:
+pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>, Marker>:
     Sized
 {
     /// Convert into a [`ScheduleConfigs`].
@@ -480,7 +480,7 @@ pub trait IntoScheduleConfigs<T: NodeType<Metadata = GraphInfo, GroupMetadata = 
     }
 }
 
-impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleConfigs<T, ()>
+impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleConfigs<T, ()>
     for ScheduleConfigs<T>
 {
     fn into_configs(self) -> Self {
@@ -602,7 +602,7 @@ pub struct ScheduleConfigTupleMarker;
 macro_rules! impl_node_type_collection {
     ($(#[$meta:meta])* $(($param: ident, $sys: ident)),*) => {
         $(#[$meta])*
-        impl<$($param, $sys),*, T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleConfigs<T, (ScheduleConfigTupleMarker, $($param,)*)> for ($($sys,)*)
+        impl<$($param, $sys),*, T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleConfigs<T, (ScheduleConfigTupleMarker, $($param,)*)> for ($($sys,)*)
         where
             $($sys: IntoScheduleConfigs<T, $param>),*
         {
