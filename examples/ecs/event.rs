@@ -81,7 +81,7 @@ fn apply_damage_to_health(
         info!("Applying {} damage", event.amount);
         if event.amount > 0 {
             // Events with a 'Default' implementation can be written with 'write_default'
-            rcvd_events.write_default();
+            received_events.write_default();
         }
     }
 }
