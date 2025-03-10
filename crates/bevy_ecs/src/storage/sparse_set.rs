@@ -407,8 +407,8 @@ impl ComponentSparseSet {
     /// The current capacity of the columns should be 0, if it's not 0, then the previous data will be overwritten and leaked.
     fn alloc_dense(&mut self, new_capacity: NonZeroUsize) {
         // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
-        // To avoid this, we use `AbortOnPanic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
-        // called, and abort the program.
+        // To avoid this, we use `abort_on_panic`. If the allocation triggered a panic, the guard will be triggered, and
+        // abort the program.
         abort_on_panic(|| {
             self.dense.alloc(new_capacity);
         });
@@ -424,8 +424,8 @@ impl ComponentSparseSet {
         new_capacity: NonZeroUsize,
     ) {
         // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
-        // To avoid this, we use `abort_on_panic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
-        // called, and abort the program.
+        // To avoid this, we use `abort_on_panic`. If the allocation triggered a panic, the guard will be triggered, and
+        // abort the program.
 
         // SAFETY:
         // - There's no overflow
