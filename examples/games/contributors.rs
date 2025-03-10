@@ -246,7 +246,7 @@ fn gravity(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
     }
 }
 
-/// Checks for collisions of contributor-birbs.
+/// Checks for collisions of contributor-birds.
 ///
 /// On collision with left-or-right wall it resets the horizontal
 /// velocity. On collision with the ground it applies an upwards
@@ -264,7 +264,7 @@ fn collisions(
 
     let collision_area = Aabb2d::new(Vec2::ZERO, (window_size - SPRITE_SIZE) / 2.);
 
-    // The maximum height the birbs should try to reach is one birb below the top of the window.
+    // The maximum height the birds should try to reach is one bird below the top of the window.
     let max_bounce_height = (window_size.y - SPRITE_SIZE * 2.0).max(0.0);
     let min_bounce_height = max_bounce_height * 0.4;
 
@@ -273,14 +273,14 @@ fn collisions(
         if transform.translation.y < collision_area.min.y {
             transform.translation.y = collision_area.min.y;
 
-            // How high this birb will bounce.
+            // How high this bird will bounce.
             let bounce_height = rng.gen_range(min_bounce_height..=max_bounce_height);
 
-            // Apply the velocity that would bounce the birb up to bounce_height.
+            // Apply the velocity that would bounce the bird up to bounce_height.
             velocity.translation.y = (bounce_height * GRAVITY * 2.).sqrt();
         }
 
-        // Birbs might hit the ceiling if the window is resized.
+        // birds might hit the ceiling if the window is resized.
         // If they do, bounce them.
         if transform.translation.y > collision_area.max.y {
             transform.translation.y = collision_area.max.y;
