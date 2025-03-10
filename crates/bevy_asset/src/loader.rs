@@ -654,6 +654,17 @@ impl<'a> LoadContext<'a> {
         )
     }
 
+    /// Gets a previously direct-loaded nested asset by its path.
+    ///
+    /// Returns None if the asset either hasn't been loaded yet or hasn't finished loading. See
+    /// [`Self::loader`] for starting nested asset loads.
+    pub fn get_direct_nested_asset<'p>(
+        &self,
+        path: impl Into<AssetPath<'p>>,
+    ) -> Option<NestedErasedAssetRef> {
+        NestedErasedAssetRef::new(self.nested_direct_loaded_assets.read(), &path.into())
+    }
+
     /// Create a builder for loading nested assets in this context.
     #[must_use]
     pub fn loader(&mut self) -> NestedLoader<'a, '_, StaticTyped, Deferred> {
