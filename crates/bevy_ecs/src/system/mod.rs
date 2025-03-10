@@ -341,7 +341,7 @@ mod tests {
         removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
-            common_conditions::resource_exists, ApplyDeferred, Condition, IntoSystemConfigs,
+            common_conditions::resource_exists, ApplyDeferred, Condition, IntoScheduleConfigs,
             Schedule,
         },
         system::{
@@ -350,6 +350,8 @@ mod tests {
         },
         world::{DeferredWorld, EntityMut, FromWorld, World},
     };
+
+    use super::ScheduleSystem;
 
     #[derive(Resource, PartialEq, Debug)]
     enum SystemRan {
@@ -389,7 +391,10 @@ mod tests {
         system.run((), &mut world);
     }
 
-    fn run_system<Marker, S: IntoSystemConfigs<Marker>>(world: &mut World, system: S) {
+    fn run_system<Marker, S: IntoScheduleConfigs<ScheduleSystem, Marker>>(
+        world: &mut World,
+        system: S,
+    ) {
         let mut schedule = Schedule::default();
         schedule.add_systems(system);
         schedule.run(world);

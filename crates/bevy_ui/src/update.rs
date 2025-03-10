@@ -225,7 +225,7 @@ mod tests {
     use bevy_core_pipeline::core_2d::Camera2d;
     use bevy_ecs::event::Events;
     use bevy_ecs::hierarchy::ChildOf;
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::world::World;
     use bevy_image::Image;

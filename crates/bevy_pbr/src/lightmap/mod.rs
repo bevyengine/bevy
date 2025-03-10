@@ -41,7 +41,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     removal_detection::RemovedComponents,
     resource::Resource,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };

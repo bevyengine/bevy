@@ -371,7 +371,7 @@ mod tests {
 
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
 
     use crate::{detect_text_needs_rerender, TextIterScratch};
 

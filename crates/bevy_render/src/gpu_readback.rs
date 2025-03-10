@@ -15,7 +15,7 @@ use async_channel::{Receiver, Sender};
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::{
     change_detection::ResMut,
     entity::Entity,
