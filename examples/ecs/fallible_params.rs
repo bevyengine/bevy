@@ -1,5 +1,5 @@
 //! This example demonstrates how fallible parameters can prevent their systems
-//! from running if their acquiry conditions aren't met.
+//! from running if their acquisition conditions aren't met.
 //!
 //! Fallible parameters include:
 //! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist.
