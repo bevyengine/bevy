@@ -161,6 +161,29 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             }
                             _ => {}
                         }
+
+                        let binding_array_binding = binding_array_binding.unwrap_or(0);
+                        bindless_binding_layouts.push(quote! {
+                            #bind_group_layout_entries.push(
+                                #render_path::render_resource::BindGroupLayoutEntry {
+                                    binding: #binding_array_binding,
+                                    visibility: #render_path::render_resource::ShaderStages::all(),
+                                    ty: #render_path::render_resource::BindingType::Buffer {
+                                        ty: #uniform_binding_type,
+                                        has_dynamic_offset: false,
+                                        min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
+                                    },
+                                    count: #actual_bindless_slot_count,
+                                }
+                            );
+                        });
+
+                        add_bindless_resource_type(
+                            &render_path,
+                            &mut bindless_resource_types,
+                            binding_index,
+                            quote! { #render_path::render_resource::BindlessResourceType::Buffer },
+                        );
                     }
 
                     UniformBindingAttrType::Data => {
@@ -201,7 +224,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                     },
                                     count: None,
                                 }
-                            )
+                            );
                         });
 
                         add_bindless_resource_type(
