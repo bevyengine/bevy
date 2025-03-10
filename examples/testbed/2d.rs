@@ -226,10 +226,7 @@ mod text {
             text.with_children(|parent| {
                 parent.spawn((
                     TextSpan::new(format!("{anchor:?}\n")),
-                    TextFont {
-                        font_size: 14.0,
-                        ..default()
-                    },
+                    TextFont::from_font_size(14.0),
                     TextColor(palettes::tailwind::BLUE_400.into()),
                 ));
                 parent.spawn((
