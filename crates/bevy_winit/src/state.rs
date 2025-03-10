@@ -207,6 +207,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             } else {
                 self.app.finish();
                 self.app.cleanup();
+                self.app.build_async();
             }
             self.redraw_requested = true;
         }
@@ -904,6 +905,7 @@ pub fn winit_runner<T: Event>(mut app: App, event_loop: EventLoop<T>) -> AppExit
     if app.plugins_state() == PluginsState::Ready {
         app.finish();
         app.cleanup();
+        app.build_async();
     }
 
     app.world_mut()
