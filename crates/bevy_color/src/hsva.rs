@@ -1,5 +1,6 @@
 use crate::{
-    Alpha, ColorToComponents, Gray, Hue, Hwba, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza,
+    Alpha, ColorToComponents, Gray, Hue, Hwba, Lcha, LinearRgba, Mix, Saturation, Srgba,
+    StandardColor, Xyza,
 };
 use bevy_math::{Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
@@ -126,6 +127,26 @@ impl Hue for Hsva {
     #[inline]
     fn set_hue(&mut self, hue: f32) {
         self.hue = hue;
+    }
+}
+
+impl Saturation for Hsva {
+    #[inline]
+    fn with_saturation(&self, saturation: f32) -> Self {
+        Self {
+            saturation,
+            ..*self
+        }
+    }
+
+    #[inline]
+    fn saturation(&self) -> f32 {
+        self.saturation
+    }
+
+    #[inline]
+    fn set_saturation(&mut self, saturation: f32) {
+        self.saturation = saturation;
     }
 }
 
