@@ -1,6 +1,8 @@
 //! Add methods on `World` to simplify loading assets when all
 //! you have is a `World`.
 
+use alloc::sync::Arc;
+
 use bevy_ecs::world::World;
 
 use crate::{meta::Settings, Asset, AssetPath, AssetServer, Assets, Handle};
@@ -9,6 +11,9 @@ use crate::{meta::Settings, Asset, AssetPath, AssetServer, Assets, Handle};
 pub trait DirectAssetAccessExt {
     /// Insert an asset similarly to [`Assets::add`].
     fn add_asset<A: Asset>(&mut self, asset: impl Into<A>) -> Handle<A>;
+
+    /// Insert an [`Arc`]d asset similarly to [`Assets::add_arc`].
+    fn add_arc_asset<A: Asset>(&mut self, asset: impl Into<Arc<A>>) -> Handle<A>;
 
     /// Load an asset similarly to [`AssetServer::load`].
     fn load_asset<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A>;
@@ -27,6 +32,14 @@ impl DirectAssetAccessExt for World {
     /// If `self` doesn't have an [`AssetServer`] resource initialized yet.
     fn add_asset<'a, A: Asset>(&mut self, asset: impl Into<A>) -> Handle<A> {
         self.resource_mut::<Assets<A>>().add(asset)
+    }
+
+    /// Insert an [`Arc`]d asset similarly to [`Assets::add_arc`].
+    ///
+    /// # Panics
+    /// If `self` doesn't have an [`AssetServer`] resource initialized yet.
+    fn add_arc_asset<A: Asset>(&mut self, asset: impl Into<Arc<A>>) -> Handle<A> {
+        self.resource_mut::<Assets<A>>().add_arc(asset)
     }
 
     /// Load an asset similarly to [`AssetServer::load`].
