@@ -255,19 +255,23 @@ pub enum ValArithmeticError {
 }
 
 impl Val {
-    /// Resolves a [`Val`] from the given context values and returns this as an [`f32`].
-    /// The [`Val::Px`] value (if present), `parent_size` and `viewport_size` should all be in the same coordinate space.
-    /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
+    /// Resolves this [`Val`] to a value in physical pixels from the given `scale_factor`, `physical_base_value`,
+    /// and `physical_target_size` context values.
     ///
-    /// **Note:** If a [`Val::Px`] is resolved, its inner value is returned unchanged.
-    pub fn resolve(self, parent_size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
+    /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
+    pub fn resolve(
+        self,
+        scale_factor: f32,
+        physical_base_value: f32,
+        physical_target_size: Vec2,
+    ) -> Result<f32, ValArithmeticError> {
         match self {
-            Val::Percent(value) => Ok(parent_size * value / 100.0),
-            Val::Px(value) => Ok(value),
-            Val::Vw(value) => Ok(viewport_size.x * value / 100.0),
-            Val::Vh(value) => Ok(viewport_size.y * value / 100.0),
-            Val::VMin(value) => Ok(viewport_size.min_element() * value / 100.0),
-            Val::VMax(value) => Ok(viewport_size.max_element() * value / 100.0),
+            Val::Percent(value) => Ok(physical_base_value * value / 100.0),
+            Val::Px(value) => Ok(value * scale_factor),
+            Val::Vw(value) => Ok(physical_target_size.x * value / 100.0),
+            Val::Vh(value) => Ok(physical_target_size.y * value / 100.0),
+            Val::VMin(value) => Ok(physical_target_size.min_element() * value / 100.0),
+            Val::VMax(value) => Ok(physical_target_size.max_element() * value / 100.0),
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
         }
     }
@@ -688,6 +692,175 @@ impl Default for UiRect {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Default, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+/// Responsive position relative to a UI node.
+pub enum Position {
+    /// Position relative to the top-left corner.
+    TopLeft(Val, Val),
+    /// Position relative to the center of the top edge.
+    Top(Val, Val),
+    /// Position relative to the top-right corner.
+    TopRight(Val, Val),
+    /// Position relative to the center of the left edge.
+    Left(Val, Val),
+    /// Position relative to the center.
+    Center(Val, Val),
+    /// Position relative to the center of the right edge.
+    Right(Val, Val),
+    /// Position relative to the bottom-left corner.
+    BottomLeft(Val, Val),
+    /// Position relative to the center of the bottom edge.
+    Bottom(Val, Val),
+    /// Position relative to the bottom-right corner.
+    BottomRight(Val, Val),
+}
+
+impl Position {
+    pub const TOP_LEFT: Self = Self::TopLeft(Val::ZERO, Val::ZERO);
+    pub const LEFT: Self = Self::Left(Val::ZERO, Val::ZERO);
+    pub const BOTTOM_LEFT: Self = Self::BottomLeft(Val::ZERO, Val::ZERO);
+    pub const TOP: Self = Self::Top(Val::ZERO, Val::ZERO);
+    pub const CENTER: Self = Self::Center(Val::ZERO, Val::ZERO);
+    pub const BOTTOM: Self = Self::Bottom(Val::ZERO, Val::ZERO);
+    pub const TOP_RIGHT: Self = Self::TopRight(Val::ZERO, Val::ZERO);
+    pub const RIGHT: Self = Self::Right(Val::ZERO, Val::ZERO);
+    pub const BOTTOM_RIGHT: Self = Self::BottomRight(Val::ZERO, Val::ZERO);
+
+    /// Creates a new `Position` relative to the top-left corner.
+    pub const fn new(x: Val, y: Val) -> Self {
+        Self::TopLeft(x, y)
+    }
+
+    /// Resolves the `Position` into physical coordinates.
+    pub fn resolve(
+        self,
+        scale_factor: f32,
+        physical_size: Vec2,
+        physical_target_size: Vec2,
+    ) -> Vec2 {
+        let (a, (dx, dy), x, y) = match self {
+            Self::TopLeft(x, y) => ((-0.5, -0.5), (1., 1.), x, y),
+            Self::Top(x, y) => ((0., -0.5), (1., 1.), x, y),
+            Self::TopRight(x, y) => ((0.5, -0.5), (-1., 1.), x, y),
+            Self::Left(x, y) => ((-0.5, 0.), (1., 1.), x, y),
+            Self::Center(x, y) => ((0., 0.), (1., 1.), x, y),
+            Self::Right(x, y) => ((0.5, 0.), (-1., 1.), x, y),
+            Self::BottomLeft(x, y) => ((-0.5, 0.5), (1., -1.), x, y),
+            Self::Bottom(x, y) => ((0., 0.5), (1., -1.), x, y),
+            Self::BottomRight(x, y) => ((0.5, 0.5), (-1., -1.), x, y),
+        };
+
+        Vec2::from(a) * physical_size
+            + Vec2::new(
+                dx * x
+                    .resolve(scale_factor, physical_size.x, physical_target_size)
+                    .unwrap_or(0.),
+                dy * y
+                    .resolve(scale_factor, physical_size.y, physical_target_size)
+                    .unwrap_or(0.),
+            )
+    }
+}
+
+impl Default for Position {
+    fn default() -> Self {
+        Self::TOP_LEFT
+    }
+}
+
+impl From<Val> for Position {
+    fn from(x: Val) -> Self {
+        Self::TopLeft(x, Val::ZERO)
+    }
+}
+
+impl From<(Val, Val)> for Position {
+    fn from((x, y): (Val, Val)) -> Self {
+        Self::TopLeft(x, y)
+    }
+}
+
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum RadialGradientShape {
+    /// A circle with radius equal to the distance from its center to the closest side
+    #[default]
+    ClosestSide,
+    /// A circle with radius equal to the distance from its center to the farthest side
+    FarthestSide,
+    /// An ellipse with extents equal to the distance from its center to the nearest corner
+    ClosestCorner,
+    /// An ellipse with extents equal to the distance from its center to the farthest corner
+    FarthestCorner,
+    /// A circle
+    Circle(Val),
+    /// An ellipse
+    Ellipse(Val, Val),
+}
+
+fn close_side(p: f32, h: f32) -> f32 {
+    (-h - p).abs().min((h - p).abs())
+}
+
+fn far_side(p: f32, h: f32) -> f32 {
+    (-h - p).abs().max((h - p).abs())
+}
+
+fn close_side2(p: Vec2, h: Vec2) -> f32 {
+    close_side(p.x, h.x).min(close_side(p.y, h.y))
+}
+
+fn far_side2(p: Vec2, h: Vec2) -> f32 {
+    far_side(p.x, h.x).max(far_side(p.y, h.y))
+}
+
+impl RadialGradientShape {
+    /// Resolve the physical dimensions of the end shape of the radial gradient
+    pub fn resolve(
+        self,
+        position: Vec2,
+        scale_factor: f32,
+        physical_size: Vec2,
+        physical_target_size: Vec2,
+    ) -> Vec2 {
+        let half_size = 0.5 * physical_size;
+        match self {
+            RadialGradientShape::ClosestSide => Vec2::splat(close_side2(position, half_size)),
+            RadialGradientShape::FarthestSide => Vec2::splat(far_side2(position, half_size)),
+            RadialGradientShape::ClosestCorner => Vec2::new(
+                close_side(position.x, half_size.x),
+                close_side(position.y, half_size.y),
+            ),
+            RadialGradientShape::FarthestCorner => Vec2::new(
+                far_side(position.x, half_size.x),
+                far_side(position.y, half_size.y),
+            ),
+            RadialGradientShape::Circle(radius) => Vec2::splat(
+                radius
+                    .resolve(scale_factor, physical_size.x, physical_target_size)
+                    .unwrap_or(0.),
+            ),
+            RadialGradientShape::Ellipse(x, y) => Vec2::new(
+                x.resolve(scale_factor, physical_size.x, physical_target_size)
+                    .unwrap_or(0.),
+                y.resolve(scale_factor, physical_size.y, physical_target_size)
+                    .unwrap_or(0.),
+            ),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::geometry::*;
@@ -697,7 +870,7 @@ mod tests {
     fn val_evaluate() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
-        let result = Val::Percent(80.).resolve(size, viewport_size).unwrap();
+        let result = Val::Percent(80.).resolve(1., size, viewport_size).unwrap();
 
         assert_eq!(result, size * 0.8);
     }
@@ -706,7 +879,7 @@ mod tests {
     fn val_resolve_px() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
-        let result = Val::Px(10.).resolve(size, viewport_size).unwrap();
+        let result = Val::Px(10.).resolve(1., size, viewport_size).unwrap();
 
         assert_eq!(result, 10.);
     }
@@ -719,33 +892,45 @@ mod tests {
         for value in (-10..10).map(|value| value as f32) {
             // for a square viewport there should be no difference between `Vw` and `Vh` and between `Vmin` and `Vmax`.
             assert_eq!(
-                Val::Vw(value).resolve(size, viewport_size),
-                Val::Vh(value).resolve(size, viewport_size)
+                Val::Vw(value).resolve(1., size, viewport_size),
+                Val::Vh(value).resolve(1., size, viewport_size)
             );
             assert_eq!(
-                Val::VMin(value).resolve(size, viewport_size),
-                Val::VMax(value).resolve(size, viewport_size)
+                Val::VMin(value).resolve(1., size, viewport_size),
+                Val::VMax(value).resolve(1., size, viewport_size)
             );
             assert_eq!(
-                Val::VMin(value).resolve(size, viewport_size),
-                Val::Vw(value).resolve(size, viewport_size)
+                Val::VMin(value).resolve(1., size, viewport_size),
+                Val::Vw(value).resolve(1., size, viewport_size)
             );
         }
 
         let viewport_size = vec2(1000., 500.);
-        assert_eq!(Val::Vw(100.).resolve(size, viewport_size).unwrap(), 1000.);
-        assert_eq!(Val::Vh(100.).resolve(size, viewport_size).unwrap(), 500.);
-        assert_eq!(Val::Vw(60.).resolve(size, viewport_size).unwrap(), 600.);
-        assert_eq!(Val::Vh(40.).resolve(size, viewport_size).unwrap(), 200.);
-        assert_eq!(Val::VMin(50.).resolve(size, viewport_size).unwrap(), 250.);
-        assert_eq!(Val::VMax(75.).resolve(size, viewport_size).unwrap(), 750.);
+        assert_eq!(
+            Val::Vw(100.).resolve(1., size, viewport_size).unwrap(),
+            1000.
+        );
+        assert_eq!(
+            Val::Vh(100.).resolve(1., size, viewport_size).unwrap(),
+            500.
+        );
+        assert_eq!(Val::Vw(60.).resolve(1., size, viewport_size).unwrap(), 600.);
+        assert_eq!(Val::Vh(40.).resolve(1., size, viewport_size).unwrap(), 200.);
+        assert_eq!(
+            Val::VMin(50.).resolve(1., size, viewport_size).unwrap(),
+            250.
+        );
+        assert_eq!(
+            Val::VMax(75.).resolve(1., size, viewport_size).unwrap(),
+            750.
+        );
     }
 
     #[test]
     fn val_auto_is_non_evaluable() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
-        let resolve_auto = Val::Auto.resolve(size, viewport_size);
+        let resolve_auto = Val::Auto.resolve(1., size, viewport_size);
 
         assert_eq!(resolve_auto, Err(ValArithmeticError::NonEvaluable));
     }

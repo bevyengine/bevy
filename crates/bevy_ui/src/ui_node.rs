@@ -1,4 +1,4 @@
-use crate::{FocusPolicy, UiRect, Val};
+use crate::{FocusPolicy, Position, RadialGradientShape, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -13,7 +13,8 @@ use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
-use core::num::NonZero;
+use core::f32::consts::TAU;
+use core::{f32, num::NonZero};
 use derive_more::derive::From;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -2432,54 +2433,49 @@ impl BorderRadius {
     /// Returns the radius of the corner in physical pixels.
     pub fn resolve_single_corner(
         radius: Val,
-        node_size: Vec2,
-        viewport_size: Vec2,
         scale_factor: f32,
+        min_length: f32,
+        viewport_size: Vec2,
     ) -> f32 {
-        match radius {
-            Val::Auto => 0.,
-            Val::Px(px) => px * scale_factor,
-            Val::Percent(percent) => node_size.min_element() * percent / 100.,
-            Val::Vw(percent) => viewport_size.x * percent / 100.,
-            Val::Vh(percent) => viewport_size.y * percent / 100.,
-            Val::VMin(percent) => viewport_size.min_element() * percent / 100.,
-            Val::VMax(percent) => viewport_size.max_element() * percent / 100.,
-        }
-        .clamp(0., 0.5 * node_size.min_element())
+        radius
+            .resolve(scale_factor, min_length, viewport_size)
+            .unwrap_or(0.)
+            .clamp(0., 0.5 * min_length)
     }
 
     /// Resolve the border radii for the corners from the given context values.
     /// Returns the radii of the each corner in physical pixels.
     pub fn resolve(
         &self,
+        scale_factor: f32,
         node_size: Vec2,
         viewport_size: Vec2,
-        scale_factor: f32,
     ) -> ResolvedBorderRadius {
+        let length = node_size.min_element();
         ResolvedBorderRadius {
             top_left: Self::resolve_single_corner(
                 self.top_left,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
             top_right: Self::resolve_single_corner(
                 self.top_right,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
             bottom_left: Self::resolve_single_corner(
                 self.bottom_left,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
             bottom_right: Self::resolve_single_corner(
                 self.bottom_right,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
         }
     }
@@ -2596,37 +2592,6 @@ pub struct LayoutConfig {
 impl Default for LayoutConfig {
     fn default() -> Self {
         Self { use_rounding: true }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::GridPlacement;
-
-    #[test]
-    fn invalid_grid_placement_values() {
-        assert!(std::panic::catch_unwind(|| GridPlacement::span(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::end(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(0, 1)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(-1, 0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(1, 0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(0, 1)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(0, 1)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(1, 0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_start(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_end(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_span(0)).is_err());
-    }
-
-    #[test]
-    fn grid_placement_accessors() {
-        assert_eq!(GridPlacement::start(5).get_start(), Some(5));
-        assert_eq!(GridPlacement::end(-4).get_end(), Some(-4));
-        assert_eq!(GridPlacement::span(2).get_span(), Some(2));
-        assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
-        assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
-        assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
     }
 }
 
@@ -2825,5 +2790,348 @@ impl Default for TextShadow {
             offset: Vec2::splat(4.),
             color: Color::linear_rgba(0., 0., 0., 0.75),
         }
+    }
+}
+
+/// A color stop for a gradient
+#[derive(Debug, Copy, Clone, PartialEq, Reflect)]
+#[reflect(Default, PartialEq, Debug)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct ColorStop {
+    /// Color
+    pub color: Color,
+    /// Logical position along the gradient line.
+    /// Stop positions are relative to the start of the gradient and not other stops.
+    pub point: Val,
+    /// Normalized position between this and the following stop of the interpolation midpoint.
+    pub hint: f32,
+}
+
+impl ColorStop {
+    /// Create a new color stop
+    pub fn new(color: impl Into<Color>, point: Val) -> Self {
+        Self {
+            color: color.into(),
+            point,
+            hint: 0.5,
+        }
+    }
+
+    /// An automatic color stop.
+    /// The positions of automatic stops are interpolated evenly between explicit stops.
+    pub fn auto(color: impl Into<Color>) -> Self {
+        Self {
+            color: color.into(),
+            point: Val::Auto,
+            hint: 0.5,
+        }
+    }
+
+    pub fn hint(mut self, hint: f32) -> Self {
+        self.hint = hint;
+        self
+    }
+}
+
+impl From<(Color, Val)> for ColorStop {
+    fn from((color, stop): (Color, Val)) -> Self {
+        Self {
+            color,
+            point: stop,
+            hint: 0.5,
+        }
+    }
+}
+
+impl From<Color> for ColorStop {
+    fn from(color: Color) -> Self {
+        Self {
+            color,
+            point: Val::Auto,
+            hint: 0.5,
+        }
+    }
+}
+
+impl Default for ColorStop {
+    fn default() -> Self {
+        Self {
+            color: Color::WHITE,
+            point: Val::Auto,
+            hint: 0.5,
+        }
+    }
+}
+
+/// An angular color stop for a conic gradient
+#[derive(Default, Debug, Copy, Clone, PartialEq, Reflect)]
+#[reflect(Default, PartialEq, Debug)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct AngularColorStop {
+    /// Color of the stop
+    pub color: Color,
+    /// The angle of the stop.
+    /// Angles are relative to the start of the gradient and not other stops.
+    /// If set to `None` the angle of the stop will be interpolated between the explicit stops or 0 and 2 PI degrees if there no explicit stops.
+    pub angle: Option<f32>,
+    /// Normalized angle between this and the following stop of the interpolation midpoint.
+    pub hint: f32,
+}
+
+impl AngularColorStop {
+    // Create a new color stop
+    pub fn new(color: impl Into<Color>, angle: f32) -> Self {
+        Self {
+            color: color.into(),
+            angle: Some(angle),
+            hint: 0.5,
+        }
+    }
+
+    /// An angular stop without an explicit angle. The angles of automatic stops
+    /// are interpolated evenly between explicit stops.
+    pub fn auto(color: impl Into<Color>) -> Self {
+        Self {
+            color: color.into(),
+            angle: None,
+            hint: 0.5,
+        }
+    }
+
+    pub fn hint(mut self, hint: f32) -> Self {
+        self.hint = hint;
+        self
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum Gradient {
+    /// A linear gradient
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/linear-gradient>
+    Linear {
+        /// The direction of the gradient.
+        /// An angle of `0.` points upward, angles increasing clockwise.
+        angle: f32,
+        /// The list of color stops
+        stops: Vec<ColorStop>,
+    },
+    /// A radial gradient
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient>
+    Radial {
+        /// The center of the radial gradient
+        position: Position,
+        /// Defines the end shape of the radial gradient
+        shape: RadialGradientShape,
+        /// The list of color stops
+        stops: Vec<ColorStop>,
+    },
+    /// A conic gradient
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/radial-gradient>
+    Conic {
+        /// The center of the conic gradient
+        position: Position,
+        /// The list of color stops
+        stops: Vec<AngularColorStop>,
+    },
+}
+
+impl Gradient {
+    /// A linear gradient transitioning from bottom to top
+    pub const TO_TOP: f32 = 0.;
+    /// A linear gradient transitioning from bottom-left to top-right
+    pub const TO_TOP_RIGHT: f32 = TAU / 8.;
+    /// A linear gradient transitioning from left to right
+    pub const TO_RIGHT: f32 = 2. * Self::TO_TOP_RIGHT;
+    /// A linear gradient transitioning from top-left to bottom-right
+    pub const TO_BOTTOM_RIGHT: f32 = 3. * Self::TO_TOP_RIGHT;
+    /// A linear gradient transitioning from top to bottom
+    pub const TO_BOTTOM: f32 = 4. * Self::TO_TOP_RIGHT;
+    /// A linear gradient transitioning from top-right to bottom-left
+    pub const TO_BOTTOM_LEFT: f32 = 5. * Self::TO_TOP_RIGHT;
+    /// A linear gradient transitioning from right to left
+    pub const TO_LEFT: f32 = 6. * Self::TO_TOP_RIGHT;
+    /// A linear gradient transitioning from bottom-right to top-left
+    pub const TO_TOP_LEFT: f32 = 7. * Self::TO_TOP_RIGHT;
+
+    /// Returns true if the gradient has no stops.
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Gradient::Linear { stops, .. } | Gradient::Radial { stops, .. } => stops.is_empty(),
+            Gradient::Conic { stops, .. } => stops.is_empty(),
+        }
+    }
+
+    /// If the gradient has only a single color stop `get_single` returns its color.
+    pub fn get_single(&self) -> Option<Color> {
+        match self {
+            Gradient::Linear { stops, .. } | Gradient::Radial { stops, .. } => stops
+                .first()
+                .and_then(|stop| (stops.len() == 1).then_some(stop.color)),
+            Gradient::Conic { stops, .. } => stops
+                .first()
+                .and_then(|stop| (stops.len() == 1).then_some(stop.color)),
+        }
+    }
+
+    /// A linear gradient transitioning from bottom to top
+    pub fn linear_to_top(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_TOP,
+            stops,
+        }
+    }
+
+    /// A linear gradient transitioning from bottom-left to top-right
+    pub fn linear_to_top_right(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_TOP_RIGHT,
+            stops,
+        }
+    }
+
+    /// A linear gradient transitioning from left to right
+    pub fn linear_to_right(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_RIGHT,
+            stops,
+        }
+    }
+
+    /// A linear gradient transitioning from top-left to bottom right
+    pub fn linear_to_bottom_right(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_BOTTOM_RIGHT,
+            stops,
+        }
+    }
+
+    /// A linear gradient transitioning from top to bottom
+    pub fn linear_to_bottom(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_BOTTOM,
+            stops,
+        }
+    }
+
+    /// A linear gradient transitioning from top-right to bottom-left
+    pub fn linear_to_bottom_left(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_BOTTOM_LEFT,
+            stops,
+        }
+    }
+
+    /// A linear gradient transitioning from right-to-left
+    pub fn linear_to_left(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_LEFT,
+            stops,
+        }
+    }
+
+    /// A linear gradient transitioning from bottom-right to top-left
+    pub fn linear_to_top_left(stops: Vec<ColorStop>) -> Gradient {
+        Self::Linear {
+            angle: Self::TO_TOP_LEFT,
+            stops,
+        }
+    }
+
+    /// A radial gradient
+    pub fn radial(
+        position: Position,
+        shape: RadialGradientShape,
+        stops: Vec<ColorStop>,
+    ) -> Gradient {
+        Self::Radial {
+            position,
+            shape,
+            stops,
+        }
+    }
+
+    /// A conic gradient
+    pub fn conic(position: Position, stops: Vec<AngularColorStop>) -> Gradient {
+        Self::Conic { position, stops }
+    }
+}
+
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+/// A UI node that displays a gradient
+pub struct BackgroundGradient(pub Vec<Gradient>);
+
+impl From<Gradient> for BackgroundGradient {
+    fn from(value: Gradient) -> Self {
+        Self(vec![value])
+    }
+}
+
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[reflect(PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+/// A UI node border that displays a gradient
+pub struct BorderGradient(pub Vec<Gradient>);
+
+impl From<Gradient> for BorderGradient {
+    fn from(value: Gradient) -> Self {
+        Self(vec![value])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::GridPlacement;
+
+    #[test]
+    fn invalid_grid_placement_values() {
+        assert!(std::panic::catch_unwind(|| GridPlacement::span(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(-1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_start(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_end(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_span(0)).is_err());
+    }
+
+    #[test]
+    fn grid_placement_accessors() {
+        assert_eq!(GridPlacement::start(5).get_start(), Some(5));
+        assert_eq!(GridPlacement::end(-4).get_end(), Some(-4));
+        assert_eq!(GridPlacement::span(2).get_span(), Some(2));
+        assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
+        assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
+        assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
     }
 }
