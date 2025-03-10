@@ -651,7 +651,7 @@ impl AssetServer {
         };
 
         let nested_direct_loaded_assets = RwLock::new(NestedAssets::default());
-        match self
+        let result = match self
             .load_with_meta_loader_and_reader(
                 &base_path,
                 meta.as_ref(),
@@ -686,7 +686,7 @@ impl AssetServer {
                     handle.unwrap()
                 };
 
-                self.send_loaded_asset(base_handle.id(), loaded_asset);
+                self.send_loaded_asset(Some(base_handle.id()), loaded_asset);
                 Ok(final_handle)
             }
             Err(err) => {
@@ -697,12 +697,31 @@ impl AssetServer {
                 });
                 Err(err)
             }
+        };
+
+        // Even if the asset failed to load, the nested assets still loaded correctly, so we might
+        // as well send those assets to "refresh" them.
+        for (path, asset) in nested_direct_loaded_assets.into_inner().0 {
+            // Even if the handle is None, one of its subassets may be loaded, so we should send the
+            // whole complete asset.
+            let handle = self
+                .data
+                .infos
+                .read()
+                .get_path_and_type_id_handle(&path, asset.asset.asset_type_id());
+            self.send_loaded_asset(handle.map(|handle| handle.id()), asset);
         }
+
+        result
     }
 
     /// Sends a load event for the given `loaded_asset` and does the same recursively for all
     /// labeled assets.
-    fn send_loaded_asset(&self, id: UntypedAssetId, mut complete_asset: CompleteErasedLoadedAsset) {
+    fn send_loaded_asset(
+        &self,
+        id: Option<UntypedAssetId>,
+        mut complete_asset: CompleteErasedLoadedAsset,
+    ) {
         for (_, labeled_asset) in complete_asset.labeled_assets.drain() {
             self.send_asset_event(InternalAssetEvent::Loaded {
                 id: labeled_asset.handle.id(),
@@ -710,10 +729,12 @@ impl AssetServer {
             });
         }
 
-        self.send_asset_event(InternalAssetEvent::Loaded {
-            id,
-            loaded_asset: complete_asset.asset,
-        });
+        if let Some(id) = id {
+            self.send_asset_event(InternalAssetEvent::Loaded {
+                id,
+                loaded_asset: complete_asset.asset,
+            });
+        }
     }
 
     /// Kicks off a reload of the asset stored at the given path. This will only reload the asset if it currently loaded.
