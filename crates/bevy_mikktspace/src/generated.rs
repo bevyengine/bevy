@@ -95,7 +95,7 @@ impl STSpace {
 // of the vertex shader, as explained earlier, then be sure to do this in the normal map sampler also.
 // Finally, beware of quad triangulations. If the normal map sampler doesn't use the same triangulation of
 // quads as your renderer then problems will occur since the interpolated tangent spaces will differ
-// eventhough the vertex level tangent spaces match. This can be solved either by triangulating before
+// even though the vertex level tangent spaces match. This can be solved either by triangulating before
 // sampling/exporting or by using the order-independent choice of diagonal for splitting quads suggested earlier.
 // However, this must be used both by the sampler and your tools/rendering pipeline.
 // internal structure
