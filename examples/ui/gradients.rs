@@ -35,14 +35,8 @@ fn setup(mut commands: Commands) {
                 (
                     5.,
                     vec![
-                        ColorStop {
-                            color: Color::WHITE,
-                            point: Val::Percent(15.),
-                        },
-                        ColorStop {
-                            color: Color::BLACK,
-                            point: Val::Percent(85.),
-                        },
+                        ColorStop::new(Color::WHITE, Val::Percent(15.)),
+                        ColorStop::new(Color::BLACK, Val::Percent(85.)),
                     ],
                 ),
                 (
@@ -57,54 +51,18 @@ fn setup(mut commands: Commands) {
                     0.,
                     vec![
                         ColorStop::auto(RED),
-                        ColorStop {
-                            color: RED.into(),
-                            point: Val::Percent(100. / 7.),
-                        },
-                        ColorStop {
-                            color: ORANGE.into(),
-                            point: Val::Percent(100. / 7.),
-                        },
-                        ColorStop {
-                            color: ORANGE.into(),
-                            point: Val::Percent(200. / 7.),
-                        },
-                        ColorStop {
-                            color: YELLOW.into(),
-                            point: Val::Percent(200. / 7.),
-                        },
-                        ColorStop {
-                            color: YELLOW.into(),
-                            point: Val::Percent(300. / 7.),
-                        },
-                        ColorStop {
-                            color: GREEN.into(),
-                            point: Val::Percent(300. / 7.),
-                        },
-                        ColorStop {
-                            color: GREEN.into(),
-                            point: Val::Percent(400. / 7.),
-                        },
-                        ColorStop {
-                            color: BLUE.into(),
-                            point: Val::Percent(400. / 7.),
-                        },
-                        ColorStop {
-                            color: BLUE.into(),
-                            point: Val::Percent(500. / 7.),
-                        },
-                        ColorStop {
-                            color: INDIGO.into(),
-                            point: Val::Percent(500. / 7.),
-                        },
-                        ColorStop {
-                            color: INDIGO.into(),
-                            point: Val::Percent(600. / 7.),
-                        },
-                        ColorStop {
-                            color: VIOLET.into(),
-                            point: Val::Percent(600. / 7.),
-                        },
+                        ColorStop::new(RED, Val::Percent(100. / 7.)),
+                        ColorStop::new(ORANGE, Val::Percent(100. / 7.)),
+                        ColorStop::new(ORANGE, Val::Percent(200. / 7.)),
+                        ColorStop::new(YELLOW, Val::Percent(200. / 7.)),
+                        ColorStop::new(YELLOW, Val::Percent(300. / 7.)),
+                        ColorStop::new(GREEN, Val::Percent(300. / 7.)),
+                        ColorStop::new(GREEN, Val::Percent(400. / 7.)),
+                        ColorStop::new(BLUE, Val::Percent(400. / 7.)),
+                        ColorStop::new(BLUE, Val::Percent(500. / 7.)),
+                        ColorStop::new(INDIGO, Val::Percent(500. / 7.)),
+                        ColorStop::new(INDIGO, Val::Percent(600. / 7.)),
+                        ColorStop::new(VIOLET, Val::Percent(600. / 7.)),
                         ColorStop::auto(VIOLET),
                     ],
                 ),
@@ -168,15 +126,9 @@ fn setup(mut commands: Commands) {
                             BorderGradient::from(Gradient::Linear {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![
-                                    ColorStop {
-                                        color: YELLOW.into(),
-                                        point: Val::Auto,
-                                    },
+                                    ColorStop::auto(YELLOW),
                                     Color::WHITE.into(),
-                                    ColorStop {
-                                        color: ORANGE.into(),
-                                        point: Val::Auto,
-                                    },
+                                    ColorStop::auto(ORANGE),
                                 ],
                             }),
                             AnimateMarker,
@@ -199,15 +151,9 @@ fn setup(mut commands: Commands) {
                             BorderGradient::from(Gradient::Linear {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![
-                                    ColorStop {
-                                        color: YELLOW.into(),
-                                        point: Val::Auto,
-                                    },
+                                    ColorStop::auto(YELLOW),
                                     Color::WHITE.into(),
-                                    ColorStop {
-                                        color: ORANGE.into(),
-                                        point: Val::Auto,
-                                    },
+                                    ColorStop::auto(ORANGE),
                                 ],
                             }),
                             AnimateMarker,
@@ -225,25 +171,16 @@ fn setup(mut commands: Commands) {
                                 stops: stops
                                     .clone()
                                     .into_iter()
-                                    .map(|stop| AngularColorStop {
-                                        color: stop.color,
-                                        angle: None,
-                                    })
+                                    .map(|stop| AngularColorStop::auto(stop.color))
                                     .collect(),
                                 position: Position::CENTER,
                             }),
                             BorderGradient::from(Gradient::Linear {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![
-                                    ColorStop {
-                                        color: YELLOW.into(),
-                                        point: Val::Auto,
-                                    },
+                                    ColorStop::auto(YELLOW),
                                     Color::WHITE.into(),
-                                    ColorStop {
-                                        color: ORANGE.into(),
-                                        point: Val::Auto,
-                                    },
+                                    ColorStop::auto(ORANGE),
                                 ],
                             }),
                             AnimateMarker,

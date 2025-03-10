@@ -180,6 +180,8 @@ impl SpecializedRenderPipeline for GradientPipeline {
                 VertexFormat::Float32,
                 // end color
                 VertexFormat::Float32x4,
+                // hint
+                VertexFormat::Float32,
             ],
         );
         let shader_defs = if key.anti_alias {
@@ -264,7 +266,7 @@ pub struct ExtractedGradients {
 }
 
 #[derive(Resource, Default)]
-pub struct ExtractedColorStops(pub Vec<(LinearRgba, f32)>);
+pub struct ExtractedColorStops(pub Vec<(LinearRgba, f32, f32)>);
 
 pub fn extract_gradients(
     mut commands: Commands,
@@ -358,20 +360,22 @@ pub fn extract_gradients(
                                     target.physical_size.as_vec2(),
                                 )
                                 .ok()
-                                .map(|physical_point| (stop.color.to_linear(), physical_point))
+                                .map(|physical_point| {
+                                    (stop.color.to_linear(), physical_point, stop.hint)
+                                })
                         }));
-                        sorted_stops.sort_by_key(|(_, point)| FloatOrd(*point));
+                        sorted_stops.sort_by_key(|(_, point, _)| FloatOrd(*point));
 
                         let min = sorted_stops
                             .first()
-                            .map(|(_, min)| *min)
+                            .map(|(_, min, _)| *min)
                             .unwrap_or(0.)
                             .min(0.);
 
                         // get the position of the last explicit stop and use the full length of the gradient if no explicit stops
                         let max = sorted_stops
                             .last()
-                            .map(|(_, max)| *max)
+                            .map(|(_, max, _)| *max)
                             .unwrap_or(length)
                             .max(length);
 
@@ -380,7 +384,7 @@ pub fn extract_gradients(
                         // Fill the extracted color stops buffer
                         extracted_color_stops.0.extend(stops.iter().map(|stop| {
                             if stop.point == Val::Auto {
-                                (stop.color.to_linear(), f32::NAN)
+                                (stop.color.to_linear(), f32::NAN, stop.hint)
                             } else {
                                 sorted_stops_drain.next().unwrap()
                             }
@@ -469,20 +473,20 @@ pub fn extract_gradients(
                                     target.physical_size.as_vec2(),
                                 )
                                 .ok()
-                                .map(|point| (stop.color.to_linear(), point))
+                                .map(|point| (stop.color.to_linear(), point, stop.hint))
                         }));
-                        sorted_stops.sort_by_key(|(_, point)| FloatOrd(*point));
+                        sorted_stops.sort_by_key(|(_, point, _)| FloatOrd(*point));
 
                         let min = sorted_stops
                             .first()
-                            .map(|(_, min)| *min)
+                            .map(|(_, min, _)| *min)
                             .unwrap_or(0.)
                             .min(0.);
 
                         // get the position of the last explicit stop and use the full length of the gradient if no explicit stops
                         let max = sorted_stops
                             .last()
-                            .map(|(_, max)| *max)
+                            .map(|(_, max, _)| *max)
                             .unwrap_or(length)
                             .max(length);
 
@@ -491,7 +495,7 @@ pub fn extract_gradients(
                         // Fill the extracted color stops buffer
                         extracted_color_stops.0.extend(stops.iter().map(|stop| {
                             if stop.point == Val::Auto {
-                                (stop.color.to_linear(), f32::NAN)
+                                (stop.color.to_linear(), f32::NAN, stop.hint)
                             } else {
                                 sorted_stops_drain.next().unwrap()
                             }
@@ -562,15 +566,16 @@ pub fn extract_gradients(
 
                         // sort the explicit stops
                         sorted_stops.extend(stops.iter().filter_map(|stop| {
-                            stop.angle.map(|angle| (stop.color.to_linear(), angle))
+                            stop.angle
+                                .map(|angle| (stop.color.to_linear(), angle, stop.hint))
                         }));
-                        sorted_stops.sort_by_key(|(_, angle)| FloatOrd(*angle));
+                        sorted_stops.sort_by_key(|(_, angle, _)| FloatOrd(*angle));
                         let mut sorted_stops_drain = sorted_stops.drain(..);
 
                         // fill the extracted stops buffer
                         extracted_color_stops.0.extend(stops.iter().map(|stop| {
                             if stop.angle.is_none() {
-                                (stop.color.to_linear(), f32::NAN)
+                                (stop.color.to_linear(), f32::NAN, stop.hint)
                             } else {
                                 sorted_stops_drain.next().unwrap()
                             }
@@ -704,6 +709,7 @@ struct UiGradientVertex {
     start_len: f32,
     end_len: f32,
     end_color: [f32; 4],
+    hint: f32,
 }
 
 pub fn prepare_gradient(
@@ -887,6 +893,7 @@ pub fn prepare_gradient(
                                 start_len: start_stop.1,
                                 end_len: end_stop.1,
                                 end_color,
+                                hint: start_stop.2,
                             });
                         }
 

@@ -2807,6 +2807,8 @@ pub struct ColorStop {
     /// Logical position along the gradient line.
     /// Stop positions are relative to the start of the gradient and not other stops.
     pub point: Val,
+    /// Normalized postion between this and the following stop of the interpolation midpoint.
+    pub hint: f32,
 }
 
 impl ColorStop {
@@ -2815,6 +2817,7 @@ impl ColorStop {
         Self {
             color: color.into(),
             point,
+            hint: 0.5,
         }
     }
 
@@ -2824,13 +2827,23 @@ impl ColorStop {
         Self {
             color: color.into(),
             point: Val::Auto,
+            hint: 0.5,
         }
+    }
+
+    pub fn hint(mut self, hint: f32) -> Self {
+        self.hint = hint;
+        self
     }
 }
 
 impl From<(Color, Val)> for ColorStop {
     fn from((color, stop): (Color, Val)) -> Self {
-        Self { color, point: stop }
+        Self {
+            color,
+            point: stop,
+            hint: 0.5,
+        }
     }
 }
 
@@ -2839,6 +2852,7 @@ impl From<Color> for ColorStop {
         Self {
             color,
             point: Val::Auto,
+            hint: 0.5,
         }
     }
 }
@@ -2848,6 +2862,7 @@ impl Default for ColorStop {
         Self {
             color: Color::WHITE,
             point: Val::Auto,
+            hint: 0.5,
         }
     }
 }
@@ -2867,6 +2882,8 @@ pub struct AngularColorStop {
     /// Angles are relative to the start of the gradient and not other stops.
     /// If set to `None` the angle of the stop will be interpolated between the explicit stops or 0 and 2 PI degrees if there no explicit stops.
     pub angle: Option<f32>,
+    /// Normalized angle between this and the following stop of the interpolation midpoint.
+    pub hint: f32,
 }
 
 impl AngularColorStop {
@@ -2875,6 +2892,7 @@ impl AngularColorStop {
         Self {
             color: color.into(),
             angle: Some(angle),
+            hint: 0.5,
         }
     }
 
@@ -2884,7 +2902,13 @@ impl AngularColorStop {
         Self {
             color: color.into(),
             angle: None,
+            hint: 0.5,
         }
+    }
+
+    pub fn hint(mut self, hint: f32) -> Self {
+        self.hint = hint;
+        self
     }
 }
 

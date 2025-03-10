@@ -30,6 +30,7 @@ struct VertexOutput {
     @location(9) @interpolate(flat) start_len: f32,
     @location(10) @interpolate(flat) end_len: f32,
     @location(11) @interpolate(flat) end_color: vec4<f32>,
+    @location(12) @interpolate(flat) hint: f32,
     @builtin(position) position: vec4<f32>,
 };
 
@@ -52,6 +53,7 @@ fn vertex(
     @location(10) @interpolate(flat) start_len: f32,
     @location(11) @interpolate(flat) end_len: f32,
     @location(12) @interpolate(flat) end_color: vec4<f32>,
+    @location(13) @interpolate(flat) hint: f32
 ) -> VertexOutput {
     var out: VertexOutput;
     out.position = view.clip_from_world * vec4(vertex_position, 1.0);
@@ -67,6 +69,7 @@ fn vertex(
     out.end_len = end_len;
     out.end_color = end_color;
     out.g_start = g_start;
+    out.hint = hint;
 
     return out;
 }
@@ -198,6 +201,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         in.start_len,
         in.end_color,
         in.end_len,
+        in.hint,
         in.flags
     );
 
@@ -249,9 +253,10 @@ fn interpolate_gradient(
     start_distance: f32,
     end_color: vec4<f32>,
     end_distance: f32,
+    hint: f32,
     flags: u32,
 ) -> vec4<f32> {
-    let t = (distance - start_distance) / (end_distance - start_distance);
+    var t = (distance - start_distance) / (end_distance - start_distance);
     if t <= 0.0 {
         if enabled(flags, FILL_START) {
             return start_color;
@@ -264,7 +269,12 @@ fn interpolate_gradient(
         }
         return vec4(0.0);
     }
-    
+
+    if t < hint {
+        t = 0.5 * t / hint;
+    } else {
+        t = 0.5 * (1 + (t - hint) / (1.0 - hint));
+    }
     // Only color interpolation in SRGB space is supported atm.
     return srgb_mix(start_color, end_color, t);
 }
