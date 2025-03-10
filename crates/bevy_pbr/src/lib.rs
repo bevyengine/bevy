@@ -128,10 +128,16 @@ pub mod graph {
     }
 }
 
-use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
+use crate::{
+    deferred::DeferredPbrLightingPlugin, environment_map::DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE,
+    graph::NodePbr, prelude::EnvironmentMapLight,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, weak_handle, AssetApp, Assets, Handle};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
+use bevy_core_pipeline::core_3d::{
+    graph::{Core3d, Node3d},
+    Camera3d,
+};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
@@ -203,6 +209,8 @@ pub struct PbrPlugin {
     pub use_gpu_instance_buffer_builder: bool,
     /// Debugging flags that can optionally be set when constructing the renderer.
     pub debug_flags: RenderDebugFlags,
+    /// Controls if the default environment map light is added to every [`Camera3d`].
+    pub default_environment_map_light: bool,
 }
 
 impl Default for PbrPlugin {
@@ -212,6 +220,7 @@ impl Default for PbrPlugin {
             add_default_deferred_lighting_plugin: true,
             use_gpu_instance_buffer_builder: true,
             debug_flags: RenderDebugFlags::default(),
+            default_environment_map_light: true,
         }
     }
 }
@@ -344,7 +353,6 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
             .register_type::<ShadowFilteringMethod>()
-            .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisibleClusterableObjects>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
@@ -456,6 +464,15 @@ impl Plugin for PbrPlugin {
         if self.add_default_deferred_lighting_plugin {
             app.add_plugins(DeferredPbrLightingPlugin);
         }
+
+        if self.default_environment_map_light {
+            app.world_mut()
+                .register_required_components::<Camera3d, EnvironmentMapLight>();
+        }
+        app.world_mut().resource_mut::<Assets<Image>>().insert(
+            &DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE,
+            EnvironmentMapLight::solid_color_image(Color::WHITE),
+        );
 
         // Initialize the default material handle.
         app.world_mut()

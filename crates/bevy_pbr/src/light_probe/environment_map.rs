@@ -117,10 +117,9 @@ pub struct EnvironmentMapLight {
 }
 
 impl EnvironmentMapLight {
-    /// An environment map with a uniform color, useful for uniform ambient lighting.
-    pub fn solid_color(assets: &mut Assets<Image>, color: Color) -> Self {
+    pub(crate) fn solid_color_image(color: Color) -> Image {
         let color: Srgba = color.into();
-        let image = Image {
+        Image {
             texture_view_descriptor: Some(TextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),
                 ..Default::default()
@@ -136,9 +135,12 @@ impl EnvironmentMapLight {
                 TextureFormat::Rgba8UnormSrgb,
                 RenderAssetUsages::RENDER_WORLD,
             )
-        };
-        let handle = assets.add(image);
+        }
+    }
 
+    /// An environment map with a uniform color, useful for uniform ambient lighting.
+    pub fn solid_color(assets: &mut Assets<Image>, color: Color) -> Self {
+        let handle = assets.add(Self::solid_color_image(color));
         Self {
             diffuse_map: handle.clone(),
             specular_map: handle,
@@ -193,12 +195,15 @@ impl EnvironmentMapLight {
     }
 }
 
+pub const DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE: Handle<Image> =
+    weak_handle!("99e3f21e-9c08-4924-9895-fa8599416316");
+
 impl Default for EnvironmentMapLight {
     fn default() -> Self {
         EnvironmentMapLight {
-            diffuse_map: Handle::default(),
-            specular_map: Handle::default(),
-            intensity: 0.0,
+            diffuse_map: DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE,
+            specular_map: DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE,
+            intensity: 50.0,
             rotation: Quat::IDENTITY,
             affects_lightmapped_mesh_diffuse: true,
         }

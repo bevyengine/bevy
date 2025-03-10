@@ -537,7 +537,7 @@ pub struct EnvironmentMapLightFromAmbientLight;
 pub fn map_ambient_lights(
     mut commands: Commands,
     mut image_assets: ResMut<Assets<Image>>,
-    ambient_light: Res<AmbientLight>,
+    ambient_light: Option<Res<AmbientLight>>,
     new_views: Query<
         (Entity, Option<Ref<AmbientLight>>),
         (
@@ -551,9 +551,12 @@ pub fn map_ambient_lights(
         With<EnvironmentMapLightFromAmbientLight>,
     >,
 ) {
-    let ambient_light = ambient_light.into();
+    let ambient_light = ambient_light.map(|x| x.into());
+    let ref_ambient_light = ambient_light.as_ref();
     for (entity, ambient_override) in new_views.iter() {
-        let ambient = ambient_override.as_ref().unwrap_or(&ambient_light);
+        let Some(ambient) = ambient_override.as_ref().or(ref_ambient_light) else {
+            continue;
+        };
         let ambient_required = ambient.brightness > 0.0 && ambient.color != Color::BLACK;
         if ambient_required && ambient.is_changed() {
             commands
@@ -567,7 +570,9 @@ pub fn map_ambient_lights(
         }
     }
     for (mut env_map, ambient_override) in managed_views.iter_mut() {
-        let ambient = ambient_override.as_ref().unwrap_or(&ambient_light);
+        let Some(ambient) = ambient_override.as_ref().or(ref_ambient_light) else {
+            continue;
+        };
         let ambient_required = ambient.brightness > 0.0 && ambient.color != Color::BLACK;
         if ambient_required && ambient.is_changed() {
             *env_map = EnvironmentMapLight {
