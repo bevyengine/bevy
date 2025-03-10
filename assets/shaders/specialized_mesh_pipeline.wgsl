@@ -10,7 +10,7 @@
 
 struct Vertex {
     // This is needed if you are using batching and/or gpu preprocessing
-    // It's a built in so you don't need to define it in the vertex layout
+    // It's a built in, so you don't need to define it in the vertex layout
     @builtin(instance_index) instance_index: u32,
     // Like we defined for the vertex layout
     // position is at location 0
@@ -30,7 +30,7 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     // This is how bevy computes the world position
-    // The vertex.instance_index is very important. Especially if you are using batching and gpu preprocessing
+    // The vertex.instance_index is very important, especially if you are using batching and gpu preprocessing
     var world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4(vertex.position, 1.0));
     out.clip_position = position_world_to_clip(out.world_position.xyz);
