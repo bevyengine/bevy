@@ -134,7 +134,7 @@ const FILTER_MESSAGE: &str = "note: Some \"noisy\" backtrace lines have been fil
 #[cfg(feature = "backtrace")]
 std::thread_local! {
     static SKIP_NORMAL_BACKTRACE: core::cell::Cell<bool> =
-        core::cell::Cell::new(false);
+        const { core::cell::Cell::new(false) };
 }
 
 /// When called, this will skip the currently configured panic hook when a [`BevyError`] backtrace has already been printed.
