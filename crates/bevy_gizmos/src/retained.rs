@@ -143,7 +143,6 @@ pub(crate) fn extract_linegizmos(
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
-            #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
             crate::config::GizmoMeshConfig {
                 line_perspective: gizmo.line_config.perspective,
                 line_style: gizmo.line_config.style,
