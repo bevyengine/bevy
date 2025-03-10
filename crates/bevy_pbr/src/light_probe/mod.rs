@@ -5,7 +5,7 @@ use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     query::With,
     reflect::ReflectComponent,

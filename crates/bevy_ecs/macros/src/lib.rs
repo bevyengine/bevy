@@ -134,7 +134,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         #[allow(deprecated)]
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
-                components: &mut #ecs_path::component::Components,
+                components: &mut #ecs_path::component::ComponentsRegistrator,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
             ){
                 #(#field_component_ids)*
@@ -148,7 +148,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
 
             fn register_required_components(
-                components: &mut #ecs_path::component::Components,
+                components: &mut #ecs_path::component::ComponentsRegistrator,
                 required_components: &mut #ecs_path::component::RequiredComponents
             ){
                 #(#field_required_components)*
@@ -585,7 +585,7 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::shared().get_path("bevy_ecs")
 }
 
-#[proc_macro_derive(Event)]
+#[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     component::derive_event(input)
 }
@@ -597,18 +597,10 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(
     Component,
-    attributes(component, relationship, relationship_target, entities)
+    attributes(component, require, relationship, relationship_target, entities)
 )]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
-}
-
-/// Allows specifying a component's required components.
-///
-/// See `Component` docs for usage.
-#[proc_macro_attribute]
-pub fn require(attr: TokenStream, item: TokenStream) -> TokenStream {
-    component::document_required_components(attr, item)
 }
 
 #[proc_macro_derive(States)]

@@ -353,9 +353,10 @@ mod tests {
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform_support::collections::HashMap;
     use bevy_render::{camera::ManualTextureViews, prelude::Camera};
+    use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::{
         prelude::GlobalTransform,
-        systems::{compute_transform_leaves, propagate_parent_transforms, sync_simple_transforms},
+        systems::{propagate_parent_transforms, sync_simple_transforms},
     };
     use bevy_utils::prelude::default;
     use bevy_window::{
@@ -408,9 +409,9 @@ mod tests {
                 update_ui_context_system,
                 ApplyDeferred,
                 ui_layout_system,
+                mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
-                compute_transform_leaves,
             )
                 .chain(),
         );
@@ -726,7 +727,7 @@ mod tests {
             mut cameras: Query<&mut Camera>,
         ) {
             let primary_window = primary_window_query
-                .get_single()
+                .single()
                 .expect("missing primary window");
             let camera_count = cameras.iter().len();
             for (camera_index, mut camera) in cameras.iter_mut().enumerate() {
@@ -783,7 +784,7 @@ mod tests {
             ui_schedule.run(world);
             let (ui_node_entity, UiTargetCamera(target_camera_entity)) = world
                 .query_filtered::<(Entity, &UiTargetCamera), With<MovingUiNode>>()
-                .get_single(world)
+                .single(world)
                 .expect("missing MovingUiNode");
             assert_eq!(expected_camera_entity, target_camera_entity);
             let mut ui_surface = world.resource_mut::<UiSurface>();

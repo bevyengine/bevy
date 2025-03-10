@@ -634,9 +634,7 @@ where
             return;
         }
 
-        let segment = Segment2d::new(self.point1, self.point2)
-            .rotated(self.isometry.rotation)
-            .translated(self.isometry.translation);
+        let segment = Segment2d::new(self.point1, self.point2).transformed(self.isometry);
 
         if self.draw_arrow {
             self.gizmos

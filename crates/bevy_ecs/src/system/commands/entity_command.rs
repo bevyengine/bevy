@@ -13,8 +13,9 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentInfo},
     entity::{Entity, EntityClonerBuilder},
+    error::Result,
     event::Event,
-    result::Result,
+    relationship::RelationshipInsertHookMode,
     system::{command::HandleError, Command, IntoObserverSystem},
     world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld, World},
 };
@@ -156,7 +157,7 @@ where
 pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.insert_with_caller(bundle, mode, caller);
+        entity.insert_with_caller(bundle, mode, caller, RelationshipInsertHookMode::Run);
     }
 }
 
@@ -178,7 +179,13 @@ pub unsafe fn insert_by_id<T: Send + 'static>(
         // - `component_id` safety is ensured by the caller
         // - `ptr` is valid within the `make` block
         OwningPtr::make(value, |ptr| unsafe {
-            entity.insert_by_id_with_caller(component_id, ptr, mode, caller);
+            entity.insert_by_id_with_caller(
+                component_id,
+                ptr,
+                mode,
+                caller,
+                RelationshipInsertHookMode::Run,
+            );
         });
     }
 }
@@ -190,7 +197,7 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         let value = entity.world_scope(|world| T::from_world(world));
-        entity.insert_with_caller(value, mode, caller);
+        entity.insert_with_caller(value, mode, caller, RelationshipInsertHookMode::Run);
     }
 }
 
@@ -265,6 +272,19 @@ pub fn observe<E: Event, B: Bundle, M>(
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         entity.observe_with_caller(observer, caller);
+    }
+}
+
+/// An [`EntityCommand`] that sends a [`Trigger`](crate::observer::Trigger) targeting an entity.
+/// This will run any [`Observer`](crate::observer::Observer) of the given [`Event`] watching the entity.
+#[track_caller]
+pub fn trigger(event: impl Event) -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
+    move |mut entity: EntityWorldMut| {
+        let id = entity.id();
+        entity.world_scope(|world| {
+            world.trigger_targets_with_caller(event, id, caller);
+        });
     }
 }
 

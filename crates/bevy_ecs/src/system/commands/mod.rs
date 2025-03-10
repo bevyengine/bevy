@@ -21,10 +21,10 @@ use crate::{
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
+    error::BevyError,
     event::Event,
     observer::{Observer, TriggerTargets},
     resource::Resource,
-    result::Error,
     schedule::ScheduleLabel,
     system::{
         command::HandleError, entity_command::CommandWithEntity, input::SystemInput, Deferred,
@@ -88,7 +88,7 @@ use crate::{
 ///
 /// # Error handling
 ///
-/// A [`Command`] can return a [`Result`](crate::result::Result),
+/// A [`Command`] can return a [`Result`](crate::error::Result),
 /// which will be passed to an error handler if the `Result` is an error.
 ///
 /// Error handlers are functions/closures of the form `fn(&mut World, Error)`.
@@ -639,7 +639,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn queue_handled<C: Command<T> + HandleError<T>, T>(
         &mut self,
         command: C,
-        error_handler: fn(&mut World, Error),
+        error_handler: fn(&mut World, BevyError),
     ) {
         self.queue_internal(command.handle_error_with(error_handler));
     }
@@ -681,6 +681,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
     /// worked out to share an ID space (which doesn't happen by default).
     #[track_caller]
+    #[deprecated(
+        note = "This can cause extreme performance problems when used with lots of arbitrary free entities. See #18054 on GitHub."
+    )]
     pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
@@ -688,6 +691,11 @@ impl<'w, 's> Commands<'w, 's> {
     {
         let caller = MaybeLocation::caller();
         self.queue(move |world: &mut World| {
+
+            #[expect(
+                deprecated,
+                reason = "This needs to be supported for now, and the outer item is deprecated too."
+            )]
             if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
                 bundles_iter,
                 caller,
@@ -1152,7 +1160,7 @@ impl<'w, 's> Commands<'w, 's> {
 ///
 /// # Error handling
 ///
-/// An [`EntityCommand`] can return a [`Result`](crate::result::Result),
+/// An [`EntityCommand`] can return a [`Result`](crate::error::Result),
 /// which will be passed to an error handler if the `Result` is an error.
 ///
 /// Error handlers are functions/closures of the form `fn(&mut World, Error)`.
@@ -1845,7 +1853,7 @@ impl<'a> EntityCommands<'a> {
     pub fn queue_handled<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
         &mut self,
         command: C,
-        error_handler: fn(&mut World, Error),
+        error_handler: fn(&mut World, BevyError),
     ) -> &mut Self {
         self.commands
             .queue_handled(command.with_entity(self.entity), error_handler);
@@ -1916,13 +1924,11 @@ impl<'a> EntityCommands<'a> {
         &mut self.commands
     }
 
-    /// Sends a [`Trigger`] targeting this entity. This will run any [`Observer`] of the `event` that
-    /// watches this entity.
-    ///
-    /// [`Trigger`]: crate::observer::Trigger
+    /// Sends a [`Trigger`](crate::observer::Trigger) targeting the entity.
+    /// This will run any [`Observer`] of the given [`Event`] watching this entity.
+    #[track_caller]
     pub fn trigger(&mut self, event: impl Event) -> &mut Self {
-        self.commands.trigger_targets(event, self.entity);
-        self
+        self.queue(entity_command::trigger(event))
     }
 
     /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
@@ -2224,7 +2230,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        component::{require, Component},
+        component::Component,
         resource::Resource,
         system::Commands,
         world::{CommandQueue, FromWorld, World},
