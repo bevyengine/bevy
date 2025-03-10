@@ -30,7 +30,7 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
     let item_trait = &trait_info.item_trait;
     let trait_ident = &item_trait.ident;
     let trait_vis = &item_trait.vis;
-    let reflect_trait_ident = crate::ident::get_reflect_ident(&item_trait.ident.to_string());
+    let reflect_trait_ident = crate::ident::get_reflect_ident(&item_trait.ident);
     let bevy_reflect_path = crate::meta::get_bevy_reflect_path();
 
     let struct_doc = format!(
@@ -74,8 +74,8 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
             }
         }
 
-        impl<T: #trait_ident + #bevy_reflect_path::Reflect> #bevy_reflect_path::FromType<T> for #reflect_trait_ident {
-            fn from_type() -> Self {
+        impl<T: #trait_ident + #bevy_reflect_path::Reflect> #bevy_reflect_path::CreateTypeData<T> for #reflect_trait_ident {
+            fn create_type_data(_input: ()) -> Self {
                 Self {
                     get_func: |reflect_value| {
                         <dyn #bevy_reflect_path::Reflect>::downcast_ref::<T>(reflect_value).map(|value| value as &dyn #trait_ident)

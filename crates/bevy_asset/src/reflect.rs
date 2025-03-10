@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 use core::any::{Any, TypeId};
 
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
-use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect};
+use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect, Reflect};
 
 use crate::{Asset, AssetId, Assets, Handle, UntypedAssetId, UntypedHandle};
 
@@ -132,8 +132,8 @@ impl ReflectAsset {
     }
 }
 
-impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
-    fn from_type() -> Self {
+impl<A: Asset + FromReflect> CreateTypeData<A> for ReflectAsset {
+    fn create_type_data(_input: ()) -> Self {
         ReflectAsset {
             handle_type_id: TypeId::of::<Handle<A>>(),
             assets_resource_type_id: TypeId::of::<Assets<A>>(),
@@ -228,8 +228,8 @@ impl ReflectHandle {
     }
 }
 
-impl<A: Asset> FromType<Handle<A>> for ReflectHandle {
-    fn from_type() -> Self {
+impl<A: Asset> CreateTypeData<Handle<A>> for ReflectHandle {
+    fn create_type_data(_input: ()) -> Self {
         ReflectHandle {
             asset_type_id: TypeId::of::<A>(),
             downcast_handle_untyped: |handle: &dyn Any| {

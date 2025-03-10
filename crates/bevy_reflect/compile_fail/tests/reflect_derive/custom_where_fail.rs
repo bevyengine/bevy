@@ -1,11 +1,11 @@
-use bevy_reflect::{FromType, Reflect};
+use bevy_reflect::{CreateTypeData, Reflect};
 use core::marker::PhantomData;
 
 #[derive(Clone)]
 struct ReflectMyTrait;
 
-impl<T> FromType<T> for ReflectMyTrait {
-    fn from_type() -> Self {
+impl<T> CreateTypeData<T> for ReflectMyTrait {
+    fn create_type_data(_input: ()) -> Self {
         Self
     }
 }

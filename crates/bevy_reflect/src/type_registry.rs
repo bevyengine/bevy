@@ -1,4 +1,6 @@
-use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
+use crate::{
+    serde::Serializable, CreateTypeData, FromReflect, Reflect, TypeData, TypeInfo, TypePath, Typed,
+};
 use alloc::{boxed::Box, string::String};
 use bevy_platform_support::{
     collections::{HashMap, HashSet},
@@ -11,7 +13,6 @@ use core::{
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
-use downcast_rs::{impl_downcast, Downcast};
 use serde::Deserialize;
 
 /// A registry of [reflected] types.
@@ -290,7 +291,7 @@ impl TypeRegistry {
     ///
     /// Most of the time [`TypeRegistry::register`] can be used instead to register a type you derived [`Reflect`] for.
     /// However, in cases where you want to add a piece of type data that was not included in the list of `#[reflect(...)]` type data in the derive,
-    /// or where the type is generic and cannot register e.g. [`ReflectSerialize`] unconditionally without knowing the specific type parameters,
+    /// or where the type is generic and cannot register the type data unconditionally without knowing the specific type parameters,
     /// this method can be used to insert additional type data.
     ///
     /// # Example
@@ -302,7 +303,7 @@ impl TypeRegistry {
     /// type_registry.register_type_data::<Option<String>, ReflectSerialize>();
     /// type_registry.register_type_data::<Option<String>, ReflectDeserialize>();
     /// ```
-    pub fn register_type_data<T: Reflect + TypePath, D: TypeData + FromType<T>>(&mut self) {
+    pub fn register_type_data<T: Reflect + TypePath, D: CreateTypeData<T>>(&mut self) {
         let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
             panic!(
                 "attempted to call `TypeRegistry::register_type_data` for type `{T}` with data `{D}` without registering `{T}` first",
@@ -310,7 +311,31 @@ impl TypeRegistry {
                 D = core::any::type_name::<D>(),
             )
         });
-        data.insert(D::from_type());
+        data.insert(D::create_type_data(()));
+    }
+
+    /// Registers the type data `D` with parameter `P` for type `T`.
+    ///
+    /// Most of the time [`TypeRegistry::register`] can be used instead to register a type you derived [`Reflect`] for.
+    /// However, in cases where you want to add a piece of type data that was not included in the list of `#[reflect(...)]` type data in the derive,
+    /// or where the type is generic and cannot register the type data unconditionally without knowing the specific type parameters,
+    /// this method can be used to insert additional type data.
+    ///
+    /// If no parameters are needed for the type data or the type data does not accept parameters,
+    /// then [`TypeRegistry::register_type_data`] may be used instead.
+    pub fn register_type_data_with<T: Reflect + TypePath, D: CreateTypeData<T, P>, P>(
+        &mut self,
+        params: P,
+    ) {
+        let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
+            panic!(
+                "attempted to call `TypeRegistry::register_type_data_with` for type `{T}` with data `{D}` and params `{P}` without registering `{T}` first",
+                T = T::type_path(),
+                D = ::core::any::type_name::<D>(),
+                P = ::core::any::type_name::<P>(),
+            )
+        });
+        data.insert(D::create_type_data(params));
     }
 
     pub fn contains(&self, type_id: TypeId) -> bool {
@@ -494,13 +519,13 @@ impl TypeRegistryArc {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{TypeRegistration, std_traits::ReflectDefault, FromType};
+/// # use bevy_reflect::{TypeRegistration, std_traits::ReflectDefault, CreateTypeData};
 /// let mut registration = TypeRegistration::of::<Option<String>>();
 ///
 /// assert_eq!("core::option::Option<alloc::string::String>", registration.type_info().type_path());
 /// assert_eq!("Option<String>", registration.type_info().type_path_table().short_path());
 ///
-/// registration.insert::<ReflectDefault>(FromType::<Option<String>>::from_type());
+/// registration.insert::<ReflectDefault>(CreateTypeData::<Option<String>>::create_type_data(()));
 /// assert!(registration.data::<ReflectDefault>().is_some())
 /// ```
 ///
@@ -672,50 +697,17 @@ impl Clone for TypeRegistration {
     }
 }
 
-/// A trait used to type-erase type metadata.
-///
-/// Type data can be registered to the [`TypeRegistry`] and stored on a type's [`TypeRegistration`].
-///
-/// While type data is often generated using the [`#[reflect_trait]`](crate::reflect_trait) macro,
-/// almost any type that implements [`Clone`] can be considered "type data".
-/// This is because it has a blanket implementation over all `T` where `T: Clone + Send + Sync + 'static`.
-///
-/// See the [crate-level documentation] for more information on type data and type registration.
-///
-/// [crate-level documentation]: crate
-pub trait TypeData: Downcast + Send + Sync {
-    fn clone_type_data(&self) -> Box<dyn TypeData>;
-}
-impl_downcast!(TypeData);
-
-impl<T: 'static + Send + Sync> TypeData for T
-where
-    T: Clone,
-{
-    fn clone_type_data(&self) -> Box<dyn TypeData> {
-        Box::new(self.clone())
-    }
-}
-
-/// Trait used to generate [`TypeData`] for trait reflection.
-///
-/// This is used by the `#[derive(Reflect)]` macro to generate an implementation
-/// of [`TypeData`] to pass to [`TypeRegistration::insert`].
-pub trait FromType<T> {
-    fn from_type() -> Self;
-}
-
 /// A struct used to serialize reflected instances of a type.
 ///
 /// A `ReflectSerialize` for type `T` can be obtained via
-/// [`FromType::from_type`].
+/// [`CreateTypeData::create_type_data`].
 #[derive(Clone)]
 pub struct ReflectSerialize {
     get_serializable: fn(value: &dyn Reflect) -> Serializable,
 }
 
-impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
-    fn from_type() -> Self {
+impl<T: TypePath + FromReflect + erased_serde::Serialize> CreateTypeData<T> for ReflectSerialize {
+    fn create_type_data(_input: ()) -> Self {
         ReflectSerialize {
             get_serializable: |value| {
                 value
@@ -743,7 +735,7 @@ impl ReflectSerialize {
 /// A struct used to deserialize reflected instances of a type.
 ///
 /// A `ReflectDeserialize` for type `T` can be obtained via
-/// [`FromType::from_type`].
+/// [`CreateTypeData::create_type_data`].
 #[derive(Clone)]
 pub struct ReflectDeserialize {
     pub func: fn(
@@ -767,8 +759,8 @@ impl ReflectDeserialize {
     }
 }
 
-impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
-    fn from_type() -> Self {
+impl<T: for<'a> Deserialize<'a> + Reflect> CreateTypeData<T> for ReflectDeserialize {
+    fn create_type_data(_input: ()) -> Self {
         ReflectDeserialize {
             func: |deserializer| Ok(Box::new(T::deserialize(deserializer)?)),
         }
@@ -871,8 +863,8 @@ impl ReflectFromPtr {
     unsafe_code,
     reason = "We must interact with pointers here, which are inherently unsafe."
 )]
-impl<T: Reflect> FromType<T> for ReflectFromPtr {
-    fn from_type() -> Self {
+impl<T: Reflect> CreateTypeData<T> for ReflectFromPtr {
+    fn create_type_data(_input: ()) -> Self {
         ReflectFromPtr {
             type_id: TypeId::of::<T>(),
             from_ptr: |ptr| {

@@ -2,7 +2,7 @@
 
 use bevy::{
     prelude::*,
-    reflect::{FromType, TypeRegistry},
+    reflect::{CreateTypeData, TypeRegistry},
 };
 
 // It's recommended to read this example from top to bottom.
@@ -52,10 +52,10 @@ fn main() {
         damage: fn(&mut dyn Reflect, damage: Box<dyn Reflect>),
     }
 
-    // Now, we can create a blanket implementation of the `FromType` trait to construct our type data
+    // Now, we can create a blanket implementation of the `CreateTypeData` trait to construct our type data
     // for any type that implements `Reflect` and `Damageable`.
-    impl<T: Reflect + Damageable<Health: Reflect>> FromType<T> for ReflectDamageable {
-        fn from_type() -> Self {
+    impl<T: Reflect + Damageable<Health: Reflect>> CreateTypeData<T> for ReflectDamageable {
+        fn create_type_data(_input: ()) -> Self {
             Self {
                 damage: |reflect, damage| {
                     // This requires that `reflect` is `T` and not a dynamic representation like `DynamicStruct`.
