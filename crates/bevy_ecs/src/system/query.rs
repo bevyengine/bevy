@@ -2234,10 +2234,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// Like `transmute_lens` the query terms can be changed with some restrictions.
     /// See [`Self::transmute_lens`] for more details.
-    pub fn join<OtherD: QueryData, NewD: QueryData>(
-        &mut self,
-        other: &mut Query<OtherD>,
-    ) -> QueryLens<'_, NewD> {
+    pub fn join<'a, OtherD: QueryData, NewD: QueryData>(
+        &'a mut self,
+        other: &'a mut Query<OtherD>,
+    ) -> QueryLens<'a, NewD> {
         self.join_filtered(other)
     }
 
@@ -2263,7 +2263,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`join`](Self::join) to join using a mutable borrow of the [`Query`].
     pub fn join_inner<OtherD: QueryData, NewD: QueryData>(
         self,
-        other: &mut Query<OtherD>,
+        other: Query<'w, '_, OtherD>,
     ) -> QueryLens<'w, NewD> {
         self.join_filtered_inner(other)
     }
@@ -2276,15 +2276,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// terms like `Added` and `Changed` will only be respected if they are in
     /// the type signature.
     pub fn join_filtered<
+        'a,
         OtherD: QueryData,
         OtherF: QueryFilter,
         NewD: QueryData,
         NewF: QueryFilter,
     >(
-        &mut self,
-        other: &mut Query<OtherD, OtherF>,
-    ) -> QueryLens<'_, NewD, NewF> {
-        self.reborrow().join_filtered_inner(other)
+        &'a mut self,
+        other: &'a mut Query<OtherD, OtherF>,
+    ) -> QueryLens<'a, NewD, NewF> {
+        self.reborrow().join_filtered_inner(other.reborrow())
     }
 
     /// Equivalent to [`Self::join_inner`] but also includes a [`QueryFilter`] type.
@@ -2306,7 +2307,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         NewF: QueryFilter,
     >(
         self,
-        other: &mut Query<OtherD, OtherF>,
+        other: Query<'w, '_, OtherD, OtherF>,
     ) -> QueryLens<'w, NewD, NewF> {
         let state = self
             .state
