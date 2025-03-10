@@ -2807,7 +2807,7 @@ pub struct ColorStop {
     /// Logical position along the gradient line.
     /// Stop positions are relative to the start of the gradient and not other stops.
     pub point: Val,
-    /// Normalized postion between this and the following stop of the interpolation midpoint.
+    /// Normalized position between this and the following stop of the interpolation midpoint.
     pub hint: f32,
 }
 
