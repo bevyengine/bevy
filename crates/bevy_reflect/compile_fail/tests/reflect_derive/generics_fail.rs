@@ -14,6 +14,7 @@ fn main() {
     let mut foo: Box<dyn Struct> = Box::new(Foo::<NoReflect> { a: NoReflect(42.0) });
     //~^ ERROR: `NoReflect` does not implement `GetTypeRegistration` so cannot provide type registration information
     //~| ERROR: `NoReflect` does not implement `Typed` so cannot provide static type information
+    //~| ERROR: `NoReflect` does not implement `CastPartialReflect` so cannot be cast to `dyn PartialReflect`
 
     // foo doesn't implement Reflect because NoReflect doesn't implement Reflect
     foo.get_field::<NoReflect>("a").unwrap();

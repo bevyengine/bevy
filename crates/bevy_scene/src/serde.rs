@@ -4,6 +4,7 @@ use crate::{DynamicEntity, DynamicScene};
 use bevy_ecs::entity::Entity;
 use bevy_platform_support::collections::HashSet;
 use bevy_reflect::{
+    cast::CastPartialReflect,
     serde::{
         ReflectDeserializer, TypeRegistrationDeserializer, TypedReflectDeserializer,
         TypedReflectSerializer,
@@ -497,7 +498,7 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
                 .get(registration.type_id())
                 .and_then(|tr| tr.data::<ReflectFromReflect>())
                 .and_then(|fr| fr.from_reflect(value.as_partial_reflect()))
-                .map(PartialReflect::into_partial_reflect)
+                .map(CastPartialReflect::into_partial_reflect)
                 .unwrap_or(value);
 
             entries.push(value);
