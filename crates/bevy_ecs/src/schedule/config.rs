@@ -2,8 +2,9 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use variadics_please::all_tuples;
 
 use crate::{
-    result::Result,
+    error::Result,
     schedule::{
+        auto_insert_apply_deferred::IgnoreDeferred,
         condition::{BoxedCondition, Condition},
         graph::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
@@ -137,7 +138,7 @@ impl<T> NodeConfigs<T> {
                 config
                     .graph_info
                     .dependencies
-                    .push(Dependency::new(DependencyKind::BeforeNoSync, set));
+                    .push(Dependency::new(DependencyKind::Before, set).add_config(IgnoreDeferred));
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -153,7 +154,7 @@ impl<T> NodeConfigs<T> {
                 config
                     .graph_info
                     .dependencies
-                    .push(Dependency::new(DependencyKind::AfterNoSync, set));
+                    .push(Dependency::new(DependencyKind::After, set).add_config(IgnoreDeferred));
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -224,9 +225,9 @@ impl<T> NodeConfigs<T> {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
             Self::Configs { chained, .. } => {
-                *chained = Chain::Yes;
+                chained.set_chained();
             }
-        }
+        };
         self
     }
 
@@ -234,7 +235,7 @@ impl<T> NodeConfigs<T> {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
             Self::Configs { chained, .. } => {
-                *chained = Chain::YesIgnoreDeferred;
+                chained.set_chained_with_config(IgnoreDeferred);
             }
         }
         self
@@ -246,6 +247,12 @@ impl<T> NodeConfigs<T> {
 /// This trait is implemented for "systems" (functions whose arguments all implement
 /// [`SystemParam`](crate::system::SystemParam)), or tuples thereof.
 /// It is a common entry point for system configurations.
+///
+/// # Usage notes
+///
+/// This trait should only be used as a bound for trait implementations or as an
+/// argument to a function. If system configs need to be returned from a
+/// function or stored somewhere, use [`SystemConfigs`] instead of this trait.
 ///
 /// # Examples
 ///
@@ -431,7 +438,7 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// If the preceding node on a edge has deferred parameters, a [`ApplyDeferred`](crate::schedule::ApplyDeferred)
+    /// If the preceding node on an edge has deferred parameters, an [`ApplyDeferred`](crate::schedule::ApplyDeferred)
     /// will be inserted on the edge. If this behavior is not desired consider using
     /// [`chain_ignore_deferred`](Self::chain_ignore_deferred) instead.
     fn chain(self) -> SystemConfigs {
@@ -563,13 +570,20 @@ macro_rules! impl_system_collection {
         where
             $($sys: IntoSystemConfigs<$param>),*
         {
-            #[allow(non_snake_case)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "We are inside a macro, and as such, `non_snake_case` is not guaranteed to apply."
+            )]
+            #[allow(
+                non_snake_case,
+                reason = "Variable names are provided by the macro caller, not by us."
+            )]
             fn into_configs(self) -> SystemConfigs {
                 let ($($sys,)*) = self;
                 SystemConfigs::Configs {
                     configs: vec![$($sys.into_configs(),)*],
                     collective_conditions: Vec::new(),
-                    chained: Chain::No,
+                    chained: Default::default(),
                 }
             }
         }
@@ -610,6 +624,12 @@ impl SystemSetConfig {
 pub type SystemSetConfigs = NodeConfigs<InternedSystemSet>;
 
 /// Types that can convert into a [`SystemSetConfigs`].
+///
+/// # Usage notes
+///
+/// This trait should only be used as a bound for trait implementations or as an
+/// argument to a function. If system set configs need to be returned from a
+/// function or stored somewhere, use [`SystemSetConfigs`] instead of this trait.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not describe a valid system set configuration",
     label = "invalid system set configuration"
@@ -788,13 +808,20 @@ macro_rules! impl_system_set_collection {
         $(#[$meta])*
         impl<$($set: IntoSystemSetConfigs),*> IntoSystemSetConfigs for ($($set,)*)
         {
-            #[allow(non_snake_case)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "We are inside a macro, and as such, `non_snake_case` is not guaranteed to apply."
+            )]
+            #[allow(
+                non_snake_case,
+                reason = "Variable names are provided by the macro caller, not by us."
+            )]
             fn into_configs(self) -> SystemSetConfigs {
                 let ($($set,)*) = self;
                 SystemSetConfigs::Configs {
                     configs: vec![$($set.into_configs(),)*],
                     collective_conditions: Vec::new(),
-                    chained: Chain::No,
+                    chained: Default::default(),
                 }
             }
         }

@@ -10,8 +10,8 @@ pub use type_data::*;
 mod tests {
     use super::*;
     use crate::{
-        self as bevy_reflect, type_registry::TypeRegistry, DynamicStruct, DynamicTupleStruct,
-        FromReflect, PartialReflect, Reflect, Struct,
+        type_registry::TypeRegistry, DynamicStruct, DynamicTupleStruct, FromReflect,
+        PartialReflect, Reflect, Struct,
     };
     use serde::de::DeserializeSeed;
 
@@ -189,7 +189,8 @@ mod tests {
         use crate::serde::{DeserializeWithRegistry, ReflectDeserializeWithRegistry};
         use crate::serde::{ReflectSerializeWithRegistry, SerializeWithRegistry};
         use crate::{ReflectFromReflect, TypePath};
-        use alloc::{format, string::String, sync::Arc, vec, vec::Vec};
+        use alloc::{format, string::String, vec, vec::Vec};
+        use bevy_platform_support::sync::Arc;
         use bevy_reflect_derive::reflect_trait;
         use core::any::TypeId;
         use core::fmt::{Debug, Formatter};
@@ -336,6 +337,22 @@ mod tests {
             registry
         }
 
+        fn create_arc_dyn_enemy<T: Enemy>(enemy: T) -> Arc<dyn Enemy> {
+            let arc = Arc::new(enemy);
+
+            #[cfg(not(target_has_atomic = "ptr"))]
+            #[expect(
+                unsafe_code,
+                reason = "unsized coercion is an unstable feature for non-std types"
+            )]
+            // SAFETY:
+            // - Coercion from `T` to `dyn Enemy` is valid as `T: Enemy + 'static`
+            // - `Arc::from_raw` receives a valid pointer from a previous call to `Arc::into_raw`
+            let arc = unsafe { Arc::from_raw(Arc::into_raw(arc) as *const dyn Enemy) };
+
+            arc
+        }
+
         #[test]
         fn should_serialize_with_serialize_with_registry() {
             let registry = create_registry();
@@ -343,8 +360,8 @@ mod tests {
             let level = Level {
                 name: String::from("Level 1"),
                 enemies: EnemyList(vec![
-                    Arc::new(Skeleton(10)),
-                    Arc::new(Zombie {
+                    create_arc_dyn_enemy(Skeleton(10)),
+                    create_arc_dyn_enemy(Zombie {
                         health: 20,
                         walk_speed: 0.5,
                     }),
@@ -374,8 +391,8 @@ mod tests {
             let expected = Level {
                 name: String::from("Level 1"),
                 enemies: EnemyList(vec![
-                    Arc::new(Skeleton(10)),
-                    Arc::new(Zombie {
+                    create_arc_dyn_enemy(Skeleton(10)),
+                    create_arc_dyn_enemy(Zombie {
                         health: 20,
                         walk_speed: 0.5,
                     }),
@@ -388,8 +405,8 @@ mod tests {
             let unexpected = Level {
                 name: String::from("Level 1"),
                 enemies: EnemyList(vec![
-                    Arc::new(Skeleton(20)),
-                    Arc::new(Zombie {
+                    create_arc_dyn_enemy(Skeleton(20)),
+                    create_arc_dyn_enemy(Zombie {
                         health: 20,
                         walk_speed: 5.0,
                     }),

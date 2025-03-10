@@ -35,7 +35,7 @@ use bevy::{
     },
 };
 
-#[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+#[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
 use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing};
 use rand::random;
 
@@ -55,7 +55,7 @@ fn main() {
     // *Note:* TAA is not _required_ for specular transmission, but
     // it _greatly enhances_ the look of the resulting blur effects.
     // Sadly, it's not available under WebGL.
-    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+    #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
     app.add_plugins(TemporalAntiAliasPlugin);
 
     app.run();
@@ -317,9 +317,9 @@ fn setup(
         },
         Tonemapping::TonyMcMapface,
         Exposure { ev100: 6.0 },
-        #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+        #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
         Msaa::Off,
-        #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+        #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
         TemporalAntiAliasing::default(),
         EnvironmentMapLight {
             intensity: 25.0,
@@ -380,7 +380,6 @@ impl Default for ExampleState {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn example_control_system(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -472,7 +471,7 @@ fn example_control_system(
         camera.hdr = !camera.hdr;
     }
 
-    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+    #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::KeyD) {
         if depth_prepass.is_none() {
             commands.entity(camera_entity).insert(DepthPrepass);
@@ -481,7 +480,7 @@ fn example_control_system(
         }
     }
 
-    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+    #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::KeyT) {
         if temporal_jitter.is_none() {
             commands
@@ -573,7 +572,7 @@ fn example_control_system(
         state.perceptual_roughness,
         state.reflectance,
         if camera.hdr { "ON " } else { "OFF" },
-        if cfg!(any(not(feature = "webgl2"), not(target_arch = "wasm32"))) {
+        if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) {
             if depth_prepass.is_some() {
                 "ON "
             } else {
@@ -582,7 +581,7 @@ fn example_control_system(
         } else {
             "N/A (WebGL)"
         },
-        if cfg!(any(not(feature = "webgl2"), not(target_arch = "wasm32"))) {
+        if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) {
             if temporal_jitter.is_some() {
                 if depth_prepass.is_some() {
                     "ON "

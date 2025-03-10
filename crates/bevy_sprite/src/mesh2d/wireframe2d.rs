@@ -1,9 +1,9 @@
 use crate::{Material2d, Material2dKey, Material2dPlugin, Mesh2d};
 use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_resource::ExtractResource, mesh::MeshVertexBufferLayoutRef, prelude::*,
     render_resource::*,
@@ -11,7 +11,8 @@ use bevy_render::{
 
 use super::MeshMaterial2d;
 
-pub const WIREFRAME_2D_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(6920362697190520314);
+pub const WIREFRAME_2D_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("3d8a3853-2927-4de2-9dc7-3971e7e40970");
 
 /// A [`Plugin`] that draws wireframes for 2D meshes.
 ///
@@ -39,6 +40,7 @@ impl Plugin for Wireframe2dPlugin {
             .register_type::<Wireframe2dColor>()
             .init_resource::<Wireframe2dConfig>()
             .add_plugins(Material2dPlugin::<Wireframe2dMaterial>::default())
+            .register_asset_reflect::<Wireframe2dMaterial>()
             .add_systems(Startup, setup_global_wireframe_material)
             .add_systems(
                 Update,
@@ -124,10 +126,6 @@ fn global_color_changed(
 }
 
 /// Updates the wireframe material when the color in [`Wireframe2dColor`] changes
-#[expect(
-    clippy::type_complexity,
-    reason = "Can't be rewritten with less complex arguments."
-)]
 fn wireframe_color_changed(
     mut materials: ResMut<Assets<Wireframe2dMaterial>>,
     mut colors_changed: Query<
@@ -165,7 +163,7 @@ fn apply_wireframe_material(
     global_material: Res<GlobalWireframe2dMaterial>,
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
-        if let Some(mut commands) = commands.get_entity(e) {
+        if let Ok(mut commands) = commands.get_entity(e) {
             commands.remove::<MeshMaterial2d<Wireframe2dMaterial>>();
         }
     }
@@ -182,7 +180,7 @@ fn apply_wireframe_material(
         };
         wireframes_to_spawn.push((e, MeshMaterial2d(material)));
     }
-    commands.insert_or_spawn_batch(wireframes_to_spawn);
+    commands.try_insert_batch(wireframes_to_spawn);
 }
 
 type Wireframe2dFilter = (With<Mesh2d>, Without<Wireframe2d>, Without<NoWireframe2d>);
@@ -211,7 +209,7 @@ fn apply_global_wireframe_material(
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
             material_to_spawn.push((e, MeshMaterial2d(global_material.handle.clone())));
         }
-        commands.insert_or_spawn_batch(material_to_spawn);
+        commands.try_insert_batch(material_to_spawn);
     } else {
         for e in &meshes_with_global_material {
             commands
@@ -221,7 +219,7 @@ fn apply_global_wireframe_material(
     }
 }
 
-#[derive(Default, AsBindGroup, TypePath, Debug, Clone, Asset)]
+#[derive(Default, AsBindGroup, Debug, Clone, Asset, Reflect)]
 pub struct Wireframe2dMaterial {
     #[uniform(0)]
     pub color: LinearRgba,

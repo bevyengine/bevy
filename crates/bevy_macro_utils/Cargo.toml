@@ -1,7 +1,7 @@
 [package]
 name = "bevy_macro_utils"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -9,12 +9,10 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
-toml_edit = { version = "0.22.7", default-features = false, features = [
-  "parse",
-] }
 syn = "2.0"
 quote = "1.0"
 proc-macro2 = "1.0"
+cargo-manifest-proc-macros = "0.3.4"
 
 [lints]
 workspace = true

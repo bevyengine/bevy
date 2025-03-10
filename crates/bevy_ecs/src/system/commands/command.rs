@@ -4,23 +4,24 @@
 //! It also contains functions that return closures for use with
 //! [`Commands`](crate::system::Commands).
 
-#[cfg(feature = "track_location")]
-use core::panic::Location;
-
 use crate::{
-    bundle::{Bundle, InsertMode},
+    bundle::{Bundle, InsertMode, NoBundleEffect},
+    change_detection::MaybeLocation,
     entity::Entity,
+    error::{BevyError, Result},
     event::{Event, Events},
     observer::TriggerTargets,
-    result::Result,
+    resource::Resource,
     schedule::ScheduleLabel,
-    system::{CommandError, IntoSystem, Resource, SystemId, SystemInput},
+    system::{error_handler, IntoSystem, SystemId, SystemInput},
     world::{FromWorld, SpawnBatchIter, World},
 };
 
 /// A [`World`] mutation.
 ///
 /// Should be used with [`Commands::queue`](crate::system::Commands::queue).
+///
+/// The `Out` generic parameter is the returned "output" of the command.
 ///
 /// # Usage
 ///
@@ -34,10 +35,9 @@ use crate::{
 /// struct AddToCounter(u64);
 ///
 /// impl Command for AddToCounter {
-///     fn apply(self, world: &mut World) -> Result {
+///     fn apply(self, world: &mut World) {
 ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
 ///         counter.0 += self.0;
-///         Ok(())
 ///     }
 /// }
 ///
@@ -45,91 +45,67 @@ use crate::{
 ///     commands.queue(AddToCounter(42));
 /// }
 /// ```
-///
-/// # Note on Generic
-///
-/// The `Marker` generic is necessary to allow multiple blanket implementations
-/// of `Command` for closures, like so:
-/// ```ignore (This would conflict with the real implementations)
-/// impl Command for FnOnce(&mut World)
-/// impl Command<Result> for FnOnce(&mut World) -> Result
-/// ```
-/// Without the generic, Rust would consider the two implementations to be conflicting.
-///
-/// The type used for `Marker` has no connection to anything else in the implementation.
-pub trait Command<Marker = ()>: Send + 'static {
+pub trait Command<Out = ()>: Send + 'static {
     /// Applies this command, causing it to mutate the provided `world`.
     ///
     /// This method is used to define what a command "does" when it is ultimately applied.
     /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
     /// This data is set by the system or other source of the command, and then ultimately read in this method.
-    fn apply(self, world: &mut World) -> Result;
-
-    /// Applies this command and converts any resulting error into a [`CommandError`].
-    ///
-    /// Overwriting this method allows an implementor to return a `CommandError` directly
-    /// and avoid erasing the error's type.
-    fn apply_internal(self, world: &mut World) -> Result<(), CommandError>
-    where
-        Self: Sized,
-    {
-        match self.apply(world) {
-            Ok(_) => Ok(()),
-            Err(error) => Err(CommandError::CommandFailed(error)),
-        }
-    }
-
-    /// Returns a new [`Command`] that, when applied, will apply the original command
-    /// and pass any resulting error to the provided `error_handler`.
-    fn with_error_handling(
-        self,
-        error_handler: Option<fn(&mut World, CommandError)>,
-    ) -> impl Command
-    where
-        Self: Sized,
-    {
-        move |world: &mut World| {
-            if let Err(error) = self.apply_internal(world) {
-                // TODO: Pass the error to the global error handler if `error_handler` is `None`.
-                let error_handler = error_handler.unwrap_or(|_, error| panic!("{error}"));
-                error_handler(world, error);
-            }
-        }
-    }
+    fn apply(self, world: &mut World) -> Out;
 }
 
-impl<F> Command for F
+impl<F, Out> Command<Out> for F
 where
-    F: FnOnce(&mut World) + Send + 'static,
+    F: FnOnce(&mut World) -> Out + Send + 'static,
 {
-    fn apply(self, world: &mut World) -> Result {
-        self(world);
-        Ok(())
-    }
-}
-
-impl<F> Command<Result> for F
-where
-    F: FnOnce(&mut World) -> Result + Send + 'static,
-{
-    fn apply(self, world: &mut World) -> Result {
+    fn apply(self, world: &mut World) -> Out {
         self(world)
     }
 }
 
-/// Necessary to avoid erasing the type of the `CommandError` in
-/// [`EntityCommand::with_entity`](crate::system::EntityCommand::with_entity).
-impl<F> Command<(Result, CommandError)> for F
-where
-    F: FnOnce(&mut World) -> Result<(), CommandError> + Send + 'static,
-{
-    fn apply(self, world: &mut World) -> Result {
-        self(world)?;
-        Ok(())
+/// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
+/// a [`Command`] that internally handles an error if it occurs and returns `()`.
+pub trait HandleError<Out = ()> {
+    /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
+    /// a [`Command`] that internally handles an error if it occurs and returns `()`.
+    fn handle_error_with(self, error_handler: fn(&mut World, BevyError)) -> impl Command;
+    /// Takes a [`Command`] that returns a Result and uses the default error handler function to convert it into
+    /// a [`Command`] that internally handles an error if it occurs and returns `()`.
+    fn handle_error(self) -> impl Command
+    where
+        Self: Sized,
+    {
+        self.handle_error_with(error_handler::default())
     }
+}
 
-    fn apply_internal(self, world: &mut World) -> Result<(), CommandError> {
-        self(world)
+impl<C, T, E> HandleError<Result<T, E>> for C
+where
+    C: Command<Result<T, E>>,
+    E: Into<BevyError>,
+{
+    fn handle_error_with(self, error_handler: fn(&mut World, BevyError)) -> impl Command {
+        move |world: &mut World| match self.apply(world) {
+            Ok(_) => {}
+            Err(err) => (error_handler)(world, err.into()),
+        }
+    }
+}
+
+impl<C> HandleError for C
+where
+    C: Command,
+{
+    #[inline]
+    fn handle_error_with(self, _error_handler: fn(&mut World, BevyError)) -> impl Command {
+        self
+    }
+    #[inline]
+    fn handle_error(self) -> impl Command
+    where
+        Self: Sized,
+    {
+        self
     }
 }
 
@@ -140,61 +116,30 @@ where
 pub fn spawn_batch<I>(bundles_iter: I) -> impl Command
 where
     I: IntoIterator + Send + Sync + 'static,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+    let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        SpawnBatchIter::new(
-            world,
-            bundles_iter.into_iter(),
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        SpawnBatchIter::new(world, bundles_iter.into_iter(), caller);
     }
 }
 
 /// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
-/// If any entities do not exist in the world, this command will panic.
+///
+/// If any entities do not exist in the world, this command will return a
+/// [`TryInsertBatchError`](crate::world::error::TryInsertBatchError).
 ///
 /// This is more efficient than inserting the bundles individually.
 #[track_caller]
-pub fn insert_batch<I, B>(batch: I, mode: InsertMode) -> impl Command
+pub fn insert_batch<I, B>(batch: I, insert_mode: InsertMode) -> impl Command<Result>
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-    B: Bundle,
+    B: Bundle<Effect: NoBundleEffect>,
 {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
-    move |world: &mut World| {
-        world.insert_batch_with_caller(
-            batch,
-            mode,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
-    }
-}
-
-/// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
-/// If any entities do not exist in the world, this command will ignore them.
-///
-/// This is more efficient than inserting the bundles individually.
-#[track_caller]
-pub fn try_insert_batch<I, B>(batch: I, mode: InsertMode) -> impl Command
-where
-    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-    B: Bundle,
-{
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
-    move |world: &mut World| {
-        world.try_insert_batch_with_caller(
-            batch,
-            mode,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+    let caller = MaybeLocation::caller();
+    move |world: &mut World| -> Result {
+        world.try_insert_batch_with_caller(batch, insert_mode, caller)?;
+        Ok(())
     }
 }
 
@@ -210,14 +155,9 @@ pub fn init_resource<R: Resource + FromWorld>() -> impl Command {
 /// A [`Command`] that inserts a [`Resource`] into the world.
 #[track_caller]
 pub fn insert_resource<R: Resource>(resource: R) -> impl Command {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+    let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        world.insert_resource_with_caller(
-            resource,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        world.insert_resource_with_caller(resource, caller);
     }
 }
 
@@ -313,9 +253,11 @@ pub fn run_schedule(label: impl ScheduleLabel) -> impl Command<Result> {
 }
 
 /// A [`Command`] that sends a global [`Trigger`](crate::observer::Trigger) without any targets.
+#[track_caller]
 pub fn trigger(event: impl Event) -> impl Command {
+    let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        world.trigger(event);
+        world.trigger_with_caller(event, caller);
     }
 }
 
@@ -324,22 +266,18 @@ pub fn trigger_targets(
     event: impl Event,
     targets: impl TriggerTargets + Send + Sync + 'static,
 ) -> impl Command {
+    let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        world.trigger_targets(event, targets);
+        world.trigger_targets_with_caller(event, targets, caller);
     }
 }
 
 /// A [`Command`] that sends an arbitrary [`Event`].
 #[track_caller]
 pub fn send_event<E: Event>(event: E) -> impl Command {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+    let caller = MaybeLocation::caller();
     move |world: &mut World| {
         let mut events = world.resource_mut::<Events<E>>();
-        events.send_with_caller(
-            event,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        events.send_with_caller(event, caller);
     }
 }

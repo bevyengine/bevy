@@ -1,9 +1,4 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![deny(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -24,11 +19,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
-#[cfg(feature = "std")]
-use std::sync::Mutex;
-
-#[cfg(not(feature = "std"))]
-use spin::mutex::Mutex;
+use bevy_platform_support::sync::Mutex;
 
 mod event;
 mod monitor;

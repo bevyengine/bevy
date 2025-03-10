@@ -1,12 +1,12 @@
 use core::fmt::{Debug, Formatter};
 
+use bevy_platform_support::collections::HashTable;
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::hashbrown::HashTable;
 
 use crate::{
-    self as bevy_reflect, generics::impl_generic_info_methods, type_info::impl_type_methods,
-    ApplyError, Generics, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    generics::impl_generic_info_methods, type_info::impl_type_methods, ApplyError, Generics,
+    MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
+    TypeInfo, TypePath,
 };
 use alloc::{boxed::Box, format, vec::Vec};
 
@@ -206,7 +206,6 @@ macro_rules! hash_error {
                 ),
             }
         }
-        .as_str()
     }}
 }
 
@@ -244,7 +243,7 @@ impl DynamicMap {
     }
 
     fn internal_hash(value: &dyn PartialReflect) -> u64 {
-        value.reflect_hash().expect(hash_error!(value))
+        value.reflect_hash().expect(&hash_error!(value))
     }
 
     fn internal_eq<'a>(

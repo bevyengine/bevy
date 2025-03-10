@@ -3,7 +3,7 @@ use crate::{
     processor::{AssetProcessorData, ProcessStatus},
     AssetPath,
 };
-use alloc::sync::Arc;
+use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
 use async_lock::RwLockReadGuardArc;
 use core::{pin::Pin, task::Poll};
 use futures_io::AsyncRead;

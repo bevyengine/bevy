@@ -59,16 +59,16 @@
 //! - The player's previous position in the physics simulation is stored in a `PreviousPhysicalTranslation` component.
 //! - The player's visual representation is stored in Bevy's regular `Transform` component.
 //! - Every frame, we go through the following steps:
-//!    - Accumulate the player's input and set the current speed in the `handle_input` system.
-//!        This is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystem::BeforeFixedMainLoop`,
-//!        which runs before the fixed timestep loop. This is run every frame.
-//!    - Advance the physics simulation by one fixed timestep in the `advance_physics` system.
-//!        Accumulated input is consumed here.
-//!        This is run in the `FixedUpdate` schedule, which runs zero or multiple times per frame.
-//!    - Update the player's visual representation in the `interpolate_rendered_transform` system.
-//!        This interpolates between the player's previous and current position in the physics simulation.
-//!        It is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystem::AfterFixedMainLoop`,
-//!        which runs after the fixed timestep loop. This is run every frame.
+//!   - Accumulate the player's input and set the current speed in the `handle_input` system.
+//!     This is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystem::BeforeFixedMainLoop`,
+//!     which runs before the fixed timestep loop. This is run every frame.
+//!   - Advance the physics simulation by one fixed timestep in the `advance_physics` system.
+//!     Accumulated input is consumed here.
+//!     This is run in the `FixedUpdate` schedule, which runs zero or multiple times per frame.
+//!   - Update the player's visual representation in the `interpolate_rendered_transform` system.
+//!     This interpolates between the player's previous and current position in the physics simulation.
+//!     It is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystem::AfterFixedMainLoop`,
+//!     which runs after the fixed timestep loop. This is run every frame.
 //!
 //!
 //! ## Controls

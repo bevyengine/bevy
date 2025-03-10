@@ -19,6 +19,9 @@
 //!
 //! See the documentation on [Gizmos](crate::gizmos::Gizmos) for more examples.
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_gizmos;
+
 /// System set label for the systems handling the rendering of gizmos.
 #[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum GizmoRenderSystem {
@@ -76,10 +79,11 @@ pub mod prelude {
 }
 
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
-use bevy_asset::{Asset, AssetApp, AssetId, Assets, Handle};
+use bevy_asset::{weak_handle, Asset, AssetApp, AssetId, Assets, Handle};
 use bevy_ecs::{
+    resource::Resource,
     schedule::{IntoSystemConfigs, SystemSet},
-    system::{Res, ResMut, Resource},
+    system::{Res, ResMut},
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::TypePath;
@@ -137,9 +141,10 @@ use gizmos::{GizmoStorage, Swap};
 use light::LightGizmoPlugin;
 
 #[cfg(feature = "bevy_render")]
-const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
+const LINE_SHADER_HANDLE: Handle<Shader> = weak_handle!("15dc5869-ad30-4664-b35a-4137cb8804a1");
 #[cfg(feature = "bevy_render")]
-const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1162780797909187908);
+const LINE_JOINT_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("7b5bdda5-df81-4711-a6cf-e587700de6f2");
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 ///

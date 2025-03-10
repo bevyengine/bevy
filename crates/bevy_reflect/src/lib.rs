@@ -1,9 +1,4 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![deny(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(
@@ -117,7 +112,7 @@
 //!
 //! Additionally, using the derive macro on enums requires a third condition to be met:
 //! * All fields and sub-elements must implement [`FromReflect`]—
-//!     another important reflection trait discussed in a later section.
+//!   another important reflection trait discussed in a later section.
 //!
 //! # The Reflection Subtraits
 //!
@@ -569,6 +564,9 @@ extern crate std;
 
 extern crate alloc;
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_reflect;
+
 mod array;
 mod fields;
 mod from_reflect;
@@ -734,7 +732,7 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use bevy_utils::HashMap;
+    use bevy_platform_support::collections::HashMap;
     use core::{
         any::TypeId,
         fmt::{Debug, Formatter},
@@ -749,7 +747,6 @@ mod tests {
     use static_assertions::{assert_impl_all, assert_not_impl_all};
 
     use super::{prelude::*, *};
-    use crate as bevy_reflect;
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         utility::GenericTypePathCell,

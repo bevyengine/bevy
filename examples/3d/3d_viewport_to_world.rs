@@ -13,9 +13,13 @@ fn main() {
 fn draw_cursor(
     camera_query: Single<(&Camera, &GlobalTransform)>,
     ground: Single<&GlobalTransform, With<Ground>>,
-    windows: Single<&Window>,
+    windows: Query<&Window>,
     mut gizmos: Gizmos,
 ) {
+    let Ok(windows) = windows.single() else {
+        return;
+    };
+
     let (camera, camera_transform) = *camera_query;
 
     let Some(cursor_position) = windows.cursor_position() else {

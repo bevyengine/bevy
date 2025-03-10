@@ -228,9 +228,8 @@ where
             return;
         }
 
-        let isometry = isometry.into();
-        let direction = primitive.direction.as_vec3();
-        self.line(isometry * direction, isometry * (-direction), color);
+        let transformed = primitive.transformed(isometry);
+        self.line(transformed.point1(), transformed.point2(), color);
     }
 }
 
@@ -413,7 +412,7 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Set the number of lines used to approximate the top an bottom of the cylinder geometry.
+    /// Set the number of lines used to approximate the top and bottom of the cylinder geometry.
     pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self

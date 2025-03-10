@@ -2,7 +2,6 @@ use core::hint::black_box;
 
 use bevy_ecs::{
     component::Component,
-    result::Result,
     system::{Command, Commands},
     world::{CommandQueue, World},
 };
@@ -107,6 +106,10 @@ pub fn insert_commands(criterion: &mut Criterion) {
             for entity in &entities {
                 values.push((*entity, (Matrix::default(), Vec3::default())));
             }
+            #[expect(
+                deprecated,
+                reason = "This needs to be supported for now, and therefore still needs the benchmark."
+            )]
             commands.insert_or_spawn_batch(values);
             command_queue.apply(&mut world);
         });
@@ -137,18 +140,16 @@ struct FakeCommandA;
 struct FakeCommandB(u64);
 
 impl Command for FakeCommandA {
-    fn apply(self, world: &mut World) -> Result {
+    fn apply(self, world: &mut World) {
         black_box(self);
         black_box(world);
-        Ok(())
     }
 }
 
 impl Command for FakeCommandB {
-    fn apply(self, world: &mut World) -> Result {
+    fn apply(self, world: &mut World) {
         black_box(self);
         black_box(world);
-        Ok(())
     }
 }
 
@@ -183,10 +184,9 @@ pub fn fake_commands(criterion: &mut Criterion) {
 struct SizedCommand<T: Default + Send + Sync + 'static>(T);
 
 impl<T: Default + Send + Sync + 'static> Command for SizedCommand<T> {
-    fn apply(self, world: &mut World) -> Result {
+    fn apply(self, world: &mut World) {
         black_box(self);
         black_box(world);
-        Ok(())
     }
 }
 
