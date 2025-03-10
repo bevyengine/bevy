@@ -3,8 +3,8 @@ use crate::{
     loader_builders::{Deferred, NestedLoader, StaticTyped},
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
     path::AssetPath,
-    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
-    UntypedHandle,
+    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, NestedAssets,
+    UntypedAssetId, UntypedHandle,
 };
 use alloc::{
     boxed::Box,
@@ -389,8 +389,7 @@ pub struct LoadContext<'a> {
     pub(crate) asset_server: &'a AssetServer,
     /// The nested assets that have been directly loaded across the entire loader. We use a
     /// [`RwLock`] so that all [`LoadContext`]'s based on this one share these nested loaded assets.
-    pub(crate) nested_direct_loaded_assets:
-        &'a RwLock<HashMap<AssetPath<'static>, CompleteErasedLoadedAsset>>,
+    pub(crate) nested_direct_loaded_assets: &'a RwLock<NestedAssets>,
     pub(crate) should_load_dependencies: bool,
     populate_hashes: bool,
     asset_path: AssetPath<'static>,
@@ -404,9 +403,7 @@ impl<'a> LoadContext<'a> {
     /// Creates a new [`LoadContext`] instance.
     pub(crate) fn new(
         asset_server: &'a AssetServer,
-        nested_direct_loaded_assets: &'a RwLock<
-            HashMap<AssetPath<'static>, CompleteErasedLoadedAsset>,
-        >,
+        nested_direct_loaded_assets: &'a RwLock<NestedAssets>,
         asset_path: AssetPath<'static>,
         should_load_dependencies: bool,
         populate_hashes: bool,
@@ -688,7 +685,7 @@ impl<'a> LoadContext<'a> {
 /// [`CompleteErasedLoadedAsset`].
 pub struct NestedErasedAssetRef<'context> {
     /// The lock that we hold to access the nested asset.
-    _lock: RwLockReadGuard<'context, HashMap<AssetPath<'static>, CompleteErasedLoadedAsset>>,
+    _lock: RwLockReadGuard<'context, NestedAssets>,
     /// A pointer to the asset we are referencing. We store a pointer since otherwise, we'd need to
     /// look up the asset every time we access the asset (and store the asset path here as well).
     asset: *const CompleteErasedLoadedAsset,
@@ -712,7 +709,7 @@ impl Deref for NestedErasedAssetRef<'_> {
 
 impl<'context> NestedErasedAssetRef<'context> {
     fn new(
-        lock: RwLockReadGuard<'context, HashMap<AssetPath<'static>, CompleteErasedLoadedAsset>>,
+        lock: RwLockReadGuard<'context, NestedAssets>,
         asset_path: &AssetPath<'_>,
     ) -> Option<Self> {
         lock.get(asset_path)

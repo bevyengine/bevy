@@ -30,6 +30,7 @@ use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_tasks::IoTaskPool;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
+use derive_more::derive::{Deref, DerefMut};
 use either::Either;
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
@@ -1337,7 +1338,7 @@ impl AssetServer {
     ) -> Result<CompleteErasedLoadedAsset, AssetLoadError> {
         // TODO: experiment with this
         let asset_path = asset_path.clone_owned();
-        let nested_direct_loaded_assets = RwLock::new(HashMap::default());
+        let nested_direct_loaded_assets = RwLock::new(NestedAssets::default());
         let load_context = LoadContext::new(
             self,
             &nested_direct_loaded_assets,
@@ -1786,6 +1787,10 @@ impl RecursiveDependencyLoadState {
         matches!(self, Self::Failed(_))
     }
 }
+
+/// A wrapper for storing nested directly-loaded assets.
+#[derive(Deref, DerefMut, Default)]
+pub(crate) struct NestedAssets(HashMap<AssetPath<'static>, CompleteErasedLoadedAsset>);
 
 /// An error that occurs during an [`Asset`] load.
 #[derive(Error, Debug, Clone)]
