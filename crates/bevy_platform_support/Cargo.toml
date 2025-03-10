@@ -60,7 +60,7 @@ hashbrown = { version = "0.15.1", features = [
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { version = "1.1", default-features = false, optional = true }
-getrandom = { version = "0.2.0", default-features = false, optional = true, features = [
+getrandom = { version = "0.3.1", default-features = false, optional = true, features = [
   "js",
 ] }
 
