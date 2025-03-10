@@ -1,11 +1,9 @@
-use crate as bevy_ecs;
+use crate::change_detection::MaybeLocation;
 use crate::component::ComponentId;
 use crate::world::World;
 use crate::{component::Component, traversal::Traversal};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 use core::{
     cmp::Ordering,
     fmt,
@@ -20,9 +18,21 @@ use core::{
 ///
 /// Events can also be "triggered" on a [`World`], which will then cause any [`Observer`] of that trigger to run.
 ///
-/// This trait can be derived.
-///
 /// Events must be thread-safe.
+///
+/// ## Derive
+/// This trait can be derived.
+/// Adding `auto_propagate` sets [`Self::AUTO_PROPAGATE`] to true.
+/// Adding `traversal = "X"` sets [`Self::Traversal`] to be of type "X".
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(Event)]
+/// #[event(auto_propagate)]
+/// struct MyEvent;
+/// ```
+///
 ///
 /// [`World`]: crate::world::World
 /// [`ComponentId`]: crate::component::ComponentId
@@ -106,8 +116,7 @@ pub struct EventId<E: Event> {
     // This value corresponds to the order in which each event was added to the world.
     pub id: usize,
     /// The source code location that triggered this event.
-    #[cfg(feature = "track_location")]
-    pub caller: &'static Location<'static>,
+    pub caller: MaybeLocation,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     pub(super) _marker: PhantomData<E>,
 }

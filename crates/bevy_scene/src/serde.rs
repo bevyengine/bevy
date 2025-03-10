@@ -515,10 +515,10 @@ mod tests {
         DynamicScene, DynamicSceneBuilder,
     };
     use bevy_ecs::{
-        entity::{hash_map::EntityHashMap, Entity, VisitEntities, VisitEntitiesMut},
+        entity::{hash_map::EntityHashMap, Entity},
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
-        reflect::{AppTypeRegistry, ReflectMapEntities},
+        reflect::AppTypeRegistry,
         world::FromWorld,
     };
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -584,9 +584,9 @@ mod tests {
         foo: i32,
     }
 
-    #[derive(Clone, Component, Reflect, PartialEq, VisitEntities, VisitEntitiesMut)]
-    #[reflect(Component, MapEntities, PartialEq)]
-    struct MyEntityRef(Entity);
+    #[derive(Clone, Component, Reflect, PartialEq)]
+    #[reflect(Component, PartialEq)]
+    struct MyEntityRef(#[entities] Entity);
 
     impl FromWorld for MyEntityRef {
         fn from_world(_world: &mut World) -> Self {
@@ -763,12 +763,12 @@ mod tests {
 
         let bar_to_foo = dst_world
             .query_filtered::<&MyEntityRef, Without<Foo>>()
-            .get_single(&dst_world)
+            .single(&dst_world)
             .cloned()
             .unwrap();
         let foo = dst_world
             .query_filtered::<Entity, With<Foo>>()
-            .get_single(&dst_world)
+            .single(&dst_world)
             .unwrap();
 
         assert_eq!(foo, bar_to_foo.0);
@@ -793,7 +793,7 @@ mod tests {
         deserialized_scene
             .write_to_world(&mut world, &mut EntityHashMap::default())
             .unwrap();
-        assert_eq!(&qux, world.query::<&Qux>().single(&world));
+        assert_eq!(&qux, world.query::<&Qux>().single(&world).unwrap());
     }
 
     #[test]

@@ -7,9 +7,9 @@ use bevy_platform_support::collections::{
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, generics::impl_generic_info_methods, hash_error,
-    type_info::impl_type_methods, ApplyError, Generics, PartialReflect, Reflect, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    generics::impl_generic_info_methods, hash_error, type_info::impl_type_methods, ApplyError,
+    Generics, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
+    TypeInfo, TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -167,7 +167,7 @@ impl DynamicSet {
     }
 
     fn internal_hash(value: &dyn PartialReflect) -> u64 {
-        value.reflect_hash().expect(hash_error!(value))
+        value.reflect_hash().expect(&hash_error!(value))
     }
 
     fn internal_eq(

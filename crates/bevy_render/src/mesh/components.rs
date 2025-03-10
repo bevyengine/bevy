@@ -2,10 +2,10 @@ use crate::{
     mesh::Mesh,
     view::{self, Visibility, VisibilityClass},
 };
-use bevy_asset::{AssetEvent, AssetId, Handle};
+use bevy_asset::{AsAssetId, AssetEvent, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    change_detection::DetectChangesMut, component::Component, event::EventReader, prelude::require,
+    change_detection::DetectChangesMut, component::Component, event::EventReader,
     reflect::ReflectComponent, system::Query,
 };
 use bevy_platform_support::{collections::HashSet, hash::FixedHasher};
@@ -58,6 +58,14 @@ impl From<&Mesh2d> for AssetId<Mesh> {
     }
 }
 
+impl AsAssetId for Mesh2d {
+    type Asset = Mesh;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.id()
+    }
+}
+
 /// A component for 3D meshes. Requires a [`MeshMaterial3d`] to be rendered, commonly using a [`StandardMaterial`].
 ///
 /// [`MeshMaterial3d`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterial3d.html>
@@ -106,6 +114,14 @@ impl From<&Mesh3d> for AssetId<Mesh> {
     }
 }
 
+impl AsAssetId for Mesh3d {
+    type Asset = Mesh;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.id()
+    }
+}
+
 /// A system that marks a [`Mesh3d`] as changed if the associated [`Mesh`] asset
 /// has changed.
 ///
@@ -134,3 +150,8 @@ pub fn mark_3d_meshes_as_changed_if_their_assets_changed(
         }
     }
 }
+
+/// A component that stores an arbitrary index used to identify the mesh instance when rendering.
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[reflect(Component, Default)]
+pub struct MeshTag(pub u32);

@@ -1,4 +1,4 @@
-use crate::systems::{propagate_transforms, sync_simple_transforms};
+use crate::systems::{mark_dirty_trees, propagate_parent_transforms, sync_simple_transforms};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet};
 
@@ -22,6 +22,7 @@ impl Plugin for TransformPlugin {
 
         #[cfg(feature = "bevy_reflect")]
         app.register_type::<crate::components::Transform>()
+            .register_type::<crate::components::TransformTreeChanged>()
             .register_type::<crate::components::GlobalTransform>();
 
         app.configure_sets(
@@ -32,14 +33,12 @@ impl Plugin for TransformPlugin {
         .add_systems(
             PostStartup,
             (
-                sync_simple_transforms
-                    .in_set(TransformSystem::TransformPropagate)
-                    // FIXME: https://github.com/bevyengine/bevy/issues/4381
-                    // These systems cannot access the same entities,
-                    // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
-                    .ambiguous_with(PropagateTransformsSet),
-                propagate_transforms.in_set(PropagateTransformsSet),
-            ),
+                mark_dirty_trees,
+                propagate_parent_transforms,
+                sync_simple_transforms,
+            )
+                .chain()
+                .in_set(PropagateTransformsSet),
         )
         .configure_sets(
             PostUpdate,
@@ -48,11 +47,13 @@ impl Plugin for TransformPlugin {
         .add_systems(
             PostUpdate,
             (
-                sync_simple_transforms
-                    .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(PropagateTransformsSet),
-                propagate_transforms.in_set(PropagateTransformsSet),
-            ),
+                mark_dirty_trees,
+                propagate_parent_transforms,
+                // TODO: Adjust the internal parallel queries to make this system more efficiently share and fill CPU time.
+                sync_simple_transforms,
+            )
+                .chain()
+                .in_set(PropagateTransformsSet),
         );
     }
 }

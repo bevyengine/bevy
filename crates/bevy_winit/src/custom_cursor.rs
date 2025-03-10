@@ -145,18 +145,16 @@ pub(crate) fn extract_rgba_pixels(image: &Image) -> Option<Vec<u8>> {
         | TextureFormat::Rgba8UnormSrgb
         | TextureFormat::Rgba8Snorm
         | TextureFormat::Rgba8Uint
-        | TextureFormat::Rgba8Sint => Some(image.data.clone()),
-        TextureFormat::Rgba32Float => Some(
-            image
-                .data
-                .chunks(4)
+        | TextureFormat::Rgba8Sint => Some(image.data.clone()?),
+        TextureFormat::Rgba32Float => image.data.as_ref().map(|data| {
+            data.chunks(4)
                 .map(|chunk| {
                     let chunk = chunk.try_into().unwrap();
                     let num = bytemuck::cast_ref::<[u8; 4], f32>(chunk);
                     ops::round(num.clamp(0.0, 1.0) * 255.0) as u8
                 })
-                .collect(),
-        ),
+                .collect()
+        }),
         _ => None,
     }
 }
@@ -204,11 +202,16 @@ pub(crate) fn transform_hotspot(
 ) -> (u16, u16) {
     let hotspot_x = hotspot.0 as f32;
     let hotspot_y = hotspot.1 as f32;
+
     let (width, height) = (rect.width(), rect.height());
 
-    let hotspot_x = if flip_x { width - hotspot_x } else { hotspot_x };
+    let hotspot_x = if flip_x {
+        (width - 1.0).max(0.0) - hotspot_x
+    } else {
+        hotspot_x
+    };
     let hotspot_y = if flip_y {
-        height - hotspot_y
+        (height - 1.0).max(0.0) - hotspot_y
     } else {
         hotspot_y
     };
@@ -576,46 +579,26 @@ mod tests {
     );
 
     #[test]
-    fn test_transform_hotspot_no_flip() {
-        let hotspot = (10, 20);
-        let rect = Rect {
-            min: Vec2::ZERO,
-            max: Vec2::new(100.0, 200.0),
-        };
-        let transformed = transform_hotspot(hotspot, false, false, rect);
-        assert_eq!(transformed, (10, 20));
-    }
+    fn test_transform_hotspot() {
+        fn test(hotspot: (u16, u16), flip_x: bool, flip_y: bool, rect: Rect, expected: (u16, u16)) {
+            let transformed = transform_hotspot(hotspot, flip_x, flip_y, rect);
+            assert_eq!(transformed, expected);
 
-    #[test]
-    fn test_transform_hotspot_flip_x() {
-        let hotspot = (10, 20);
-        let rect = Rect {
-            min: Vec2::ZERO,
-            max: Vec2::new(100.0, 200.0),
-        };
-        let transformed = transform_hotspot(hotspot, true, false, rect);
-        assert_eq!(transformed, (90, 20));
-    }
+            // Round-trip test: Applying the same transformation again should
+            // reverse it.
+            let transformed = transform_hotspot(transformed, flip_x, flip_y, rect);
+            assert_eq!(transformed, hotspot);
+        }
 
-    #[test]
-    fn test_transform_hotspot_flip_y() {
-        let hotspot = (10, 20);
         let rect = Rect {
             min: Vec2::ZERO,
             max: Vec2::new(100.0, 200.0),
         };
-        let transformed = transform_hotspot(hotspot, false, true, rect);
-        assert_eq!(transformed, (10, 180));
-    }
 
-    #[test]
-    fn test_transform_hotspot_flip_both() {
-        let hotspot = (10, 20);
-        let rect = Rect {
-            min: Vec2::ZERO,
-            max: Vec2::new(100.0, 200.0),
-        };
-        let transformed = transform_hotspot(hotspot, true, true, rect);
-        assert_eq!(transformed, (90, 180));
+        test((10, 20), false, false, rect, (10, 20)); // no flip
+        test((10, 20), true, false, rect, (89, 20)); // flip X
+        test((10, 20), false, true, rect, (10, 179)); // flip Y
+        test((10, 20), true, true, rect, (89, 179)); // flip both
+        test((0, 0), true, true, rect, (99, 199)); // flip both (bounds check)
     }
 }

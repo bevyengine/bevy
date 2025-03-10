@@ -48,7 +48,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // SAFETY: We only access table data that has been registered in `query_state`.
             tables: unsafe { &world.storages().tables },
             archetypes: world.archetypes(),
-            // SAFETY: The invariants are uphold by the caller.
+            // SAFETY: The invariants are upheld by the caller.
             cursor: unsafe { QueryIterationCursor::init(world, query_state, last_run, this_run) },
         }
     }
@@ -487,7 +487,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1, system_2, system_3));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort<L: ReadOnlyQueryData<Item<'w>: Ord> + 'w>(
+    pub fn sort<L: ReadOnlyQueryData + 'w>(
         self,
     ) -> QuerySortedIter<
         'w,
@@ -495,7 +495,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
-    > {
+    >
+    where
+        for<'lw> L::Item<'lw>: Ord,
+    {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort())
     }
 
@@ -541,7 +544,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_unstable<L: ReadOnlyQueryData<Item<'w>: Ord> + 'w>(
+    pub fn sort_unstable<L: ReadOnlyQueryData + 'w>(
         self,
     ) -> QuerySortedIter<
         'w,
@@ -549,7 +552,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
-    > {
+    >
+    where
+        for<'lw> L::Item<'lw>: Ord,
+    {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort_unstable())
     }
 
@@ -604,7 +610,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// ```
     pub fn sort_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'_>, &L::Item<'_>) -> Ordering,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -636,7 +642,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     pub fn sort_unstable_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'_>, &L::Item<'_>) -> Ordering,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -688,7 +694,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// #[derive(Component)]
     /// struct AvailableMarker;
     ///
-    /// #[derive(Component, PartialEq, Eq, PartialOrd, Ord)]
+    /// #[derive(Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
     /// enum Rarity {
     ///   Common,
     ///   Rare,
@@ -716,7 +722,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///         .sort_by_key::<EntityRef, _>(|entity_ref| {
     ///             (
     ///                 entity_ref.contains::<AvailableMarker>(),
-    ///                 entity_ref.get::<Rarity>()
+    ///                 entity_ref.get::<Rarity>().copied()
     ///             )
     ///         })
     ///         .rev()
@@ -728,7 +734,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// ```
     pub fn sort_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -761,7 +767,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -796,7 +802,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -826,7 +832,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     fn sort_impl<L: ReadOnlyQueryData + 'w>(
         self,
-        f: impl FnOnce(&mut Vec<(L::Item<'w>, NeutralOrd<Entity>)>),
+        f: impl FnOnce(&mut Vec<(L::Item<'_>, NeutralOrd<Entity>)>),
     ) -> QuerySortedIter<
         'w,
         's,
@@ -849,13 +855,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         // SAFETY:
         // `self.world` has permission to access the required components.
         // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
+        // `QueryIter::new` ensures `world` is the same one used to initialize `query_state`.
+        let query_lens = unsafe { query_lens_state.query_unchecked_manual(world) }.into_iter();
         let mut keyed_query: Vec<_> = query_lens
             .map(|(key, entity)| (key, NeutralOrd(entity)))
             .collect();
@@ -1315,7 +1316,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     ///     // We need to collect the internal iterator before iterating mutably
     ///     let mut parent_query_iter = query.iter_many_mut(entity_list)
     ///         .sort::<Entity>();
-    ///     
+    ///
     ///     let mut scratch_value = 0;
     ///     while let Some(mut part_value) = parent_query_iter.fetch_next_back()
     ///     {
@@ -1339,7 +1340,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     >
     where
-        L::Item<'w>: Ord,
+        for<'lw> L::Item<'lw>: Ord,
     {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort())
     }
@@ -1397,7 +1398,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     >
     where
-        L::Item<'w>: Ord,
+        for<'lw> L::Item<'lw>: Ord,
     {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort_unstable())
     }
@@ -1454,7 +1455,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// ```
     pub fn sort_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'_>, &L::Item<'_>) -> Ordering,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1485,7 +1486,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_unstable_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'_>, &L::Item<'_>) -> Ordering,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1537,7 +1538,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// #[derive(Component)]
     /// struct AvailableMarker;
     ///
-    /// #[derive(Component, PartialEq, Eq, PartialOrd, Ord)]
+    /// #[derive(Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
     /// enum Rarity {
     ///   Common,
     ///   Rare,
@@ -1567,7 +1568,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     ///         .sort_by_key::<EntityRef, _>(|entity_ref| {
     ///             (
     ///                 entity_ref.contains::<AvailableMarker>(),
-    ///                 entity_ref.get::<Rarity>()
+    //                  entity_ref.get::<Rarity>().copied()
     ///             )
     ///         })
     ///         .rev()
@@ -1579,7 +1580,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// ```
     pub fn sort_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1611,7 +1612,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1645,7 +1646,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1674,7 +1675,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     fn sort_impl<L: ReadOnlyQueryData + 'w>(
         self,
-        f: impl FnOnce(&mut Vec<(L::Item<'w>, NeutralOrd<Entity>)>),
+        f: impl FnOnce(&mut Vec<(L::Item<'_>, NeutralOrd<Entity>)>),
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1689,14 +1690,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
         // SAFETY:
         // `self.world` has permission to access the required components.
         // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_many_unchecked_manual(
-                self.entity_iter,
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
+        // `QueryIter::new` ensures `world` is the same one used to initialize `query_state`.
+        let query_lens = unsafe { query_lens_state.query_unchecked_manual(world) }
+            .iter_many_inner(self.entity_iter);
         let mut keyed_query: Vec<_> = query_lens
             .map(|(key, entity)| (key, NeutralOrd(entity)))
             .collect();
@@ -2445,7 +2441,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     }
 
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-    // QueryIter, QueryIterationCursor, QuerySortedIter, QueryManyIter, QuerySortedManyIter, QueryCombinationIter, QueryState::par_fold_init_unchecked_manual
+    // QueryIter, QueryIterationCursor, QuerySortedIter, QueryManyIter, QuerySortedManyIter, QueryCombinationIter,
+    // QueryState::par_fold_init_unchecked_manual, QueryState::par_many_fold_init_unchecked_manual,
+    // QueryState::par_many_unique_fold_init_unchecked_manual
     /// # Safety
     /// `tables` and `archetypes` must belong to the same world that the [`QueryIterationCursor`]
     /// was initialized for.
@@ -2594,7 +2592,6 @@ mod tests {
     use crate::component::Component;
     use crate::entity::Entity;
     use crate::prelude::World;
-    use crate::{self as bevy_ecs};
 
     #[derive(Component, Debug, PartialEq, PartialOrd, Clone, Copy)]
     struct A(f32);
@@ -2605,10 +2602,16 @@ mod tests {
     #[test]
     fn query_iter_sorts() {
         let mut world = World::new();
+        for i in 0..100 {
+            world.spawn(A(i as f32));
+            world.spawn((A(i as f32), Sparse(i)));
+            world.spawn(Sparse(i));
+        }
 
         let mut query = world.query::<Entity>();
 
         let sort = query.iter(&world).sort::<Entity>().collect::<Vec<_>>();
+        assert_eq!(sort.len(), 300);
 
         let sort_unstable = query
             .iter(&world)
@@ -2911,13 +2914,13 @@ mod tests {
         {
             let mut query = query_state
                 .iter_many_mut(&mut world, [id, id])
-                .sort_by::<&C>(Ord::cmp);
+                .sort_by::<&C>(|l, r| Ord::cmp(l, r));
             while query.fetch_next().is_some() {}
         }
         {
             let mut query = query_state
                 .iter_many_mut(&mut world, [id, id])
-                .sort_unstable_by::<&C>(Ord::cmp);
+                .sort_unstable_by::<&C>(|l, r| Ord::cmp(l, r));
             while query.fetch_next().is_some() {}
         }
         {

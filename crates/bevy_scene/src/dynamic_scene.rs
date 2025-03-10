@@ -1,15 +1,17 @@
 use crate::{ron, DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
-use bevy_ecs::reflect::ReflectResource;
+use bevy_ecs::reflect::{ReflectMapEntities, ReflectResource};
 use bevy_ecs::{
     entity::{hash_map::EntityHashMap, Entity, SceneEntityMapper},
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
+    reflect::{AppTypeRegistry, ReflectComponent},
     world::World,
 };
 use bevy_reflect::{PartialReflect, TypePath, TypeRegistry};
 
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
+use bevy_ecs::component::ComponentCloneBehavior;
+use bevy_ecs::relationship::RelationshipInsertHookMode;
 #[cfg(feature = "serialize")]
 use serde::Serialize;
 
@@ -85,7 +87,7 @@ impl DynamicScene {
 
             // Apply/ add each component to the given entity.
             for component in &scene_entity.components {
-                let mut component = component.clone_value();
+                let component = component.clone_value();
                 let type_info = component.get_represented_type_info().ok_or_else(|| {
                     SceneSpawnError::NoRepresentedType {
                         type_path: component.reflect_type_path().to_string(),
@@ -103,19 +105,26 @@ impl DynamicScene {
                         }
                     })?;
 
-                // If this component references entities in the scene, update
-                // them to the entities in the world.
-                if let Some(map_entities) = registration.data::<ReflectMapEntities>() {
-                    SceneEntityMapper::world_scope(entity_map, world, |_, mapper| {
-                        map_entities.map_entities(component.as_partial_reflect_mut(), mapper);
-                    });
+                {
+                    let component_id = reflect_component.register_component(world);
+                    // SAFETY: we registered the component above. the info exists
+                    #[expect(unsafe_code, reason = "this is faster")]
+                    let component_info =
+                        unsafe { world.components().get_info_unchecked(component_id) };
+                    if *component_info.clone_behavior() == ComponentCloneBehavior::Ignore {
+                        continue;
+                    }
                 }
 
-                reflect_component.apply_or_insert(
-                    &mut world.entity_mut(entity),
-                    component.as_partial_reflect(),
-                    &type_registry,
-                );
+                SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
+                    reflect_component.apply_or_insert_mapped(
+                        &mut world.entity_mut(entity),
+                        component.as_partial_reflect(),
+                        &type_registry,
+                        mapper,
+                        RelationshipInsertHookMode::Skip,
+                    );
+                });
             }
         }
 
@@ -307,7 +316,7 @@ mod tests {
                 .unwrap()
                 .get::<ChildOf>()
                 .unwrap()
-                .get(),
+                .parent,
             "something about reloading the scene is touching entities with the same scene Ids"
         );
         assert_eq!(
@@ -317,7 +326,7 @@ mod tests {
                 .unwrap()
                 .get::<ChildOf>()
                 .unwrap()
-                .get(),
+                .parent,
             "something about reloading the scene is touching components not defined in the scene but on entities defined in the scene"
         );
         assert_eq!(
@@ -327,7 +336,7 @@ mod tests {
                 .unwrap()
                 .get::<ChildOf>()
                 .expect("something is wrong with this test, and the scene components don't have a parent/child relationship")
-                .get(),
+                .parent,
             "something is wrong with this test or the code reloading scenes since the relationship between scene entities is broken"
         );
     }
@@ -340,13 +349,13 @@ mod tests {
         #[reflect(Component)]
         struct A;
 
-        #[derive(Component, Reflect, VisitEntities)]
-        #[reflect(Component, MapEntities)]
+        #[derive(Component, Reflect)]
+        #[reflect(Component)]
         struct B(pub Entity);
 
         impl MapEntities for B {
             fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-                self.0 = entity_mapper.map_entity(self.0);
+                self.0 = entity_mapper.get_mapped(self.0);
             }
         }
 

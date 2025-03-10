@@ -1,6 +1,7 @@
 use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
+    error::{DefaultSystemErrorHandler, SystemErrorContext},
     event::EventRegistry,
     prelude::*,
     schedule::{InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel},
@@ -332,6 +333,22 @@ impl SubApp {
 
         schedules.ignore_ambiguity(schedule, a, b);
 
+        self
+    }
+
+    /// Set the global error handler to use for systems that return a [`Result`].
+    ///
+    /// See the [`bevy_ecs::result` module-level documentation](../../bevy_ecs/result/index.html)
+    /// for more information.
+    pub fn set_system_error_handler(
+        &mut self,
+        error_handler: fn(BevyError, SystemErrorContext),
+    ) -> &mut Self {
+        let mut default_handler = self
+            .world_mut()
+            .get_resource_or_init::<DefaultSystemErrorHandler>();
+
+        default_handler.0 = error_handler;
         self
     }
 

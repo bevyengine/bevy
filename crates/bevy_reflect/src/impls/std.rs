@@ -4,7 +4,7 @@
 )]
 
 use crate::{
-    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply,
+    impl_type_path, map_apply, map_partial_eq, map_try_apply,
     prelude::ReflectDefault,
     reflect::impl_full_reflect,
     set_apply, set_partial_eq, set_try_apply,
@@ -216,11 +216,6 @@ impl_reflect_opaque!(::core::num::NonZeroI8(
 impl_reflect_opaque!(::core::num::Wrapping<T: Clone + Send + Sync>());
 impl_reflect_opaque!(::core::num::Saturating<T: Clone + Send + Sync>());
 impl_reflect_opaque!(::bevy_platform_support::sync::Arc<T: Send + Sync + ?Sized>);
-
-// We check despite `portable-atomic` being enabled, if the standard library `Arc` is
-// also available, and implement Reflect for it.
-#[cfg(all(feature = "portable-atomic", target_has_atomic = "ptr"))]
-impl_reflect_opaque!(::alloc::sync::Arc<T: Send + Sync + ?Sized>);
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
 // https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
@@ -2441,8 +2436,8 @@ crate::func::macros::impl_function_traits!(&'static Location<'static>);
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_reflect, Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize,
-        TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
+        Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry,
+        Typed, VariantInfo, VariantType,
     };
     use alloc::{collections::BTreeMap, string::String, vec};
     use bevy_platform_support::collections::HashMap;

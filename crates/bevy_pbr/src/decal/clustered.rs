@@ -17,10 +17,10 @@
 use core::{num::NonZero, ops::Deref};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     entity::{hash_map::EntityHashMap, Entity},
     prelude::ReflectComponent,
     query::With,
@@ -54,7 +54,7 @@ use crate::{
 
 /// The handle to the `clustered.wgsl` shader.
 pub(crate) const CLUSTERED_DECAL_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2881025580737984685);
+    weak_handle!("87929002-3509-42f1-8279-2d2765dd145c");
 
 /// The maximum number of decals that can be present in a view.
 ///

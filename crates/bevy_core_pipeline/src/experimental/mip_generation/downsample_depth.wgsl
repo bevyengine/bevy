@@ -1,8 +1,8 @@
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-@group(0) @binding(0) var<storage, read> mip_0: array<u64>; // Per pixel
+@group(0) @binding(0) var mip_0: texture_storage_2d<r64uint, read>;
 #else
 #ifdef MESHLET
-@group(0) @binding(0) var<storage, read> mip_0: array<u32>; // Per pixel
+@group(0) @binding(0) var mip_0: texture_storage_2d<r32uint, read>;
 #else   // MESHLET
 #ifdef MULTISAMPLE
 @group(0) @binding(0) var mip_0: texture_depth_multisampled_2d;
@@ -24,7 +24,7 @@
 @group(0) @binding(11) var mip_11: texture_storage_2d<r32float, write>;
 @group(0) @binding(12) var mip_12: texture_storage_2d<r32float, write>;
 @group(0) @binding(13) var samplr: sampler;
-struct Constants { max_mip_level: u32, view_width: u32 }
+struct Constants { max_mip_level: u32 }
 var<push_constant> constants: Constants;
 
 /// Generates a hierarchical depth buffer.
@@ -39,7 +39,6 @@ var<workgroup> intermediate_memory: array<array<f32, 16>, 16>;
 @compute
 @workgroup_size(256, 1, 1)
 fn downsample_depth_first(
-    @builtin(num_workgroups) num_workgroups: vec3u,
     @builtin(workgroup_id) workgroup_id: vec3u,
     @builtin(local_invocation_index) local_invocation_index: u32,
 ) {
@@ -309,12 +308,13 @@ fn reduce_load_mip_6(tex: vec2u) -> f32 {
 }
 
 fn load_mip_0(x: u32, y: u32) -> f32 {
-    let i = y * constants.view_width + x;
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-    return bitcast<f32>(u32(mip_0[i] >> 32u));
+    let visibility = textureLoad(mip_0, vec2(x, y)).r;
+    return bitcast<f32>(u32(visibility >> 32u));
 #else   // MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
 #ifdef MESHLET
-    return bitcast<f32>(mip_0[i]);
+    let visibility = textureLoad(mip_0, vec2(x, y)).r;
+    return bitcast<f32>(visibility);
 #else   // MESHLET
     // Downsample the top level.
 #ifdef MULTISAMPLE
