@@ -190,7 +190,11 @@ mod text {
             ));
         }
 
-        commands.spawn((Text2d::new("This text is invisible."), Visibility::Hidden));
+        commands.spawn((
+            Text2d::new("This text is invisible."),
+            Visibility::Hidden,
+            StateScoped(super::Scene::Text),
+        ));
     }
 
     fn spawn_anchored_text(
