@@ -6,7 +6,9 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
-use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, num::NonZeroUsize, panic::Location};
+use core::{
+    cell::UnsafeCell, hash::Hash, marker::PhantomData, mem, num::NonZeroUsize, panic::Location,
+};
 use nonmax::NonMaxUsize;
 
 use super::{abort_on_panic, ThinColumn};
@@ -319,9 +321,9 @@ impl ComponentSparseSet {
         self.sparse.remove(entity.index()).map(|dense_index| {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.as_usize()]);
-            self.entities.swap_remove(dense_index.as_usize());
             let last_index = self.len() - 1;
             let is_last = dense_index.as_usize() == last_index;
+            self.entities.swap_remove(dense_index.as_usize());
             // SAFETY: dense_index was just removed from `sparse`, which ensures that it is valid
             let (value, _, _) = unsafe {
                 self.dense
@@ -346,9 +348,9 @@ impl ComponentSparseSet {
         if let Some(dense_index) = self.sparse.remove(entity.index()) {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.as_usize()]);
-            self.entities.swap_remove(dense_index.as_usize());
             let last_index = self.len() - 1;
             let is_last = dense_index.as_usize() == last_index;
+            self.entities.swap_remove(dense_index.as_usize());
             // SAFETY: if the sparse index points to something in the dense vec, it exists
             unsafe {
                 self.dense
@@ -432,6 +434,17 @@ impl ComponentSparseSet {
         abort_on_panic(|| unsafe {
             self.dense.realloc(current_column_capacity, new_capacity);
         });
+    }
+}
+
+impl Drop for ComponentSparseSet {
+    fn drop(&mut self) {
+        // SAFETY:
+        // - self.capacity() is the capacity of the column
+        // - self.len() is the length of the column
+        unsafe {
+            self.dense.drop(self.capacity(), self.len());
+        }
     }
 }
 
