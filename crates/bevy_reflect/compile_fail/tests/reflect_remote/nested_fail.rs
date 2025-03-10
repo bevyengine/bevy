@@ -26,6 +26,7 @@ mod incorrect_inner_type {
     //~| ERROR: `TheirInner<T>` does not implement `PartialReflect` so cannot be introspected
     //~| ERROR: `TheirInner<T>` does not implement `PartialReflect` so cannot be introspected
     //~| ERROR: `TheirInner<T>` does not implement `TypePath` so cannot provide dynamic type path information
+    //~| ERROR: `TheirInner<T>` does not implement `TypePath` so cannot provide dynamic type path information
     //~| ERROR: `?` operator has incompatible types
     struct MyOuter<T: FromReflect + GetTypeRegistration> {
         // Reason: Should not use `MyInner<T>` directly

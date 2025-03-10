@@ -70,6 +70,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         || Some(quote!(#bevy_reflect_path::enum_partial_eq)),
         || Some(quote!(#bevy_reflect_path::enum_hash)),
     );
+    let clone_fn = reflect_enum.get_clone_impl();
 
     #[cfg(not(feature = "functions"))]
     let function_impls = None::<proc_macro2::TokenStream>;
@@ -261,6 +262,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             }
 
             #common_methods
+
+            #clone_fn
         }
     }
 }

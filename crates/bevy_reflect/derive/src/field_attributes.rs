@@ -14,6 +14,7 @@ use syn::{parse::ParseStream, Attribute, LitStr, Meta, Token, Type};
 mod kw {
     syn::custom_keyword!(ignore);
     syn::custom_keyword!(skip_serializing);
+    syn::custom_keyword!(clone);
     syn::custom_keyword!(default);
     syn::custom_keyword!(remote);
 }
@@ -22,6 +23,7 @@ pub(crate) const IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
 pub(crate) const IGNORE_ALL_ATTR: &str = "ignore";
 
 pub(crate) const DEFAULT_ATTR: &str = "default";
+pub(crate) const CLONE_ATTR: &str = "clone";
 
 /// Stores data about if the field should be visible via the Reflect and serialization interfaces
 ///
@@ -54,6 +56,14 @@ impl ReflectIgnoreBehavior {
     }
 }
 
+#[derive(Default, Clone)]
+pub(crate) enum CloneBehavior {
+    #[default]
+    Default,
+    Trait,
+    Func(syn::ExprPath),
+}
+
 /// Controls how the default value is determined for a field.
 #[derive(Default, Clone)]
 pub(crate) enum DefaultBehavior {
@@ -74,6 +84,8 @@ pub(crate) enum DefaultBehavior {
 pub(crate) struct FieldAttributes {
     /// Determines how this field should be ignored if at all.
     pub ignore: ReflectIgnoreBehavior,
+    /// Sets the clone behavior of this field.
+    pub clone: CloneBehavior,
     /// Sets the default behavior of this field.
     pub default: DefaultBehavior,
     /// Custom attributes created via `#[reflect(@...)]`.
@@ -121,6 +133,8 @@ impl FieldAttributes {
             self.parse_ignore(input)
         } else if lookahead.peek(kw::skip_serializing) {
             self.parse_skip_serializing(input)
+        } else if lookahead.peek(kw::clone) {
+            self.parse_clone(input)
         } else if lookahead.peek(kw::default) {
             self.parse_default(input)
         } else if lookahead.peek(kw::remote) {
@@ -161,6 +175,30 @@ impl FieldAttributes {
 
         input.parse::<kw::skip_serializing>()?;
         self.ignore = ReflectIgnoreBehavior::IgnoreSerialization;
+        Ok(())
+    }
+
+    /// Parse `clone` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(clone)]`
+    /// - `#[reflect(clone = "path::to::func")]`
+    fn parse_clone(&mut self, input: ParseStream) -> syn::Result<()> {
+        if !matches!(self.clone, CloneBehavior::Default) {
+            return Err(input.error(format!("only one of {:?} is allowed", [CLONE_ATTR])));
+        }
+
+        input.parse::<kw::clone>()?;
+
+        if input.peek(Token![=]) {
+            input.parse::<Token![=]>()?;
+
+            let lit = input.parse::<LitStr>()?;
+            self.clone = CloneBehavior::Func(lit.parse()?);
+        } else {
+            self.clone = CloneBehavior::Trait;
+        }
+
         Ok(())
     }
 
