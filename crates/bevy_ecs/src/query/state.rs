@@ -956,7 +956,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<ROQueryItem<'w, '_, D>, QueryEntityError<'w>> {
+    ) -> Result<ROQueryItem<'w, '_, D>, QueryEntityError> {
         self.query(world).get_inner(entity)
     }
 
@@ -997,7 +997,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w World,
         entities: [Entity; N],
-    ) -> Result<[ROQueryItem<'w, '_, D>; N], QueryEntityError<'w>> {
+    ) -> Result<[ROQueryItem<'w, '_, D>; N], QueryEntityError> {
         self.query(world).get_many_inner(entities)
     }
 
@@ -1009,7 +1009,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w mut World,
         entity: Entity,
-    ) -> Result<D::Item<'w, '_>, QueryEntityError<'w>> {
+    ) -> Result<D::Item<'w, '_>, QueryEntityError> {
         self.query_mut(world).get_inner(entity)
     }
 
@@ -1056,7 +1056,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w mut World,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w, '_>; N], QueryEntityError<'w>> {
+    ) -> Result<[D::Item<'w, '_>; N], QueryEntityError> {
         self.query_mut(world).get_many_inner(entities)
     }
 
@@ -1078,7 +1078,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<ROQueryItem<'w, '_, D>, QueryEntityError<'w>> {
+    ) -> Result<ROQueryItem<'w, '_, D>, QueryEntityError> {
         self.query_manual(world).get_inner(entity)
     }
 
@@ -1095,7 +1095,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: UnsafeWorldCell<'w>,
         entity: Entity,
-    ) -> Result<D::Item<'w, '_>, QueryEntityError<'w>> {
+    ) -> Result<D::Item<'w, '_>, QueryEntityError> {
         self.query_unchecked(world).get_inner(entity)
     }
 

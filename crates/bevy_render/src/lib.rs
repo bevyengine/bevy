@@ -78,9 +78,11 @@ pub use extract_param::Extract;
 
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use experimental::occlusion_culling::OcclusionCullingPlugin;
-use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
-use render_asset::RenderAssetBytesPerFrame;
+use render_asset::{
+    extract_render_asset_bytes_per_frame, reset_render_asset_bytes_per_frame,
+    RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
+};
 use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
@@ -408,8 +410,16 @@ impl Plugin for RenderPlugin {
             OcclusionCullingPlugin,
         ));
 
-        app.init_resource::<RenderAssetBytesPerFrame>()
-            .add_plugins(ExtractResourcePlugin::<RenderAssetBytesPerFrame>::default());
+        app.init_resource::<RenderAssetBytesPerFrame>();
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
+            render_app
+                .add_systems(ExtractSchedule, extract_render_asset_bytes_per_frame)
+                .add_systems(
+                    Render,
+                    reset_render_asset_bytes_per_frame.in_set(RenderSet::Cleanup),
+                );
+        }
 
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
@@ -465,14 +475,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
-                .insert_resource(adapter_info)
-                .add_systems(
-                    Render,
-                    (|mut bpf: ResMut<RenderAssetBytesPerFrame>| {
-                        bpf.reset();
-                    })
-                    .in_set(RenderSet::Cleanup),
-                );
+                .insert_resource(adapter_info);
         }
     }
 }
