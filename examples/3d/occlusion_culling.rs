@@ -450,8 +450,10 @@ impl render_graph::Node for ReadbackIndirectParametersNode {
             Some(indirect_parameters_staging_data_buffer),
             Some(indirect_parameters_staging_batch_sets_buffer),
         ) = (
-            phase_indirect_parameters_buffers.indexed_data_buffer(),
-            phase_indirect_parameters_buffers.indexed_batch_sets_buffer(),
+            phase_indirect_parameters_buffers.indexed.data_buffer(),
+            phase_indirect_parameters_buffers
+                .indexed
+                .batch_sets_buffer(),
             indirect_parameters_mapping_buffers.data.as_ref(),
             indirect_parameters_mapping_buffers.batch_sets.as_ref(),
         )
@@ -501,8 +503,10 @@ fn create_indirect_parameters_staging_buffers(
 
     // Fetch the indirect parameters buffers that we're going to copy from.
     let (Some(indexed_data_buffer), Some(indexed_batch_set_buffer)) = (
-        phase_indirect_parameters_buffers.indexed_data_buffer(),
-        phase_indirect_parameters_buffers.indexed_batch_sets_buffer(),
+        phase_indirect_parameters_buffers.indexed.data_buffer(),
+        phase_indirect_parameters_buffers
+            .indexed
+            .batch_sets_buffer(),
     ) else {
         return;
     };

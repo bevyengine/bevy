@@ -18,7 +18,7 @@ pub enum TextureAtlasBuilderError {
     NotEnoughSpace,
     #[error("added a texture with the wrong format in an atlas")]
     WrongFormat,
-    /// Attempted to add a texture to an uninitialzied atlas
+    /// Attempted to add a texture to an uninitialized atlas
     #[error("cannot add texture to uninitialized atlas texture")]
     UninitializedAtlas,
     /// Attempted to add an uninitialized texture to an atlas
