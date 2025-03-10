@@ -237,10 +237,7 @@ mod text {
                 ));
                 parent.spawn((
                     TextSpan::new(format!("{justify:?}")),
-                    TextFont {
-                        font_size: 14.0,
-                        ..default()
-                    },
+                    TextFont::from_font_size(14.0),
                     TextColor(palettes::tailwind::GREEN_400.into()),
                 ));
             });
