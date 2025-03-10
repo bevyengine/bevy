@@ -6,9 +6,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
-use core::{
-    cell::UnsafeCell, hash::Hash, marker::PhantomData, mem, num::NonZeroUsize, panic::Location,
-};
+use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, num::NonZeroUsize, panic::Location};
 use nonmax::NonMaxUsize;
 
 use super::{abort_on_panic, ThinColumn};
