@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
@@ -6,10 +8,11 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
-use bevy_input::keyboard::KeyboardFocusLost;
+use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use bevy_window::{
     ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
-    WindowClosing, WindowCreated, WindowFocused, WindowMode, WindowResized, WindowWrapper,
+    WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode, WindowResized,
+    WindowWrapper,
 };
 use tracing::{error, info, warn};
 
@@ -80,9 +83,12 @@ pub fn create_windows<F: QueryFilter + 'static>(
             .resolution
             .set_scale_factor_and_apply_to_physical_size(winit_window.scale_factor() as f32);
 
-        commands.entity(entity).insert(CachedWindow {
-            window: window.clone(),
-        });
+        commands.entity(entity).insert((
+            CachedWindow {
+                window: window.clone(),
+            },
+            WinitWindowPressedKeys::default(),
+        ));
 
         if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
             commands.entity(entity).insert(handle_wrapper.clone());
@@ -124,18 +130,43 @@ pub fn create_windows<F: QueryFilter + 'static>(
 pub(crate) fn check_keyboard_focus_lost(
     mut focus_events: EventReader<WindowFocused>,
     mut keyboard_focus: EventWriter<KeyboardFocusLost>,
+    mut keyboard_input: EventWriter<KeyboardInput>,
+    mut window_events: EventWriter<WindowEvent>,
+    mut q_windows: Query<&mut WinitWindowPressedKeys>,
 ) {
-    let mut focus_lost = false;
+    let mut focus_lost = vec![];
     let mut focus_gained = false;
     for e in focus_events.read() {
         if e.focused {
             focus_gained = true;
         } else {
-            focus_lost = true;
+            focus_lost.push(e.window);
         }
     }
-    if focus_lost & !focus_gained {
-        keyboard_focus.write(KeyboardFocusLost);
+
+    if !focus_gained {
+        if !focus_lost.is_empty() {
+            window_events.write(WindowEvent::KeyboardFocusLost(KeyboardFocusLost));
+            keyboard_focus.write(KeyboardFocusLost);
+        }
+
+        for window in focus_lost {
+            let Ok(mut pressed_keys) = q_windows.get_mut(window) else {
+                continue;
+            };
+            for (key_code, logical_key) in pressed_keys.0.drain() {
+                let event = KeyboardInput {
+                    key_code,
+                    logical_key,
+                    state: bevy_input::ButtonState::Released,
+                    repeat: false,
+                    window,
+                    text: None,
+                };
+                window_events.write(WindowEvent::KeyboardInput(event.clone()));
+                keyboard_input.write(event);
+            }
+        }
     }
 }
 
@@ -550,3 +581,8 @@ pub(crate) fn changed_windows(
         cache.window = window.clone();
     }
 }
+
+/// This keeps track of which keys are pressed on each window.
+/// When a window is unfocused, this is used to send key release events for all the currently held keys.
+#[derive(Default, Component)]
+pub struct WinitWindowPressedKeys(pub(crate) HashMap<KeyCode, Key>);
