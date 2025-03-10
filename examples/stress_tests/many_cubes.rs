@@ -351,9 +351,9 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
             ),
             3 => {
                 let mut vertices = [Vec2::ZERO; 3];
-                let dtheta = std::f32::consts::TAU / 3.0;
+                let delta_theta = std::f32::consts::TAU / 3.0;
                 for (i, vertex) in vertices.iter_mut().enumerate() {
-                    let (s, c) = ops::sin_cos(i as f32 * dtheta);
+                    let (s, c) = ops::sin_cos(i as f32 * delta_theta);
                     *vertex = Vec2::new(c, s) * radius;
                 }
                 (

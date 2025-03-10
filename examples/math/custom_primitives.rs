@@ -121,7 +121,7 @@ fn setup(
 
     // Spawn the 2D heart
     commands.spawn((
-        // We can use the methods defined on the meshbuilder to customize the mesh.
+        // We can use the methods defined on the `MeshBuilder` to customize the mesh.
         Mesh3d(meshes.add(HEART.mesh().resolution(50))),
         MeshMaterial3d(materials.add(StandardMaterial {
             emissive: RED.into(),
@@ -134,7 +134,7 @@ fn setup(
 
     // Spawn an extrusion of the heart.
     commands.spawn((
-        // We can set a custom resolution for the round parts of the extrusion aswell.
+        // We can set a custom resolution for the round parts of the extrusion as well.
         Mesh3d(meshes.add(EXTRUSION.mesh().resolution(50))),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: RED.into(),
@@ -358,7 +358,7 @@ impl BoundedExtrusion for Heart {}
 
 // You can use the `Meshable` trait to create a `MeshBuilder` for the primitive.
 impl Meshable for Heart {
-    // The meshbuilder can be used to create the actual mesh for that primitive.
+    // The `MeshBuilder` can be used to create the actual mesh for that primitive.
     type Output = HeartMeshBuilder;
 
     fn mesh(&self) -> Self::Output {
@@ -369,7 +369,7 @@ impl Meshable for Heart {
     }
 }
 
-// You can include any additional information needed for meshing the primitive in the meshbuilder.
+// You can include any additional information needed for meshing the primitive in the `MeshBuilder`.
 struct HeartMeshBuilder {
     heart: Heart,
     // The resolution determines the amount of vertices used for each wing of the heart
@@ -377,7 +377,7 @@ struct HeartMeshBuilder {
 }
 
 // This trait is needed so that the configuration methods of the builder of the primitive are also available for the builder for the extrusion.
-// If you do not want to support these configuration options for extrusions you can just implement them for your 2D mesh builder.
+// If you do not want to support these configuration options for extrusions you can just implement them for your 2D `MeshBuilder`.
 trait HeartBuilder {
     /// Set the resolution for each of the wings of the heart.
     fn resolution(self, resolution: usize) -> Self;

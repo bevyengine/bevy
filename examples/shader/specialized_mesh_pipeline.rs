@@ -159,10 +159,10 @@ type DrawSpecializedPipelineCommands = (
 // This contains the state needed to specialize a mesh pipeline
 #[derive(Resource)]
 struct CustomMeshPipeline {
-    /// The base mesh pipeline defined by bevy
+    /// The base mesh pipeline defined by bevy.
     ///
     /// This isn't required, but if you want to use a bevy `Mesh` it's easier when you
-    /// have access to the base `MeshPipeline` that bevy already defines
+    /// have access to the base `MeshPipeline` that bevy already defines.
     mesh_pipeline: MeshPipeline,
     /// Stores the shader used for this pipeline directly on the pipeline.
     /// This isn't required, it's only done like this for simplicity.

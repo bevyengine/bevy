@@ -82,7 +82,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue_number,
-                body: 'The generated `examples/README.md` is out of sync with the example metadata in `Cargo.toml` or the example readme template. Please run `cargo run -p build-templated-pages -- update examples` to update it, and commit the file change.'
+                body: 'The generated `examples/README.md` is out of sync with the example metadata in `Cargo.toml` or the example readme template. Please run `cargo run -p build-templated-pages -- update examples` to update it. Then, commit and push the file change.'
               });
             }
 
@@ -153,7 +153,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue_number,
-                body: 'You added a new feature but didn\'t update the readme. Please run `cargo run -p build-templated-pages -- update features` to update it, and commit the file change.'
+                body: 'You added a new feature but didn\'t update the readme. Please run `cargo run -p build-templated-pages -- update features` to update it. Then, commit and push the file change.'
               });
             }
 

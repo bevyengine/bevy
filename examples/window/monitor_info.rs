@@ -10,7 +10,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: None,
-            exit_condition: ExitCondition::DontExit,
+            exit_condition: ExitCondition::DoNotExit,
             ..default()
         }))
         .add_systems(Update, (update, close_on_esc))
