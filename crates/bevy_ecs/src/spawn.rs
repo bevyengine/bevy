@@ -175,7 +175,7 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     for SpawnRelatedBundle<R, L>
 {
     fn component_ids(
-        components: &mut crate::component::Components,
+        components: &mut crate::component::ComponentsRegistrator,
         ids: &mut impl FnMut(crate::component::ComponentId),
     ) {
         <R::RelationshipTarget as Bundle>::component_ids(components, ids);
@@ -189,7 +189,7 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     }
 
     fn register_required_components(
-        components: &mut crate::component::Components,
+        components: &mut crate::component::ComponentsRegistrator,
         required_components: &mut crate::component::RequiredComponents,
     ) {
         <R::RelationshipTarget as Bundle>::register_required_components(
@@ -244,7 +244,7 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
 // SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
 unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
     fn component_ids(
-        components: &mut crate::component::Components,
+        components: &mut crate::component::ComponentsRegistrator,
         ids: &mut impl FnMut(crate::component::ComponentId),
     ) {
         <R::RelationshipTarget as Bundle>::component_ids(components, ids);
@@ -258,7 +258,7 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
     }
 
     fn register_required_components(
-        components: &mut crate::component::Components,
+        components: &mut crate::component::ComponentsRegistrator,
         required_components: &mut crate::component::RequiredComponents,
     ) {
         <R::RelationshipTarget as Bundle>::register_required_components(
