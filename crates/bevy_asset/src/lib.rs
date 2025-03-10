@@ -727,7 +727,7 @@ mod tests {
                     .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
                     })?;
-                let cool = loaded.get_asset().get();
+                let cool = loaded.get_asset();
                 embedded.push_str(&cool.text);
             }
             Ok(CoolText {

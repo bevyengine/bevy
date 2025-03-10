@@ -26,7 +26,7 @@ use alloc::{
 };
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
-use bevy_platform_support::collections::HashSet;
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_tasks::IoTaskPool;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
@@ -1337,8 +1337,14 @@ impl AssetServer {
     ) -> Result<CompleteErasedLoadedAsset, AssetLoadError> {
         // TODO: experiment with this
         let asset_path = asset_path.clone_owned();
-        let load_context =
-            LoadContext::new(self, asset_path.clone(), load_dependencies, populate_hashes);
+        let nested_direct_loaded_assets = RwLock::new(HashMap::default());
+        let load_context = LoadContext::new(
+            self,
+            &nested_direct_loaded_assets,
+            asset_path.clone(),
+            load_dependencies,
+            populate_hashes,
+        );
         AssertUnwindSafe(loader.load(reader, meta, load_context))
             .catch_unwind()
             .await

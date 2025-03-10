@@ -15,8 +15,12 @@ use atomicow::CowArc;
 use bevy_ecs::world::World;
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
-use core::any::{Any, TypeId};
+use core::{
+    any::{Any, TypeId},
+    ops::Deref,
+};
 use downcast_rs::{impl_downcast, Downcast};
+use parking_lot::{RwLock, RwLockReadGuard};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -383,6 +387,10 @@ pub enum DeserializeMetaError {
 /// Any asset state accessed by [`LoadContext`] will be tracked and stored for use in dependency events and asset preprocessing.
 pub struct LoadContext<'a> {
     pub(crate) asset_server: &'a AssetServer,
+    /// The nested assets that have been directly loaded across the entire loader. We use a
+    /// [`RwLock`] so that all [`LoadContext`]'s based on this one share these nested loaded assets.
+    pub(crate) nested_direct_loaded_assets:
+        &'a RwLock<HashMap<AssetPath<'static>, CompleteErasedLoadedAsset>>,
     pub(crate) should_load_dependencies: bool,
     populate_hashes: bool,
     asset_path: AssetPath<'static>,
@@ -396,12 +404,16 @@ impl<'a> LoadContext<'a> {
     /// Creates a new [`LoadContext`] instance.
     pub(crate) fn new(
         asset_server: &'a AssetServer,
+        nested_direct_loaded_assets: &'a RwLock<
+            HashMap<AssetPath<'static>, CompleteErasedLoadedAsset>,
+        >,
         asset_path: AssetPath<'static>,
         should_load_dependencies: bool,
         populate_hashes: bool,
     ) -> Self {
         Self {
             asset_server,
+            nested_direct_loaded_assets,
             asset_path,
             populate_hashes,
             should_load_dependencies,
@@ -443,6 +455,7 @@ impl<'a> LoadContext<'a> {
     pub fn begin_labeled_asset(&self) -> LoadContext {
         LoadContext::new(
             self.asset_server,
+            self.nested_direct_loaded_assets,
             self.asset_path.clone(),
             self.should_load_dependencies,
             self.populate_hashes,
@@ -613,7 +626,7 @@ impl<'a> LoadContext<'a> {
         meta: &dyn AssetMetaDyn,
         loader: &dyn ErasedAssetLoader,
         reader: &mut dyn Reader,
-    ) -> Result<CompleteErasedLoadedAsset, LoadDirectError> {
+    ) -> Result<NestedErasedAssetRef<'_>, LoadDirectError> {
         let complete_asset = self
             .asset_server
             .load_with_meta_loader_and_reader(
@@ -631,8 +644,14 @@ impl<'a> LoadContext<'a> {
             })?;
         let info = meta.processed_info().as_ref();
         let hash = info.map(|i| i.full_hash).unwrap_or_default();
-        self.loader_dependencies.insert(path, hash);
-        Ok(complete_asset)
+        self.loader_dependencies.insert(path.clone(), hash);
+        self.nested_direct_loaded_assets
+            .write()
+            .insert(path.clone(), complete_asset);
+        Ok(
+            NestedErasedAssetRef::new(self.nested_direct_loaded_assets.read(), &path)
+                .expect("asset path is loaded, since we just inserted it"),
+        )
     }
 
     /// Create a builder for loading nested assets in this context.
@@ -651,6 +670,93 @@ impl<'a> LoadContext<'a> {
     /// If you need to override asset settings, asset type, or load directly, please see [`LoadContext::loader`].
     pub fn load<'b, A: Asset>(&mut self, path: impl Into<AssetPath<'b>>) -> Handle<A> {
         self.loader().load(path)
+    }
+}
+
+/// A reference to a nested, directly-loaded asset. This is similar to
+/// [`CompleteErasedLoadedAsset`].
+pub struct NestedErasedAssetRef<'context> {
+    /// The lock that we hold to access the nested asset.
+    _lock: RwLockReadGuard<'context, HashMap<AssetPath<'static>, CompleteErasedLoadedAsset>>,
+    /// A pointer to the asset we are referencing. We store a pointer since otherwise, we'd need to
+    /// look up the asset every time we access the asset (and store the asset path here as well).
+    asset: *const CompleteErasedLoadedAsset,
+}
+
+impl Deref for NestedErasedAssetRef<'_> {
+    type Target = CompleteErasedLoadedAsset;
+
+    fn deref(&self) -> &Self::Target {
+        #[expect(
+            unsafe_code,
+            reason = "Not using raw pointers requires looking up the asset every time, and including the asset path in this struct"
+        )]
+        // SAFETY: We got this pointer from a reference, and we hold `self.lock`, so no mutable
+        // references alias this pointer.
+        unsafe {
+            &*self.asset
+        }
+    }
+}
+
+impl<'context> NestedErasedAssetRef<'context> {
+    fn new(
+        lock: RwLockReadGuard<'context, HashMap<AssetPath<'static>, CompleteErasedLoadedAsset>>,
+        asset_path: &AssetPath<'_>,
+    ) -> Option<Self> {
+        lock.get(asset_path)
+            .map(|asset| &raw const *asset)
+            .map(|asset| Self { _lock: lock, asset })
+    }
+
+    pub fn downcast<A: Asset>(self) -> Result<NestedAssetRef<'context, A>, Self> {
+        let Some(asset) = self.get_asset().get().map(|asset| &raw const *asset) else {
+            return Err(self);
+        };
+        Ok(NestedAssetRef {
+            erased_ref: self,
+            asset,
+        })
+    }
+}
+
+/// A reference to a nested, directly-loaded asset. This is similar to [`CompleteLoadedAsset`].
+pub struct NestedAssetRef<'context, A: Asset> {
+    /// The type-erased asset reference.
+    erased_ref: NestedErasedAssetRef<'context>,
+    /// A pointer to the typed asset we are referencing. We store a pointer since otherwise, we'd
+    /// need to do the cast every time (even though we've verified this is the correct type).
+    asset: *const A,
+}
+
+impl<A: Asset> NestedAssetRef<'_, A> {
+    /// Returns the stored asset.
+    pub fn get_asset(&self) -> &A {
+        #[expect(
+            unsafe_code,
+            reason = "Not using raw pointers requires casting the asset every time"
+        )]
+        // SAFETY: We got this pointer from a reference, and we hold `self.erased_ref`, so no
+        // mutable references alias this pointer.
+        unsafe {
+            &*self.asset
+        }
+    }
+
+    /// Returns the [`ErasedLoadedAsset`] for the given label, if it exists.
+    pub fn get_labeled(
+        &self,
+        label: impl Into<CowArc<'static, str>>,
+    ) -> Option<&ErasedLoadedAsset> {
+        self.erased_ref
+            .labeled_assets
+            .get(&label.into())
+            .map(|a| &a.asset)
+    }
+
+    /// Iterate over all labels for "labeled assets" in the loaded asset
+    pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
+        self.erased_ref.labeled_assets.keys().map(|s| &**s)
     }
 }
 
