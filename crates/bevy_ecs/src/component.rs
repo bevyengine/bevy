@@ -282,6 +282,23 @@ use thiserror::Error;
 /// Note that requirements must currently be registered before the requiring component is inserted
 /// into the world for the first time. Registering requirements after this will lead to a panic.
 ///
+/// # Relationships between Entities
+///
+/// Sometimes it is useful to define relationships between entities.  A common example is the
+/// parent / child relationship. Since Components are how data is stored for Entities, one might
+/// naturally think to create a Component which has a field of type [`Entity`].
+///
+/// To facilitate this pattern, Bevy provides the [`Relationship`](`crate::relationship::Relationship`)
+/// trait. You can derive the [`Relationship`](`crate::relationship::Relationship`) and
+/// [`RelationshipTarget`](`crate::relationship::RelationshipTarget`) traits in addition to the
+/// Component trait in order to implement data driven relationships between entities, see the trait
+/// docs for more details.
+///
+/// In addition, Bevy provides canonical implementations of the parent / child relationship via the
+/// [`ChildOf`](crate::hierarchy::ChildOf) [`Relationship`](crate::relationship::Relationship) and
+/// the [`Children`](crate::hierarchy::Children)
+/// [`RelationshipTarget`](crate::relationship::RelationshipTarget).
+///
 /// # Adding component's hooks
 ///
 /// See [`ComponentHooks`] for a detailed explanation of component's hooks.

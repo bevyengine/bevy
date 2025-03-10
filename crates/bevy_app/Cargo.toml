@@ -61,6 +61,17 @@ critical-section = [
   "bevy_reflect?/critical-section",
 ]
 
+## Enables use of browser APIs.
+## Note this is currently only applicable on `wasm32` architectures.
+web = [
+  "bevy_platform_support/web",
+  "bevy_tasks/web",
+  "bevy_reflect?/web",
+  "dep:wasm-bindgen",
+  "dep:web-sys",
+  "dep:console_error_panic_hook",
+]
+
 [dependencies]
 # bevy
 bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
@@ -78,14 +89,15 @@ thiserror = { version = "2", default-features = false }
 variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
+cfg-if = "1.0.0"
 
 [target.'cfg(any(unix, windows))'.dependencies]
 ctrlc = { version = "3.4.4", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = { version = "0.2" }
-web-sys = { version = "0.3", features = ["Window"] }
-console_error_panic_hook = "0.1.6"
+wasm-bindgen = { version = "0.2", optional = true }
+web-sys = { version = "0.3", features = ["Window"], optional = true }
+console_error_panic_hook = { version = "0.1.6", optional = true }
 
 [dev-dependencies]
 crossbeam-channel = "0.5.0"
