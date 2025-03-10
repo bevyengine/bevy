@@ -2119,8 +2119,11 @@ impl RequiredComponents {
         }
     }
 
-    // Merges `required_components` into this collection. This only inserts a required component
-    // if it _did not already exist_.
+    /// Merges `required_components` into this collection. This only inserts a required component
+    /// if it _did not already exist_ *or* if the required component is more specific than the existing one
+    /// (in other words, if the inheritance depth is smaller).
+    ///
+    /// See [`register_dynamic_with`](Self::register_dynamic_with) for details.
     pub(crate) fn merge(&mut self, required_components: &RequiredComponents) {
         for (
             component_id,
