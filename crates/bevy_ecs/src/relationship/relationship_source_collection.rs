@@ -23,7 +23,8 @@ pub trait RelationshipSourceCollection {
     ///
     /// Returns whether the entity was added to the collection.
     /// Mainly useful when dealing with collections that don't allow
-    /// multiple instances of the same entity ([`EntityHashSet`]).
+    /// multiple instances of the same entity or have a limited capacity
+    /// ([`EntityHashSet`], [`Option<Entity>`]).
     fn add(&mut self, entity: Entity) -> bool;
 
     /// Removes the given `entity` from the collection.
@@ -189,6 +190,45 @@ impl RelationshipSourceCollection for Entity {
     }
 }
 
+impl RelationshipSourceCollection for Option<Entity> {
+    type SourceIter<'a> = core::iter::Copied<core::option::Iter<'a, Entity>>;
+
+    fn with_capacity(_: usize) -> Self {
+        // Option always has a capacity of 1
+        None
+    }
+
+    fn add(&mut self, entity: Entity) -> bool {
+        if self.is_some() {
+            return false;
+        }
+
+        *self = Some(entity);
+        true
+    }
+
+    fn remove(&mut self, entity: Entity) -> bool {
+        if *self == Some(entity) {
+            *self = None;
+            return true;
+        }
+
+        false
+    }
+
+    fn iter(&self) -> Self::SourceIter<'_> {
+        self.iter().copied()
+    }
+
+    fn len(&self) -> usize {
+        self.is_some() as usize
+    }
+
+    fn clear(&mut self) {
+        *self = None;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -289,5 +329,31 @@ mod tests {
         world.entity_mut(a).insert(Above(c));
         assert!(world.get::<Below>(b).is_none());
         assert_eq!(a, world.get::<Below>(c).unwrap().0);
+    }
+
+    #[test]
+    fn option_source_collection() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Option<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Rel(b));
+
+        let rel_target = world.get::<RelTarget>(b).unwrap();
+        let collection = rel_target.collection();
+        assert_eq!(*collection, Some(a));
+
+        world.despawn(a);
+
+        // The target being able to hold `None` shouldn't mean it doesn't get cleaned up
+        assert!(world.get::<RelTarget>(b).is_none());
     }
 }
