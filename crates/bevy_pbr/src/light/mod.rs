@@ -470,7 +470,7 @@ pub struct NotShadowReceiver;
 #[reflect(Component, Default, Debug)]
 pub struct TransmittedShadowReceiver;
 
-/// Add this component to a [`Camera3d`](bevy_core_pipeline::core_3d::Camera3d)
+/// Add this component to a [`Camera3d`]
 /// to control how to anti-alias shadow edges.
 ///
 /// The different modes use different approaches to
