@@ -296,8 +296,8 @@ pub unsafe trait QueryData: WorldQuery {
     /// and does not conflict with anything in `access`,
     /// and must update `access` to include that access.
     ///
-    /// This is used by [`WorldQuery`] types like [`FilteredEntityRef`](crate::world::FilteredEntityRef)
-    /// and [`FilteredEntityMut`](crate::world::FilteredEntityMut) to support dynamic access.
+    /// This is used by [`WorldQuery`] types like [`FilteredEntityRef`]
+    /// and [`FilteredEntityMut`] to support dynamic access.
     ///
     /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
     fn provide_extra_access(
