@@ -47,7 +47,7 @@ fn toggle_window_mode(mut qry_window: Query<&mut Window>) {
 
     window.mode = match window.mode {
         WindowMode::Windowed => {
-            //it takes a while for the window to change from windowed to sizedfullscreen and back
+            // it takes a while for the window to change from `Windowed` to `SizedFullscreen` and back
             std::thread::sleep(std::time::Duration::from_secs(4));
             WindowMode::SizedFullscreen
         }

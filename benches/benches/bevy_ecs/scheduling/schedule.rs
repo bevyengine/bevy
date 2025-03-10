@@ -79,7 +79,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
     // Benchmark graphs of different sizes.
     for graph_size in [100, 500, 1000] {
         // Basic benchmark without constraints.
-        group.bench_function(format!("{graph_size}_schedule_noconstraints"), |bencher| {
+        group.bench_function(format!("{graph_size}_schedule_no_constraints"), |bencher| {
             bencher.iter(|| {
                 let mut app = App::new();
                 for _ in 0..graph_size {

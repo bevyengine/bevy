@@ -72,7 +72,7 @@ impl Plugin for SteppingPlugin {
 /// Struct for maintaining stepping state
 #[derive(Resource, Debug)]
 struct State {
-    // vector of schedule/nodeid -> text index offset
+    // vector of schedule/node id -> text index offset
     systems: Vec<(InternedScheduleLabel, NodeId, usize)>,
 
     // ui positioning
