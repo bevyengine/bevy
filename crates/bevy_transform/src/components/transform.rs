@@ -37,7 +37,7 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
-///     [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
+///   [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
