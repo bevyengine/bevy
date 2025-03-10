@@ -551,7 +551,7 @@ pub fn map_ambient_lights(
         With<EnvironmentMapLightFromAmbientLight>,
     >,
 ) {
-    let ambient_light = ambient_light.map(|x| x.into());
+    let ambient_light = ambient_light.map(Into::into);
     let ref_ambient_light = ambient_light.as_ref();
     for (entity, ambient_override) in new_views.iter() {
         let Some(ambient) = ambient_override.as_ref().or(ref_ambient_light) else {

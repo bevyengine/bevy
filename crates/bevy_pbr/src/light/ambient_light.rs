@@ -48,7 +48,7 @@ impl Default for AmbientLight {
     fn default() -> Self {
         Self {
             color: Color::WHITE,
-            brightness: 80.0,
+            brightness: 50.0,
             affects_lightmapped_meshes: true,
         }
     }
