@@ -5,7 +5,10 @@ use crate::{
         DynamicBundle, InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
-    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
+    component::{
+        Component, ComponentId, ComponentTicks, Components, ComponentsRegistrator, Mutable,
+        StorageType,
+    },
     entity::{
         Entities, Entity, EntityBorrow, EntityCloner, EntityClonerBuilder, EntityLocation,
         TrustedEntityBorrow,
@@ -1769,8 +1772,10 @@ impl<'w> EntityWorldMut<'w> {
         self.assert_not_despawned();
         let world = &mut self.world;
         let storages = &mut world.storages;
-        let components = &mut world.components;
-        let bundle_id = world.bundles.register_info::<T>(components, storages);
+        // SAFETY: These come from the same world.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
+        let bundle_id = world.bundles.register_info::<T>(&mut registrator, storages);
         // SAFETY: We just ensured this bundle exists
         let bundle_info = unsafe { world.bundles.get_unchecked(bundle_id) };
         let old_location = self.location;
@@ -1780,7 +1785,7 @@ impl<'w> EntityWorldMut<'w> {
             bundle_info.remove_bundle_from_archetype(
                 &mut world.archetypes,
                 storages,
-                components,
+                &registrator,
                 &world.observers,
                 old_location.archetype_id,
                 false,
@@ -2052,8 +2057,14 @@ impl<'w> EntityWorldMut<'w> {
     pub(crate) fn remove_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
         self.assert_not_despawned();
         let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
-        let bundle_info = self.world.bundles.register_info::<T>(components, storages);
+        // SAFETY: These come from the same world.
+        let mut registrator = unsafe {
+            ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
+        };
+        let bundle_info = self
+            .world
+            .bundles
+            .register_info::<T>(&mut registrator, storages);
 
         // SAFETY: the `BundleInfo` is initialized above
         self.location = unsafe { self.remove_bundle(bundle_info, caller) };
@@ -2078,10 +2089,13 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         self.assert_not_despawned();
         let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
+        // SAFETY: These come from the same world.
+        let mut registrator = unsafe {
+            ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
+        };
         let bundles = &mut self.world.bundles;
 
-        let bundle_id = bundles.register_contributed_bundle_info::<T>(components, storages);
+        let bundle_id = bundles.register_contributed_bundle_info::<T>(&mut registrator, storages);
 
         // SAFETY: the dynamic `BundleInfo` is initialized above
         self.location = unsafe { self.remove_bundle(bundle_id, caller) };
@@ -2107,9 +2121,15 @@ impl<'w> EntityWorldMut<'w> {
         self.assert_not_despawned();
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
+        // SAFETY: These come from the same world.
+        let mut registrator = unsafe {
+            ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
+        };
 
-        let retained_bundle = self.world.bundles.register_info::<T>(components, storages);
+        let retained_bundle = self
+            .world
+            .bundles
+            .register_info::<T>(&mut registrator, storages);
         // SAFETY: `retained_bundle` exists as we just initialized it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
         let old_location = self.location;
@@ -2123,7 +2143,7 @@ impl<'w> EntityWorldMut<'w> {
         let remove_bundle =
             self.world
                 .bundles
-                .init_dynamic_info(&mut self.world.storages, components, to_remove);
+                .init_dynamic_info(&mut self.world.storages, &registrator, to_remove);
 
         // SAFETY: the `BundleInfo` for the components to remove is initialized above
         self.location = unsafe { self.remove_bundle(remove_bundle, caller) };

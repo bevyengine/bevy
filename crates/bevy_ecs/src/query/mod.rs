@@ -863,7 +863,7 @@ mod tests {
         }
 
         fn init_state(world: &mut World) -> Self::State {
-            world.components.register_resource::<R>()
+            world.components_registrator().register_resource::<R>()
         }
 
         fn get_state(components: &Components) -> Option<Self::State> {
