@@ -633,6 +633,7 @@ impl<'a> LoadContext<'a> {
                 reader,
                 false,
                 self.populate_hashes,
+                self.nested_direct_loaded_assets,
             )
             .await
             .map_err(|error| LoadDirectError::LoadError {

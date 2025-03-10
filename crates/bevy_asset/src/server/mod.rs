@@ -650,6 +650,7 @@ impl AssetServer {
             (handle.clone().unwrap(), path.clone())
         };
 
+        let nested_direct_loaded_assets = RwLock::new(NestedAssets::default());
         match self
             .load_with_meta_loader_and_reader(
                 &base_path,
@@ -658,6 +659,7 @@ impl AssetServer {
                 &mut *reader,
                 true,
                 false,
+                &nested_direct_loaded_assets,
             )
             .await
         {
@@ -1335,13 +1337,13 @@ impl AssetServer {
         reader: &mut dyn Reader,
         load_dependencies: bool,
         populate_hashes: bool,
+        nested_direct_loaded_assets: &RwLock<NestedAssets>,
     ) -> Result<CompleteErasedLoadedAsset, AssetLoadError> {
         // TODO: experiment with this
         let asset_path = asset_path.clone_owned();
-        let nested_direct_loaded_assets = RwLock::new(NestedAssets::default());
         let load_context = LoadContext::new(
             self,
-            &nested_direct_loaded_assets,
+            nested_direct_loaded_assets,
             asset_path.clone(),
             load_dependencies,
             populate_hashes,
