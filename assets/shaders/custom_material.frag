@@ -10,9 +10,9 @@ layout(set = 2, binding = 2) uniform sampler CustomMaterial_sampler;
 
 // wgsl modules can be imported and used in glsl
 // FIXME - this doesn't work any more ...
-// #import bevy_pbr::pbr_functions as PbrFuncs
+// #import bevy_pbr::pbr_functions as PbrFunctions
 
 void main() {
-    // o_Target = PbrFuncs::tone_mapping(Color * texture(sampler2D(CustomMaterial_texture,CustomMaterial_sampler), v_Uv));
+    // o_Target = PbrFunctions::tone_mapping(Color * texture(sampler2D(CustomMaterial_texture,CustomMaterial_sampler), v_Uv));
     o_Target = CustomMaterial_color * texture(sampler2D(CustomMaterial_texture,CustomMaterial_sampler), v_Uv);
 }

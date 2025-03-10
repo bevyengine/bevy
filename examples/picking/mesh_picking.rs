@@ -46,10 +46,10 @@ fn setup_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Set up the materials.
-    let white_matl = materials.add(Color::WHITE);
-    let ground_matl = materials.add(Color::from(GRAY_300));
-    let hover_matl = materials.add(Color::from(CYAN_300));
-    let pressed_matl = materials.add(Color::from(YELLOW_300));
+    let white_material = materials.add(Color::WHITE);
+    let ground_material = materials.add(Color::from(GRAY_300));
+    let hover_material = materials.add(Color::from(CYAN_300));
+    let pressed_material = materials.add(Color::from(YELLOW_300));
 
     let shapes = [
         meshes.add(Cuboid::default()),
@@ -80,7 +80,7 @@ fn setup_scene(
         commands
             .spawn((
                 Mesh3d(shape),
-                MeshMaterial3d(white_matl.clone()),
+                MeshMaterial3d(white_material.clone()),
                 Transform::from_xyz(
                     -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
                     2.0,
@@ -89,10 +89,14 @@ fn setup_scene(
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 Shape,
             ))
-            .observe(update_material_on::<Pointer<Over>>(hover_matl.clone()))
-            .observe(update_material_on::<Pointer<Out>>(white_matl.clone()))
-            .observe(update_material_on::<Pointer<Pressed>>(pressed_matl.clone()))
-            .observe(update_material_on::<Pointer<Released>>(hover_matl.clone()))
+            .observe(update_material_on::<Pointer<Over>>(hover_material.clone()))
+            .observe(update_material_on::<Pointer<Out>>(white_material.clone()))
+            .observe(update_material_on::<Pointer<Pressed>>(
+                pressed_material.clone(),
+            ))
+            .observe(update_material_on::<Pointer<Released>>(
+                hover_material.clone(),
+            ))
             .observe(rotate_on_drag);
     }
 
@@ -102,7 +106,7 @@ fn setup_scene(
         commands
             .spawn((
                 Mesh3d(shape),
-                MeshMaterial3d(white_matl.clone()),
+                MeshMaterial3d(white_material.clone()),
                 Transform::from_xyz(
                     -EXTRUSION_X_EXTENT / 2.
                         + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
@@ -112,17 +116,21 @@ fn setup_scene(
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 Shape,
             ))
-            .observe(update_material_on::<Pointer<Over>>(hover_matl.clone()))
-            .observe(update_material_on::<Pointer<Out>>(white_matl.clone()))
-            .observe(update_material_on::<Pointer<Pressed>>(pressed_matl.clone()))
-            .observe(update_material_on::<Pointer<Released>>(hover_matl.clone()))
+            .observe(update_material_on::<Pointer<Over>>(hover_material.clone()))
+            .observe(update_material_on::<Pointer<Out>>(white_material.clone()))
+            .observe(update_material_on::<Pointer<Pressed>>(
+                pressed_material.clone(),
+            ))
+            .observe(update_material_on::<Pointer<Released>>(
+                hover_material.clone(),
+            ))
             .observe(rotate_on_drag);
     }
 
     // Ground
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10))),
-        MeshMaterial3d(ground_matl.clone()),
+        MeshMaterial3d(ground_material.clone()),
         Pickable::IGNORE, // Disable picking for the ground plane.
     ));
 

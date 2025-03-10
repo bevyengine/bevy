@@ -75,7 +75,7 @@ fn apply_armor_to_damage(
 // as long as the types (T) are different.
 fn apply_damage_to_health(
     mut dmg_events: EventReader<DealDamage>,
-    mut rcvd_events: EventWriter<DamageReceived>,
+    mut received_events: EventWriter<DamageReceived>,
 ) {
     for event in dmg_events.read() {
         info!("Applying {} damage", event.amount);

@@ -24,7 +24,7 @@ fn main() {
         .run();
 }
 
-fn startup(mut cmds: Commands) {
+fn startup(mut commands: Commands) {
     //Match viewport to Window size.
     let physical_position = UVec2::new(0, 0);
     let physical_size = Vec2::new(WINDOW_WIDTH, WINDOW_HEIGHT).as_uvec2();
@@ -34,7 +34,7 @@ fn startup(mut cmds: Commands) {
         ..default()
     });
 
-    cmds.spawn(Camera2d).insert(Camera {
+    commands.spawn(Camera2d).insert(Camera {
         viewport,
         ..default()
     });

@@ -85,16 +85,16 @@ fn setup_contributor_selection(
     asset_server: Res<AssetServer>,
     mut rng: ResMut<SharedRng>,
 ) {
-    let contribs = contributors_or_fallback();
+    let contributors = contributors_or_fallback();
 
     let texture_handle = asset_server.load("branding/icon.png");
 
     let mut contributor_selection = ContributorSelection {
-        order: Vec::with_capacity(contribs.len()),
+        order: Vec::with_capacity(contributors.len()),
         idx: 0,
     };
 
-    for (name, num_commits) in contribs {
+    for (name, num_commits) in contributors {
         let transform = Transform::from_xyz(
             rng.gen_range(-400.0..400.0),
             rng.gen_range(0.0..400.0),

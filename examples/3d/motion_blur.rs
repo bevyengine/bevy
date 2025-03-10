@@ -114,13 +114,13 @@ fn spawn_cars(
     let box_mesh = meshes.add(Cuboid::new(0.3, 0.15, 0.55));
     let cylinder = meshes.add(Cylinder::default());
     let logo = asset_server.load("branding/icon.png");
-    let wheel_matl = materials.add(StandardMaterial {
+    let wheel_material = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         base_color_texture: Some(logo.clone()),
         ..default()
     });
 
-    let mut matl = |color| {
+    let mut material = |color| {
         materials.add(StandardMaterial {
             base_color: color,
             ..default()
@@ -128,14 +128,14 @@ fn spawn_cars(
     };
 
     let colors = [
-        matl(Color::linear_rgb(1.0, 0.0, 0.0)),
-        matl(Color::linear_rgb(1.0, 1.0, 0.0)),
-        matl(Color::BLACK),
-        matl(Color::linear_rgb(0.0, 0.0, 1.0)),
-        matl(Color::linear_rgb(0.0, 1.0, 0.0)),
-        matl(Color::linear_rgb(1.0, 0.0, 1.0)),
-        matl(Color::linear_rgb(0.5, 0.5, 0.0)),
-        matl(Color::linear_rgb(1.0, 0.5, 0.0)),
+        material(Color::linear_rgb(1.0, 0.0, 0.0)),
+        material(Color::linear_rgb(1.0, 1.0, 0.0)),
+        material(Color::BLACK),
+        material(Color::linear_rgb(0.0, 0.0, 1.0)),
+        material(Color::linear_rgb(0.0, 1.0, 0.0)),
+        material(Color::linear_rgb(1.0, 0.0, 1.0)),
+        material(Color::linear_rgb(0.5, 0.5, 0.0)),
+        material(Color::linear_rgb(1.0, 0.5, 0.0)),
     ];
 
     for i in 0..N_CARS {
@@ -157,7 +157,7 @@ fn spawn_cars(
                 let mut spawn_wheel = |x: f32, z: f32| {
                     parent.spawn((
                         Mesh3d(cylinder.clone()),
-                        MeshMaterial3d(wheel_matl.clone()),
+                        MeshMaterial3d(wheel_material.clone()),
                         Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
                             .with_scale(Vec3::new(0.15, 0.04, 0.15))
                             .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
@@ -179,7 +179,7 @@ fn spawn_barriers(
 ) {
     const N_CONES: usize = 100;
     let capsule = meshes.add(Capsule3d::default());
-    let matl = materials.add(StandardMaterial {
+    let material = materials.add(StandardMaterial {
         base_color: Color::srgb_u8(255, 87, 51),
         reflectance: 1.0,
         ..default()
@@ -192,7 +192,7 @@ fn spawn_barriers(
             );
             commands.spawn((
                 Mesh3d(capsule.clone()),
-                MeshMaterial3d(matl.clone()),
+                MeshMaterial3d(material.clone()),
                 Transform::from_xyz(pos.x, -0.65, pos.y).with_scale(Vec3::splat(0.07)),
             ));
         }
