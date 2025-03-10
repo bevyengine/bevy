@@ -34,6 +34,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 use disqualified::ShortName;
+use smallvec::SmallVec;
 use thiserror::Error;
 
 /// A data type that can be used to store data for an [entity].
@@ -2067,7 +2068,10 @@ impl Components {
         required_components.0.extend(required_components_tmp.0);
 
         // Propagate the new required components up the chain to all components that require the requiree.
-        if let Some(required_by) = self.get_required_by(requiree).cloned() {
+        if let Some(required_by) = self
+            .get_required_by(requiree)
+            .map(|set| set.iter().copied().collect::<SmallVec<[ComponentId; 8]>>())
+        {
             // `required` is now required by anything that `requiree` was required by.
             self.get_required_by_mut(required)
                 .unwrap()
