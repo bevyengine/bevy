@@ -3,19 +3,20 @@ use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
     entity::Entity,
     query::DebugCheckedUnwrap,
-    storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
+    storage::{ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform_support::collections::HashMap;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 pub use column::*;
 use core::{
-    alloc::Layout,
     cell::UnsafeCell,
     num::NonZeroUsize,
     ops::{Index, IndexMut},
     panic::Location,
 };
+
+use super::abort_on_panic;
 mod column;
 
 /// An opaque unique ID for a [`Table`] within a [`World`].
@@ -194,15 +195,6 @@ impl TableBuilder {
 pub struct Table {
     columns: ImmutableSparseSet<ComponentId, ThinColumn>,
     entities: Vec<Entity>,
-}
-
-struct AbortOnPanic;
-
-impl Drop for AbortOnPanic {
-    fn drop(&mut self) {
-        // Panicking while unwinding will force an abort.
-        panic!("Aborting due to allocator error");
-    }
 }
 
 impl Table {
@@ -527,13 +519,13 @@ impl Table {
     /// The current capacity of the columns should be 0, if it's not 0, then the previous data will be overwritten and leaked.
     fn alloc_columns(&mut self, new_capacity: NonZeroUsize) {
         // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
-        // To avoid this, we use `AbortOnPanic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
-        // called, and abort the program.
-        let _guard = AbortOnPanic;
-        for col in self.columns.values_mut() {
-            col.alloc(new_capacity);
-        }
-        core::mem::forget(_guard); // The allocation was successful, so we don't drop the guard.
+        // To avoid this, we use `abort_on_panic`. If the allocation triggered a panic, the guard will be triggered, and
+        // abort the program.
+        abort_on_panic(|| {
+            for col in self.columns.values_mut() {
+                col.alloc(new_capacity);
+            }
+        });
     }
 
     /// Reallocate memory for the columns in the [`Table`]
@@ -546,18 +538,18 @@ impl Table {
         new_capacity: NonZeroUsize,
     ) {
         // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
-        // To avoid this, we use `AbortOnPanic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
-        // called, and abort the program.
-        let _guard = AbortOnPanic;
+        // To avoid this, we use `abort_on_panic`. If the allocation triggered a panic, the guard will be triggered, and
+        // abort the program.
 
         // SAFETY:
         // - There's no overflow
         // - `current_capacity` is indeed the capacity - safety requirement
         // - current capacity > 0
-        for col in self.columns.values_mut() {
-            col.realloc(current_column_capacity, new_capacity);
-        }
-        core::mem::forget(_guard); // The allocation was successful, so we don't drop the guard.
+        abort_on_panic(|| unsafe {
+            for col in self.columns.values_mut() {
+                col.realloc(current_column_capacity, new_capacity);
+            }
+        });
     }
 
     /// Allocates space for a new entity
@@ -568,17 +560,21 @@ impl Table {
         self.reserve(1);
         let len = self.entity_count();
         self.entities.push(entity);
+
         for col in self.columns.values_mut() {
-            col.added_ticks
-                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            col.changed_ticks
-                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            col.changed_by
-                .as_mut()
-                .zip(MaybeLocation::caller())
-                .map(|(changed_by, caller)| {
-                    changed_by.initialize_unchecked(len, UnsafeCell::new(caller));
-                });
+            //SAFETY: `entity_count` is equal to the length of each column before insertion
+            unsafe {
+                col.added_ticks
+                    .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
+                col.changed_ticks
+                    .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
+                col.changed_by
+                    .as_mut()
+                    .zip(MaybeLocation::caller())
+                    .map(|(changed_by, caller)| {
+                        changed_by.initialize_unchecked(len, UnsafeCell::new(caller));
+                    });
+            }
         }
         TableRow::from_usize(len)
     }

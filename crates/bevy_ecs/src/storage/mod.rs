@@ -60,3 +60,24 @@ impl Storages {
         }
     }
 }
+
+struct AbortOnPanic;
+
+impl Drop for AbortOnPanic {
+    fn drop(&mut self) {
+        // Panicking while unwinding will force an abort.
+        panic!("Aborting due to allocator error");
+    }
+}
+
+/// Wraps a function in an `AbortOnPanic` guard, which will be dropped if the function unwinds,
+/// causing the program to abort. This should be used whenever an operation may cause a panic
+/// while an object is still in an invalid state, which could cause UB when dropped.
+#[inline(always)]
+pub fn abort_on_panic<F: FnOnce() -> R, R>(f: F) -> R {
+    let _guard = AbortOnPanic;
+    let ret = f();
+    // the operation was successful, so we don't drop the guard
+    core::mem::forget(_guard);
+    ret
+}
