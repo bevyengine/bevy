@@ -149,7 +149,7 @@ mod text {
     use bevy::text::TextBounds;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d::default(), StateScoped(super::Scene::Text)));
+        commands.spawn((Camera2d, StateScoped(super::Scene::Text)));
 
         for (i, justify) in [
             JustifyText::Left,
@@ -180,7 +180,7 @@ mod text {
             let fraction = i as f32 / (NUM_ITERATIONS - 1) as f32;
 
             commands.spawn((
-                Text2d::new(format!("Bevy")),
+                Text2d::new("Bevy"),
                 sans_serif.clone(),
                 Transform::from_xyz(0.0, fraction * 200.0, i as f32)
                     .with_scale(1.0 + Vec2::splat(fraction).extend(1.))
@@ -217,9 +217,9 @@ mod text {
         ] {
             let mut text = commands.spawn((
                 Text2d::new("L R\n"),
-                TextLayout::new_with_justify(justify.clone()),
+                TextLayout::new_with_justify(justify),
                 Transform::from_translation(dest + Vec3::Z),
-                anchor.clone(),
+                anchor,
                 StateScoped(super::Scene::Text),
             ));
             text.with_children(|parent| {
@@ -248,7 +248,7 @@ mod text {
                     Sprite {
                         color: palettes::tailwind::GRAY_900.into(),
                         custom_size: Some(Vec2::new(bounds.width.unwrap(), bounds.height.unwrap())),
-                        anchor: anchor.clone(),
+                        anchor,
                         ..Default::default()
                     },
                     Transform::from_translation(dest - Vec3::Z),
