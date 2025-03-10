@@ -213,11 +213,9 @@ impl World {
     /// This is different from [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once),
     /// because it keeps local state between calls and change detection works correctly.
     ///
+    /// Also runs any queued-up commands.
+    ///
     /// In order to run a chained system with an input, use [`World::run_system_with`] instead.
-    ///
-    /// # Limitations
-    ///
-    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
     ///
     /// # Examples
     ///
@@ -305,9 +303,7 @@ impl World {
     /// Before running a system, it must first be registered.
     /// The method [`World::register_system`] stores a given system and returns a [`SystemId`].
     ///
-    /// # Limitations
-    ///
-    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
+    /// Also runs any queued-up commands.
     ///
     /// # Examples
     ///
@@ -336,12 +332,12 @@ impl World {
         I: SystemInput + 'static,
         O: 'static,
     {
-        // lookup
+        // Lookup
         let mut entity = self
             .get_entity_mut(id.entity)
             .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
 
-        // take ownership of system trait object
+        // Take ownership of system trait object
         let RegisteredSystem {
             mut initialized,
             mut system,
@@ -349,25 +345,32 @@ impl World {
             .take::<RegisteredSystem<I, O>>()
             .ok_or(RegisteredSystemError::Recursive(id))?;
 
-        // run the system
+        // Run the system
         if !initialized {
             system.initialize(self);
             initialized = true;
         }
 
         let result = if system.validate_param(self) {
-            Ok(system.run(input, self))
+            // Wait to run the commands until the system is available again.
+            // This is needed so the systems can recursively run themselves.
+            let ret = system.run_without_applying_deferred(input, self);
+            system.queue_deferred(self.into());
+            Ok(ret)
         } else {
             Err(RegisteredSystemError::InvalidParams(id))
         };
 
-        // return ownership of system trait object (if entity still exists)
+        // Return ownership of system trait object (if entity still exists)
         if let Ok(mut entity) = self.get_entity_mut(id.entity) {
             entity.insert::<RegisteredSystem<I, O>>(RegisteredSystem {
                 initialized,
                 system,
             });
         }
+
+        // Run any commands enqueued by the system
+        self.flush();
         result
     }
 
@@ -509,8 +512,13 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
     }
 }
 
+#[cfg(test)]
 mod tests {
-    use crate::prelude::*;
+    use core::cell::Cell;
+
+    use bevy_utils::default;
+
+    use crate::{prelude::*, system::SystemId};
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
@@ -862,5 +870,28 @@ mod tests {
             result,
             Err(RegisteredSystemError::InvalidParams(_))
         ));
+    }
+
+    #[test]
+    fn run_system_recursive() {
+        std::thread_local! {
+            static INVOCATIONS_LEFT: Cell<i32> = const { Cell::new(3) };
+            static SYSTEM_ID: Cell<Option<SystemId>> = default();
+        }
+
+        fn system(mut commands: Commands) {
+            let count = INVOCATIONS_LEFT.get() - 1;
+            INVOCATIONS_LEFT.set(count);
+            if count > 0 {
+                commands.run_system(SYSTEM_ID.get().unwrap());
+            }
+        }
+
+        let mut world = World::new();
+        let id = world.register_system(system);
+        SYSTEM_ID.set(Some(id));
+        world.run_system(id).unwrap();
+
+        assert_eq!(INVOCATIONS_LEFT.get(), 0);
     }
 }
