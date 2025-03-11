@@ -13,7 +13,7 @@ use core::{
 use indexmap::IndexMap;
 use smallvec::SmallVec;
 
-use crate::schedule::graph::{DirectedGraphNodeId, GraphNodeId, GraphNodeIdPair};
+use crate::schedule::graph::{GraphNodeEdge, GraphNodeId, GraphNodeNeighbor};
 
 use Direction::{Incoming, Outgoing};
 
@@ -51,8 +51,8 @@ where
     Id: GraphNodeId,
     S: BuildHasher,
 {
-    nodes: IndexMap<Id, Vec<Id::Directed>, S>,
-    edges: HashSet<Id::Pair, S>,
+    nodes: IndexMap<Id, Vec<Id::Neighbor>, S>,
+    edges: HashSet<Id::Edge, S>,
 }
 
 impl<const DIRECTED: bool, Id, S> fmt::Debug for Graph<DIRECTED, Id, S>
@@ -83,10 +83,10 @@ where
 
     /// Use their natural order to map the node pair (a, b) to a canonical edge id.
     #[inline]
-    fn edge_key(a: Id, b: Id) -> Id::Pair {
+    fn edge_key(a: Id, b: Id) -> Id::Edge {
         let (a, b) = if DIRECTED || a <= b { (a, b) } else { (b, a) };
 
-        Id::Pair::pack(a, b)
+        Id::Edge::pack(a, b)
     }
 
     /// Return the number of nodes in the graph.
@@ -107,7 +107,7 @@ where
             return;
         };
 
-        let links = links.into_iter().map(Id::Directed::unpack);
+        let links = links.into_iter().map(Id::Neighbor::unpack);
 
         for (succ, dir) in links {
             let edge = if dir == Outgoing {
@@ -137,13 +137,13 @@ where
             self.nodes
                 .entry(a)
                 .or_insert_with(|| Vec::with_capacity(1))
-                .push(Id::Directed::pack(b, Outgoing));
+                .push(Id::Neighbor::pack(b, Outgoing));
             if a != b {
                 // self loops don't have the Incoming entry
                 self.nodes
                     .entry(b)
                     .or_insert_with(|| Vec::with_capacity(1))
-                    .push(Id::Directed::pack(a, Incoming));
+                    .push(Id::Neighbor::pack(a, Incoming));
             }
         }
     }
@@ -159,7 +159,7 @@ where
         let Some(index) = sus
             .iter()
             .copied()
-            .map(Id::Directed::unpack)
+            .map(Id::Neighbor::unpack)
             .position(|elt| (DIRECTED && elt == (b, dir)) || (!DIRECTED && elt.0 == b))
         else {
             return false;
@@ -202,7 +202,7 @@ where
         };
 
         iter.copied()
-            .map(Id::Directed::unpack)
+            .map(Id::Neighbor::unpack)
             .filter_map(|(n, dir)| (!DIRECTED || dir == Outgoing).then_some(n))
     }
 
@@ -220,7 +220,7 @@ where
         };
 
         iter.copied()
-            .map(Id::Directed::unpack)
+            .map(Id::Neighbor::unpack)
             .filter_map(move |(n, d)| (!DIRECTED || d == dir || n == a).then_some(n))
     }
 
@@ -253,7 +253,7 @@ where
 
     /// Return an iterator over all edges of the graph with their weight in arbitrary order.
     pub fn all_edges(&self) -> impl ExactSizeIterator<Item = (Id, Id)> + '_ {
-        self.edges.iter().copied().map(Id::Pair::unpack)
+        self.edges.iter().copied().map(Id::Edge::unpack)
     }
 
     pub(crate) fn to_index(&self, ix: Id) -> usize {

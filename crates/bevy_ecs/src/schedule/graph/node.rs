@@ -52,8 +52,8 @@ impl NodeId {
 }
 
 impl GraphNodeId for NodeId {
-    type Pair = CompactNodeIdPair;
-    type Directed = CompactNodeIdAndDirection;
+    type Edge = CompactNodeIdPair;
+    type Neighbor = CompactNodeIdAndDirection;
 }
 
 /// Compact storage of a [`NodeId`] pair.
@@ -71,7 +71,7 @@ impl Debug for CompactNodeIdPair {
     }
 }
 
-impl GraphNodeIdPair<NodeId> for CompactNodeIdPair {
+impl GraphNodeEdge<NodeId> for CompactNodeIdPair {
     fn pack(a: NodeId, b: NodeId) -> Self {
         Self {
             index_a: a.index(),
@@ -108,7 +108,7 @@ impl Debug for CompactNodeIdAndDirection {
     }
 }
 
-impl DirectedGraphNodeId<NodeId> for CompactNodeIdAndDirection {
+impl GraphNodeNeighbor<NodeId> for CompactNodeIdAndDirection {
     fn pack(node: NodeId, dir: Direction) -> Self {
         Self {
             index: node.index(),
@@ -133,23 +133,23 @@ impl DirectedGraphNodeId<NodeId> for CompactNodeIdAndDirection {
 pub trait GraphNodeId: Copy + Eq + Ord + Debug + Hash {
     /// A pair of [`GraphNodeId`]s for storing edge information. Typically
     /// stored in a memory-efficient format.
-    type Pair: GraphNodeIdPair<Self>;
+    type Edge: GraphNodeEdge<Self>;
     /// A pair of [`GraphNodeId`] and [`Direction`] for storing neighbor
     /// information. Typically stored in a memory-efficient format.
-    type Directed: DirectedGraphNodeId<Self>;
+    type Neighbor: GraphNodeNeighbor<Self>;
 }
 
 /// A pair of [`GraphNodeId`]s for storing edge information. Typically stored in
 /// a memory-efficient format.
-pub trait GraphNodeIdPair<Id: GraphNodeId>: Copy + Eq + Hash {
-    /// Packs the given identifiers into a pair.
+pub trait GraphNodeEdge<Id: GraphNodeId>: Copy + Eq + Hash {
+    /// Packs the given nodes into an edge.
     fn pack(a: Id, b: Id) -> Self;
 
-    /// Unpacks this pair into two identifiers.
+    /// Unpacks this edge into two nodes.
     fn unpack(self) -> (Id, Id);
 }
 
-impl<Id: GraphNodeId> GraphNodeIdPair<Id> for (Id, Id) {
+impl<Id: GraphNodeId> GraphNodeEdge<Id> for (Id, Id) {
     fn pack(a: Id, b: Id) -> Self {
         (a, b)
     }
@@ -161,15 +161,15 @@ impl<Id: GraphNodeId> GraphNodeIdPair<Id> for (Id, Id) {
 
 /// A pair of [`GraphNodeId`] and [`Direction`] for storing neighbor
 /// information. Typically stored in a memory-efficient format.
-pub trait DirectedGraphNodeId<Id: GraphNodeId>: Copy + Debug {
-    /// Packs the given identifier and direction into a pair.
+pub trait GraphNodeNeighbor<Id: GraphNodeId>: Copy + Debug {
+    /// Packs the given identifier and direction into a neighbor.
     fn pack(node: Id, dir: Direction) -> Self;
 
-    /// Unpacks this pair into the identifier and direction.
+    /// Unpacks this neighbor into the identifier and direction.
     fn unpack(self) -> (Id, Direction);
 }
 
-impl<Id: GraphNodeId> DirectedGraphNodeId<Id> for (Id, Direction) {
+impl<Id: GraphNodeId> GraphNodeNeighbor<Id> for (Id, Direction) {
     fn pack(node: Id, dir: Direction) -> Self {
         (node, dir)
     }
