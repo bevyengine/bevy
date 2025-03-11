@@ -1,7 +1,8 @@
 #import bevy_render::view::View
 #import bevy_ui::ui_node::{
-    sd_rounded_box,
-    sd_inset_rounded_box,
+    draw_uinode_background,
+    draw_uinode_border,
+
 }
 
 const TEXTURED = 1u;
@@ -19,7 +20,7 @@ fn enabled(flags: u32, mask: u32) -> bool {
 
 @group(0) @binding(0) var<uniform> view: View;
 
-struct VertexOutput {
+struct GradientVertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) @interpolate(flat) size: vec2<f32>,
     @location(2) @interpolate(flat) flags: u32,
@@ -58,8 +59,8 @@ fn vertex(
     @location(11) @interpolate(flat) end_len: f32,
     @location(12) @interpolate(flat) end_color: vec4<f32>,
     @location(13) @interpolate(flat) hint: f32
-) -> VertexOutput {
-    var out: VertexOutput;
+) -> GradientVertexOutput {
+    var out: GradientVertexOutput;
     out.position = view.clip_from_world * vec4(vertex_position, 1.0);
     out.uv = vertex_uv;
     out.size = size;
@@ -78,63 +79,8 @@ fn vertex(
     return out;
 }
 
-
-
-
-// get alpha for antialiasing for sdf
-fn antialias(distance: f32) -> f32 {
-    // Using the fwidth(distance) was causing artifacts, so just use the distance.
-    return saturate(0.5 - distance);
-}
-
-fn draw(in: VertexOutput, color: vec4<f32>) -> vec4<f32> {    
-    // Signed distances. The magnitude is the distance of the point from the edge of the shape.
-    // * Negative values indicate that the point is inside the shape.
-    // * Zero values indicate the point is on the edge of the shape.
-    // * Positive values indicate the point is outside the shape.
-
-    // Signed distance from the exterior boundary.
-    let external_distance = sd_rounded_box(in.point, in.size, in.radius);
-
-    // Signed distance from the border's internal edge (the signed distance is negative if the point 
-    // is inside the rect but not on the border).
-    // If the border size is set to zero, this is the same as the external distance.
-    let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
-
-    // Signed distance from the border (the intersection of the rect with its border).
-    // Points inside the border have negative signed distance. Any point outside the border, whether 
-    // outside the outside edge, or inside the inner edge have positive signed distance.
-    let border_distance = max(external_distance, -internal_distance);
-
-#ifdef ANTI_ALIAS
-    // At external edges with no border, `border_distance` is equal to zero. 
-    // This select statement ensures we only perform anti-aliasing where a non-zero width border 
-    // is present, otherwise an outline about the external boundary would be drawn even without 
-    // a border.
-    let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
-#else
-    let t = 1.0 - step(0.0, border_distance);
-#endif
-
-    // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
-    return vec4(color.rgb, saturate(color.a * t));
-}
-
-fn draw_background(in: VertexOutput, color: vec4<f32>) -> vec4<f32> {
-    // When drawing the background only draw the internal area and not the border.
-    let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
-
-#ifdef ANTI_ALIAS
-    let t = antialias(internal_distance);
-#else
-    let t = 1.0 - step(0.0, internal_distance);
-#endif
-
-    return vec4(color.rgb, saturate(color.a * t));
-}
-
 @fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
     var g_distance: f32;
     if enabled(in.flags, RADIAL) {
         g_distance = radial_distance(in.point, in.g_start, in.dir.x);
@@ -155,9 +101,9 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     );
 
     if enabled(in.flags, BORDER) {
-        return draw(in, gradient_color);
+        return draw_uinode_border(gradient_color, in.point, in.size, in.radius, in.border);
     } else {
-        return draw_background(in, gradient_color);
+        return draw_uinode_background(gradient_color, in.point, in.size, in.radius, in.border);
     }
 }
 
@@ -225,6 +171,7 @@ fn interpolate_gradient(
     } else {
         t = 0.5 * (1 + (t - hint) / (1.0 - hint));
     }
+
     // Only color interpolation in SRGB space is supported atm.
-    return srgb_mix(start_color, end_color, t);
+    return mix_linear_rgb_in_srgb_space(start_color, end_color, t);
 }
