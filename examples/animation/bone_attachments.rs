@@ -1,4 +1,4 @@
-//! Shows attachting a model to another
+//! Shows attaching a model to another
 
 use std::f32::consts::PI;
 

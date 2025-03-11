@@ -1458,7 +1458,7 @@ required-features = [
 
 [package.metadata.example.bone_attachments]
 name = "Bone Attachments"
-description = "Shows attachting a model to another"
+description = "Shows attaching a model to another"
 category = "Animation"
 wasm = true
 
