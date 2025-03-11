@@ -9,7 +9,6 @@
 //! Also illustrates how to read morph target names in [`detect_morphs`].
 
 use crate::scene_viewer_plugin::SceneHandle;
-extern crate alloc;
 use bevy::prelude::*;
 use std::fmt;
 
