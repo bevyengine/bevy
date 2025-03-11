@@ -193,6 +193,9 @@ sysinfo_plugin = ["bevy_internal/sysinfo_plugin"]
 # Provides animation functionality
 bevy_animation = ["bevy_internal/bevy_animation", "bevy_color"]
 
+# Provides animation functionality
+bevy_bone_attachments = ["bevy_internal/bevy_bone_attachments"]
+
 # Provides asset functionality
 bevy_asset = ["bevy_internal/bevy_asset"]
 
@@ -1434,6 +1437,28 @@ doc-scrape-examples = true
 [package.metadata.example.animated_mesh_events]
 name = "Animated Mesh Events"
 description = "Plays an animation from a skinned glTF with events"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "bone_attachments"
+path = "examples/animation/bone_attachments.rs"
+doc-scrape-examples = true
+required-features = [
+  "std",
+  "animation",
+  "bevy_bone_attachments",
+  "bevy_gltf",
+  "bevy_window",
+  # Application crashes on exit if disabled 
+  "multi_threaded",
+  "png",
+  "tonemapping_luts",
+]
+
+[package.metadata.example.bone_attachments]
+name = "Bone Attachments"
+description = "Shows attachting a model to another"
 category = "Animation"
 wasm = true
 
