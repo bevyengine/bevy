@@ -682,7 +682,7 @@ pub fn prepare_gradient(
                     // Specify the corners of the node
                     let positions = QUAD_VERTEX_POSITIONS
                         .map(|pos| (gradient.transform * (pos * rect_size).extend(1.)).xyz());
-                    let points = QUAD_VERTEX_POSITIONS.map(|pos| pos.xy() * rect_size.xy());
+                    let corner_points = QUAD_VERTEX_POSITIONS.map(|pos| pos.xy() * rect_size.xy());
 
                     // Calculate the effect of clipping
                     // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
@@ -717,10 +717,10 @@ pub fn prepare_gradient(
                     ];
 
                     let points = [
-                        points[0] + positions_diff[0],
-                        points[1] + positions_diff[1],
-                        points[2] + positions_diff[2],
-                        points[3] + positions_diff[3],
+                        corner_points[0] + positions_diff[0],
+                        corner_points[1] + positions_diff[1],
+                        corner_points[2] + positions_diff[2],
+                        corner_points[3] + positions_diff[3],
                     ];
 
                     let transformed_rect_size = gradient.transform.transform_vector3(rect_size);
@@ -752,7 +752,7 @@ pub fn prepare_gradient(
                         ResolvedGradient::Linear { angle } => {
                             let angle = angle.rem_euclid(TAU);
                             (
-                                points[if angle < TAU / 4. {
+                                corner_points[if angle < TAU / 4. {
                                     3
                                 } else if angle < TAU / 2. {
                                     0
