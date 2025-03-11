@@ -87,7 +87,10 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::atomic::{AtomicPtr, AtomicU32, Ordering};
+use bevy_platform_support::sync::{
+    atomic::{AtomicPtr, AtomicU32, Ordering},
+    Arc,
+};
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
@@ -529,49 +532,97 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 
-struct RemoteEntitiesInner {
-    pending: SyncUnsafeCell<Vec<Entity>>,
-    pending_len: AtomicU32,
-    free_cursor: AtomicIdCursor,
-}
-
-impl RemoteEntitiesInner {
-    /// Balances out the pending list, returning the entities that have been reserved remotely.
+/// This allows remote entity reservation.
+pub struct RemoteEntities {
+    /// These are the previously freed entities that are pending being reused.
+    /// [`Self::next_pending_index`] determines which of these have been reused and need to be flusehd
+    /// and which remain pending.
     ///
     /// # Safety
     ///
-    /// `pending` must not include reserved entities and must be valid indicies into `meta`.
-    /// This **MUST** not be called concurrently.
-    unsafe fn balance_pending(&self, meta: &[EntityMeta], pending: &mut Vec<u32>) -> Vec<Entity> {
-        // sets this to zero AND returns the last value.
-        let remote_len = self.pending_len.fetch_and(0, Ordering::Relaxed) as usize;
-        // SAFETY: everyone thinks the length is zero and will not access it while it's being changed.
-        let remote = unsafe { &mut *(self.pending.get()) };
-        // removes any reserved items from the pending list.
-        let reserved = remote.drain(remote_len..).collect();
-        let new_len = (pending.len() + remote.len()) / 2;
+    /// This must only be accessed via atomic operations.
+    pending: SyncUnsafeCell<Vec<Entity>>,
+    /// This is the prospective length of [`Entities::meta`].
+    /// This is the source of truth.
+    meta_len: AtomicU32,
+    /// This is the index in [`Self::pending`] of the next entity to reuse.
+    /// If this is negative, we are unable to reuse any entity.
+    next_pending_index: AtomicIdCursor,
+}
 
-        if new_len > remote_len {
-            let additional = new_len - remote_len;
-            remote.reserve(additional);
-            let fetch_from = pending.len() - additional;
-            for index in pending.drain(fetch_from..) {
-                // SAFETY: This is from `pending` which we know is valid.
-                let generation = unsafe { meta.get_unchecked(index as usize).generation };
-                remote.push(Entity::from_raw_and_generation(index, generation));
-            }
-        } else {
-            for entity in remote.drain(new_len..) {
-                pending.push(entity.index);
+impl RemoteEntities {
+    fn pending(&self) -> AtomicPtr<Vec<Entity>> {
+        AtomicPtr::new(self.pending.get())
+    }
+
+    /// Flushes pending entities that have been reused.
+    /// This balances the freed and pending list.
+    ///
+    /// # Safety
+    ///
+    /// This **MUST** not be called concurrently.
+    /// All entities must have valid indices in `meta`.
+    #[inline]
+    unsafe fn flush_pending(
+        &self,
+        meta: &mut [EntityMeta],
+        other_pending: &mut Vec<Entity>,
+        mut needs_init: impl FnMut(Entity, &EntityMeta) -> bool,
+        mut init: impl FnMut(Entity, &mut EntityLocation),
+    ) {
+        // disable pending use
+        let next_pending_index = self.next_pending_index.swap(-1, Ordering::Relaxed);
+        // SAFETY: we just told all the remote entities that the next index is -1, so nothing will access this while modifying.
+        let pending = unsafe { &mut *(self.pending().load(Ordering::Relaxed)) };
+
+        // flush pending
+        let new_pending_len = (next_pending_index + 1).max(0) as u32;
+        for reused in pending.drain(new_pending_len as usize..) {
+            // SAFETY: The pending list is known to be valid.
+            let meta = unsafe { meta.get_unchecked_mut(reused.index() as usize) };
+            if needs_init(reused, meta) {
+                init(reused, &mut meta.location);
             }
         }
 
-        // store the updated values atomicaly. We can't use the *mut directly since it may leave some CPU cache invalid.
-        let atomic_remote = AtomicPtr::new(self.pending.get());
-        atomic_remote.store(remote, Ordering::Relaxed);
-        self.pending_len.store(new_len as u32, Ordering::Relaxed);
+        // balance pending
+        let balanced_len = (new_pending_len as usize + other_pending.len()) / 2;
+        if balanced_len < other_pending.len() {
+            pending.extend(other_pending.drain(balanced_len..));
+        } else {
+            let diff = other_pending.len() - balanced_len;
+            let start = pending.len() - diff;
+            other_pending.extend(pending.drain(start..));
+        }
 
-        reserved
+        // re-enable pending use
+        let next_pending_index = pending.len() as IdCursor - 1;
+        self.pending().store(pending, Ordering::Relaxed);
+        self.next_pending_index
+            .store(next_pending_index, Ordering::Relaxed);
+    }
+
+    /// Flushes the entities that have been extended onto meta directly.
+    /// These are the new entities, the ones not reused.
+    #[inline]
+    fn flush_extended(
+        &self,
+        meta: &mut Vec<EntityMeta>,
+        mut init: impl FnMut(Entity, &mut EntityLocation),
+    ) {
+        let theoretical_len = self.meta_len.load(Ordering::Relaxed);
+        let meta_len = meta.len();
+        debug_assert!(meta.len() <= theoretical_len as usize);
+        meta.resize(theoretical_len as usize, EntityMeta::EMPTY);
+
+        // we do not initialize indices already in meta, since that must have been done by whatever added it.
+        for index in (meta_len as u32)..theoretical_len {
+            // SAFETY: We just extended the list for these
+            let meta = unsafe { meta.get_unchecked_mut(index as usize) };
+            let entity = Entity::from_raw_and_generation(index, meta.generation);
+            // we know this needs initializing since we just created it.
+            init(entity, &mut meta.location);
+        }
     }
 }
 
@@ -583,60 +634,25 @@ impl RemoteEntitiesInner {
 ///  - The location of the entity's components in memory (via [`EntityLocation`])
 ///
 /// [`World`]: crate::world::World
-#[derive(Debug)]
 pub struct Entities {
+    /// Stores information about entities that have been used.
     meta: Vec<EntityMeta>,
-
-    /// The `pending` and `free_cursor` fields describe three sets of Entity IDs
-    /// that have been freed or are in the process of being allocated:
-    ///
-    /// - The `freelist` IDs, previously freed by `free()`. These IDs are available to any of
-    ///   [`alloc`], [`reserve_entity`] or [`reserve_entities`]. Allocation will always prefer
-    ///   these over brand new IDs.
-    ///
-    /// - The `reserved` list of IDs that were once in the freelist, but got reserved by
-    ///   [`reserve_entities`] or [`reserve_entity`]. They are now waiting for [`flush`] to make them
-    ///   fully allocated.
-    ///
-    /// - The count of new IDs that do not yet exist in `self.meta`, but which we have handed out
-    ///   and reserved. [`flush`] will allocate room for them in `self.meta`.
-    ///
-    /// The contents of `pending` look like this:
-    ///
-    /// ```txt
-    /// ----------------------------
-    /// |  freelist  |  reserved   |
-    /// ----------------------------
-    ///              ^             ^
-    ///          free_cursor   pending.len()
-    /// ```
-    ///
-    /// As IDs are allocated, `free_cursor` is atomically decremented, moving
-    /// items from the freelist into the reserved list by sliding over the boundary.
-    ///
-    /// Once the freelist runs out, `free_cursor` starts going negative.
-    /// The more negative it is, the more IDs have been reserved starting exactly at
-    /// the end of `meta.len()`.
-    ///
-    /// This formulation allows us to reserve any number of IDs first from the freelist
-    /// and then from the new IDs, using only a single atomic subtract.
-    ///
-    /// Once [`flush`] is done, `free_cursor` will equal `pending.len()`.
-    ///
-    /// [`alloc`]: Entities::alloc
-    /// [`reserve_entity`]: Entities::reserve_entity
-    /// [`reserve_entities`]: Entities::reserve_entities
-    /// [`flush`]: Entities::flush
-    pending: Vec<u32>,
-    free_cursor: AtomicIdCursor,
+    /// These are entities that are pending reuse locally.
+    pending: Vec<Entity>,
+    /// This handles reserving entities
+    reservations: Arc<RemoteEntities>,
 }
 
 impl Entities {
-    pub(crate) const fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Entities {
             meta: Vec::new(),
             pending: Vec::new(),
-            free_cursor: AtomicIdCursor::new(0),
+            reservations: Arc::new(RemoteEntities {
+                pending: SyncUnsafeCell::default(),
+                meta_len: AtomicU32::new(0),
+                next_pending_index: AtomicIdCursor::new(-1),
+            }),
         }
     }
 
