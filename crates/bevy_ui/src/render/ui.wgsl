@@ -189,8 +189,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
 
     if enabled(in.flags, BORDER) {
-        return draw_uinode_border(in.color, in.point, in.size, in.radius, in.border);
+        return draw_uinode_border(color, in.point, in.size, in.radius, in.border);
     } else {
-        return draw_uinode_background(in.color, in.point, in.size, in.radius, in.border);
+        return draw_uinode_background(color, in.point, in.size, in.radius, in.border);
     }
 }
