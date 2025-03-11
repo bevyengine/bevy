@@ -590,7 +590,7 @@ impl RemoteEntities {
         // balance pending
         let balanced_len = (new_pending_len as usize + owned.len()) / 2;
         if balanced_len < owned.len() {
-            pending.extend(owned.drain(balanced_len..).map(|entity| {
+            pending.extend(owned.drain(balanced_len..).inspect(|entity| {
                 // SAFETY: The pending list is known to be valid.
                 let meta = unsafe { meta.get_unchecked_mut(entity.index() as usize) };
                 if *meta == EntityMeta::EMPTY_AND_SKIP_FLUSH {
@@ -598,12 +598,11 @@ impl RemoteEntities {
                     // This may be changed if it is reserved for allocation.
                     *meta = EntityMeta::EMPTY;
                 }
-                entity
             }));
         } else {
             let diff = owned.len() - balanced_len;
             let start = pending.len() - diff;
-            owned.extend(pending.drain(start..).map(|entity| {
+            owned.extend(pending.drain(start..).inspect(|entity| {
                 // SAFETY: The pending list is known to be valid.
                 let meta = unsafe { meta.get_unchecked_mut(entity.index() as usize) };
                 if *meta == EntityMeta::EMPTY {
@@ -611,7 +610,6 @@ impl RemoteEntities {
                     // Owned entities are owned by [`Entities`], and should not be flushed here.
                     *meta = EntityMeta::EMPTY_AND_SKIP_FLUSH;
                 }
-                entity
             }));
         }
 
@@ -826,24 +824,24 @@ impl Entities {
     ///
     /// Returns the location of the entity currently using the given ID, if any. Location should be
     /// written immediately.
+    ///
+    /// **NOTE:** This will return incorrect results if remote reservations are made at the same time.
     #[deprecated(
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
     pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
-        self.verify_flushed();
-
         let loc = if entity.index() as usize >= self.meta.len() {
-            self.pending
-                .extend((self.meta.len() as u32)..entity.index());
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
+            self.owned
+                .extend(((self.meta.len() as u32)..entity.index()).map(Entity::from_raw));
             self.meta
                 .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
             None
-        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
-            self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
+        } else if let Some(index) = self
+            .owned
+            .iter()
+            .position(|owned| owned.index() == entity.index())
+        {
+            self.owned.swap_remove(index);
             None
         } else {
             Some(mem::replace(
@@ -860,6 +858,8 @@ impl Entities {
     /// Allocate a specific entity ID, overwriting its generation.
     ///
     /// Returns the location of the entity currently using the given ID, if any.
+    ///
+    /// **NOTE:** This will return incorrect results if remote reservations are made at the same time.
     #[deprecated(
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
@@ -871,20 +871,18 @@ impl Entities {
         &mut self,
         entity: Entity,
     ) -> AllocAtWithoutReplacement {
-        self.verify_flushed();
-
         let result = if entity.index() as usize >= self.meta.len() {
-            self.pending
-                .extend((self.meta.len() as u32)..entity.index());
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
+            self.owned
+                .extend(((self.meta.len() as u32)..entity.index()).map(Entity::from_raw));
             self.meta
                 .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
             AllocAtWithoutReplacement::DidNotExist
-        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
-            self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
+        } else if let Some(index) = self
+            .owned
+            .iter()
+            .position(|owned| owned.index() == entity.index())
+        {
+            self.owned.swap_remove(index);
             AllocAtWithoutReplacement::DidNotExist
         } else {
             let current_meta = &self.meta[entity.index() as usize];
