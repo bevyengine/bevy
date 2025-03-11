@@ -1017,7 +1017,8 @@ pub fn advance_animations(
                     if !active_animation.paused {
                         if let AnimationNodeType::Clip(ref clip_handle) = node.node_type {
                             if let Some(clip) = animation_clips.get(clip_handle) {
-                                active_animation.set_clip_duration(clip.duration).update(delta_seconds);
+                                active_animation.set_clip_duration(clip.duration);
+                                active_animation.update(delta_seconds);
                             }
                         }
                     }
