@@ -13,11 +13,13 @@ use bevy_asset::{
 };
 use bevy_color::{Color, LinearRgba};
 use bevy_core_pipeline::prelude::Camera3d;
+#[cfg(feature = "bevy_animation")]
+use bevy_ecs::world::EntityWorldMut;
 use bevy_ecs::{
     entity::{hash_map::EntityHashMap, Entity},
     hierarchy::ChildSpawner,
     name::Name,
-    world::{EntityWorldMut, World},
+    world::World,
 };
 use bevy_image::{
     CompressedImageFormats, Image, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
@@ -66,6 +68,8 @@ use crate::{
     GltfMaterialName, GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
+#[cfg(feature = "bevy_animation")]
+use self::gltf_ext::scene::collect_path;
 use self::{
     extensions::{AnisotropyExtension, ClearcoatExtension, SpecularExtension},
     gltf_ext::{
@@ -75,7 +79,7 @@ use self::{
             warn_on_differing_texture_transforms,
         },
         mesh::{primitive_name, primitive_topology},
-        scene::{collect_path, node_name, node_transform},
+        scene::{node_name, node_transform},
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
 };
@@ -1762,6 +1766,7 @@ enum AnimationContext {
     },
 }
 
+#[cfg(feature = "bevy_animation")]
 impl AnimationContext {
     fn push_name(&mut self, name: Name) {
         let path = match self {
