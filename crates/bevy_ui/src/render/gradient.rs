@@ -268,6 +268,86 @@ pub struct ExtractedGradients {
 #[derive(Resource, Default)]
 pub struct ExtractedColorStops(pub Vec<(LinearRgba, f32, f32)>);
 
+// Interpolate implicit stops (where position is `f32::NAN`)
+// If the first and last stops are implicit set them to the `min` and `max` values
+// so that we always have explicit start and end points to interpolate between.
+fn interpolate_color_stops(stops: &mut [(LinearRgba, f32, f32)], min: f32, max: f32) {
+    if stops[0].1.is_nan() {
+        stops[0].1 = min;
+    }
+    if stops.last().unwrap().1.is_nan() {
+        stops.last_mut().unwrap().1 = max;
+    }
+
+    let mut i = 1;
+
+    while i < stops.len() - 1 {
+        let point = stops[i].1;
+        if point.is_nan() {
+            let start = i;
+            let mut end = i + 1;
+            while end < stops.len() - 1 && stops[end].1.is_nan() {
+                end += 1;
+            }
+            let start_point = stops[start - 1].1;
+            let end_point = stops[end].1;
+            let steps = end - start;
+            let step = (end_point - start_point) / (steps + 1) as f32;
+            for j in 0..steps {
+                stops[i + j].1 = start_point + step * (j + 1) as f32;
+            }
+            i = end;
+        }
+        i += 1;
+    }
+}
+
+fn compute_color_stops(
+    stops: &[ColorStop],
+    scale_factor: f32,
+    length: f32,
+    target_size: Vec2,
+    scratch: &mut Vec<(LinearRgba, f32, f32)>,
+    extracted_color_stops: &mut Vec<(LinearRgba, f32, f32)>,
+) {
+    // resolve the physical distances of explicit stops and sort them
+    scratch.extend(stops.iter().filter_map(|stop| {
+        stop.point
+            .resolve(scale_factor, length, target_size)
+            .ok()
+            .map(|physical_point| (stop.color.to_linear(), physical_point, stop.hint))
+    }));
+    scratch.sort_by_key(|(_, point, _)| FloatOrd(*point));
+
+    let min = scratch
+        .first()
+        .map(|(_, min, _)| *min)
+        .unwrap_or(0.)
+        .min(0.);
+
+    // get the position of the last explicit stop and use the full length of the gradient if no explicit stops
+    let max = scratch
+        .last()
+        .map(|(_, max, _)| *max)
+        .unwrap_or(length)
+        .max(length);
+
+    let mut sorted_stops_drain = scratch.drain(..);
+
+    let range_start = extracted_color_stops.len();
+
+    // Fill the extracted color stops buffer
+    extracted_color_stops.extend(stops.iter().map(|stop| {
+        if stop.point == Val::Auto {
+            (stop.color.to_linear(), f32::NAN, stop.hint)
+        } else {
+            sorted_stops_drain.next().unwrap()
+        }
+    }));
+
+    interpolate_color_stops(&mut extracted_color_stops[range_start..], min, max);
+}
+
 pub fn extract_gradients(
     mut commands: Commands,
     mut extracted_gradients: ResMut<ExtractedGradients>,
@@ -351,78 +431,14 @@ pub fn extract_gradients(
 
                         let range_start = extracted_color_stops.0.len();
 
-                        // resolve the physical distances of explicit stops and sort them
-                        sorted_stops.extend(stops.iter().filter_map(|stop| {
-                            stop.point
-                                .resolve(
-                                    target.scale_factor,
-                                    length,
-                                    target.physical_size.as_vec2(),
-                                )
-                                .ok()
-                                .map(|physical_point| {
-                                    (stop.color.to_linear(), physical_point, stop.hint)
-                                })
-                        }));
-                        sorted_stops.sort_by_key(|(_, point, _)| FloatOrd(*point));
-
-                        let min = sorted_stops
-                            .first()
-                            .map(|(_, min, _)| *min)
-                            .unwrap_or(0.)
-                            .min(0.);
-
-                        // get the position of the last explicit stop and use the full length of the gradient if no explicit stops
-                        let max = sorted_stops
-                            .last()
-                            .map(|(_, max, _)| *max)
-                            .unwrap_or(length)
-                            .max(length);
-
-                        let mut sorted_stops_drain = sorted_stops.drain(..);
-
-                        // Fill the extracted color stops buffer
-                        extracted_color_stops.0.extend(stops.iter().map(|stop| {
-                            if stop.point == Val::Auto {
-                                (stop.color.to_linear(), f32::NAN, stop.hint)
-                            } else {
-                                sorted_stops_drain.next().unwrap()
-                            }
-                        }));
-
-                        let stops_out = &mut extracted_color_stops.0[range_start..];
-
-                        // Interpolate implicit stops (where position is `f32::NAN`)
-                        // If the first and last stops are implicit set them to the `min` and `max` values
-                        // so that we always have explicit start and end points to interpolate between.
-                        if stops_out[0].1.is_nan() {
-                            stops_out[0].1 = min;
-                        }
-                        if stops_out.last().unwrap().1.is_nan() {
-                            stops_out.last_mut().unwrap().1 = max;
-                        }
-
-                        let mut i = 1;
-
-                        while i < stops_out.len() - 1 {
-                            let point = stops_out[i].1;
-                            if point.is_nan() {
-                                let start = i;
-                                let mut end = i + 1;
-                                while end < stops_out.len() - 1 && stops_out[end].1.is_nan() {
-                                    end += 1;
-                                }
-                                let start_point = stops_out[start - 1].1;
-                                let end_point = stops_out[end].1;
-                                let steps = end - start;
-                                let step = (end_point - start_point) / (steps + 1) as f32;
-                                for j in 0..steps {
-                                    stops_out[i + j].1 = start_point + step * (j + 1) as f32;
-                                }
-                                i = end;
-                            }
-                            i += 1;
-                        }
+                        compute_color_stops(
+                            stops,
+                            target.scale_factor,
+                            length,
+                            target.physical_size.as_vec2(),
+                            &mut sorted_stops,
+                            &mut extracted_color_stops.0,
+                        );
 
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -463,77 +479,14 @@ pub fn extract_gradients(
                         let length = size.x;
 
                         let range_start = extracted_color_stops.0.len();
-
-                        // resolve the physical distances of explicit stops and sort them high to low
-                        sorted_stops.extend(stops.iter().filter_map(|stop| {
-                            stop.point
-                                .resolve(
-                                    target.scale_factor,
-                                    length,
-                                    target.physical_size.as_vec2(),
-                                )
-                                .ok()
-                                .map(|point| (stop.color.to_linear(), point, stop.hint))
-                        }));
-                        sorted_stops.sort_by_key(|(_, point, _)| FloatOrd(*point));
-
-                        let min = sorted_stops
-                            .first()
-                            .map(|(_, min, _)| *min)
-                            .unwrap_or(0.)
-                            .min(0.);
-
-                        // get the position of the last explicit stop and use the full length of the gradient if no explicit stops
-                        let max = sorted_stops
-                            .last()
-                            .map(|(_, max, _)| *max)
-                            .unwrap_or(length)
-                            .max(length);
-
-                        let mut sorted_stops_drain = sorted_stops.drain(..);
-
-                        // Fill the extracted color stops buffer
-                        extracted_color_stops.0.extend(stops.iter().map(|stop| {
-                            if stop.point == Val::Auto {
-                                (stop.color.to_linear(), f32::NAN, stop.hint)
-                            } else {
-                                sorted_stops_drain.next().unwrap()
-                            }
-                        }));
-
-                        let stops_out = &mut extracted_color_stops.0[range_start..];
-
-                        // Interpolate implicit stops (where position is `f32::NAN`)
-                        // If the first and last stops are implicit set them to the `min` and `max` values
-                        // so that we always have explicit start and end points to interpolate between.
-                        if stops_out[0].1.is_nan() {
-                            stops_out[0].1 = min;
-                        }
-                        if stops_out.last().unwrap().1.is_nan() {
-                            stops_out.last_mut().unwrap().1 = max;
-                        }
-
-                        let mut i = 1;
-
-                        while i < stops_out.len() - 1 {
-                            let point = stops_out[i].1;
-                            if point.is_nan() {
-                                let start = i;
-                                let mut end = i + 1;
-                                while end < stops_out.len() - 1 && stops_out[end].1.is_nan() {
-                                    end += 1;
-                                }
-                                let start_point = stops_out[start - 1].1;
-                                let end_point = stops_out[end].1;
-                                let steps = end - start;
-                                let step = (end_point - start_point) / (steps + 1) as f32;
-                                for j in 0..steps {
-                                    stops_out[i + j].1 = start_point + step * (j + 1) as f32;
-                                }
-                                i = end;
-                            }
-                            i += 1;
-                        }
+                        compute_color_stops(
+                            stops,
+                            target.scale_factor,
+                            length,
+                            target.physical_size.as_vec2(),
+                            &mut sorted_stops,
+                            &mut extracted_color_stops.0,
+                        );
 
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -581,37 +534,11 @@ pub fn extract_gradients(
                             }
                         }));
 
-                        // interpolation
-                        let stops_out = &mut extracted_color_stops.0[range_start..];
-
-                        if stops_out[0].1.is_nan() {
-                            stops_out[0].1 = 0.;
-                        }
-                        if stops_out.last().unwrap().1.is_nan() {
-                            stops_out.last_mut().unwrap().1 = TAU;
-                        }
-
-                        let mut i = 1;
-
-                        while i < stops_out.len() - 1 {
-                            let point = stops_out[i].1;
-                            if point.is_nan() {
-                                let start = i;
-                                let mut end = i + 1;
-                                while end < stops_out.len() - 1 && stops_out[end].1.is_nan() {
-                                    end += 1;
-                                }
-                                let start_point = stops_out[start - 1].1;
-                                let end_point = stops_out[end].1;
-                                let steps = end - start;
-                                let step = (end_point - start_point) / (steps + 1) as f32;
-                                for j in 0..steps {
-                                    stops_out[i + j].1 = start_point + step * (j + 1) as f32;
-                                }
-                                i = end;
-                            }
-                            i += 1;
-                        }
+                        interpolate_color_stops(
+                            &mut extracted_color_stops.0[range_start..],
+                            0.,
+                            TAU,
+                        );
 
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
