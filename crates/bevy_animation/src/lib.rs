@@ -520,7 +520,7 @@ impl ActiveAnimation {
     /// Update the animation given the delta time.
     #[inline]
     pub fn update(&mut self, delta: f32) {
-        let Some(clip_duration) = self.clip_duration.is_none() else {
+        let Some(clip_duration) = self.clip_duration else {
             return;
         };
         self.just_completed = false;
