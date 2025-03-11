@@ -1085,6 +1085,12 @@ impl Entities {
 
         if meta.location.archetype_id == ArchetypeId::INVALID {
             meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, generations);
+            if let Some(owned) = self.owned.iter().position(|owned| owned.index() == index) {
+                // SAFETY: We just found it so the index is valid.
+                unsafe {
+                    self.owned.get_unchecked_mut(owned).generation = meta.generation;
+                }
+            }
             true
         } else {
             false
