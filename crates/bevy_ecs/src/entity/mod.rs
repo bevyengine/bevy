@@ -607,19 +607,33 @@ impl RemoteEntities {
     fn flush_extended(
         &self,
         meta: &mut Vec<EntityMeta>,
+        meta_flushed_up_to: &mut u32,
+        mut needs_init: impl FnMut(Entity, &EntityMeta) -> bool,
         mut init: impl FnMut(Entity, &mut EntityLocation),
     ) {
+        // prep
         let theoretical_len = self.meta_len.load(Ordering::Relaxed);
-        let meta_len = meta.len();
-        debug_assert!(meta.len() <= theoretical_len as usize);
-        meta.resize(theoretical_len as usize, EntityMeta::EMPTY);
+        let meta_len = meta.len() as u32;
+        debug_assert!(meta_len <= theoretical_len);
 
-        // we do not initialize indices already in meta, since that must have been done by whatever added it.
-        for index in (meta_len as u32)..theoretical_len {
+        // flush those we missed
+        for index in *meta_flushed_up_to..meta_len {
+            // SAFETY: The pending list is known to be valid.
+            let meta = unsafe { meta.get_unchecked_mut(index as usize) };
+            let entity = Entity::from_raw_and_generation(index, meta.generation);
+            if needs_init(entity, meta) {
+                init(entity, &mut meta.location);
+            }
+        }
+        *meta_flushed_up_to = meta_len;
+
+        // flush those that do not exist yet.
+        meta.resize(theoretical_len as usize, EntityMeta::EMPTY);
+        for index in meta_len..theoretical_len {
             // SAFETY: We just extended the list for these
             let meta = unsafe { meta.get_unchecked_mut(index as usize) };
             let entity = Entity::from_raw_and_generation(index, meta.generation);
-            // we know this needs initializing since we just created it.
+            // we know this needs initializing since we just created it, so we skip `needs_init`.
             init(entity, &mut meta.location);
         }
     }
@@ -698,22 +712,34 @@ impl RemoteEntities {
 pub struct Entities {
     /// Stores information about entities that have been used.
     meta: Vec<EntityMeta>,
+    /// This is the length of [`Self::meta`] the last time it was flushed.
+    /// Entities before this have been flushed once already, but
+    /// they have been freed/pending since, requiring another flush.
+    meta_flushed_up_to: u32,
     /// These are entities that are pending reuse locally.
     pending: Vec<Entity>,
+    /// These are reserved for calls to [`Self::alloc`].
+    reserved_for_alloc: Vec<Entity>,
     /// This handles reserving entities
     reservations: Arc<RemoteEntities>,
+    /// This is the number of reservations we make to populate [`reserved_for_alloc`] as needed.
+    allocation_reservation_size: NonZero<u32>,
 }
 
 impl Entities {
     pub(crate) fn new() -> Self {
         Entities {
             meta: Vec::new(),
+            meta_flushed_up_to: 0,
             pending: Vec::new(),
+            reserved_for_alloc: Vec::new(),
             reservations: Arc::new(RemoteEntities {
                 pending: SyncUnsafeCell::default(),
                 meta_len: AtomicU32::new(0),
                 next_pending_index: AtomicIdCursor::new(-1),
             }),
+            // SAFETY: 256 > 0
+            allocation_reservation_size: unsafe { NonZero::new_unchecked(256) },
         }
     }
 
