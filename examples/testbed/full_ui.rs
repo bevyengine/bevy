@@ -171,10 +171,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         flex_direction: FlexDirection::Column,
                                         ..Default::default()
                                     },
-                                    BackgroundGradient(vec![Gradient::linear_to_bottom(vec![
+                                    BackgroundGradient::from(LinearGradient::to_bottom(vec![
                                         ColorStop::auto(NAVY),
                                         ColorStop::auto(Color::BLACK),
-                                    ])]),
+                                    ])),
                                     Pickable {
                                         should_block_lower: false,
                                         ..Default::default()

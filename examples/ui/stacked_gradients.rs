@@ -32,15 +32,17 @@ fn setup(mut commands: Commands) {
                 },
                 BackgroundColor(Color::BLACK),
                 BackgroundGradient(vec![
-                    Gradient::linear_to_top_right(vec![
+                    LinearGradient::to_top_right(vec![
                         ColorStop::auto(RED),
                         ColorStop::auto(RED.with_alpha(0.)),
-                    ]),
-                    Gradient::linear_to_top_left(vec![
+                    ])
+                    .into(),
+                    LinearGradient::to_top_left(vec![
                         ColorStop::auto(BLUE),
                         ColorStop::auto(BLUE.with_alpha(0.)),
-                    ]),
-                    Gradient::Conic {
+                    ])
+                    .into(),
+                    ConicGradient {
                         position: Position::CENTER,
                         stops: vec![
                             AngularColorStop::auto(YELLOW.with_alpha(0.)),
@@ -49,8 +51,9 @@ fn setup(mut commands: Commands) {
                             AngularColorStop::auto(YELLOW.with_alpha(0.)),
                             AngularColorStop::auto(YELLOW.with_alpha(0.)),
                         ],
-                    },
-                    Gradient::Radial {
+                    }
+                    .into(),
+                    RadialGradient {
                         position: Position::Top(Val::ZERO, Val::Percent(5.)),
                         shape: RadialGradientShape::Circle(Val::Vh(30.)),
                         stops: vec![
@@ -59,21 +62,24 @@ fn setup(mut commands: Commands) {
                             ColorStop::auto(YELLOW.with_alpha(0.1)),
                             ColorStop::auto(YELLOW.with_alpha(0.)),
                         ],
-                    },
-                    Gradient::Linear {
+                    }
+                    .into(),
+                    LinearGradient {
                         angle: TAU / 16.,
                         stops: vec![
                             ColorStop::auto(Color::BLACK),
                             ColorStop::auto(Color::BLACK.with_alpha(0.)),
                         ],
-                    },
-                    Gradient::Linear {
+                    }
+                    .into(),
+                    LinearGradient {
                         angle: 15. * TAU / 16.,
                         stops: vec![
                             ColorStop::auto(Color::BLACK),
                             ColorStop::auto(Color::BLACK.with_alpha(0.)),
                         ],
-                    },
+                    }
+                    .into(),
                 ]),
             ));
         });

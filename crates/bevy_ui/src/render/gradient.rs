@@ -426,7 +426,7 @@ pub fn extract_gradients(
                     continue;
                 }
                 match gradient {
-                    Gradient::Linear { angle, stops } => {
+                    Gradient::Linear(LinearGradient { angle, stops }) => {
                         let length = compute_gradient_line_length(*angle, uinode.size);
 
                         let range_start = extracted_color_stops.0.len();
@@ -458,11 +458,11 @@ pub fn extract_gradients(
                             resolved_gradient: ResolvedGradient::Linear { angle: *angle },
                         });
                     }
-                    Gradient::Radial {
+                    Gradient::Radial(RadialGradient {
                         position: center,
                         shape,
                         stops,
-                    } => {
+                    }) => {
                         let c = center.resolve(
                             target.scale_factor,
                             uinode.size,
@@ -506,10 +506,10 @@ pub fn extract_gradients(
                             resolved_gradient: ResolvedGradient::Radial { center: c, size },
                         });
                     }
-                    Gradient::Conic {
+                    Gradient::Conic(ConicGradient {
                         position: center,
                         stops,
-                    } => {
+                    }) => {
                         let g_start = center.resolve(
                             target.scale_factor,
                             uinode.size,
