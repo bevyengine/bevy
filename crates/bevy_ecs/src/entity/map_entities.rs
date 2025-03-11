@@ -86,7 +86,7 @@ impl<T: VisitEntitiesMut> MapEntities for T {
 ///     fn get_mapped(&mut self, entity: Entity) -> Entity {
 ///         self.map.get(&entity).copied().unwrap_or(entity)
 ///     }
-///     
+///
 ///     fn set_mapped(&mut self, source: Entity, target: Entity) {
 ///         self.map.insert(source, target);
 ///     }
@@ -301,7 +301,7 @@ mod tests {
         let mut world = World::new();
         // "Dirty" the `Entities`, requiring a flush afterward.
         world.entities.reserve_entity();
-        assert!(world.entities.needs_flush());
+        assert!(world.entities.worth_flushing());
 
         // Create and exercise a SceneEntityMapper - should not panic because it flushes
         // `Entities` first.
@@ -310,6 +310,6 @@ mod tests {
         });
 
         // The SceneEntityMapper should leave `Entities` in a flushed state.
-        assert!(!world.entities.needs_flush());
+        assert!(!world.entities.worth_flushing());
     }
 }

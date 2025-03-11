@@ -539,7 +539,7 @@ pub struct RemoteEntities {
     ///
     /// # Safety
     ///
-    /// This must only be accessed via atomic operations.
+    /// The slice must only be accessed via atomic operations.
     pending: SyncUnsafeCell<Vec<Entity>>,
     /// This is the prospective length of [`Entities::meta`].
     /// This is the source of truth.
@@ -671,6 +671,20 @@ impl RemoteEntities {
         self.meta_len.store(0, Ordering::Relaxed);
     }
 
+    /// Returns true if it is worth flushing.
+    ///
+    /// This will return true even if another thread is actively flushing it.
+    pub fn worth_flushing(&self) -> bool {
+        // SAFETY: Even though we are loading this when it could be being flushed,
+        // we are only checking the length, not the slice.
+        let pending_len = unsafe {
+            let pending = self.pending().load(Ordering::Relaxed);
+            (*pending).len()
+        };
+        let next_pending_index = self.next_pending_index.load(Ordering::Relaxed);
+        pending_len as IdCursor != next_pending_index
+    }
+
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
@@ -700,7 +714,9 @@ impl RemoteEntities {
         let num_extended = count - num_reused;
         let new_indices = if num_extended > 0 {
             let prev_len = self.meta_len.fetch_add(num_extended, Ordering::Relaxed);
-            let new_len = u32::try_from(prev_len + num_extended).expect("too many entities");
+            let new_len = prev_len
+                .checked_add(num_extended)
+                .expect("too many entities");
             prev_len..new_len
         } else {
             0..0
@@ -727,7 +743,7 @@ impl RemoteEntities {
             *reserved
         } else {
             let prev_len = self.meta_len.fetch_add(1, Ordering::Relaxed);
-            let _new_len = u32::try_from(prev_len + 1).expect("too many entities");
+            let _new_len = prev_len.checked_add(1).expect("too many entities");
             let index = prev_len;
             Entity::from_raw(index)
         }
@@ -758,6 +774,14 @@ pub struct Entities {
     allocation_reservation_size: NonZero<u32>,
 }
 
+impl core::ops::Deref for Entities {
+    type Target = RemoteEntities;
+
+    fn deref(&self) -> &Self::Target {
+        self.reservations.deref()
+    }
+}
+
 impl Entities {
     pub(crate) fn new() -> Self {
         Entities {
@@ -772,20 +796,6 @@ impl Entities {
             // SAFETY: 256 > 0
             allocation_reservation_size: unsafe { NonZero::new_unchecked(256) },
         }
-    }
-
-    /// Reserve entity IDs concurrently.
-    ///
-    /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
-    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
-        self.reservations.reserve_entities(count)
-    }
-
-    /// Reserve one entity ID concurrently.
-    ///
-    /// Equivalent to `self.reserve_entities(1).next().unwrap()`, but more efficient.
-    pub fn reserve_entity(&self) -> Entity {
-        self.reservations.reserve_entity()
     }
 
     /// Allocate an entity ID directly.
@@ -1123,7 +1133,7 @@ impl Entities {
             .load(Ordering::Relaxed)
             .max(-1)
             + 1;
-        ever_allocated as u32 - owned as u32 - pending as u32
+        ever_allocated - owned as u32 - pending as u32
     }
 
     /// Checks if any entity is currently active.
