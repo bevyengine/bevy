@@ -9,7 +9,6 @@ use bevy_ecs::{
     prelude::{Commands, EventReader, IntoScheduleConfigs, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
     system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
-
     world::{FromWorld, Mut},
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
