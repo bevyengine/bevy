@@ -1014,7 +1014,7 @@ impl Entities {
         Some(loc)
     }
 
-    /// Ensure at least `n` allocations can succeed without reallocating.
+    /// Ensure at least `additional` allocations can succeed without reallocating.
     pub fn reserve(&mut self, additional: u32) {
         // This may reserve more space than needed since we do not account for [`EntityReservations::pending`].
         // This does not check for "too many entities" because that happens during reservation.
@@ -1111,8 +1111,8 @@ impl Entities {
         }
     }
 
-    /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
-    /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the supplied function.
+    /// Allocates space for entities previously reserved with [`reserve_entity`](EntityReservations::reserve_entity) or
+    /// [`reserve_entities`](EntityReservations::reserve_entities), then initializes each one using the supplied function.
     ///
     /// # Safety
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
