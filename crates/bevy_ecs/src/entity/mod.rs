@@ -45,6 +45,7 @@ use bevy_reflect::Reflect;
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
+use bevy_utils::syncunsafecell::SyncUnsafeCell;
 pub use clone_entities::*;
 pub use entity_set::*;
 pub use map_entities::*;
@@ -86,7 +87,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::atomic::Ordering;
+use bevy_platform_support::sync::atomic::{AtomicPtr, AtomicU32, Ordering};
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
@@ -527,6 +528,52 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
+
+struct RemoteEntitiesInner {
+    pending: SyncUnsafeCell<Vec<Entity>>,
+    pending_len: AtomicU32,
+    free_cursor: AtomicIdCursor,
+}
+
+impl RemoteEntitiesInner {
+    /// Balances out the pending list, returning the entities that have been reserved remotely.
+    ///
+    /// # Safety
+    ///
+    /// `pending` must not include reserved entities and must be valid indicies into `meta`.
+    /// This **MUST** not be called concurrently.
+    unsafe fn balance_pending(&self, meta: &[EntityMeta], pending: &mut Vec<u32>) -> Vec<Entity> {
+        // sets this to zero AND returns the last value.
+        let remote_len = self.pending_len.fetch_and(0, Ordering::Relaxed) as usize;
+        // SAFETY: everyone thinks the length is zero and will not access it while it's being changed.
+        let remote = unsafe { &mut *(self.pending.get()) };
+        // removes any reserved items from the pending list.
+        let reserved = remote.drain(remote_len..).collect();
+        let new_len = (pending.len() + remote.len()) / 2;
+
+        if new_len > remote_len {
+            let additional = new_len - remote_len;
+            remote.reserve(additional);
+            let fetch_from = pending.len() - additional;
+            for index in pending.drain(fetch_from..) {
+                // SAFETY: This is from `pending` which we know is valid.
+                let generation = unsafe { meta.get_unchecked(index as usize).generation };
+                remote.push(Entity::from_raw_and_generation(index, generation));
+            }
+        } else {
+            for entity in remote.drain(new_len..) {
+                pending.push(entity.index);
+            }
+        }
+
+        // store the updated values atomicaly. We can't use the *mut directly since it may leave some CPU cache invalid.
+        let atomic_remote = AtomicPtr::new(self.pending.get());
+        atomic_remote.store(remote, Ordering::Relaxed);
+        self.pending_len.store(new_len as u32, Ordering::Relaxed);
+
+        reserved
+    }
+}
 
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
