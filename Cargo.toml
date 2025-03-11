@@ -193,7 +193,7 @@ sysinfo_plugin = ["bevy_internal/sysinfo_plugin"]
 # Provides animation functionality
 bevy_animation = ["bevy_internal/bevy_animation", "bevy_color"]
 
-# Provides animation functionality
+# Provides methods to attach an entity to another
 bevy_bone_attachments = ["bevy_internal/bevy_bone_attachments"]
 
 # Provides asset functionality
