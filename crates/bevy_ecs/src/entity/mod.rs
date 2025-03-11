@@ -548,20 +548,25 @@ impl core::ops::Deref for RemoteEntities {
 
 /// This allows entity reservation.
 pub struct EntityReservations {
-    /// These are the previously freed entities that are pending being reused.
-    /// [`Self::next_pending_index`] determines which of these have been reused and need to be flusehd
+    /// These are the previously freed or otherwise unused entities that are pending being reused.
+    /// [`Self::next_pending_index`] determines which of these have been reused and therefore need to be flusehd
     /// and which remain pending.
     ///
     /// # Safety
     ///
     /// This must only be accessed via atomic operations,
-    /// and its slice must only be accessed if [`Self::next_pending_index`] is non negative.
+    /// and its slice must only be accessed if [`Self::next_pending_index`] is non negative (valid).
     pending: SyncUnsafeCell<Vec<Entity>>,
     /// This is the prospective length of [`Entities::meta`].
     /// This is the source of truth.
     meta_len: AtomicU32,
     /// This is the index in [`Self::pending`] of the next entity to reuse.
-    /// If this is negative, we are unable to reuse any entity.
+    /// If this is negative, we are unable to use [`Self::pending`].
+    ///
+    /// This is effectively used for [`u32::saturating_sub`],
+    /// only instead of capping at 0, it just gets increasingly negative.
+    /// We use this instead because atomicaly doing [`u32::saturating_sub`]
+    /// is more work than doing [`AtomicIdCursor::fetch_sub`].
     next_pending_index: AtomicIdCursor,
 }
 
@@ -571,7 +576,8 @@ impl EntityReservations {
     }
 
     /// Flushes pending entities that have been reused.
-    /// This balances the freed and pending list.
+    /// This balances the owned and pending list.
+    /// See also [`Entities::owned`]
     ///
     /// # Safety
     ///
@@ -616,7 +622,7 @@ impl EntityReservations {
                 }
             }));
         } else {
-            let diff = owned.len() - balanced_len;
+            let diff = balanced_len - owned.len();
             let start = pending.len() - diff;
             owned.extend(pending.drain(start..).inspect(|entity| {
                 // SAFETY: The pending list is known to be valid.
@@ -679,7 +685,6 @@ impl EntityReservations {
                 init(entity, &mut meta.location);
             }
         }
-        *meta_flushed_up_to = meta_len;
 
         // flush those that do not exist yet.
         meta.resize(theoretical_len as usize, EntityMeta::EMPTY);
@@ -690,16 +695,22 @@ impl EntityReservations {
             // we know this needs initializing since we just created it, so we skip `needs_init`.
             init(entity, &mut meta.location);
         }
+
+        // finalize
+        *meta_flushed_up_to = theoretical_len;
     }
 
     /// Clears the instance.
     /// Entities reserved during and prior to the clear will be invalid.
     fn clear(&self) {
+        // disable and reset pending
         self.next_pending_index.store(-1, Ordering::Relaxed);
         let _prev_pending =
             // SAFETY: We know the pointer is valid
             unsafe { core::ptr::replace(self.pending().load(Ordering::Relaxed), Vec::new()) };
         self.pending().store(self.pending.get(), Ordering::Relaxed);
+
+        // restart meta
         self.meta_len.store(0, Ordering::Relaxed);
     }
 
@@ -707,7 +718,7 @@ impl EntityReservations {
     ///
     /// This will return true even if another thread is actively flushing it.
     pub fn worth_flushing(&self) -> bool {
-        // SAFETY: Even though we are loading this when it could be being flushed,
+        // SAFETY: Even though we are loading this when it could be being flushed / modified,
         // we are only checking the length, not the slice.
         let pending_len = unsafe {
             let pending = self.pending().load(Ordering::Relaxed);
@@ -722,20 +733,20 @@ impl EntityReservations {
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
     pub fn reserve_entities<'a>(&'a self, count: u32) -> ReserveEntitiesIterator<'a> {
         // determine the range as if it were all in pending
-        let last_pending_index = self
+        let upper_pending_index = self
             .next_pending_index
             .fetch_sub(count as IdCursor, Ordering::Relaxed);
-        let new_next_pending_index = last_pending_index - count as IdCursor;
-        let first_pending_index = new_next_pending_index + 1;
+        let new_next_pending_index = upper_pending_index - count as IdCursor;
+        let lower_pending_index = new_next_pending_index + 1;
 
         // pull from pending
-        let (reused, num_reused) = if last_pending_index >= 0 {
+        let (reused, num_reused) = if upper_pending_index >= 0 {
             let pending = self.pending().load(Ordering::Relaxed);
             // SAFETY: The pending index is valid, so we know we aren't modifying `pending`.
             // Pending lives in `self`, so the lifetime is accurate.
             let pending: &'a Vec<Entity> = unsafe { &(*pending) };
-            let reused_range = first_pending_index.max(0) as usize..=last_pending_index as usize;
-            let num_reused = last_pending_index - first_pending_index.max(0) + 1;
+            let reused_range = lower_pending_index.max(0) as usize..=upper_pending_index as usize;
+            let num_reused = upper_pending_index - lower_pending_index.max(0) + 1;
             (&pending[reused_range], num_reused as u32)
         } else {
             const EMPTY: &[Entity] = &[];
@@ -795,14 +806,14 @@ pub struct Entities {
     meta: Vec<EntityMeta>,
     /// This is the length of [`Self::meta`] the last time it was flushed.
     /// Entities before this have been flushed once already, but
-    /// they have been freed/pending since, requiring another flush.
+    /// they may have been freed/pending since, requiring another flush.
     meta_flushed_up_to: u32,
     /// These are entities that this instance owns.
-    /// These could be freed and pending reuse or reserved for [`Self::alloc`].
+    /// These are reserved for [`Self::alloc`], but they are shared with [`EntityReservations::pending`] when flushing.
     owned: Vec<Entity>,
     /// This handles reserving entities
     reservations: Arc<EntityReservations>,
-    /// This is the number of reservations we make to cache reserves for [`Self::alloc`] as needed.
+    /// This is the number of reservations we make at a time when we need to extend [`Self::owned`] for [`Self::alloc`].
     allocation_reservation_size: NonZero<u32>,
 }
 
@@ -882,6 +893,7 @@ impl Entities {
             self.owned.extend(stolen.inspect(|entity| {
                 // SAFETY: Pending is known to be valid.
                 let meta = unsafe { self.meta.get_unchecked_mut(entity.index() as usize) };
+                // We are taking ownership of the stolen entities, so they should not be flushed.
                 *meta = EntityMeta::EMPTY_AND_SKIP_FLUSH;
             }));
         });
