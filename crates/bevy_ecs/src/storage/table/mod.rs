@@ -658,7 +658,7 @@ impl Table {
         row: TableRow,
     ) -> Option<Ptr<'_>> {
         self.get_column(component_id)
-            .map(|col| col.data.get_unchecked(row.as_usize()))
+            .map(|col| col.get_data_unchecked(row))
     }
 }
 

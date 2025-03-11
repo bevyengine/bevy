@@ -308,6 +308,7 @@ impl ThinColumn {
     ///
     /// # Safety
     /// - `row` must be within bounds (`row` < len)
+    #[inline]
     pub unsafe fn get_data_unchecked(&self, row: TableRow) -> Ptr {
         self.data.get_unchecked(row.as_usize())
     }
@@ -316,6 +317,7 @@ impl ThinColumn {
     ///
     /// # Safety
     /// - `row` must be within bounds (`row` < len)
+    #[inline]
     pub unsafe fn get_added_tick_unchecked(&self, row: TableRow) -> &UnsafeCell<Tick> {
         self.added_ticks.get_unchecked(row.as_usize())
     }
@@ -324,6 +326,7 @@ impl ThinColumn {
     ///
     /// # Safety
     /// - `row` must be within bounds (`row` < len)
+    #[inline]
     pub unsafe fn get_changed_tick_unchecked(&self, row: TableRow) -> &UnsafeCell<Tick> {
         self.changed_ticks.get_unchecked(row.as_usize())
     }
@@ -332,6 +335,7 @@ impl ThinColumn {
     ///
     /// # Safety
     /// - `row` must be within bounds (`row` < len)
+    #[inline]
     pub unsafe fn get_ticks_unchecked(&self, row: TableRow) -> ComponentTicks {
         let added = self.get_added_tick_unchecked(row).read();
         let changed = self.get_changed_tick_unchecked(row).read();
@@ -342,6 +346,7 @@ impl ThinColumn {
     ///
     /// # Safety
     /// - `row` must be within bounds (`row` < len)
+    #[inline]
     pub unsafe fn get_changed_by_unchecked(
         &self,
         row: TableRow,
@@ -356,6 +361,7 @@ impl ThinColumn {
     /// # Safety
     /// - `T` must match the type of data that's stored in this [`ThinColumn`]
     /// - `len` must match the actual length of this column (number of elements stored)
+    #[inline]
     pub unsafe fn get_data_slice<T>(&self, len: usize) -> &[UnsafeCell<T>] {
         self.data.get_sub_slice(len)
     }
@@ -364,6 +370,7 @@ impl ThinColumn {
     ///
     /// # Safety
     /// - `len` must match the actual length of this column (number of elements stored)
+    #[inline]
     pub unsafe fn get_added_ticks_slice(&self, len: usize) -> &[UnsafeCell<Tick>] {
         self.added_ticks.as_slice(len)
     }
@@ -372,6 +379,7 @@ impl ThinColumn {
     ///
     /// # Safety
     /// - `len` must match the actual length of this column (number of elements stored)
+    #[inline]
     pub unsafe fn get_changed_ticks_slice(&self, len: usize) -> &[UnsafeCell<Tick>] {
         self.changed_ticks.as_slice(len)
     }
@@ -380,6 +388,7 @@ impl ThinColumn {
     ///
     /// # Safety
     /// - `len` must match the actual length of this column (number of elements stored)
+    #[inline]
     pub unsafe fn get_changed_by_slice(
         &self,
         len: usize,
