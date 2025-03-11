@@ -568,7 +568,7 @@ impl ActiveAnimation {
     }
 
     /// this will the duration of the clip being played
-    pub fn set_clip_duration(&mut self,clip_duration: f32)->&mut self{
+    pub fn set_clip_duration(&mut self,clip_duration: f32)-> &mut Self {
         self.clip_duration = Some(clip_duration);
     }
     
