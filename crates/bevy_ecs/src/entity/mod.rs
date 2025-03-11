@@ -496,14 +496,15 @@ impl SparseSetIndex for Entity {
     }
 }
 
-/// An [`Iterator`] returning a sequence of [`Entity`] values from
+/// An [`Iterator`] returning a sequence of [`Entity`] values from [`RemoteEntities`].
+///
+/// # Dropping
+///
+/// All reserved entities will continue to be reserved after dropping, *including those that were not iterated*.
+/// Dropping this without finishing the iterator is effectively leaking an entity.
 pub struct ReserveEntitiesIterator<'a> {
-    // Metas, so we can recover the current generation for anything in the freelist.
-    meta: &'a [EntityMeta],
-
     // Reserved indices formerly in the freelist to hand out.
-    freelist_indices: core::slice::Iter<'a, u32>,
-
+    freelist_indices: core::slice::Iter<'a, Entity>,
     // New Entity indices to hand out, outside the range of meta.len().
     new_indices: core::ops::Range<u32>,
 }
@@ -514,9 +515,7 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.freelist_indices
             .next()
-            .map(|&index| {
-                Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
-            })
+            .copied()
             .or_else(|| self.new_indices.next().map(Entity::from_raw))
     }
 
@@ -624,6 +623,68 @@ impl RemoteEntities {
             init(entity, &mut meta.location);
         }
     }
+
+    /// Reserve entity IDs concurrently.
+    ///
+    /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
+    pub fn reserve_entities<'a>(&'a self, count: u32) -> ReserveEntitiesIterator<'a> {
+        // determine the range as if it were all in pending
+        let last_pending_index = self
+            .next_pending_index
+            .fetch_sub(count as IdCursor, Ordering::Relaxed);
+        let new_next_pending_index = last_pending_index - count as IdCursor;
+        let first_pending_index = new_next_pending_index + 1;
+
+        // pull from pending
+        let (reused, num_reused) = if last_pending_index >= 0 {
+            let pending = self.pending().load(Ordering::Relaxed);
+            // SAFETY: The pending index is valid, so we know we aren't modifying `pending`.
+            // Pending lives in `self`, so the lifetime is accurate.
+            let pending: &'a Vec<Entity> = unsafe { &(*pending) };
+            let reused_range = first_pending_index.max(0) as usize..=last_pending_index as usize;
+            let num_reused = last_pending_index - first_pending_index.max(0) + 1;
+            (&pending[reused_range], num_reused as u32)
+        } else {
+            const EMPTY: &[Entity] = &[];
+            (EMPTY, 0u32)
+        };
+
+        // extend if needed
+        let num_extended = count - num_reused;
+        let new_indices = if num_extended > 0 {
+            let prev_len = self.meta_len.fetch_add(num_extended, Ordering::Relaxed);
+            let new_len = u32::try_from(prev_len + num_extended).expect("too many entities");
+            prev_len..new_len
+        } else {
+            0..0
+        };
+
+        // finish
+        ReserveEntitiesIterator {
+            freelist_indices: reused.iter(),
+            new_indices,
+        }
+    }
+
+    /// Reserve one entity ID concurrently.
+    ///
+    /// Equivalent to `self.reserve_entities(1).next().unwrap()`, but more efficient.
+    pub fn reserve_entity(&self) -> Entity {
+        let index_in_pending = self.next_pending_index.fetch_sub(1, Ordering::Relaxed);
+        if index_in_pending >= 0 {
+            let pending = self.pending().load(Ordering::Relaxed);
+            // SAFETY: The pending index is valid, so we know we aren't modifying `pending`.
+            let pending = unsafe { &(*pending) };
+            // SAFETY: We only ever subtract from this value, except for resetting it, so the index is valid.
+            let reserved = unsafe { pending.get_unchecked(index_in_pending as usize) };
+            *reserved
+        } else {
+            let prev_len = self.meta_len.fetch_add(1, Ordering::Relaxed);
+            let _new_len = u32::try_from(prev_len + 1).expect("too many entities");
+            let index = prev_len;
+            Entity::from_raw(index)
+        }
+    }
 }
 
 /// A [`World`]'s internal metadata store on all of its entities.
@@ -659,78 +720,15 @@ impl Entities {
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
-    #[expect(
-        clippy::allow_attributes,
-        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
-    )]
-    #[allow(
-        clippy::unnecessary_fallible_conversions,
-        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
-    )]
     pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
-        // Use one atomic subtract to grab a range of new IDs. The range might be
-        // entirely nonnegative, meaning all IDs come from the freelist, or entirely
-        // negative, meaning they are all new IDs to allocate, or a mix of both.
-        let range_end = self.free_cursor.fetch_sub(
-            IdCursor::try_from(count)
-                .expect("64-bit atomic operations are not supported on this platform."),
-            Ordering::Relaxed,
-        );
-        let range_start = range_end
-            - IdCursor::try_from(count)
-                .expect("64-bit atomic operations are not supported on this platform.");
-
-        let freelist_range = range_start.max(0) as usize..range_end.max(0) as usize;
-
-        let (new_id_start, new_id_end) = if range_start >= 0 {
-            // We satisfied all requests from the freelist.
-            (0, 0)
-        } else {
-            // We need to allocate some new Entity IDs outside of the range of self.meta.
-            //
-            // `range_start` covers some negative territory, e.g. `-3..6`.
-            // Since the nonnegative values `0..6` are handled by the freelist, that
-            // means we need to handle the negative range here.
-            //
-            // In this example, we truncate the end to 0, leaving us with `-3..0`.
-            // Then we negate these values to indicate how far beyond the end of `meta.end()`
-            // to go, yielding `meta.len()+0 .. meta.len()+3`.
-            let base = self.meta.len() as IdCursor;
-
-            let new_id_end = u32::try_from(base - range_start).expect("too many entities");
-
-            // `new_id_end` is in range, so no need to check `start`.
-            let new_id_start = (base - range_end.min(0)) as u32;
-
-            (new_id_start, new_id_end)
-        };
-
-        ReserveEntitiesIterator {
-            meta: &self.meta[..],
-            freelist_indices: self.pending[freelist_range].iter(),
-            new_indices: new_id_start..new_id_end,
-        }
+        self.reservations.reserve_entities(count)
     }
 
     /// Reserve one entity ID concurrently.
     ///
     /// Equivalent to `self.reserve_entities(1).next().unwrap()`, but more efficient.
     pub fn reserve_entity(&self) -> Entity {
-        let n = self.free_cursor.fetch_sub(1, Ordering::Relaxed);
-        if n > 0 {
-            // Allocate from the freelist.
-            let index = self.pending[(n - 1) as usize];
-            Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
-        } else {
-            // Grab a new ID, outside the range of `meta.len()`. `flush()` must
-            // eventually be called to make it valid.
-            //
-            // As `self.free_cursor` goes more and more negative, we return IDs farther
-            // and farther beyond `meta.len()`.
-            Entity::from_raw(
-                u32::try_from(self.meta.len() as IdCursor - n).expect("too many entities"),
-            )
-        }
+        self.reservations.reserve_entity()
     }
 
     /// Check that we do not have pending work requiring `flush()` to be called.
