@@ -1,7 +1,7 @@
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, EnumInfo, Generics, ListInfo, MapInfo, PartialReflect, Reflect,
-    ReflectKind, SetInfo, StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
+    DynamicTupleStruct, EnumInfo, Generics, ListInfo, MapInfo, ReflectKind, SetInfo, StructInfo,
+    TupleInfo, TupleStructInfo, TypePath, TypePathTable,
 };
 use core::{
     any::{Any, TypeId},
@@ -34,6 +34,7 @@ use thiserror::Error;
 /// ```
 /// # use core::any::Any;
 /// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
+/// # use bevy_reflect::cast::{CastPartialReflect, CastReflect};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -62,9 +63,6 @@ use thiserror::Error;
 /// # }
 /// # impl PartialReflect for MyStruct {
 /// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
-/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
-/// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { todo!() }
-/// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
 /// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> { todo!() }
 /// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
 /// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
@@ -78,10 +76,17 @@ use thiserror::Error;
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
 /// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
-/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
-/// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
-/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
 /// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
+/// # }
+/// # impl CastPartialReflect for MyStruct {
+/// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { self }
+/// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { self }
+/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { self }
+/// # }
+/// # impl CastReflect for MyStruct {
+/// #     fn as_reflect(&self) -> &dyn Reflect { self }
+/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { self }
+/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { self }
 /// # }
 /// ```
 ///
@@ -91,7 +96,7 @@ use thiserror::Error;
     message = "`{Self}` does not implement `Typed` so cannot provide static type information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait Typed: Reflect + TypePath {
+pub trait Typed: TypePath {
     /// Returns the compile-time [info] for the underlying type.
     ///
     /// [info]: TypeInfo
@@ -112,7 +117,7 @@ pub trait Typed: Reflect + TypePath {
     message = "`{Self}` does not implement `Typed` so cannot provide static type information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait MaybeTyped: PartialReflect {
+pub trait MaybeTyped {
     /// Returns the compile-time [info] for the underlying type, if it exists.
     ///
     /// [info]: TypeInfo
@@ -558,7 +563,7 @@ pub struct OpaqueInfo {
 }
 
 impl OpaqueInfo {
-    pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
+    pub fn new<T: TypePath + ?Sized>() -> Self {
         Self {
             ty: Type::of::<T>(),
             generics: Generics::new(),

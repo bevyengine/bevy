@@ -1,9 +1,9 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    enum_debug, enum_hash, enum_partial_eq, ApplyError, DynamicStruct, DynamicTuple, Enum,
-    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple,
-    TypeInfo, VariantFieldIter, VariantType,
+    cast::impl_cast_partial_reflect, enum_debug, enum_hash, enum_partial_eq, ApplyError,
+    DynamicStruct, DynamicTuple, Enum, PartialReflect, Reflect, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, VariantFieldIter, VariantType,
 };
 
 use alloc::{boxed::Box, string::String};
@@ -43,6 +43,7 @@ impl From<()> for DynamicVariant {
 ///
 /// ```
 /// # use bevy_reflect::{DynamicEnum, DynamicVariant, Reflect, PartialReflect};
+/// # use bevy_reflect::cast::CastPartialReflect;
 ///
 /// // The original enum value
 /// let mut value: Option<usize> = Some(123);
@@ -281,21 +282,6 @@ impl PartialReflect for DynamicEnum {
         self.represented_type
     }
 
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Err(self)
     }
@@ -406,3 +392,4 @@ impl PartialReflect for DynamicEnum {
 }
 
 impl_type_path!((in bevy_reflect) DynamicEnum);
+impl_cast_partial_reflect!(for DynamicEnum);

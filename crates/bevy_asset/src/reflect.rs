@@ -132,7 +132,7 @@ impl ReflectAsset {
     }
 }
 
-impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
+impl<A: Asset + FromReflect + Reflect> FromType<A> for ReflectAsset {
     fn from_type() -> Self {
         ReflectAsset {
             handle_type_id: TypeId::of::<Handle<A>>(),

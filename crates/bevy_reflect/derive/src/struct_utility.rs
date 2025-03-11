@@ -28,7 +28,9 @@ impl FieldAccessors {
                         <#wrapper_ty as #bevy_reflect_path::ReflectRemote>::as_wrapper(&#accessor)
                     }
                 }
-                None => quote!(& #accessor),
+                None => {
+                    quote!(#bevy_reflect_path::cast::CastPartialReflect::as_partial_reflect(&#accessor))
+                }
             }
         });
         let fields_mut = Self::get_fields(reflect_struct, |field, accessor| {
@@ -38,7 +40,9 @@ impl FieldAccessors {
                         <#wrapper_ty as #bevy_reflect_path::ReflectRemote>::as_wrapper_mut(&mut #accessor)
                     }
                 }
-                None => quote!(&mut #accessor),
+                None => {
+                    quote!(#bevy_reflect_path::cast::CastPartialReflect::as_partial_reflect_mut(&mut #accessor))
+                }
             }
         });
 
