@@ -894,9 +894,7 @@ impl Entities {
     ///
     /// Must not be called while reserved entities are awaiting `flush()`.
     pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
-        self.verify_flushed();
-
-        let meta = &mut self.meta[entity.index() as usize];
+        let meta = &mut self.meta.get_mut(entity.index() as usize)?;
         if meta.generation != entity.generation {
             return None;
         }
@@ -912,10 +910,11 @@ impl Entities {
 
         let loc = mem::replace(&mut meta.location, EntityMeta::EMPTY.location);
 
-        self.pending.push(entity.index());
+        self.owned.push(Entity::from_raw_and_generation(
+            entity.index,
+            meta.generation,
+        ));
 
-        let new_free_cursor = self.pending.len() as IdCursor;
-        *self.free_cursor.get_mut() = new_free_cursor;
         Some(loc)
     }
 
@@ -1215,10 +1214,13 @@ impl EntityMeta {
     };
 
     /// meta for entities that were reserved but should not be flusehd yet.
-    const EMPTY_AND_SKIP_FLUSH: EntityMeta = EntityMeta {
-        generation: NonZero::<u32>::MAX,
-        location: EntityLocation::INVALID,
-        spawned_or_despawned_by: MaybeLocation::new(None),
+    const EMPTY_AND_SKIP_FLUSH: EntityMeta = const {
+        EntityMeta {
+            // SAFETY: 2 > 0
+            generation: unsafe { NonZero::<u32>::new_unchecked(2) },
+            location: EntityLocation::INVALID,
+            spawned_or_despawned_by: MaybeLocation::new(None),
+        }
     };
 }
 
