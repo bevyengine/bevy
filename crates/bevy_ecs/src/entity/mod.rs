@@ -662,6 +662,16 @@ impl RemoteEntities {
         }
     }
 
+    /// Clears the instance.
+    /// Entities reserved during and prior to the clear will be invalid.
+    fn clear(&self) {
+        self.next_pending_index.store(-1, Ordering::Relaxed);
+        // SAFETY: We know the pointer is valid
+        unsafe { core::ptr::replace(self.pending().load(Ordering::Relaxed), Vec::new()) }
+        self.pending().store(self.pending.get(), Ordering::Relaxed);
+        self.meta_len.store(0, Ordering::Relaxed);
+    }
+
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
@@ -919,24 +929,19 @@ impl Entities {
     }
 
     /// Ensure at least `n` allocations can succeed without reallocating.
-    #[expect(
-        clippy::allow_attributes,
-        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
-    )]
-    #[allow(
-        clippy::unnecessary_fallible_conversions,
-        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
-    )]
     pub fn reserve(&mut self, additional: u32) {
-        self.verify_flushed();
+        // This may reserve more space than needed since we do not account for [`RemoteEntities::pending`].
+        // This does not check for "too many entities" because that happens during reservation.
 
-        let freelist_size = *self.free_cursor.get_mut();
-        let shortfall = IdCursor::try_from(additional)
-            .expect("64-bit atomic operations are not supported on this platform.")
-            - freelist_size;
-        if shortfall > 0 {
-            self.meta.reserve(shortfall as usize);
-        }
+        let from_owned = self.owned.len() as u32;
+        let additional = additional.saturating_sub(from_owned) as usize;
+        let current_len = self.meta.len();
+        // We can't let this exceed `u32::MAX`.
+        // We don't panic here since we don't account for [`RemoteEntities::pending`],
+        // so there may be enough room for the passed `additional` anyway.
+        let new_len = (current_len + additional).min(u32::MAX as usize);
+        let additional = new_len - current_len;
+        self.meta.reserve(additional);
     }
 
     /// Returns true if the [`Entities`] contains [`entity`](Entity).
@@ -948,10 +953,12 @@ impl Entities {
     }
 
     /// Clears all [`Entity`] from the World.
+    /// Entities reserved during and prior to the clear will be invalid.
     pub fn clear(&mut self) {
         self.meta.clear();
-        self.pending.clear();
-        *self.free_cursor.get_mut() = 0;
+        self.owned.clear();
+        self.meta_flushed_up_to = 0;
+        self.reservations.clear();
     }
 
     /// Returns the location of an [`Entity`].
