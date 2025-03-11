@@ -532,6 +532,21 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 
 /// This allows remote entity reservation.
+///
+/// See [`EntityReservations`] for details.
+#[derive(Clone)]
+pub struct RemoteEntities(Arc<EntityReservations>);
+
+impl core::ops::Deref for RemoteEntities {
+    type Target = EntityReservations;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
+    }
+}
+
+/// This allows entity reservation.
 pub struct EntityReservations {
     /// These are the previously freed entities that are pending being reused.
     /// [`Self::next_pending_index`] determines which of these have been reused and need to be flusehd
@@ -794,6 +809,7 @@ pub struct Entities {
 impl core::ops::Deref for Entities {
     type Target = EntityReservations;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         self.reservations.deref()
     }
@@ -813,6 +829,19 @@ impl Entities {
             // SAFETY: 256 > 0
             allocation_reservation_size: unsafe { NonZero::new_unchecked(256) },
         }
+    }
+
+    /// Creates a new [`RemoteEntities`].
+    ///
+    /// This will enable remote reservations on these [`Entities`].
+    ///
+    /// Note that this *can* conflict with [`alloc_at`](Self::alloc_at) and
+    /// [`alloc_at_without_replacement`](Self::alloc_at_without_replacement).
+    ///
+    /// This does not have any additional cost over reserving directly on this instance.
+    #[inline]
+    pub fn make_remote(&self) -> RemoteEntities {
+        RemoteEntities(self.reservations.clone())
     }
 
     /// Allocate an entity ID directly.
