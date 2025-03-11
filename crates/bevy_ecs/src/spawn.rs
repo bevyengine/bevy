@@ -48,8 +48,8 @@ pub trait SpawnableList<R> {
 
 impl<R: Relationship, B: Bundle> SpawnableList<R> for Vec<B> {
     fn spawn(self, world: &mut World, entity: Entity) {
-        for s in self {
-            world.spawn((R::from(entity), s));
+        for bundle in self {
+            world.spawn((R::from(entity), bundle));
         }
     }
 
