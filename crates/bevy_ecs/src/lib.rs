@@ -489,10 +489,9 @@ mod tests {
                 results.lock().unwrap().push((e, i));
             });
         results.lock().unwrap().sort();
-        assert_eq!(
-            &*results.lock().unwrap(),
-            &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
-        );
+        let mut expected = vec![(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)];
+        expected.sort();
+        assert_eq!(&*results.lock().unwrap(), &expected);
     }
 
     #[test]
@@ -510,10 +509,9 @@ mod tests {
             .par_iter(&world)
             .for_each(|(e, &SparseStored(i))| results.lock().unwrap().push((e, i)));
         results.lock().unwrap().sort();
-        assert_eq!(
-            &*results.lock().unwrap(),
-            &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
-        );
+        let mut expected = vec![(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)];
+        expected.sort();
+        assert_eq!(&*results.lock().unwrap(), &expected);
     }
 
     #[test]
