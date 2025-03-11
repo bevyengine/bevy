@@ -3,8 +3,6 @@ mod gpu_image;
 mod texture_attachment;
 mod texture_cache;
 
-use std::sync::{Arc, Mutex};
-
 pub use crate::render_resource::DefaultImageSampler;
 #[cfg(feature = "basis-universal")]
 use bevy_image::CompressedImageSaver;
@@ -31,44 +29,10 @@ use bevy_ecs::prelude::*;
 pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
     weak_handle!("d18ad97e-a322-4981-9505-44c59a4b5e46");
 
-#[derive(Resource)]
-pub struct DefaultImageSamplerDescriptor(Arc<Mutex<ImageSamplerDescriptor>>);
-
-/// Stores default [`ImageSamplerDescriptor`] in main world.
-/// Default `ImageSampler` is syncronized during `ExtractSchedule`.
-impl DefaultImageSamplerDescriptor {
-    pub fn new(descriptor: &ImageSamplerDescriptor) -> DefaultImageSamplerDescriptor {
-        DefaultImageSamplerDescriptor(Arc::new(Mutex::new(descriptor.clone())))
-    }
-
-    /// Returns the current default [`ImageSamplerDescriptor`].
-    pub fn get(&self) -> ImageSamplerDescriptor {
-        self.0.lock().unwrap().clone()
-    }
-
-    /// Makes a clone of internal `Arc` pointer.
-    /// 
-    /// Intended to be only used by code with no access to ECS.
-    pub fn get_mutex(&self) -> Arc<Mutex<ImageSamplerDescriptor>> {
-        self.0.clone()
-    }
-
-    /// Replaces default image sampler descriptor.
-    /// 
-    /// Default image sampler is replaced during `ExtractSchedule`.
-    /// Doesn't apply to samplers already built on top of it, e.g. `GltfLoader`'s output.
-    pub fn set(&self, descriptor: &ImageSamplerDescriptor) {
-        *self.0.lock().unwrap() = descriptor.clone();
-    }
-}
-
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
 pub struct ImagePlugin {
-    // TODO: allow modifying default image sampler at runtime.
     /// The default image sampler to use when [`bevy_image::ImageSampler`] is set to `Default`.
-    ///
-    /// A copy of this descriptor is stored in `DefaultImageSamplerDescriptor`.
     pub default_sampler: ImageSamplerDescriptor,
 }
 
@@ -155,8 +119,6 @@ impl Plugin for ImagePlugin {
             };
             app.register_asset_loader(ImageLoader::new(supported_compressed_formats));
         }
-
-        app.insert_resource(DefaultImageSamplerDescriptor::new(&self.default_sampler));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             let default_sampler = {

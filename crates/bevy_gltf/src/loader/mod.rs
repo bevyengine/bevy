@@ -144,7 +144,7 @@ pub struct GltfLoader {
     /// See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
     /// for additional details on custom attributes.
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
-    /// Default `ImageSamplerDescriptor`.
+    /// Arc to default [`ImageSamplerDescriptor`].
     pub default_sampler: Arc<Mutex<ImageSamplerDescriptor>>,
 }
 
@@ -183,7 +183,7 @@ pub struct GltfLoaderSettings {
     pub include_source: bool,
     /// Overrides the default sampler. Data from sampler node is added on top of that.
     ///
-    /// If None, uses global default which is stored in `DefaultImageSamplerDescriptor` resource.
+    /// If None, uses global default which is stored in `DefaultGltfImageSampler` resource.
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
