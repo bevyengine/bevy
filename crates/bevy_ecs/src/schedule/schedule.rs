@@ -1789,7 +1789,7 @@ impl ScheduleGraph {
 
     fn check_for_cross_dependencies(
         &self,
-        dep_results: &CheckGraphResults,
+        dep_results: &CheckGraphResults<NodeId>,
         hier_results_connected: &HashSet<(NodeId, NodeId)>,
     ) -> Result<(), ScheduleBuildError> {
         for &(a, b) in &dep_results.connected {
