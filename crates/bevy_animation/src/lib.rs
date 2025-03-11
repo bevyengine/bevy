@@ -571,7 +571,7 @@ impl ActiveAnimation {
     pub fn set_clip_duration(&mut self, clip_duration: f32) -> &mut Self {
         self.clip_duration = Some(clip_duration);
     }
-    
+
     /// Sets the weight of this animation.
     pub fn set_weight(&mut self, weight: f32) -> &mut Self {
         self.weight = weight;
