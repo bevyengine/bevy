@@ -1,7 +1,7 @@
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
-    entity::{EntityBorrow, TrustedEntityBorrow, UniqueEntityVec},
+    entity::{unique_vec::UniqueEntityVec, EntityBorrow, TrustedEntityBorrow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 

@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-use crate::entity::{TrustedEntityBorrow, UniqueEntitySlice};
+use crate::entity::{unique_slice::UniqueEntitySlice, TrustedEntityBorrow};
 
 use alloc::vec::Vec;
 use core::{fmt, ptr};
@@ -1535,7 +1535,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
-        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
+        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manuals
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             let chunks = entity_list.chunks_exact(batch_size);
