@@ -9,8 +9,8 @@
 //! Also illustrates how to read morph target names in [`detect_morphs`].
 
 use crate::scene_viewer_plugin::SceneHandle;
+use bevy::ecs::spawn::SpawnIter;
 use bevy::prelude::*;
-use bevy_ecs::spawn::SpawnIter;
 use std::fmt;
 
 const FONT_SIZE: f32 = 13.0;
