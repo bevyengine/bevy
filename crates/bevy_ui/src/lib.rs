@@ -15,6 +15,7 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
+pub mod gradients;
 #[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
 
