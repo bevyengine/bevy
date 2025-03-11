@@ -120,6 +120,8 @@ unused_qualifications = "warn"
 
 [features]
 default = [
+  "std",
+  "async_executor",
   "android-game-activity",
   "android_shared_stdcxx",
   "animation",
@@ -130,6 +132,8 @@ default = [
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
+  "bevy_input_focus",
+  "bevy_log",
   "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
@@ -155,6 +159,9 @@ default = [
   "webgl2",
   "x11",
 ]
+
+# Recommended defaults for no_std applications
+default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 
 # Provides an implementation for picking meshes
 bevy_mesh_picking_backend = [
@@ -262,6 +269,12 @@ bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
+
+# Enable integration with `tracing` and `log`
+bevy_log = ["bevy_internal/bevy_log"]
+
+# Enable input focus subsystem
+bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -429,6 +442,9 @@ shader_format_glsl = ["bevy_internal/shader_format_glsl"]
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 
+# Enable support for shaders in WESL
+shader_format_wesl = ["bevy_internal/shader_format_wesl"]
+
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 
@@ -487,6 +503,21 @@ custom_cursor = ["bevy_internal/custom_cursor"]
 
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_internal/ghost_nodes"]
+
+# Uses `async-executor` as a task execution backend.
+async_executor = ["std", "bevy_internal/async_executor"]
+
+# Allows access to the `std` crate.
+std = ["bevy_internal/std"]
+
+# `critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.
+critical-section = ["bevy_internal/critical-section"]
+
+# Uses the `libm` maths library instead of the one provided in `std` and `core`.
+libm = ["bevy_internal/libm"]
+
+# Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.
+web = ["bevy_internal/web"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
@@ -574,7 +605,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.2d_viewport_to_world]
 name = "2D Viewport To World"
-description = "Demonstrates how to use the `Camera::viewport_to_world_2d` method"
+description = "Demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera."
 category = "2D Rendering"
 wasm = true
 
@@ -1804,7 +1835,7 @@ path = "examples/asset/multi_asset_sync.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.multi_asset_sync]
-name = "Mult-asset synchronization"
+name = "Multi-asset synchronization"
 description = "Demonstrates how to wait for multiple assets to be loaded."
 category = "Assets"
 wasm = true
@@ -2733,6 +2764,18 @@ required-features = ["shader_format_glsl"]
 [package.metadata.example.shader_material_glsl]
 name = "Material - GLSL"
 description = "A shader that uses the GLSL shading language"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "shader_material_wesl"
+path = "examples/shader/shader_material_wesl.rs"
+doc-scrape-examples = true
+required-features = ["shader_format_wesl"]
+
+[package.metadata.example.shader_material_wesl]
+name = "Material - WESL"
+description = "A shader that uses WESL"
 category = "Shaders"
 wasm = true
 

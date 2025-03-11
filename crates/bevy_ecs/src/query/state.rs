@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-use crate::entity::{TrustedEntityBorrow, UniqueEntitySlice};
+use crate::entity::{unique_slice::UniqueEntitySlice, TrustedEntityBorrow};
 
 use alloc::vec::Vec;
 use core::{fmt, ptr};
@@ -952,7 +952,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<ROQueryItem<'w, D>, QueryEntityError<'w>> {
+    ) -> Result<ROQueryItem<'w, D>, QueryEntityError> {
         self.query(world).get_inner(entity)
     }
 
@@ -993,7 +993,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w World,
         entities: [Entity; N],
-    ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError<'w>> {
+    ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError> {
         self.query(world).get_many_inner(entities)
     }
 
@@ -1005,7 +1005,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w mut World,
         entity: Entity,
-    ) -> Result<D::Item<'w>, QueryEntityError<'w>> {
+    ) -> Result<D::Item<'w>, QueryEntityError> {
         self.query_mut(world).get_inner(entity)
     }
 
@@ -1052,7 +1052,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w mut World,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>> {
+    ) -> Result<[D::Item<'w>; N], QueryEntityError> {
         self.query_mut(world).get_many_inner(entities)
     }
 
@@ -1074,7 +1074,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<ROQueryItem<'w, D>, QueryEntityError<'w>> {
+    ) -> Result<ROQueryItem<'w, D>, QueryEntityError> {
         self.query_manual(world).get_inner(entity)
     }
 
@@ -1091,7 +1091,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: UnsafeWorldCell<'w>,
         entity: Entity,
-    ) -> Result<D::Item<'w>, QueryEntityError<'w>> {
+    ) -> Result<D::Item<'w>, QueryEntityError> {
         self.query_unchecked(world).get_inner(entity)
     }
 
@@ -1698,7 +1698,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This allows you to globally control how errors are handled in your application,
     /// by setting up a custom error handler.
-    /// See the [`bevy_ecs::result`] module docs for more information!
+    /// See the [`bevy_ecs::error`] module docs for more information!
     /// Commonly, you might want to panic on an error during development, but log the error and continue
     /// execution in production.
     ///

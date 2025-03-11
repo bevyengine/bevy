@@ -36,6 +36,7 @@ pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod entity_disabling;
+pub mod error;
 pub mod event;
 pub mod hierarchy;
 pub mod identifier;
@@ -49,7 +50,6 @@ pub mod reflect;
 pub mod relationship;
 pub mod removal_detection;
 pub mod resource;
-pub mod result;
 pub mod schedule;
 pub mod spawn;
 pub mod storage;
@@ -74,6 +74,7 @@ pub mod prelude {
         children,
         component::Component,
         entity::{Entity, EntityBorrow, EntityMapper},
+        error::{BevyError, Result},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         name::{Name, NameOrEntity},
@@ -83,7 +84,6 @@ pub mod prelude {
         relationship::RelationshipTarget,
         removal_detection::RemovedComponents,
         resource::Resource,
-        result::{Error, Result},
         schedule::{
             apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoSystemConfigs,
             IntoSystemSet, IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
@@ -229,7 +229,7 @@ mod tests {
             y: SparseStored,
         }
         let mut ids = Vec::new();
-        <FooBundle as Bundle>::component_ids(&mut world.components, &mut |id| {
+        <FooBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
             ids.push(id);
         });
 
@@ -279,7 +279,7 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <NestedBundle as Bundle>::component_ids(&mut world.components, &mut |id| {
+        <NestedBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
             ids.push(id);
         });
 
@@ -331,9 +331,12 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <BundleWithIgnored as Bundle>::component_ids(&mut world.components, &mut |id| {
-            ids.push(id);
-        });
+        <BundleWithIgnored as Bundle>::component_ids(
+            &mut world.components_registrator(),
+            &mut |id| {
+                ids.push(id);
+            },
+        );
 
         assert_eq!(ids, &[world.register_component::<C>(),]);
 
@@ -2641,6 +2644,37 @@ mod tests {
         );
         assert_eq!(to_vec(required_y), vec![(b, 1), (c, 2), (z, 0)]);
         assert_eq!(to_vec(required_z), vec![(b, 0), (c, 1)]);
+    }
+
+    #[test]
+    fn required_components_inheritance_depth_bias() {
+        #[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
+        struct MyRequired(bool);
+
+        #[derive(Component, Default)]
+        #[require(MyRequired(|| MyRequired(false)))]
+        struct MiddleMan;
+
+        #[derive(Component, Default)]
+        #[require(MiddleMan)]
+        struct ConflictingRequire;
+
+        #[derive(Component, Default)]
+        #[require(MyRequired(|| MyRequired(true)))]
+        struct MyComponent;
+
+        let mut world = World::new();
+        let order_a = world
+            .spawn((ConflictingRequire, MyComponent))
+            .get::<MyRequired>()
+            .cloned();
+        let order_b = world
+            .spawn((MyComponent, ConflictingRequire))
+            .get::<MyRequired>()
+            .cloned();
+
+        assert_eq!(order_a, Some(MyRequired(true)));
+        assert_eq!(order_b, Some(MyRequired(true)));
     }
 
     #[test]

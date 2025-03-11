@@ -1377,6 +1377,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_many`](Self::get_many) for the non-panicking version.
     #[inline]
     #[track_caller]
+    #[deprecated(note = "Use `get_many` instead and handle the Result.")]
     pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, D>; N] {
         match self.get_many(entities) {
             Ok(items) => items,
@@ -1429,7 +1430,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_mut`](Self::get_mut) to get the item using a mutable borrow of the [`Query`].
     #[inline]
-    pub fn get_inner(self, entity: Entity) -> Result<D::Item<'w>, QueryEntityError<'w>> {
+    pub fn get_inner(self, entity: Entity) -> Result<D::Item<'w>, QueryEntityError> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -1443,7 +1444,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 .matched_archetypes
                 .contains(location.archetype_id.index())
             {
-                return Err(QueryEntityError::QueryDoesNotMatch(entity, self.world));
+                return Err(QueryEntityError::QueryDoesNotMatch(
+                    entity,
+                    location.archetype_id,
+                ));
             }
             let archetype = self
                 .world
@@ -1475,7 +1479,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             if F::filter_fetch(&mut filter, entity, location.table_row) {
                 Ok(D::fetch(&mut fetch, entity, location.table_row))
             } else {
-                Err(QueryEntityError::QueryDoesNotMatch(entity, self.world))
+                Err(QueryEntityError::QueryDoesNotMatch(
+                    entity,
+                    location.archetype_id,
+                ))
             }
         }
     }
@@ -1572,7 +1579,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_inner<const N: usize>(
         self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>> {
+    ) -> Result<[D::Item<'w>; N], QueryEntityError> {
         // Verify that all entities are unique
         for i in 0..N {
             for j in 0..i {
@@ -1601,7 +1608,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_readonly<const N: usize>(
         self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>>
+    ) -> Result<[D::Item<'w>; N], QueryEntityError>
     where
         D: ReadOnlyQueryData,
     {
@@ -1619,7 +1626,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     unsafe fn get_many_impl<const N: usize>(
         self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>> {
+    ) -> Result<[D::Item<'w>; N], QueryEntityError> {
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
         for (value, entity) in core::iter::zip(&mut values, entities) {
@@ -1682,6 +1689,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`many`](Self::many) to get read-only query items.
     #[inline]
     #[track_caller]
+    #[deprecated(note = "Use `get_many_mut` instead and handle the Result.")]
     pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [D::Item<'_>; N] {
         match self.get_many_mut(entities) {
             Ok(items) => items,
@@ -2226,10 +2234,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// Like `transmute_lens` the query terms can be changed with some restrictions.
     /// See [`Self::transmute_lens`] for more details.
-    pub fn join<OtherD: QueryData, NewD: QueryData>(
-        &mut self,
-        other: &mut Query<OtherD>,
-    ) -> QueryLens<'_, NewD> {
+    pub fn join<'a, OtherD: QueryData, NewD: QueryData>(
+        &'a mut self,
+        other: &'a mut Query<OtherD>,
+    ) -> QueryLens<'a, NewD> {
         self.join_filtered(other)
     }
 
@@ -2255,7 +2263,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`join`](Self::join) to join using a mutable borrow of the [`Query`].
     pub fn join_inner<OtherD: QueryData, NewD: QueryData>(
         self,
-        other: &mut Query<OtherD>,
+        other: Query<'w, '_, OtherD>,
     ) -> QueryLens<'w, NewD> {
         self.join_filtered_inner(other)
     }
@@ -2268,15 +2276,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// terms like `Added` and `Changed` will only be respected if they are in
     /// the type signature.
     pub fn join_filtered<
+        'a,
         OtherD: QueryData,
         OtherF: QueryFilter,
         NewD: QueryData,
         NewF: QueryFilter,
     >(
-        &mut self,
-        other: &mut Query<OtherD, OtherF>,
-    ) -> QueryLens<'_, NewD, NewF> {
-        self.reborrow().join_filtered_inner(other)
+        &'a mut self,
+        other: &'a mut Query<OtherD, OtherF>,
+    ) -> QueryLens<'a, NewD, NewF> {
+        self.reborrow().join_filtered_inner(other.reborrow())
     }
 
     /// Equivalent to [`Self::join_inner`] but also includes a [`QueryFilter`] type.
@@ -2298,7 +2307,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         NewF: QueryFilter,
     >(
         self,
-        other: &mut Query<OtherD, OtherF>,
+        other: Query<'w, '_, OtherD, OtherF>,
     ) -> QueryLens<'w, NewD, NewF> {
         let state = self
             .state

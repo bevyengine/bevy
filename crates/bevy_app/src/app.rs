@@ -10,10 +10,10 @@ use alloc::{
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
+    error::{BevyError, SystemErrorContext},
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
-    result::{Error, SystemErrorContext},
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, SystemId, SystemInput},
 };
@@ -1280,7 +1280,7 @@ impl App {
     /// for more information.
     pub fn set_system_error_handler(
         &mut self,
-        error_handler: fn(Error, SystemErrorContext),
+        error_handler: fn(BevyError, SystemErrorContext),
     ) -> &mut Self {
         self.main_mut().set_system_error_handler(error_handler);
         self
@@ -1353,7 +1353,7 @@ type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
 
 fn run_once(mut app: App) -> AppExit {
     while app.plugins_state() == PluginsState::Adding {
-        #[cfg(all(not(target_arch = "wasm32"), feature = "bevy_tasks"))]
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         bevy_tasks::tick_global_task_pools_on_main_thread();
     }
     app.finish();
