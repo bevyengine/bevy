@@ -402,8 +402,7 @@ impl Table {
             // SAFETY: `row.as_usize()` < `len`
             unsafe {
                 self.get_column(component_id)?
-                    .changed_ticks
-                    .get_unchecked(row.as_usize())
+                    .get_changed_tick_unchecked(row)
             },
         )
     }
@@ -416,11 +415,7 @@ impl Table {
     ) -> Option<&UnsafeCell<Tick>> {
         (row.as_usize() < self.entity_count()).then_some(
             // SAFETY: `row.as_usize()` < `len`
-            unsafe {
-                self.get_column(component_id)?
-                    .added_ticks
-                    .get_unchecked(row.as_usize())
-            },
+            unsafe { self.get_column(component_id)?.get_added_tick_unchecked(row) },
         )
     }
 
@@ -433,12 +428,7 @@ impl Table {
         MaybeLocation::new_with_flattened(|| {
             (row.as_usize() < self.entity_count()).then_some(
                 // SAFETY: `row.as_usize()` < `len`
-                unsafe {
-                    self.get_column(component_id)?
-                        .changed_by
-                        .as_ref()
-                        .map(|changed_by| changed_by.get_unchecked(row.as_usize()))
-                },
+                unsafe { self.get_column(component_id)?.get_changed_by_unchecked(row) },
             )
         })
     }
@@ -452,10 +442,8 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<ComponentTicks> {
-        self.get_column(component_id).map(|col| ComponentTicks {
-            added: col.added_ticks.get_unchecked(row.as_usize()).read(),
-            changed: col.changed_ticks.get_unchecked(row.as_usize()).read(),
-        })
+        self.get_column(component_id)
+            .map(|col| col.get_ticks_unchecked(row))
     }
 
     /// Fetches a read-only reference to the [`ThinColumn`] for a given [`Component`] within the table.
