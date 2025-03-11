@@ -150,13 +150,22 @@ impl DefaultGltfImageSampler {
 }
 
 /// Adds support for glTF file loading to the app.
-#[derive(Default)]
 pub struct GltfPlugin {
     /// The default image sampler to lay glTF sampler data on top of.
     ///
     /// Can be modified with [`DefaultGltfImageSampler`] resource.
     pub default_sampler: ImageSamplerDescriptor,
-    custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+    /// Registry for custom vertex attributes.
+    /// 
+    /// To specify, use [`GltfPlugin::add_custom_vertex_attribute`].
+    pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+}
+
+impl Default for GltfPlugin {
+    fn default() -> Self { GltfPlugin{
+        default_sampler: ImageSamplerDescriptor::linear(),
+        custom_vertex_attributes: HashMap::default()
+    }}
 }
 
 impl GltfPlugin {
