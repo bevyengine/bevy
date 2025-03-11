@@ -615,11 +615,9 @@ impl EntityReservations {
             pending.extend(owned.drain(balanced_len..).inspect(|entity| {
                 // SAFETY: The pending list is known to be valid.
                 let meta = unsafe { meta.get_unchecked_mut(entity.index() as usize) };
-                if *meta == EntityMeta::EMPTY_AND_SKIP_FLUSH {
-                    // We ensure that items going onto pending will be flushed by default.
-                    // This may be changed if it is reserved for allocation.
-                    *meta = EntityMeta::EMPTY;
-                }
+                // We ensure that items going onto pending will be flushed by default.
+                // This may be changed if it is reserved for allocation.
+                meta.location = EntityLocation::INVALID;
             }));
         } else {
             let diff = balanced_len - owned.len();
@@ -627,11 +625,9 @@ impl EntityReservations {
             owned.extend(pending.drain(start..).inspect(|entity| {
                 // SAFETY: The pending list is known to be valid.
                 let meta = unsafe { meta.get_unchecked_mut(entity.index() as usize) };
-                if *meta == EntityMeta::EMPTY {
-                    // We ensure that items going onto owned will not be flushed.
-                    // Owned entities are owned by [`Entities`], and should not be flushed here.
-                    *meta = EntityMeta::EMPTY_AND_SKIP_FLUSH;
-                }
+                // We ensure that items going onto owned will not be flushed.
+                // Owned entities are owned by [`Entities`], and should not be flushed here.
+                meta.location = EntityLocation::INVALID_BUT_DONT_FLUSH;
             }));
         }
 
@@ -878,7 +874,7 @@ impl Entities {
                 // SAFETY: We just extended meta to ensure the new entities are valid,
                 // and reused entities are already valid.
                 let meta = unsafe { self.meta.get_unchecked_mut(entity.index() as usize) };
-                *meta = EntityMeta::EMPTY_AND_SKIP_FLUSH;
+                meta.location = EntityLocation::INVALID_BUT_DONT_FLUSH;
             });
 
             // return entity
@@ -894,7 +890,7 @@ impl Entities {
                 // SAFETY: Pending is known to be valid.
                 let meta = unsafe { self.meta.get_unchecked_mut(entity.index() as usize) };
                 // We are taking ownership of the stolen entities, so they should not be flushed.
-                *meta = EntityMeta::EMPTY_AND_SKIP_FLUSH;
+                meta.location = EntityLocation::INVALID_BUT_DONT_FLUSH;
             }));
         });
     }
@@ -929,7 +925,7 @@ impl Entities {
         } else {
             Some(mem::replace(
                 &mut self.meta[entity.index() as usize].location,
-                EntityMeta::EMPTY.location,
+                EntityLocation::INVALID_BUT_DONT_FLUSH,
             ))
         };
 
@@ -1004,7 +1000,7 @@ impl Entities {
             );
         }
 
-        let loc = mem::replace(&mut meta.location, EntityMeta::EMPTY.location);
+        let loc = mem::replace(&mut meta.location, EntityLocation::INVALID_BUT_DONT_FLUSH);
 
         self.owned.push(Entity::from_raw_and_generation(
             entity.index,
@@ -1130,14 +1126,14 @@ impl Entities {
             self.reservations.flush_pending(
                 &mut self.meta,
                 &mut self.owned,
-                |_entity, meta| *meta == EntityMeta::EMPTY,
+                |_entity, meta| meta.location == EntityLocation::INVALID,
                 |entity, meta| init(entity, meta),
             );
         }
         self.reservations.flush_extended(
             &mut self.meta,
             &mut self.meta_flushed_up_to,
-            |_entity, meta| *meta == EntityMeta::EMPTY,
+            |_entity, meta| meta.location == EntityLocation::INVALID,
             |entity, meta| init(entity, meta),
         );
     }
@@ -1322,16 +1318,6 @@ impl EntityMeta {
         location: EntityLocation::INVALID,
         spawned_or_despawned_by: MaybeLocation::new(None),
     };
-
-    /// meta for entities that were reserved but should not be flusehd yet.
-    const EMPTY_AND_SKIP_FLUSH: EntityMeta = const {
-        EntityMeta {
-            // SAFETY: 2 > 0
-            generation: unsafe { NonZero::<u32>::new_unchecked(2) },
-            location: EntityLocation::INVALID,
-            spawned_or_despawned_by: MaybeLocation::new(None),
-        }
-    };
 }
 
 /// A location of an entity in an archetype.
@@ -1359,10 +1345,19 @@ pub struct EntityLocation {
 }
 
 impl EntityLocation {
-    /// location for **pending entity** and **invalid entity**
+    /// Lsocation for **pending entity** and **invalid entity**.
     pub(crate) const INVALID: EntityLocation = EntityLocation {
         archetype_id: ArchetypeId::INVALID,
         archetype_row: ArchetypeRow::INVALID,
+        table_id: TableId::INVALID,
+        table_row: TableRow::INVALID,
+    };
+
+    /// This signifies that this entity should not be flushed.
+    /// It will be made valid later manually.
+    pub(crate) const INVALID_BUT_DONT_FLUSH: EntityLocation = EntityLocation {
+        archetype_id: ArchetypeId::INVALID,
+        archetype_row: ArchetypeRow::INVALID_BUT_DONT_FLUSH,
         table_id: TableId::INVALID,
         table_row: TableRow::INVALID,
     };

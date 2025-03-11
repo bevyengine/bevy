@@ -50,6 +50,9 @@ impl ArchetypeRow {
     /// Index indicating an invalid archetype row.
     /// This is meant to be used as a placeholder.
     pub const INVALID: ArchetypeRow = ArchetypeRow(u32::MAX);
+    /// This is the same as [`Self::INVALID`], but it signals to [`Entities`](crate::entity::Entities)
+    /// that this entity should not be flushed.
+    pub(crate) const INVALID_BUT_DONT_FLUSH: ArchetypeRow = ArchetypeRow(u32::MAX - 1);
 
     /// Creates a `ArchetypeRow`.
     #[inline]
