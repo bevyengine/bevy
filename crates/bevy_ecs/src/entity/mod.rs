@@ -757,14 +757,6 @@ impl Entities {
         self.reservations.reserve_entity()
     }
 
-    /// Check that we do not have pending work requiring `flush()` to be called.
-    fn verify_flushed(&mut self) {
-        debug_assert!(
-            !self.needs_flush(),
-            "flush() needs to be called before this operation is legal"
-        );
-    }
-
     /// Allocate an entity ID directly.
     pub fn alloc(&mut self) -> Entity {
         self.verify_flushed();
@@ -992,10 +984,6 @@ impl Entities {
         }
     }
 
-    fn needs_flush(&mut self) -> bool {
-        *self.free_cursor.get_mut() != self.pending.len() as IdCursor
-    }
-
     /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
     /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the supplied function.
     ///
@@ -1006,34 +994,25 @@ impl Entities {
     ///
     /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
     /// to be initialized with the invalid archetype.
+    #[inline]
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
-        let free_cursor = self.free_cursor.get_mut();
-        let current_free_cursor = *free_cursor;
-
-        let new_free_cursor = if current_free_cursor >= 0 {
-            current_free_cursor as usize
-        } else {
-            let old_meta_len = self.meta.len();
-            let new_meta_len = old_meta_len + -current_free_cursor as usize;
-            self.meta.resize(new_meta_len, EntityMeta::EMPTY);
-            for (index, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
-                init(
-                    Entity::from_raw_and_generation(index as u32, meta.generation),
-                    &mut meta.location,
-                );
-            }
-
-            *free_cursor = 0;
-            0
-        };
-
-        for index in self.pending.drain(new_free_cursor..) {
-            let meta = &mut self.meta[index as usize];
-            init(
-                Entity::from_raw_and_generation(index, meta.generation),
-                &mut meta.location,
+        // SAFETY: This can't be called concurrently since it is private,
+        // and only called here with an exclusive ref to self.
+        // Indices are valid since we borrow all of meta.
+        unsafe {
+            self.reservations.flush_pending(
+                &mut self.meta,
+                &mut self.pending,
+                |_entity, meta| *meta == EntityMeta::EMPTY,
+                |entity, meta| init(entity, meta),
             );
         }
+        self.reservations.flush_extended(
+            &mut self.meta,
+            &mut self.meta_flushed_up_to,
+            |_entity, meta| *meta == EntityMeta::EMPTY,
+            |entity, meta| init(entity, meta),
+        );
     }
 
     /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
@@ -1177,7 +1156,7 @@ impl fmt::Display for EntityDoesNotExistDetails {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 struct EntityMeta {
     /// The current generation of the [`Entity`].
     pub generation: NonZero<u32>,
@@ -1191,6 +1170,13 @@ impl EntityMeta {
     /// meta for **pending entity**
     const EMPTY: EntityMeta = EntityMeta {
         generation: NonZero::<u32>::MIN,
+        location: EntityLocation::INVALID,
+        spawned_or_despawned_by: MaybeLocation::new(None),
+    };
+
+    /// meta for entities that are reserved but should not be flusehd
+    const RESERVED_FOR_ALLOC: EntityMeta = EntityMeta {
+        generation: NonZero::<u32>::MAX,
         location: EntityLocation::INVALID,
         spawned_or_despawned_by: MaybeLocation::new(None),
     };
