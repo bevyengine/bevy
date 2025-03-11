@@ -1351,7 +1351,7 @@ pub struct EntityLocation {
 }
 
 impl EntityLocation {
-    /// Lsocation for **pending entity** and **invalid entity**.
+    /// Location for **pending entity** and **invalid entity**.
     pub(crate) const INVALID: EntityLocation = EntityLocation {
         archetype_id: ArchetypeId::INVALID,
         archetype_row: ArchetypeRow::INVALID,
