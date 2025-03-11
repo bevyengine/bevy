@@ -482,6 +482,8 @@ pub struct ActiveAnimation {
     completions: u32,
     /// `true` if the animation was completed at least once this tick.
     just_completed: bool,
+    /// `None` is mean animation was never completed forever.
+    clip_duration : Option<f32>,
     paused: bool,
 }
 
@@ -496,6 +498,7 @@ impl Default for ActiveAnimation {
             last_seek_time: None,
             completions: 0,
             just_completed: false,
+            clip_duration: None,
             paused: false,
         }
     }
@@ -514,9 +517,12 @@ impl ActiveAnimation {
         }
     }
 
-    /// Update the animation given the delta time and the duration of the clip being played.
+    /// Update the animation given the delta time.
     #[inline]
-    fn update(&mut self, delta: f32, clip_duration: f32) {
+    pub fn update(&mut self, delta: f32) {
+        if self.clip_duration.is_none(){
+            return;
+        }
         self.just_completed = false;
         self.last_seek_time = Some(self.seek_time);
 
@@ -561,6 +567,11 @@ impl ActiveAnimation {
         self.weight
     }
 
+    /// this will the duration of the clip being played
+    pub fn set_clip_duration(&mut self,clip_duration: f32)->&mut self{
+        self.clip_duration = Some(clip_duration);
+    }
+    
     /// Sets the weight of this animation.
     pub fn set_weight(&mut self, weight: f32) -> &mut Self {
         self.weight = weight;
@@ -1006,7 +1017,8 @@ pub fn advance_animations(
                     if !active_animation.paused {
                         if let AnimationNodeType::Clip(ref clip_handle) = node.node_type {
                             if let Some(clip) = animation_clips.get(clip_handle) {
-                                active_animation.update(delta_seconds, clip.duration);
+                                active_animation.set_clip_duration(clip.duration);
+                                active_animation.update(delta_seconds);
                             }
                         }
                     }
