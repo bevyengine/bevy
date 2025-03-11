@@ -3,25 +3,9 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    app::{App, Startup},
-    bone_attachments::scene::SceneAttachmentExt,
-    color::Color,
-    gltf::{GltfAssetLabel, GltfLoaderSettings},
-    math::{EulerRot, Quat, Vec3},
-    pbr::{
-        AmbientLight, CascadeShadowConfigBuilder, DirectionalLight, MeshMaterial3d,
-        StandardMaterial,
-    },
-    prelude::{
-        AnimationGraph, AnimationGraphHandle, AnimationNodeIndex, AnimationPlayer, Camera3d,
-        Children, Commands, Component, Mesh, Mesh3d, Meshable, Plane3d, Query, Res, ResMut,
-        Transform, Trigger,
-    },
-    scene::{SceneInstanceReady, SceneRoot},
-    utils::default,
-    DefaultPlugins,
+    bone_attachments::scene::SceneAttachmentExt, gltf::GltfLoaderSettings,
+    pbr::CascadeShadowConfigBuilder, prelude::*, scene::SceneInstanceReady,
 };
-use bevy_asset::{AssetServer, Assets, Handle};
 
 // Example asset that contains a mesh, animation, and attachment.
 const GLTF_PATH: &str = "models/animated/Fox.glb";
