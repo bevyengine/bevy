@@ -338,7 +338,7 @@ impl ThinColumn {
         ComponentTicks { added, changed }
     }
 
-    /// Returns the component data in this column at the given row
+    /// Returns the calling location that last modified the given row in this column
     ///
     /// # Safety
     /// - `row` must be within bounds (`row` < len)
