@@ -55,7 +55,7 @@ pub(crate) fn texture_sampler(
             MagFilter::Nearest => ImageFilterMode::Nearest,
             MagFilter::Linear => ImageFilterMode::Linear,
         }) {
-            sampler.mag_filter = mag_filter
+            sampler.mag_filter = mag_filter;
         }
         if let Some(min_filter) = gltf_sampler.min_filter().map(|mf| match mf {
             MinFilter::Nearest
@@ -65,7 +65,7 @@ pub(crate) fn texture_sampler(
                 ImageFilterMode::Linear
             }
         }) {
-            sampler.min_filter = min_filter
+            sampler.min_filter = min_filter;
         }
         if let Some(mipmap_filter) = gltf_sampler.min_filter().map(|mf| match mf {
             MinFilter::Nearest
@@ -76,7 +76,7 @@ pub(crate) fn texture_sampler(
                 ImageFilterMode::Linear
             }
         }) {
-            sampler.mipmap_filter = mipmap_filter
+            sampler.mipmap_filter = mipmap_filter;
         }
     }
     sampler
