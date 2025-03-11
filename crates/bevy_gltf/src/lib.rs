@@ -103,9 +103,9 @@ use bevy_platform_support::collections::HashMap;
 
 use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
+use bevy_ecs::prelude::Resource;
 use bevy_image::{CompressedImageFormats, ImageSamplerDescriptor};
 use bevy_render::{mesh::MeshVertexAttribute, renderer::RenderDevice};
-use bevy_ecs::prelude::Resource;
 
 /// The glTF prelude.
 ///
@@ -134,14 +134,14 @@ impl DefaultGltfImageSampler {
     }
 
     /// Makes a clone of internal [`Arc`] pointer.
-    /// 
+    ///
     /// Intended only to be used by code with no access to ECS.
     pub fn get_mutex(&self) -> Arc<Mutex<ImageSamplerDescriptor>> {
         self.0.clone()
     }
 
     /// Replaces default [`ImageSamplerDescriptor`].
-    /// 
+    ///
     /// Doesn't apply to samplers already built on top of it, i.e. `GltfLoader`'s output.
     /// Assets need to manually be reloaded.
     pub fn set(&self, descriptor: &ImageSamplerDescriptor) {
@@ -153,7 +153,7 @@ impl DefaultGltfImageSampler {
 #[derive(Default)]
 pub struct GltfPlugin {
     /// The default image sampler to lay glTF sampler data on top of.
-    /// 
+    ///
     /// Can be modified with [`DefaultGltfImageSampler`] resource.
     pub default_sampler: ImageSamplerDescriptor,
     custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,

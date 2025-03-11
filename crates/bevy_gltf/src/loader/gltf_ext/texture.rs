@@ -41,14 +41,14 @@ pub(crate) fn texture_handle(
 /// Extracts the texture sampler data from the glTF [`Texture`].
 pub(crate) fn texture_sampler(
     texture: &Texture<'_>,
-    default_sampler: &ImageSamplerDescriptor
+    default_sampler: &ImageSamplerDescriptor,
 ) -> ImageSamplerDescriptor {
     let gltf_sampler = texture.sampler();
     let mut sampler = default_sampler.clone();
 
     sampler.address_mode_u = address_mode(&gltf_sampler.wrap_s());
     sampler.address_mode_v = address_mode(&gltf_sampler.wrap_t());
-    
+
     // Shouldn't parse filters when anisotropic filtering is on.
     if sampler.anisotropy_clamp != 1 {
         if let Some(mag_filter) = gltf_sampler.mag_filter().map(|mf| match mf {
@@ -61,9 +61,9 @@ pub(crate) fn texture_sampler(
             MinFilter::Nearest
             | MinFilter::NearestMipmapNearest
             | MinFilter::NearestMipmapLinear => ImageFilterMode::Nearest,
-            MinFilter::Linear
-            | MinFilter::LinearMipmapNearest
-            | MinFilter::LinearMipmapLinear => ImageFilterMode::Linear,
+            MinFilter::Linear | MinFilter::LinearMipmapNearest | MinFilter::LinearMipmapLinear => {
+                ImageFilterMode::Linear
+            }
         }) {
             sampler.min_filter = min_filter
         }
@@ -72,8 +72,9 @@ pub(crate) fn texture_sampler(
             | MinFilter::Linear
             | MinFilter::NearestMipmapNearest
             | MinFilter::LinearMipmapNearest => ImageFilterMode::Nearest,
-            MinFilter::NearestMipmapLinear
-            | MinFilter::LinearMipmapLinear => ImageFilterMode::Linear,
+            MinFilter::NearestMipmapLinear | MinFilter::LinearMipmapLinear => {
+                ImageFilterMode::Linear
+            }
         }) {
             sampler.mipmap_filter = mipmap_filter
         }

@@ -2,9 +2,9 @@ mod extensions;
 mod gltf_ext;
 
 use std::{
-    sync::{Arc, Mutex},
     io::Error,
     path::{Path, PathBuf},
+    sync::{Arc, Mutex},
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -518,7 +518,7 @@ async fn load_gltf<'a, 'b, 'c>(
 
     let default_sampler = match settings.default_sampler.as_ref() {
         Some(sampler) => sampler,
-        None => &loader.default_sampler.lock().unwrap().clone()
+        None => &loader.default_sampler.lock().unwrap().clone(),
     };
     // We collect handles to ensure loaded images from paths are not unloaded before they are used elsewhere
     // in the loader. This prevents "reloads", but it also prevents dropping the is_srgb context on reload.
@@ -989,8 +989,11 @@ async fn load_image<'a, 'b>(
     settings: &GltfLoaderSettings,
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
-    let sampler_descriptor = if settings.override_sampler {default_sampler.clone()}
-        else {texture_sampler(&gltf_texture, default_sampler)};
+    let sampler_descriptor = if settings.override_sampler {
+        default_sampler.clone()
+    } else {
+        texture_sampler(&gltf_texture, default_sampler)
+    };
     #[cfg(all(debug_assertions, feature = "dds"))]
     let name = gltf_texture
         .name()
