@@ -1,16 +1,21 @@
+use crate::field_attributes::CloneBehavior;
 use crate::{
     derive_data::ReflectEnum, derive_data::StructField, field_attributes::DefaultBehavior,
     ident::ident_or_index,
 };
-use bevy_macro_utils::fq_std::{FQDefault, FQOption};
+use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption, FQResult};
 use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 
 pub(crate) struct EnumVariantOutputData {
     /// The names of each variant as a string.
     ///
     /// For example, `Some` and `None` for the `Option` enum.
     pub variant_names: Vec<String>,
+    /// The pattern matching portion of each variant.
+    ///
+    /// For example, `Option::Some { 0: _0 }` and `Option::None {}` for the `Option` enum.
+    pub variant_patterns: Vec<TokenStream>,
     /// The constructor portion of each variant.
     ///
     /// For example, `Option::Some { 0: value }` and `Option::None {}` for the `Option` enum.
@@ -139,6 +144,7 @@ pub(crate) trait VariantBuilder: Sized {
         let variants = self.reflect_enum().variants();
 
         let mut variant_names = Vec::with_capacity(variants.len());
+        let mut variant_patterns = Vec::with_capacity(variants.len());
         let mut variant_constructors = Vec::with_capacity(variants.len());
 
         for variant in variants {
@@ -148,7 +154,10 @@ pub(crate) trait VariantBuilder: Sized {
 
             let fields = variant.fields();
 
-            let field_constructors = fields.iter().map(|field| {
+            let mut field_patterns = Vec::with_capacity(fields.len());
+            let mut field_constructors = Vec::with_capacity(fields.len());
+
+            for field in fields {
                 let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
                 let alias = format_ident!("_{}", member);
 
@@ -164,12 +173,18 @@ pub(crate) trait VariantBuilder: Sized {
                     self.on_active_field(this, variant_field)
                 };
 
-                let constructor = quote! {
-                    #member: #value
-                };
+                field_patterns.push(quote! {
+                    #member: #alias
+                });
 
-                constructor
-            });
+                field_constructors.push(quote! {
+                    #member: #value
+                });
+            }
+
+            let pattern = quote! {
+                #variant_path { #( #field_patterns ),* }
+            };
 
             let constructor = quote! {
                 #variant_path {
@@ -178,11 +193,13 @@ pub(crate) trait VariantBuilder: Sized {
             };
 
             variant_names.push(variant_name);
+            variant_patterns.push(pattern);
             variant_constructors.push(constructor);
         }
 
         EnumVariantOutputData {
             variant_names,
+            variant_patterns,
             variant_constructors,
         }
     }
@@ -272,6 +289,106 @@ impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
                     ),
                     to_type: ::core::convert::Into::into(<#field_ty as #bevy_reflect_path::TypePath>::type_path())
                 })?
+        }
+    }
+}
+
+/// Generates the enum variant output data needed to build the `Reflect::reflect_clone` implementation.
+pub(crate) struct ReflectCloneVariantBuilder<'a> {
+    reflect_enum: &'a ReflectEnum<'a>,
+}
+
+impl<'a> ReflectCloneVariantBuilder<'a> {
+    pub fn new(reflect_enum: &'a ReflectEnum) -> Self {
+        Self { reflect_enum }
+    }
+}
+
+impl<'a> VariantBuilder for ReflectCloneVariantBuilder<'a> {
+    fn reflect_enum(&self) -> &ReflectEnum {
+        self.reflect_enum
+    }
+
+    fn access_field(&self, _ident: &Ident, field: VariantField) -> TokenStream {
+        let alias = field.alias;
+        quote!(#FQOption::Some(#alias))
+    }
+
+    fn unwrap_field(&self, field: VariantField) -> TokenStream {
+        let alias = field.alias;
+        quote!(#alias.unwrap())
+    }
+
+    fn construct_field(&self, field: VariantField) -> TokenStream {
+        let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
+
+        let field_ty = field.field.reflected_type();
+
+        let alias = field.alias;
+        let alias = match &field.field.attrs.remote {
+            Some(wrapper_ty) => {
+                quote! {
+                    <#wrapper_ty as #bevy_reflect_path::ReflectRemote>::as_wrapper(#alias)
+                }
+            }
+            None => alias.to_token_stream(),
+        };
+
+        match &field.field.attrs.clone {
+            CloneBehavior::Default => {
+                quote! {
+                    #bevy_reflect_path::PartialReflect::reflect_clone(#alias)?
+                        .take()
+                        .map_err(|value| #bevy_reflect_path::ReflectCloneError::FailedDowncast {
+                            expected: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(
+                                <#field_ty as #bevy_reflect_path::TypePath>::type_path()
+                            ),
+                            received: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Owned(
+                                #bevy_reflect_path::__macro_exports::alloc_utils::ToString::to_string(
+                                    #bevy_reflect_path::DynamicTypePath::reflect_type_path(&*value)
+                                )
+                            ),
+                        })?
+                }
+            }
+            CloneBehavior::Trait => {
+                quote! {
+                    #FQClone::clone(#alias)
+                }
+            }
+            CloneBehavior::Func(clone_fn) => {
+                quote! {
+                    #clone_fn(#alias)
+                }
+            }
+        }
+    }
+
+    fn on_active_field(&self, _this: &Ident, field: VariantField) -> TokenStream {
+        self.construct_field(field)
+    }
+
+    fn on_ignored_field(&self, field: VariantField) -> TokenStream {
+        let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
+        let variant_name = field.variant_name;
+        let alias = field.alias;
+
+        match &field.field.attrs.clone {
+            CloneBehavior::Default => {
+                let field_id = field.field.field_id(bevy_reflect_path);
+
+                quote! {
+                    return #FQResult::Err(
+                        #bevy_reflect_path::ReflectCloneError::FieldNotCloneable {
+                            field: #field_id,
+                            variant: #FQOption::Some(#bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(#variant_name)),
+                            container_type_path: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path())
+                        }
+                    )
+                }
+            }
+            CloneBehavior::Trait => quote! { #FQClone::clone(#alias) },
+            CloneBehavior::Func(clone_fn) => quote! { #clone_fn() },
         }
     }
 }
