@@ -539,7 +539,8 @@ pub struct RemoteEntities {
     ///
     /// # Safety
     ///
-    /// The slice must only be accessed via atomic operations.
+    /// This must only be accessed via atomic operations,
+    /// and its slice must only be accessed if [`Self::next_pending_index`] is non negative.
     pending: SyncUnsafeCell<Vec<Entity>>,
     /// This is the prospective length of [`Entities::meta`].
     /// This is the source of truth.
@@ -618,6 +619,22 @@ impl RemoteEntities {
         self.pending().store(pending, Ordering::Relaxed);
         self.next_pending_index
             .store(next_pending_index, Ordering::Relaxed);
+    }
+
+    /// Steals the remote pending list, placing the values in "into".
+    /// This does not steal entities already reserved.
+    fn steal_pending(&self, into: impl FnOnce(alloc::vec::Drain<Entity>)) {
+        // disable pending use
+        let next_pending_index = self.next_pending_index.swap(-1, Ordering::Relaxed);
+        // SAFETY: we just told all the remote entities that the next index is -1, so nothing will access this while modifying.
+        let pending = unsafe { &mut *(self.pending().load(Ordering::Relaxed)) };
+
+        if next_pending_index > 0 {
+            let drain = pending.drain(..next_pending_index as usize);
+            into(drain);
+        }
+
+        self.pending().store(pending, Ordering::Relaxed);
     }
 
     /// Flushes the entities that have been extended onto meta directly.
@@ -817,11 +834,12 @@ impl Entities {
             // ensure reserved entities for allocation are not flushed.
             // These entities are reserved in the sense that they are unique,
             // but nobody has requested them yet, so they should not be flushed.
-            for index in reserved.new_indices.clone() {
-                // SAFETY: we just resized for these indices
-                let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
+            let reserved = reserved.inspect(|entity| {
+                // SAFETY: We just extended meta to ensure the new entities are valid,
+                // and reused entities are already valid.
+                let meta = unsafe { self.meta.get_unchecked_mut(entity.index() as usize) };
                 *meta = EntityMeta::EMPTY_AND_SKIP_FLUSH;
-            }
+            });
 
             // return entity
             self.owned.extend(reserved);
@@ -830,16 +848,30 @@ impl Entities {
         }
     }
 
+    fn steal_pending_reservations(&mut self) {
+        self.reservations.steal_pending(|stolen| {
+            self.owned.extend(stolen.inspect(|entity| {
+                // SAFETY: Pending is known to be valid.
+                let meta = unsafe { self.meta.get_unchecked_mut(entity.index() as usize) };
+                *meta = EntityMeta::EMPTY_AND_SKIP_FLUSH;
+            }));
+        });
+    }
+
     /// Allocate a specific entity ID, overwriting its generation.
     ///
     /// Returns the location of the entity currently using the given ID, if any. Location should be
     /// written immediately.
     ///
-    /// **NOTE:** This will return incorrect results if remote reservations are made at the same time.
+    /// **NOTE:** This may return incorrect results if remote reservations are made at the same time,
+    /// and the entity index has never been reserved or allocated or if this entity was reserved again since the last flush.
     #[deprecated(
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
     pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
+        // make sure we are not missing any pending items.
+        self.steal_pending_reservations();
+
         let loc = if entity.index() as usize >= self.meta.len() {
             self.owned
                 .extend(((self.meta.len() as u32)..entity.index()).map(Entity::from_raw));
@@ -869,7 +901,8 @@ impl Entities {
     ///
     /// Returns the location of the entity currently using the given ID, if any.
     ///
-    /// **NOTE:** This will return incorrect results if remote reservations are made at the same time.
+    /// **NOTE:** This may return incorrect results if remote reservations are made at the same time,
+    /// and the entity index has never been reserved or allocated or if this entity was reserved again since the last flush.
     #[deprecated(
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
@@ -881,6 +914,9 @@ impl Entities {
         &mut self,
         entity: Entity,
     ) -> AllocAtWithoutReplacement {
+        // make sure we are not missing any pending items.
+        self.steal_pending_reservations();
+
         let result = if entity.index() as usize >= self.meta.len() {
             self.owned
                 .extend(((self.meta.len() as u32)..entity.index()).map(Entity::from_raw));
