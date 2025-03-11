@@ -17,7 +17,7 @@ mod node;
 mod tarjan_scc;
 
 pub use graph_map::{DiGraph, Direction, UnGraph};
-pub use node::{GraphNodeNeighbor, GraphNodeId, GraphNodeEdge, NodeId};
+pub use node::{GraphNodeEdge, GraphNodeId, GraphNodeNeighbor, NodeId};
 
 /// Specifies what kind of edge should be added to the dependency graph.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
