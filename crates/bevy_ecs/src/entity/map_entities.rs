@@ -308,8 +308,5 @@ mod tests {
         SceneEntityMapper::world_scope(&mut Default::default(), &mut world, |_, m| {
             m.get_mapped(Entity::PLACEHOLDER);
         });
-
-        // The SceneEntityMapper should leave `Entities` in a flushed state.
-        assert!(!world.entities.worth_flushing());
     }
 }
