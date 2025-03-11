@@ -43,7 +43,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
     ));
 }
-// A simple system to handle some keyboard input and toggle on/off the hittest.
+// A simple system to handle some keyboard input and toggle on/off the hit test.
 fn toggle_mouse_passthrough(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut window: Single<&mut Window>,

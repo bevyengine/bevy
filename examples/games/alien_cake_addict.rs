@@ -42,7 +42,7 @@ fn main() {
         .add_systems(OnEnter(GameState::GameOver), display_score)
         .add_systems(
             Update,
-            gameover_keyboard.run_if(in_state(GameState::GameOver)),
+            game_over_keyboard.run_if(in_state(GameState::GameOver)),
         )
         .run();
 }
@@ -378,7 +378,7 @@ fn scoreboard_system(game: Res<Game>, mut display: Single<&mut Text>) {
 }
 
 // restart the game when pressing spacebar
-fn gameover_keyboard(
+fn game_over_keyboard(
     mut next_state: ResMut<NextState<GameState>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {

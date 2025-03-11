@@ -605,7 +605,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.2d_viewport_to_world]
 name = "2D Viewport To World"
-description = "Demonstrates how to use the `Camera::viewport_to_world_2d` method"
+description = "Demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera."
 category = "2D Rendering"
 wasm = true
 
@@ -1835,7 +1835,7 @@ path = "examples/asset/multi_asset_sync.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.multi_asset_sync]
-name = "Mult-asset synchronization"
+name = "Multi-asset synchronization"
 description = "Demonstrates how to wait for multiple assets to be loaded."
 category = "Assets"
 wasm = true
