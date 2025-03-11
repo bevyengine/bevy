@@ -7,6 +7,8 @@ use crate::{
 };
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 
+use super::error::ResourceFetchError;
+
 /// Provides read-only access to a set of [`Resource`]s defined by the contained [`Access`].
 ///
 /// Use [`FilteredResourcesMut`] if you need mutable access to some resources.
@@ -151,21 +153,27 @@ impl<'w, 's> FilteredResources<'w, 's> {
     }
 
     /// Gets a reference to the resource of the given type if it exists and the `FilteredResources` has access to it.
-    pub fn get<R: Resource>(&self) -> Option<Ref<'w, R>> {
-        let component_id = self.world.components().resource_id::<R>()?;
+    pub fn get<R: Resource>(&self) -> Result<Ref<'w, R>, ResourceFetchError> {
+        let component_id = self
+            .world
+            .components()
+            .resource_id::<R>()
+            .ok_or(ResourceFetchError::MissingResource)?;
         if !self.access.has_resource_read(component_id) {
-            return None;
+            return Err(ResourceFetchError::NoResourceAccess(component_id));
         }
+
         // SAFETY: We have read access to this resource
-        unsafe { self.world.get_resource_with_ticks(component_id) }.map(|(value, ticks, caller)| {
-            Ref {
-                // SAFETY: `component_id` was obtained from the type ID of `R`.
-                value: unsafe { value.deref() },
-                // SAFETY: We have read access to the resource, so no mutable reference can exist.
-                ticks: unsafe { Ticks::from_tick_cells(ticks, self.last_run, self.this_run) },
-                // SAFETY: We have read access to the resource, so no mutable reference can exist.
-                changed_by: unsafe { caller.map(|caller| caller.deref()) },
-            }
+        let (value, ticks, caller) = unsafe { self.world.get_resource_with_ticks(component_id) }
+            .ok_or(ResourceFetchError::MissingResource)?;
+
+        Ok(Ref {
+            // SAFETY: `component_id` was obtained from the type ID of `R`.
+            value: unsafe { value.deref() },
+            // SAFETY: We have read access to the resource, so no mutable reference can exist.
+            ticks: unsafe { Ticks::from_tick_cells(ticks, self.last_run, self.this_run) },
+            // SAFETY: We have read access to the resource, so no mutable reference can exist.
+            changed_by: unsafe { caller.map(|caller| caller.deref()) },
         })
     }
 
@@ -419,7 +427,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     }
 
     /// Gets a reference to the resource of the given type if it exists and the `FilteredResources` has access to it.
-    pub fn get<R: Resource>(&self) -> Option<Ref<'_, R>> {
+    pub fn get<R: Resource>(&self) -> Result<Ref<'_, R>, ResourceFetchError> {
         self.as_readonly().get()
     }
 

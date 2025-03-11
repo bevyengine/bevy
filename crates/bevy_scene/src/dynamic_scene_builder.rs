@@ -381,7 +381,8 @@ impl<'w> DynamicSceneBuilder<'w> {
 
                 let resource = type_registration
                     .data::<ReflectResource>()?
-                    .reflect(self.original_world)?;
+                    .reflect(self.original_world)
+                    .ok()?;
 
                 let resource = type_registration
                     .data::<ReflectFromReflect>()

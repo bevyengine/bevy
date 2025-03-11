@@ -55,3 +55,14 @@ pub enum EntityMutableFetchError {
     #[error("The entity with ID {0} was requested mutably more than once")]
     AliasedMutability(Entity),
 }
+
+/// An error that occurs when getting a resource of a given type in a world.
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceFetchError {
+    /// The resource does not exist in the world.
+    #[error("The resource does not exist in the world.")]
+    MissingResource,
+    /// No access to the resource with the given [`ComponentId`] in the world.
+    #[error("No access to the resource with ID {0:?} in the world.")]
+    NoResourceAccess(ComponentId),
+}
