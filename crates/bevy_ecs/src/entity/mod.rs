@@ -1077,8 +1077,14 @@ impl Entities {
     ///
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn total_count(&self) -> usize {
-        self.meta.len()
+    pub fn total_count(&self) -> u32 {
+        let known = self.meta_flushed_up_to;
+        // include those that are allocated, skipping the gapps of unflushed, newly reserved entities.
+        let additional = self.meta[known as usize..]
+            .iter()
+            .filter(|meta| **meta != EntityMeta::EMPTY)
+            .count();
+        known + additional as u32
     }
 
     /// The count of all entities in the [`World`] that are used,
@@ -1086,8 +1092,16 @@ impl Entities {
     ///
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn used_count(&self) -> usize {
-        (self.meta.len() as isize - self.free_cursor.load(Ordering::Relaxed) as isize) as usize
+    pub fn used_count(&self) -> u32 {
+        let total = self.reservations.meta_len.load(Ordering::Relaxed);
+        let owned = self.owned.len() as u32;
+        let pending = self
+            .reservations
+            .next_pending_index
+            .load(Ordering::Relaxed)
+            .max(-1)
+            + 1;
+        total - owned - pending as u32
     }
 
     /// The count of all entities in the [`World`] that have ever been allocated or reserved, including those that are freed.
@@ -1095,15 +1109,23 @@ impl Entities {
     ///
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn total_prospective_count(&self) -> usize {
-        self.meta.len() + (-self.free_cursor.load(Ordering::Relaxed)).min(0) as usize
+    pub fn total_prospective_count(&self) -> u32 {
+        self.reservations.meta_len.load(Ordering::Relaxed)
     }
 
     /// The count of currently allocated entities.
+    /// This does not include reserved or freed entities.
     #[inline]
     pub fn len(&self) -> u32 {
-        // `pending`, by definition, can't be bigger than `meta`.
-        (self.meta.len() - self.pending.len()) as u32
+        let ever_allocated = self.total_count();
+        let owned = self.owned.len();
+        let pending = self
+            .reservations
+            .next_pending_index
+            .load(Ordering::Relaxed)
+            .max(-1)
+            + 1;
+        ever_allocated as u32 - owned as u32 - pending as u32
     }
 
     /// Checks if any entity is currently active.
