@@ -581,8 +581,12 @@ impl EntityReservations {
     ///
     /// # Safety
     ///
-    /// This **MUST** not be called concurrently.
     /// All entities must have valid indices in `meta`.
+    ///
+    /// This **MUST** not be called concurrently.
+    /// This is the *only* place we modify [`Self::pending`] irespective of [`Self::next_pending_index`].
+    /// That means the caller is responsible to ensure no other thread is doing this at the same time.
+    /// Otherwise, there may be data races at best or use-after-free at worst.
     #[inline]
     unsafe fn flush_pending(
         &self,
