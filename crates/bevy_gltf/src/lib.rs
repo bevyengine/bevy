@@ -97,7 +97,8 @@ mod vertex_attributes;
 
 extern crate alloc;
 
-use alloc::sync::{Arc, Mutex};
+use alloc::sync::Arc;
+use std::sync::Mutex;
 
 use bevy_platform_support::collections::HashMap;
 
