@@ -281,6 +281,7 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use crate::{AssetEvents, AssetPlugin, Handle};
     use alloc::{vec, vec::Vec};

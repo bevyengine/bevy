@@ -102,6 +102,7 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use crate::{
         archetype::Archetype,

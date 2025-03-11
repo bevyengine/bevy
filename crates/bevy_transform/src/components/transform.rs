@@ -27,7 +27,10 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
     } else if length_error_squared > 2e-4 {
         // Length error is approximately 1e-4 or more.
         #[cfg(feature = "std")]
-        eprintln!("Warning: {message}",);
+        #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
+        {
+            eprintln!("Warning: {message}",);
+        }
     }
 }
 
