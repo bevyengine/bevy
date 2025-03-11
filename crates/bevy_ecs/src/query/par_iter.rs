@@ -363,7 +363,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     ///
     /// ```
     /// use bevy_utils::Parallel;
-    /// use crate::{bevy_ecs::{prelude::{Component, Res, Resource, Entity}, entity::UniqueEntityVec, system::Query}};
+    /// use crate::{bevy_ecs::{prelude::{Component, Res, Resource, Entity}, entity::unique_vec::UniqueEntityVec, system::Query}};
     /// # use core::slice;
     /// # use crate::bevy_ecs::entity::UniqueEntityIter;
     /// # fn some_expensive_operation(_item: &T) -> usize {
