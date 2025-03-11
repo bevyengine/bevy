@@ -225,7 +225,7 @@ fn safely_configure_surface(
 ) {
     if is_wsl {
         // Use a closure to avoid polluting the backtrace with catch_unwind machinery
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let result = core::panic::catch_unwind(core::panic::AssertUnwindSafe(|| {
             render_device.configure_surface(surface, config);
         }));
 
