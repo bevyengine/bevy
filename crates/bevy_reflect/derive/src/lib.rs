@@ -37,6 +37,7 @@ mod serialization;
 mod string_expr;
 mod struct_utility;
 mod trait_reflection;
+mod type_data;
 mod type_path;
 mod where_clause_options;
 
@@ -143,6 +144,18 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///
 /// This is often used with traits that have been marked by the [`#[reflect_trait]`](macro@reflect_trait)
 /// macro in order to register the type's implementation of that trait.
+///
+/// ### Type Data Input
+///
+/// If the type data's implementation allows for input,
+/// that input can be specified using a function-call-like syntax.
+/// For example, `#[reflect(Foo(42))]` would pass the value `42`
+/// as the input to the `ReflectFoo` type data.
+///
+/// Some type data accept a tuple of values.
+/// The macro will automatically convert the input to a tuple if given >=2 parameters.
+/// For example, `#[reflect(Foo(42, "hello"))]` would pass the tuple `(42, "hello")`
+/// as the input to the `ReflectFoo` type data.
 ///
 /// ### Default Registrations
 ///
@@ -477,7 +490,7 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
 /// Because of this, **it can only be used on [object-safe] traits.**
 ///
 /// For a trait named `MyTrait`, this will generate the struct `ReflectMyTrait`.
-/// The generated struct can be created using `FromType` with any type that implements the trait.
+/// The generated struct can be created using `CreateTypeData` with any type that implements the trait.
 /// The creation and registration of this generated struct as type data can be automatically handled
 /// by [`#[derive(Reflect)]`](Reflect).
 ///
@@ -502,7 +515,7 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
 /// }
 ///
 /// // We can create the type data manually if we wanted:
-/// let my_trait: ReflectMyTrait = FromType::<SomeStruct>::from_type();
+/// let my_trait: ReflectMyTrait = CreateTypeData::<SomeStruct>::create_type_data(());
 ///
 /// // Or we can simply get it from the registry:
 /// let mut registry = TypeRegistry::default();

@@ -1,7 +1,7 @@
 use crate::state::{FreelyMutableState, NextState, State, States};
 
 use bevy_ecs::{reflect::from_reflect_with_fallback, world::World};
-use bevy_reflect::{FromType, Reflect, TypePath, TypeRegistry};
+use bevy_reflect::{CreateTypeData, Reflect, TypePath, TypeRegistry};
 
 /// A struct used to operate on the reflected [`States`] trait of a type.
 ///
@@ -19,12 +19,12 @@ pub struct ReflectStateFns {
 
 impl ReflectStateFns {
     /// Get the default set of [`ReflectStateFns`] for a specific component type using its
-    /// [`FromType`] implementation.
+    /// [`CreateTypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
     pub fn new<T: States + Reflect>() -> Self {
-        <ReflectState as FromType<T>>::from_type().0
+        <ReflectState as CreateTypeData<T>>::create_type_data(()).0
     }
 }
 
@@ -35,8 +35,8 @@ impl ReflectState {
     }
 }
 
-impl<S: States + Reflect> FromType<S> for ReflectState {
-    fn from_type() -> Self {
+impl<S: States + Reflect> CreateTypeData<S> for ReflectState {
+    fn create_type_data(_input: ()) -> Self {
         ReflectState(ReflectStateFns {
             reflect: |world| {
                 world
@@ -63,12 +63,12 @@ pub struct ReflectFreelyMutableStateFns {
 
 impl ReflectFreelyMutableStateFns {
     /// Get the default set of [`ReflectFreelyMutableStateFns`] for a specific component type using its
-    /// [`FromType`] implementation.
+    /// [`CreateTypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
     pub fn new<T: FreelyMutableState + Reflect + TypePath>() -> Self {
-        <ReflectFreelyMutableState as FromType<T>>::from_type().0
+        <ReflectFreelyMutableState as CreateTypeData<T>>::create_type_data(()).0
     }
 }
 
@@ -79,8 +79,8 @@ impl ReflectFreelyMutableState {
     }
 }
 
-impl<S: FreelyMutableState + Reflect + TypePath> FromType<S> for ReflectFreelyMutableState {
-    fn from_type() -> Self {
+impl<S: FreelyMutableState + Reflect + TypePath> CreateTypeData<S> for ReflectFreelyMutableState {
+    fn create_type_data(_input: ()) -> Self {
         ReflectFreelyMutableState(ReflectFreelyMutableStateFns {
             set_next_state: |world, reflected_state, registry| {
                 let new_state: S = from_reflect_with_fallback(

@@ -1471,7 +1471,7 @@ impl MaybeLocation {
 mod tests {
     use bevy_ecs_macros::Resource;
     use bevy_ptr::PtrMut;
-    use bevy_reflect::{FromType, ReflectFromPtr};
+    use bevy_reflect::{CreateTypeData, ReflectFromPtr};
     use core::ops::{Deref, DerefMut};
 
     use crate::{
@@ -1783,7 +1783,7 @@ mod tests {
             changed_by: caller.as_mut(),
         };
 
-        let reflect_from_ptr = <ReflectFromPtr as FromType<i32>>::from_type();
+        let reflect_from_ptr = <ReflectFromPtr as CreateTypeData<i32>>::create_type_data(());
 
         let mut new = value.map_unchanged(|ptr| {
             // SAFETY: The underlying type of `ptr` matches `reflect_from_ptr`.

@@ -860,7 +860,7 @@ mod tests {
             system::Commands,
         };
         use alloc::vec;
-        use bevy_reflect::{std_traits::ReflectDefault, FromType, Reflect, ReflectFromPtr};
+        use bevy_reflect::{std_traits::ReflectDefault, CreateTypeData, Reflect, ReflectFromPtr};
 
         #[test]
         fn clone_entity_using_reflect() {
@@ -977,7 +977,7 @@ mod tests {
                 registry
                     .get_mut(core::any::TypeId::of::<A>())
                     .unwrap()
-                    .insert(<ReflectFromPtr as FromType<B>>::from_type());
+                    .insert(<ReflectFromPtr as CreateTypeData<B>>::create_type_data(()));
             }
 
             let e = world.spawn(A).id();
