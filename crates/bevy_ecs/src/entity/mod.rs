@@ -666,8 +666,9 @@ impl RemoteEntities {
     /// Entities reserved during and prior to the clear will be invalid.
     fn clear(&self) {
         self.next_pending_index.store(-1, Ordering::Relaxed);
-        // SAFETY: We know the pointer is valid
-        unsafe { core::ptr::replace(self.pending().load(Ordering::Relaxed), Vec::new()) }
+        let _prev_pending =
+            // SAFETY: We know the pointer is valid
+            unsafe { core::ptr::replace(self.pending().load(Ordering::Relaxed), Vec::new()) };
         self.pending().store(self.pending.get(), Ordering::Relaxed);
         self.meta_len.store(0, Ordering::Relaxed);
     }
@@ -997,11 +998,10 @@ impl Entities {
     ///
     /// Does nothing if no entity with this `index` has been allocated yet.
     pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
-        if (index as usize) >= self.meta.len() {
+        let Some(meta) = self.meta.get_mut(index as usize) else {
             return false;
-        }
+        };
 
-        let meta = &mut self.meta[index as usize];
         if meta.location.archetype_id == ArchetypeId::INVALID {
             meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, generations);
             true
@@ -1010,23 +1010,19 @@ impl Entities {
         }
     }
 
-    /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
-    /// Returns `None` if this [`Entity`] is outside of the range of currently reserved Entities
+    /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection.
+    /// Returns `None` if this [`Entity`] is outside of the range of currently reserved Entities.
     ///
-    /// Note: This method may return [`Entities`](Entity) which are currently free
+    /// Note: This method may return [`Entities`](Entity) which are currently free.
     /// Note that [`contains`](Entities::contains) will correctly return false for freed
-    /// entities, since it checks the generation
+    /// entities, since it checks the generation.
     pub fn resolve_from_id(&self, index: u32) -> Option<Entity> {
-        let idu = index as usize;
-        if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
+        if let Some(&EntityMeta { generation, .. }) = self.meta.get(index as usize) {
             Some(Entity::from_raw_and_generation(index, generation))
         } else {
             // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
-            let free_cursor = self.free_cursor.load(Ordering::Relaxed);
-            // If this entity was manually created, then free_cursor might be positive
-            // Returning None handles that case correctly
-            let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then_some(Entity::from_raw(index))
+            let len = self.reservations.meta_len.load(Ordering::Relaxed);
+            (index < len).then_some(Entity::from_raw(index))
         }
     }
 
