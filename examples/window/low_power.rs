@@ -112,7 +112,7 @@ pub(crate) mod test_setup {
         window::RequestRedraw,
     };
 
-    /// Switch between update modes when the mouse is clicked.
+    /// Switch between update modes when the spacebar is pressed.
     pub(crate) fn cycle_modes(
         mut mode: ResMut<ExampleMode>,
         button_input: Res<ButtonInput<KeyCode>>,
