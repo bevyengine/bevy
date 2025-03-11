@@ -2,7 +2,7 @@
 //! for the best entry points into these APIs and examples of how to use them.
 
 use crate::{
-    bundle::{Bundle, BundleEffect, DynamicBundle},
+    bundle::{Bundle, BundleEffect, DynamicBundle, NoBundleEffect},
     entity::Entity,
     relationship::{RelatedSpawner, Relationship, RelationshipTarget},
     world::{EntityWorldMut, World},
@@ -46,11 +46,10 @@ pub trait SpawnableList<R> {
     fn size_hint(&self) -> usize;
 }
 
-impl<R: Relationship, B: Bundle> SpawnableList<R> for Vec<B> {
+impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Vec<B> {
     fn spawn(self, world: &mut World, entity: Entity) {
-        for bundle in self {
-            world.spawn((R::from(entity), bundle));
-        }
+        let mapped_bundles = self.into_iter().map(|b| (R::from(entity), b));
+        world.spawn_batch(mapped_bundles);
     }
 
     fn size_hint(&self) -> usize {
