@@ -520,9 +520,9 @@ impl ActiveAnimation {
     /// Update the animation given the delta time.
     #[inline]
     pub fn update(&mut self, delta: f32) {
-        if self.clip_duration.is_none(){
+        let Some(clip_duration) = self.clip_duration.is_none() else {
             return;
-        }
+        };
         self.just_completed = false;
         self.last_seek_time = Some(self.seek_time);
 
@@ -1017,8 +1017,7 @@ pub fn advance_animations(
                     if !active_animation.paused {
                         if let AnimationNodeType::Clip(ref clip_handle) = node.node_type {
                             if let Some(clip) = animation_clips.get(clip_handle) {
-                                active_animation.set_clip_duration(clip.duration);
-                                active_animation.update(delta_seconds);
+                                active_animation.set_clip_duration(clip.duration).update(delta_seconds);
                             }
                         }
                     }
