@@ -21,7 +21,7 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
         &mut self,
         set: NodeId,
         systems: &[NodeId],
-        dependency_flattened: &DiGraph,
+        dependency_flattened: &DiGraph<NodeId>,
     ) -> impl Iterator<Item = (NodeId, NodeId)>;
 
     /// The implementation will be able to modify the `ScheduleGraph` here.
@@ -29,7 +29,7 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
         &mut self,
         world: &mut World,
         graph: &mut ScheduleGraph,
-        dependency_flattened: &mut DiGraph,
+        dependency_flattened: &mut DiGraph<NodeId>,
     ) -> Result<(), ScheduleBuildError>;
 }
 
@@ -39,14 +39,14 @@ pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
         &mut self,
         world: &mut World,
         graph: &mut ScheduleGraph,
-        dependency_flattened: &mut DiGraph,
+        dependency_flattened: &mut DiGraph<NodeId>,
     ) -> Result<(), ScheduleBuildError>;
 
     fn collapse_set(
         &mut self,
         set: NodeId,
         systems: &[NodeId],
-        dependency_flattened: &DiGraph,
+        dependency_flattened: &DiGraph<NodeId>,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     );
     fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &TypeIdMap<Box<dyn Any>>);
@@ -56,7 +56,7 @@ impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
         &mut self,
         world: &mut World,
         graph: &mut ScheduleGraph,
-        dependency_flattened: &mut DiGraph,
+        dependency_flattened: &mut DiGraph<NodeId>,
     ) -> Result<(), ScheduleBuildError> {
         self.build(world, graph, dependency_flattened)
     }
@@ -64,7 +64,7 @@ impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
         &mut self,
         set: NodeId,
         systems: &[NodeId],
-        dependency_flattened: &DiGraph,
+        dependency_flattened: &DiGraph<NodeId>,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     ) {
         let iter = self.collapse_set(set, systems, dependency_flattened);

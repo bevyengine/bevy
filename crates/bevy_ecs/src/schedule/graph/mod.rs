@@ -17,7 +17,7 @@ mod node;
 mod tarjan_scc;
 
 pub use graph_map::{DiGraph, Direction, UnGraph};
-pub use node::NodeId;
+pub use node::{DirectedGraphNodeId, GraphNodeId, GraphNodeIdPair, NodeId};
 
 /// Specifies what kind of edge should be added to the dependency graph.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -92,11 +92,11 @@ pub(crate) struct CheckGraphResults {
     /// Edges that are redundant because a longer path exists.
     pub(crate) transitive_edges: Vec<(NodeId, NodeId)>,
     /// Variant of the graph with no transitive edges.
-    pub(crate) transitive_reduction: DiGraph,
+    pub(crate) transitive_reduction: DiGraph<NodeId>,
     /// Variant of the graph with all possible transitive edges.
     // TODO: this will very likely be used by "if-needed" ordering
     #[expect(dead_code, reason = "See the TODO above this attribute.")]
-    pub(crate) transitive_closure: DiGraph,
+    pub(crate) transitive_closure: DiGraph<NodeId>,
 }
 
 impl Default for CheckGraphResults {
@@ -123,7 +123,10 @@ impl Default for CheckGraphResults {
 /// ["On the calculation of transitive reduction-closure of orders"][1] by Habib, Morvan and Rampon.
 ///
 /// [1]: https://doi.org/10.1016/0012-365X(93)90164-O
-pub(crate) fn check_graph(graph: &DiGraph, topological_order: &[NodeId]) -> CheckGraphResults {
+pub(crate) fn check_graph(
+    graph: &DiGraph<NodeId>,
+    topological_order: &[NodeId],
+) -> CheckGraphResults {
     if graph.node_count() == 0 {
         return CheckGraphResults::default();
     }
@@ -132,7 +135,7 @@ pub(crate) fn check_graph(graph: &DiGraph, topological_order: &[NodeId]) -> Chec
 
     // build a copy of the graph where the nodes and edges appear in topsorted order
     let mut map = <HashMap<_, _>>::with_capacity_and_hasher(n, Default::default());
-    let mut topsorted = <DiGraph>::default();
+    let mut topsorted = DiGraph::<NodeId>::default();
     // iterate nodes in topological order
     for (i, &node) in topological_order.iter().enumerate() {
         map.insert(node, i);
@@ -228,13 +231,13 @@ pub(crate) fn check_graph(graph: &DiGraph, topological_order: &[NodeId]) -> Chec
 /// ["Finding all the elementary circuits of a directed graph"][1] by D. B. Johnson.
 ///
 /// [1]: https://doi.org/10.1137/0204007
-pub fn simple_cycles_in_component(graph: &DiGraph, scc: &[NodeId]) -> Vec<Vec<NodeId>> {
+pub fn simple_cycles_in_component(graph: &DiGraph<NodeId>, scc: &[NodeId]) -> Vec<Vec<NodeId>> {
     let mut cycles = vec![];
     let mut sccs = vec![SmallVec::from_slice(scc)];
 
     while let Some(mut scc) = sccs.pop() {
         // only look at nodes and edges in this strongly-connected component
-        let mut subgraph = <DiGraph>::default();
+        let mut subgraph = DiGraph::<NodeId>::default();
         for &node in &scc {
             subgraph.add_node(node);
         }
