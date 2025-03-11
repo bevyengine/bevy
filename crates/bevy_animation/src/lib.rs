@@ -1018,8 +1018,9 @@ pub fn advance_animations(
                     if !active_animation.paused {
                         if let AnimationNodeType::Clip(ref clip_handle) = node.node_type {
                             if let Some(clip) = animation_clips.get(clip_handle) {
-                                active_animation.set_clip_duration(clip.duration);
-                                active_animation.update(delta_seconds);
+                                active_animation
+                                    .set_clip_duration(clip.duration)
+                                    .update(delta_seconds);
                             }
                         }
                     }
@@ -1580,7 +1581,9 @@ mod tests {
         clip.add_event(0.5, A);
 
         assert_triggered_events_with(&active_animation, &clip, []);
-        active_animation.update(0.8, clip.duration); // 0.0 : 0.8
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.8); // 0.0 : 0.8
         assert_triggered_events_with(&active_animation, &clip, [0.5, 0.5, 0.5]);
 
         clip.add_event(1.0, A);
@@ -1588,7 +1591,9 @@ mod tests {
         clip.add_event(1.0, A);
         clip.add_event(0.0, A);
 
-        active_animation.update(0.4, clip.duration); // 0.8 : 0.2
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.4); // 0.8 : 0.2
         assert_triggered_events_with(&active_animation, &clip, [1.0, 1.0, 0.0, 0.0]);
     }
 
@@ -1601,25 +1606,41 @@ mod tests {
         assert_eq!(0.2, clip.duration);
 
         assert_triggered_events_with(&active_animation, &clip, []);
-        active_animation.update(0.1, clip.duration); // 0.0 : 0.1
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.0 : 0.1
         assert_triggered_events_with(&active_animation, &clip, [0.0]);
-        active_animation.update(0.1, clip.duration); // 0.1 : 0.2
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.1 : 0.2
         assert_triggered_events_with(&active_animation, &clip, [0.2]);
-        active_animation.update(0.1, clip.duration); // 0.2 : 0.2
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.2 : 0.2
         assert_triggered_events_with(&active_animation, &clip, []);
-        active_animation.update(0.1, clip.duration); // 0.2 : 0.2
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.2 : 0.2
         assert_triggered_events_with(&active_animation, &clip, []);
 
         active_animation.speed = -1.0;
         active_animation.completions = 0;
         assert_triggered_events_with(&active_animation, &clip, []);
-        active_animation.update(0.1, clip.duration); // 0.2 : 0.1
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.2 : 0.1
         assert_triggered_events_with(&active_animation, &clip, [0.2]);
-        active_animation.update(0.1, clip.duration); // 0.1 : 0.0
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.1 : 0.0
         assert_triggered_events_with(&active_animation, &clip, []);
-        active_animation.update(0.1, clip.duration); // 0.0 : 0.0
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.0 : 0.0
         assert_triggered_events_with(&active_animation, &clip, [0.0]);
-        active_animation.update(0.1, clip.duration); // 0.0 : 0.0
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.0 : 0.0
         assert_triggered_events_with(&active_animation, &clip, []);
     }
 
@@ -1636,37 +1657,61 @@ mod tests {
         assert_eq!(0.3, clip.duration);
 
         assert_triggered_events_with(&active_animation, &clip, []);
-        active_animation.update(0.1, clip.duration); // 0.0 : 0.1
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.0 : 0.1
         assert_triggered_events_with(&active_animation, &clip, [0.0]);
-        active_animation.update(0.1, clip.duration); // 0.1 : 0.2
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.1 : 0.2
         assert_triggered_events_with(&active_animation, &clip, []);
-        active_animation.update(0.1, clip.duration); // 0.2 : 0.3
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.2 : 0.3
         assert_triggered_events_with(&active_animation, &clip, [0.2, 0.3]);
-        active_animation.update(0.1, clip.duration); // 0.3 : 0.1
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.3 : 0.1
         assert_triggered_events_with(&active_animation, &clip, [0.0]);
-        active_animation.update(0.1, clip.duration); // 0.1 : 0.2
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.1 : 0.2
         assert_triggered_events_with(&active_animation, &clip, []);
 
         active_animation.speed = -1.0;
-        active_animation.update(0.1, clip.duration); // 0.2 : 0.1
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.2 : 0.1
         assert_triggered_events_with(&active_animation, &clip, [0.2]);
-        active_animation.update(0.1, clip.duration); // 0.1 : 0.0
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.1 : 0.0
         assert_triggered_events_with(&active_animation, &clip, []);
-        active_animation.update(0.1, clip.duration); // 0.0 : 0.2
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.0 : 0.2
         assert_triggered_events_with(&active_animation, &clip, [0.0, 0.3]);
-        active_animation.update(0.1, clip.duration); // 0.2 : 0.1
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.2 : 0.1
         assert_triggered_events_with(&active_animation, &clip, [0.2]);
-        active_animation.update(0.1, clip.duration); // 0.1 : 0.0
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(0.1); // 0.1 : 0.0
         assert_triggered_events_with(&active_animation, &clip, []);
 
         active_animation.replay();
-        active_animation.update(clip.duration, clip.duration); // 0.0 : 0.0
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(clip.duration); // 0.0 : 0.0
         assert_triggered_events_with(&active_animation, &clip, [0.0, 0.3, 0.2]);
 
         active_animation.replay();
         active_animation.seek_time = clip.duration;
         active_animation.last_seek_time = Some(clip.duration);
-        active_animation.update(clip.duration, clip.duration); // 0.3 : 0.0
+        active_animation
+            .set_clip_duration(clip.duration)
+            .update(clip.duration); // 0.3 : 0.0
         assert_triggered_events_with(&active_animation, &clip, [0.3, 0.2]);
     }
 }
