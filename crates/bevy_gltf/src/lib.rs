@@ -156,16 +156,18 @@ pub struct GltfPlugin {
     /// Can be modified with [`DefaultGltfImageSampler`] resource.
     pub default_sampler: ImageSamplerDescriptor,
     /// Registry for custom vertex attributes.
-    /// 
+    ///
     /// To specify, use [`GltfPlugin::add_custom_vertex_attribute`].
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
 }
 
 impl Default for GltfPlugin {
-    fn default() -> Self { GltfPlugin{
-        default_sampler: ImageSamplerDescriptor::linear(),
-        custom_vertex_attributes: HashMap::default()
-    }}
+    fn default() -> Self {
+        GltfPlugin {
+            default_sampler: ImageSamplerDescriptor::linear(),
+            custom_vertex_attributes: HashMap::default(),
+        }
+    }
 }
 
 impl GltfPlugin {
