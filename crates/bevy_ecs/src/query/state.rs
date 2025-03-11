@@ -145,7 +145,7 @@ unsafe impl<D: QueryData, F: QueryFilter> QueryStateDeref for Box<QueryState<D, 
     }
 
     fn into_readonly(self) -> Self::ReadOnly {
-        Box::new((*self).into_readonly())
+        self.into_readonly()
     }
 }
 
@@ -198,26 +198,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         unsafe { self.as_transmuted_state::<D::ReadOnly, F>() }
     }
 
-    fn into_readonly(mut self) -> QueryState<D::ReadOnly, F> {
-        // This is not strictly necessary, since a `&QueryState`
-        // created using `as_readonly()` would have the full access,
-        // but it may avoid needing to clone the access later.
-        self.component_access.access_mut().clear_writes();
-        QueryState {
-            world_id: self.world_id,
-            archetype_generation: self.archetype_generation,
-            matched_tables: self.matched_tables,
-            matched_archetypes: self.matched_archetypes,
-            component_access: self.component_access,
-            matched_storage_ids: self.matched_storage_ids,
-            is_dense: self.is_dense,
-            fetch_state: self.fetch_state,
-            filter_state: self.filter_state,
-            #[cfg(feature = "trace")]
-            par_iter_span: self.par_iter_span,
-        }
-    }
-
     /// Converts this `QueryState` reference to a `QueryState` that does not return any data
     /// which can be faster.
     ///
@@ -245,6 +225,31 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &self,
     ) -> &QueryState<NewD, NewF> {
         &*ptr::from_ref(self).cast::<QueryState<NewD, NewF>>()
+    }
+
+    /// Converts this `QueryState` reference to a `QueryState` that does not access anything mutably.
+    pub fn into_readonly(self: Box<Self>) -> Box<QueryState<D::ReadOnly, F>> {
+        // SAFETY: invariant on `WorldQuery` trait upholds that `D::ReadOnly` and `F::ReadOnly`
+        // have a subset of the access, and match the exact same archetypes/tables as `D`/`F` respectively.
+        unsafe { self.into_transmuted_state::<D::ReadOnly, F>() }
+    }
+
+    /// Converts this `QueryState` reference to any other `QueryState` with
+    /// the same `WorldQuery::State` associated types.
+    ///
+    /// Consider using `into_readonly` instead which is a safe function.
+    ///
+    /// # Safety
+    ///
+    /// `NewD` must have a subset of the access that `D` does and match the exact same archetypes/tables
+    /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
+    pub(crate) unsafe fn into_transmuted_state<
+        NewD: ReadOnlyQueryData<State = D::State>,
+        NewF: QueryFilter<State = F::State>,
+    >(
+        self: Box<Self>,
+    ) -> Box<QueryState<NewD, NewF>> {
+        Box::from_raw(Box::into_raw(self).cast::<QueryState<NewD, NewF>>())
     }
 
     /// Returns the components accessed by this query.
