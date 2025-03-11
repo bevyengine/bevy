@@ -496,7 +496,7 @@ impl SparseSetIndex for Entity {
     }
 }
 
-/// An [`Iterator`] returning a sequence of [`Entity`] values from [`RemoteEntities`].
+/// An [`Iterator`] returning a sequence of [`Entity`] values from [`EntityReservations`].
 ///
 /// # Dropping
 ///
@@ -532,7 +532,7 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 
 /// This allows remote entity reservation.
-pub struct RemoteEntities {
+pub struct EntityReservations {
     /// These are the previously freed entities that are pending being reused.
     /// [`Self::next_pending_index`] determines which of these have been reused and need to be flusehd
     /// and which remain pending.
@@ -550,7 +550,7 @@ pub struct RemoteEntities {
     next_pending_index: AtomicIdCursor,
 }
 
-impl RemoteEntities {
+impl EntityReservations {
     fn pending(&self) -> AtomicPtr<Vec<Entity>> {
         AtomicPtr::new(self.pending.get())
     }
@@ -786,13 +786,13 @@ pub struct Entities {
     /// These could be freed and pending reuse or reserved for [`Self::alloc`].
     owned: Vec<Entity>,
     /// This handles reserving entities
-    reservations: Arc<RemoteEntities>,
+    reservations: Arc<EntityReservations>,
     /// This is the number of reservations we make to cache reserves for [`Self::alloc`] as needed.
     allocation_reservation_size: NonZero<u32>,
 }
 
 impl core::ops::Deref for Entities {
-    type Target = RemoteEntities;
+    type Target = EntityReservations;
 
     fn deref(&self) -> &Self::Target {
         self.reservations.deref()
@@ -805,7 +805,7 @@ impl Entities {
             meta: Vec::new(),
             meta_flushed_up_to: 0,
             owned: Vec::new(),
-            reservations: Arc::new(RemoteEntities {
+            reservations: Arc::new(EntityReservations {
                 pending: SyncUnsafeCell::default(),
                 meta_len: AtomicU32::new(0),
                 next_pending_index: AtomicIdCursor::new(-1),
@@ -975,14 +975,14 @@ impl Entities {
 
     /// Ensure at least `n` allocations can succeed without reallocating.
     pub fn reserve(&mut self, additional: u32) {
-        // This may reserve more space than needed since we do not account for [`RemoteEntities::pending`].
+        // This may reserve more space than needed since we do not account for [`EntityReservations::pending`].
         // This does not check for "too many entities" because that happens during reservation.
 
         let from_owned = self.owned.len() as u32;
         let additional = additional.saturating_sub(from_owned) as usize;
         let current_len = self.meta.len();
         // We can't let this exceed `u32::MAX`.
-        // We don't panic here since we don't account for [`RemoteEntities::pending`],
+        // We don't panic here since we don't account for [`EntityReservations::pending`],
         // so there may be enough room for the passed `additional` anyway.
         let new_len = (current_len + additional).min(u32::MAX as usize);
         let additional = new_len - current_len;
