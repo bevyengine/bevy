@@ -565,7 +565,7 @@ impl RemoteEntities {
     unsafe fn flush_pending(
         &self,
         meta: &mut [EntityMeta],
-        other_pending: &mut Vec<Entity>,
+        owned: &mut Vec<Entity>,
         mut needs_init: impl FnMut(Entity, &EntityMeta) -> bool,
         mut init: impl FnMut(Entity, &mut EntityLocation),
     ) {
@@ -579,19 +579,40 @@ impl RemoteEntities {
         for reused in pending.drain(new_pending_len as usize..) {
             // SAFETY: The pending list is known to be valid.
             let meta = unsafe { meta.get_unchecked_mut(reused.index() as usize) };
+
+            // We need to check this because it may have been "reserved" for direct allocation,
+            // in which case, we should not flush it since that's the allocator's job.
             if needs_init(reused, meta) {
                 init(reused, &mut meta.location);
             }
         }
 
         // balance pending
-        let balanced_len = (new_pending_len as usize + other_pending.len()) / 2;
-        if balanced_len < other_pending.len() {
-            pending.extend(other_pending.drain(balanced_len..));
+        let balanced_len = (new_pending_len as usize + owned.len()) / 2;
+        if balanced_len < owned.len() {
+            pending.extend(owned.drain(balanced_len..).map(|entity| {
+                // SAFETY: The pending list is known to be valid.
+                let meta = unsafe { meta.get_unchecked_mut(entity.index() as usize) };
+                if *meta == EntityMeta::EMPTY_AND_SKIP_FLUSH {
+                    // We ensure that items going onto pending will be flushed by default.
+                    // This may be changed if it is reserved for allocation.
+                    *meta = EntityMeta::EMPTY;
+                }
+                entity
+            }));
         } else {
-            let diff = other_pending.len() - balanced_len;
+            let diff = owned.len() - balanced_len;
             let start = pending.len() - diff;
-            other_pending.extend(pending.drain(start..));
+            owned.extend(pending.drain(start..).map(|entity| {
+                // SAFETY: The pending list is known to be valid.
+                let meta = unsafe { meta.get_unchecked_mut(entity.index() as usize) };
+                if *meta == EntityMeta::EMPTY {
+                    // We ensure that items going onto owned will not be flushed.
+                    // Owned entities are owned by [`Entities`], and should not be flushed here.
+                    *meta = EntityMeta::EMPTY_AND_SKIP_FLUSH;
+                }
+                entity
+            }));
         }
 
         // re-enable pending use
@@ -621,6 +642,9 @@ impl RemoteEntities {
             // SAFETY: The pending list is known to be valid.
             let meta = unsafe { meta.get_unchecked_mut(index as usize) };
             let entity = Entity::from_raw_and_generation(index, meta.generation);
+
+            // We need to check this because it may have been "reserved" for direct allocation,
+            // in which case, we should not flush it since that's the allocator's job.
             if needs_init(entity, meta) {
                 init(entity, &mut meta.location);
             }
@@ -716,13 +740,12 @@ pub struct Entities {
     /// Entities before this have been flushed once already, but
     /// they have been freed/pending since, requiring another flush.
     meta_flushed_up_to: u32,
-    /// These are entities that are pending reuse locally.
-    pending: Vec<Entity>,
-    /// These are reserved for calls to [`Self::alloc`].
-    reserved_for_alloc: Vec<Entity>,
+    /// These are entities that this instance owns.
+    /// These could be freed and pending reuse or reserved for [`Self::alloc`].
+    owned: Vec<Entity>,
     /// This handles reserving entities
     reservations: Arc<RemoteEntities>,
-    /// This is the number of reservations we make to populate [`reserved_for_alloc`] as needed.
+    /// This is the number of reservations we make to cache reserves for [`Self::alloc`] as needed.
     allocation_reservation_size: NonZero<u32>,
 }
 
@@ -731,8 +754,7 @@ impl Entities {
         Entities {
             meta: Vec::new(),
             meta_flushed_up_to: 0,
-            pending: Vec::new(),
-            reserved_for_alloc: Vec::new(),
+            owned: Vec::new(),
             reservations: Arc::new(RemoteEntities {
                 pending: SyncUnsafeCell::default(),
                 meta_len: AtomicU32::new(0),
@@ -759,15 +781,33 @@ impl Entities {
 
     /// Allocate an entity ID directly.
     pub fn alloc(&mut self) -> Entity {
-        self.verify_flushed();
-        if let Some(index) = self.pending.pop() {
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
+        if let Some(entity) = self.owned.pop() {
+            entity
         } else {
-            let index = u32::try_from(self.meta.len()).expect("too many entities");
-            self.meta.push(EntityMeta::EMPTY);
-            Entity::from_raw(index)
+            // reserve more entities in bulk
+            let reserved = self
+                .reservations
+                .reserve_entities(self.allocation_reservation_size.into());
+
+            // ensure all indices are valid
+            if !reserved.new_indices.is_empty() {
+                let new_len = reserved.new_indices.end;
+                self.meta.resize(new_len as usize, EntityMeta::EMPTY);
+            }
+
+            // ensure reserved entities for allocation are not flushed.
+            // These entities are reserved in the sense that they are unique,
+            // but nobody has requested them yet, so they should not be flushed.
+            for index in reserved.new_indices.clone() {
+                // SAFETY: we just resized for these indices
+                let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
+                *meta = EntityMeta::EMPTY_AND_SKIP_FLUSH;
+            }
+
+            // return entity
+            self.owned.extend(reserved);
+            // SAFETY: we just extended it by a `NonZero`, so there is a value to pop.
+            unsafe { self.owned.pop().unwrap_unchecked() }
         }
     }
 
@@ -1002,7 +1042,7 @@ impl Entities {
         unsafe {
             self.reservations.flush_pending(
                 &mut self.meta,
-                &mut self.pending,
+                &mut self.owned,
                 |_entity, meta| *meta == EntityMeta::EMPTY,
                 |entity, meta| init(entity, meta),
             );
@@ -1174,8 +1214,8 @@ impl EntityMeta {
         spawned_or_despawned_by: MaybeLocation::new(None),
     };
 
-    /// meta for entities that are reserved but should not be flusehd
-    const RESERVED_FOR_ALLOC: EntityMeta = EntityMeta {
+    /// meta for entities that were reserved but should not be flusehd yet.
+    const EMPTY_AND_SKIP_FLUSH: EntityMeta = EntityMeta {
         generation: NonZero::<u32>::MAX,
         location: EntityLocation::INVALID,
         spawned_or_despawned_by: MaybeLocation::new(None),
