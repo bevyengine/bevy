@@ -1,3 +1,7 @@
+//! Contains the [`EntityIndexSet`] type, a [`IndexSet`] pre-configured to use [`EntityHash`] hashing.
+//!
+//! This module is a lightweight wrapper around `indexmap`'ss [`IndexSet`] that is more performant for [`Entity`] keys.
+
 use core::{
     fmt::{self, Debug, Formatter},
     hash::BuildHasher,

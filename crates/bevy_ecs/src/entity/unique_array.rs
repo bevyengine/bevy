@@ -1,3 +1,5 @@
+//! A wrapper around entity arrays with a uniqueness invariant.
+
 use core::{
     array,
     borrow::{Borrow, BorrowMut},
@@ -18,7 +20,10 @@ use alloc::{
 
 use bevy_platform_support::sync::Arc;
 
-use super::{unique_slice, TrustedEntityBorrow, UniqueEntityIter, UniqueEntitySlice};
+use super::{
+    unique_slice::{self, UniqueEntitySlice},
+    TrustedEntityBorrow, UniqueEntityIter,
+};
 
 /// An array that contains only unique entities.
 ///
@@ -522,6 +527,9 @@ impl<T: PartialEq<U>, U: TrustedEntityBorrow, const N: usize> PartialEq<UniqueEn
     }
 }
 
+/// A by-value array iterator.
+///
+/// Equivalent to [`array::IntoIter`].
 pub type IntoIter<T, const N: usize> = UniqueEntityIter<array::IntoIter<T, N>>;
 
 impl<T: TrustedEntityBorrow, const N: usize> UniqueEntityIter<array::IntoIter<T, N>> {
