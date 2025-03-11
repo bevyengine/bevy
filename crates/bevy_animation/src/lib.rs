@@ -483,7 +483,7 @@ pub struct ActiveAnimation {
     /// `true` if the animation was completed at least once this tick.
     just_completed: bool,
     /// `None` is mean animation was never completed forever.
-    clip_duration : Option<f32>,
+    clip_duration: Option<f32>,
     paused: bool,
 }
 
@@ -568,7 +568,7 @@ impl ActiveAnimation {
     }
 
     /// this will the duration of the clip being played
-    pub fn set_clip_duration(&mut self,clip_duration: f32)-> &mut Self {
+    pub fn set_clip_duration(&mut self,clip_duration: f32) -> &mut Self {
         self.clip_duration = Some(clip_duration);
     }
     
