@@ -1,3 +1,5 @@
+#define_import_path bevy_ui::ui_node
+
 #import bevy_render::view::View
 
 const TEXTURED = 1u;

@@ -1,4 +1,8 @@
 #import bevy_render::view::View
+#import bevy_ui::ui_node::{
+    sd_rounded_box,
+    sd_inset_rounded_box,
+}
 
 const TEXTURED = 1u;
 const RIGHT_VERTEX = 2u;
@@ -74,63 +78,8 @@ fn vertex(
     return out;
 }
 
-// The returned value is the shortest distance from the given point to the boundary of the rounded 
-// box.
-// 
-// Negative values indicate that the point is inside the rounded box, positive values that the point 
-// is outside, and zero is exactly on the boundary.
-//
-// Arguments: 
-//  - `point`        -> The function will return the distance from this point to the closest point on 
-//                    the boundary.
-//  - `size`         -> The maximum width and height of the box.
-//  - `corner_radii` -> The radius of each rounded corner. Ordered counter clockwise starting 
-//                    top left:
-//                      x: top left, y: top right, z: bottom right, w: bottom left.
-fn sd_rounded_box(point: vec2<f32>, size: vec2<f32>, corner_radii: vec4<f32>) -> f32 {
-    // If 0.0 < y then select bottom left (w) and bottom right corner radius (z).
-    // Else select top left (x) and top right corner radius (y).
-    let rs = select(corner_radii.xy, corner_radii.wz, 0.0 < point.y);
-    // w and z are swapped above so that both pairs are in left to right order, otherwise this second 
-    // select statement would return the incorrect value for the bottom pair.
-    let radius = select(rs.x, rs.y, 0.0 < point.x);
-    // Vector from the corner closest to the point, to the point.
-    let corner_to_point = abs(point) - 0.5 * size;
-    // Vector from the center of the radius circle to the point.
-    let q = corner_to_point + radius;
-    // Length from center of the radius circle to the point, zeros a component if the point is not 
-    // within the quadrant of the radius circle that is part of the curved corner.
-    let l = length(max(q, vec2(0.0)));
-    let m = min(max(q.x, q.y), 0.0);
-    return l + m - radius;
-}
 
-fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, inset: vec4<f32>) -> f32 {
-    let inner_size = size - inset.xy - inset.zw;
-    let inner_center = inset.xy + 0.5 * inner_size - 0.5 * size;
-    let inner_point = point - inner_center;
 
-    var r = radius;
-
-    // Top left corner.
-    r.x = r.x - max(inset.x, inset.y);
-
-    // Top right corner.
-    r.y = r.y - max(inset.z, inset.y);
-
-    // Bottom right corner.
-    r.z = r.z - max(inset.z, inset.w); 
-
-    // Bottom left corner.
-    r.w = r.w - max(inset.x, inset.w);
-
-    let half_size = inner_size * 0.5;
-    let min_size = min(half_size.x, half_size.y);
-
-    r = min(max(r, vec4(0.0)), vec4<f32>(min_size));
-
-    return sd_rounded_box(inner_point, inner_size, r);
-}
 
 // get alpha for antialiasing for sdf
 fn antialias(distance: f32) -> f32 {
@@ -212,7 +161,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     }
 }
 
-fn srgb_mix(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
+// This function converts two linear rgb colors to srgb space, mixes them, and then converts the result back to linear rgb space.
+fn mix_linear_rgb_in_srgb_space(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
     let a_srgb = pow(a.rgb, vec3(1. / 2.2));
     let b_srgb = pow(b.rgb, vec3(1. / 2.2));
     let mixed_srgb = mix(a_srgb, b_srgb, t);
