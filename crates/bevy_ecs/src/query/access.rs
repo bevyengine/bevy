@@ -1450,6 +1450,7 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 
 #[cfg(test)]
 mod tests {
+    use super::{invertible_difference_with, invertible_union_with};
     use crate::query::{
         access::AccessFilters, Access, AccessConflicts, ComponentAccessKind, FilteredAccess,
         FilteredAccessSet, UnboundedAccessError,
@@ -1791,5 +1792,100 @@ mod tests {
                 read_and_writes_inverted: true
             }),
         );
+    }
+
+    /// Create a FixedBitSet with a given number of total bits and a given list of bits to set.
+    /// Setting the number of bits is important in tests since the `PartialEq` impl checks that the length matches.
+    fn bit_set(bits: usize, iter: impl IntoIterator<Item = usize>) -> FixedBitSet {
+        let mut result = FixedBitSet::with_capacity(bits);
+        result.extend(iter);
+        result
+    }
+
+    #[test]
+    fn invertible_union_with_tests() {
+        let invertible_union = |mut self_inverted: bool, other_inverted: bool| {
+            // Check all four possible bit states: In both sets, the first, the second, or neither
+            let mut self_set = bit_set(4, [0, 1]);
+            let other_set = bit_set(4, [0, 2]);
+            invertible_union_with(
+                &mut self_set,
+                &mut self_inverted,
+                &other_set,
+                other_inverted,
+            );
+            (self_set, self_inverted)
+        };
+
+        // Check each combination of `inverted` flags
+        let (s, i) = invertible_union(false, false);
+        // [0, 1] | [0, 2] = [0, 1, 2]
+        assert_eq!((s, i), (bit_set(4, [0, 1, 2]), false));
+
+        let (s, i) = invertible_union(false, true);
+        // [0, 1] | [1, 3, ...] = [0, 1, 3, ...]
+        assert_eq!((s, i), (bit_set(4, [2]), true));
+
+        let (s, i) = invertible_union(true, false);
+        // [2, 3, ...] | [0, 2] = [0, 2, 3, ...]
+        assert_eq!((s, i), (bit_set(4, [1]), true));
+
+        let (s, i) = invertible_union(true, true);
+        // [2, 3, ...] | [1, 3, ...] = [1, 2, 3, ...]
+        assert_eq!((s, i), (bit_set(4, [0]), true));
+    }
+
+    #[test]
+    fn invertible_union_with_different_lengths() {
+        // When adding a large inverted set to a small normal set,
+        // make sure we invert the bits beyond the original length.
+        // Failing to call `grow` before `toggle_range` would cause bit 1 to be zero,
+        // which would incorrectly treat it as included in the output set.
+        let mut self_set = bit_set(1, [0]);
+        let mut self_inverted = false;
+        let other_set = bit_set(3, [0, 1]);
+        let other_inverted = true;
+        invertible_union_with(
+            &mut self_set,
+            &mut self_inverted,
+            &other_set,
+            other_inverted,
+        );
+
+        // [0] | [2, ...] = [0, 2, ...]
+        assert_eq!((self_set, self_inverted), (bit_set(3, [1]), true));
+    }
+
+    #[test]
+    fn invertible_difference_with_tests() {
+        let invertible_difference = |mut self_inverted: bool, other_inverted: bool| {
+            // Check all four possible bit states: In both sets, the first, the second, or neither
+            let mut self_set = bit_set(4, [0, 1]);
+            let other_set = bit_set(4, [0, 2]);
+            invertible_difference_with(
+                &mut self_set,
+                &mut self_inverted,
+                &other_set,
+                other_inverted,
+            );
+            (self_set, self_inverted)
+        };
+
+        // Check each combination of `inverted` flags
+        let (s, i) = invertible_difference(false, false);
+        // [0, 1] - [0, 2] = [1]
+        assert_eq!((s, i), (bit_set(4, [1]), false));
+
+        let (s, i) = invertible_difference(false, true);
+        // [0, 1] - [1, 3, ...] = [0]
+        assert_eq!((s, i), (bit_set(4, [0]), false));
+
+        let (s, i) = invertible_difference(true, false);
+        // [2, 3, ...] - [0, 2] = [3, ...]
+        assert_eq!((s, i), (bit_set(4, [0, 1, 2]), true));
+
+        let (s, i) = invertible_difference(true, true);
+        // [2, 3, ...] - [1, 3, ...] = [2]
+        assert_eq!((s, i), (bit_set(4, [2]), false));
     }
 }
