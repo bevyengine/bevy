@@ -374,7 +374,6 @@ mod tests {
             .expect("SHOULD BE REGISTERED")
             .clone();
         let (_, schema) = export_type(&foo_registration);
-        println!("{}", &serde_json::to_string_pretty(&schema).unwrap());
 
         assert!(
             !schema.reflect_types.contains(&"Component".to_owned()),
@@ -484,7 +483,6 @@ mod tests {
             .expect("SHOULD BE REGISTERED")
             .clone();
         let (_, schema) = export_type(&foo_registration);
-        println!("{}", &serde_json::to_string_pretty(&schema).unwrap());
         assert!(
             schema.reflect_types.contains(&"Component".to_owned()),
             "Should be a component"
