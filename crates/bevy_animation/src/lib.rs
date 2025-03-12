@@ -482,7 +482,7 @@ pub struct ActiveAnimation {
     completions: u32,
     /// `true` if the animation was completed at least once this tick.
     just_completed: bool,
-    /// `None` will update function panic.
+    /// `None`  means the animation was will never complete.
     clip_duration: Option<f32>,
     paused: bool,
 }
@@ -521,7 +521,7 @@ impl ActiveAnimation {
     #[inline]
     pub fn update(&mut self, delta: f32) {
         let Some(clip_duration) = self.clip_duration else {
-            panic!("didn't setting clip_duration");
+            return;
         };
         self.just_completed = false;
         self.last_seek_time = Some(self.seek_time);
@@ -567,7 +567,7 @@ impl ActiveAnimation {
         self.weight
     }
 
-    /// Sets the duration of the clip being played
+    /// this will the duration of the clip being played
     pub fn set_clip_duration(&mut self, clip_duration: f32) -> &mut Self {
         self.clip_duration = Some(clip_duration);
         self
