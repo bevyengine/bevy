@@ -62,7 +62,7 @@ impl From<(Color, Val)> for ColorStop {
 impl From<Color> for ColorStop {
     fn from(color: Color) -> Self {
         Self {
-            color: color.into(),
+            color,
             point: Val::Auto,
             hint: 0.5,
         }
