@@ -394,21 +394,25 @@ impl ComponentSparseSet {
             // must be nonzero
             let new_capacity = unsafe { NonZeroUsize::new_unchecked(self.capacity()) };
 
-            if column_cap == 0 {
-                // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
-                // To avoid this, we use `abort_on_panic`. If the allocation triggered a panic, the guard will be triggered, and
-                // abort the program.
-                abort_on_panic(|| {
-                    self.dense.alloc(new_capacity);
-                });
-            } else {
-                // SAFETY: `column_cap` is nonzero
-                let column_cap = unsafe { NonZeroUsize::new_unchecked(column_cap) };
+            match NonZeroUsize::new(column_cap) {
+                Some(column_cap) => {
+                    // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
+                    // To avoid this, we use `abort_on_panic`. If the allocation triggered a panic, the guard will be triggered, and
+                    // abort the program.
 
-                // SAFETY: `column_cap` is indeed the column's capacity
-                abort_on_panic(|| unsafe {
-                    self.dense.realloc(column_cap, new_capacity);
-                });
+                    // SAFETY: `column_cap` is indeed the column's capacity
+                    abort_on_panic(|| unsafe {
+                        self.dense.realloc(column_cap, new_capacity);
+                    });
+                }
+                None => {
+                    // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
+                    // To avoid this, we use `abort_on_panic`. If the allocation triggered a panic, the guard will be triggered, and
+                    // abort the program.
+                    abort_on_panic(|| {
+                        self.dense.alloc(new_capacity);
+                    });
+                }
             }
         }
     }
