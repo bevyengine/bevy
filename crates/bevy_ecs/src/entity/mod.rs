@@ -1453,7 +1453,6 @@ mod tests {
     fn reserve_generations() {
         let mut entities = Entities::new();
         let entity = entities.alloc();
-        entities.free_current_and_future_generations(entity, 1);
 
         assert!(entities
             .free_current_and_future_generations(entity, 1)
