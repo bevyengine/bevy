@@ -18,6 +18,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = fa
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false }
 bevy_scene = { path = "../bevy_scene", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev", default-features = false }
 
 tracing = { version = "0.1", default-features = false }
 
