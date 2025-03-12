@@ -165,7 +165,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
 
         // SAFETY: We have read access to this resource
         let (value, ticks, caller) = unsafe { self.world.get_resource_with_ticks(component_id) }
-            .ok_or(ResourceFetchError::MissingResource)?;
+            .ok_or(ResourceFetchError::NotInitialized(component_id))?;
 
         Ok(Ref {
             // SAFETY: `component_id` was obtained from the type ID of `R`.
@@ -183,8 +183,8 @@ impl<'w, 's> FilteredResources<'w, 's> {
             return Err(ResourceFetchError::NoResourceAccess(component_id));
         }
         // SAFETY: We have read access to this resource
-        Ok(unsafe { self.world.get_resource_by_id(component_id) }
-            .ok_or(ResourceFetchError::MissingResource)?)
+        unsafe { self.world.get_resource_by_id(component_id) }
+            .ok_or(ResourceFetchError::NotInitialized(component_id))
     }
 }
 
@@ -492,8 +492,10 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
         if !self.access.has_resource_write(component_id) {
             return Err(ResourceFetchError::NoResourceAccess(component_id));
         }
+
+        // SAFETY: We have read access to this resource
         let (value, ticks, caller) = unsafe { self.world.get_resource_with_ticks(component_id) }
-            .ok_or(ResourceFetchError::MissingResource)?;
+            .ok_or(ResourceFetchError::NotInitialized(component_id))?;
 
         Ok(MutUntyped {
             // SAFETY: We have exclusive access to the underlying storage.

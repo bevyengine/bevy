@@ -62,6 +62,9 @@ pub enum ResourceFetchError {
     /// The resource does not exist in the world.
     #[error("The resource does not exist in the world.")]
     MissingResource,
+    /// The resource with the given [`ComponentId`] is not initialized in the world.
+    #[error("The resource with ID {0:?} is not initialized in the world.")]
+    NotInitialized(ComponentId),
     /// Cannot get access to the resource with the given [`ComponentId`] in the world as it conflicts with an on going operation.
     #[error("Cannot get access to the resource with ID {0:?} in the world as it conflicts with an on going operation.")]
     NoResourceAccess(ComponentId),
