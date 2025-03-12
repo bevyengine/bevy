@@ -293,6 +293,12 @@ pub fn validate_parent_has_component<C: Component>(
 ///
 /// Any additional arguments will be interpreted as bundles to be spawned.
 ///
+/// Also see [`child`] for a similar macro which spawns a single child.
+/// While the [`children`] macro can also be used to spawn a single child,
+/// `children![Foo, Bar]` spawns two children, one with Foo, and one with Bar, and `children![(Foo,
+/// Bar)]` spawns one child with both Foo and Bar. `child!((Foo,Bar))` is the alternative provided
+/// for authors seeking the ability to differentiate at a glance.
+///
 /// Also see [`related`](crate::related) for a version of this that works with any [`RelationshipTarget`] type.
 ///
 /// ```
@@ -329,7 +335,12 @@ macro_rules! children {
 /// and reserve space in the [`Children`] for the singularly spawned entity.
 ///
 /// Also see [`children`] for a related macro which spawns multiple children with potentially
-/// different bundles.
+/// different bundles. While the [`children`] macro can also be used to spawn a single child,
+/// `children![Foo, Bar]` spawns two children, one with Foo, and one with Bar, and `children![(Foo,
+/// Bar)]` spawns one child with both Foo and Bar. `child!((Foo,Bar))` is the alternative provided
+/// for authors seeking the ability to differentiate at a glance.
+///
+/// Also see [`related`](crate::related) for a macro similar to [`children`] but for use with any [`RelationshipTarget`] type.
 ///
 /// ```
 /// # use bevy_ecs::hierarchy::Children;
