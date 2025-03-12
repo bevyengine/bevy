@@ -222,19 +222,19 @@ mod text {
                 Transform::from_translation(dest + Vec3::Z),
                 anchor,
                 StateScoped(super::Scene::Text),
+                children![
+                    (
+                        TextSpan::new(format!("{anchor:?}\n")),
+                        TextFont::from_font_size(14.0),
+                        TextColor(palettes::tailwind::BLUE_400.into()),
+                    ),
+                    (
+                        TextSpan::new(format!("{justify:?}")),
+                        TextFont::from_font_size(14.0),
+                        TextColor(palettes::tailwind::GREEN_400.into()),
+                    ),
+                ],
             ));
-            text.with_children(|parent| {
-                parent.spawn((
-                    TextSpan::new(format!("{anchor:?}\n")),
-                    TextFont::from_font_size(14.0),
-                    TextColor(palettes::tailwind::BLUE_400.into()),
-                ));
-                parent.spawn((
-                    TextSpan::new(format!("{justify:?}")),
-                    TextFont::from_font_size(14.0),
-                    TextColor(palettes::tailwind::GREEN_400.into()),
-                ));
-            });
 
             if let Some(bounds) = bounds {
                 text.insert(bounds);
