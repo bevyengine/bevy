@@ -840,7 +840,7 @@ pub fn process_remote_list_methods_request(
     let doc = OpenRpcDocument {
         info: Default::default(),
         methods: remote_methods.into(),
-        openrpc: "1.0.0-rc1".to_owned(),
+        openrpc: "1.3.2".to_owned(),
         servers,
     };
 
