@@ -606,10 +606,7 @@ pub fn queue_gradient(
             draw_function,
             pipeline,
             entity: (gradient.render_entity, gradient.main_entity),
-            sort_key: (
-                FloatOrd(gradient.stack_index as f32 + stack_z_offsets::GRADIENT),
-                gradient.render_entity.index(),
-            ),
+            sort_key: FloatOrd(gradient.stack_index as f32 + stack_z_offsets::GRADIENT),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
             index,
