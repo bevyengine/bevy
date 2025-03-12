@@ -70,8 +70,8 @@ impl Drop for AbortOnPanic {
     }
 }
 
-/// Wraps a function in an `AbortOnPanic` guard, which will be dropped if the function unwinds,
-/// causing the program to abort. This should be used whenever an operation may cause a panic
+/// Calls a function, aborting the program if it panics.
+/// This should be used whenever an operation may cause a panic
 /// while an object is still in an invalid state, which could cause UB when dropped.
 #[inline(always)]
 pub fn abort_on_panic<F: FnOnce() -> R, R>(f: F) -> R {
