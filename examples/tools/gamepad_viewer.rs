@@ -2,12 +2,12 @@
 
 use std::f32::consts::PI;
 
+use bevy::ecs::child;
 use bevy::{
     input::gamepad::{GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnectionEvent},
     prelude::*,
     sprite::Anchor,
 };
-use bevy_ecs::child;
 
 const BUTTON_RADIUS: f32 = 25.;
 const BUTTON_CLUSTER_RADIUS: f32 = 50.;
