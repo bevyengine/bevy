@@ -117,29 +117,23 @@ impl FromWorld for GradientPipeline {
 }
 
 pub fn compute_gradient_line_length(angle: f32, size: Vec2) -> f32 {
-    let Vec2 {
-        x: width,
-        y: height,
-    } = size;
-
-    let center = Vec2::new(width * 0.5, height * 0.5);
+    let center = 0.5 * size;
     let v = Vec2::new(sin(angle), -cos(angle));
+
     let (pos_corner, neg_corner) = if v.x >= 0.0 && v.y <= 0.0 {
         (size.with_y(0.), size.with_x(0.))
     } else if v.x >= 0.0 && v.y > 0.0 {
-        (Vec2::new(width, height), Vec2::new(0.0, 0.0))
+        (size, Vec2::ZERO)
     } else if v.x < 0.0 && v.y <= 0.0 {
-        (Vec2::new(0.0, 0.0), Vec2::new(width, height))
+        (Vec2::ZERO, size)
     } else {
-        (Vec2::new(0.0, height), Vec2::new(width, 0.0))
+        (size.with_x(0.), size.with_y(0.))
     };
+
     let t_pos = (pos_corner - center).dot(v);
     let t_neg = (neg_corner - center).dot(v);
 
-    let start = center + v * t_neg;
-    let end = center + v * t_pos;
-
-    start.distance(end)
+    (t_pos - t_neg).abs()
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
@@ -753,7 +747,7 @@ pub fn prepare_gradient(
                         ResolvedGradient::Linear { angle } => {
                             let corner_index = (angle - FRAC_PI_2).rem_euclid(TAU) / FRAC_PI_2;
                             (
-                                corner_points[corner_index as usize],
+                                corner_points[corner_index as usize].into(),
                                 // CSS angles increase in a clockwise direction
                                 [sin(angle), -cos(angle)],
                                 0,
