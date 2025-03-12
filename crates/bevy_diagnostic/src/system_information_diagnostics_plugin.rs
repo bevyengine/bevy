@@ -32,6 +32,10 @@ impl SystemInformationDiagnosticsPlugin {
     pub const CPU_USAGE: DiagnosticPath = DiagnosticPath::const_new("system/cpu_usage");
     /// Total system memory usage in %
     pub const MEM_USAGE: DiagnosticPath = DiagnosticPath::const_new("system/mem_usage");
+    /// Process cpu usage in %
+    pub const PROCESS_CPU_USAGE: DiagnosticPath = DiagnosticPath::const_new("process/cpu_usage");
+    /// Process memory usage in %
+    pub const PROCESS_MEM_USAGE: DiagnosticPath = DiagnosticPath::const_new("process/mem_usage");
 }
 
 /// A resource that stores diagnostic information about the system.
@@ -94,11 +98,19 @@ pub mod internal {
             .add(Diagnostic::new(SystemInformationDiagnosticsPlugin::CPU_USAGE).with_suffix("%"));
         diagnostics
             .add(Diagnostic::new(SystemInformationDiagnosticsPlugin::MEM_USAGE).with_suffix("%"));
+        diagnostics.add(
+            Diagnostic::new(SystemInformationDiagnosticsPlugin::PROCESS_CPU_USAGE).with_suffix("%"),
+        );
+        diagnostics.add(
+            Diagnostic::new(SystemInformationDiagnosticsPlugin::PROCESS_MEM_USAGE).with_suffix("%"),
+        );
     }
 
     struct SysinfoRefreshData {
         current_cpu_usage: f64,
         current_used_mem: f64,
+        process_cpu_usage: f64,
+        process_mem_usage: f64,
     }
 
     #[derive(Resource, Default)]
@@ -135,6 +147,8 @@ pub mod internal {
             let sys = Arc::clone(sysinfo);
             let task = thread_pool.spawn(async move {
                 let mut sys = sys.lock().unwrap();
+                let pid = sysinfo::get_current_pid().expect("Failed to get current process ID");
+                sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
 
                 sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
                 sys.refresh_memory();
@@ -144,9 +158,21 @@ pub mod internal {
                 let used_mem = sys.used_memory() as f64 / BYTES_TO_GIB;
                 let current_used_mem = used_mem / total_mem * 100.0;
 
+                let process_mem_usage = sys
+                    .process(pid)
+                    .map(|p| p.memory() as f64 / 1024.0 / 1024.0) // Convert to MB
+                    .unwrap_or(0.0);
+
+                let process_cpu_usage = sys
+                    .process(pid)
+                    .map(|p| p.cpu_usage() as f64)
+                    .unwrap_or(0.0);
+
                 SysinfoRefreshData {
                     current_cpu_usage,
                     current_used_mem,
+                    process_cpu_usage,
+                    process_mem_usage,
                 }
             });
             tasks.tasks.push(task);
@@ -166,6 +192,14 @@ pub mod internal {
             diagnostics.add_measurement(&SystemInformationDiagnosticsPlugin::MEM_USAGE, || {
                 data.current_used_mem
             });
+            diagnostics.add_measurement(
+                &SystemInformationDiagnosticsPlugin::PROCESS_CPU_USAGE,
+                || data.process_cpu_usage,
+            );
+            diagnostics.add_measurement(
+                &SystemInformationDiagnosticsPlugin::PROCESS_MEM_USAGE,
+                || data.process_mem_usage,
+            );
             false
         });
     }
