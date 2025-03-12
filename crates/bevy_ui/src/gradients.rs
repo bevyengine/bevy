@@ -1,5 +1,5 @@
 use crate::{Position, Val};
-use bevy_color::Color;
+use bevy_color::{Color, Srgba};
 use bevy_ecs::component::Component;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
@@ -62,7 +62,17 @@ impl From<(Color, Val)> for ColorStop {
 impl From<Color> for ColorStop {
     fn from(color: Color) -> Self {
         Self {
-            color,
+            color: color.into(),
+            point: Val::Auto,
+            hint: 0.5,
+        }
+    }
+}
+
+impl From<Srgba> for ColorStop {
+    fn from(color: Srgba) -> Self {
+        Self {
+            color: color.into(),
             point: Val::Auto,
             hint: 0.5,
         }
@@ -160,6 +170,11 @@ impl LinearGradient {
     /// Angle of a linear gradient transitioning from bottom-right to top-left
     pub const TO_TOP_LEFT: f32 = 7. * Self::TO_TOP_RIGHT;
 
+    /// Create a new linear gradient
+    pub fn new(angle: f32, stops: Vec<ColorStop>) -> Self {
+        Self { angle, stops }
+    }
+
     /// A linear gradient transitioning from bottom to top
     pub fn to_top(stops: Vec<ColorStop>) -> Self {
         Self {
@@ -223,6 +238,14 @@ impl LinearGradient {
             stops,
         }
     }
+
+    /// A linear gradient with the given angle in degrees
+    pub fn degrees(degrees: f32, stops: Vec<ColorStop>) -> Self {
+        Self {
+            angle: degrees.to_radians(),
+            stops,
+        }
+    }
 }
 
 /// A radial gradient
@@ -251,6 +274,16 @@ impl RadialGradient {
             position,
             shape,
             stops,
+        }
+    }
+}
+
+impl Default for RadialGradient {
+    fn default() -> Self {
+        Self {
+            position: Position::CENTER,
+            shape: RadialGradientShape::ClosestCorner,
+            stops: Vec::new(),
         }
     }
 }
@@ -389,11 +422,11 @@ impl<T: Into<Gradient>> From<T> for BorderGradient {
 )]
 pub enum RadialGradientShape {
     /// A circle with radius equal to the distance from its center to the closest side
-    #[default]
     ClosestSide,
     /// A circle with radius equal to the distance from its center to the farthest side
     FarthestSide,
     /// An ellipse with extents equal to the distance from its center to the nearest corner
+    #[default]
     ClosestCorner,
     /// An ellipse with extents equal to the distance from its center to the farthest corner
     FarthestCorner,
