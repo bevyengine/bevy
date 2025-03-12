@@ -5,7 +5,10 @@ use crate::{
 };
 use core::panic::Location;
 
-/// Very similar to a normal [`Column`], but with the capacities and lengths cut out for performance reasons.
+/// Dense ECS component storage.
+///
+/// A series of arrays storing component data and change ticks, with the capacities and lengths cut out for
+/// performance reasons.
 ///
 /// This type is used by [`Table`], because all of the capacities and lengths of the [`Table`]'s columns must match.
 ///
