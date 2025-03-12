@@ -102,7 +102,8 @@ pub mod internal {
             Diagnostic::new(SystemInformationDiagnosticsPlugin::PROCESS_CPU_USAGE).with_suffix("%"),
         );
         diagnostics.add(
-            Diagnostic::new(SystemInformationDiagnosticsPlugin::PROCESS_MEM_USAGE).with_suffix("%"),
+            Diagnostic::new(SystemInformationDiagnosticsPlugin::PROCESS_MEM_USAGE)
+                .with_suffix("MB"),
         );
     }
 
@@ -165,7 +166,7 @@ pub mod internal {
 
                 let process_cpu_usage = sys
                     .process(pid)
-                    .map(|p| p.cpu_usage() as f64)
+                    .map(|p| p.cpu_usage() as f64 / sys.cpus().len() as f64)
                     .unwrap_or(0.0);
 
                 SysinfoRefreshData {
