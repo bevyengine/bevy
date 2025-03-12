@@ -1,4 +1,5 @@
 use core::{f32::consts::TAU, hash::Hash, ops::Range};
+use std::f32::consts::FRAC_PI_2;
 
 use crate::*;
 use bevy_asset::*;
@@ -124,7 +125,7 @@ pub fn compute_gradient_line_length(angle: f32, size: Vec2) -> f32 {
     let center = Vec2::new(width * 0.5, height * 0.5);
     let v = Vec2::new(sin(angle), -cos(angle));
     let (pos_corner, neg_corner) = if v.x >= 0.0 && v.y <= 0.0 {
-        (Vec2::new(width, 0.0), Vec2::new(0.0, height))
+        (size.with_y(0.), size.with_x(0.))
     } else if v.x >= 0.0 && v.y > 0.0 {
         (Vec2::new(width, height), Vec2::new(0.0, 0.0))
     } else if v.x < 0.0 && v.y <= 0.0 {
@@ -750,18 +751,9 @@ pub fn prepare_gradient(
 
                     let (g_start, g_dir, g_flags) = match gradient.resolved_gradient {
                         ResolvedGradient::Linear { angle } => {
-                            let angle = angle.rem_euclid(TAU);
+                            let corner_index = (angle - FRAC_PI_2).rem_euclid(TAU) / FRAC_PI_2;
                             (
-                                corner_points[if angle < TAU / 4. {
-                                    3
-                                } else if angle < TAU / 2. {
-                                    0
-                                } else if angle < 3. * TAU / 4. {
-                                    1
-                                } else {
-                                    2
-                                }]
-                                .into(),
+                                corner_points[corner_index as usize],
                                 // CSS angles increase in a clockwise direction
                                 [sin(angle), -cos(angle)],
                                 0,
