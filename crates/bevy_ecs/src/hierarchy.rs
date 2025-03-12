@@ -324,11 +324,12 @@ macro_rules! children {
     };
 }
 
-/// Returns a [`Spawn`](crate::spawn::Spawn) that will insert the [`Children`] component, spawn an
-/// entity with the given bundle that relates to the [`Children`] entity via the [`ChildOf`] component, and reserve space
-/// in the [`Children`] for the spawned entity
+/// Returns a [`SpawnRelatedBundle`] that will insert the [`Children`] component, spawn a [`SpawnableList`] of
+/// a single entity with the given bundle, which relates to the [`Children`] entity via the [`ChildOf`] component,
+/// and reserve space in the [`Children`] for the singularly spawned entity.
 ///
-/// Also see [`children`] for a version of this that works with many bundles.
+/// Also see [`children`] for a related macro which spawns multiple children with potentially
+/// different bundles.
 ///
 /// ```
 /// # use bevy_ecs::hierarchy::Children;
