@@ -728,9 +728,16 @@ unsafe impl<'a> QueryData for FilteredEntityRef<'a> {
         access: &mut Access<ComponentId>,
         available_access: &Access<ComponentId>,
     ) {
+        // Claim any extra access that doesn't conflict with other subqueries
+        // This is used when constructing a `QueryLens` or creating a query from a `QueryBuilder`
+        // Start with the entire available access, since that is the most we can possibly access
         state.clone_from(available_access);
+        // Prevent all writes, since `FilteredEntityRef` only performs read access
         state.clear_writes();
+        // Prevent any access that would conflict with other accesses in the current query
         state.remove_conflicting_access(access);
+        // Finally, add the resulting access to the query access
+        // to make sure a later `FilteredEntityMut` won't conflict with this.
         access.extend(state);
     }
 
@@ -830,8 +837,14 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
         access: &mut Access<ComponentId>,
         available_access: &Access<ComponentId>,
     ) {
+        // Claim any extra access that doesn't conflict with other subqueries
+        // This is used when constructing a `QueryLens` or creating a query from a `QueryBuilder`
+        // Start with the entire available access, since that is the most we can possibly access
         state.clone_from(available_access);
+        // Prevent any access that would conflict with other accesses in the current query
         state.remove_conflicting_access(access);
+        // Finally, add the resulting access to the query access
+        // to make sure a later `FilteredEntityRef` or `FilteredEntityMut` won't conflict with this.
         access.extend(state);
     }
 
