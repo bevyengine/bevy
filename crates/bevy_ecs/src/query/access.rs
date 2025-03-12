@@ -1794,7 +1794,7 @@ mod tests {
         );
     }
 
-    /// Create a FixedBitSet with a given number of total bits and a given list of bits to set.
+    /// Create a `FixedBitSet` with a given number of total bits and a given list of bits to set.
     /// Setting the number of bits is important in tests since the `PartialEq` impl checks that the length matches.
     fn bit_set(bits: usize, iter: impl IntoIterator<Item = usize>) -> FixedBitSet {
         let mut result = FixedBitSet::with_capacity(bits);
