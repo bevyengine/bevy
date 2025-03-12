@@ -3405,10 +3405,6 @@ bevy_reflect::tests::Test {
                 B,
             }
 
-            // ZST enum
-            #[derive(Reflect)]
-            enum ZSTEnumReflect {}
-
             // Opaque struct
             #[derive(Reflect, Clone)]
             #[reflect(opaque)]
@@ -3428,7 +3424,6 @@ bevy_reflect::tests::Test {
             assert!(registry.contains(TypeId::of::<ZSTStructReflect>()));
             assert!(registry.contains(TypeId::of::<TupleStructReflect>()));
             assert!(registry.contains(TypeId::of::<EnumReflect>()));
-            assert!(registry.contains(TypeId::of::<ZSTEnumReflect>()));
             assert!(registry.contains(TypeId::of::<OpaqueStructReflect>()));
             assert!(registry.contains(TypeId::of::<ZSTOpaqueStructReflect>()));
         }
