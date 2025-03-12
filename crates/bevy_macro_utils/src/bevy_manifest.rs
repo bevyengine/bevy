@@ -80,20 +80,17 @@ impl BevyManifest {
     /// Attempt to retrieve the [path](syn::Path) of a particular package in
     /// the [manifest](BevyManifest) by [name](str).
     pub fn maybe_get_path(&self, name: &str) -> Option<syn::Path> {
-        fn dep_package(dep: &Item) -> Option<&str> {
-            if dep.as_str().is_some() {
-                None
-            } else {
-                dep.get("package").map(|name| name.as_str().unwrap())
-            }
-        }
-
         let find_in_deps = |deps: &Item| -> Option<syn::Path> {
-            let package = if let Some(dep) = deps.get(name) {
-                return Some(Self::parse_str(dep_package(dep).unwrap_or(name)));
-            } else if let Some(dep) = deps.get(BEVY) {
-                dep_package(dep).unwrap_or(BEVY)
+            let package = if deps.get(name).is_some() {
+                return Some(Self::parse_str(name));
+            } else if deps.get(BEVY).is_some() {
+                BEVY
             } else {
+                // Note: to support bevy crate aliases, we could do scanning here to find a crate with a "package" name that
+                // matches our requst, but that would then mean we are scanning every dependency (and dev dependency) for every
+                // macro execution that hits this branch (which includes all built-in bevy crates). Our current stance is that supporting
+                // remapped crate names in derive macros is not worth that "compile time" price of admission. As a workaround, people aliasing
+                // bevy crate names can use "use REMAPPED as bevy_X" or "use REMAPPED::x as bevy_x".
                 return None;
             };
 
