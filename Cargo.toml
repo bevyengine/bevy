@@ -154,7 +154,6 @@ default = [
   "hdr",
   "multi_threaded",
   "png",
-  "reflect_auto_register",
   "smaa_luts",
   "sysinfo_plugin",
   "tonemapping_luts",

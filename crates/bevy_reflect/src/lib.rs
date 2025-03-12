@@ -464,11 +464,13 @@
 //! typically require manual monomorphization (i.e. manually specifying the types the generic method can
 //! take).
 //!
-//! ## Manual Registration of Generic Types
+//! ## Manual Registration
 //!
-//! `bevy_reflect` automatically collects all types that derive [`Reflect`] on startup,
-//! and [`TypeRegistry::register_derived_types`] can be used to register these types at any point in the program.
-//! However, this does not apply to types with generics: their desired monomorphized representations must be registered manually.
+//! Since Rust doesn't provide built-in support for running initialization code before `main`,
+//! there is no way for `bevy_reflect` to automatically register types into the [type registry] by default
+//! (see `auto_register` feature if this functionality is required).
+//! This means types must manually be registered, including their desired monomorphized
+//! representations if generic.
 //!
 //! # Features
 //!
@@ -518,6 +520,19 @@
 //! This includes the `debug_stack` feature,
 //! which enables capturing the type stack when serializing or deserializing a type
 //! and displaying it in error messages.
+//!
+//! ## `auto_register`
+//!
+//! | Default | Dependencies                      |
+//! | :-----: | :-------------------------------: |
+//! | ❌      | [`bevy_reflect_derive/auto_register`] |
+//!
+//! This feature enables automatic registration of types that derive [`Reflect`]
+//! for supported platforms (Linux, macOS, iOS, FreeBSD, Android, Windows, WebAssembly) using the `inventory` crate.
+//!
+//! When this feature is enabled `bevy_reflect` will automatically collects all types that derive [`Reflect`] on app startup,
+//! and [`TypeRegistry::register_derived_types`] can be used to register these types at any point in the program.
+//! However, this does not apply to types with generics: their desired monomorphized representations must be registered manually.
 //!
 //! [Reflection]: https://en.wikipedia.org/wiki/Reflective_programming
 //! [Bevy]: https://bevyengine.org/

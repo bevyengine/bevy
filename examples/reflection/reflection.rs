@@ -16,13 +16,15 @@ use serde::de::DeserializeSeed;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        // Bar will be automatically registered as it's a dependency of Foo
+        .register_type::<Foo>()
         .add_systems(Startup, setup)
         .run();
 }
 
 /// Deriving `Reflect` implements the relevant reflection traits. In this case, it implements the
 /// `Reflect` trait and the `Struct` trait `derive(Reflect)` assumes that all fields also implement
-/// Reflect. All types without generics that `derive(Reflect)` are automatically registered.
+/// Reflect.
 ///
 /// All fields in a reflected item will need to be `Reflect` as well. You can opt a field out of
 /// reflection by using the `#[reflect(ignore)]` attribute.
