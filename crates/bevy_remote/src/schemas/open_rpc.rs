@@ -39,7 +39,7 @@ pub struct InfoObject {
 impl Default for InfoObject {
     fn default() -> Self {
         Self {
-            title: "Bevy OpenRPC".to_owned(),
+            title: "Bevy Remote Protocol".to_owned(),
             version: env!("CARGO_PKG_VERSION").to_owned(),
             description: None,
             extensions: Default::default(),
