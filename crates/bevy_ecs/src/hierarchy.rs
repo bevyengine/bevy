@@ -335,7 +335,7 @@ macro_rules! children {
 /// # use bevy_ecs::hierarchy::Children;
 /// # use bevy_ecs::name::Name;
 /// # use bevy_ecs::world::World;
-/// # use bevy_ecs::children;
+/// # use bevy_ecs::child;
 /// # use bevy_ecs::spawn::{Spawn, SpawnRelated};
 /// let mut world = World::new();
 /// world.spawn((
