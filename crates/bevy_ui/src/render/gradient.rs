@@ -1,5 +1,8 @@
-use core::{f32::consts::TAU, hash::Hash, ops::Range};
-use std::f32::consts::FRAC_PI_2;
+use core::{
+    f32::consts::{FRAC_PI_2, TAU},
+    hash::Hash,
+    ops::Range,
+};
 
 use crate::*;
 use bevy_asset::*;
