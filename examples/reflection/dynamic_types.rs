@@ -142,7 +142,7 @@ fn main() {
     }
 
     // Lastly, while dynamic types are commonly generated via reflection methods like
-    // `PartialReflect::clone_value` or via the reflection deserializers,
+    // `PartialReflect::to_dynamic` or via the reflection deserializers,
     // you can also construct them manually.
     let mut my_dynamic_list = DynamicList::from_iter([1u32, 2u32, 3u32]);
 

@@ -15,6 +15,7 @@ extern crate alloc;
 mod components;
 mod dynamic_scene;
 mod dynamic_scene_builder;
+mod reflect_utils;
 mod scene;
 mod scene_filter;
 mod scene_loader;
