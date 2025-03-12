@@ -95,25 +95,23 @@ impl ThinColumn {
         &mut self,
         last_element_index: usize,
         row: TableRow,
-    ) -> (OwningPtr, ComponentTicks, MaybeLocation) {
+    ) -> OwningPtr {
         let data = self
             .data
             .swap_remove_unchecked(row.as_usize(), last_element_index);
-        let added = self
-            .added_ticks
+        self.added_ticks
             .swap_remove_unchecked(row.as_usize(), last_element_index)
             .read();
-        let changed = self
-            .changed_ticks
+        self.changed_ticks
             .swap_remove_unchecked(row.as_usize(), last_element_index)
             .read();
-        let changed_by = self.changed_by.as_mut().map(|changed_by| {
+        self.changed_by.as_mut().map(|changed_by| {
             changed_by
                 .swap_remove_unchecked(row.as_usize(), last_element_index)
                 .read()
         });
 
-        (data, ComponentTicks { added, changed }, changed_by)
+        data
     }
 
     /// Call [`realloc`](std::alloc::realloc) to expand / shrink the memory allocation for this [`ThinColumn`]

@@ -324,7 +324,7 @@ impl ComponentSparseSet {
             let is_last = dense_index.as_usize() == last_index;
             self.entities.swap_remove(dense_index.as_usize());
             // SAFETY: dense_index was just removed from `sparse`, which ensures that it is valid
-            let (value, _, _) = unsafe {
+            let value = unsafe {
                 self.dense
                     .swap_remove_and_forget_unchecked(last_index, dense_index)
             };
