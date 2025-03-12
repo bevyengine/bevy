@@ -45,7 +45,6 @@ use bevy_reflect::Reflect;
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-use bevy_utils::syncunsafecell::SyncUnsafeCell;
 pub use clone_entities::*;
 pub use entity_set::*;
 pub use map_entities::*;
@@ -75,7 +74,7 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use bevy_platform_support::sync::{
     atomic::{AtomicPtr, AtomicU32, Ordering},
     Arc, PoisonError, RwLock,
@@ -544,7 +543,7 @@ pub struct EntityReservations {
     ///
     /// This *slice* must only be accessed via [`Self::pending_scope`] and [`Self::pending_scope_mut`]
     /// to ensure synchronization.
-    pending: SyncUnsafeCell<Vec<Entity>>,
+    pending: AtomicPtr<Vec<Entity>>,
     /// This is the value of [`Self::meta_len`] the last time it was flushed.
     /// Entities before this have been flushed once already, but
     /// they may have been freed/pending since, requiring another flush.
@@ -571,8 +570,7 @@ impl EntityReservations {
     /// Returns the number of elements in [`Self::pending`], including those that are now reserved.
     /// This is greedy, so if another thread is changing the value, this will not wait for that change.
     fn pending_len(&self) -> usize {
-        let pending_ptr = AtomicPtr::new(self.pending.get());
-        let pending = pending_ptr.load(Ordering::Relaxed);
+        let pending = self.pending.load(Ordering::Relaxed);
         // SAFETY: we only access its length, not the slice, so we don't have to synchronize.
         unsafe { (*pending).len() }
     }
@@ -593,8 +591,7 @@ impl EntityReservations {
         let lower_pending_index = new_next_pending_index + 1;
 
         if upper_pending_index >= 0 {
-            let pending_ptr = AtomicPtr::new(self.pending.get());
-            let pending = pending_ptr.load(Ordering::Relaxed);
+            let pending = self.pending.load(Ordering::Relaxed);
             // SAFETY: The pending index is valid, so we know we aren't modifying `pending`.
             // Pending lives in `self`, so the lifetime is accurate.
             let pending = unsafe { &(*pending) };
@@ -631,17 +628,16 @@ impl EntityReservations {
             .next_pending_index_intention
             .fetch_sub(u32::MAX as IdCursor, Ordering::Relaxed);
         let next_pending_index = self.next_pending_index_truth.load(Ordering::Relaxed);
-        let pending_ptr = AtomicPtr::new(self.pending.get());
 
         if next_pending_index == next_pending_index_intention {
             // SAFETY: we just told all the remote entities that the next index is negative,
             // and the parity succeeded,
             // so nothing is or will access this while modifying.
-            let pending = unsafe { &mut *(pending_ptr.load(Ordering::Relaxed)) };
+            let pending = unsafe { &mut *(self.pending.load(Ordering::Relaxed)) };
             let result = func(pending, next_pending_index, false);
 
             let new_next_pending_index = pending.len() as IdCursor - 1;
-            pending_ptr.store(pending, Ordering::Relaxed);
+            self.pending.store(pending, Ordering::Relaxed);
             let diff = new_next_pending_index - next_pending_index;
 
             // first, apply the diff to the truth to make it correct
@@ -657,7 +653,7 @@ impl EntityReservations {
             // and the parity is still broken,
             // so nothing is or will modify this this while accessing,
             // and caller ensures we aren't modifying this ourselves.
-            let pending = unsafe { &mut *(pending_ptr.load(Ordering::Relaxed)) };
+            let pending = unsafe { &mut *(self.pending.load(Ordering::Relaxed)) };
             let result = func(pending, next_pending_index, true);
 
             // we couldn't access it, so we need to return it to its source of truth.
@@ -792,11 +788,12 @@ impl EntityReservations {
         self.next_pending_index_intention
             .store(-1, Ordering::Relaxed);
         self.next_pending_index_truth.store(-1, Ordering::Relaxed);
-        let pending_ptr = AtomicPtr::new(self.pending.get());
-        let _prev_pending =
-            // SAFETY: We know the pointer is valid
-            unsafe { core::ptr::replace(pending_ptr.load(Ordering::Relaxed), Vec::new()) };
-        pending_ptr.store(self.pending.get(), Ordering::Relaxed);
+        let new_pending = Box::into_raw(Box::new(Vec::new()));
+        let prev_pending = self.pending.swap(new_pending, Ordering::Relaxed);
+        // SAFETY: This is from `Box::into_raw`
+        unsafe {
+            drop(Box::from_raw(prev_pending));
+        }
 
         // restart meta
         self.meta_len.store(0, Ordering::Relaxed);
@@ -863,6 +860,26 @@ impl EntityReservations {
             Entity::from_raw(index)
         })
     }
+
+    fn new() -> Self {
+        let pending = Box::into_raw(Box::new(Vec::new()));
+        Self {
+            pending: AtomicPtr::new(pending),
+            meta_flushed_up_to: RwLock::new(0),
+            meta_len: AtomicU32::new(0),
+            next_pending_index_intention: AtomicIdCursor::new(-1),
+            next_pending_index_truth: AtomicIdCursor::new(-1),
+        }
+    }
+}
+
+impl Drop for EntityReservations {
+    fn drop(&mut self) {
+        // SAFETY: the pointer is from `Box::into_raw`.
+        unsafe {
+            drop(Box::from_raw(self.pending.get_mut()));
+        }
+    }
 }
 
 /// A [`World`]'s internal metadata store on all of its entities.
@@ -899,13 +916,7 @@ impl Entities {
         Entities {
             meta: Vec::new(),
             owned: Vec::new(),
-            reservations: Arc::new(EntityReservations {
-                pending: SyncUnsafeCell::default(),
-                meta_flushed_up_to: RwLock::new(0),
-                meta_len: AtomicU32::new(0),
-                next_pending_index_intention: AtomicIdCursor::new(-1),
-                next_pending_index_truth: AtomicIdCursor::new(-1),
-            }),
+            reservations: Arc::new(EntityReservations::new()),
             // SAFETY: 256 > 0
             allocation_reservation_size: unsafe { NonZero::new_unchecked(256) },
         }
