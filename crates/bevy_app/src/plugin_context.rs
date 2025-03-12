@@ -109,7 +109,7 @@ impl PluginContext<'_> {
     /// The function will be rerun until either it returns `true`,
     /// or no other plugin is making progress either.
     ///
-    /// ```rust
+    /// ```no_run
     /// # use bevy_ecs::resource::Resource;
     /// # let ctx: bevy_app::PluginContext<'static> = todo!();
     /// # async move {

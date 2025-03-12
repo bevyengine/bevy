@@ -71,7 +71,7 @@ use downcast_rs::{impl_downcast, Downcast};
 /// # struct AccessibilityPlugin;
 ///
 /// impl Plugin for AccessibilityPlugin {
-///     fn build_async<'ctx>(&self, ctx: PluginContext<'ctx>) -> impl Future<Output = ()> + 'ctx {
+///     fn build_async<'ctx>(self: Box<Self>, mut ctx: PluginContext<'ctx>) -> impl Future<Output = ()> + 'ctx {
 ///         async move {
 ///             // Wait until another plugin makes the resource available
 ///             let settings = ctx.resource::<Settings>().await.unwrap();
