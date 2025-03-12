@@ -516,10 +516,11 @@ mod tests {
         let mut entities = builder.build().entities.into_iter();
 
         // Assert entities are ordered
-        assert_eq!(entity_a, entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_b, entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_c, entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_d, entities.next().map(|e| e.entity).unwrap());
+        let mut ordered = [entity_a, entity_b, entity_c, entity_d];
+        ordered.sort();
+        for expected in ordered {
+            assert_eq!(expected, entities.next().map(|e| e.entity).unwrap());
+        }
     }
 
     #[test]
@@ -546,7 +547,9 @@ mod tests {
         assert_eq!(scene.entities.len(), 2);
         let mut scene_entities = vec![scene.entities[0].entity, scene.entities[1].entity];
         scene_entities.sort();
-        assert_eq!(scene_entities, [entity_a_b, entity_a]);
+        let mut expected = [entity_a_b, entity_a];
+        expected.sort();
+        assert_eq!(scene_entities, expected);
     }
 
     #[test]
@@ -628,9 +631,26 @@ mod tests {
             .build();
 
         assert_eq!(scene.entities.len(), 3);
-        assert!(scene.entities[0].components[0].represents::<ComponentA>());
-        assert!(scene.entities[1].components[0].represents::<ComponentA>());
-        assert_eq!(scene.entities[2].components.len(), 0);
+
+        let entity_a_b = scene
+            .entities
+            .iter()
+            .position(|entity| entity.entity == entity_a_b)
+            .unwrap();
+        let entity_a = scene
+            .entities
+            .iter()
+            .position(|entity| entity.entity == entity_a)
+            .unwrap();
+        let entity_b = scene
+            .entities
+            .iter()
+            .position(|entity| entity.entity == entity_b)
+            .unwrap();
+
+        assert!(scene.entities[entity_a_b].components[0].represents::<ComponentA>());
+        assert!(scene.entities[entity_a].components[0].represents::<ComponentA>());
+        assert_eq!(scene.entities[entity_b].components.len(), 0);
     }
 
     #[test]
@@ -655,9 +675,25 @@ mod tests {
             .build();
 
         assert_eq!(scene.entities.len(), 3);
-        assert!(scene.entities[0].components[0].represents::<ComponentB>());
-        assert_eq!(scene.entities[1].components.len(), 0);
-        assert!(scene.entities[2].components[0].represents::<ComponentB>());
+        let entity_a_b = scene
+            .entities
+            .iter()
+            .position(|entity| entity.entity == entity_a_b)
+            .unwrap();
+        let entity_a = scene
+            .entities
+            .iter()
+            .position(|entity| entity.entity == entity_a)
+            .unwrap();
+        let entity_b = scene
+            .entities
+            .iter()
+            .position(|entity| entity.entity == entity_b)
+            .unwrap();
+
+        assert!(scene.entities[entity_a_b].components[0].represents::<ComponentB>());
+        assert_eq!(scene.entities[entity_a].components.len(), 0);
+        assert!(scene.entities[entity_b].components[0].represents::<ComponentB>());
     }
 
     #[test]
