@@ -76,5 +76,7 @@ mod handler;
 pub use bevy_error::*;
 pub use handler::*;
 
-/// A result type for use in fallible systems.
+/// A result type for use in fallible systems, commands and observers.
+///
+/// The [`BevyError`] type is a type-erased error type with optional Bevy-specific diagnostics.
 pub type Result<T = (), E = BevyError> = core::result::Result<T, E>;
