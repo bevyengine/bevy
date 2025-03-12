@@ -78,11 +78,10 @@ use crate::{
 use alloc::vec::Vec;
 use bevy_platform_support::sync::{
     atomic::{AtomicPtr, AtomicU32, Ordering},
-    Arc,
+    Arc, PoisonError, RwLock,
 };
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
-use std::sync::{PoisonError, RwLock};
 
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
