@@ -87,7 +87,7 @@ impl BevyManifest {
                 BEVY
             } else {
                 // Note: to support bevy crate aliases, we could do scanning here to find a crate with a "package" name that
-                // matches our requst, but that would then mean we are scanning every dependency (and dev dependency) for every
+                // matches our request, but that would then mean we are scanning every dependency (and dev dependency) for every
                 // macro execution that hits this branch (which includes all built-in bevy crates). Our current stance is that supporting
                 // remapped crate names in derive macros is not worth that "compile time" price of admission. As a workaround, people aliasing
                 // bevy crate names can use "use REMAPPED as bevy_X" or "use REMAPPED::x as bevy_x".
