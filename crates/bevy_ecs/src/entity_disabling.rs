@@ -92,7 +92,7 @@ use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
 /// See [the module docs] for more info.
 ///
 /// [the module docs]: crate::entity_disabling
-#[derive(Component, Clone, Debug)]
+#[derive(Component, Clone, Debug, Default)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),

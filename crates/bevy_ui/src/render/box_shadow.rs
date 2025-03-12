@@ -365,10 +365,8 @@ pub fn queue_shadows(
             draw_function,
             pipeline,
             entity: (entity, extracted_shadow.main_entity),
-            sort_key: (
-                FloatOrd(extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW),
-                entity.index(),
-            ),
+            sort_key: FloatOrd(extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW),
+
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
             index,
