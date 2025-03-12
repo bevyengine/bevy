@@ -1,3 +1,5 @@
+//! A wrapper around entity slices with a uniqueness invariant.
+
 use core::{
     array::TryFromSliceError,
     borrow::Borrow,
@@ -23,8 +25,9 @@ use alloc::{
 use bevy_platform_support::sync::Arc;
 
 use super::{
-    unique_vec, EntitySet, EntitySetIterator, FromEntitySetIterator, TrustedEntityBorrow,
-    UniqueEntityArray, UniqueEntityIter, UniqueEntityVec,
+    unique_array::UniqueEntityArray,
+    unique_vec::{self, UniqueEntityVec},
+    EntitySet, EntitySetIterator, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityIter,
 };
 
 /// A slice that contains only unique entities.

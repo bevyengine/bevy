@@ -51,6 +51,8 @@ unwrap_or_default = "warn"
 needless_lifetimes = "allow"
 too_many_arguments = "allow"
 nonstandard_macro_braces = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -1835,7 +1837,7 @@ path = "examples/asset/multi_asset_sync.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.multi_asset_sync]
-name = "Mult-asset synchronization"
+name = "Multi-asset synchronization"
 description = "Demonstrates how to wait for multiple assets to be loaded."
 category = "Assets"
 wasm = true

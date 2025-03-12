@@ -1758,6 +1758,7 @@ fn get_resource_type_registration<'r>(
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     /// A generic function that tests serialization and deserialization of any type
     /// implementing Serialize and Deserialize traits.

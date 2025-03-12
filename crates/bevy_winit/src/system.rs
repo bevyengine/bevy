@@ -34,7 +34,7 @@ use crate::{
         convert_enabled_buttons, convert_resize_direction, convert_window_level,
         convert_window_theme, convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, select_monitor,
+    get_selected_videomode, select_monitor,
     state::react_to_resize,
     winit_monitors::WinitMonitors,
     CreateMonitorParams, CreateWindowParams, WinitWindows,
@@ -314,36 +314,27 @@ pub(crate) fn changed_windows(
                         &monitor_selection,
                     ))))
                 }
-                mode @ (WindowMode::Fullscreen(_) | WindowMode::SizedFullscreen(_)) => {
-                    let videomode = match mode {
-                        WindowMode::Fullscreen(monitor_selection) => get_best_videomode(
-                            &select_monitor(
-                                &monitors,
-                                winit_window.primary_monitor(),
-                                winit_window.current_monitor(),
-                                &monitor_selection,
-                            )
-                            .unwrap_or_else(|| {
-                                panic!("Could not find monitor for {:?}", monitor_selection)
-                            }),
-                        ),
-                        WindowMode::SizedFullscreen(monitor_selection) => get_fitting_videomode(
-                            &select_monitor(
-                                &monitors,
-                                winit_window.primary_monitor(),
-                                winit_window.current_monitor(),
-                                &monitor_selection,
-                            )
-                            .unwrap_or_else(|| {
-                                panic!("Could not find monitor for {:?}", monitor_selection)
-                            }),
-                            window.width() as u32,
-                            window.height() as u32,
-                        ),
-                        _ => unreachable!(),
-                    };
+                WindowMode::Fullscreen(monitor_selection, video_mode_selection) => {
+                    let monitor = &select_monitor(
+                        &monitors,
+                        winit_window.primary_monitor(),
+                        winit_window.current_monitor(),
+                        &monitor_selection,
+                    )
+                    .unwrap_or_else(|| {
+                        panic!("Could not find monitor for {:?}", monitor_selection)
+                    });
 
-                    Some(Some(winit::window::Fullscreen::Exclusive(videomode)))
+                    if let Some(video_mode) = get_selected_videomode(monitor, &video_mode_selection)
+                    {
+                        Some(Some(winit::window::Fullscreen::Exclusive(video_mode)))
+                    } else {
+                        warn!(
+                            "Could not find valid fullscreen video mode for {:?} {:?}",
+                            monitor_selection, video_mode_selection
+                        );
+                        None
+                    }
                 }
                 WindowMode::Windowed => Some(None),
             };
