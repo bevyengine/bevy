@@ -118,7 +118,7 @@ pub mod prelude {
 
 pub use {assets::*, label::GltfAssetLabel, loader::*};
 
-// Has to store an Arc as there is no other way to mutate fields of asset loaders.
+// Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
 /// Stores default [`ImageSamplerDescriptor`] in main world.
 #[derive(Resource)]
 pub struct DefaultGltfImageSampler(Arc<Mutex<ImageSamplerDescriptor>>);
@@ -137,7 +137,7 @@ impl DefaultGltfImageSampler {
     /// Makes a clone of internal [`Arc`] pointer.
     ///
     /// Intended only to be used by code with no access to ECS.
-    pub fn get_mutex(&self) -> Arc<Mutex<ImageSamplerDescriptor>> {
+    pub fn get_internal(&self) -> Arc<Mutex<ImageSamplerDescriptor>> {
         self.0.clone()
     }
 
@@ -208,7 +208,7 @@ impl Plugin for GltfPlugin {
             None => CompressedImageFormats::NONE,
         };
         let default_sampler_resource = DefaultGltfImageSampler::new(&self.default_sampler);
-        let default_sampler = default_sampler_resource.get_mutex();
+        let default_sampler = default_sampler_resource.get_internal();
         app.insert_resource(default_sampler_resource);
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,

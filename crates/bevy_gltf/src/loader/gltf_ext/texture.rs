@@ -49,7 +49,8 @@ pub(crate) fn texture_sampler(
     sampler.address_mode_u = address_mode(&gltf_sampler.wrap_s());
     sampler.address_mode_v = address_mode(&gltf_sampler.wrap_t());
 
-    // Shouldn't parse filters when anisotropic filtering is on.
+    // Shouldn't parse filters when anisotropic filtering is on, because trilinear is then required by wgpu.
+    // We also trust user to have provided a valid sampler.
     if sampler.anisotropy_clamp != 1 {
         if let Some(mag_filter) = gltf_sampler.mag_filter().map(|mf| match mf {
             MagFilter::Nearest => ImageFilterMode::Nearest,
