@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::RemoteMethods;
 
+use super::json_schema::JsonSchemaBevyType;
+
 /// Represents an `OpenRPC` document as defined by the `OpenRPC` specification.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -75,12 +77,28 @@ pub struct MethodObject {
     /// An optional detailed description of the method.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    // /// Parameters for the RPC method
-    // #[serde(default)]
-    // pub params: Vec<Parameter>,
+    /// Parameters for the RPC method
+    #[serde(default)]
+    pub params: Vec<Parameter>,
     // /// The expected result of the method
     // #[serde(skip_serializing_if = "Option::is_none")]
     // pub result: Option<Parameter>,
+    /// Additional custom extension fields.
+    #[serde(flatten)]
+    pub extensions: HashMap<String, serde_json::Value>,
+}
+
+/// Represents an RPC method parameter in the `OpenRPC` document.
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Parameter {
+    /// Parameter name
+    pub name: String,
+    /// Parameter description
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// JSON schema describing the parameter
+    pub schema: JsonSchemaBevyType,
     /// Additional custom extension fields.
     #[serde(flatten)]
     pub extensions: HashMap<String, serde_json::Value>,
