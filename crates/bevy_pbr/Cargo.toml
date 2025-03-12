@@ -40,9 +40,7 @@ bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.16.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
-  "bevy",
-] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.16.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
@@ -65,7 +63,7 @@ range-alloc = { version = "0.1.3", optional = true }
 half = { version = "2", features = ["bytemuck"], optional = true }
 meshopt = { version = "0.4.1", optional = true }
 metis = { version = "0.2", optional = true }
-itertools = { version = "0.13", optional = true }
+itertools = { version = "0.14", optional = true }
 bitvec = { version = "1", optional = true }
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive", "must_cast"] }

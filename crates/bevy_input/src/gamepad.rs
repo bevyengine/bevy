@@ -12,7 +12,6 @@ use bevy_ecs::{
     entity::Entity,
     event::{Event, EventReader, EventWriter},
     name::Name,
-    prelude::require,
     system::{Commands, Query},
 };
 use bevy_math::ops;
@@ -635,16 +634,16 @@ pub enum GamepadAxis {
     LeftStickX,
     /// The vertical value of the left stick.
     LeftStickY,
-    /// The value of the left `Z` button.
+    /// Generally the throttle axis of a HOTAS setup.
+    /// Refer to [`GamepadButton::LeftTrigger2`] for the analog trigger on a gamepad controller.
     LeftZ,
-
     /// The horizontal value of the right stick.
     RightStickX,
     /// The vertical value of the right stick.
     RightStickY,
-    /// The value of the right `Z` button.
+    /// The yaw of the main joystick, not supported on common gamepads.
+    /// Refer to [`GamepadButton::RightTrigger2`] for the analog trigger on a gamepad controller.
     RightZ,
-
     /// Non-standard support for other axis types (i.e. HOTAS sliders, potentiometers, etc).
     Other(u8),
 }
@@ -1460,7 +1459,7 @@ pub fn gamepad_connection_system(
                 vendor_id,
                 product_id,
             } => {
-                let Some(mut gamepad) = commands.get_entity(id) else {
+                let Ok(mut gamepad) = commands.get_entity(id) else {
                     warn!("Gamepad {} removed before handling connection event.", id);
                     continue;
                 };
@@ -1475,7 +1474,7 @@ pub fn gamepad_connection_system(
                 info!("Gamepad {} connected.", id);
             }
             GamepadConnection::Disconnected => {
-                let Some(mut gamepad) = commands.get_entity(id) else {
+                let Ok(mut gamepad) = commands.get_entity(id) else {
                     warn!("Gamepad {} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
                     continue;
                 };
@@ -1764,7 +1763,7 @@ mod tests {
     use bevy_app::{App, PreUpdate};
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
 
     fn test_button_axis_settings_filter(
         settings: ButtonAxisSettings,

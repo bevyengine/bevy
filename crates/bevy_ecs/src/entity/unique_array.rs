@@ -1,3 +1,5 @@
+//! A wrapper around entity arrays with a uniqueness invariant.
+
 use core::{
     array,
     borrow::{Borrow, BorrowMut},
@@ -13,11 +15,15 @@ use alloc::{
     boxed::Box,
     collections::{BTreeSet, BinaryHeap, LinkedList, VecDeque},
     rc::Rc,
-    sync::Arc,
     vec::Vec,
 };
 
-use super::{unique_slice, TrustedEntityBorrow, UniqueEntityIter, UniqueEntitySlice};
+use bevy_platform_support::sync::Arc;
+
+use super::{
+    unique_slice::{self, UniqueEntitySlice},
+    TrustedEntityBorrow, UniqueEntityIter,
+};
 
 /// An array that contains only unique entities.
 ///
@@ -73,9 +79,9 @@ impl<T: TrustedEntityBorrow, const N: usize> UniqueEntityArray<T, N> {
     }
 
     /// Casts `self` to the inner array.
-    pub fn into_arc_inner(self: Arc<Self>) -> Arc<[T; N]> {
+    pub fn into_arc_inner(this: Arc<Self>) -> Arc<[T; N]> {
         // SAFETY: UniqueEntityArray is a transparent wrapper around [T; N].
-        unsafe { Arc::from_raw(Arc::into_raw(self).cast()) }
+        unsafe { Arc::from_raw(Arc::into_raw(this).cast()) }
     }
 
     // Constructs a `Rc<UniqueEntityArray>` from a [`Rc<[T; N]>`] unsafely.
@@ -521,6 +527,9 @@ impl<T: PartialEq<U>, U: TrustedEntityBorrow, const N: usize> PartialEq<UniqueEn
     }
 }
 
+/// A by-value array iterator.
+///
+/// Equivalent to [`array::IntoIter`].
 pub type IntoIter<T, const N: usize> = UniqueEntityIter<array::IntoIter<T, N>>;
 
 impl<T: TrustedEntityBorrow, const N: usize> UniqueEntityIter<array::IntoIter<T, N>> {

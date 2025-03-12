@@ -20,12 +20,12 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     entity::{hash_map::EntityHashMap, Entity},
     prelude::ReflectComponent,
     query::With,
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{Query, Res, ResMut},
 };
 use bevy_image::Image;

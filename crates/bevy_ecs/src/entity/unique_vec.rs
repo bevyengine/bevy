@@ -1,3 +1,5 @@
+//! A wrapper around entity [`Vec`]s with a uniqueness invariant.
+
 use core::{
     borrow::{Borrow, BorrowMut},
     mem::MaybeUninit,
@@ -12,13 +14,15 @@ use alloc::{
     boxed::Box,
     collections::{BTreeSet, BinaryHeap, TryReserveError, VecDeque},
     rc::Rc,
-    sync::Arc,
     vec::{self, Vec},
 };
 
+use bevy_platform_support::sync::Arc;
+
 use super::{
-    unique_slice, EntitySet, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityArray,
-    UniqueEntityIter, UniqueEntitySlice,
+    unique_array::UniqueEntityArray,
+    unique_slice::{self, UniqueEntitySlice},
+    EntitySet, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityIter,
 };
 
 /// A `Vec` that contains only unique entities.

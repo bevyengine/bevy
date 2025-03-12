@@ -12,12 +12,12 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };

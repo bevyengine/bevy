@@ -3,10 +3,10 @@ use core::any::Any;
 
 use crate::{
     component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
+    error::{DefaultSystemErrorHandler, SystemErrorContext},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
-    result::{DefaultSystemErrorHandler, SystemErrorContext},
     system::{IntoObserverSystem, ObserverSystem},
     world::DeferredWorld,
 };
@@ -273,7 +273,7 @@ pub struct Observer {
     system: Box<dyn Any + Send + Sync + 'static>,
     descriptor: ObserverDescriptor,
     hook_on_add: ComponentHook,
-    error_handler: Option<fn(Error, SystemErrorContext)>,
+    error_handler: Option<fn(BevyError, SystemErrorContext)>,
 }
 
 impl Observer {
@@ -321,8 +321,8 @@ impl Observer {
 
     /// Set the error handler to use for this observer.
     ///
-    /// See the [`result` module-level documentation](crate::result) for more information.
-    pub fn with_error_handler(mut self, error_handler: fn(Error, SystemErrorContext)) -> Self {
+    /// See the [`error` module-level documentation](crate::error) for more information.
+    pub fn with_error_handler(mut self, error_handler: fn(BevyError, SystemErrorContext)) -> Self {
         self.error_handler = Some(error_handler);
         self
     }
@@ -435,7 +435,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     world.commands().queue(move |world: &mut World| {
         let event_id = E::register_component_id(world);
         let mut components = Vec::new();
-        B::component_ids(&mut world.components, &mut |id| {
+        B::component_ids(&mut world.components_registrator(), &mut |id| {
             components.push(id);
         });
         let mut descriptor = ObserverDescriptor {
@@ -509,7 +509,7 @@ mod tests {
 
         let mut world = World::default();
         world.init_resource::<Ran>();
-        let observer = Observer::new(system).with_error_handler(crate::result::ignore);
+        let observer = Observer::new(system).with_error_handler(crate::error::ignore);
         world.spawn(observer);
         Schedule::default().run(&mut world);
         world.trigger(TriggerEvent);
