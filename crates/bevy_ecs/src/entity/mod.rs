@@ -856,8 +856,7 @@ impl Entities {
     ///
     /// This will enable remote reservations on these [`Entities`].
     ///
-    /// Note that this *can* conflict with [`alloc_at`](Self::alloc_at) and
-    /// [`alloc_at_without_replacement`](Self::alloc_at_without_replacement).
+    /// Note that this *can* conflict with [`alloc_at`](Self::alloc_at).
     ///
     /// This does not have any additional cost over reserving directly on this instance.
     #[inline]
