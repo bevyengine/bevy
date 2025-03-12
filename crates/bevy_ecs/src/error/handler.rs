@@ -1,6 +1,14 @@
-use crate::{error::BevyError, resource::Resource};
+use crate::{component::Tick, error::BevyError, resource::Resource};
+use alloc::borrow::Cow;
 
-use super::SystemErrorContext;
+/// Additional context for a failed system run.
+pub struct SystemErrorContext {
+    /// The name of the system that failed.
+    pub name: Cow<'static, str>,
+
+    /// The last tick that the system was run.
+    pub last_run: Tick,
+}
 
 /// The default systems error handler stored as a resource in the [`World`](crate::world::World).
 pub struct DefaultSystemErrorHandler(pub fn(BevyError, SystemErrorContext));

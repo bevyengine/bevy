@@ -76,19 +76,7 @@ mod handler;
 pub use bevy_error::*;
 pub use handler::*;
 
-use crate::component::Tick;
-use alloc::borrow::Cow;
-
 /// A result type for use in fallible systems, commands and observers.
 ///
 /// The [`BevyError`] type is a type-erased error type with optional Bevy-specific diagnostics.
 pub type Result<T = (), E = BevyError> = core::result::Result<T, E>;
-
-/// Additional context for a failed system run.
-pub struct SystemErrorContext {
-    /// The name of the system that failed.
-    pub name: Cow<'static, str>,
-
-    /// The last tick that the system was run.
-    pub last_run: Tick,
-}
