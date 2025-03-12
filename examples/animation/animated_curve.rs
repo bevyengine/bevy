@@ -11,7 +11,7 @@ fn main() {
             (
                 keyboard_control,
                 pickup_sprite.run_if(input_just_pressed(MouseButton::Left)),
-                dorp_sprite.run_if(input_just_pressed(MouseButton::Right)),
+                drop_sprite.run_if(input_just_pressed(MouseButton::Right)),
                 update_text.run_if(resource_changed::<AnimationControl>),
             ),
         )
