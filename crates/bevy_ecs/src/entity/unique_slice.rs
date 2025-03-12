@@ -1,3 +1,5 @@
+//! A wrapper around entity slices with a uniqueness invariant.
+
 use core::{
     array::TryFromSliceError,
     borrow::Borrow,
@@ -17,13 +19,15 @@ use alloc::{
     boxed::Box,
     collections::VecDeque,
     rc::Rc,
-    sync::Arc,
     vec::Vec,
 };
 
+use bevy_platform_support::sync::Arc;
+
 use super::{
-    unique_vec, EntitySet, EntitySetIterator, FromEntitySetIterator, TrustedEntityBorrow,
-    UniqueEntityArray, UniqueEntityIter, UniqueEntityVec,
+    unique_array::UniqueEntityArray,
+    unique_vec::{self, UniqueEntityVec},
+    EntitySet, EntitySetIterator, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityIter,
 };
 
 /// A slice that contains only unique entities.
@@ -86,9 +90,9 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     }
 
     /// Casts `self` to the inner slice.
-    pub fn into_arc_inner(self: Arc<Self>) -> Arc<[T]> {
+    pub fn into_arc_inner(this: Arc<Self>) -> Arc<[T]> {
         // SAFETY: UniqueEntitySlice is a transparent wrapper around [T].
-        unsafe { Arc::from_raw(Arc::into_raw(self) as *mut [T]) }
+        unsafe { Arc::from_raw(Arc::into_raw(this) as *mut [T]) }
     }
 
     // Constructs a `UniqueEntitySlice` from a [`Rc<[T]>`] unsafely.

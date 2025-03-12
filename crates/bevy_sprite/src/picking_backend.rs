@@ -115,7 +115,7 @@ fn sprite_picking(
         -transform.translation().z
     });
 
-    let primary_window = primary_window.get_single().ok();
+    let primary_window = primary_window.single().ok();
 
     for (pointer, location) in pointers.iter().filter_map(|(pointer, pointer_location)| {
         pointer_location.location().map(|loc| (pointer, loc))

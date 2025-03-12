@@ -9,7 +9,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity},
     query::{Changed, Without},
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query},
     world::Ref,
 };
@@ -43,7 +43,7 @@ fn calc_bounds(
         Ref<GlobalTransform>,
     )>,
 ) {
-    if let Ok((camera, camera_transform)) = camera.get_single() {
+    if let Ok((camera, camera_transform)) = camera.single() {
         for (mut accessible, node, transform) in &mut nodes {
             if node.is_changed() || transform.is_changed() {
                 if let Ok(translation) =

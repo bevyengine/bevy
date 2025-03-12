@@ -438,6 +438,7 @@ impl Bounded2d for Capsule2d {
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_6, TAU};
     use std::println;
@@ -881,9 +882,9 @@ mod tests {
 
     #[test]
     fn segment() {
+        let segment = Segment2d::new(Vec2::new(-1.0, -0.5), Vec2::new(1.0, 0.5));
         let translation = Vec2::new(2.0, 1.0);
         let isometry = Isometry2d::from_translation(translation);
-        let segment = Segment2d::new(Vec2::new(-1.0, -0.5), Vec2::new(1.0, 0.5));
 
         let aabb = segment.aabb_2d(isometry);
         assert_eq!(aabb.min, Vec2::new(1.0, 0.5));
