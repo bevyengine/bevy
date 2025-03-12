@@ -9,7 +9,7 @@ use bevy::{
 
 // Example asset that contains a mesh, animation, and attachment.
 const GLTF_PATH: &str = "models/animated/Fox.glb";
-const ATTACHMENT_PATH: &str = "models/animated/FoxHelm.glb";
+const ATTACHMENT_PATH: &str = "models/animated/FoxAttachment.glb";
 
 fn main() {
     App::new()
