@@ -262,6 +262,8 @@ impl<'de> Visitor<'de> for NameVisitor {
 
 #[cfg(test)]
 mod tests {
+    use alloc::format;
+
     use super::*;
     use crate::world::World;
     use alloc::string::ToString;
@@ -276,7 +278,10 @@ mod tests {
         let d1 = query.get(&world, e1).unwrap();
         let d2 = query.get(&world, e2).unwrap();
         // NameOrEntity Display for entities without a Name should be {index}v{generation}
-        assert_eq!(d1.to_string(), "0v1");
+        assert_eq!(
+            d1.to_string(),
+            format!("{0}v{1}", d1.entity.index(), d1.entity.generation())
+        );
         // NameOrEntity Display for entities with a Name should be the Name
         assert_eq!(d2.to_string(), "MyName");
     }

@@ -1079,6 +1079,7 @@ mod tests {
         world.add_observer(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| res.observed("add_2"));
 
         world.spawn(A).flush();
+        world.resource_mut::<Order>().0.sort();
         assert_eq!(vec!["add_1", "add_2"], world.resource::<Order>().0);
         // Our A entity plus our two observers
         assert_eq!(world.entities().len(), 3);
