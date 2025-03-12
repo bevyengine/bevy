@@ -700,7 +700,7 @@ impl Default for UiRect {
     reflect(Serialize, Deserialize)
 )]
 /// Responsive horizontal position relative to a UI node's left and right edges.
-pub enum PositionX {
+pub enum AtX {
     /// Position relative to the left edge of the node.
     /// Values increase right, towards the center.
     Left(Val),
@@ -712,22 +712,22 @@ pub enum PositionX {
     Right(Val),
 }
 
-impl Default for PositionX {
+impl Default for AtX {
     fn default() -> Self {
         Self::CENTER
     }
 }
 
-impl PositionX {
+impl AtX {
     pub const LEFT: Self = Self::Left(Val::ZERO);
     pub const CENTER: Self = Self::Center(Val::ZERO);
     pub const RIGHT: Self = Self::Right(Val::ZERO);
 
     pub fn resolve(self, scale_factor: f32, width: f32, target_size: Vec2) -> f32 {
         let (val, anchor, dir) = match self {
-            PositionX::Left(val) => (val, -0.5, 1.),
-            PositionX::Center(val) => (val, 0., 1.),
-            PositionX::Right(val) => (val, 0.5, -1.),
+            AtX::Left(val) => (val, -0.5, 1.),
+            AtX::Center(val) => (val, 0., 1.),
+            AtX::Right(val) => (val, 0.5, -1.),
         };
         anchor * width + dir * val.resolve(scale_factor, width, target_size).unwrap_or(0.)
     }
@@ -741,7 +741,7 @@ impl PositionX {
     reflect(Serialize, Deserialize)
 )]
 /// Responsive vertical position relative to a UI node's top and bottom edges.
-pub enum PositionY {
+pub enum AtY {
     /// Position relative to the left edge of the parent node.
     /// Values increase right, towards the center.
     Top(Val),
@@ -753,24 +753,46 @@ pub enum PositionY {
     Bottom(Val),
 }
 
-impl Default for PositionY {
+impl Default for AtY {
     fn default() -> Self {
         Self::CENTER
     }
 }
 
-impl PositionY {
+impl AtY {
     pub const TOP: Self = Self::Top(Val::ZERO);
     pub const CENTER: Self = Self::Center(Val::ZERO);
     pub const BOTTOM: Self = Self::Bottom(Val::ZERO);
 
     pub fn resolve(self, scale_factor: f32, height: f32, target_size: Vec2) -> f32 {
         let (val, anchor, dir) = match self {
-            PositionY::Top(val) => (val, -0.5, 1.),
-            PositionY::Center(val) => (val, 0., 1.),
-            PositionY::Bottom(val) => (val, 0.5, -1.),
+            AtY::Top(val) => (val, -0.5, 1.),
+            AtY::Center(val) => (val, 0., 1.),
+            AtY::Bottom(val) => (val, 0.5, -1.),
         };
         anchor * height + dir * val.resolve(scale_factor, height, target_size).unwrap_or(0.)
+    }
+}
+
+pub trait At {
+    fn set(self, position: Position) -> Position;
+}
+
+impl At for AtX {
+    fn set(self, position: Position) -> Position {
+        Position {
+            x: self,
+            ..position
+        }
+    }
+}
+
+impl At for AtY {
+    fn set(self, position: Position) -> Position {
+        Position {
+            y: self,
+            ..position
+        }
     }
 }
 
@@ -784,80 +806,95 @@ impl PositionY {
 /// Responsive position relative to a UI node.
 pub struct Position {
     /// Responsive horizontal position relative to a UI node's left and right edges
-    pub x: PositionX,
+    pub x: AtX,
     /// Responsive vertical position relative to a UI node's top and bottom edges
-    pub y: PositionY,
+    pub y: AtY,
 }
 
 impl Position {
-    pub const TOP_LEFT: Self = Self::new(PositionX::LEFT, PositionY::TOP);
-    pub const LEFT: Self = Self::new(PositionX::LEFT, PositionY::CENTER);
-    pub const BOTTOM_LEFT: Self = Self::new(PositionX::LEFT, PositionY::BOTTOM);
-    pub const TOP: Self = Self::new(PositionX::CENTER, PositionY::TOP);
-    pub const CENTER: Self = Self::new(PositionX::CENTER, PositionY::CENTER);
-    pub const BOTTOM: Self = Self::new(PositionX::CENTER, PositionY::BOTTOM);
-    pub const TOP_RIGHT: Self = Self::new(PositionX::RIGHT, PositionY::TOP);
-    pub const RIGHT: Self = Self::new(PositionX::RIGHT, PositionY::CENTER);
-    pub const BOTTOM_RIGHT: Self = Self::new(PositionX::RIGHT, PositionY::BOTTOM);
+    pub const TOP_LEFT: Self = Self::new(AtX::LEFT, AtY::TOP);
+    pub const LEFT: Self = Self::new(AtX::LEFT, AtY::CENTER);
+    pub const BOTTOM_LEFT: Self = Self::new(AtX::LEFT, AtY::BOTTOM);
+    pub const TOP: Self = Self::new(AtX::CENTER, AtY::TOP);
+    pub const CENTER: Self = Self::new(AtX::CENTER, AtY::CENTER);
+    pub const BOTTOM: Self = Self::new(AtX::CENTER, AtY::BOTTOM);
+    pub const TOP_RIGHT: Self = Self::new(AtX::RIGHT, AtY::TOP);
+    pub const RIGHT: Self = Self::new(AtX::RIGHT, AtY::CENTER);
+    pub const BOTTOM_RIGHT: Self = Self::new(AtX::RIGHT, AtY::BOTTOM);
 
-    /// Creates a new `Position` with the given `PositionX` and `PositionY`.
-    pub const fn new(x: PositionX, y: PositionY) -> Self {
+    /// Creates a new `Position` with the given [`AtX`] and [`AtY`].
+    pub const fn new(x: AtX, y: AtY) -> Self {
         Self { x, y }
     }
 
     /// Creates a new `Position` relative to the top-left corner.
     pub const fn top_left(x: Val, y: Val) -> Self {
-        Self::new(PositionX::Left(x), PositionY::Top(y))
+        Self::new(AtX::Left(x), AtY::Top(y))
     }
 
-    /// Creates a new `Position` relative to the left center.
-    pub const fn left(x: Val, y: Val) -> Self {
-        Self::new(PositionX::Left(x), PositionY::Center(y))
+    /// Creates a new `Position` relative to the left.
+    pub const fn left(x: Val) -> Self {
+        Self::new(AtX::Left(x), AtY::CENTER)
     }
 
     /// Creates a new `Position` relative to the bottom-left corner.
     pub const fn bottom_left(x: Val, y: Val) -> Self {
-        Self::new(PositionX::Left(x), PositionY::Bottom(y))
+        Self::new(AtX::Left(x), AtY::Bottom(y))
     }
 
-    /// Creates a new `Position` relative to the top center.
-    pub const fn top(x: Val, y: Val) -> Self {
-        Self::new(PositionX::Center(x), PositionY::Top(y))
+    /// Creates a new `Position` relative to the top.
+    pub const fn top(y: Val) -> Self {
+        Self::new(AtX::CENTER, AtY::Top(y))
     }
 
     /// Creates a new `Position` relative to the center.
-    pub const fn center(x: Val, y: Val) -> Self {
-        Self::new(PositionX::Center(x), PositionY::Center(y))
+    pub const fn center() -> Self {
+        Self::new(AtX::CENTER, AtY::CENTER)
     }
 
-    /// Creates a new `Position` relative to the bottom center.
-    pub const fn bottom(x: Val, y: Val) -> Self {
-        Self::new(PositionX::Center(x), PositionY::Bottom(y))
+    /// Creates a new `Position` relative to the bottom.
+    pub const fn bottom(y: Val) -> Self {
+        Self::new(AtX::CENTER, AtY::Bottom(y))
     }
 
     /// Creates a new `Position` relative to the top-right corner.
     pub const fn top_right(x: Val, y: Val) -> Self {
-        Self::new(PositionX::Right(x), PositionY::Top(y))
+        Self::new(AtX::Right(x), AtY::Top(y))
     }
 
-    /// Creates a new `Position` relative to the right center.
-    pub const fn right(x: Val, y: Val) -> Self {
-        Self::new(PositionX::Right(x), PositionY::Center(y))
+    /// Creates a new `Position` relative to the right.
+    pub const fn right(x: Val) -> Self {
+        Self::new(AtX::Right(x), AtY::CENTER)
     }
 
     /// Creates a new `Position` relative to the bottom-right corner.
     pub const fn bottom_right(x: Val, y: Val) -> Self {
-        Self::new(PositionX::Right(x), PositionY::Bottom(y))
+        Self::new(AtX::Right(x), AtY::Bottom(y))
     }
 
-    /// Returns a new `Position` with the given `PositionX`.
-    pub const fn with_x(self, x: PositionX) -> Self {
-        Self { x, ..self }
+    /// Creates a new `Position` relative to the center-left.
+    pub const fn center_left(y: Val) -> Self {
+        Self::new(AtX::Left(Val::ZERO), AtY::Center(y))
     }
 
-    /// Returns a new `Position` with the given `PositionY`.
-    pub const fn with_y(self, y: PositionY) -> Self {
-        Self { y, ..self }
+    /// Creates a new `Position` relative to the center-right.
+    pub const fn center_right(y: Val) -> Self {
+        Self::new(AtX::Right(Val::ZERO), AtY::Center(y))
+    }
+
+    /// Creates a new `Position` relative to the center-top.
+    pub const fn center_top(x: Val) -> Self {
+        Self::new(AtX::Center(x), AtY::Top(Val::ZERO))
+    }
+
+    /// Creates a new `Position` relative to the center-bottom.
+    pub const fn center_bottom(x: Val) -> Self {
+        Self::new(AtX::Center(x), AtY::Bottom(Val::ZERO))
+    }
+
+    /// Returns a new `Position` with the given `AtX` or `AtY`.
+    pub fn with(self, at: impl At) -> Self {
+        at.set(self)
     }
 
     /// Resolves the `Position` into physical coordinates.
@@ -884,13 +921,25 @@ impl Default for Position {
 
 impl From<Val> for Position {
     fn from(x: Val) -> Self {
-        Self::left(x, Val::ZERO)
+        Self::left(x)
     }
 }
 
 impl From<(Val, Val)> for Position {
     fn from((x, y): (Val, Val)) -> Self {
         Self::top_left(x, y)
+    }
+}
+
+impl From<AtX> for Position {
+    fn from(x: AtX) -> Self {
+        Self::new(x, AtY::CENTER)
+    }
+}
+
+impl From<AtY> for Position {
+    fn from(y: AtY) -> Self {
+        Self::new(AtX::CENTER, y)
     }
 }
 
