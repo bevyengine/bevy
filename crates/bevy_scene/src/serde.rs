@@ -639,21 +639,21 @@ mod tests {
     ),
   },
   entities: {
-    4294967296: (
-      components: {
-        "bevy_scene::serde::tests::Foo": (123),
-      },
-    ),
-    4294967297: (
+    4294967422: (
       components: {
         "bevy_scene::serde::tests::Bar": (345),
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    4294967298: (
+    4294967550: (
       components: {
         "bevy_scene::serde::tests::Bar": (345),
         "bevy_scene::serde::tests::Baz": (789),
+        "bevy_scene::serde::tests::Foo": (123),
+      },
+    ),
+    4294967551: (
+      components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
