@@ -1,5 +1,7 @@
 //! Tool to run all examples or generate a showcase page for the Bevy website.
 
+#![expect(clippy::print_stdout, reason = "Allowed in tools.")]
+
 use core::{
     fmt::Display,
     hash::{Hash, Hasher},

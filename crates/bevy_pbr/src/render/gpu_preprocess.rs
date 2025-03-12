@@ -22,7 +22,7 @@ use bevy_ecs::{
     prelude::resource_exists,
     query::{Has, Or, QueryState, With, Without},
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };

@@ -139,6 +139,7 @@ std::thread_local! {
 
 /// When called, this will skip the currently configured panic hook when a [`BevyError`] backtrace has already been printed.
 #[cfg(feature = "backtrace")]
+#[expect(clippy::print_stdout, reason = "Allowed behind `std` feature gate.")]
 pub fn bevy_error_panic_hook(
     current_hook: impl Fn(&std::panic::PanicHookInfo),
 ) -> impl Fn(&std::panic::PanicHookInfo) {
