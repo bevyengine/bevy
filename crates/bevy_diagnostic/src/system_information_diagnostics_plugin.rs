@@ -105,7 +105,7 @@ pub mod internal {
         );
         diagnostics.add(
             Diagnostic::new(SystemInformationDiagnosticsPlugin::PROCESS_MEM_USAGE)
-                .with_suffix("MB"),
+                .with_suffix("GiB"),
         );
     }
 
@@ -156,14 +156,13 @@ pub mod internal {
                 sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
                 sys.refresh_memory();
                 let system_cpu_usage = sys.global_cpu_usage().into();
-                // `memory()` fns return a value in bytes
-                let total_mem = sys.total_memory() as f64 / BYTES_TO_GIB;
-                let used_mem = sys.used_memory() as f64 / BYTES_TO_GIB;
+                let total_mem = sys.total_memory() as f64;
+                let used_mem = sys.used_memory() as f64;
                 let system_mem_usage = used_mem / total_mem * 100.0;
 
                 let process_mem_usage = sys
                     .process(pid)
-                    .map(|p| p.memory() as f64 / 1024.0 / 1024.0) // Convert to MB
+                    .map(|p| p.memory() as f64 * BYTES_TO_GIB)
                     .unwrap_or(0.0);
 
                 let process_cpu_usage = sys
