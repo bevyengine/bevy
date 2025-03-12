@@ -142,7 +142,7 @@ fn pickup_sprite(
     }
 }
 
-fn dorp_sprite(
+fn drop_sprite(
     mut commands: Commands,
     windows: Query<&Window>,
     cameras: Query<(&Camera, &GlobalTransform)>,
