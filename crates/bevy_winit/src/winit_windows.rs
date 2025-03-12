@@ -278,6 +278,7 @@ impl WinitWindows {
         let winit_window = event_loop.create_window(winit_window_attributes).unwrap();
         let name = window.title.clone();
         prepare_accessibility_for_window(
+            event_loop,
             &winit_window,
             entity,
             name,
