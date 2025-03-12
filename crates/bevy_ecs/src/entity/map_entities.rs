@@ -275,8 +275,8 @@ mod tests {
         );
 
         mapper.finish(&mut world);
-        // Next allocated entity should be a further generation on the same index
-        let entity = world.spawn_empty().id();
+        // Future allocated entity should be a further generation on the same index
+        let entity = world.entities().resolve_from_id(dead_ref.index()).unwrap();
         assert_eq!(entity.index(), dead_ref.index());
         assert!(entity.generation() > dead_ref.generation());
     }
@@ -290,8 +290,8 @@ mod tests {
             mapper.get_mapped(Entity::from_raw(0))
         });
 
-        // Next allocated entity should be a further generation on the same index
-        let entity = world.spawn_empty().id();
+        // Future allocated entity should be a further generation on the same index
+        let entity = world.entities().resolve_from_id(dead_ref.index()).unwrap();
         assert_eq!(entity.index(), dead_ref.index());
         assert!(entity.generation() > dead_ref.generation());
     }
