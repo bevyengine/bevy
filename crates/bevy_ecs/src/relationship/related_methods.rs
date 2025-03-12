@@ -160,19 +160,13 @@ impl<'w> EntityWorldMut<'w> {
                 let collection = target.collection_mut_risky();
                 collection.clear();
 
-                // TODO: Optimize with extend
-                for entity in entities_to_relate {
-                    collection.add(*entity);
-                }
+                collection.extend_from_iter(entities_to_relate.iter().copied());
             } else {
                 let mut empty =
                     <R::RelationshipTarget as RelationshipTarget>::Collection::with_capacity(
                         entities_to_relate.len(),
                     );
-                // TODO: Optimize with extend
-                for entity in entities_to_relate {
-                    empty.add(*entity);
-                }
+                empty.extend_from_iter(entities_to_relate.iter().copied());
 
                 // SAFETY: We've just initialized this collection
                 self.insert_with_relationship_insert_hook_mode(
