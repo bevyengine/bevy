@@ -39,18 +39,11 @@ fn setup(mut commands: Commands) {
                         ColorStop::new(Color::BLACK, Val::Percent(85.)),
                     ],
                 ),
-                (
-                    5.,
-                    vec![
-                        ColorStop::auto(RED),
-                        ColorStop::auto(BLUE),
-                        ColorStop::auto(LIME),
-                    ],
-                ),
+                (5., vec![RED.into(), BLUE.into(), LIME.into()]),
                 (
                     0.,
                     vec![
-                        ColorStop::auto(RED),
+                        RED.into(),
                         ColorStop::new(RED, Val::Percent(100. / 7.)),
                         ColorStop::new(ORANGE, Val::Percent(100. / 7.)),
                         ColorStop::new(ORANGE, Val::Percent(200. / 7.)),
@@ -63,7 +56,7 @@ fn setup(mut commands: Commands) {
                         ColorStop::new(INDIGO, Val::Percent(500. / 7.)),
                         ColorStop::new(INDIGO, Val::Percent(600. / 7.)),
                         ColorStop::new(VIOLET, Val::Percent(600. / 7.)),
-                        ColorStop::auto(VIOLET),
+                        VIOLET.into(),
                     ],
                 ),
             ] {
@@ -98,9 +91,9 @@ fn setup(mut commands: Commands) {
                                                 BorderGradient::from(LinearGradient {
                                                     angle: 3. * TAU / 8.,
                                                     stops: vec![
-                                                        ColorStop::auto(YELLOW),
+                                                        YELLOW.into(),
                                                         Color::WHITE.into(),
-                                                        ColorStop::auto(ORANGE),
+                                                        ORANGE.into(),
                                                     ],
                                                 }),
                                             ));
@@ -125,11 +118,7 @@ fn setup(mut commands: Commands) {
                             }),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
-                                stops: vec![
-                                    ColorStop::auto(YELLOW),
-                                    Color::WHITE.into(),
-                                    ColorStop::auto(ORANGE),
-                                ],
+                                stops: vec![YELLOW.into(), Color::WHITE.into(), ORANGE.into()],
                             }),
                             AnimateMarker,
                         ));
@@ -150,11 +139,7 @@ fn setup(mut commands: Commands) {
                             }),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
-                                stops: vec![
-                                    ColorStop::auto(YELLOW),
-                                    Color::WHITE.into(),
-                                    ColorStop::auto(ORANGE),
-                                ],
+                                stops: vec![YELLOW.into(), Color::WHITE.into(), ORANGE.into()],
                             }),
                             AnimateMarker,
                         ));
@@ -177,11 +162,7 @@ fn setup(mut commands: Commands) {
                             }),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
-                                stops: vec![
-                                    ColorStop::auto(YELLOW),
-                                    Color::WHITE.into(),
-                                    ColorStop::auto(ORANGE),
-                                ],
+                                stops: vec![YELLOW.into(), Color::WHITE.into(), ORANGE.into()],
                             }),
                             AnimateMarker,
                         ));
