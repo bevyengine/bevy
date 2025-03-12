@@ -178,12 +178,13 @@ impl<'w, 's> FilteredResources<'w, 's> {
     }
 
     /// Gets a pointer to the resource with the given [`ComponentId`] if it exists and the `FilteredResources` has access to it.
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
+    pub fn get_by_id(&self, component_id: ComponentId) -> Result<Ptr<'w>, ResourceFetchError> {
         if !self.access.has_resource_read(component_id) {
-            return None;
+            return Err(ResourceFetchError::NoResourceAccess(component_id));
         }
         // SAFETY: We have read access to this resource
-        unsafe { self.world.get_resource_by_id(component_id) }
+        Ok(unsafe { self.world.get_resource_by_id(component_id) }
+            .ok_or(ResourceFetchError::MissingResource)?)
     }
 }
 
@@ -432,30 +433,36 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     }
 
     /// Gets a pointer to the resource with the given [`ComponentId`] if it exists and the `FilteredResources` has access to it.
-    pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+    pub fn get_by_id(&self, component_id: ComponentId) -> Result<Ptr<'_>, ResourceFetchError> {
         self.as_readonly().get_by_id(component_id)
     }
 
     /// Gets a mutable reference to the resource of the given type if it exists and the `FilteredResources` has access to it.
-    pub fn get_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_mut<R: Resource>(&mut self) -> Result<Mut<'_, R>, ResourceFetchError> {
         // SAFETY: We have exclusive access to the resources in `access` for `'_`, and we shorten the returned lifetime to that.
         unsafe { self.get_mut_unchecked() }
     }
 
     /// Gets a mutable pointer to the resource with the given [`ComponentId`] if it exists and the `FilteredResources` has access to it.
-    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+    pub fn get_mut_by_id(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Result<MutUntyped<'_>, ResourceFetchError> {
         // SAFETY: We have exclusive access to the resources in `access` for `'_`, and we shorten the returned lifetime to that.
         unsafe { self.get_mut_by_id_unchecked(component_id) }
     }
 
     /// Consumes self and gets mutable access to resource of the given type with the world `'w` lifetime if it exists and the `FilteredResources` has access to it.
-    pub fn into_mut<R: Resource>(mut self) -> Option<Mut<'w, R>> {
+    pub fn into_mut<R: Resource>(mut self) -> Result<Mut<'w, R>, ResourceFetchError> {
         // SAFETY: This consumes self, so we have exclusive access to the resources in `access` for the entirety of `'w`.
         unsafe { self.get_mut_unchecked() }
     }
 
     /// Consumes self and gets mutable access to resource with the given [`ComponentId`] with the world `'w` lifetime if it exists and the `FilteredResources` has access to it.
-    pub fn into_mut_by_id(mut self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
+    pub fn into_mut_by_id(
+        mut self,
+        component_id: ComponentId,
+    ) -> Result<MutUntyped<'w>, ResourceFetchError> {
         // SAFETY: This consumes self, so we have exclusive access to the resources in `access` for the entirety of `'w`.
         unsafe { self.get_mut_by_id_unchecked(component_id) }
     }
@@ -463,8 +470,12 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     /// Gets a mutable pointer to the resource of the given type if it exists and the `FilteredResources` has access to it.
     /// # Safety
     /// It is the callers responsibility to ensure that there are no conflicting borrows of anything in `access` for the duration of the returned value.
-    unsafe fn get_mut_unchecked<R: Resource>(&mut self) -> Option<Mut<'w, R>> {
-        let component_id = self.world.components().resource_id::<R>()?;
+    unsafe fn get_mut_unchecked<R: Resource>(&mut self) -> Result<Mut<'w, R>, ResourceFetchError> {
+        let component_id = self
+            .world
+            .components()
+            .resource_id::<R>()
+            .ok_or(ResourceFetchError::MissingResource)?;
         // SAFETY: THe caller ensures that there are no conflicting borrows.
         unsafe { self.get_mut_by_id_unchecked(component_id) }
             // SAFETY: The underlying type of the resource is `R`.
@@ -477,20 +488,20 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     unsafe fn get_mut_by_id_unchecked(
         &mut self,
         component_id: ComponentId,
-    ) -> Option<MutUntyped<'w>> {
+    ) -> Result<MutUntyped<'w>, ResourceFetchError> {
         if !self.access.has_resource_write(component_id) {
-            return None;
+            return Err(ResourceFetchError::NoResourceAccess(component_id));
         }
-        // SAFETY: We have access to this resource in `access`, and the caller ensures that there are no conflicting borrows for the duration of the returned value.
-        unsafe { self.world.get_resource_with_ticks(component_id) }.map(|(value, ticks, caller)| {
-            MutUntyped {
-                // SAFETY: We have exclusive access to the underlying storage.
-                value: unsafe { value.assert_unique() },
-                // SAFETY: We have exclusive access to the underlying storage.
-                ticks: unsafe { TicksMut::from_tick_cells(ticks, self.last_run, self.this_run) },
-                // SAFETY: We have exclusive access to the underlying storage.
-                changed_by: unsafe { caller.map(|caller| caller.deref_mut()) },
-            }
+        let (value, ticks, caller) = unsafe { self.world.get_resource_with_ticks(component_id) }
+            .ok_or(ResourceFetchError::MissingResource)?;
+
+        Ok(MutUntyped {
+            // SAFETY: We have exclusive access to the underlying storage.
+            value: unsafe { value.assert_unique() },
+            // SAFETY: We have exclusive access to the underlying storage.
+            ticks: unsafe { TicksMut::from_tick_cells(ticks, self.last_run, self.this_run) },
+            // SAFETY: We have exclusive access to the underlying storage.
+            changed_by: unsafe { caller.map(|caller| caller.deref_mut()) },
         })
     }
 }

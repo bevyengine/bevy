@@ -58,7 +58,9 @@ pub struct ReflectResourceFns {
     pub reflect:
         for<'w> fn(FilteredResources<'w, '_>) -> Result<&'w dyn Reflect, ResourceFetchError>,
     /// Function pointer implementing [`ReflectResource::reflect_mut()`].
-    pub reflect_mut: for<'w> fn(FilteredResourcesMut<'w, '_>) -> Option<Mut<'w, dyn Reflect>>,
+    pub reflect_mut: for<'w> fn(
+        FilteredResourcesMut<'w, '_>,
+    ) -> Result<Mut<'w, dyn Reflect>, ResourceFetchError>,
     /// Function pointer implementing [`ReflectResource::reflect_unchecked_mut()`].
     ///
     /// # Safety
@@ -132,7 +134,7 @@ impl ReflectResource {
     pub fn reflect_mut<'w, 's>(
         &self,
         resources: impl Into<FilteredResourcesMut<'w, 's>>,
-    ) -> Option<Mut<'w, dyn Reflect>> {
+    ) -> Result<Mut<'w, dyn Reflect>, ResourceFetchError> {
         (self.0.reflect_mut)(resources.into())
     }
 
