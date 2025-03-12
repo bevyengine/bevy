@@ -71,7 +71,7 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
-        children,
+        child, children,
         component::Component,
         entity::{Entity, EntityBorrow, EntityMapper},
         error::{BevyError, Result},

@@ -340,7 +340,7 @@ macro_rules! children {
 /// let mut world = World::new();
 /// world.spawn((
 ///     Name::new("Root"),
-///     child!(Name::new("Child"));
+///     child!(Name::new("Child")),
 /// ));
 /// ```
 ///

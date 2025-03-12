@@ -2,7 +2,6 @@
 
 use std::f32::consts::PI;
 
-use bevy::ecs::child;
 use bevy::{
     input::gamepad::{GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnectionEvent},
     prelude::*,
