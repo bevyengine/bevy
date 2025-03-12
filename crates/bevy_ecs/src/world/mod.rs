@@ -3663,6 +3663,7 @@ impl<T: Default> FromWorld for T {
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use super::{FromWorld, World};
     use crate::{

@@ -220,7 +220,7 @@ use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
 use bevy_ecs::prelude::Component;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
+    schedule::{IntoScheduleConfigs, SystemSet},
     world::FromWorld,
 };
 use bevy_platform_support::collections::HashSet;
