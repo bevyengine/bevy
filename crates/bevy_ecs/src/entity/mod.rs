@@ -842,6 +842,16 @@ impl Entities {
         }
     }
 
+    /// Gets the amount of entities that are reserved at a time for [`alloc`](Self::alloc).
+    pub fn get_allocation_reservation_size(&self) -> NonZero<u32> {
+        self.allocation_reservation_size
+    }
+
+    /// Sets the amount of entities that are reserved at a time for [`alloc`](Self::alloc).
+    pub fn set_allocation_reservation_size(&mut self, allocation_reservation_size: NonZero<u32>) {
+        self.allocation_reservation_size = allocation_reservation_size;
+    }
+
     /// Creates a new [`RemoteEntities`].
     ///
     /// This will enable remote reservations on these [`Entities`].
