@@ -345,7 +345,8 @@ macro_rules! children {
 /// ```
 ///
 /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
-/// [`Spawn`]: crate::spawn::Spawn
+/// [`SpawnRelatedBundle`]: crate::spawn::SpawnRelatedBundle
+/// [`SpawnableList`]: crate::spawn::SpawnableList
 #[macro_export]
 macro_rules! child {
     ($child:expr) => {
