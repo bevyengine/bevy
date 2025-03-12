@@ -1,4 +1,5 @@
 use core::hint::black_box;
+use std::num::NonZeroU32;
 
 use bevy_ecs::{
     bundle::{Bundle, NoBundleEffect},
@@ -25,6 +26,10 @@ struct WideTable<const X: usize>(f32);
 struct WideSparse<const X: usize>(f32);
 
 const RANGE: core::ops::Range<u32> = 5..6;
+const ALLOCATION_BATCHES: NonZeroU32 = const {
+    // SAFETY: 256 > 0
+    unsafe { NonZeroU32::new_unchecked(256) }
+};
 
 fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)
@@ -32,14 +37,23 @@ fn deterministic_rand() -> ChaCha8Rng {
 
 fn setup<T: Component + Default>(entity_count: u32) -> World {
     let mut world = World::default();
+    // SAFETY: We don't touch entity data.
+    unsafe { world.entities_mut() }.set_allocation_reservation_size(ALLOCATION_BATCHES);
     world.spawn_batch((0..entity_count).map(|_| T::default()));
     black_box(world)
 }
 
 fn setup_wide<T: Bundle<Effect: NoBundleEffect> + Default>(entity_count: u32) -> World {
     let mut world = World::default();
+    // SAFETY: We don't touch entity data.
+    unsafe { world.entities_mut() }.set_allocation_reservation_size(ALLOCATION_BATCHES);
     world.spawn_batch((0..entity_count).map(|_| T::default()));
     black_box(world)
+}
+
+fn entity_counts() -> impl Iterator<Item = u32> {
+    const INCREMENT: u32 = (10_000 * ALLOCATION_BATCHES.get()) / ALLOCATION_BATCHES.get();
+    RANGE.map(|i| i * INCREMENT)
 }
 
 pub fn world_entity(criterion: &mut Criterion) {
@@ -47,7 +61,7 @@ pub fn world_entity(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in RANGE.map(|i| i * 10_000) {
+    for entity_count in entity_counts() {
         group.bench_function(format!("{}_entities", entity_count), |bencher| {
             let world = setup::<Table>(entity_count);
 
@@ -68,7 +82,7 @@ pub fn world_get(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in RANGE.map(|i| i * 10_000) {
+    for entity_count in entity_counts() {
         group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
             let world = setup::<Table>(entity_count);
 
@@ -99,7 +113,7 @@ pub fn world_query_get(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in RANGE.map(|i| i * 10_000) {
+    for entity_count in entity_counts() {
         group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
             let mut world = setup::<Table>(entity_count);
             let mut query = world.query::<&Table>();
@@ -185,7 +199,7 @@ pub fn world_query_iter(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in RANGE.map(|i| i * 10_000) {
+    for entity_count in entity_counts() {
         group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
             let mut world = setup::<Table>(entity_count);
             let mut query = world.query::<&Table>();
@@ -224,7 +238,7 @@ pub fn world_query_for_each(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in RANGE.map(|i| i * 10_000) {
+    for entity_count in entity_counts() {
         group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
             let mut world = setup::<Table>(entity_count);
             let mut query = world.query::<&Table>();
@@ -263,7 +277,7 @@ pub fn query_get(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in RANGE.map(|i| i * 10_000) {
+    for entity_count in entity_counts() {
         group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
             let mut world = World::default();
             let mut entities: Vec<_> = world
@@ -312,7 +326,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(2 * N as u64));
 
-    for entity_count in RANGE.map(|i| i * 10_000) {
+    for entity_count in entity_counts() {
         group.bench_function(format!("{}_calls_table", entity_count), |bencher| {
             let mut world = World::default();
             let mut entity_groups: Vec<_> = (0..entity_count)
