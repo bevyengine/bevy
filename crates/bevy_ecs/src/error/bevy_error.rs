@@ -117,7 +117,7 @@ impl Debug for BevyError {
                 }
                 if !full_backtrace {
                     if std::thread::panicking() {
-                        SKIP_NORMAL_BACKTRACE.store(1, core::sync::atomic::Ordering::Relaxed);
+                        SKIP_NORMAL_BACKTRACE.set(true);
                     }
                     writeln!(f, "{FILTER_MESSAGE}")?;
                 }
@@ -132,22 +132,24 @@ impl Debug for BevyError {
 const FILTER_MESSAGE: &str = "note: Some \"noisy\" backtrace lines have been filtered out. Run with `BEVY_BACKTRACE=full` for a verbose backtrace.";
 
 #[cfg(feature = "backtrace")]
-static SKIP_NORMAL_BACKTRACE: core::sync::atomic::AtomicUsize =
-    core::sync::atomic::AtomicUsize::new(0);
+std::thread_local! {
+    static SKIP_NORMAL_BACKTRACE: core::cell::Cell<bool> =
+        const { core::cell::Cell::new(false) };
+}
 
 /// When called, this will skip the currently configured panic hook when a [`BevyError`] backtrace has already been printed.
-#[cfg(feature = "std")]
+#[cfg(feature = "backtrace")]
+#[expect(clippy::print_stdout, reason = "Allowed behind `std` feature gate.")]
 pub fn bevy_error_panic_hook(
     current_hook: impl Fn(&std::panic::PanicHookInfo),
 ) -> impl Fn(&std::panic::PanicHookInfo) {
     move |info| {
-        if SKIP_NORMAL_BACKTRACE.load(core::sync::atomic::Ordering::Relaxed) > 0 {
+        if SKIP_NORMAL_BACKTRACE.replace(false) {
             if let Some(payload) = info.payload().downcast_ref::<&str>() {
                 std::println!("{payload}");
             } else if let Some(payload) = info.payload().downcast_ref::<alloc::string::String>() {
                 std::println!("{payload}");
             }
-            SKIP_NORMAL_BACKTRACE.store(0, core::sync::atomic::Ordering::Relaxed);
             return;
         }
 

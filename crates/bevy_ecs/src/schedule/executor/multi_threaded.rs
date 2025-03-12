@@ -5,10 +5,9 @@ use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
-use std::{
-    eprintln,
-    sync::{Mutex, MutexGuard},
-};
+#[cfg(feature = "std")]
+use std::eprintln;
+use std::sync::{Mutex, MutexGuard};
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
@@ -283,7 +282,11 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
             .push(SystemResult { system_index })
             .unwrap_or_else(|error| unreachable!("{}", error));
         if let Err(payload) = res {
-            eprintln!("Encountered a panic in system `{}`!", &*system.name());
+            #[cfg(feature = "std")]
+            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
+            {
+                eprintln!("Encountered a panic in system `{}`!", &*system.name());
+            }
             // set the payload to propagate the error
             {
                 let mut panic_payload = self.environment.executor.panic_payload.lock().unwrap();
@@ -741,10 +744,14 @@ fn apply_deferred(
             system.apply_deferred(world);
         }));
         if let Err(payload) = res {
-            eprintln!(
-                "Encountered a panic when applying buffers for system `{}`!",
-                &*system.name()
-            );
+            #[cfg(feature = "std")]
+            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
+            {
+                eprintln!(
+                    "Encountered a panic when applying buffers for system `{}`!",
+                    &*system.name()
+                );
+            }
             return Err(payload);
         }
     }
@@ -804,7 +811,7 @@ impl MainThreadExecutor {
 mod tests {
     use crate::{
         prelude::Resource,
-        schedule::{ExecutorKind, IntoSystemConfigs, Schedule},
+        schedule::{ExecutorKind, IntoScheduleConfigs, Schedule},
         system::Commands,
         world::World,
     };
