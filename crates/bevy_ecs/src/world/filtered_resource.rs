@@ -44,9 +44,9 @@ use super::error::ResourceFetchError;
 ///
 /// fn resource_system(res: FilteredResources) {
 ///     // The resource exists, but we have no access, so we can't read it.
-///     assert!(res.get::<A>().is_none());
+///     assert!(res.get::<A>().is_err());
 ///     // The resource doesn't exist, so we can't read it.
-///     assert!(res.get::<B>().is_none());
+///     assert!(res.get::<B>().is_err());
 ///     // The resource exists and we have access, so we can read it.
 ///     let c = res.get::<C>().unwrap();
 ///     // The type parameter can be left out if it can be determined from use.
@@ -146,7 +146,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
     }
 
     /// Returns `true` if the `FilteredResources` has access to the given resource.
-    /// Note that [`Self::get()`] may still return `None` if the resource does not exist.
+    /// Note that [`Self::get()`] may still return `Err` if the resource does not exist.
     pub fn has_read<R: Resource>(&self) -> bool {
         let component_id = self.world.components().resource_id::<R>();
         component_id.is_some_and(|component_id| self.access.has_resource_read(component_id))
@@ -288,14 +288,14 @@ impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
 ///
 /// fn resource_system(mut res: FilteredResourcesMut) {
 ///     // The resource exists, but we have no access, so we can't read it or write it.
-///     assert!(res.get::<A>().is_none());
-///     assert!(res.get_mut::<A>().is_none());
+///     assert!(res.get::<A>().is_err());
+///     assert!(res.get_mut::<A>().is_err());
 ///     // The resource doesn't exist, so we can't read it or write it.
-///     assert!(res.get::<B>().is_none());
-///     assert!(res.get_mut::<B>().is_none());
+///     assert!(res.get::<B>().is_err());
+///     assert!(res.get_mut::<B>().is_err());
 ///     // The resource exists and we have read access, so we can read it but not write it.
 ///     let c = res.get::<C>().unwrap();
-///     assert!(res.get_mut::<C>().is_none());
+///     assert!(res.get_mut::<C>().is_err());
 ///     // The resource exists and we have write access, so we can read it or write it.
 ///     let d = res.get::<D>().unwrap();
 ///     let d = res.get_mut::<D>().unwrap();
@@ -414,14 +414,14 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     }
 
     /// Returns `true` if the `FilteredResources` has read access to the given resource.
-    /// Note that [`Self::get()`] may still return `None` if the resource does not exist.
+    /// Note that [`Self::get()`] may still return `Err` if the resource does not exist.
     pub fn has_read<R: Resource>(&self) -> bool {
         let component_id = self.world.components().resource_id::<R>();
         component_id.is_some_and(|component_id| self.access.has_resource_read(component_id))
     }
 
     /// Returns `true` if the `FilteredResources` has write access to the given resource.
-    /// Note that [`Self::get_mut()`] may still return `None` if the resource does not exist.
+    /// Note that [`Self::get_mut()`] may still return `Err` if the resource does not exist.
     pub fn has_write<R: Resource>(&self) -> bool {
         let component_id = self.world.components().resource_id::<R>();
         component_id.is_some_and(|component_id| self.access.has_resource_write(component_id))
