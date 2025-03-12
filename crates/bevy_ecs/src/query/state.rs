@@ -2213,9 +2213,9 @@ mod tests {
         let query_2 = QueryState::<&mut B>::new(&mut world);
         let mut new_query: QueryState<(Entity, FilteredEntityMut)> = query_1.join(&world, &query_2);
 
-        let (_entity, mut entity) = new_query.single_mut(&mut world).unwrap();
-        assert!(entity.get_mut::<A>().is_some());
-        assert!(entity.get_mut::<B>().is_some());
+        let (_entity, mut entity_mut) = new_query.single_mut(&mut world).unwrap();
+        assert!(entity_mut.get_mut::<A>().is_some());
+        assert!(entity_mut.get_mut::<B>().is_some());
     }
 
     #[test]
