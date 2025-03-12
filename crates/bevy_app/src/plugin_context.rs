@@ -121,7 +121,7 @@ impl PluginContext<'_> {
     /// })
     /// .await
     /// .unwrap();
-    /// # }
+    /// # };
     /// # #[derive(Resource, PartialEq, Eq)]
     /// # enum MyLoadState { Done }
     /// ```
