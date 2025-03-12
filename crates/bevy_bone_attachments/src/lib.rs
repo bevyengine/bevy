@@ -11,7 +11,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use bevy_app::{Plugin, PostUpdate};
 use bevy_ecs::{
-    entity::Entity, relationship::RelationshipTarget, schedule::IntoSystemConfigs, system::Query,
+    entity::Entity, relationship::RelationshipTarget, schedule::IntoScheduleConfigs, system::Query,
 };
 use bevy_transform::{components::Transform, TransformSystem};
 
