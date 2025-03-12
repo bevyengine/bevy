@@ -819,6 +819,13 @@ impl<T: SparseSetIndex> Access<T> {
 }
 
 /// Performs an in-place union of `other` into `self`, where either set may be inverted.
+///
+/// Each set corresponds to a `FixedBitSet` if `inverted` is `false`,
+/// or to the infinite (co-finite) complement of the `FixedBitSet` if `inverted` is `true`.
+///
+/// This updates the `self` set to include any elements in the `other` set.
+/// Note that this may change `self_inverted` to `true` if we add an infinite
+/// set to a finite one, resulting in a new infinite set.
 fn invertible_union_with(
     self_set: &mut FixedBitSet,
     self_inverted: &mut bool,
@@ -840,12 +847,20 @@ fn invertible_union_with(
 }
 
 /// Performs an in-place set difference of `other` from `self`, where either set may be inverted.
+///
+/// Each set corresponds to a `FixedBitSet` if `inverted` is `false`,
+/// or to the infinite (co-finite) complement of the `FixedBitSet` if `inverted` is `true`.
+///
+/// This updates the `self` set to remove any elements in the `other` set.
+/// Note that this may change `self_inverted` to `false` if we remove an
+/// infinite set from another infinite one, resulting in a finite difference.
 fn invertible_difference_with(
     self_set: &mut FixedBitSet,
     self_inverted: &mut bool,
     other_set: &FixedBitSet,
     other_inverted: bool,
 ) {
+    // We can share the implementation of `invertible_union_with` with some algebra:
     // A - B = A & !B = !(!A | B)
     *self_inverted = !*self_inverted;
     invertible_union_with(self_set, self_inverted, other_set, other_inverted);
