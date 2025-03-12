@@ -865,34 +865,37 @@ impl Entities {
         RemoteEntities(self.reservations.clone())
     }
 
+    /// Adds to [`Self::owned`] `num` entities by reserving them.
+    fn remote_reserve_and_own(&mut self, num: u32) {
+        // reserve more entities in bulk
+        let reserved = self.reservations.reserve_entities(num);
+
+        // ensure all indices are valid
+        if !reserved.new_indices.is_empty() {
+            let new_len = reserved.new_indices.end;
+            self.meta.resize(new_len as usize, EntityMeta::EMPTY);
+        }
+
+        // ensure reserved entities for allocation are not flushed.
+        // These entities are reserved in the sense that they are unique,
+        // but nobody has requested them yet, so they should not be flushed.
+        let reserved = reserved.inspect(|entity| {
+            // SAFETY: We just extended meta to ensure the new entities are valid,
+            // and reused entities are already valid.
+            let meta = unsafe { self.meta.get_unchecked_mut(entity.index() as usize) };
+            meta.location = EntityLocation::INVALID_BUT_DONT_FLUSH;
+        });
+
+        // finish
+        self.owned.extend(reserved);
+    }
+
     /// Allocate an entity ID directly.
     pub fn alloc(&mut self) -> Entity {
         if let Some(entity) = self.owned.pop() {
             entity
         } else {
-            // reserve more entities in bulk
-            let reserved = self
-                .reservations
-                .reserve_entities(self.allocation_reservation_size.into());
-
-            // ensure all indices are valid
-            if !reserved.new_indices.is_empty() {
-                let new_len = reserved.new_indices.end;
-                self.meta.resize(new_len as usize, EntityMeta::EMPTY);
-            }
-
-            // ensure reserved entities for allocation are not flushed.
-            // These entities are reserved in the sense that they are unique,
-            // but nobody has requested them yet, so they should not be flushed.
-            let reserved = reserved.inspect(|entity| {
-                // SAFETY: We just extended meta to ensure the new entities are valid,
-                // and reused entities are already valid.
-                let meta = unsafe { self.meta.get_unchecked_mut(entity.index() as usize) };
-                meta.location = EntityLocation::INVALID_BUT_DONT_FLUSH;
-            });
-
-            // return entity
-            self.owned.extend(reserved);
+            self.remote_reserve_and_own(self.allocation_reservation_size.get());
             // SAFETY: we just extended it by a `NonZero`, so there is a value to pop.
             unsafe { self.owned.pop().unwrap_unchecked() }
         }
@@ -1042,14 +1045,17 @@ impl Entities {
         // This does not check for "too many entities" because that happens during reservation.
 
         let from_owned = self.owned.len() as u32;
-        let additional = additional.saturating_sub(from_owned) as usize;
+        let short_fall = additional.saturating_sub(from_owned);
         let current_len = self.meta.len();
         // We can't let this exceed `u32::MAX`.
         // We don't panic here since we don't account for [`EntityReservations::pending`],
         // so there may be enough room for the passed `additional` anyway.
-        let new_len = (current_len + additional).min(u32::MAX as usize);
-        let additional = new_len - current_len;
-        self.meta.reserve(additional);
+        let new_len = (current_len + short_fall as usize).min(u32::MAX as usize);
+        let additional_meta = new_len - current_len;
+        self.meta.reserve(additional_meta);
+
+        // reserve allocation buffer
+        self.remote_reserve_and_own(short_fall);
     }
 
     /// Returns true if the [`Entities`] contains [`entity`](Entity).
