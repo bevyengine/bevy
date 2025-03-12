@@ -590,7 +590,7 @@ impl EntityReservations {
             .next_pending_index_intention
             .fetch_sub(num, Ordering::Relaxed);
         let new_next_pending_index = upper_pending_index - num;
-        let lower_pending_index = new_next_pending_index + 1;
+        let lower_pending_index = (new_next_pending_index + 1).max(0);
 
         if upper_pending_index >= 0 {
             let pending = self.pending.load(Ordering::Relaxed);
@@ -901,7 +901,7 @@ impl EntityReservations {
     }
 
     fn new() -> Self {
-        let mut pending = mem::ManuallyDrop::new(Vec::<Entity>::with_capacity(256));
+        let mut pending = mem::ManuallyDrop::new(Vec::<Entity>::with_capacity(100_000));
 
         Self {
             pending: AtomicPtr::new(pending.as_mut_ptr()),
@@ -917,14 +917,14 @@ impl EntityReservations {
 
 impl Drop for EntityReservations {
     fn drop(&mut self) {
-        // SAFETY: the data is from `Vec::new`.
-        unsafe {
-            drop(Vec::from_raw_parts(
-                self.pending.get_mut(),
-                *self.pending_len.get_mut(),
-                *self.pending_capacity.get_mut(),
-            ));
-        }
+        // // SAFETY: the data is from `Vec::new`.
+        // unsafe {
+        //     drop(Vec::from_raw_parts(
+        //         self.pending.get_mut(),
+        //         *self.pending_len.get_mut(),
+        //         *self.pending_capacity.get_mut(),
+        //     ));
+        // }
     }
 }
 
