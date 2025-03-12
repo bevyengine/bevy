@@ -324,6 +324,34 @@ macro_rules! children {
     };
 }
 
+/// Returns a [`Spawn`](crate::spawn::Spawn) that will insert the [`Children`] component, spawn an
+/// entity with the given bundle that relates to the [`Children`] entity via the [`ChildOf`] component, and reserve space
+/// in the [`Children`] for the spawned entity
+///
+/// Also see [`children`] for a version of this that works with many bundles.
+///
+/// ```
+/// # use bevy_ecs::hierarchy::Children;
+/// # use bevy_ecs::name::Name;
+/// # use bevy_ecs::world::World;
+/// # use bevy_ecs::children;
+/// # use bevy_ecs::spawn::{Spawn, SpawnRelated};
+/// let mut world = World::new();
+/// world.spawn((
+///     Name::new("Root"),
+///     child!(Name::new("Child"));
+/// ));
+/// ```
+///
+/// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
+/// [`Spawn`]: crate::spawn::Spawn
+#[macro_export]
+macro_rules! child {
+    ($child:expr) => {
+        $crate::hierarchy::Children::spawn($crate::spawn::Spawn($child))
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
