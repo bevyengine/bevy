@@ -2,11 +2,12 @@
 //! for the best entry points into these APIs and examples of how to use them.
 
 use crate::{
-    bundle::{Bundle, BundleEffect, DynamicBundle},
+    bundle::{Bundle, BundleEffect, DynamicBundle, NoBundleEffect},
     entity::Entity,
     relationship::{RelatedSpawner, Relationship, RelationshipTarget},
     world::{EntityWorldMut, World},
 };
+use alloc::vec::Vec;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
@@ -43,6 +44,17 @@ pub trait SpawnableList<R> {
     /// Returns a size hint, which is used to reserve space for this list in a [`RelationshipTarget`]. This should be
     /// less than or equal to the actual size of the list. When in doubt, just use 0.
     fn size_hint(&self) -> usize;
+}
+
+impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Vec<B> {
+    fn spawn(self, world: &mut World, entity: Entity) {
+        let mapped_bundles = self.into_iter().map(|b| (R::from(entity), b));
+        world.spawn_batch(mapped_bundles);
+    }
+
+    fn size_hint(&self) -> usize {
+        self.len()
+    }
 }
 
 impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {

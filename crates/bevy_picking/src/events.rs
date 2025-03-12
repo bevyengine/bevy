@@ -278,7 +278,7 @@ pub struct DragDrop {
 }
 
 /// Dragging state.
-#[derive(Debug, Clone)]
+#[derive(Clone, PartialEq, Debug, Reflect)]
 pub struct DragEntry {
     /// The position of the pointer at drag start.
     pub start_pos: Vec2,

@@ -8,11 +8,11 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
-use bevy_ecs::schedule::IntoSystemConfigs;
 
 use bevy_ecs::{
     prelude::Entity,
     resource::Resource,
+    schedule::IntoScheduleConfigs,
     system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };

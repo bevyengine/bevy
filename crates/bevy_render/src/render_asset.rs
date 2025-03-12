@@ -1,14 +1,14 @@
 use crate::{
     render_resource::AsBindGroupError, Extract, ExtractSchedule, MainWorld, Render, RenderApp,
-    RenderSet,
+    RenderSet, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
 pub use bevy_asset::RenderAssetUsages;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{
-    prelude::{Commands, EventReader, IntoSystemConfigs, Res, ResMut, Resource},
-    schedule::{SystemConfigs, SystemSet},
-    system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
+    prelude::{Commands, EventReader, IntoScheduleConfigs, ResMut, Resource},
+    schedule::{ScheduleConfigs, SystemSet},
+    system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
@@ -132,17 +132,17 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
 
 // helper to allow specifying dependencies between render assets
 pub trait RenderAssetDependency {
-    fn register_system(render_app: &mut SubApp, system: SystemConfigs);
+    fn register_system(render_app: &mut SubApp, system: ScheduleConfigs<ScheduleSystem>);
 }
 
 impl RenderAssetDependency for () {
-    fn register_system(render_app: &mut SubApp, system: SystemConfigs) {
+    fn register_system(render_app: &mut SubApp, system: ScheduleConfigs<ScheduleSystem>) {
         render_app.add_systems(Render, system);
     }
 }
 
 impl<A: RenderAsset> RenderAssetDependency for A {
-    fn register_system(render_app: &mut SubApp, system: SystemConfigs) {
+    fn register_system(render_app: &mut SubApp, system: ScheduleConfigs<ScheduleSystem>) {
         render_app.add_systems(Render, system.after(prepare_assets::<A>));
     }
 }
