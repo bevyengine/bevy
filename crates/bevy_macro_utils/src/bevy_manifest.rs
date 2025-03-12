@@ -129,18 +129,4 @@ impl BevyManifest {
     pub fn parse_str<T: syn::parse::Parse>(path: &str) -> T {
         Self::try_parse_str(path).unwrap()
     }
-
-    /// Attempt to get a subcrate [path](syn::Path) under Bevy by [name](str)
-    pub fn get_subcrate(&self, subcrate: &str) -> Option<syn::Path> {
-        self.maybe_get_path(BEVY)
-            .map(|bevy_path| {
-                let mut segments = bevy_path.segments;
-                segments.push(BevyManifest::parse_str(subcrate));
-                syn::Path {
-                    leading_colon: None,
-                    segments,
-                }
-            })
-            .or_else(|| self.maybe_get_path(&format!("bevy_{subcrate}")))
-    }
 }
