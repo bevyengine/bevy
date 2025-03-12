@@ -3,6 +3,7 @@
 
 #![expect(
     clippy::std_instead_of_core,
+    clippy::print_stdout,
     reason = "Examples should not follow this lint"
 )]
 
