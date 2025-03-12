@@ -72,7 +72,7 @@ impl Plugin for SteppingPlugin {
 /// Struct for maintaining stepping state
 #[derive(Resource, Debug)]
 struct State {
-    // vector of schedule/nodeid -> text index offset
+    // vector of schedule/node id -> text index offset
     systems: Vec<(InternedScheduleLabel, NodeId, usize)>,
 
     // ui positioning
@@ -161,25 +161,20 @@ fn build_ui(
         stepping.always_run_node(label, node);
     }
 
-    commands
-        .spawn((
-            Text::default(),
-            SteppingUi,
-            Node {
-                position_type: PositionType::Absolute,
-                top: state.ui_top,
-                left: state.ui_left,
-                padding: UiRect::all(Val::Px(10.0)),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.33)),
-            Visibility::Hidden,
-        ))
-        .with_children(|p| {
-            for span in text_spans {
-                p.spawn(span);
-            }
-        });
+    commands.spawn((
+        Text::default(),
+        SteppingUi,
+        Node {
+            position_type: PositionType::Absolute,
+            top: state.ui_top,
+            left: state.ui_left,
+            padding: UiRect::all(Val::Px(10.0)),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.33)),
+        Visibility::Hidden,
+        Children::spawn(text_spans),
+    ));
 }
 
 fn build_stepping_hint(mut commands: Commands) {

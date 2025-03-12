@@ -118,6 +118,7 @@ impl SystemExecutor for SimpleExecutor {
             });
 
             #[cfg(feature = "std")]
+            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
                 if let Err(payload) = std::panic::catch_unwind(f) {
                     eprintln!("Encountered a panic in system `{}`!", &*system.name());
