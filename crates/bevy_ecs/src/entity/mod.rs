@@ -580,7 +580,11 @@ impl EntityReservations {
     /// This will only access `pending` if `next_pending_index_intention` is non-negative, and
     /// while accising, `next_pending_index_intention` will be desynced from `next_pending_index_truth`.
     #[inline]
-    fn pending_scope<'a, T>(&'a self, num: u32, func: impl FnOnce(&'a [Entity]) -> T) -> Option<T> {
+    fn pending_scope<'a, T: 'static>(
+        &'a self,
+        num: u32,
+        func: impl FnOnce(&'a [Entity]) -> T,
+    ) -> Option<T> {
         let num = num as IdCursor;
         let upper_pending_index = self
             .next_pending_index_intention
@@ -627,9 +631,9 @@ impl EntityReservations {
     /// # Safety
     ///
     /// `func` may change the vec, but it *must* not resize it if the passed bool is true.
-    /// If the bool is true, it is actively bein readg from.
+    /// If the bool is true, it is actively being read from.
     #[inline]
-    unsafe fn pending_scope_mut<T>(
+    unsafe fn pending_scope_mut<T: 'static>(
         &self,
         func: impl FnOnce(&mut Vec<Entity>, IdCursor, bool) -> T,
     ) -> T {
@@ -897,7 +901,7 @@ impl EntityReservations {
     }
 
     fn new() -> Self {
-        let mut pending = mem::ManuallyDrop::new(Vec::<Entity>::new());
+        let mut pending = mem::ManuallyDrop::new(Vec::<Entity>::with_capacity(256));
 
         Self {
             pending: AtomicPtr::new(pending.as_mut_ptr()),
