@@ -491,20 +491,19 @@ impl SparseSetIndex for Entity {
 ///
 /// All reserved entities will continue to be reserved after dropping, *including those that were not iterated*.
 /// Dropping this without finishing the iterator is effectively leaking an entity.
-pub struct ReserveEntitiesIterator<'a> {
+pub struct ReserveEntitiesIterator {
     // Reserved indices formerly in the freelist to hand out.
-    freelist_indices: core::slice::Iter<'a, Entity>,
+    freelist_indices: alloc::vec::IntoIter<Entity>,
     // New Entity indices to hand out, outside the range of meta.len().
     new_indices: core::ops::Range<u32>,
 }
 
-impl<'a> Iterator for ReserveEntitiesIterator<'a> {
+impl Iterator for ReserveEntitiesIterator {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.freelist_indices
             .next()
-            .copied()
             .or_else(|| self.new_indices.next().map(Entity::from_raw))
     }
 
@@ -514,11 +513,11 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for ReserveEntitiesIterator<'a> {}
-impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
+impl ExactSizeIterator for ReserveEntitiesIterator {}
+impl core::iter::FusedIterator for ReserveEntitiesIterator {}
 
 // SAFETY: Newly reserved entity values are unique.
-unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
+unsafe impl EntitySetIterator for ReserveEntitiesIterator {}
 
 /// This allows remote entity reservation.
 ///
@@ -538,7 +537,7 @@ impl core::ops::Deref for RemoteEntities {
 /// This allows entity reservation.
 pub struct EntityReservations {
     /// These are the previously freed or otherwise unused entities that are pending being reused.
-    /// [`Self::next_pending_index`] determines which of these have been reused and therefore need to be flusehd
+    /// [`Self::next_pending_index_truth`] determines which of these have been reused and therefore need to be flusehd
     /// and which remain pending.
     ///
     /// # Safety
@@ -565,10 +564,6 @@ pub struct EntityReservations {
 }
 
 impl EntityReservations {
-    fn pending(&self) -> AtomicPtr<Vec<Entity>> {
-        AtomicPtr::new(self.pending.get())
-    }
-
     /// Returns the number of elements in [`Self::pending`], including those that are now reserved.
     /// This is greedy, so if another thread is changing the value, this will not wait for that change.
     fn pending_len(&self) -> usize {
@@ -585,7 +580,7 @@ impl EntityReservations {
     /// This will only access `pending` if `next_pending_index_intention` is non-negative, and
     /// while accising, `next_pending_index_intention` will be desynced from `next_pending_index_truth`.
     #[inline]
-    fn pending_scope<T>(&self, num: u32, mut func: impl FnMut(&[Entity]) -> T) -> Option<T> {
+    fn pending_scope<T>(&self, num: u32, func: impl FnOnce(&[Entity]) -> T) -> Option<T> {
         let num = num as IdCursor;
         let upper_pending_index = self
             .next_pending_index_intention
@@ -616,12 +611,17 @@ impl EntityReservations {
 
     /// Allows mutable access to [`Self::pending`] if nothing else is accessing it.
     /// Otherwise, gives immutable access.
+    /// Each `func` takes [`Self::pending`] and the current [`Self::next_pending_index_truth`].
+    ///
+    /// # Safety
+    ///
+    /// `func` may change the vec, but it *must* not resize it if the passed bool is true.
+    /// If the bool is true, it is actively bein readg from.
     #[inline]
-    fn pending_scope_mut<M, R>(
+    unsafe fn pending_scope_mut<T>(
         &self,
-        mut func_mut: impl FnMut(&mut Vec<Entity>, IdCursor) -> M,
-        mut func_ref: impl FnMut(&Vec<Entity>, IdCursor) -> R,
-    ) -> Result<M, R> {
+        func: impl FnOnce(&mut Vec<Entity>, IdCursor, bool) -> T,
+    ) -> T {
         // disable other access and get the intention
         let next_pending_index_intention = self
             .next_pending_index_intention
@@ -634,7 +634,7 @@ impl EntityReservations {
             // and the parity succeeded,
             // so nothing is or will access this while modifying.
             let pending = unsafe { &mut *(pending_ptr.load(Ordering::Relaxed)) };
-            let result = func_mut(pending, next_pending_index);
+            let result = func(pending, next_pending_index, false);
 
             let new_next_pending_index = pending.len() as IdCursor - 1;
             pending_ptr.store(pending, Ordering::Relaxed);
@@ -647,18 +647,19 @@ impl EntityReservations {
             self.next_pending_index_intention
                 .fetch_add(diff + u32::MAX as IdCursor, Ordering::Release);
 
-            Ok(result)
+            result
         } else {
             // SAFETY: we just told all the remote entities that the next index is negative,
             // and the parity is still broken,
-            // so nothing is or will modify this this while accessing.
-            let pending = unsafe { &*(pending_ptr.load(Ordering::Relaxed)) };
-            let result = func_ref(pending, next_pending_index);
+            // so nothing is or will modify this this while accessing,
+            // and caller ensures we aren't modifying this ourselves.
+            let pending = unsafe { &mut *(pending_ptr.load(Ordering::Relaxed)) };
+            let result = func(pending, next_pending_index, true);
 
             // we couldn't access it, so we need to return it to its source of truth.
             self.next_pending_index_intention
                 .fetch_add(u32::MAX as IdCursor, Ordering::Relaxed);
-            Err(result)
+            result
         }
     }
 
@@ -669,11 +670,6 @@ impl EntityReservations {
     /// # Safety
     ///
     /// All entities must have valid indices in `meta`.
-    ///
-    /// This **MUST** not be called concurrently.
-    /// This is the *only* place we modify [`Self::pending`] irespective of [`Self::next_pending_index`].
-    /// That means the caller is responsible to ensure no other thread is doing this at the same time.
-    /// Otherwise, there may be data races at best or use-after-free at worst.
     #[inline]
     unsafe fn flush_pending(
         &self,
@@ -682,71 +678,55 @@ impl EntityReservations {
         mut needs_init: impl FnMut(Entity, &EntityMeta) -> bool,
         mut init: impl FnMut(Entity, &mut EntityLocation),
     ) {
-        // disable pending use
-        let next_pending_index = self
-            .next_pending_index_intention
-            .swap(-1, Ordering::Relaxed);
-        // SAFETY: we just told all the remote entities that the next index is -1, so nothing will access this while modifying.
-        let pending = unsafe { &mut *(self.pending().load(Ordering::Relaxed)) };
+        // SAFETY: We return right after flushing if the bool is true
+        self.pending_scope_mut(|pending, next_pending_index, in_use_elsewhere| {
+            // flush
+            let new_pending_len = (next_pending_index + 1).max(0) as u32;
+            for reused in pending.drain(new_pending_len as usize..) {
+                // SAFETY: The pending list is known to be valid.
+                let meta = unsafe { meta.get_unchecked_mut(reused.index() as usize) };
 
-        // flush pending
-        let new_pending_len = (next_pending_index + 1).max(0) as u32;
-        for reused in pending.drain(new_pending_len as usize..) {
-            // SAFETY: The pending list is known to be valid.
-            let meta = unsafe { meta.get_unchecked_mut(reused.index() as usize) };
-
-            // We need to check this because it may have been "reserved" for direct allocation,
-            // in which case, we should not flush it since that's the allocator's job.
-            if needs_init(reused, meta) {
-                init(reused, &mut meta.location);
+                // We need to check this because it may have been "reserved" for direct allocation,
+                // in which case, we should not flush it since that's the allocator's job.
+                if needs_init(reused, meta) {
+                    init(reused, &mut meta.location);
+                }
             }
-        }
 
-        // balance pending
-        let balanced_len = (new_pending_len as usize + owned.len()) / 2;
-        if balanced_len < owned.len() {
-            pending.extend(owned.drain(balanced_len..).inspect(|entity| {
-                // SAFETY: The pending list is known to be valid.
-                let meta = unsafe { meta.get_unchecked_mut(entity.index() as usize) };
-                // We ensure that items going onto pending will be flushed by default.
-                // This may be changed if it is reserved for allocation.
-                meta.location = EntityLocation::INVALID;
-            }));
-        } else {
-            let diff = balanced_len - owned.len();
-            let start = pending.len() - diff;
-            owned.extend(pending.drain(start..).inspect(|entity| {
-                // SAFETY: The pending list is known to be valid.
-                let meta = unsafe { meta.get_unchecked_mut(entity.index() as usize) };
-                // We ensure that items going onto owned will not be flushed.
-                // Owned entities are owned by [`Entities`], and should not be flushed here.
-                meta.location = EntityLocation::INVALID_BUT_DONT_FLUSH;
-            }));
-        }
+            // This ensures safety.
+            // Everything after this requires nothing else access `pending`
+            if in_use_elsewhere {
+                return;
+            }
 
-        // re-enable pending use
-        let next_pending_index = pending.len() as IdCursor - 1;
-        self.pending().store(pending, Ordering::Relaxed);
-        self.next_pending_index_intention
-            .store(next_pending_index, Ordering::Relaxed);
+            // balance pending
+            let balanced_len = (new_pending_len as usize + owned.len()) / 2;
+            if balanced_len < owned.len() {
+                pending.extend(owned.drain(balanced_len..).inspect(|entity| {
+                    // SAFETY: The pending list is known to be valid.
+                    let meta = unsafe { meta.get_unchecked_mut(entity.index() as usize) };
+                    // We ensure that items going onto pending will be flushed by default.
+                    // This may be changed if it is reserved for allocation.
+                    meta.location = EntityLocation::INVALID;
+                }));
+            } else {
+                let diff = balanced_len - owned.len();
+                let start = pending.len() - diff;
+                owned.extend(pending.drain(start..).inspect(|entity| {
+                    // SAFETY: The pending list is known to be valid.
+                    let meta = unsafe { meta.get_unchecked_mut(entity.index() as usize) };
+                    // We ensure that items going onto owned will not be flushed.
+                    // Owned entities are owned by [`Entities`], and should not be flushed here.
+                    meta.location = EntityLocation::INVALID_BUT_DONT_FLUSH;
+                }));
+            }
+        });
     }
 
     /// Steals the remote pending list, placing the values in "into".
     /// This does not steal entities already reserved.
-    fn steal_pending(&self, into: impl FnOnce(alloc::vec::Drain<Entity>)) {
-        // disable pending use
-        let next_pending_index = self
-            .next_pending_index_intention
-            .swap(-1, Ordering::Relaxed);
-        // SAFETY: we just told all the remote entities that the next index is -1, so nothing will access this while modifying.
-        let pending = unsafe { &mut *(self.pending().load(Ordering::Relaxed)) };
-
-        if next_pending_index > 0 {
-            let drain = pending.drain(..next_pending_index as usize);
-            into(drain);
-        }
-
-        self.pending().store(pending, Ordering::Relaxed);
+    fn steal_pending(&self, into: impl FnOnce(&[Entity])) {
+        self.pending_scope(u32::MAX, into);
     }
 
     /// Flushes the entities that have been extended onto meta directly.
@@ -797,10 +777,12 @@ impl EntityReservations {
         // disable and reset pending
         self.next_pending_index_intention
             .store(-1, Ordering::Relaxed);
+        self.next_pending_index_truth.store(-1, Ordering::Relaxed);
+        let pending_ptr = AtomicPtr::new(self.pending.get());
         let _prev_pending =
             // SAFETY: We know the pointer is valid
-            unsafe { core::ptr::replace(self.pending().load(Ordering::Relaxed), Vec::new()) };
-        self.pending().store(self.pending.get(), Ordering::Relaxed);
+            unsafe { core::ptr::replace(pending_ptr.load(Ordering::Relaxed), Vec::new()) };
+        pending_ptr.store(self.pending.get(), Ordering::Relaxed);
 
         // restart meta
         self.meta_len.store(0, Ordering::Relaxed);
@@ -810,43 +792,23 @@ impl EntityReservations {
     ///
     /// This will return true even if another thread is actively flushing it.
     pub fn worth_flushing(&self) -> bool {
-        // SAFETY: Even though we are loading this when it could be being flushed / modified,
-        // we are only checking the length, not the slice.
-        let pending_len = unsafe {
-            let pending = self.pending().load(Ordering::Relaxed);
-            (*pending).len()
-        };
-        let next_pending_index = self.next_pending_index_intention.load(Ordering::Relaxed);
-        pending_len as IdCursor != next_pending_index
+        let pending_len = self.pending_len();
+        let next_pending_index = self.next_pending_index_truth.load(Ordering::Relaxed);
+        let is_pending_reserved = pending_len as IdCursor != next_pending_index - 1;
+        // todo: Also check if meta_len has been extended.
+        is_pending_reserved
     }
 
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
-    pub fn reserve_entities<'a>(&'a self, count: u32) -> ReserveEntitiesIterator<'a> {
-        // determine the range as if it were all in pending
-        let upper_pending_index = self
-            .next_pending_index_intention
-            .fetch_sub(count as IdCursor, Ordering::Relaxed);
-        let new_next_pending_index = upper_pending_index - count as IdCursor;
-        let lower_pending_index = new_next_pending_index + 1;
-
-        // pull from pending
-        let (reused, num_reused) = if upper_pending_index >= 0 {
-            let pending = self.pending().load(Ordering::Relaxed);
-            // SAFETY: The pending index is valid, so we know we aren't modifying `pending`.
-            // Pending lives in `self`, so the lifetime is accurate.
-            let pending: &'a Vec<Entity> = unsafe { &(*pending) };
-            let reused_range = lower_pending_index.max(0) as usize..=upper_pending_index as usize;
-            let num_reused = upper_pending_index - lower_pending_index.max(0) + 1;
-            (&pending[reused_range], num_reused as u32)
-        } else {
-            const EMPTY: &[Entity] = &[];
-            (EMPTY, 0u32)
-        };
+    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
+        let reused = self
+            .pending_scope(count, |reserved| Vec::from(reserved))
+            .unwrap_or_default();
 
         // extend if needed
-        let num_extended = count - num_reused;
+        let num_extended = count - reused.len() as u32;
         let new_indices = if num_extended > 0 {
             let prev_len = self.meta_len.fetch_add(num_extended, Ordering::Relaxed);
             let new_len = prev_len
@@ -859,7 +821,7 @@ impl EntityReservations {
 
         // finish
         ReserveEntitiesIterator {
-            freelist_indices: reused.iter(),
+            freelist_indices: reused.into_iter(),
             new_indices,
         }
     }
@@ -868,22 +830,16 @@ impl EntityReservations {
     ///
     /// Equivalent to `self.reserve_entities(1).next().unwrap()`, but more efficient.
     pub fn reserve_entity(&self) -> Entity {
-        let index_in_pending = self
-            .next_pending_index_intention
-            .fetch_sub(1, Ordering::Relaxed);
-        if index_in_pending >= 0 {
-            let pending = self.pending().load(Ordering::Relaxed);
-            // SAFETY: The pending index is valid, so we know we aren't modifying `pending`.
-            let pending = unsafe { &(*pending) };
-            // SAFETY: We only ever subtract from this value, except for resetting it, so the index is valid.
-            let reserved = unsafe { pending.get_unchecked(index_in_pending as usize) };
-            *reserved
-        } else {
+        self.pending_scope(1, |reserved| {
+            // SAFETY: there is always at least 1 reserved.
+            *unsafe { reserved.get_unchecked(0) }
+        })
+        .unwrap_or_else(|| {
             let prev_len = self.meta_len.fetch_add(1, Ordering::Relaxed);
             let _new_len = prev_len.checked_add(1).expect("too many entities");
             let index = prev_len;
             Entity::from_raw(index)
-        }
+        })
     }
 }
 
@@ -997,7 +953,7 @@ impl Entities {
 
     fn steal_pending_reservations(&mut self) {
         self.reservations.steal_pending(|stolen| {
-            self.owned.extend(stolen.inspect(|entity| {
+            self.owned.extend(stolen.iter().copied().inspect(|entity| {
                 // SAFETY: Pending is known to be valid.
                 let meta = unsafe { self.meta.get_unchecked_mut(entity.index() as usize) };
                 // We are taking ownership of the stolen entities, so they should not be flushed.
