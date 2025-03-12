@@ -74,9 +74,9 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use bevy_platform_support::sync::{
-    atomic::{AtomicPtr, AtomicU32, Ordering},
+    atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering},
     Arc, PoisonError, RwLock,
 };
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
@@ -535,6 +535,8 @@ impl core::ops::Deref for RemoteEntities {
 
 /// This allows entity reservation.
 pub struct EntityReservations {
+    /// This represents a [`Vec`] of [`Entity`].
+    ///
     /// These are the previously freed or otherwise unused entities that are pending being reused.
     /// [`Self::next_pending_index_truth`] determines which of these have been reused and therefore need to be flusehd
     /// and which remain pending.
@@ -543,7 +545,11 @@ pub struct EntityReservations {
     ///
     /// This *slice* must only be accessed via [`Self::pending_scope`] and [`Self::pending_scope_mut`]
     /// to ensure synchronization.
-    pending: AtomicPtr<Vec<Entity>>,
+    pending: AtomicPtr<Entity>,
+    /// This is the capacity for the [`Vec`] represented by [`Self::pending`].
+    pending_capacity: AtomicUsize,
+    /// This is the length for the [`Vec`] represented by [`Self::pending`].
+    pending_len: AtomicUsize,
     /// This is the value of [`Self::meta_len`] the last time it was flushed.
     /// Entities before this have been flushed once already, but
     /// they may have been freed/pending since, requiring another flush.
@@ -567,14 +573,6 @@ pub struct EntityReservations {
 }
 
 impl EntityReservations {
-    /// Returns the number of elements in [`Self::pending`], including those that are now reserved.
-    /// This is greedy, so if another thread is changing the value, this will not wait for that change.
-    fn pending_len(&self) -> usize {
-        let pending = self.pending.load(Ordering::Relaxed);
-        // SAFETY: we only access its length, not the slice, so we don't have to synchronize.
-        unsafe { (*pending).len() }
-    }
-
     /// Allows access to `num` of [`Self::pending`].
     /// If access could not be obtained, returns `None`.
     /// If there was at leas 1 but not `num` available, returns result of `func` with what was available.
@@ -582,7 +580,7 @@ impl EntityReservations {
     /// This will only access `pending` if `next_pending_index_intention` is non-negative, and
     /// while accising, `next_pending_index_intention` will be desynced from `next_pending_index_truth`.
     #[inline]
-    fn pending_scope<T>(&self, num: u32, func: impl FnOnce(&[Entity]) -> T) -> Option<T> {
+    fn pending_scope<'a, T>(&'a self, num: u32, func: impl FnOnce(&'a [Entity]) -> T) -> Option<T> {
         let num = num as IdCursor;
         let upper_pending_index = self
             .next_pending_index_intention
@@ -592,11 +590,23 @@ impl EntityReservations {
 
         if upper_pending_index >= 0 {
             let pending = self.pending.load(Ordering::Relaxed);
-            // SAFETY: The pending index is valid, so we know we aren't modifying `pending`.
-            // Pending lives in `self`, so the lifetime is accurate.
-            let pending = unsafe { &(*pending) };
-            let reused_range = lower_pending_index.max(0) as usize..=upper_pending_index as usize;
-            let result = func(&pending[reused_range]);
+
+            // SAFETY:
+            // The `upper_pending_index` is valid, so we know we aren't modifying `pending`,
+            // so borrow rules are satisfie.
+            //
+            // Pointer math is correct for the slice.
+            //
+            // Slice lifetime is correct because it is tied to self.
+            //
+            // Fields from self are known to be correct.
+            //
+            let result = unsafe {
+                let starting = pending.add(lower_pending_index as usize);
+                let len = upper_pending_index - lower_pending_index + 1;
+                let slice = core::slice::from_raw_parts::<'a>(starting, len as usize);
+                func(slice)
+            };
 
             // successful, so we need to update parity
             self.next_pending_index_truth
@@ -629,16 +639,33 @@ impl EntityReservations {
             .fetch_sub(u32::MAX as IdCursor, Ordering::Relaxed);
         let next_pending_index = self.next_pending_index_truth.load(Ordering::Relaxed);
 
+        // SAFETY: These are known to be valid.
+        let mut pending = unsafe {
+            mem::ManuallyDrop::new(Vec::from_raw_parts(
+                self.pending.load(Ordering::Relaxed),
+                self.pending_len.load(Ordering::Relaxed),
+                self.pending_capacity.load(Ordering::Relaxed),
+            ))
+        };
+
+        let prev_pending_ptr = pending.as_ptr();
+        let prev_pending_cap = pending.capacity();
+
         if next_pending_index == next_pending_index_intention {
             // SAFETY: we just told all the remote entities that the next index is negative,
             // and the parity succeeded,
             // so nothing is or will access this while modifying.
-            let pending = unsafe { &mut *(self.pending.load(Ordering::Relaxed)) };
-            let result = func(pending, next_pending_index, false);
+            let result = func(&mut pending, next_pending_index, false);
 
             let new_next_pending_index = pending.len() as IdCursor - 1;
-            self.pending.store(pending, Ordering::Relaxed);
             let diff = new_next_pending_index - next_pending_index;
+
+            // SAFETY: We are still preventing other writes so nothing will access this
+            // while we're halfway through setting these values.
+            self.pending.store(pending.as_mut_ptr(), Ordering::Relaxed);
+            self.pending_len.store(pending.len(), Ordering::Relaxed);
+            self.pending_capacity
+                .store(pending.capacity(), Ordering::Relaxed);
 
             // first, apply the diff to the truth to make it correct
             self.next_pending_index_truth
@@ -653,12 +680,19 @@ impl EntityReservations {
             // and the parity is still broken,
             // so nothing is or will modify this this while accessing,
             // and caller ensures we aren't modifying this ourselves.
-            let pending = unsafe { &mut *(self.pending.load(Ordering::Relaxed)) };
-            let result = func(pending, next_pending_index, true);
+            let result = func(&mut pending, next_pending_index, true);
 
             // we couldn't access it, so we need to return it to its source of truth.
             self.next_pending_index_intention
                 .fetch_add(u32::MAX as IdCursor, Ordering::Relaxed);
+
+            // SAFETY: Caller ensures these didn't change
+            debug_assert_eq!(pending.capacity(), prev_pending_cap);
+            debug_assert_eq!(pending.as_ptr(), prev_pending_ptr);
+            // SAFETY: This is the only thing that changed, and we can set it immediately.
+            // There is no way for this to temporarily leave threads with invalid data.
+            self.pending_len.store(pending.len(), Ordering::Relaxed);
+
             result
         }
     }
@@ -784,30 +818,33 @@ impl EntityReservations {
     /// Clears the instance.
     /// Entities reserved during and prior to the clear will be invalid.
     fn clear(&self) {
-        // disable and reset pending
-        self.next_pending_index_intention
-            .store(-1, Ordering::Relaxed);
-        self.next_pending_index_truth.store(-1, Ordering::Relaxed);
-        let new_pending = Box::into_raw(Box::new(Vec::new()));
-        let prev_pending = self.pending.swap(new_pending, Ordering::Relaxed);
-        // SAFETY: This is from `Box::into_raw`
-        unsafe {
-            drop(Box::from_raw(prev_pending));
-        }
+        let mut blank = Self::new();
 
-        // restart meta
-        self.meta_len.store(0, Ordering::Relaxed);
+        self.pending_capacity
+            .store(*blank.pending_capacity.get_mut(), Ordering::Release);
+        self.pending_len
+            .store(*blank.pending_len.get_mut(), Ordering::Release);
+        self.pending
+            .store(*blank.pending.get_mut(), Ordering::Release);
         *self
             .meta_flushed_up_to
             .write()
             .unwrap_or_else(PoisonError::into_inner) = 0;
+        self.meta_len
+            .store(*blank.meta_len.get_mut(), Ordering::Release);
+        self.next_pending_index_intention.store(
+            *blank.next_pending_index_intention.get_mut(),
+            Ordering::Release,
+        );
+        self.next_pending_index_truth
+            .store(*blank.next_pending_index_truth.get_mut(), Ordering::Release);
     }
 
     /// Returns true if it is worth flushing.
     ///
     /// This will return true even if another thread is actively flushing it.
     pub fn worth_flushing(&self) -> bool {
-        let pending_len = self.pending_len();
+        let pending_len = self.pending_len.load(Ordering::Relaxed);
         let next_pending_index = self.next_pending_index_truth.load(Ordering::Relaxed);
         let is_pending_reserved = pending_len as IdCursor != next_pending_index - 1;
 
@@ -822,9 +859,7 @@ impl EntityReservations {
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
     pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
-        let reused = self
-            .pending_scope(count, |reserved| Vec::from(reserved))
-            .unwrap_or_default();
+        let reused = self.pending_scope(count, Vec::from).unwrap_or_default();
 
         // extend if needed
         let num_extended = count - reused.len() as u32;
@@ -862,9 +897,12 @@ impl EntityReservations {
     }
 
     fn new() -> Self {
-        let pending = Box::into_raw(Box::new(Vec::new()));
+        let mut pending = mem::ManuallyDrop::new(Vec::<Entity>::new());
+
         Self {
-            pending: AtomicPtr::new(pending),
+            pending: AtomicPtr::new(pending.as_mut_ptr()),
+            pending_capacity: AtomicUsize::new(pending.capacity()),
+            pending_len: AtomicUsize::new(pending.len()),
             meta_flushed_up_to: RwLock::new(0),
             meta_len: AtomicU32::new(0),
             next_pending_index_intention: AtomicIdCursor::new(-1),
@@ -875,9 +913,13 @@ impl EntityReservations {
 
 impl Drop for EntityReservations {
     fn drop(&mut self) {
-        // SAFETY: the pointer is from `Box::into_raw`.
+        // SAFETY: the data is from `Vec::new`.
         unsafe {
-            drop(Box::from_raw(self.pending.get_mut()));
+            drop(Vec::from_raw_parts(
+                self.pending.get_mut(),
+                *self.pending_len.get_mut(),
+                *self.pending_capacity.get_mut(),
+            ));
         }
     }
 }
