@@ -1129,6 +1129,14 @@ impl Entities {
     /// to be initialized with the invalid archetype.
     #[inline]
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
+        // First we flush the extended as is.
+        // We need to start with this because `flush_pending` can change the `EntityMeta` of newly extended entities.
+        self.reservations.flush_extended(
+            &mut self.meta,
+            &mut self.meta_flushed_up_to,
+            |_entity, meta| meta.location == EntityLocation::INVALID,
+            |entity, meta| init(entity, meta),
+        );
         // SAFETY: This can't be called concurrently since it is private,
         // and only called here with an exclusive ref to self.
         // Indices are valid since we borrow all of meta.
@@ -1140,6 +1148,8 @@ impl Entities {
                 |entity, meta| init(entity, meta),
             );
         }
+        // This is optional
+        // We `flush_extended` again to account for any reservations made during the flush.
         self.reservations.flush_extended(
             &mut self.meta,
             &mut self.meta_flushed_up_to,
