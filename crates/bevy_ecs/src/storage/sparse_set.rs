@@ -117,6 +117,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 ///
 /// Designed for relatively fast insertions and deletions.
 pub struct ComponentSparseSet {
+    /// SAFETY: Equal in length & capacity to `self.entities`
     dense: ThinColumn,
     // Internally this only relies on the Entity index to keep track of where the component data is
     // stored for entities that are alive. The generation is not required, but is stored
