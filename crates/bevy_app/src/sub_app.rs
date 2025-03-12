@@ -64,9 +64,12 @@ pub struct SubApp {
     world: World,
     /// List of plugins that have been added but have not yet have `build_async` called.
     pub(crate) plugin_registry: Vec<Box<dyn ErasedPlugin>>,
-    /// The names of plugins that have been added to this app. (used to track duplicates and
-    /// already-registered plugins)
-    pub(crate) plugin_names: HashSet<String>,
+    /// The names of plugins that have been added to this app.
+    /// Used to track duplicates and already-registered plugins.
+    pub(crate) added_plugins: HashSet<String>,
+    /// The names of plugins that have completed their `build_async`.
+    /// Used for plugin dependencies.
+    pub(crate) completed_plugins: HashSet<String>,
     /// Panics if an update is attempted while plugins are building.
     pub(crate) plugin_build_depth: usize,
     pub(crate) plugins_state: PluginsState,
@@ -90,7 +93,8 @@ impl Default for SubApp {
         Self {
             world,
             plugin_registry: Vec::default(),
-            plugin_names: HashSet::default(),
+            added_plugins: HashSet::default(),
+            completed_plugins: HashSet::default(),
             plugin_build_depth: 0,
             plugins_state: PluginsState::Adding,
             update_schedule: None,
@@ -375,7 +379,7 @@ impl SubApp {
     where
         T: Plugin,
     {
-        self.plugin_names.contains(core::any::type_name::<T>())
+        self.added_plugins.contains(core::any::type_name::<T>())
     }
 
     /// See [`App::get_added_plugins`].
@@ -387,6 +391,11 @@ impl SubApp {
             .iter()
             .filter_map(|p| p.downcast_ref())
             .collect()
+    }
+
+    /// See [`App::plugin_completed`].
+    pub fn completed_plugins(&self) -> &HashSet<String> {
+        &self.completed_plugins
     }
 
     /// Returns `true` if there is no plugin in the middle of being built.

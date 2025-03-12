@@ -1,5 +1,7 @@
 use crate::{App, PluginContext};
+use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
+use alloc::string::String;
 use core::{any::Any, pin::Pin};
 use downcast_rs::{impl_downcast, Downcast};
 
@@ -141,7 +143,7 @@ pub trait ErasedPlugin: Downcast + Send + Sync {
     fn build_async<'a>(
         self: Box<Self>,
         ctx: PluginContext<'a>,
-    ) -> Pin<Box<dyn Future<Output = ()> + 'a>>;
+    ) -> Pin<Box<dyn Future<Output = String> + 'a>>;
 
     /// See [`Plugin::build`].
     fn build(&self, app: &mut App);
@@ -171,8 +173,12 @@ where
     fn build_async<'ctx>(
         self: Box<Self>,
         ctx: PluginContext<'ctx>,
-    ) -> Pin<Box<dyn Future<Output = ()> + 'ctx>> {
-        Box::pin(<P as Plugin>::build_async(self, ctx))
+    ) -> Pin<Box<dyn Future<Output = String> + 'ctx>> {
+        Box::pin(async move {
+            let name = <P as Plugin>::name(&*self).to_owned();
+            <P as Plugin>::build_async(self, ctx).await;
+            name
+        })
     }
 
     fn build(&self, app: &mut App) {

@@ -17,8 +17,8 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, SystemId, SystemInput},
 };
-use bevy_platform_support::collections::HashMap;
-use core::{cell::RefCell, fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
+use bevy_platform_support::collections::{HashMap, HashSet};
+use core::{cell::RefCell, fmt::Debug, num::NonZero, panic::AssertUnwindSafe, task::Poll};
 use log::debug;
 
 #[cfg(feature = "trace")]
@@ -286,18 +286,24 @@ impl App {
                     // This sets progress to `NoProgress` only if it's still unsuccessfully waiting
                     // on the app to have the desired state.
                     // Waiting for an external resource is fine.
-                    let pending = Future::poll(
+                    if let Poll::Ready(name) = Future::poll(
                         plugin.as_mut(),
                         &mut core::task::Context::from_waker(core::task::Waker::noop()),
-                    )
-                    .is_pending();
-
-                    if ctx.borrow_mut().progress != TickProgress::NoProgress {
+                    ) {
                         progress_made = true;
+                        ctx.borrow_mut()
+                            .app
+                            .main_mut()
+                            .completed_plugins
+                            .insert(name);
+                        // Drop the finished plugin
+                        false
+                    } else {
+                        if ctx.borrow_mut().progress != TickProgress::NoProgress {
+                            progress_made = true;
+                        }
+                        true
                     }
-
-                    // Drop the finished plugins
-                    pending
                 });
                 // If every future is waiting on some fact to change about the world, we're stuck.
                 // Signal this to the context, which will return `StuckError`.
@@ -526,7 +532,7 @@ impl App {
         plugin: Box<dyn ErasedPlugin>,
     ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
-        if plugin.is_unique() && self.main_mut().plugin_names.contains(plugin.name()) {
+        if plugin.is_unique() && self.main_mut().added_plugins.contains(plugin.name()) {
             Err(AppError::DuplicatePlugin {
                 plugin_name: plugin.name().to_string(),
             })?;
@@ -550,7 +556,7 @@ impl App {
         f();
 
         self.main_mut()
-            .plugin_names
+            .added_plugins
             .insert(plugin.name().to_string());
         self.main_mut().plugin_build_depth -= 1;
 
@@ -595,6 +601,11 @@ impl App {
         T: Plugin,
     {
         self.main().get_added_plugins::<T>()
+    }
+
+    /// Returns the names of all plugins for which `build_async` has finished running.
+    pub fn completed_plugins(&self) -> &HashSet<String> {
+        &self.main().completed_plugins
     }
 
     /// Installs a [`Plugin`] collection.

@@ -79,7 +79,6 @@ impl PluginContext<'_> {
                     *progress = TickProgress::MadeProgress;
                     Poll::Ready(Err(StuckError))
                 } else if let Some(res) = (self.function)(app) {
-                    *progress = TickProgress::MadeProgress;
                     Poll::Ready(Ok(res))
                 } else {
                     if *progress == TickProgress::Unknown {
@@ -139,6 +138,29 @@ impl PluginContext<'_> {
             })
             .ok()
         })
+    }
+
+    /// Wait for a plugin to be added to the app.
+    /// For most plugins, their name is their type name.
+    pub fn plugin_added<'ctx>(
+        &'ctx self,
+        name: &'ctx str,
+    ) -> impl Future<Output = Result<(), StuckError>> + 'ctx {
+        self.wait(|app| app.main().added_plugins.contains(name))
+    }
+
+    /// Wait for a plugin's [`build_async`] to finish running.
+    /// For most plugins, their name is their type name.
+    ///
+    /// When writing a library, try to wait for the specific data or conditions
+    /// you need instead if possible to improve modularity.
+    ///
+    /// [`build_async`]: crate::Plugin::build_async
+    pub fn plugin_completed<'ctx>(
+        &'ctx self,
+        name: &'ctx str,
+    ) -> impl Future<Output = Result<(), StuckError>> + 'ctx {
+        self.wait(|app| app.main().completed_plugins.contains(name))
     }
 }
 
