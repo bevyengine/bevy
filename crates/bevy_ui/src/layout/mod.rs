@@ -288,9 +288,8 @@ with UI components as a child of an entity without UI components, your UI layout
                 .max(0.);
             }
 
-            if transform.translation.truncate() != node_center {
-                transform.translation = node_center.extend(0.);
-            }
+            transform
+                .set_if_neq(style.transform * Transform::from_translation(node_center.extend(0.)));
 
             let scroll_position: Vec2 = maybe_scroll_position
                 .map(|scroll_pos| {
