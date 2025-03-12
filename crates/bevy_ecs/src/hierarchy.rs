@@ -323,7 +323,8 @@ pub fn validate_parent_has_component<C: Component>(
 /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 /// [`SpawnRelatedBundle`]: crate::spawn::SpawnRelatedBundle
 /// [`SpawnableList`]: crate::spawn::SpawnableList
-/// [`child`]: crate::hierarchy::child
+/// [`child`]: crate::child
+/// [`children`]: crate::children
 #[macro_export]
 macro_rules! children {
     [$($child:expr),*$(,)?] => {
@@ -359,7 +360,7 @@ macro_rules! children {
 /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 /// [`SpawnRelatedBundle`]: crate::spawn::SpawnRelatedBundle
 /// [`SpawnableList`]: crate::spawn::SpawnableList
-/// [`children`]: crate::hierarchy::children
+/// [`children`]: crate::children
 #[macro_export]
 macro_rules! child {
     ($child:expr) => {
