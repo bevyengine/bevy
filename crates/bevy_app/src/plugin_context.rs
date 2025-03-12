@@ -5,7 +5,10 @@ use core::{
     task::Poll,
 };
 
-use bevy_ecs::{resource::Resource, world::Mut};
+use bevy_ecs::{
+    resource::Resource,
+    world::{Mut, World},
+};
 use thiserror::Error;
 
 use crate::App;
@@ -42,10 +45,16 @@ impl PluginContext<'_> {
         RefMut::map_split(inner, |inner| (inner.app, &mut inner.progress))
     }
 
-    /// Acquire a lock on the app.
+    /// Get a mutable reference to the app.
     #[track_caller]
-    pub fn app(&self) -> RefMut<'_, App> {
+    pub fn app(&mut self) -> RefMut<'_, App> {
         self.borrow_mut().0
+    }
+
+    /// Get a mutable reference to the app.
+    #[track_caller]
+    pub fn world(&mut self) -> RefMut<'_, World> {
+        RefMut::map(self.borrow_mut().0, |app| app.world_mut())
     }
 
     /// Wait for a dependency to become available and return it.
