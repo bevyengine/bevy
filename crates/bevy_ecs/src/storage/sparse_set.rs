@@ -6,7 +6,13 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
-use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, num::NonZeroUsize, panic::Location};
+use core::{
+    cell::UnsafeCell,
+    hash::Hash,
+    marker::PhantomData,
+    num::{NonZero, NonZeroUsize},
+    panic::Location,
+};
 use nonmax::NonMaxUsize;
 
 use super::{abort_on_panic, ThinColumn};
@@ -383,56 +389,28 @@ impl ComponentSparseSet {
             self.entities.reserve(additional);
 
             // use entities vector capacity as driving capacity for all related allocations
-            let new_capacity = self.capacity();
+            //
+            // SAFETY: `additional` must be > 0 for the branch above to succeed, so `new_capacity`
+            // must be nonzero
+            let new_capacity = unsafe { NonZeroUsize::new_unchecked(self.capacity()) };
 
             if column_cap == 0 {
-                // SAFETY: the current capacity is 0
-                unsafe { self.alloc_dense(NonZeroUsize::new_unchecked(new_capacity)) };
+                // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
+                // To avoid this, we use `abort_on_panic`. If the allocation triggered a panic, the guard will be triggered, and
+                // abort the program.
+                abort_on_panic(|| {
+                    self.dense.alloc(new_capacity);
+                });
             } else {
-                // SAFETY:
-                // - `column_cap` is indeed the columns' capacity
-                unsafe {
-                    self.realloc_dense(
-                        NonZeroUsize::new_unchecked(column_cap),
-                        NonZeroUsize::new_unchecked(new_capacity),
-                    );
-                };
+                // SAFETY: `column_cap` is nonzero
+                let column_cap = unsafe { NonZeroUsize::new_unchecked(column_cap) };
+
+                // SAFETY: `column_cap` is indeed the column's capacity
+                abort_on_panic(|| unsafe {
+                    self.dense.realloc(column_cap, new_capacity);
+                });
             }
         }
-    }
-
-    /// Allocate memory for the columns in the [`Table`]
-    ///
-    /// The current capacity of the columns should be 0, if it's not 0, then the previous data will be overwritten and leaked.
-    fn alloc_dense(&mut self, new_capacity: NonZeroUsize) {
-        // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
-        // To avoid this, we use `abort_on_panic`. If the allocation triggered a panic, the guard will be triggered, and
-        // abort the program.
-        abort_on_panic(|| {
-            self.dense.alloc(new_capacity);
-        });
-    }
-
-    /// Reallocate memory for the columns in the [`Table`]
-    ///
-    /// # Safety
-    /// - `current_column_capacity` is indeed the capacity of the columns
-    unsafe fn realloc_dense(
-        &mut self,
-        current_column_capacity: NonZeroUsize,
-        new_capacity: NonZeroUsize,
-    ) {
-        // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
-        // To avoid this, we use `abort_on_panic`. If the allocation triggered a panic, the guard will be triggered, and
-        // abort the program.
-
-        // SAFETY:
-        // - There's no overflow
-        // - `current_capacity` is indeed the capacity - safety requirement
-        // - current capacity > 0
-        abort_on_panic(|| unsafe {
-            self.dense.realloc(current_column_capacity, new_capacity);
-        });
     }
 }
 
