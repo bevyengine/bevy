@@ -35,12 +35,12 @@ impl BevyManifest {
             }
         }
 
-        let key = manifest_path.clone();
         let manifest = BevyManifest {
             manifest: Self::read_manifest(&manifest_path),
             modified_time,
         };
-
+        
+        let key = manifest_path.clone();
         let mut manifests = MANIFESTS.write();
         manifests.insert(key, manifest);
 
