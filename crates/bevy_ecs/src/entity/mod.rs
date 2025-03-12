@@ -990,14 +990,26 @@ impl Entities {
     ///
     /// Must not be called while reserved entities are awaiting `flush()`.
     pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
+        self.free_current_and_future_generations(entity, 0)
+    }
+
+    /// This is the same as [`free`](Entities::free), but it allows skipping some generations.
+    /// When the entity is reused, it will have a generation greater than the current generation + `generations`.
+    #[inline]
+    pub fn free_current_and_future_generations(
+        &mut self,
+        entity: Entity,
+        generations: u32,
+    ) -> Option<EntityLocation> {
         let meta = &mut self.meta.get_mut(entity.index() as usize)?;
         if meta.generation != entity.generation {
             return None;
         }
 
-        meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, 1);
+        let prev_generation = meta.generation;
+        meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, 1 + generations);
 
-        if meta.generation == NonZero::<u32>::MIN {
+        if prev_generation > meta.generation {
             warn!(
                 "Entity({}) generation wrapped on Entities::free, aliasing may occur",
                 entity.index
@@ -1075,30 +1087,6 @@ impl Entities {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
         meta.location = location;
-    }
-
-    /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
-    /// `index` will count `generation` starting from the prior `generation` + the specified
-    /// value + 1.
-    ///
-    /// Does nothing if no entity with this `index` has been allocated yet.
-    pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
-        let Some(meta) = self.meta.get_mut(index as usize) else {
-            return false;
-        };
-
-        if meta.location.archetype_id == ArchetypeId::INVALID {
-            meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, generations);
-            if let Some(owned) = self.owned.iter().position(|owned| owned.index() == index) {
-                // SAFETY: We just found it so the index is valid.
-                unsafe {
-                    self.owned.get_unchecked_mut(owned).generation = meta.generation;
-                }
-            }
-            true
-        } else {
-            false
-        }
     }
 
     /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection.
@@ -1449,9 +1437,11 @@ mod tests {
     fn reserve_generations() {
         let mut entities = Entities::new();
         let entity = entities.alloc();
-        entities.free(entity);
+        entities.free_current_and_future_generations(entity, 1);
 
-        assert!(entities.reserve_generations(entity.index(), 1));
+        assert!(entities
+            .free_current_and_future_generations(entity, 1)
+            .is_some());
     }
 
     #[test]
@@ -1460,9 +1450,9 @@ mod tests {
 
         let mut entities = Entities::new();
         let entity = entities.alloc();
-        entities.free(entity);
-
-        assert!(entities.reserve_generations(entity.index(), GENERATIONS));
+        assert!(entities
+            .free_current_and_future_generations(entity, GENERATIONS)
+            .is_some());
 
         // The very next entity allocated should be a further generation on the same index
         let next_entity = entities.alloc();

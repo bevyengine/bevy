@@ -47,7 +47,7 @@ use super::{hash_map::EntityHashMap, VisitEntitiesMut};
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
-    /// Implementors should look up any and all [`Entity`] values stored within `self` and
+    /// Implementers should look up any and all [`Entity`] values stored within `self` and
     /// update them to the mapped values via `entity_mapper`.
     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M);
 }
@@ -222,8 +222,9 @@ impl<'m> SceneEntityMapper<'m> {
     pub fn finish(self, world: &mut World) {
         // SAFETY: Entities data is kept in a valid state via `EntityMap::world_scope`
         let entities = unsafe { world.entities_mut() };
-        assert!(entities.free(self.dead_start).is_some());
-        assert!(entities.reserve_generations(self.dead_start.index(), self.generations));
+        assert!(entities
+            .free_current_and_future_generations(self.dead_start, self.generations)
+            .is_some());
     }
 
     /// Creates an [`SceneEntityMapper`] from a provided [`World`] and [`EntityHashMap<Entity>`], then calls the
