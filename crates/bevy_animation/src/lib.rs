@@ -521,7 +521,7 @@ impl ActiveAnimation {
     #[inline]
     pub fn update(&mut self, delta: f32) {
         let Some(clip_duration) = self.clip_duration else {
-            return;
+            panic!("didn't setting clip_duration");
         };
         self.just_completed = false;
         self.last_seek_time = Some(self.seek_time);
