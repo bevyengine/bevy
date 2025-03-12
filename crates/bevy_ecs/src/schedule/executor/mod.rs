@@ -312,7 +312,7 @@ mod __rust_begin_short_backtrace {
 #[cfg(test)]
 mod tests {
     use crate::{
-        prelude::{IntoSystemConfigs, IntoSystemSetConfigs, Resource, Schedule, SystemSet},
+        prelude::{IntoScheduleConfigs, Resource, Schedule, SystemSet},
         schedule::ExecutorKind,
         system::{Commands, Res, WithParamWarnPolicy},
         world::World,

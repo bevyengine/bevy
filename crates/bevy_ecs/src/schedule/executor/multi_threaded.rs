@@ -811,7 +811,7 @@ impl MainThreadExecutor {
 mod tests {
     use crate::{
         prelude::Resource,
-        schedule::{ExecutorKind, IntoSystemConfigs, Schedule},
+        schedule::{ExecutorKind, IntoScheduleConfigs, Schedule},
         system::Commands,
         world::World,
     };

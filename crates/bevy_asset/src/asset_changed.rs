@@ -290,7 +290,7 @@ mod tests {
 
     use crate::{AssetApp, Assets};
     use bevy_app::{App, AppExit, PostUpdate, Startup, TaskPoolPlugin, Update};
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_ecs::{
         component::Component,
         event::EventWriter,
