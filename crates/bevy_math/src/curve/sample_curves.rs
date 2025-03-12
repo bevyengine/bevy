@@ -16,6 +16,7 @@ use bevy_reflect::{utility::GenericTypePathCell, Reflect, TypePath};
 mod paths {
     pub(super) const THIS_MODULE: &str = "bevy_math::curve::sample_curves";
     pub(super) const THIS_CRATE: &str = "bevy_math";
+    pub(super) const THIS_CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");
 }
 
 /// A curve that is defined by explicit neighbor interpolation over a set of evenly-spaced samples.
@@ -78,6 +79,10 @@ where
 
     fn crate_name() -> Option<&'static str> {
         Some(paths::THIS_CRATE)
+    }
+
+    fn crate_version() -> Option<&'static str> {
+        Some(paths::THIS_CRATE_VERSION)
     }
 
     fn module_path() -> Option<&'static str> {
@@ -238,6 +243,10 @@ where
 
     fn crate_name() -> Option<&'static str> {
         Some(paths::THIS_CRATE)
+    }
+
+    fn crate_version() -> Option<&'static str> {
+        Some(paths::THIS_CRATE_VERSION)
     }
 
     fn module_path() -> Option<&'static str> {
