@@ -82,6 +82,7 @@ use bevy_platform_support::sync::{
 };
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
+use std::sync::{PoisonError, RwLock};
 
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
@@ -545,6 +546,10 @@ pub struct EntityReservations {
     /// This *slice* must only be accessed via [`Self::pending_scope`] and [`Self::pending_scope_mut`]
     /// to ensure synchronization.
     pending: SyncUnsafeCell<Vec<Entity>>,
+    /// This is the value of [`Self::meta_len`] the last time it was flushed.
+    /// Entities before this have been flushed once already, but
+    /// they may have been freed/pending since, requiring another flush.
+    meta_flushed_up_to: RwLock<u32>,
     /// This is the prospective length of [`Entities::meta`].
     /// This is the source of truth.
     meta_len: AtomicU32,
@@ -663,6 +668,13 @@ impl EntityReservations {
         }
     }
 
+    fn meta_flushed_up_to(&self) -> u32 {
+        *self
+            .meta_flushed_up_to
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+    }
+
     /// Flushes pending entities that have been reused.
     /// This balances the owned and pending list.
     /// See also [`Entities::owned`]
@@ -735,13 +747,16 @@ impl EntityReservations {
     fn flush_extended(
         &self,
         meta: &mut Vec<EntityMeta>,
-        meta_flushed_up_to: &mut u32,
         mut needs_init: impl FnMut(Entity, &EntityMeta) -> bool,
         mut init: impl FnMut(Entity, &mut EntityLocation),
     ) {
         // prep
         let theoretical_len = self.meta_len.load(Ordering::Relaxed);
         let meta_len = meta.len() as u32;
+        let mut meta_flushed_up_to = self
+            .meta_flushed_up_to
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         debug_assert!(meta_len <= theoretical_len);
 
         // flush those we missed
@@ -786,6 +801,10 @@ impl EntityReservations {
 
         // restart meta
         self.meta_len.store(0, Ordering::Relaxed);
+        *self
+            .meta_flushed_up_to
+            .write()
+            .unwrap_or_else(PoisonError::into_inner) = 0;
     }
 
     /// Returns true if it is worth flushing.
@@ -795,8 +814,12 @@ impl EntityReservations {
         let pending_len = self.pending_len();
         let next_pending_index = self.next_pending_index_truth.load(Ordering::Relaxed);
         let is_pending_reserved = pending_len as IdCursor != next_pending_index - 1;
-        // todo: Also check if meta_len has been extended.
-        is_pending_reserved
+
+        // technically, this may be a false positive, since we may have extended `meta_len` for `Entities::owned`,
+        // which don't need to be flushed. But a false positive here is fine.
+        let is_meta_unflushed = self.meta_flushed_up_to() < self.meta_len.load(Ordering::Relaxed);
+
+        is_pending_reserved || is_meta_unflushed
     }
 
     /// Reserve entity IDs concurrently.
@@ -854,10 +877,6 @@ impl EntityReservations {
 pub struct Entities {
     /// Stores information about entities that have been used.
     meta: Vec<EntityMeta>,
-    /// This is the length of [`Self::meta`] the last time it was flushed.
-    /// Entities before this have been flushed once already, but
-    /// they may have been freed/pending since, requiring another flush.
-    meta_flushed_up_to: u32,
     /// These are entities that this instance owns.
     /// These are reserved for [`Self::alloc`], but they are shared with [`EntityReservations::pending`] when flushing.
     owned: Vec<Entity>,
@@ -880,10 +899,10 @@ impl Entities {
     pub(crate) fn new() -> Self {
         Entities {
             meta: Vec::new(),
-            meta_flushed_up_to: 0,
             owned: Vec::new(),
             reservations: Arc::new(EntityReservations {
                 pending: SyncUnsafeCell::default(),
+                meta_flushed_up_to: RwLock::new(0),
                 meta_len: AtomicU32::new(0),
                 next_pending_index_intention: AtomicIdCursor::new(-1),
                 next_pending_index_truth: AtomicIdCursor::new(-1),
@@ -1119,7 +1138,6 @@ impl Entities {
     pub fn clear(&mut self) {
         self.meta.clear();
         self.owned.clear();
-        self.meta_flushed_up_to = 0;
         self.reservations.clear();
     }
 
@@ -1185,7 +1203,6 @@ impl Entities {
         // We need to start with this because `flush_pending` can change the `EntityMeta` of newly extended entities.
         self.reservations.flush_extended(
             &mut self.meta,
-            &mut self.meta_flushed_up_to,
             |_entity, meta| meta.location == EntityLocation::INVALID,
             |entity, meta| init(entity, meta),
         );
@@ -1204,7 +1221,6 @@ impl Entities {
         // We `flush_extended` again to account for any reservations made during the flush.
         self.reservations.flush_extended(
             &mut self.meta,
-            &mut self.meta_flushed_up_to,
             |_entity, meta| meta.location == EntityLocation::INVALID,
             |entity, meta| init(entity, meta),
         );
@@ -1231,7 +1247,7 @@ impl Entities {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn total_count(&self) -> u32 {
-        let known = self.meta_flushed_up_to;
+        let known = self.meta_flushed_up_to();
         // include those that are allocated, skipping the gapps of unflushed, newly reserved entities.
         let additional = self.meta[known as usize..]
             .iter()
