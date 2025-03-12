@@ -482,7 +482,7 @@ pub struct ActiveAnimation {
     completions: u32,
     /// `true` if the animation was completed at least once this tick.
     just_completed: bool,
-    /// `None` is mean animation was never completed forever.
+    /// `None` will update function panic.
     clip_duration: Option<f32>,
     paused: bool,
 }
