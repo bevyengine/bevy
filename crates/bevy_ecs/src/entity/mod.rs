@@ -647,10 +647,10 @@ impl EntityReservations {
 
             // first, apply the diff to the truth to make it correct
             self.next_pending_index_truth
-                .fetch_add(diff, Ordering::Release);
+                .fetch_add(diff, Ordering::Relaxed);
             // including `u32::MAX` re-enables use now that the `next_pending_index_truth` is correct
             self.next_pending_index_intention
-                .fetch_add(diff + u32::MAX as IdCursor, Ordering::Release);
+                .fetch_add(diff + u32::MAX as IdCursor, Ordering::Relaxed);
 
             result
         } else {
