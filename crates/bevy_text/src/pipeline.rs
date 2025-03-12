@@ -185,13 +185,14 @@ impl TextPipeline {
             },
         );
 
-        buffer.set_rich_text(font_system, spans_iter, Attrs::new(), Shaping::Advanced);
+        buffer.set_rich_text(
+            font_system,
+            spans_iter,
+            Attrs::new(),
+            Shaping::Advanced,
+            Some(justify.into()),
+        );
 
-        // PERF: https://github.com/pop-os/cosmic-text/issues/166:
-        // Setting alignment afterwards appears to invalidate some layouting performed by `set_text` which is presumably not free?
-        for buffer_line in buffer.lines.iter_mut() {
-            buffer_line.set_align(Some(justify.into()));
-        }
         buffer.shape_until_scroll(font_system, false);
 
         // Workaround for alignment not working for unbounded text.
