@@ -1763,7 +1763,7 @@ mod tests {
     use bevy_app::{App, PreUpdate};
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
 
     fn test_button_axis_settings_filter(
         settings: ButtonAxisSettings,

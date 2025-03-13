@@ -1,6 +1,6 @@
 use crate::systems::{mark_dirty_trees, propagate_parent_transforms, sync_simple_transforms};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
-use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet};
+use bevy_ecs::schedule::{IntoScheduleConfigs, SystemSet};
 
 /// Set enum for the systems relating to transform propagation
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]

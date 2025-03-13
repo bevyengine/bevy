@@ -76,8 +76,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
     // info UI
     let font_size = 33.;
 
-    commands
-        .spawn(Node {
+    commands.spawn((
+        Node {
             display: Display::Flex,
             justify_content: JustifyContent::SpaceBetween,
             width: Val::Percent(100.),
@@ -85,20 +85,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
             top: Val::Px(0.),
             padding: UiRect::all(Val::Px(20.0)),
             ..default()
-        })
-        .with_children(|builder| {
-            // real time info
-            builder.spawn((
+        },
+        children![
+            (
                 Text::default(),
                 TextFont {
                     font_size,
                     ..default()
                 },
                 RealTime,
-            ));
-
-            // keybindings
-            builder.spawn((
+            ),
+            (
                 Text::new("CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down"),
                 TextFont {
                     font_size,
@@ -106,10 +103,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                 },
                 TextColor(Color::srgb(0.85, 0.85, 0.85)),
                 TextLayout::new_with_justify(JustifyText::Center),
-            ));
-
-            // virtual time info
-            builder.spawn((
+            ),
+            (
                 Text::default(),
                 TextFont {
                     font_size,
@@ -118,8 +113,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                 TextColor(virtual_color),
                 TextLayout::new_with_justify(JustifyText::Right),
                 VirtualTime,
-            ));
-        });
+            ),
+        ],
+    ));
 }
 
 /// Move sprites using `Real` (unscaled) time

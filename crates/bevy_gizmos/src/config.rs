@@ -2,10 +2,7 @@
 
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
-#[cfg(all(
-    feature = "bevy_render",
-    any(feature = "bevy_pbr", feature = "bevy_sprite")
-))]
+#[cfg(feature = "bevy_render")]
 use {crate::GizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
 use bevy_ecs::{reflect::ReflectResource, resource::Resource};
@@ -238,10 +235,7 @@ impl Default for GizmoLineConfig {
     }
 }
 
-#[cfg(all(
-    feature = "bevy_render",
-    any(feature = "bevy_pbr", feature = "bevy_sprite")
-))]
+#[cfg(feature = "bevy_render")]
 #[derive(Component)]
 pub(crate) struct GizmoMeshConfig {
     pub line_perspective: bool,

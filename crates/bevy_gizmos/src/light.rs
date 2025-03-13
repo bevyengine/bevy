@@ -14,7 +14,7 @@ use bevy_ecs::{
     entity::Entity,
     query::Without,
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
 use bevy_math::{

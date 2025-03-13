@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-use crate::entity::{TrustedEntityBorrow, UniqueEntitySlice};
+use crate::entity::{unique_slice::UniqueEntitySlice, TrustedEntityBorrow};
 
 use alloc::vec::Vec;
 use core::{fmt, ptr};
