@@ -929,7 +929,7 @@ impl Drop for EntityReservations {
         // SAFETY: the data is ultimately from `Vec::new`.
         unsafe {
             drop(Vec::from_raw_parts(
-                self.pending.get_mut(),
+                *self.pending.get_mut(),
                 *self.pending_len.get_mut(),
                 *self.pending_capacity.get_mut(),
             ));
