@@ -905,14 +905,21 @@ impl EntityReservations {
         is_pending_reserved || is_meta_unflushed
     }
 
-    /// Reserve entity IDs concurrently.
+    /// Same as [`reserve_entities`](Self::reserve_entities), but allows passing a `reused` to reuse.
     ///
-    /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
-    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
-        let reused = self.pending_scope(count, Vec::from).unwrap_or_default();
+    /// **Note:** If `reused` is not empty, it's contents will be included in the reutrned [`ReserveEntitiesIterator`],
+    /// which may or may not be desired.
+    #[inline]
+    pub fn reserve_entities_with(
+        &self,
+        count: u32,
+        mut reused: Vec<Entity>,
+    ) -> ReserveEntitiesIterator {
+        let prev_len = reused.len();
+        self.pending_scope(count, |reserved| reused.extend_from_slice(reserved));
 
         // extend if needed
-        let num_extended = count - reused.len() as u32;
+        let num_extended = (count as usize + prev_len - reused.len()) as u32;
         let new_indices = if num_extended > 0 {
             let prev_len = self.meta_len.fetch_add(num_extended, Ordering::Relaxed);
             let new_len = prev_len
@@ -928,6 +935,13 @@ impl EntityReservations {
             freelist_indices: reused.into_iter(),
             new_indices,
         }
+    }
+
+    /// Reserve entity IDs concurrently.
+    ///
+    /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
+    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
+        self.reserve_entities_with(count, Vec::new())
     }
 
     /// Reserve one entity ID concurrently.
