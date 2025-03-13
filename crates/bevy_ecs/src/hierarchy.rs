@@ -383,7 +383,11 @@ macro_rules! children {
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::Entity, hierarchy::{ChildOf, Children}, relationship::RelationshipTarget, spawn::{Spawn, SpawnRelated}, world::World
+        entity::Entity,
+        hierarchy::{ChildOf, Children},
+        relationship::RelationshipTarget,
+        spawn::{Spawn, SpawnRelated},
+        world::World,
     };
     use alloc::{vec, vec::Vec};
 
@@ -563,10 +567,15 @@ mod tests {
         assert!(children.contains(&child_c));
         assert!(!children.contains(&child_b));
 
-        assert!(world.entity(child_a).get::<ChildOf>().is_some());
-        assert!(world.entity(child_c).get::<ChildOf>().is_some());
+        assert_eq!(
+            world.entity(child_a).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(child_c).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
         assert!(world.entity(child_b).get::<ChildOf>().is_none());
-
     }
 
     #[test]
@@ -598,7 +607,10 @@ mod tests {
 
         let children = world.get::<Children>(parent).unwrap();
         assert_eq!(children.0, [child]);
-        assert!(world.entity(child).get::<ChildOf>().is_some());
+        assert_eq!(
+            world.entity(child).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
     }
 
     #[test]
@@ -681,6 +693,58 @@ mod tests {
 
         assert!(!world.entity(parent).contains::<Children>());
         assert!(!world.entity(child_a).contains::<ChildOf>());
+    }
+
+    #[test]
+    fn replace_with_difference_totally_new_children() {
+        let mut world = World::new();
+
+        let parent = world.spawn_empty().id();
+        let child_a = world.spawn_empty().id();
+        let child_b = world.spawn_empty().id();
+        let child_c = world.spawn_empty().id();
+        let child_d = world.spawn_empty().id();
+
+        // Test inserting new relations
+        world.entity_mut(parent).replace_children_with_difference(
+            &[],
+            &[child_a, child_b],
+            &[child_a, child_b],
+        );
+
+        assert_eq!(
+            world.entity(child_a).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(child_b).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(parent).get::<Children>().unwrap().0,
+            [child_a, child_b]
+        );
+
+        // Test replacing relations and changing order
+        world.entity_mut(parent).replace_children_with_difference(
+            &[child_b, child_a],
+            &[child_d, child_c],
+            &[child_c, child_d],
+        );
+        assert_eq!(
+            world.entity(child_c).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(child_d).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(parent).get::<Children>().unwrap().0,
+            [child_d, child_c]
+        );
+        assert!(!world.entity(child_a).contains::<ChildOf>());
+        assert!(!world.entity(child_b).contains::<ChildOf>());
     }
 
     #[test]
