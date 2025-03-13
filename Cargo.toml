@@ -4263,3 +4263,27 @@ name = "Occlusion Culling"
 description = "Demonstration of Occlusion Culling"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "camera_controller"
+path = "examples/helpers/camera_controller.rs"
+doc-scrape-examples = true
+crate-type = ["lib"]
+
+[package.metadata.example.camera_controller]
+name = "Camera Controller"
+description = "Example Free-Cam Styled Camera Controller"
+category = "Helpers"
+wasm = true
+
+[[example]]
+name = "widgets"
+path = "examples/helpers/widgets.rs"
+doc-scrape-examples = true
+crate-type = ["lib"]
+
+[package.metadata.example.widgets]
+name = "Widgets"
+description = "Example UI Widgets"
+category = "Helpers"
+wasm = true
