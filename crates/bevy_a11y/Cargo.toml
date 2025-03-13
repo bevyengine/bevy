@@ -62,7 +62,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-featu
 bevy_input_focus = { path = "../bevy_input_focus", version = "0.16.0-dev", default-features = false }
 
 # other
-accesskit = { version = "0.17", default-features = false }
+accesskit = { version = "0.18", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "alloc",
 ], optional = true }
