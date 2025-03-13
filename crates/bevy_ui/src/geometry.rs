@@ -1,5 +1,6 @@
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_utils::default;
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 use thiserror::Error;
 
@@ -699,202 +700,111 @@ impl Default for UiRect {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-/// Responsive horizontal position relative to a UI node's left and right edges.
-pub enum AtX {
-    /// Position relative to the left edge of the node.
-    /// Values increase right, towards the center.
-    Left(Val),
-    /// Position relative to the center of the node.
-    /// Values increase right.
-    Center(Val),
-    /// Position relative to the edge side of the node.
-    /// Values increase left, towards the center.
-    Right(Val),
-}
-
-impl Default for AtX {
-    fn default() -> Self {
-        Self::CENTER
-    }
-}
-
-impl AtX {
-    pub const LEFT: Self = Self::Left(Val::ZERO);
-    pub const CENTER: Self = Self::Center(Val::ZERO);
-    pub const RIGHT: Self = Self::Right(Val::ZERO);
-
-    pub fn resolve(self, scale_factor: f32, width: f32, target_size: Vec2) -> f32 {
-        let (val, anchor, dir) = match self {
-            AtX::Left(val) => (val, -0.5, 1.),
-            AtX::Center(val) => (val, 0., 1.),
-            AtX::Right(val) => (val, 0.5, -1.),
-        };
-        anchor * width + dir * val.resolve(scale_factor, width, target_size).unwrap_or(0.)
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Default, Debug, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-/// Responsive vertical position relative to a UI node's top and bottom edges.
-pub enum AtY {
-    /// Position relative to the left edge of the parent node.
-    /// Values increase right, towards the center.
-    Top(Val),
-    /// Position relative to the center of the parent node.
-    /// Values increase right.
-    Center(Val),
-    /// Position relative to the edge side of the parent node.
-    /// Values increase left, towards the center.
-    Bottom(Val),
-}
-
-impl Default for AtY {
-    fn default() -> Self {
-        Self::CENTER
-    }
-}
-
-impl AtY {
-    pub const TOP: Self = Self::Top(Val::ZERO);
-    pub const CENTER: Self = Self::Center(Val::ZERO);
-    pub const BOTTOM: Self = Self::Bottom(Val::ZERO);
-
-    pub fn resolve(self, scale_factor: f32, height: f32, target_size: Vec2) -> f32 {
-        let (val, anchor, dir) = match self {
-            AtY::Top(val) => (val, -0.5, 1.),
-            AtY::Center(val) => (val, 0., 1.),
-            AtY::Bottom(val) => (val, 0.5, -1.),
-        };
-        anchor * height + dir * val.resolve(scale_factor, height, target_size).unwrap_or(0.)
-    }
-}
-
-pub trait At {
-    fn set(self, position: Position) -> Position;
-}
-
-impl At for AtX {
-    fn set(self, position: Position) -> Position {
-        Position {
-            x: self,
-            ..position
-        }
-    }
-}
-
-impl At for AtY {
-    fn set(self, position: Position) -> Position {
-        Position {
-            y: self,
-            ..position
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Default, Debug, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
 /// Responsive position relative to a UI node.
 pub struct Position {
+    pub anchor: Vec2,
     /// Responsive horizontal position relative to a UI node's left and right edges
-    pub x: AtX,
+    pub x: Val,
     /// Responsive vertical position relative to a UI node's top and bottom edges
-    pub y: AtY,
+    pub y: Val,
+}
+
+impl Default for Position {
+    fn default() -> Self {
+        Self::CENTER
+    }
 }
 
 impl Position {
-    pub const TOP_LEFT: Self = Self::new(AtX::LEFT, AtY::TOP);
-    pub const LEFT: Self = Self::new(AtX::LEFT, AtY::CENTER);
-    pub const BOTTOM_LEFT: Self = Self::new(AtX::LEFT, AtY::BOTTOM);
-    pub const TOP: Self = Self::new(AtX::CENTER, AtY::TOP);
-    pub const CENTER: Self = Self::new(AtX::CENTER, AtY::CENTER);
-    pub const BOTTOM: Self = Self::new(AtX::CENTER, AtY::BOTTOM);
-    pub const TOP_RIGHT: Self = Self::new(AtX::RIGHT, AtY::TOP);
-    pub const RIGHT: Self = Self::new(AtX::RIGHT, AtY::CENTER);
-    pub const BOTTOM_RIGHT: Self = Self::new(AtX::RIGHT, AtY::BOTTOM);
-
-    /// Creates a new `Position` with the given [`AtX`] and [`AtY`].
-    pub const fn new(x: AtX, y: AtY) -> Self {
-        Self { x, y }
+    pub const fn anchor(anchor: Vec2) -> Self {
+        Self {
+            anchor,
+            x: Val::ZERO,
+            y: Val::ZERO,
+        }
     }
 
-    /// Creates a new `Position` relative to the top-left corner.
+    pub const TOP_LEFT: Self = Self::anchor(Vec2::new(-0.5, -0.5));
+    pub const LEFT: Self = Self::anchor(Vec2::new(-0.5, 0.0));
+    pub const BOTTOM_LEFT: Self = Self::anchor(Vec2::new(-0.5, 0.5));
+    pub const TOP: Self = Self::anchor(Vec2::new(0.0, -0.5));
+    pub const CENTER: Self = Self::anchor(Vec2::new(0.0, 0.0));
+    pub const BOTTOM: Self = Self::anchor(Vec2::new(0.0, 0.5));
+    pub const TOP_RIGHT: Self = Self::anchor(Vec2::new(0.5, -0.5));
+    pub const RIGHT: Self = Self::anchor(Vec2::new(0.5, 0.0));
+    pub const BOTTOM_RIGHT: Self = Self::anchor(Vec2::new(0.5, 0.5));
+
+    pub const fn new(anchor: Vec2, x: Val, y: Val) -> Self {
+        Self { anchor, x, y }
+    }
+
+    pub const fn at(self, x: Val, y: Val) -> Self {
+        Self { x, y, ..self }
+    }
+
+    pub const fn at_x(self, x: Val) -> Self {
+        Self { x, ..self }
+    }
+
+    pub const fn at_y(self, y: Val) -> Self {
+        Self { y, ..self }
+    }
+
+    pub const fn at_px(self, x: f32, y: f32) -> Self {
+        self.at(Val::Px(x), Val::Px(y))
+    }
+
+    pub const fn at_percent(self, x: f32, y: f32) -> Self {
+        self.at(Val::Percent(x), Val::Percent(y))
+    }
+
+    pub const fn with_anchor(self, anchor: Vec2) -> Self {
+        Self { anchor, ..self }
+    }
+
+    /// Position relative to the top-left corner
     pub const fn top_left(x: Val, y: Val) -> Self {
-        Self::new(AtX::Left(x), AtY::Top(y))
+        Self::TOP_LEFT.at(x, y)
     }
 
-    /// Creates a new `Position` relative to the left.
-    pub const fn left(x: Val) -> Self {
-        Self::new(AtX::Left(x), AtY::CENTER)
+    /// Position relative to the left edge
+    pub const fn left(x: Val, y: Val) -> Self {
+        Self::LEFT.at(x, y)
     }
 
-    /// Creates a new `Position` relative to the bottom-left corner.
+    /// Position relative to the bottom-left corner
     pub const fn bottom_left(x: Val, y: Val) -> Self {
-        Self::new(AtX::Left(x), AtY::Bottom(y))
+        Self::BOTTOM_LEFT.at(x, y)
     }
 
-    /// Creates a new `Position` relative to the top.
-    pub const fn top(y: Val) -> Self {
-        Self::new(AtX::CENTER, AtY::Top(y))
+    /// Position relative to the top edge
+    pub const fn top(x: Val, y: Val) -> Self {
+        Self::TOP.at(x, y)
     }
 
-    /// Creates a new `Position` relative to the center.
-    pub const fn center() -> Self {
-        Self::new(AtX::CENTER, AtY::CENTER)
+    /// Position relative to the center
+    pub const fn center(x: Val, y: Val) -> Self {
+        Self::CENTER.at(x, y)
     }
 
-    /// Creates a new `Position` relative to the bottom.
-    pub const fn bottom(y: Val) -> Self {
-        Self::new(AtX::CENTER, AtY::Bottom(y))
+    /// Position relative to the bottom edge
+    pub const fn bottom(x: Val, y: Val) -> Self {
+        Self::BOTTOM.at(x, y)
     }
 
-    /// Creates a new `Position` relative to the top-right corner.
+    /// Position relative to the top-right corner
     pub const fn top_right(x: Val, y: Val) -> Self {
-        Self::new(AtX::Right(x), AtY::Top(y))
+        Self::TOP_RIGHT.at(x, y)
     }
 
-    /// Creates a new `Position` relative to the right.
-    pub const fn right(x: Val) -> Self {
-        Self::new(AtX::Right(x), AtY::CENTER)
+    /// Position relative to the right edge
+    pub const fn right(x: Val, y: Val) -> Self {
+        Self::RIGHT.at(x, y)
     }
 
-    /// Creates a new `Position` relative to the bottom-right corner.
+    /// Position relative to the bottom-right corner
     pub const fn bottom_right(x: Val, y: Val) -> Self {
-        Self::new(AtX::Right(x), AtY::Bottom(y))
-    }
-
-    /// Creates a new `Position` relative to the center-left.
-    pub const fn center_left(y: Val) -> Self {
-        Self::new(AtX::Left(Val::ZERO), AtY::Center(y))
-    }
-
-    /// Creates a new `Position` relative to the center-right.
-    pub const fn center_right(y: Val) -> Self {
-        Self::new(AtX::Right(Val::ZERO), AtY::Center(y))
-    }
-
-    /// Creates a new `Position` relative to the center-top.
-    pub const fn center_top(x: Val) -> Self {
-        Self::new(AtX::Center(x), AtY::Top(Val::ZERO))
-    }
-
-    /// Creates a new `Position` relative to the center-bottom.
-    pub const fn center_bottom(x: Val) -> Self {
-        Self::new(AtX::Center(x), AtY::Bottom(Val::ZERO))
-    }
-
-    /// Returns a new `Position` with the given `AtX` or `AtY`.
-    pub fn with(self, at: impl At) -> Self {
-        at.set(self)
+        Self::BOTTOM_RIGHT.at(x, y)
     }
 
     /// Resolves the `Position` into physical coordinates.
@@ -904,42 +814,29 @@ impl Position {
         physical_size: Vec2,
         physical_target_size: Vec2,
     ) -> Vec2 {
-        Vec2::new(
-            self.x
-                .resolve(scale_factor, physical_size.x, physical_target_size),
-            self.y
-                .resolve(scale_factor, physical_size.y, physical_target_size),
-        )
-    }
-}
+        let d = self.anchor.map(|p| if 0. < p { -1. } else { 1. });
 
-impl Default for Position {
-    fn default() -> Self {
-        Self::CENTER
+        physical_size * self.anchor
+            + d * Vec2::new(
+                self.x
+                    .resolve(scale_factor, physical_size.x, physical_target_size)
+                    .unwrap_or(0.),
+                self.y
+                    .resolve(scale_factor, physical_size.y, physical_target_size)
+                    .unwrap_or(0.),
+            )
     }
 }
 
 impl From<Val> for Position {
     fn from(x: Val) -> Self {
-        Self::left(x)
+        Self { x, ..default() }
     }
 }
 
 impl From<(Val, Val)> for Position {
     fn from((x, y): (Val, Val)) -> Self {
-        Self::top_left(x, y)
-    }
-}
-
-impl From<AtX> for Position {
-    fn from(x: AtX) -> Self {
-        Self::new(x, AtY::CENTER)
-    }
-}
-
-impl From<AtY> for Position {
-    fn from(y: AtY) -> Self {
-        Self::new(AtX::CENTER, y)
+        Self { x, y, ..default() }
     }
 }
 

@@ -54,7 +54,7 @@ fn setup(mut commands: Commands) {
                     }
                     .into(),
                     RadialGradient {
-                        position: Position::top(Val::Percent(5.)),
+                        position: Position::TOP.at_x(Val::Percent(5.)),
                         shape: RadialGradientShape::Circle(Val::Vh(30.)),
                         stops: vec![
                             ColorStop::auto(Color::WHITE),
