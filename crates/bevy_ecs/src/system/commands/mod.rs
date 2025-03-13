@@ -96,8 +96,7 @@ use crate::{
 /// respond to the error in whatever way is necessary.
 ///
 /// The [default error handler](error_handler::default) panics.
-/// It can be configured by enabling the `configurable_error_handler` cargo feature,
-/// then setting the `GLOBAL_ERROR_HANDLER`.
+/// It can be configured by setting the `GLOBAL_ERROR_HANDLER`.
 ///
 /// Alternatively, you can customize the error handler for a specific command
 /// by calling [`Commands::queue_handled`].
@@ -1168,8 +1167,7 @@ impl<'w, 's> Commands<'w, 's> {
 /// respond to the error in whatever way is necessary.
 ///
 /// The [default error handler](error_handler::default) panics.
-/// It can be configured by enabling the `configurable_error_handler` cargo feature,
-/// then setting the `GLOBAL_ERROR_HANDLER`.
+/// It can be configured by setting the `GLOBAL_ERROR_HANDLER`.
 ///
 /// Alternatively, you can customize the error handler for a specific command
 /// by calling [`EntityCommands::queue_handled`].

@@ -25,20 +25,8 @@ pub fn panic() -> fn(&mut World, BevyError) {
     |_, error| panic!("{error}")
 }
 
-/// The default error handler. This defaults to [`panic()`]. If the
-/// `configurable_error_handler` cargo feature is enabled, then
-/// `GLOBAL_ERROR_HANDLER` will be used instead, enabling error handler customization.
-#[cfg(not(feature = "configurable_error_handler"))]
-#[inline]
-pub fn default() -> fn(&mut World, BevyError) {
-    panic()
-}
-
 /// A global error handler. This can be set at startup, as long as it is set before
 /// any uses. This should generally be configured _before_ initializing the app.
-///
-/// If the `configurable_error_handler` cargo feature is enabled, this will be used
-/// by default.
 ///
 /// This should be set in the following way:
 ///
@@ -47,14 +35,11 @@ pub fn default() -> fn(&mut World, BevyError) {
 /// GLOBAL_ERROR_HANDLER.set(warn());
 /// // initialize Bevy App here
 /// ```
-#[cfg(feature = "configurable_error_handler")]
 pub static GLOBAL_ERROR_HANDLER: std::sync::OnceLock<fn(&mut World, BevyError)> =
     std::sync::OnceLock::new();
 
-/// The default error handler. This defaults to [`panic()`]. If the
-/// `configurable_error_handler` cargo feature is enabled, then
-/// [`GLOBAL_ERROR_HANDLER`] will be used instead, enabling error handler customization.
-#[cfg(feature = "configurable_error_handler")]
+/// The default error handler. This defaults to [`panic()`],
+/// but if set, the [`GLOBAL_ERROR_HANDLER`] will be used instead, enabling error handler customization.
 #[inline]
 pub fn default() -> fn(&mut World, BevyError) {
     *GLOBAL_ERROR_HANDLER.get_or_init(|| panic())
