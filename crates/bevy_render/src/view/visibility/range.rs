@@ -114,7 +114,7 @@ impl Plugin for VisibilityRangePlugin {
 /// `start_margin` of the next lower LOD; this is important for the crossfade
 /// effect to function properly.
 #[derive(Component, Clone, PartialEq, Default, Reflect)]
-#[reflect(Component, PartialEq, Hash)]
+#[reflect(Component, PartialEq, Hash, Clone)]
 pub struct VisibilityRange {
     /// The range of distances, in world units, between which this entity will
     /// smoothly fade into view as the camera zooms out.

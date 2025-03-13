@@ -110,7 +110,11 @@ struct EventWrapperComponent<E: Event + ?Sized>(PhantomData<E>);
 /// sent to the point it was processed. `EventId`s increase monotonically by send order.
 ///
 /// [`World`]: crate::world::World
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, Debug, PartialEq, Hash)
+)]
 pub struct EventId<E: Event> {
     /// Uniquely identifies the event associated with this ID.
     // This value corresponds to the order in which each event was added to the world.

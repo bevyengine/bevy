@@ -106,6 +106,7 @@ pub struct AnimationClip {
 }
 
 #[derive(Reflect, Debug, Clone)]
+#[reflect(Clone)]
 struct TimedAnimationEvent {
     time: f32,
     event: AnimationEvent,
@@ -142,6 +143,7 @@ impl Debug for AnimationEventFn {
 }
 
 #[derive(Reflect, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
+#[reflect(Clone)]
 enum AnimationEventTarget {
     Root,
     Node(AnimationTargetId),
@@ -175,6 +177,7 @@ pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHa
 ///
 /// [UUID]: https://en.wikipedia.org/wiki/Universally_unique_identifier
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug, Serialize, Deserialize)]
+#[reflect(Clone)]
 pub struct AnimationTargetId(pub Uuid);
 
 impl Hash for AnimationTargetId {
@@ -206,7 +209,7 @@ impl Hash for AnimationTargetId {
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
 #[derive(Clone, Copy, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Clone)]
 pub struct AnimationTarget {
     /// The ID of this animation target.
     ///
@@ -428,6 +431,7 @@ impl AnimationClip {
 
 /// Repetition behavior of an animation.
 #[derive(Reflect, Debug, PartialEq, Eq, Copy, Clone, Default)]
+#[reflect(Clone, Default)]
 pub enum RepeatAnimation {
     /// The animation will finish after running once.
     #[default]
@@ -465,6 +469,7 @@ pub enum AnimationEvaluationError {
 ///
 /// A stopped animation is considered no longer active.
 #[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Clone, Default)]
 pub struct ActiveAnimation {
     /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
     weight: f32,
@@ -677,7 +682,7 @@ impl ActiveAnimation {
 /// Automatically added to any root animations of a scene when it is
 /// spawned.
 #[derive(Component, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct AnimationPlayer {
     active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
     blend_weights: HashMap<AnimationNodeIndex, f32>,

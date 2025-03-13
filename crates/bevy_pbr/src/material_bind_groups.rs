@@ -258,6 +258,7 @@ enum BindingResourceArray<'a> {
 /// The location of a material (either bindless or non-bindless) within the
 /// slabs.
 #[derive(Clone, Copy, Debug, Default, Reflect)]
+#[reflect(Clone, Default)]
 pub struct MaterialBindingId {
     /// The index of the bind group (slab) where the GPU data is located.
     pub group: MaterialBindGroupIndex,
@@ -272,7 +273,7 @@ pub struct MaterialBindingId {
 /// In bindless mode, each bind group contains multiple materials. In
 /// non-bindless mode, each bind group contains only one material.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Reflect, Deref, DerefMut)]
-#[reflect(Default)]
+#[reflect(Default, Clone, PartialEq, Hash)]
 pub struct MaterialBindGroupIndex(pub u32);
 
 impl From<u32> for MaterialBindGroupIndex {
@@ -288,7 +289,7 @@ impl From<u32> for MaterialBindGroupIndex {
 /// bind group, since multiple materials are packed into a single slab. In
 /// non-bindless mode, this slot is always 0.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Reflect, Deref, DerefMut)]
-#[reflect(Default)]
+#[reflect(Default, Clone, PartialEq)]
 pub struct MaterialBindGroupSlot(pub u32);
 
 /// The CPU/GPU synchronization state of a buffer that we maintain.

@@ -16,7 +16,7 @@ use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
 /// [`bevy_render::mesh::Mesh::ATTRIBUTE_UV_1`].
 /// The default is [`UvChannel::Uv0`].
 #[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone, PartialEq)]
 pub enum UvChannel {
     #[default]
     Uv0,

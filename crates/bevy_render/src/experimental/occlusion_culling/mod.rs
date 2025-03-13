@@ -86,7 +86,7 @@ impl Plugin for OcclusionCullingPlugin {
 /// [*two-phase occlusion culling*]:
 /// https://medium.com/@mil_kru/two-pass-occlusion-culling-4100edcad501
 #[derive(Component, ExtractComponent, Clone, Copy, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct OcclusionCulling;
 
 /// A render-world component that contains resources necessary to perform

@@ -53,7 +53,7 @@ use wgpu::{BlendState, TextureFormat, TextureUsages};
 /// You can overlay multiple cameras in a single window using viewports to create effects like
 /// split screen, minimaps, and character viewers.
 #[derive(Reflect, Debug, Clone)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub struct Viewport {
     /// The physical position to render this viewport to within the [`RenderTarget`] of this [`Camera`].
     /// (0,0) corresponds to the top-left corner
@@ -104,6 +104,7 @@ impl Default for Viewport {
 /// example have the following values:
 /// `full_size` = 32x18, `size` = 16x9, `offset` = 16,9
 #[derive(Debug, Clone, Copy, Reflect, PartialEq)]
+#[reflect(Clone, PartialEq, Default)]
 pub struct SubCameraView {
     /// Size of the entire camera view
     pub full_size: UVec2,
@@ -728,6 +729,7 @@ impl CameraRenderGraph {
 /// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`]
 /// swapchain or an [`Image`].
 #[derive(Debug, Clone, Reflect, From)]
+#[reflect(Clone)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowRef),
@@ -740,6 +742,7 @@ pub enum RenderTarget {
 
 /// A render target that renders to an [`Image`].
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[reflect(Clone, PartialEq, Hash)]
 pub struct ImageRenderTarget {
     /// The image to render to.
     pub handle: Handle<Image>,
@@ -773,6 +776,7 @@ impl Default for RenderTarget {
 ///
 /// Once we have this we shouldn't need to resolve it down anymore.
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord, From)]
+#[reflect(Clone, PartialEq, Hash)]
 pub enum NormalizedRenderTarget {
     /// Window to which the camera's view is rendered.
     Window(NormalizedWindowRef),
@@ -1273,7 +1277,7 @@ pub fn sort_cameras(
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 #[derive(Component, Clone, Default, Reflect)]
-#[reflect(Default, Component)]
+#[reflect(Default, Component, Clone)]
 pub struct TemporalJitter {
     /// Offset is in range [-0.5, 0.5].
     pub offset: Vec2,

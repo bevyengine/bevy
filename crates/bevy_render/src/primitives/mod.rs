@@ -29,7 +29,7 @@ use bevy_reflect::prelude::*;
 /// [`CalculateBounds`]: crate::view::visibility::VisibilitySystems::CalculateBounds
 /// [`Mesh3d`]: crate::mesh::Mesh
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct Aabb {
     pub center: Vec3A,
     pub half_extents: Vec3A,

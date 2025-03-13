@@ -1,5 +1,5 @@
 use crate::{Asset, AssetIndex};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
