@@ -1823,6 +1823,83 @@ mod tests {
         });
     }
 
+    // This test is not checking a requirement, but documenting a current limitation. We simply are
+    // not capable of loading subassets when doing nested immediate loads.
+    #[test]
+    fn error_on_nested_immediate_load_of_subasset() {
+        let mut app = App::new();
+
+        let dir = Dir::default();
+        dir.insert_asset_text(
+            Path::new("a.cool.ron"),
+            r#"(
+    text: "b",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: ["A"],
+)"#,
+        );
+        dir.insert_asset_text(Path::new("empty.txt"), "");
+
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build()
+                .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() })),
+        )
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            LogPlugin::default(),
+            AssetPlugin::default(),
+        ));
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+
+        struct NestedLoadOfSubassetLoader;
+
+        impl AssetLoader for NestedLoadOfSubassetLoader {
+            type Asset = TestAsset;
+            type Error = crate::loader::LoadDirectError;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                // We expect this load to fail.
+                load_context
+                    .loader()
+                    .immediate()
+                    .load::<SubText>("a.cool.ron#A")
+                    .await?;
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["txt"]
+            }
+        }
+
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(NestedLoadOfSubassetLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<TestAsset>("empty.txt");
+
+        run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
+            LoadState::Loading => None,
+            LoadState::Failed(err) => {
+                let error_message = format!("{err}");
+                assert!(error_message.contains("Requested to load an asset path (a.cool.ron#A) with a subasset, but this is unsupported"), "what? \"{error_message}\"");
+                Some(())
+            }
+            state => panic!("Unexpected asset state: {state:?}"),
+        });
+    }
+
     // validate the Asset derive macro for various asset types
     #[derive(Asset, TypePath)]
     pub struct TestAsset;
