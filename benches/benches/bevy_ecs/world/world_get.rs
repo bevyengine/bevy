@@ -26,7 +26,7 @@ struct WideTable<const X: usize>(f32);
 struct WideSparse<const X: usize>(f32);
 
 const RANGE: core::ops::Range<u32> = 5..6;
-const ALLOCATION_BATCHES: NonZeroU32 = NonZeroU32::new(255).unwrap()
+const ALLOCATION_BATCHES: NonZeroU32 = NonZeroU32::new(255).unwrap();
 
 fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)
