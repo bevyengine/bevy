@@ -7,11 +7,8 @@
 //! All [`BevyError`]s returned by a system are handled by an "error handler". By default, the
 //! [`panic`] error handler function is used, resulting in a panic with the error message attached.
 //!
-//! You can change the default behavior by registering a custom error handler, either globally or
-//! per [`Schedule`]:
-//!
-//! - Modify the [`DefaultSystemErrorHandler`] resource to change it for the entire [`World`].
-//! - Use [`Schedule::set_error_handler`] to set the error handler for all systems of that schedule.
+//! You can change the default behavior by registering a custom error handler.
+//! Modify the [`DefaultSystemErrorHandler`] resource to change it for the entire [`World`].
 //!
 //! Bevy provides a number of pre-built error-handlers for you to use:
 //!
@@ -44,9 +41,8 @@
 //! # #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone, Copy)]
 //! # struct MySchedule;
 //! # fn main() {
-//! let mut schedule = Schedule::new(MySchedule);
-//! schedule.add_systems(update);
-//! schedule.set_error_handler(|error, ctx| {
+//! let mut world = World::new();
+//! world.insert_resource(DefaultSystemErrorHandler(|error, ctx| {
 //!     if ctx.name.ends_with("update") {
 //!         trace!("Nothing to see here, move along.");
 //!         return;
@@ -63,7 +59,6 @@
 //! [`Schedule`]: crate::schedule::Schedule
 //! [`panic`]: panic()
 //! [`World`]: crate::world::World
-//! [`Schedule::set_error_handler`]: crate::schedule::Schedule::set_error_handler
 //! [`System`]: crate::system::System
 //! [`name`]: crate::system::System::name
 //! [`system piping feature`]: crate::system::In
