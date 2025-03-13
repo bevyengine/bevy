@@ -187,7 +187,7 @@ impl<'w> EntityWorldMut<'w> {
     /// Replaces all the related children with a new set of children.
     ///
     /// # Warning
-    /// 
+    ///
     /// Failing to maintain the functions invariants may lead to erratic engine behavior including random crashes.
     /// Refer to [`Self::replace_related_with_difference`] for a list of these invariants.
     ///
@@ -264,9 +264,9 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Replaces all the related entities with a new set of entities.
-    /// 
+    ///
     /// # Warning
-    /// 
+    ///
     /// Failing to maintain the functions invariants may lead to erratic engine behavior including random crashes.
     /// Refer to [`EntityWorldMut::replace_related_with_difference`] for a list of these invariants.
     ///
@@ -383,11 +383,7 @@ macro_rules! children {
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::Entity,
-        hierarchy::{ChildOf, Children},
-        relationship::RelationshipTarget,
-        spawn::{Spawn, SpawnRelated},
-        world::World,
+        entity::Entity, hierarchy::{ChildOf, Children}, relationship::RelationshipTarget, spawn::{Spawn, SpawnRelated}, world::World
     };
     use alloc::{vec, vec::Vec};
 
@@ -565,19 +561,29 @@ mod tests {
 
         assert!(children.contains(&child_a));
         assert!(children.contains(&child_c));
-
         assert!(!children.contains(&child_b));
+
+        assert!(world.entity(child_a).get::<ChildOf>().is_some());
+        assert!(world.entity(child_c).get::<ChildOf>().is_some());
+        assert!(world.entity(child_b).get::<ChildOf>().is_none());
+
     }
 
     #[test]
     fn replace_children_with_nothing() {
         let mut world = World::new();
-        let parent = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
+        let parent = world.spawn_empty().id();
+        let child_a = world.spawn_empty().id();
+        let child_b = world.spawn_empty().id();
+
+        world.entity_mut(parent).add_children(&[child_a, child_b]);
+
         assert_eq!(world.entity(parent).get::<Children>().unwrap().len(), 2);
 
         world.entity_mut(parent).replace_children(&[]);
 
-        assert!(world.entity(parent).get::<Children>().is_none());
+        assert!(world.entity(child_a).get::<ChildOf>().is_none());
+        assert!(world.entity(child_b).get::<ChildOf>().is_none());
     }
 
     #[test]
@@ -592,6 +598,7 @@ mod tests {
 
         let children = world.get::<Children>(parent).unwrap();
         assert_eq!(children.0, [child]);
+        assert!(world.entity(child).get::<ChildOf>().is_some());
     }
 
     #[test]
@@ -677,6 +684,30 @@ mod tests {
     }
 
     #[test]
+    fn replace_children_order() {
+        let mut world = World::new();
+
+        let parent = world.spawn_empty().id();
+        let child_a = world.spawn_empty().id();
+        let child_b = world.spawn_empty().id();
+        let child_c = world.spawn_empty().id();
+        let child_d = world.spawn_empty().id();
+
+        let initial_order = [child_a, child_b, child_c, child_d];
+        world.entity_mut(parent).add_children(&initial_order);
+
+        assert_eq!(
+            world.entity_mut(parent).get::<Children>().unwrap().0,
+            initial_order
+        );
+
+        let new_order = [child_d, child_b, child_a, child_c];
+        world.entity_mut(parent).replace_children(&new_order);
+
+        assert_eq!(world.entity(parent).get::<Children>().unwrap().0, new_order);
+    }
+
+    #[test]
     #[should_panic]
     #[cfg_attr(
         not(debug_assertions),
@@ -704,7 +735,6 @@ mod tests {
         not(debug_assertions),
         ignore = "we don't check invariants if debug assertions are off"
     )]
-
     fn replace_diff_invariant_overlapping_unrelate_with_newly() {
         let mut world = World::new();
 

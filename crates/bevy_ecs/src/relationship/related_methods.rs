@@ -6,7 +6,7 @@ use crate::{
     world::{EntityWorldMut, World},
 };
 use bevy_platform_support::prelude::{Box, Vec};
-use core::marker::PhantomData;
+use core::{marker::PhantomData, mem};
 
 use super::RelationshipInsertHookMode;
 
@@ -38,29 +38,53 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Replaces all the related entities with a new set of entities.
     pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
-        let Some(existing_relations) = self.get::<R::RelationshipTarget>() else {
+        type Collection<R> =
+            <<R as Relationship>::RelationshipTarget as RelationshipTarget>::Collection;
+
+        if related.is_empty() {
+            self.remove::<R::RelationshipTarget>();
+
+            return self;
+        }
+
+        let Some(mut existing_relations) = self.get_mut::<R::RelationshipTarget>() else {
             return self.add_related::<R>(related);
         };
 
-        let mut potential_relations = EntityHashSet::from_iter(related.iter().copied());
-        let mut relations_to_remove = EntityHashSet::with_capacity(related.len());
+        // We take the collection here so we can modify it without taking the component itself (this would create archetype move).
+        // SAFETY: We eventually return the correctly initialized collection into the target.
+        let mut existing_relations = mem::replace(
+            existing_relations.collection_mut_risky(),
+            Collection::<R>::with_capacity(0),
+        );
 
-        for related in existing_relations.iter() {
-            if !potential_relations.remove(related) {
-                relations_to_remove.insert(related);
-            }
-        }
+        let mut potential_relations = EntityHashSet::from_iter(related.iter().copied());
 
         let id = self.id();
         self.world_scope(|world| {
-            for related in relations_to_remove {
-                world.entity_mut(related).remove::<R>();
+            for related in existing_relations.iter() {
+                if !potential_relations.remove(related) {
+                    world.entity_mut(related).remove::<R>();
+                }
             }
 
             for related in potential_relations {
-                world.entity_mut(related).insert(R::from(id));
+                // SAFETY: We'll manually be adjusting the contents of the parent to fit the final state.
+                world
+                    .entity_mut(related)
+                    .insert_with_relationship_insert_hook_mode(
+                        R::from(id),
+                        RelationshipInsertHookMode::Skip,
+                    );
             }
         });
+
+        // SAFETY: The entities we're inserting will be the entities that were either already there or entities that we've just inserted.
+        existing_relations.clear();
+        existing_relations.extend_from_iter(related.iter().copied());
+        self.insert(R::RelationshipTarget::from_collection_risky(
+            existing_relations,
+        ));
 
         self
     }
@@ -163,11 +187,8 @@ impl<'w> EntityWorldMut<'w> {
                     );
                 empty.extend_from_iter(entities_to_relate.iter().copied());
 
-                // SAFETY: We've just initialized this collection
-                self.insert_with_relationship_insert_hook_mode(
-                    R::RelationshipTarget::from_collection_risky(empty),
-                    RelationshipInsertHookMode::Skip,
-                );
+                // SAFETY: We've just initialized this collection and we know there's no `RelationshipTarget` on `self`
+                self.insert(R::RelationshipTarget::from_collection_risky(empty));
             }
         }
 
@@ -293,7 +314,7 @@ impl<'a> EntityCommands<'a> {
     /// Replaces all the related entities with a new set of entities.
     ///
     /// # Warning
-    /// 
+    ///
     /// Failing to maintain the functions invariants may lead to erratic engine behavior including random crashes.
     /// Refer to [`EntityWorldMut::replace_related_with_difference`] for a list of these invariants.
     ///
