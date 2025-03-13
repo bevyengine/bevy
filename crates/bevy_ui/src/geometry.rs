@@ -702,10 +702,11 @@ impl Default for UiRect {
 )]
 /// Responsive position relative to a UI node.
 pub struct Position {
+    /// Normalized anchor point
     pub anchor: Vec2,
-    /// Responsive horizontal position relative to a UI node's left and right edges
+    /// Responsive horizontal position relative to the anchor point
     pub x: Val,
-    /// Responsive vertical position relative to a UI node's top and bottom edges
+    /// Responsive vertical position relative to the anchor point
     pub y: Val,
 }
 
@@ -716,6 +717,7 @@ impl Default for Position {
 }
 
 impl Position {
+    /// Position at the given normalized anchor point
     pub const fn anchor(anchor: Vec2) -> Self {
         Self {
             anchor,
@@ -724,40 +726,64 @@ impl Position {
         }
     }
 
+    /// Position at the top-left corner
     pub const TOP_LEFT: Self = Self::anchor(Vec2::new(-0.5, -0.5));
+
+    /// Position at the center of the left edge
     pub const LEFT: Self = Self::anchor(Vec2::new(-0.5, 0.0));
+
+    /// Position at the bottom-left corner
     pub const BOTTOM_LEFT: Self = Self::anchor(Vec2::new(-0.5, 0.5));
+
+    /// Position at the center of the top edge
     pub const TOP: Self = Self::anchor(Vec2::new(0.0, -0.5));
+
+    /// Position at the center of the element
     pub const CENTER: Self = Self::anchor(Vec2::new(0.0, 0.0));
+
+    /// Position at the center of the bottom edge
     pub const BOTTOM: Self = Self::anchor(Vec2::new(0.0, 0.5));
+
+    /// Position at the top-right corner
     pub const TOP_RIGHT: Self = Self::anchor(Vec2::new(0.5, -0.5));
+
+    /// Position at the center of the right edge
     pub const RIGHT: Self = Self::anchor(Vec2::new(0.5, 0.0));
+
+    /// Position at the bottom-right corner
     pub const BOTTOM_RIGHT: Self = Self::anchor(Vec2::new(0.5, 0.5));
 
+    /// Create a new position
     pub const fn new(anchor: Vec2, x: Val, y: Val) -> Self {
         Self { anchor, x, y }
     }
 
+    /// Creates a position from self with the given `x` and `y` coordinates
     pub const fn at(self, x: Val, y: Val) -> Self {
         Self { x, y, ..self }
     }
 
+    /// Creates a position from self with the given `x` coordinate
     pub const fn at_x(self, x: Val) -> Self {
         Self { x, ..self }
     }
 
+    /// Creates a position from self with the given `y` coordinate
     pub const fn at_y(self, y: Val) -> Self {
         Self { y, ..self }
     }
 
+    /// Creates a position in logical pixels from self with the given `x` and `y` coordinates
     pub const fn at_px(self, x: f32, y: f32) -> Self {
         self.at(Val::Px(x), Val::Px(y))
     }
 
+    /// Creates a percentage position from self with the given `x` and `y` coordinates
     pub const fn at_percent(self, x: f32, y: f32) -> Self {
         self.at(Val::Percent(x), Val::Percent(y))
     }
 
+    /// Creates a position from self with
     pub const fn with_anchor(self, anchor: Vec2) -> Self {
         Self { anchor, ..self }
     }
