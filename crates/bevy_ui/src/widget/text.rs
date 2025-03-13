@@ -1,6 +1,6 @@
 use crate::{
-    ComputedNode, ComputedNodeTarget, ContentSize, FixedMeasure, Measure, MeasureArgs, Node,
-    NodeMeasure,
+    ComputedNode, ComputedNodeTarget, ContentSize, FixedMeasure, LeafNode, Measure, MeasureArgs,
+    Node, NodeMeasure,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
@@ -95,7 +95,15 @@ impl Default for TextNodeFlags {
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq)]
-#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
+#[require(
+    Node,
+    TextLayout,
+    TextFont,
+    TextColor,
+    TextNodeFlags,
+    ContentSize,
+    LeafNode
+)]
 pub struct Text(pub String);
 
 impl Text {

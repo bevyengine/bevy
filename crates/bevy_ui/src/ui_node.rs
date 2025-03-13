@@ -1,7 +1,7 @@
 use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_ecs::{component::HookContext, prelude::*, system::SystemParam, world::DeferredWorld};
 use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
@@ -669,6 +669,35 @@ impl Node {
 impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
+    }
+}
+
+/// Marker struct for `Node`s that can't have `Node`s as children.
+/// If you need to have a `Node` with a relationship to a `LeafNode`, look into using a parent
+/// entity and having the two `Node`s as siblings.
+#[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component, Default, Debug)]
+#[component(on_remove=on_remove_leaf_node)]
+pub struct LeafNode;
+
+fn on_remove_leaf_node(_world: DeferredWorld, ctx: HookContext) {
+    warn!("Removing `LeafNode` from {}. This will allow you to add child `Node`s but will result in unexpected behavior.", ctx.entity);
+}
+
+/// Prevents `LeafNode` entities from having `Node` entities as children.
+pub fn validate_leaf_nodes(
+    mut commands: Commands,
+    children: Query<&Children>,
+    leaf_nodes: Query<Entity, With<LeafNode>>,
+    nodes: Query<Entity, Added<Node>>,
+) {
+    for leaf_node in &leaf_nodes {
+        for child in children.iter_descendants(leaf_node) {
+            if let Ok(node) = nodes.get(child) {
+                warn!("Entity {leaf_node} is marked as a `LeafNode` but has entity {node} containing `Node` as a descendant. The invalid relationship has been removed.");
+                commands.entity(node).remove::<ChildOf>();
+            }
+        }
     }
 }
 
