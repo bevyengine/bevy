@@ -360,7 +360,7 @@ impl<A: Asset> From<CompleteLoadedAsset<A>> for CompleteErasedLoadedAsset {
 /// [immediately]: crate::Immediate
 #[derive(Error, Debug)]
 pub enum LoadDirectError {
-    #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported")]
+    #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291")]
     RequestedSubasset(AssetPath<'static>),
     #[error("Failed to load dependency {dependency:?} {error}")]
     LoadError {
