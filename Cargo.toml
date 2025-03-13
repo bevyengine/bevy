@@ -4272,7 +4272,7 @@ crate-type = ["lib"]
 
 [package.metadata.example.camera_controller]
 name = "Camera Controller"
-description = "Demonstration of Occlusion Culling"
+description = "Example Free-Cam Styled Camera Controller"
 category = "Helpers"
 wasm = true
 
