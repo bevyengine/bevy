@@ -995,6 +995,15 @@ impl Drop for EntityReservations {
 ///  - The alive/dead status of a particular entity. (i.e. "has entity 3 been despawned?")
 ///  - The location of the entity's components in memory (via [`EntityLocation`])
 ///
+/// Note that for specialized use, you may wish to use [`set_allocation_reservation_size`] to improve performance.
+///
+/// # Important
+///
+/// [`Entity`]s are [`reserved`](EntityReservations::reserve_entity) or [`allocated`](Self::alloc) with no regard to order.
+/// Sequential allocations is by no means guaranteed to have sequential indices under any condition.
+/// For example, is you allocate 5 entities, you may get back indices `[0, 2, 4, 7, 8]`, or even `[29, 13, 3, 2, 1]`.
+/// Hence, ordering should not be relied on at all.
+///
 /// [`World`]: crate::world::World
 pub struct Entities {
     /// Stores information about entities that have been used.
@@ -1033,12 +1042,15 @@ impl Entities {
         }
     }
 
-    /// Gets the amount of entities that are reserved at a time for [`alloc`](Self::alloc).
+    /// Gets the amount of entities that are reserved at a time for [`alloc`](Self::alloc) when there are non available.
     pub fn get_allocation_reservation_size(&self) -> NonZero<u32> {
         self.allocation_reservation_size
     }
 
-    /// Sets the amount of entities that are reserved at a time for [`alloc`](Self::alloc).
+    /// Sets the amount of entities that are reserved at a time for [`alloc`](Self::alloc) when there are non available.
+    ///
+    /// If you have lots of memory and want faster [`alloc`](Self::alloc) calls, increase this.
+    /// If you have very little memory decrease this.
     pub fn set_allocation_reservation_size(&mut self, allocation_reservation_size: NonZero<u32>) {
         self.allocation_reservation_size = allocation_reservation_size;
     }
