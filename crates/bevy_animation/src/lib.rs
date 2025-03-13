@@ -124,6 +124,7 @@ impl AnimationEvent {
 
 #[derive(Reflect, Clone)]
 #[reflect(opaque)]
+#[reflect(Clone, Default, Debug)]
 struct AnimationEventFn(Arc<dyn Fn(&mut Commands, Entity, f32, f32) + Send + Sync>);
 
 impl Default for AnimationEventFn {
