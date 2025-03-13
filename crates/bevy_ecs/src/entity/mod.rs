@@ -680,6 +680,8 @@ impl EntityReservations {
             self.next_pending_index_intention
                 .fetch_add(diff + u32::MAX as IdCursor, Ordering::Relaxed);
 
+            debug_assert!(prev_pending_cap == 0 || pending.capacity() > 0);
+
             result
         } else {
             // SAFETY: we just told all the remote entities that the next index is negative,
@@ -826,12 +828,17 @@ impl EntityReservations {
     fn clear(&self) {
         let mut blank = Self::new();
 
-        self.pending_capacity
-            .store(*blank.pending_capacity.get_mut(), Ordering::Release);
-        self.pending_len
-            .store(*blank.pending_len.get_mut(), Ordering::Release);
-        self.pending
-            .store(*blank.pending.get_mut(), Ordering::Release);
+        // we must set these so it is properly deallocated.
+        *blank.pending_capacity.get_mut() = self
+            .pending_capacity
+            .swap(*blank.pending_capacity.get_mut(), Ordering::Release);
+        *blank.pending_len.get_mut() = self
+            .pending_len
+            .swap(*blank.pending_len.get_mut(), Ordering::Release);
+        *blank.pending.get_mut() = self
+            .pending
+            .swap(*blank.pending.get_mut(), Ordering::Release);
+
         *self
             .meta_flushed_up_to
             .write()
@@ -921,11 +928,11 @@ impl Drop for EntityReservations {
     fn drop(&mut self) {
         // SAFETY: the data is ultimately from `Vec::new`.
         unsafe {
-            // drop(Vec::from_raw_parts(
-            //     self.pending.get_mut(),
-            //     *self.pending_len.get_mut(),
-            //     *self.pending_capacity.get_mut(),
-            // ));
+            drop(Vec::from_raw_parts(
+                self.pending.get_mut(),
+                *self.pending_len.get_mut(),
+                *self.pending_capacity.get_mut(),
+            ));
         }
     }
 }
