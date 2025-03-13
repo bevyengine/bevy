@@ -2206,8 +2206,8 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "fallible_systems"
-path = "examples/ecs/fallible_systems.rs"
+name = "error_handling"
+path = "examples/ecs/error_handling.rs"
 doc-scrape-examples = true
 required-features = ["bevy_mesh_picking_backend"]
 
