@@ -632,6 +632,8 @@ impl EntityReservations {
     ///
     /// `func` may change the vec, but it *must* not resize it if the passed bool is true.
     /// If the bool is true, it is actively being read from.
+    ///
+    /// `func` must also not free the vec. In other words, it's capacity must be > 0 when it finishes.
     #[inline]
     unsafe fn pending_scope_mut<T: 'static>(
         &self,
@@ -726,8 +728,8 @@ impl EntityReservations {
         // SAFETY: We return right after flushing if the bool is true
         self.pending_scope_mut(|pending, next_pending_index, in_use_elsewhere| {
             // flush
-            let new_pending_len = (next_pending_index + 1).max(0) as u32;
-            for reused in pending.drain(new_pending_len as usize..) {
+            let new_pending_len = (next_pending_index + 1).max(0) as usize;
+            for reused in pending.drain(new_pending_len..) {
                 // SAFETY: The pending list is known to be valid.
                 let meta = unsafe { meta.get_unchecked_mut(reused.index() as usize) };
 
@@ -745,7 +747,7 @@ impl EntityReservations {
             }
 
             // balance pending
-            let balanced_len = (new_pending_len as usize + owned.len()) / 2;
+            let balanced_len = (new_pending_len + owned.len()) / 2;
             if balanced_len < owned.len() {
                 pending.extend(owned.drain(balanced_len..).inspect(|entity| {
                     // SAFETY: The pending list is known to be valid.
@@ -901,7 +903,7 @@ impl EntityReservations {
     }
 
     fn new() -> Self {
-        let mut pending = mem::ManuallyDrop::new(Vec::<Entity>::with_capacity(100_000));
+        let mut pending = mem::ManuallyDrop::new(Vec::<Entity>::new());
 
         Self {
             pending: AtomicPtr::new(pending.as_mut_ptr()),
@@ -917,14 +919,14 @@ impl EntityReservations {
 
 impl Drop for EntityReservations {
     fn drop(&mut self) {
-        // // SAFETY: the data is from `Vec::new`.
-        // unsafe {
-        //     drop(Vec::from_raw_parts(
-        //         self.pending.get_mut(),
-        //         *self.pending_len.get_mut(),
-        //         *self.pending_capacity.get_mut(),
-        //     ));
-        // }
+        // SAFETY: the data is ultimately from `Vec::new`.
+        unsafe {
+            // drop(Vec::from_raw_parts(
+            //     self.pending.get_mut(),
+            //     *self.pending_len.get_mut(),
+            //     *self.pending_capacity.get_mut(),
+            // ));
+        }
     }
 }
 
