@@ -3,7 +3,7 @@
 use bevy::{
     asset::{
         io::{Reader, VecReader},
-        AssetLoader, CompleteErasedLoadedAsset, LoadContext, LoadDirectError,
+        AssetLoader, LoadContext, LoadDirectError,
     },
     prelude::*,
     reflect::TypePath,
@@ -14,7 +14,7 @@ use thiserror::Error;
 
 #[derive(Asset, TypePath)]
 struct GzAsset {
-    uncompressed: CompleteErasedLoadedAsset,
+    uncompressed: UntypedHandle,
 }
 
 #[derive(Default)]
@@ -77,7 +77,8 @@ impl AssetLoader for GzAssetLoader {
             .immediate()
             .with_reader(&mut reader)
             .load(contained_path)
-            .await?;
+            .await?
+            .0;
 
         Ok(GzAsset { uncompressed })
     }
@@ -114,7 +115,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn decompress<T: Component + From<Handle<A>>, A: Asset>(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     mut compressed_assets: ResMut<Assets<GzAsset>>,
     query: Query<(Entity, &Compressed<A>)>,
 ) {
@@ -123,11 +123,9 @@ fn decompress<T: Component + From<Handle<A>>, A: Asset>(
             continue;
         };
 
-        let uncompressed = uncompressed.take::<A>().unwrap();
-
         commands
             .entity(entity)
             .remove::<Compressed<A>>()
-            .insert(T::from(asset_server.add(uncompressed)));
+            .insert(T::from(uncompressed.typed()));
     }
 }
