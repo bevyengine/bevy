@@ -3118,11 +3118,16 @@ impl World {
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
 
-    /// Registers the given component ids as a dynamic bundle and returns both the required component
-    /// ids and the bundle id.
+    /// Registers the given [`ComponentId`]s as a dynamic bundle and returns both the required component ids and the bundle id.
+    ///
+    /// Note that the components need to be registered first, this function only creates a bundle combining them. Components
+    /// can be registered with [`World::register_component`]/[`_with_descriptor`](World::register_component_with_descriptor).
+    ///
+    /// **You should prefer to use the typed API [`World::register_bundle`] where possible and only use this in cases where
+    /// not all of the actual types are known at compile time.**
     ///
     /// # Panics
-    /// This function will panic if any of the provided [`ComponentId`]s do not exist in this [`World`].
+    /// This function will panic if any of the provided component ids do not belong to a component known to this [`World`].
     #[inline]
     pub fn register_dynamic_bundle(&mut self, component_ids: &[ComponentId]) -> &BundleInfo {
         let id =
