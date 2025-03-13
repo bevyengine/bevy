@@ -23,7 +23,7 @@ fn main() {
 #[derive(Component)]
 pub struct AnimationControlTextMark;
 
-/// Provide numerical values for animation.(computer translation)
+/// Provide numerical values for animation.
 #[derive(Resource)]
 pub struct AnimationControl {
     speed: f32,
@@ -180,7 +180,7 @@ fn drop_sprite(
                 curve: FunctionCurve::new(
                     Interval::new(0.0, distance).unwrap(),
                     // You can customize mathematical calculations here,
-                    // Actually, it can also support iter.(computer translation)
+                    // Actually, it can also support iter.
                     Box::new(move |i| {
                         vec![
                             (i / distance) * proportion * (world_position.x - transx) + transx,
@@ -221,7 +221,7 @@ fn myanimation_system(
             continue;
         };
 
-        // Use your own mathematical results to customize the processing procedure.(computer translation)
+        // Use your own mathematical results to customize the processing procedure.
         trans.translation.x = samples[0];
         trans.translation.y = samples[1];
 
