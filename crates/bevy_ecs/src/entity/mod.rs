@@ -1022,6 +1022,16 @@ pub struct Entities {
     allocation_reservation_size: NonZero<u32>,
 }
 
+impl fmt::Debug for Entities {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let total_count = self.total_count();
+        let used_count = self.used_count();
+        let total_prospective_count = self.total_prospective_count();
+        let len = self.len();
+        write!(f, "Entities: [ total: {total_count}, used: {used_count}, total_when_flushed: {total_prospective_count}, current: {len} ]")
+    }
+}
+
 impl core::ops::Deref for Entities {
     type Target = EntityReservations;
 
