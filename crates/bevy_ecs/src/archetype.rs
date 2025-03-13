@@ -52,6 +52,8 @@ impl ArchetypeRow {
     pub const INVALID: ArchetypeRow = ArchetypeRow(u32::MAX);
     /// This is the same as [`Self::INVALID`], but it signals to [`Entities`](crate::entity::Entities)
     /// that this entity should not be flushed.
+    ///
+    /// See [`Entities`](crate::entity::Entities)'s `owned` field for more.
     pub(crate) const INVALID_BUT_DONT_FLUSH: ArchetypeRow = ArchetypeRow(u32::MAX - 1);
 
     /// Creates a `ArchetypeRow`.
@@ -64,6 +66,15 @@ impl ArchetypeRow {
     #[inline]
     pub const fn index(self) -> usize {
         self.0 as usize
+    }
+
+    /// Returns true if this is invalid.
+    ///
+    /// Note that there are internal versions of the public [`ArchetypeRow::INVALID`].
+    /// This checks all of them instead of just `self == ArchetypeRow::INVALID`.
+    #[inline]
+    pub const fn is_invalid(&self) -> bool {
+        self.0 >= Self::INVALID_BUT_DONT_FLUSH.0
     }
 }
 

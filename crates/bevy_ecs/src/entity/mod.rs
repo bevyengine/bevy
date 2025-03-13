@@ -956,6 +956,11 @@ pub struct Entities {
     meta: Vec<EntityMeta>,
     /// These are entities that this instance owns.
     /// These are reserved for [`Self::alloc`], but they are shared with [`EntityReservations::pending`] when flushing.
+    /// Since these are not reserved by a user though, we should not flush them.
+    ///
+    /// To prevent these from being flushed,
+    /// we use [`EntityLocation::INVALID_BUT_DONT_FLUSH`] for all elements in the list.
+    /// In principal, we could use a hash set too, but this marker is faster.
     owned: Vec<Entity>,
     /// This handles reserving entities
     reservations: Arc<EntityReservations>,
@@ -1513,7 +1518,7 @@ impl EntityLocation {
     };
 
     /// This signifies that this entity should not be flushed.
-    /// It will be made valid later manually.
+    /// See [`Entities::owned`] for details.
     pub(crate) const INVALID_BUT_DONT_FLUSH: EntityLocation = EntityLocation {
         archetype_id: ArchetypeId::INVALID,
         archetype_row: ArchetypeRow::INVALID_BUT_DONT_FLUSH,
