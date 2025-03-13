@@ -357,7 +357,7 @@ Example | Description
 
 Example | Description
 --- | ---
-[Camera Controller](../examples/helpers/camera_controller.rs) | Demonstration of Occlusion Culling
+[Camera Controller](../examples/helpers/camera_controller.rs) | Example Free-Cam Styled Camera Controller
 [Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
 
 ## Input
