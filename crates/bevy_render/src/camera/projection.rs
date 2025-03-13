@@ -129,7 +129,7 @@ mod sealed {
 ///
 /// The contained dynamic object can be downcast into a static type using [`CustomProjection::get`].
 #[derive(Component, Debug, Reflect, Deref, DerefMut)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub struct CustomProjection {
     #[reflect(ignore)]
     #[deref]

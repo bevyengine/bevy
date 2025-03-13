@@ -117,7 +117,7 @@ pub struct EventId<E: Event> {
     pub id: usize,
     /// The source code location that triggered this event.
     pub caller: MaybeLocation,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(super) _marker: PhantomData<E>,
 }
 

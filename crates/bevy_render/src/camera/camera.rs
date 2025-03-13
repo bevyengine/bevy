@@ -290,7 +290,7 @@ pub enum ViewportConversionError {
 /// [`Camera2d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_2d/struct.Camera2d.html
 /// [`Camera3d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_3d/struct.Camera3d.html
 #[derive(Component, Debug, Reflect, Clone)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[component(on_add = warn_on_no_render_graph)]
 #[require(
     Frustum,
@@ -310,7 +310,7 @@ pub struct Camera {
     /// camera will not be rendered.
     pub is_active: bool,
     /// Computed values for this camera, such as the projection matrix and the render target size.
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub computed: ComputedCameraValues,
     /// The "target" that this camera will render to.
     pub target: RenderTarget,
@@ -319,7 +319,7 @@ pub struct Camera {
     pub hdr: bool,
     // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub output_mode: CameraOutputMode,
     /// If this is enabled, a previous camera exists that shares this camera's render target, and this camera has MSAA enabled, then the previous camera's
     /// outputs will be written to the intermediate multi-sampled render target textures for this camera. This enables cameras with MSAA enabled to

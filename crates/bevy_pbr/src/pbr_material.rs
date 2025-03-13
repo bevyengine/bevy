@@ -32,7 +32,7 @@ pub enum UvChannel {
 #[bind_group_data(StandardMaterialKey)]
 #[data(0, StandardMaterialUniform, binding_array(10))]
 #[bindless]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct StandardMaterial {
     /// The color of the surface of the material before lighting.
     ///
@@ -630,7 +630,7 @@ pub struct StandardMaterial {
     ///
     /// [`Mesh`]: bevy_render::mesh::Mesh
     // TODO: include this in reflection somehow (maybe via remote types like serde https://serde.rs/remote-derive.html)
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub cull_mode: Option<Face>,
 
     /// Whether to apply only the base color to this material.

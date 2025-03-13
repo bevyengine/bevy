@@ -219,9 +219,9 @@ pub struct NoFrustumCulling;
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct VisibleEntities {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub entities: TypeIdMap<Vec<Entity>>,
 }
 
@@ -269,9 +269,9 @@ impl VisibleEntities {
 ///
 /// This component is extracted from [`VisibleEntities`].
 #[derive(Clone, Component, Default, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct RenderVisibleEntities {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub entities: TypeIdMap<Vec<(Entity, MainEntity)>>,
 }
 

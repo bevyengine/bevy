@@ -96,9 +96,10 @@ impl VariableCurve {
 /// Because animation clips refer to targets by UUID, they can target any
 /// [`AnimationTarget`] with that ID.
 #[derive(Asset, Reflect, Clone, Debug, Default)]
+#[reflect(Clone, Default)]
 pub struct AnimationClip {
     // This field is ignored by reflection because AnimationCurves can contain things that are not reflect-able
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     curves: AnimationCurves,
     events: AnimationEvents,
     duration: f32,
@@ -111,8 +112,9 @@ struct TimedAnimationEvent {
 }
 
 #[derive(Reflect, Debug, Clone)]
+#[reflect(Clone)]
 struct AnimationEvent {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     trigger: AnimationEventFn,
 }
 

@@ -43,7 +43,7 @@ pub struct TextEntity {
 ///
 /// Automatically updated by 2d and UI text systems.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Debug, Default)]
+#[reflect(Component, Debug, Default, Clone)]
 pub struct ComputedTextBlock {
     /// Buffer for managing text layout and creating [`TextLayoutInfo`].
     ///
@@ -51,7 +51,7 @@ pub struct ComputedTextBlock {
     /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
     /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
     /// `TextLayoutInfo`.
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub(crate) buffer: CosmicBuffer,
     /// Entities for all text spans in the block, including the root-level text.
     ///

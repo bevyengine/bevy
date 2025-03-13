@@ -28,7 +28,7 @@ use crate::backend::HitData;
 /// stable ID that persists regardless of the Entity they are associated with.
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, Component, Reflect)]
 #[require(PointerLocation, PointerPress, PointerInteraction)]
-#[reflect(Component, Default, Debug, Hash, PartialEq)]
+#[reflect(Component, Default, Debug, Hash, PartialEq, Clone)]
 pub enum PointerId {
     /// The mouse pointer.
     #[default]
@@ -37,7 +37,7 @@ pub enum PointerId {
     Touch(u64),
     /// A custom, uniquely identified pointer. Useful for mocking inputs or implementing a software
     /// controlled cursor.
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     Custom(Uuid),
 }
 
@@ -172,11 +172,11 @@ impl PointerButton {
 
 /// Component that tracks a pointer's current [`Location`].
 #[derive(Debug, Default, Clone, Component, Reflect, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct PointerLocation {
     /// The [`Location`] of the pointer. Note that a location is both the target, and the position
     /// on the target.
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub location: Option<Location>,
 }
 

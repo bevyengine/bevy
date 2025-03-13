@@ -284,7 +284,7 @@ where
     pub(crate) list_colors: Vec<LinearRgba>,
     pub(crate) strip_positions: Vec<Vec3>,
     pub(crate) strip_colors: Vec<LinearRgba>,
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub(crate) marker: PhantomData<(Config, Clear)>,
 }
 
