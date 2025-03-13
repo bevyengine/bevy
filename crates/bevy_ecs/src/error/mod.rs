@@ -65,9 +65,11 @@
 
 mod bevy_error;
 pub mod command_error_handler;
+mod command_handling;
 mod handler;
 
 pub use bevy_error::*;
+pub use command_handling::*;
 pub use handler::*;
 
 /// A result type for use in fallible systems, commands and observers.

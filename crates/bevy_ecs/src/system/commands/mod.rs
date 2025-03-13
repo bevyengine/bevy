@@ -20,15 +20,12 @@ use crate::{
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
-    error::{command_error_handler, BevyError},
+    error::{command_error_handler, BevyError, CommandWithEntity, HandleError},
     event::Event,
     observer::{Observer, TriggerTargets},
     resource::Resource,
     schedule::ScheduleLabel,
-    system::{
-        command::HandleError, entity_command::CommandWithEntity, input::SystemInput, Deferred,
-        IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId,
-    },
+    system::{Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId, SystemInput},
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
         EntityWorldMut, FromWorld, World,

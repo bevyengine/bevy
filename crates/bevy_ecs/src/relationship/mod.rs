@@ -13,10 +13,9 @@ pub use relationship_source_collection::*;
 use crate::{
     component::{Component, HookContext, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
-    error::command_error_handler,
+    error::{command_error_handler, CommandWithEntity, HandleError},
     system::{
-        command::HandleError,
-        entity_command::{self, CommandWithEntity},
+        entity_command::{self},
         Commands,
     },
     world::{DeferredWorld, EntityWorldMut},

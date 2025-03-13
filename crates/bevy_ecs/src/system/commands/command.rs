@@ -8,7 +8,7 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::Entity,
-    error::{command_error_handler, BevyError, Result},
+    error::Result,
     event::{Event, Events},
     observer::TriggerTargets,
     resource::Resource,
@@ -60,52 +60,6 @@ where
 {
     fn apply(self, world: &mut World) -> Out {
         self(world)
-    }
-}
-
-/// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
-/// a [`Command`] that internally handles an error if it occurs and returns `()`.
-pub trait HandleError<Out = ()> {
-    /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
-    /// a [`Command`] that internally handles an error if it occurs and returns `()`.
-    fn handle_error_with(self, error_handler: fn(&mut World, BevyError)) -> impl Command;
-    /// Takes a [`Command`] that returns a Result and uses the default error handler function to convert it into
-    /// a [`Command`] that internally handles an error if it occurs and returns `()`.
-    fn handle_error(self) -> impl Command
-    where
-        Self: Sized,
-    {
-        self.handle_error_with(command_error_handler::default_error_handler())
-    }
-}
-
-impl<C, T, E> HandleError<Result<T, E>> for C
-where
-    C: Command<Result<T, E>>,
-    E: Into<BevyError>,
-{
-    fn handle_error_with(self, error_handler: fn(&mut World, BevyError)) -> impl Command {
-        move |world: &mut World| match self.apply(world) {
-            Ok(_) => {}
-            Err(err) => (error_handler)(world, err.into()),
-        }
-    }
-}
-
-impl<C> HandleError for C
-where
-    C: Command,
-{
-    #[inline]
-    fn handle_error_with(self, _error_handler: fn(&mut World, BevyError)) -> impl Command {
-        self
-    }
-    #[inline]
-    fn handle_error(self) -> impl Command
-    where
-        Self: Sized,
-    {
-        self
     }
 }
 
