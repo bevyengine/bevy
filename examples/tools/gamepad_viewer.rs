@@ -132,41 +132,40 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
 
     // Buttons
 
-    commands
-        .spawn((
-            Transform::from_xyz(BUTTONS_X, BUTTONS_Y, 0.),
-            Visibility::default(),
-        ))
-        .with_children(|parent| {
-            parent.spawn(GamepadButtonBundle::new(
+    commands.spawn((
+        Transform::from_xyz(BUTTONS_X, BUTTONS_Y, 0.),
+        Visibility::default(),
+        children![
+            GamepadButtonBundle::new(
                 GamepadButton::North,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 0.,
                 BUTTON_CLUSTER_RADIUS,
-            ));
-            parent.spawn(GamepadButtonBundle::new(
+            ),
+            GamepadButtonBundle::new(
                 GamepadButton::South,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 0.,
                 -BUTTON_CLUSTER_RADIUS,
-            ));
-            parent.spawn(GamepadButtonBundle::new(
+            ),
+            GamepadButtonBundle::new(
                 GamepadButton::West,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 -BUTTON_CLUSTER_RADIUS,
                 0.,
-            ));
-            parent.spawn(GamepadButtonBundle::new(
+            ),
+            GamepadButtonBundle::new(
                 GamepadButton::East,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 BUTTON_CLUSTER_RADIUS,
                 0.,
-            ));
-        });
+            ),
+        ],
+    ));
 
     // Start and Pause
 
@@ -188,50 +187,43 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
 
     // D-Pad
 
-    commands
-        .spawn((
-            Transform::from_xyz(-BUTTONS_X, BUTTONS_Y, 0.),
-            Visibility::default(),
-        ))
-        .with_children(|parent| {
-            parent.spawn(GamepadButtonBundle::new(
+    commands.spawn((
+        Transform::from_xyz(-BUTTONS_X, BUTTONS_Y, 0.),
+        Visibility::default(),
+        children![
+            GamepadButtonBundle::new(
                 GamepadButton::DPadUp,
                 meshes.triangle.clone(),
                 materials.normal.clone(),
                 0.,
                 BUTTON_CLUSTER_RADIUS,
-            ));
-            parent.spawn(
-                GamepadButtonBundle::new(
-                    GamepadButton::DPadDown,
-                    meshes.triangle.clone(),
-                    materials.normal.clone(),
-                    0.,
-                    -BUTTON_CLUSTER_RADIUS,
-                )
-                .with_rotation(PI),
-            );
-            parent.spawn(
-                GamepadButtonBundle::new(
-                    GamepadButton::DPadLeft,
-                    meshes.triangle.clone(),
-                    materials.normal.clone(),
-                    -BUTTON_CLUSTER_RADIUS,
-                    0.,
-                )
-                .with_rotation(PI / 2.),
-            );
-            parent.spawn(
-                GamepadButtonBundle::new(
-                    GamepadButton::DPadRight,
-                    meshes.triangle.clone(),
-                    materials.normal.clone(),
-                    BUTTON_CLUSTER_RADIUS,
-                    0.,
-                )
-                .with_rotation(-PI / 2.),
-            );
-        });
+            ),
+            GamepadButtonBundle::new(
+                GamepadButton::DPadDown,
+                meshes.triangle.clone(),
+                materials.normal.clone(),
+                0.,
+                -BUTTON_CLUSTER_RADIUS,
+            )
+            .with_rotation(PI),
+            GamepadButtonBundle::new(
+                GamepadButton::DPadLeft,
+                meshes.triangle.clone(),
+                materials.normal.clone(),
+                -BUTTON_CLUSTER_RADIUS,
+                0.,
+            )
+            .with_rotation(PI / 2.),
+            GamepadButtonBundle::new(
+                GamepadButton::DPadRight,
+                meshes.triangle.clone(),
+                materials.normal.clone(),
+                BUTTON_CLUSTER_RADIUS,
+                0.,
+            )
+            .with_rotation(-PI / 2.),
+        ],
+    ));
 
     // Triggers
 
@@ -275,43 +267,35 @@ fn setup_sticks(
     let live_mid = (live_lower + live_upper) / 2.0;
 
     let mut spawn_stick = |x_pos, y_pos, x_axis, y_axis, button| {
-        commands
-            .spawn((Transform::from_xyz(x_pos, y_pos, 0.), Visibility::default()))
-            .with_children(|parent| {
-                // full extent
-                parent.spawn(Sprite::from_color(
-                    DEAD_COLOR,
-                    Vec2::splat(STICK_BOUNDS_SIZE * 2.),
-                ));
-                // live zone
-                parent.spawn((
+        let style = TextFont {
+            font_size: 13.,
+            ..default()
+        };
+        commands.spawn((
+            Transform::from_xyz(x_pos, y_pos, 0.),
+            Visibility::default(),
+            children![
+                Sprite::from_color(DEAD_COLOR, Vec2::splat(STICK_BOUNDS_SIZE * 2.),),
+                (
                     Sprite::from_color(LIVE_COLOR, Vec2::splat(live_size)),
                     Transform::from_xyz(live_mid, live_mid, 2.),
-                ));
-                // dead zone
-                parent.spawn((
+                ),
+                (
                     Sprite::from_color(DEAD_COLOR, Vec2::splat(dead_size)),
                     Transform::from_xyz(dead_mid, dead_mid, 3.),
-                ));
-                // text
-                let style = TextFont {
-                    font_size: 13.,
-                    ..default()
-                };
-                parent
-                    .spawn((
-                        Text2d::default(),
-                        Transform::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
-                        Anchor::BottomCenter,
-                        TextWithAxes { x_axis, y_axis },
-                    ))
-                    .with_children(|p| {
-                        p.spawn((TextSpan(format!("{:.3}", 0.)), style.clone()));
-                        p.spawn((TextSpan::new(", "), style.clone()));
-                        p.spawn((TextSpan(format!("{:.3}", 0.)), style));
-                    });
-                // cursor
-                parent.spawn((
+                ),
+                (
+                    Text2d::default(),
+                    Transform::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
+                    Anchor::BottomCenter,
+                    TextWithAxes { x_axis, y_axis },
+                    children![
+                        (TextSpan(format!("{:.3}", 0.)), style.clone()),
+                        (TextSpan::new(", "), style.clone()),
+                        (TextSpan(format!("{:.3}", 0.)), style),
+                    ]
+                ),
+                (
                     meshes.circle.clone(),
                     materials.normal.clone(),
                     Transform::from_xyz(0., 0., 5.).with_scale(Vec2::splat(0.15).extend(1.)),
@@ -321,8 +305,9 @@ fn setup_sticks(
                         scale: STICK_BOUNDS_SIZE,
                     },
                     ReactTo(button),
-                ));
-            });
+                ),
+            ],
+        ));
     };
 
     spawn_stick(
@@ -347,25 +332,24 @@ fn setup_triggers(
     materials: Res<ButtonMaterials>,
 ) {
     let mut spawn_trigger = |x, y, button_type| {
-        commands
-            .spawn(GamepadButtonBundle::new(
+        commands.spawn((
+            GamepadButtonBundle::new(
                 button_type,
                 meshes.trigger.clone(),
                 materials.normal.clone(),
                 x,
                 y,
-            ))
-            .with_children(|parent| {
-                parent.spawn((
-                    Transform::from_xyz(0., 0., 1.),
-                    Text(format!("{:.3}", 0.)),
-                    TextFont {
-                        font_size: 13.,
-                        ..default()
-                    },
-                    TextWithButtonValue(button_type),
-                ));
-            });
+            ),
+            children![(
+                Transform::from_xyz(0., 0., 1.),
+                Text(format!("{:.3}", 0.)),
+                TextFont {
+                    font_size: 13.,
+                    ..default()
+                },
+                TextWithButtonValue(button_type),
+            )],
+        ));
     };
 
     spawn_trigger(-BUTTONS_X, BUTTONS_Y + 145., GamepadButton::LeftTrigger2);
@@ -374,18 +358,17 @@ fn setup_triggers(
 
 fn setup_connected(mut commands: Commands) {
     // This is UI text, unlike other text in this example which is 2d.
-    commands
-        .spawn((
-            Text::new("Connected Gamepads:\n"),
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.),
-                left: Val::Px(12.),
-                ..default()
-            },
-            ConnectedGamepadsText,
-        ))
-        .with_child(TextSpan::new("None"));
+    commands.spawn((
+        Text::new("Connected Gamepads:\n"),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
+            ..default()
+        },
+        ConnectedGamepadsText,
+        children![TextSpan::new("None")],
+    ));
 }
 
 fn update_buttons(

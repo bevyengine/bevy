@@ -338,7 +338,7 @@ impl SubApp {
 
     /// Set the global error handler to use for systems that return a [`Result`].
     ///
-    /// See the [`bevy_ecs::result` module-level documentation](../../bevy_ecs/result/index.html)
+    /// See the [`bevy_ecs::error` module-level documentation](bevy_ecs::error)
     /// for more information.
     pub fn set_system_error_handler(
         &mut self,
