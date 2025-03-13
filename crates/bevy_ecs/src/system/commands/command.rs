@@ -8,12 +8,12 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::Entity,
-    error::{BevyError, Result},
+    error::{command_error_handler, BevyError, Result},
     event::{Event, Events},
     observer::TriggerTargets,
     resource::Resource,
     schedule::ScheduleLabel,
-    system::{error_handler, IntoSystem, SystemId, SystemInput},
+    system::{IntoSystem, SystemId, SystemInput},
     world::{FromWorld, SpawnBatchIter, World},
 };
 
@@ -75,7 +75,7 @@ pub trait HandleError<Out = ()> {
     where
         Self: Sized,
     {
-        self.handle_error_with(error_handler::default_error_handler())
+        self.handle_error_with(command_error_handler::default_error_handler())
     }
 }
 

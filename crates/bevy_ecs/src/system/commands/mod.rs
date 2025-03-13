@@ -1,6 +1,5 @@
 pub mod command;
 pub mod entity_command;
-pub mod error_handler;
 
 #[cfg(feature = "std")]
 mod parallel_scope;
@@ -21,7 +20,7 @@ use crate::{
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
-    error::BevyError,
+    error::{command_error_handler, BevyError},
     event::Event,
     observer::{Observer, TriggerTargets},
     resource::Resource,
@@ -786,7 +785,7 @@ impl<'w, 's> Commands<'w, 's> {
     {
         self.queue(
             command::insert_batch(batch, InsertMode::Replace)
-                .handle_error_with(error_handler::warn()),
+                .handle_error_with(command_error_handler::warn()),
         );
     }
 
@@ -813,7 +812,8 @@ impl<'w, 's> Commands<'w, 's> {
         B: Bundle<Effect: NoBundleEffect>,
     {
         self.queue(
-            command::insert_batch(batch, InsertMode::Keep).handle_error_with(error_handler::warn()),
+            command::insert_batch(batch, InsertMode::Keep)
+                .handle_error_with(command_error_handler::warn()),
         );
     }
 
@@ -910,7 +910,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// execution of the system happens later. To get the output of a system, use
     /// [`World::run_system`] or [`World::run_system_with`] instead of running the system as a command.
     pub fn run_system(&mut self, id: SystemId) {
-        self.queue(command::run_system(id).handle_error_with(error_handler::warn()));
+        self.queue(command::run_system(id).handle_error_with(command_error_handler::warn()));
     }
 
     /// Runs the system corresponding to the given [`SystemId`].
@@ -926,7 +926,9 @@ impl<'w, 's> Commands<'w, 's> {
     where
         I: SystemInput<Inner<'static>: Send> + 'static,
     {
-        self.queue(command::run_system_with(id, input).handle_error_with(error_handler::warn()));
+        self.queue(
+            command::run_system_with(id, input).handle_error_with(command_error_handler::warn()),
+        );
     }
 
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
@@ -1000,7 +1002,9 @@ impl<'w, 's> Commands<'w, 's> {
         I: SystemInput + Send + 'static,
         O: Send + 'static,
     {
-        self.queue(command::unregister_system(system_id).handle_error_with(error_handler::warn()));
+        self.queue(
+            command::unregister_system(system_id).handle_error_with(command_error_handler::warn()),
+        );
     }
 
     /// Removes a system previously registered with [`World::register_system_cached`].
@@ -1016,7 +1020,8 @@ impl<'w, 's> Commands<'w, 's> {
         system: S,
     ) {
         self.queue(
-            command::unregister_system_cached(system).handle_error_with(error_handler::warn()),
+            command::unregister_system_cached(system)
+                .handle_error_with(command_error_handler::warn()),
         );
     }
 
@@ -1028,7 +1033,9 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         system: S,
     ) {
-        self.queue(command::run_system_cached(system).handle_error_with(error_handler::warn()));
+        self.queue(
+            command::run_system_cached(system).handle_error_with(command_error_handler::warn()),
+        );
     }
 
     /// Similar to [`Self::run_system_with`], but caching the [`SystemId`] in a
@@ -1042,7 +1049,8 @@ impl<'w, 's> Commands<'w, 's> {
         S: IntoSystem<I, (), M> + Send + 'static,
     {
         self.queue(
-            command::run_system_cached_with(system, input).handle_error_with(error_handler::warn()),
+            command::run_system_cached_with(system, input)
+                .handle_error_with(command_error_handler::warn()),
         );
     }
 
@@ -1137,7 +1145,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
-        self.queue(command::run_schedule(label).handle_error_with(error_handler::warn()));
+        self.queue(command::run_schedule(label).handle_error_with(command_error_handler::warn()));
     }
 }
 
@@ -1428,7 +1436,7 @@ impl<'a> EntityCommands<'a> {
             // - `ComponentId` safety is ensured by the caller.
             // - `T` safety is ensured by the caller.
             unsafe { entity_command::insert_by_id(component_id, value, InsertMode::Replace) },
-            error_handler::silent(),
+            command_error_handler::silent(),
         )
     }
 
@@ -1484,7 +1492,7 @@ impl<'a> EntityCommands<'a> {
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
         self.queue_handled(
             entity_command::insert(bundle, InsertMode::Replace),
-            error_handler::silent(),
+            command_error_handler::silent(),
         )
     }
 
@@ -1586,7 +1594,7 @@ impl<'a> EntityCommands<'a> {
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
         self.queue_handled(
             entity_command::insert(bundle, InsertMode::Keep),
-            error_handler::silent(),
+            command_error_handler::silent(),
         )
     }
 
@@ -1630,7 +1638,7 @@ impl<'a> EntityCommands<'a> {
     where
         T: Bundle,
     {
-        self.queue_handled(entity_command::remove::<T>(), error_handler::warn())
+        self.queue_handled(entity_command::remove::<T>(), command_error_handler::warn())
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -1676,7 +1684,10 @@ impl<'a> EntityCommands<'a> {
     where
         T: Bundle,
     {
-        self.queue_handled(entity_command::remove::<T>(), error_handler::silent())
+        self.queue_handled(
+            entity_command::remove::<T>(),
+            command_error_handler::silent(),
+        )
     }
 
     /// Removes all components in the [`Bundle`] components and remove all required components for each component in the [`Bundle`] from entity.
@@ -1754,7 +1765,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn despawn(&mut self) {
-        self.queue_handled(entity_command::despawn(), error_handler::warn());
+        self.queue_handled(entity_command::despawn(), command_error_handler::warn());
     }
     /// Despawns the provided entity and its descendants.
     #[deprecated(
@@ -1775,7 +1786,7 @@ impl<'a> EntityCommands<'a> {
     /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that are configured
     /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     pub fn try_despawn(&mut self) {
-        self.queue_handled(entity_command::despawn(), error_handler::silent());
+        self.queue_handled(entity_command::despawn(), command_error_handler::silent());
     }
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
