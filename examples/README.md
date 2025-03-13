@@ -51,6 +51,7 @@ git checkout v0.4.0
   - [ECS (Entity Component System)](#ecs-entity-component-system)
   - [Games](#games)
   - [Gizmos](#gizmos)
+  - [Helpers](#helpers)
   - [Input](#input)
   - [Math](#math)
   - [Movement](#movement)
@@ -351,6 +352,13 @@ Example | Description
 [3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos
 [Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
 [Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
+
+## Helpers
+
+Example | Description
+--- | ---
+[Camera Controller](../examples/helpers/camera_controller.rs) | Example Free-Cam Styled Camera Controller
+[Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
 
 ## Input
 
