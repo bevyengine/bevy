@@ -77,7 +77,7 @@ use crate::{
 use alloc::vec::Vec;
 use bevy_platform_support::sync::{
     atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering},
-    Arc, PoisonError, RwLock,
+    Arc,
 };
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
@@ -553,7 +553,7 @@ pub struct EntityReservations {
     /// This is the value of [`Self::meta_len`] the last time it was flushed.
     /// Entities before this have been flushed once already, but
     /// they may have been freed/pending since, requiring another flush.
-    meta_flushed_up_to: RwLock<u32>,
+    meta_flushed_up_to: AtomicU32,
     /// This is the prospective length of [`Entities::meta`].
     /// This is the source of truth.
     meta_len: AtomicU32,
@@ -634,6 +634,12 @@ impl EntityReservations {
     /// If the bool is true, it is actively being read from.
     ///
     /// `func` must also not free the vec. In other words, it's capacity must be > 0 when it finishes.
+    ///
+    /// This must not be called concurrently. This is the *only* place we provide raw access to the vec,
+    /// even if it is being accessed.
+    /// If two threads did this at the same time, we might create the vec to modify
+    /// while the other thread is settings its data.
+    /// That could produce UB and dangling pointers inside the vec.
     #[inline]
     unsafe fn pending_scope_mut<T: 'static>(
         &self,
@@ -705,11 +711,15 @@ impl EntityReservations {
         }
     }
 
+    /// Gets [`Self::meta_flushed_up_to`]
+    ///
+    /// This is greedy and instantaneous.
+    /// If other threads are modifying this, we don't wait for them to finish.
+    ///
+    /// The returned value is not guaranteed to be correct now,
+    /// but it is guaranteed to be correct recently.
     fn meta_flushed_up_to(&self) -> u32 {
-        *self
-            .meta_flushed_up_to
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
+        self.meta_flushed_up_to.load(Ordering::Relaxed)
     }
 
     /// Flushes pending entities that have been reused.
@@ -719,6 +729,8 @@ impl EntityReservations {
     /// # Safety
     ///
     /// All entities must have valid indices in `meta`.
+    ///
+    /// This must not be called concurrently. This requirement is inherity from [`Self::pending_scope_mut`].
     #[inline]
     unsafe fn flush_pending(
         &self,
@@ -790,14 +802,13 @@ impl EntityReservations {
         // prep
         let theoretical_len = self.meta_len.load(Ordering::Relaxed);
         let meta_len = meta.len() as u32;
-        let mut meta_flushed_up_to = self
+        let meta_flushed_up_to = self
             .meta_flushed_up_to
-            .write()
-            .unwrap_or_else(PoisonError::into_inner);
+            .swap(theoretical_len, Ordering::Relaxed);
         debug_assert!(meta_len <= theoretical_len);
 
         // flush those we missed
-        for index in *meta_flushed_up_to..meta_len {
+        for index in meta_flushed_up_to..meta_len {
             // SAFETY: The pending list is known to be valid.
             let meta = unsafe { meta.get_unchecked_mut(index as usize) };
             let entity = Entity::from_raw_and_generation(index, meta.generation);
@@ -818,9 +829,6 @@ impl EntityReservations {
             // we know this needs initializing since we just created it, so we skip `needs_init`.
             init(entity, &mut meta.location);
         }
-
-        // finalize
-        *meta_flushed_up_to = theoretical_len;
     }
 
     /// Clears the instance.
@@ -839,10 +847,8 @@ impl EntityReservations {
             .pending
             .swap(*blank.pending.get_mut(), Ordering::Release);
 
-        *self
-            .meta_flushed_up_to
-            .write()
-            .unwrap_or_else(PoisonError::into_inner) = 0;
+        self.meta_flushed_up_to
+            .store(*blank.meta_flushed_up_to.get_mut(), Ordering::Release);
         self.meta_len
             .store(*blank.meta_len.get_mut(), Ordering::Release);
         self.next_pending_index_intention.store(
@@ -916,7 +922,7 @@ impl EntityReservations {
             pending: AtomicPtr::new(pending.as_mut_ptr()),
             pending_capacity: AtomicUsize::new(pending.capacity()),
             pending_len: AtomicUsize::new(pending.len()),
-            meta_flushed_up_to: RwLock::new(0),
+            meta_flushed_up_to: AtomicU32::new(0),
             meta_len: AtomicU32::new(0),
             next_pending_index_intention: AtomicIdCursor::new(-1),
             next_pending_index_truth: AtomicIdCursor::new(-1),
