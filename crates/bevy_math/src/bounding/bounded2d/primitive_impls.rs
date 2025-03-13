@@ -378,11 +378,11 @@ impl<const N: usize> Bounded2d for Polygon<N> {
 
 impl<const N: usize> Bounded2d for ConvexPolygon<N> {
     fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
-        Aabb2d::from_point_cloud(isometry, &self.vertices())
+        Aabb2d::from_point_cloud(isometry, self.vertices().as_slice())
     }
 
     fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
-        BoundingCircle::from_point_cloud(isometry, &self.vertices())
+        BoundingCircle::from_point_cloud(isometry, self.vertices().as_slice())
     }
 }
 
