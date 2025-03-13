@@ -19,7 +19,7 @@ fn main() {
         .run();
 }
 
-///update text
+/// Update text
 #[derive(Component)]
 pub struct AnimationControlTextMark;
 
