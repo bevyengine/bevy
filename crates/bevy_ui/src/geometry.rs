@@ -783,7 +783,7 @@ impl Position {
         self.at(Val::Percent(x), Val::Percent(y))
     }
 
-    /// Creates a position from self with
+    /// Creates a position from self with the given `anchor` point
     pub const fn with_anchor(self, anchor: Vec2) -> Self {
         Self { anchor, ..self }
     }
