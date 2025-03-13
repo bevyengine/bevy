@@ -2,6 +2,8 @@
 //! To use in your own application:
 //! - Copy the code for the [`CameraControllerPlugin`] and add the plugin to your App.
 //! - Attach the [`CameraController`] component to an entity with a [`Camera3d`].
+//! 
+//! Unlike other examples, which demonstrate an application, this demonstrates a plugin library.
 
 use bevy::{
     input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseScrollUnit},
