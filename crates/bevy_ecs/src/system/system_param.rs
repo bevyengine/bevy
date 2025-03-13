@@ -1420,6 +1420,39 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     }
 }
 
+/// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
+pub struct NonSendMarker(PhantomData<*mut ()>);
+
+// SAFETY: Implementing SystemParam for a shell type that doesn't read or write any data. No
+// safety issue.
+unsafe impl SystemParam for NonSendMarker {
+    type State = PhantomData<ComponentId>;
+    type Item<'w, 's> = Self;
+
+    #[inline]
+    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        PhantomData
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
+        true
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        Self(PhantomData)
+    }
+}
+
 /// Shared borrow of a non-[`Send`] resource.
 ///
 /// Only `Send` resources may be accessed with the [`Res`] [`SystemParam`]. In case that the
