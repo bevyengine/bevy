@@ -245,7 +245,7 @@ impl BlobVec {
     /// Appends an element to the back of the vector.
     ///
     /// # Safety
-    /// The `value` must match the [`layout`](`BlobVec::layout`) of the elements in the [`BlobVec`].
+    /// The `value` must match the layout of the elements in the [`BlobVec`].
     #[inline]
     pub unsafe fn push(&mut self, value: OwningPtr<'_>) {
         self.reserve(1);
