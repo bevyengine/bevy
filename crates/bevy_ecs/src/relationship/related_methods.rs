@@ -67,27 +67,22 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Replaces all the related entities with a new set of entities.
     ///
-    /// This is a faster version of [`Self::replace_related`] which doesn't allocate.
-    /// The passed in arguments need to be:
+    /// This is a more efficient of [`Self::replace_related`] which doesn't allocate.
+    /// The passed in arguments must adhere to these invariants:
     /// - `entities_to_unrelate`: A slice of entities to remove from the relationship source.
-    ///   Entities need not be actually related to this entity, but must not be also contained in
-    ///   `entities_to_relate`
-    /// - `entities_to_relate`: A slice of entities to relate to this entity. Entities may already be related to
-    ///   this entity, but must not be contained in `entities_to_unrelate`. This must be a combination of every entity
-    ///   we're keeping related (entities not in `entities_to_unrelate`) and entity we're adding relations for (`newly_related_entities`).
-    /// - `newly_related_entities`: This must be the entities that will be related with this entity but aren't related yet.
-    ///   This slice must not contain any entities also contained in `entities_to_unrelate`, and
-    ///   the already related entities, but must be a subset of `entities_to_relate`.
-    ///
-    /// Additionally no slice may contain repeated entities.
+    ///   Entities need not be related to this entity, but must not appear in `entities_to_relate`
+    /// - `entities_to_relate`: A slice of entities to relate to this entity.
+    ///   This must contain all entities that will remain related (i.e. not those in `entities_to_unrelate`) plus the newly related entities.
+    /// - `newly_related_entities`: A subset of `entities_to_relate` containing only entities not already related to this entity.
+    /// - Slices **must not** contain any duplicates
     ///
     /// # Warning
     ///
-    /// Breaking any of the aforementioned invariants may cause delayed panics, crashes or unpredictable engine behavior.
+    /// Violating these invariants may lead to panics, crashes or unpredictable engine behavior.
     ///
     /// # Panics
     ///
-    /// Panics when debug assertions are enabled and any invariants are broken
+    /// Panics when debug assertions are enabled and any invariants are broken.
     ///
     // TODO: Consider making these iterators so users aren't required to allocate a separate buffers for the different slices.
     pub fn replace_related_with_difference<R: Relationship>(
@@ -298,12 +293,13 @@ impl<'a> EntityCommands<'a> {
     /// Replaces all the related entities with a new set of entities.
     ///
     /// # Warning
-    /// Not maintaining the function invariants may lead to erratic engine behavior including random crashes.
-    /// See [`EntityWorldMut::replace_related_with_difference`] for invariants.
+    /// 
+    /// Failing to maintain the functions invariants may lead to erratic engine behavior including random crashes.
+    /// Refer to [`EntityWorldMut::replace_related_with_difference`] for a list of these invariants.
     ///
     /// # Panics
     ///
-    /// In debug mode when function invariants are broken.
+    /// Panics when debug assertions are enable, an invariant is are broken and the command is executed.
     pub fn replace_related_with_difference<R: Relationship>(
         &mut self,
         entities_to_unrelate: &[Entity],

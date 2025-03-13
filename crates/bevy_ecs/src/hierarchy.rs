@@ -187,12 +187,13 @@ impl<'w> EntityWorldMut<'w> {
     /// Replaces all the related children with a new set of children.
     ///
     /// # Warning
-    /// Not maintaining the function invariants may lead to erratic engine behavior including random crashes.
-    /// See [`Self::replace_related_with_difference`] for invariants.
+    /// 
+    /// Failing to maintain the functions invariants may lead to erratic engine behavior including random crashes.
+    /// Refer to [`Self::replace_related_with_difference`] for a list of these invariants.
     ///
     /// # Panics
     ///
-    /// In debug mode when function invariants are broken.
+    /// Panics when debug assertions are enable, an invariant is are broken and the command is executed.
     pub fn replace_children_with_difference(
         &mut self,
         entities_to_unrelate: &[Entity],
@@ -263,14 +264,15 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Replaces all the related entities with a new set of entities.
-    ///
+    /// 
     /// # Warning
-    /// Not maintaining the function invariants may lead to erratic engine behavior including random crashes.
-    /// See [`EntityWorldMut::replace_related_with_difference`] for invariants.
+    /// 
+    /// Failing to maintain the functions invariants may lead to erratic engine behavior including random crashes.
+    /// Refer to [`EntityWorldMut::replace_related_with_difference`] for a list of these invariants.
     ///
     /// # Panics
     ///
-    /// In debug mode when function invariants are broken.
+    /// Panics when debug assertions are enable, an invariant is are broken and the command is executed.
     pub fn replace_children_with_difference<R: Relationship>(
         &mut self,
         entities_to_unrelate: &[Entity],
