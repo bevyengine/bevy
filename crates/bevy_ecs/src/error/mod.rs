@@ -5,10 +5,10 @@
 //! variant of the returned `Result`.
 //!
 //! All [`BevyError`]s returned by a system are handled by an "error handler". By default, the
-//! [`panic`] error handler function is used, resulting in a panic with the error message attached.
+//! [`panic`] error handler function is used for any unhandled results, resulting in a panic with the error message attached.
 //!
-//! You can change the default behavior by registering a custom error handler.
-//! Modify the [`DefaultSystemErrorHandler`] resource to change it for the entire [`World`].
+//! You can change the fallback behavior by registering a custom error handler,
+//! by modifying the [`FallbackErrorHandler`] resource.
 //!
 //! Bevy provides a number of pre-built error-handlers for you to use:
 //!
@@ -42,7 +42,7 @@
 //! # struct MySchedule;
 //! # fn main() {
 //! let mut world = World::new();
-//! world.insert_resource(DefaultSystemErrorHandler(|error, ctx| {
+//! world.insert_resource(FallbackErrorHandler(|error, ctx| {
 //!     if ctx.name.ends_with("update") {
 //!         trace!("Nothing to see here, move along.");
 //!         return;

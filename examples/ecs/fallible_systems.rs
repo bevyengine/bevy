@@ -1,7 +1,7 @@
 //! Showcases how fallible systems and observers can make use of Rust's powerful result handling
 //! syntax.
 
-use bevy::ecs::error::DefaultSystemErrorHandler;
+use bevy::ecs::error::FallbackErrorHandler;
 use bevy::ecs::world::DeferredWorld;
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
@@ -29,7 +29,7 @@ fn main() {
     // systems in a given `World`. Here we set the global error handler using one of the built-in
     // error handlers. Bevy provides built-in handlers for `panic`, `error`, `warn`, `info`,
     // `debug`, `trace` and `ignore`.
-    app.insert_resource(DefaultSystemErrorHandler(bevy::ecs::error::warn));
+    app.insert_resource(FallbackErrorHandler(bevy::ecs::error::warn));
 
     // Individual systems can also be handled by piping the output result:
     app.add_systems(

@@ -26,7 +26,7 @@ use tracing::info_span;
 
 use crate::{
     component::{ComponentId, Components, Tick},
-    error::DefaultSystemErrorHandler,
+    error::FallbackErrorHandler,
     prelude::Component,
     resource::Resource,
     schedule::*,
@@ -440,7 +440,7 @@ impl Schedule {
         self.initialize(world)
             .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
 
-        let error_handler = world.get_resource_or_init::<DefaultSystemErrorHandler>().0;
+        let error_handler = world.get_resource_or_init::<FallbackErrorHandler>().0;
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor

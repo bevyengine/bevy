@@ -11,11 +11,11 @@ pub struct SystemErrorContext {
 }
 
 /// The default systems error handler stored as a resource in the [`World`](crate::world::World).
-pub struct DefaultSystemErrorHandler(pub fn(BevyError, SystemErrorContext));
+pub struct FallbackErrorHandler(pub fn(BevyError, SystemErrorContext));
 
-impl Resource for DefaultSystemErrorHandler {}
+impl Resource for FallbackErrorHandler {}
 
-impl Default for DefaultSystemErrorHandler {
+impl Default for FallbackErrorHandler {
     fn default() -> Self {
         Self(panic)
     }
