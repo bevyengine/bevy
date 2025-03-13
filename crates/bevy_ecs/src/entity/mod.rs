@@ -995,7 +995,8 @@ impl Drop for EntityReservations {
 ///  - The alive/dead status of a particular entity. (i.e. "has entity 3 been despawned?")
 ///  - The location of the entity's components in memory (via [`EntityLocation`])
 ///
-/// Note that for specialized use, you may wish to use [`set_allocation_reservation_size`] to improve performance.
+/// Note that for specialized use, you may wish to use
+/// [`set_allocation_reservation_size`](Self::set_allocation_reservation_size) to improve performance.
 ///
 /// # Important
 ///
