@@ -43,7 +43,8 @@ impl ColorStop {
         }
     }
 
-    pub fn hint(mut self, hint: f32) -> Self {
+    // Set the interpolation midpoint between this and and the following stop
+    pub fn with_hint(mut self, hint: f32) -> Self {
         self.hint = hint;
         self
     }
@@ -128,7 +129,8 @@ impl AngularColorStop {
         }
     }
 
-    pub fn hint(mut self, hint: f32) -> Self {
+    // Set the interpolation midpoint between this and and the following stop
+    pub fn with_hint(mut self, hint: f32) -> Self {
         self.hint = hint;
         self
     }
