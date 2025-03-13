@@ -518,9 +518,17 @@ impl core::iter::FusedIterator for ReserveEntitiesIterator {}
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for ReserveEntitiesIterator {}
 
-/// This allows remote entity reservation.
+/// This allows remote entity reservation via [`EntityReservations`] by keeping an underlying [`Arc`].
+/// This can be retrieved via [`Entities::new_remote`].
 ///
-/// See [`EntityReservations`] for details.
+/// This is useful if you want to reserve entities from async contexts or without going through [`World`](crate::world::World)
+/// or [`Entities`]. This is no slower than reserving through [`Entities`],
+/// so for some uses, it may even be worth caching this.
+///
+/// When using this, keep in mind that [`Entity`]s reserved during [`Entities::clear`] will also be invalid.
+/// This *may* be done from other threads, so watch out!
+///
+/// Note also that remotely reserving an entity may make it unavailable for [`Entities::alloc_at`].
 #[derive(Clone)]
 pub struct RemoteEntities(Arc<EntityReservations>);
 
@@ -534,6 +542,29 @@ impl core::ops::Deref for RemoteEntities {
 }
 
 /// This allows entity reservation.
+/// See [`reserve_entity`](Self::reserve_entity) and [`reserve_entities`](Self::reserve_entities).
+///
+/// This powers both [`Entities`] and [`RemoteEntities`].
+///
+/// **Note:** The reserved [`Entity`]s will not be valid until [`Entities::flush`] is called,
+/// usually tbrough [`World::flush`](crate::world::World). Until then, the entity is *only* reserved.
+/// It does not actually exist yet.
+///
+/// # Example
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::entity::EntityReservations;
+/// use std::ops::Deref;
+///
+/// // reserve
+/// let mut world = World::new();
+/// let entities: &EntityReservations = world.entities().deref();
+/// let now_reserved = entities.reserve_entity();
+///
+/// // flush
+/// world.flush();
+/// ```
 pub struct EntityReservations {
     /// This represents a [`Vec`] of [`Entity`].
     ///
@@ -1006,7 +1037,7 @@ impl Entities {
     ///
     /// This does not have any additional cost over reserving directly on this instance.
     #[inline]
-    pub fn make_remote(&self) -> RemoteEntities {
+    pub fn new_remote(&self) -> RemoteEntities {
         RemoteEntities(self.reservations.clone())
     }
 
