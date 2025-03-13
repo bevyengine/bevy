@@ -10,7 +10,14 @@ pub struct SystemErrorContext {
     pub last_run: Tick,
 }
 
-/// The default systems error handler stored as a resource in the [`World`](crate::world::World).
+/// The error handler of last resort used for [`bevy_ecs::error::Result`]s returned by systems, commands and observers,
+/// when an error is not otherwise handled.
+///
+/// This is stored as a resource in the [`World`](crate::world::World),
+/// and defaults to panicking if not set.
+///
+/// See [`bevy_ecs::error`] for more information on error handling,
+/// and [`bevy_ecs::error::handler`] for an assortment of built-in error handlers.
 pub struct FallbackErrorHandler(pub fn(BevyError, SystemErrorContext));
 
 impl Resource for FallbackErrorHandler {}
