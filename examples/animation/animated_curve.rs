@@ -42,7 +42,7 @@ impl Default for AnimationControl {
 #[derive(Component)]
 struct MyAnimationCurve {
     active: ActiveAnimation,
-    // actually,I don't want use dyn
+    // Mathematical operations
     curve: FunctionCurve<Vec<f32>, Box<(dyn Fn(f32) -> Vec<f32> + 'static + Send + Sync)>>,
 }
 
