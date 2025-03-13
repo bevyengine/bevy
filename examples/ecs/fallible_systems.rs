@@ -31,19 +31,6 @@ fn main() {
     // `debug`, `trace` and `ignore`.
     app.insert_resource(DefaultSystemErrorHandler(bevy::ecs::error::warn));
 
-    // Additionally, you can set a custom error handler per `Schedule`. This will take precedence
-    // over the global error handler.
-    //
-    // In this instance we provide our own non-capturing closure that coerces to the expected error
-    // handler function pointer:
-    //
-    //     fn(bevy_ecs::error::BevyError, bevy_ecs::error::SystemErrorContext)
-    //
-    app.add_systems(PostStartup, failing_system)
-        .get_schedule_mut(PostStartup)
-        .unwrap()
-        .set_error_handler(|err, ctx| error!("{} failed: {err}", ctx.name));
-
     // Individual systems can also be handled by piping the output result:
     app.add_systems(
         PostStartup,
