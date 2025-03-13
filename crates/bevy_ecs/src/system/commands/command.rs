@@ -75,7 +75,7 @@ pub trait HandleError<Out = ()> {
     where
         Self: Sized,
     {
-        self.handle_error_with(error_handler::default())
+        self.handle_error_with(error_handler::default_error_handler())
     }
 }
 

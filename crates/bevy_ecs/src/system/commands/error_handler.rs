@@ -41,6 +41,6 @@ pub static GLOBAL_ERROR_HANDLER: std::sync::OnceLock<fn(&mut World, BevyError)> 
 /// The default error handler. This defaults to [`panic()`],
 /// but if set, the [`GLOBAL_ERROR_HANDLER`] will be used instead, enabling error handler customization.
 #[inline]
-pub fn default() -> fn(&mut World, BevyError) {
+pub fn default_error_handler() -> fn(&mut World, BevyError) {
     *GLOBAL_ERROR_HANDLER.get_or_init(|| panic())
 }
