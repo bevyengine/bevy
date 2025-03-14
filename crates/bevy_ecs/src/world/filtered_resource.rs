@@ -158,14 +158,14 @@ impl<'w, 's> FilteredResources<'w, 's> {
             .world
             .components()
             .resource_id::<R>()
-            .ok_or(ResourceFetchError::MissingResource)?;
+            .ok_or(ResourceFetchError::NotRegistered)?;
         if !self.access.has_resource_read(component_id) {
             return Err(ResourceFetchError::NoResourceAccess(component_id));
         }
 
         // SAFETY: We have read access to this resource
         let (value, ticks, caller) = unsafe { self.world.get_resource_with_ticks(component_id) }
-            .ok_or(ResourceFetchError::NotInitialized(component_id))?;
+            .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
 
         Ok(Ref {
             // SAFETY: `component_id` was obtained from the type ID of `R`.
@@ -184,7 +184,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
         }
         // SAFETY: We have read access to this resource
         unsafe { self.world.get_resource_by_id(component_id) }
-            .ok_or(ResourceFetchError::NotInitialized(component_id))
+            .ok_or(ResourceFetchError::DoesNotExist(component_id))
     }
 }
 
@@ -475,7 +475,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
             .world
             .components()
             .resource_id::<R>()
-            .ok_or(ResourceFetchError::MissingResource)?;
+            .ok_or(ResourceFetchError::NotRegistered)?;
         // SAFETY: THe caller ensures that there are no conflicting borrows.
         unsafe { self.get_mut_by_id_unchecked(component_id) }
             // SAFETY: The underlying type of the resource is `R`.
@@ -495,7 +495,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
 
         // SAFETY: We have read access to this resource
         let (value, ticks, caller) = unsafe { self.world.get_resource_with_ticks(component_id) }
-            .ok_or(ResourceFetchError::NotInitialized(component_id))?;
+            .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
 
         Ok(MutUntyped {
             // SAFETY: We have exclusive access to the underlying storage.
