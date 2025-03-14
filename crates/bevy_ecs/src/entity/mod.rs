@@ -666,6 +666,26 @@ impl EntityReservations {
     ///
     /// `func` must also not free the vec. In other words, it's capacity must be > 0 when it finishes.
     ///
+    /// The layout of the reserved `Vec<Entity>` is as such:
+    ///
+    /// ```txt
+    /// -----------------------------------------------------------------------------------------------
+    /// |    pending entities    |   was pending, now reserved    | spare capacity                    |
+    /// -----------------------------------------------------------------------------------------------
+    /// |                      |                                  |                                   |
+    /// ptr (Self::pending)    (Self::next_pending_index_truth)   vec's length (Self::pending_len)    capacity (Self::pending_capacity)
+    /// ```
+    ///
+    /// If the provided bool is true, something is accessing some part of the "pending entities" slice,
+    /// so "ptr" and `next_pending_index_truth` must not change.
+    /// Effectively, that means `func` should only change the vec's length and access the "was pending, now reserved" slice.
+    /// For example, `func` could drain the vector up to the passed `next_pending_index_truth`.
+    ///
+    /// However, if the passed bool is false, `func` has complete access. That means it can do anything it wants to,
+    /// assomung the fields of the vec remain valid.
+    /// For example, `func` could resize the vec and move elements of the "pending entities" slice.
+    /// However, `func` could not set the capacity to 0 (since that *could* result in an invalid "ptr").
+    ///
     /// This must not be called concurrently. This is the *only* place we provide raw access to the vec,
     /// even if it is being accessed.
     /// If two threads did this at the same time, we might create the vec to modify
@@ -774,6 +794,7 @@ impl EntityReservations {
         self.pending_scope_mut(|pending, next_pending_index, in_use_elsewhere| {
             // flush
             let new_pending_len = (next_pending_index + 1).max(0) as usize;
+            // SAFETY: This affects the slice [new_pending_len..] and the vec's length, but nothing else.
             for reused in pending.drain(new_pending_len..) {
                 // SAFETY: The pending list is known to be valid.
                 let meta = unsafe { meta.get_unchecked_mut(reused.index() as usize) };
