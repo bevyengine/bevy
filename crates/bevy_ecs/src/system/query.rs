@@ -1351,8 +1351,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// struct A(usize);
     ///
     /// let mut world = World::new();
-    /// let entity_set: UniqueEntityVec<Entity> = world.spawn_batch((0..3).map(A)).collect_set();
-    /// let entity_set: UniqueEntityArray<Entity, 3> = entity_set.try_into().unwrap();
+    /// let entity_set: UniqueEntityVec<_> = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_set: UniqueEntityArray<_, 3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
     ///
@@ -1630,8 +1630,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// let mut world = World::new();
     ///
-    /// let entity_set: UniqueEntityVec<Entity> = world.spawn_batch((0..3).map(A)).collect_set();
-    /// let entity_set: UniqueEntityArray<Entity, 3> = entity_set.try_into().unwrap();
+    /// let entity_set: UniqueEntityVec<_> = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_set: UniqueEntityArray<_, 3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
     /// let wrong_entity = Entity::from_raw(57);

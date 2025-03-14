@@ -1011,8 +1011,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// struct A(usize);
     ///
     /// let mut world = World::new();
-    /// let entity_set: UniqueEntityVec = world.spawn_batch((0..3).map(A)).collect_set();
-    /// let entity_sets: UniqueEntityArray<Entity, 3> = entity_set.try_into().unwrap();
+    /// let entity_set: UniqueEntityVec<_> = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_set: UniqueEntityArray<_, 3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
     ///
@@ -1107,8 +1107,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let mut world = World::new();
     ///
-    /// let entity_set: UniqueEntityVec = world.spawn_batch((0..3).map(A)).collect_set();
-    /// let entity_set: UniqueEntityArray<Entity, 3> = entity_set.try_into().unwrap();
+    /// let entity_set: UniqueEntityVec<_> = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_set: UniqueEntityArray<_, 3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
     ///
