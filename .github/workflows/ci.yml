@@ -234,7 +234,7 @@ jobs:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
       - name: Run Markdown Lint
-        uses: docker://ghcr.io/github/super-linter:slim-v4
+        uses: super-linter/super-linter/slim@v7.3.0
         env:
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
