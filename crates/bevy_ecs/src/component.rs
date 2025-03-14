@@ -3025,7 +3025,11 @@ pub fn component_clone_via_reflect(
                 world
                     .entity_mut(target)
                     .insert_by_id(component_id, OwningPtr::new(raw_component_ptr));
-                alloc::alloc::dealloc(raw_component_ptr.as_ptr(), component_layout);
+
+                if component_layout.size() > 0 {
+                    // Ensure we don't attempt to deallocate zero-sized components
+                    alloc::alloc::dealloc(raw_component_ptr.as_ptr(), component_layout);
+                }
             }
         });
     }

@@ -256,7 +256,11 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             );
             self.bundle_scratch
                 .push_ptr(self.component_id, PtrMut::new(target_component_data_ptr));
-            alloc::alloc::dealloc(component_data_ptr, component_layout);
+
+            if component_layout.size() > 0 {
+                // Ensure we don't attempt to deallocate zero-sized components
+                alloc::alloc::dealloc(component_data_ptr, component_layout);
+            }
         }
 
         self.target_component_written = true;
