@@ -2847,3 +2847,28 @@ mod tests {
     #[derive(Component, VisitEntities, VisitEntitiesMut)]
     struct MyEntitiesTuple(Vec<Entity>, Entity, #[visit_entities(ignore)] usize);
 }
+
+mod temp {
+    use crate::*;
+    use component::Component;
+
+    #[derive(Component)]
+    enum MyEnum {
+        Unit,
+        Tuple(u16),
+        Struct { a: u8, b: u8 },
+    }
+
+    // #[derive(Component)]
+    // #[require(MyEnum::Unit)]
+    // pub struct StructWithUnit;
+
+    // #[derive(Component)]
+    // #[require(MyEnum::Tuple(2))]
+    // pub struct StructWithTuple;
+
+    #[derive(Component)]
+    // #[require(MyEnum::Struct { a: 1, b: 2})]
+    #[require(MyEnum = Unit)]
+    pub struct StructWithStruct;
+}

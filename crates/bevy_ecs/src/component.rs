@@ -180,10 +180,33 @@ use thiserror::Error;
 /// }
 ///
 /// # let mut world = World::default();
+/// // This will implicitly also insert C with the init_c() constructor
+/// let id = world.spawn(A).id();
+/// assert_eq!(&C(10), world.entity(id).get::<C>().unwrap());
+///
 /// // This will implicitly also insert C with the `|| C(20)` constructor closure
 /// let id = world.spawn(B).id();
 /// assert_eq!(&C(20), world.entity(id).get::<C>().unwrap());
+///
+/// let id = world.
 /// ```
+///
+/// for convenience sake, you can abbreviate enums
+/// ```
+/// #[derive(Component)]
+/// #[require(B = One)]
+/// struct A;
+///
+/// #[derive(Component)]
+/// enum B {
+///    One,
+///    Two
+/// }
+///
+/// # let mut world = World::default();
+/// let id = world.spawn(A).id();
+/// assert_eq!(&B::One, world.entity(id).get::<B>().unwrap());
+/// ````
 ///
 /// Required components are _recursive_. This means, if a Required Component has required components,
 /// those components will _also_ be inserted if they are missing:
