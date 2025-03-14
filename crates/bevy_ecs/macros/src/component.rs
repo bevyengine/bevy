@@ -222,16 +222,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                         );
                     });
                 }
-                Some(RequireFunc::Enum(label)) => {
-                    register_required.push(quote! {
-                        components.register_required_components_manual::<Self, #ident>(
-                            required_components,
-                            || #ident::#label,
-                            inheritance_depth,
-                            recursion_check_stack
-                        );
-                    });
-                }
                 None => {
                     register_required.push(quote! {
                         components.register_required_components_manual::<Self, #ident>(
@@ -515,7 +505,6 @@ struct Require {
 enum RequireFunc {
     Path(Path),
     Closure(ExprClosure),
-    Enum(Ident),
 }
 
 struct Relationship {
@@ -623,9 +612,11 @@ impl Parse for Require {
                 Some(RequireFunc::Path(func))
             }
         } else if input.peek(Token![=]) {
-            let _t: Token![=] = input.parse()?;
-            let label = input.parse::<Ident>()?;
-            Some(RequireFunc::Enum(label))
+            let _t: syn::Token![=] = input.parse()?;
+            let label: Ident = input.parse()?;
+            let tokens: TokenStream = quote::quote! (|| #path::#label).into();
+            let func = syn::parse(tokens).unwrap();
+            Some(RequireFunc::Closure(func))
         } else {
             None
         };
