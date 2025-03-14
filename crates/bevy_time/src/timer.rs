@@ -57,7 +57,7 @@ impl Timer {
     /// # Examples
     /// ```
     /// # use bevy_time::*;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     ///
     /// let mut timer_once = Timer::from_seconds(1.0, TimerMode::Once);
     /// timer_once.tick(Duration::from_secs_f32(1.5));
@@ -83,7 +83,7 @@ impl Timer {
     /// # Examples
     /// ```
     /// # use bevy_time::*;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     /// let mut timer = Timer::from_seconds(1.0, TimerMode::Once);
     /// timer.tick(Duration::from_secs_f32(1.5));
     /// assert!(timer.just_finished());
@@ -103,7 +103,7 @@ impl Timer {
     /// # Examples
     /// ```
     /// # use bevy_time::*;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     /// let mut timer = Timer::from_seconds(1.0, TimerMode::Once);
     /// timer.tick(Duration::from_secs_f32(0.5));
     /// assert_eq!(timer.elapsed(), Duration::from_secs_f32(0.5));
@@ -134,7 +134,7 @@ impl Timer {
     /// #
     /// ```
     /// # use bevy_time::*;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     /// let mut timer = Timer::from_seconds(1.0, TimerMode::Once);
     /// timer.set_elapsed(Duration::from_secs(2));
     /// assert_eq!(timer.elapsed(), Duration::from_secs(2));
@@ -151,7 +151,7 @@ impl Timer {
     /// # Examples
     /// ```
     /// # use bevy_time::*;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     /// let timer = Timer::new(Duration::from_secs(1), TimerMode::Once);
     /// assert_eq!(timer.duration(), Duration::from_secs(1));
     /// ```
@@ -165,7 +165,7 @@ impl Timer {
     /// # Examples
     /// ```
     /// # use bevy_time::*;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     /// let mut timer = Timer::from_seconds(1.5, TimerMode::Once);
     /// timer.set_duration(Duration::from_secs(1));
     /// assert_eq!(timer.duration(), Duration::from_secs(1));
@@ -217,7 +217,7 @@ impl Timer {
     /// # Examples
     /// ```
     /// # use bevy_time::*;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     /// let mut timer = Timer::from_seconds(1.0, TimerMode::Once);
     /// let mut repeating = Timer::from_seconds(1.0, TimerMode::Repeating);
     /// timer.tick(Duration::from_secs_f32(1.5));
@@ -273,7 +273,7 @@ impl Timer {
     /// # Examples
     /// ```
     /// # use bevy_time::*;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     /// let mut timer = Timer::from_seconds(1.0, TimerMode::Once);
     /// timer.pause();
     /// timer.tick(Duration::from_secs_f32(0.5));
@@ -291,7 +291,7 @@ impl Timer {
     /// # Examples
     /// ```
     /// # use bevy_time::*;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     /// let mut timer = Timer::from_seconds(1.0, TimerMode::Once);
     /// timer.pause();
     /// timer.tick(Duration::from_secs_f32(0.5));
@@ -330,7 +330,7 @@ impl Timer {
     /// Examples
     /// ```
     /// # use bevy_time::*;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     /// let mut timer = Timer::from_seconds(1.0, TimerMode::Once);
     /// timer.tick(Duration::from_secs_f32(1.5));
     /// timer.reset();
@@ -349,7 +349,7 @@ impl Timer {
     /// # Examples
     /// ```
     /// # use bevy_time::*;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     /// let mut timer = Timer::from_seconds(2.0, TimerMode::Once);
     /// timer.tick(Duration::from_secs_f32(0.5));
     /// assert_eq!(timer.fraction(), 0.25);
@@ -368,7 +368,7 @@ impl Timer {
     /// # Examples
     /// ```
     /// # use bevy_time::*;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     /// let mut timer = Timer::from_seconds(2.0, TimerMode::Once);
     /// timer.tick(Duration::from_secs_f32(0.5));
     /// assert_eq!(timer.fraction_remaining(), 0.75);
@@ -384,7 +384,7 @@ impl Timer {
     /// ```
     /// # use bevy_time::*;
     /// use std::cmp::Ordering;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     /// let mut timer = Timer::from_seconds(2.0, TimerMode::Once);
     /// timer.tick(Duration::from_secs_f32(0.5));
     /// let result = timer.remaining_secs().total_cmp(&1.5);
@@ -400,7 +400,7 @@ impl Timer {
     /// # Examples
     /// ```
     /// # use bevy_time::*;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     /// let mut timer = Timer::from_seconds(2.0, TimerMode::Once);
     /// timer.tick(Duration::from_secs_f32(0.5));
     /// assert_eq!(timer.remaining(), Duration::from_secs_f32(1.5));
@@ -419,7 +419,7 @@ impl Timer {
     /// # Examples
     /// ```
     /// # use bevy_time::*;
-    /// use std::time::Duration;
+    /// use core::time::Duration;
     /// let mut timer = Timer::from_seconds(1.0, TimerMode::Repeating);
     /// timer.tick(Duration::from_secs_f32(6.0));
     /// assert_eq!(timer.times_finished_this_tick(), 6);

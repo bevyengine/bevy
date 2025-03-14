@@ -1,5 +1,5 @@
 use core::hint::black_box;
-use std::time::Duration;
+use core::time::Duration;
 
 use benches::bench;
 use bevy_math::{Dir3, Mat4, Ray3d, Vec3};

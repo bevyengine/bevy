@@ -1,6 +1,6 @@
 //! Shows how to disable/re-enable a Diagnostic during runtime
 
-use std::time::Duration;
+use core::time::Duration;
 
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
