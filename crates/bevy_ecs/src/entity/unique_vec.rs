@@ -20,9 +20,7 @@ use alloc::{
 use bevy_platform_support::sync::Arc;
 
 use super::{
-    unique_array::UniqueEntityArray,
-    unique_slice::{self, UniqueEntitySlice},
-    EntitySet, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityIter,
+    unique_array::UniqueEntityArray, unique_slice::{self, UniqueEntitySlice}, Entity, EntitySet, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityIter
 };
 
 /// A `Vec` that contains only unique entities.
@@ -36,7 +34,7 @@ use super::{
 /// While this type can be constructed via `Iterator::collect`, doing so is inefficient,
 /// and not recommended.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct UniqueEntityVec<T: TrustedEntityBorrow>(Vec<T>);
+pub struct UniqueEntityVec<T: TrustedEntityBorrow = Entity>(Vec<T>);
 
 impl<T: TrustedEntityBorrow> UniqueEntityVec<T> {
     /// Constructs a new, empty `UniqueEntityVec<T>`.
@@ -555,9 +553,9 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U, const N: usize> PartialEq<&[U; N]
 }
 
 impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usize>
-    PartialEq<&UniqueEntityArray<U, N>> for UniqueEntityVec<T>
+    PartialEq<&UniqueEntityArray<N, U>> for UniqueEntityVec<T>
 {
-    fn eq(&self, other: &&UniqueEntityArray<U, N>) -> bool {
+    fn eq(&self, other: &&UniqueEntityArray<N, U>) -> bool {
         self.0.eq(&other.as_inner())
     }
 }
@@ -571,9 +569,9 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U, const N: usize> PartialEq<&mut [U
 }
 
 impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usize>
-    PartialEq<&mut UniqueEntityArray<U, N>> for UniqueEntityVec<T>
+    PartialEq<&mut UniqueEntityArray<N, U>> for UniqueEntityVec<T>
 {
-    fn eq(&self, other: &&mut UniqueEntityArray<U, N>) -> bool {
+    fn eq(&self, other: &&mut UniqueEntityArray<N, U>) -> bool {
         self.0.eq(other.as_inner())
     }
 }
@@ -601,9 +599,9 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U, const N: usize> PartialEq<[U; N]>
 }
 
 impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usize>
-    PartialEq<UniqueEntityArray<U, N>> for UniqueEntityVec<T>
+    PartialEq<UniqueEntityArray<N, U>> for UniqueEntityVec<T>
 {
-    fn eq(&self, other: &UniqueEntityArray<U, N>) -> bool {
+    fn eq(&self, other: &UniqueEntityArray<N, U>) -> bool {
         self.0.eq(other.as_inner())
     }
 }
@@ -711,24 +709,24 @@ impl<T: TrustedEntityBorrow> From<[T; 0]> for UniqueEntityVec<T> {
     }
 }
 
-impl<T: TrustedEntityBorrow + Clone, const N: usize> From<&UniqueEntityArray<T, N>>
+impl<T: TrustedEntityBorrow + Clone, const N: usize> From<&UniqueEntityArray<N, T>>
     for UniqueEntityVec<T>
 {
-    fn from(value: &UniqueEntityArray<T, N>) -> Self {
+    fn from(value: &UniqueEntityArray<N, T>) -> Self {
         Self(Vec::from(value.as_inner().clone()))
     }
 }
 
-impl<T: TrustedEntityBorrow + Clone, const N: usize> From<&mut UniqueEntityArray<T, N>>
+impl<T: TrustedEntityBorrow + Clone, const N: usize> From<&mut UniqueEntityArray<N, T>>
     for UniqueEntityVec<T>
 {
-    fn from(value: &mut UniqueEntityArray<T, N>) -> Self {
+    fn from(value: &mut UniqueEntityArray<N, T>) -> Self {
         Self(Vec::from(value.as_inner().clone()))
     }
 }
 
-impl<T: TrustedEntityBorrow, const N: usize> From<UniqueEntityArray<T, N>> for UniqueEntityVec<T> {
-    fn from(value: UniqueEntityArray<T, N>) -> Self {
+impl<T: TrustedEntityBorrow, const N: usize> From<UniqueEntityArray<N, T>> for UniqueEntityVec<T> {
+    fn from(value: UniqueEntityArray<N, T>) -> Self {
         Self(Vec::from(value.into_inner()))
     }
 }
@@ -806,7 +804,7 @@ impl<T: TrustedEntityBorrow, const N: usize> TryFrom<UniqueEntityVec<T>> for Box
 }
 
 impl<T: TrustedEntityBorrow, const N: usize> TryFrom<UniqueEntityVec<T>>
-    for Box<UniqueEntityArray<T, N>>
+    for Box<UniqueEntityArray<N, T>>
 {
     type Error = UniqueEntityVec<T>;
 
@@ -828,7 +826,7 @@ impl<T: TrustedEntityBorrow, const N: usize> TryFrom<UniqueEntityVec<T>> for [T;
 }
 
 impl<T: TrustedEntityBorrow, const N: usize> TryFrom<UniqueEntityVec<T>>
-    for UniqueEntityArray<T, N>
+    for UniqueEntityArray<N, T>
 {
     type Error = UniqueEntityVec<T>;
 
