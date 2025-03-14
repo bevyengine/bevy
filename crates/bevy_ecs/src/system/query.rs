@@ -1332,8 +1332,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &self,
         entities: [Entity; N],
     ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
-        // Note that this calls `get_many_readonly` instead of `get_many_inner`
-        // since we don't need to check for duplicates.
+        // Note that we call a separate `*_inner` method from `get_many_mut`
+        // because we don't need to check for duplicates.
         self.as_readonly().get_many_inner(entities)
     }
 
@@ -1351,15 +1351,15 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// struct A(usize);
     ///
     /// let mut world = World::new();
-    /// let entity_vec: UniqueEntityVec<Entity> = world.spawn_batch((0..3).map(A)).collect_set();
-    /// let entities: UniqueEntityArray<Entity, 3> = entity_vec.try_into().unwrap();
+    /// let entity_set: UniqueEntityVec<Entity> = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_set: UniqueEntityArray<Entity, 3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
     ///
     /// let mut query_state = world.query::<&A>();
     /// let query = query_state.query(&world);
     ///
-    /// let component_values = query.get_many_unique(entities).unwrap();
+    /// let component_values = query.get_many_unique(entity_set).unwrap();
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
@@ -1383,8 +1383,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &self,
         entities: UniqueEntityArray<Entity, N>,
     ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
-        // Note that this calls `get_many_readonly` instead of `get_many_inner`
-        // since we don't need to check for duplicates.
         self.as_readonly().get_many_unique_inner(entities)
     }
 
@@ -1632,8 +1630,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// let mut world = World::new();
     ///
-    /// let entities: UniqueEntityVec<Entity> = world.spawn_batch((0..3).map(A)).collect_set();
-    /// let entities: UniqueEntityArray<Entity, 3> = entities.try_into().unwrap();
+    /// let entity_set: UniqueEntityVec<Entity> = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_set: UniqueEntityArray<Entity, 3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
     /// let wrong_entity = Entity::from_raw(57);
@@ -1643,13 +1641,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// let mut query_state = world.query::<&mut A>();
     /// let mut query = query_state.query_mut(&mut world);
     ///
-    /// let mut mutable_component_values = query.get_many_unique_mut(entities).unwrap();
+    /// let mut mutable_component_values = query.get_many_unique_mut(entity_set).unwrap();
     ///
     /// for mut a in &mut mutable_component_values {
     ///     a.0 += 5;
     /// }
     ///
-    /// let component_values = query.get_many_unique(entities).unwrap();
+    /// let component_values = query.get_many_unique(entity_set).unwrap();
     ///
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
@@ -2657,19 +2655,19 @@ mod tests {
 
         let mut query_state = world.query::<Entity>();
 
-        // It's best to test get_many_inner directly, as it is shared
+        // It's best to test get_many_mut_inner directly, as it is shared
         // We don't care about aliased mutability for the read-only equivalent
 
         // SAFETY: Query does not access world data.
         assert!(query_state
             .query_mut(&mut world)
-            .get_many_inner::<10>(entities.clone().try_into().unwrap())
+            .get_many_mut_inner::<10>(entities.clone().try_into().unwrap())
             .is_ok());
 
         assert_eq!(
             query_state
                 .query_mut(&mut world)
-                .get_many_inner([entities[0], entities[0]])
+                .get_many_mut_inner([entities[0], entities[0]])
                 .unwrap_err(),
             QueryEntityError::AliasedMutability(entities[0])
         );
@@ -2677,7 +2675,7 @@ mod tests {
         assert_eq!(
             query_state
                 .query_mut(&mut world)
-                .get_many_inner([entities[0], entities[1], entities[0]])
+                .get_many_mut_inner([entities[0], entities[1], entities[0]])
                 .unwrap_err(),
             QueryEntityError::AliasedMutability(entities[0])
         );
@@ -2685,7 +2683,7 @@ mod tests {
         assert_eq!(
             query_state
                 .query_mut(&mut world)
-                .get_many_inner([entities[9], entities[9]])
+                .get_many_mut_inner([entities[9], entities[9]])
                 .unwrap_err(),
             QueryEntityError::AliasedMutability(entities[9])
         );

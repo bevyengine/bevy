@@ -1011,14 +1011,14 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// struct A(usize);
     ///
     /// let mut world = World::new();
-    /// let entity_vec: UniqueEntityVec<Entity> = world.spawn_batch((0..3).map(A)).collect_set();
-    /// let entities: UniqueEntityArray<Entity, 3> = entity_vec.try_into().unwrap();
+    /// let entity_set: UniqueEntityVec = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_sets: UniqueEntityArray<Entity, 3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
     ///
     /// let mut query_state = world.query::<&A>();
     ///
-    /// let component_values = query_state.get_many_unique(&world, entities).unwrap();
+    /// let component_values = query_state.get_many_unique(&world, entity_set).unwrap();
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
@@ -1107,20 +1107,20 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let mut world = World::new();
     ///
-    /// let entities: UniqueEntityVec<Entity> = world.spawn_batch((0..3).map(A)).collect_set();
-    /// let entities: UniqueEntityArray<Entity, 3> = entities.try_into().unwrap();
+    /// let entity_set: UniqueEntityVec = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_set: UniqueEntityArray<Entity, 3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
     ///
     /// let mut query_state = world.query::<&mut A>();
     ///
-    /// let mut mutable_component_values = query_state.get_many_unique_mut(&mut world, entities).unwrap();
+    /// let mut mutable_component_values = query_state.get_many_unique_mut(&mut world, entity_set).unwrap();
     ///
     /// for mut a in &mut mutable_component_values {
     ///     a.0 += 5;
     /// }
     ///
-    /// let component_values = query_state.get_many_unique(&world, entities).unwrap();
+    /// let component_values = query_state.get_many_unique(&world, entity_set).unwrap();
     ///
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
