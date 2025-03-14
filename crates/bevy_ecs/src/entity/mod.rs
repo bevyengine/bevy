@@ -680,11 +680,13 @@ impl EntityReservations {
     /// so "ptr" and `next_pending_index_truth` must not change.
     /// Effectively, that means `func` should only change the vec's length and access the "was pending, now reserved" slice.
     /// For example, `func` could drain the vector up to the passed `next_pending_index_truth`.
+    /// When finished, the "pending entities" slice must be unchanged (at leas, unchanged by `func`).
     ///
     /// However, if the passed bool is false, `func` has complete access. That means it can do anything it wants to,
     /// assomung the fields of the vec remain valid.
     /// For example, `func` could resize the vec and move elements of the "pending entities" slice.
     /// However, `func` could not set the capacity to 0 (since that *could* result in an invalid "ptr").
+    /// When finished, the "was pending, now reserved" slice must be empty.
     ///
     /// This must not be called concurrently. This is the *only* place we provide raw access to the vec,
     /// even if it is being accessed.
