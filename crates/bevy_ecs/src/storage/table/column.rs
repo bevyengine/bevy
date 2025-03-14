@@ -3,7 +3,7 @@ use crate::{
     change_detection::MaybeLocation,
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
 };
-use core::panic::Location;
+use core::{fmt, panic::Location};
 
 /// Dense ECS component storage.
 ///
@@ -20,6 +20,13 @@ pub struct ThinColumn {
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
+}
+
+impl fmt::Debug for ThinColumn {
+    // Required method
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ThinColumn").finish()
+    }
 }
 
 impl ThinColumn {
