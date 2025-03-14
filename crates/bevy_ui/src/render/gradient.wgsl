@@ -152,13 +152,25 @@ fn interpolate_gradient(
     hint: f32,
     flags: u32,
 ) -> vec4<f32> {
+    if start_distance == end_distance {
+        if distance <= start_distance && enabled(flags, FILL_START) {
+            return start_color;
+        }
+        if start_distance <= distance && enabled(flags, FILL_END) {
+            return end_color;
+        }
+        return vec4(0.);
+    }
+
     var t = (distance - start_distance) / (end_distance - start_distance);
+
     if t < 0.0 {
         if enabled(flags, FILL_START) {
             return start_color;
         }
         return vec4(0.0);
     }
+
     if 1. < t {
         if enabled(flags, FILL_END) {
             return end_color;
