@@ -1,43 +1,44 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, parse_quote, Data, DeriveInput, Fields, Path, Type};
+use syn::{parse_macro_input, Data, DeriveInput, Fields};
 
 pub(super) fn derive_map_entities(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident.clone();
 
-    let ty = &input.ident;
-    let component_trait: Path = parse_quote!(::bevy_ecs::component::Component);
-
-    todo!()
+    match input.data {
+        Data::Struct(data_struct) => map_struct(name, &data_struct.fields),
+        _ => unimplemented!(),
+    }
+    .into()
 }
 
-// Function to generate code to map fields for a struct
-fn map_struct_fields(fields: &Fields) -> proc_macro2::TokenStream {
+fn map_struct(name: syn::Ident, fields: &Fields) -> proc_macro2::TokenStream {
     let mut map_entities = vec![];
 
     for (i, field) in fields.iter().enumerate() {
-        // let map_field = if is_primitive(&field.ty) {
-        //     quote! {}
-        // } else if let Some(field_name) = &field.ident {
-        //     // Named field (struct)
-        //     quote! {
-        //         self.#field_name.auto_map_entities(entity_mapper);
-        //     }
-        // } else {
-        //     // Unnamed field (tuple-like struct or enum variant)
-        //     let idx = syn::Index::from(i);
-        //     quote! {
-        //         self.#idx.auto_map_entities(entity_mapper);
-        //     }
-        // };
+        let ty = &field.ty;
+        let map_field = if let Some(field_name) = &field.ident {
+            // Named field (struct)
+            quote! {
+                <#ty as bevy_ecs::entity::MapEntities>::map_entities(&mut self.#field_name, entity_mapper);
+            }
+        } else {
+            // Unnamed field (tuple-like struct)
+            let idx = syn::Index::from(i);
+            quote! {
+                <#ty as bevy_ecs::entity::MapEntities>::map_entities(&mut self.#idx, entity_mapper);
+            }
+        };
 
-        // map_entities.push(map_field);
-        println!("field: {field:#?}");
+        map_entities.push(map_field);
     }
-    todo!()
 
-    // quote! {
-    //     #(#map_entities)*
-    // }
+    quote! {
+     impl MapEntities for #name {
+            fn map_entities<M: bevy_ecs::entity::EntityMapper>(&mut self, entity_mapper: &mut M) {
+                #(#map_entities)*
+            }
+        }
+    }
 }

@@ -2849,10 +2849,35 @@ mod tests {
 }
 
 mod temp {
-    use crate::prelude::*;
     use crate::entity::MapEntities;
+    use crate::prelude::*;
+
+    #[derive(Component)]
+    struct A;
+    #[derive(Component)]
+    struct B;
 
     #[derive(MapEntities)]
-    // #[derive(Component, MapEntities)]
-    struct MyStruct;
+    struct MyStruct(A);
+    // #[derive(MapEntities)]
+    // struct MyStruct {
+    //     a: A,
+    //     b: B,
+    // }
+
+    impl MapEntities for A {
+        fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+            todo!()
+        }
+    }
+    // impl MapEntities for B {
+    //     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+    //         todo!()
+    //     }
+    // }
+
+    // fn xxx(s:MyStruct, mapper:&mut impl EntityMapper){
+    //     let x = s.a;
+    //     <A as bevy_ecs::entity::MapEntities>::map_entities(&mut s,mapper);
+    // }
 }
