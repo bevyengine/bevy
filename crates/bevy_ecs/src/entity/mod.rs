@@ -517,6 +517,14 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 
+/// This represents some entities that were at some point pending.
+///
+/// The first slice was pending and is flushed. The length of that slice is [`Self::flushed`].
+///
+/// The second slice was pending and is reserved (awaiting flush).
+/// The length of that slice is [`Self::reserved`] - [`Self::flushed`].
+///
+/// The last slice is entities that are still pending. This fills the rest of [`Self::entities`] up to its length.
 struct PendingEntitiesChunk {
     entities: Vec<Entity>,
     reserved: AtomicUsize,
@@ -524,6 +532,10 @@ struct PendingEntitiesChunk {
 }
 
 impl PendingEntitiesChunk {
+    /// Reserves a slice of num entities from pending.
+    /// Note that the slice may not be of length `num`, but it will not be more than `num`.
+    ///
+    /// If it is less than `num`, the chunk is empty.
     fn reserve(&self, num: u32) -> &[Entity] {
         let num_reserved_so_far = self.reserved.fetch_add(num as usize, Ordering::Relaxed);
         if num_reserved_so_far >= self.entities.len() {
@@ -535,6 +547,8 @@ impl PendingEntitiesChunk {
         }
     }
 
+    /// Flushes the reserved slice with the passed `flusher`
+    ///
     /// # Safety
     ///
     /// To prevent double flushing, this must not be called concurrently.
@@ -553,6 +567,7 @@ impl PendingEntitiesChunk {
         }
     }
 
+    /// Clears the chunk, resetting it for use.
     fn clear(&mut self) {
         self.entities.clear();
         *self.reserved.get_mut() = 0;
