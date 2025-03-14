@@ -8,7 +8,7 @@ use tracing::info_span;
 use std::eprintln;
 
 use crate::{
-    result::{Error, SystemErrorContext},
+    error::{BevyError, SystemErrorContext},
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
@@ -50,7 +50,7 @@ impl SystemExecutor for SingleThreadedExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(Error, SystemErrorContext),
+        error_handler: fn(BevyError, SystemErrorContext),
     ) {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
@@ -144,6 +144,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             });
 
             #[cfg(feature = "std")]
+            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
                 if let Err(payload) = std::panic::catch_unwind(f) {
                     eprintln!("Encountered a panic in system `{}`!", &*system.name());

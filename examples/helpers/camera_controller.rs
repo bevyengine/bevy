@@ -2,6 +2,8 @@
 //! To use in your own application:
 //! - Copy the code for the [`CameraControllerPlugin`] and add the plugin to your App.
 //! - Attach the [`CameraController`] component to an entity with a [`Camera3d`].
+//!
+//! Unlike other examples, which demonstrate an application, this demonstrates a plugin library.
 
 use bevy::{
     input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseScrollUnit},
@@ -10,6 +12,7 @@ use bevy::{
 };
 use std::{f32::consts::*, fmt};
 
+/// A freecam-style camera controller plugin.
 pub struct CameraControllerPlugin;
 
 impl Plugin for CameraControllerPlugin {
@@ -23,26 +26,48 @@ impl Plugin for CameraControllerPlugin {
 /// it because it felt nice.
 pub const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
 
+/// Camera controller [`Component`].
 #[derive(Component)]
 pub struct CameraController {
+    /// Enables this [`CameraController`] when `true`.
     pub enabled: bool,
+    /// Indicates if this controller has been initialized by the [`CameraControllerPlugin`].
     pub initialized: bool,
+    /// Multiplier for pitch and yaw rotation speed.
     pub sensitivity: f32,
+    /// [`KeyCode`] for forward translation.
     pub key_forward: KeyCode,
+    /// [`KeyCode`] for backward translation.
     pub key_back: KeyCode,
+    /// [`KeyCode`] for left translation.
     pub key_left: KeyCode,
+    /// [`KeyCode`] for right translation.
     pub key_right: KeyCode,
+    /// [`KeyCode`] for up translation.
     pub key_up: KeyCode,
+    /// [`KeyCode`] for down translation.
     pub key_down: KeyCode,
+    /// [`KeyCode`] to use [`run_speed`](CameraController::run_speed) instead of
+    /// [`walk_speed`](CameraController::walk_speed) for translation.
     pub key_run: KeyCode,
+    /// [`MouseButton`] for grabbing the mouse focus.
     pub mouse_key_cursor_grab: MouseButton,
+    /// [`KeyCode`] for grabbing the keyboard focus.
     pub keyboard_key_toggle_cursor_grab: KeyCode,
+    /// Multiplier for unmodified translation speed.
     pub walk_speed: f32,
+    /// Multiplier for running translation speed.
     pub run_speed: f32,
+    /// Multiplier for how the mouse scroll wheel modifies [`walk_speed`](CameraController::walk_speed)
+    /// and [`run_speed`](CameraController::run_speed).
     pub scroll_factor: f32,
+    /// Friction factor used to exponentially decay [`velocity`](CameraController::velocity) over time.
     pub friction: f32,
+    /// This [`CameraController`]'s pitch rotation.
     pub pitch: f32,
+    /// This [`CameraController`]'s yaw rotation.
     pub yaw: f32,
+    /// This [`CameraController`]'s translation velocity.
     pub velocity: Vec3,
 }
 
@@ -112,7 +137,7 @@ fn run_camera_controller(
 ) {
     let dt = time.delta_secs();
 
-    let Ok((mut transform, mut controller)) = query.get_single_mut() else {
+    let Ok((mut transform, mut controller)) = query.single_mut() else {
         return;
     };
 

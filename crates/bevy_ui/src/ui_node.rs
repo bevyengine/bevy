@@ -2428,7 +2428,8 @@ impl BorderRadius {
         self
     }
 
-    /// Compute the logical border radius for a single corner from the given values
+    /// Resolve the border radius for a single corner from the given context values.
+    /// Returns the radius of the corner in physical pixels.
     pub fn resolve_single_corner(
         radius: Val,
         node_size: Vec2,
@@ -2447,6 +2448,8 @@ impl BorderRadius {
         .clamp(0., 0.5 * node_size.min_element())
     }
 
+    /// Resolve the border radii for the corners from the given context values.
+    /// Returns the radii of the each corner in physical pixels.
     pub fn resolve(
         &self,
         node_size: Vec2,
@@ -2635,7 +2638,9 @@ mod tests {
 /// Setting this component on a non-root node will have no effect. It will be overridden
 /// by the root node's component.
 ///
-/// Optional if there is only one camera in the world. Required otherwise.
+/// Root node's without an explicit [`UiTargetCamera`] will be rendered to the default UI camera,
+/// which is either a single camera with the [`IsDefaultUiCamera`] marker component or the highest
+/// order camera targeting the primary window.
 #[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
 #[reflect(Component, Debug, PartialEq)]
 pub struct UiTargetCamera(pub Entity);
@@ -2691,7 +2696,7 @@ pub struct DefaultUiCamera<'w, 's> {
 
 impl<'w, 's> DefaultUiCamera<'w, 's> {
     pub fn get(&self) -> Option<Entity> {
-        self.default_cameras.get_single().ok().or_else(|| {
+        self.default_cameras.single().ok().or_else(|| {
             // If there isn't a single camera and the query isn't empty, there is two or more cameras queried.
             if !self.default_cameras.is_empty() {
                 once!(warn!("Two or more Entities with IsDefaultUiCamera found when only one Camera with this marker is allowed."));

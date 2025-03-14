@@ -65,11 +65,11 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     query::Has,
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};

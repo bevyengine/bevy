@@ -823,6 +823,7 @@ impl ScheduleState {
 }
 
 #[cfg(all(test, feature = "bevy_debug_stepping"))]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use super::*;
     use crate::{prelude::*, schedule::ScheduleLabel};

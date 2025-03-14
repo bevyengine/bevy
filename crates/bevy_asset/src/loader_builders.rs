@@ -387,13 +387,16 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
         path: &AssetPath<'static>,
         asset_type_id: Option<TypeId>,
     ) -> Result<(Arc<dyn ErasedAssetLoader>, CompleteErasedLoadedAsset), LoadDirectError> {
+        if path.label().is_some() {
+            return Err(LoadDirectError::RequestedSubasset(path.clone()));
+        }
         let (mut meta, loader, mut reader) = if let Some(reader) = self.mode.reader {
             let loader = if let Some(asset_type_id) = asset_type_id {
                 self.load_context
                     .asset_server
                     .get_asset_loader_with_asset_type_id(asset_type_id)
                     .await
-                    .map_err(|error| LoadDirectError {
+                    .map_err(|error| LoadDirectError::LoadError {
                         dependency: path.clone(),
                         error: error.into(),
                     })?
@@ -402,7 +405,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
                     .asset_server
                     .get_path_asset_loader(path)
                     .await
-                    .map_err(|error| LoadDirectError {
+                    .map_err(|error| LoadDirectError::LoadError {
                         dependency: path.clone(),
                         error: error.into(),
                     })?
@@ -415,7 +418,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
                 .asset_server
                 .get_meta_loader_and_reader(path, asset_type_id)
                 .await
-                .map_err(|error| LoadDirectError {
+                .map_err(|error| LoadDirectError::LoadError {
                     dependency: path.clone(),
                     error,
                 })?;
@@ -453,15 +456,17 @@ impl NestedLoader<'_, '_, StaticTyped, Immediate<'_, '_>> {
         self.load_internal(&path, Some(TypeId::of::<A>()))
             .await
             .and_then(move |(loader, untyped_asset)| {
-                untyped_asset.downcast::<A>().map_err(|_| LoadDirectError {
-                    dependency: path.clone(),
-                    error: AssetLoadError::RequestedHandleTypeMismatch {
-                        path,
-                        requested: TypeId::of::<A>(),
-                        actual_asset_name: loader.asset_type_name(),
-                        loader_name: loader.type_name(),
-                    },
-                })
+                untyped_asset
+                    .downcast::<A>()
+                    .map_err(|_| LoadDirectError::LoadError {
+                        dependency: path.clone(),
+                        error: AssetLoadError::RequestedHandleTypeMismatch {
+                            path,
+                            requested: TypeId::of::<A>(),
+                            actual_asset_name: loader.asset_type_name(),
+                            loader_name: loader.type_name(),
+                        },
+                    })
             })
     }
 }

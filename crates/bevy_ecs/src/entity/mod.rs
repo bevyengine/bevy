@@ -50,29 +50,18 @@ pub use entity_set::*;
 pub use map_entities::*;
 pub use visit_entities::*;
 
-mod unique_vec;
-
-pub use unique_vec::*;
-
 mod hash;
 pub use hash::*;
 
 pub mod hash_map;
 pub mod hash_set;
 
-mod index_map;
-mod index_set;
+pub mod index_map;
+pub mod index_set;
 
-pub use index_map::EntityIndexMap;
-pub use index_set::EntityIndexSet;
-
-mod unique_slice;
-
-pub use unique_slice::*;
-
-mod unique_array;
-
-pub use unique_array::UniqueEntityArray;
+pub mod unique_array;
+pub mod unique_slice;
+pub mod unique_vec;
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
@@ -573,8 +562,6 @@ pub struct Entities {
     /// [`flush`]: Entities::flush
     pending: Vec<u32>,
     free_cursor: AtomicIdCursor,
-    /// Stores the number of free entities for [`len`](Entities::len)
-    len: u32,
 }
 
 impl Entities {
@@ -583,7 +570,6 @@ impl Entities {
             meta: Vec::new(),
             pending: Vec::new(),
             free_cursor: AtomicIdCursor::new(0),
-            len: 0,
         }
     }
 
@@ -675,7 +661,6 @@ impl Entities {
     /// Allocate an entity ID directly.
     pub fn alloc(&mut self) -> Entity {
         self.verify_flushed();
-        self.len += 1;
         if let Some(index) = self.pending.pop() {
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
@@ -713,7 +698,6 @@ impl Entities {
 
         let new_free_cursor = self.pending.len() as IdCursor;
         *self.free_cursor.get_mut() = new_free_cursor;
-        self.len -= 1;
         Some(loc)
     }
 
@@ -751,7 +735,6 @@ impl Entities {
         self.meta.clear();
         self.pending.clear();
         *self.free_cursor.get_mut() = 0;
-        self.len = 0;
     }
 
     /// Returns the location of an [`Entity`].
@@ -847,7 +830,6 @@ impl Entities {
             let old_meta_len = self.meta.len();
             let new_meta_len = old_meta_len + -current_free_cursor as usize;
             self.meta.resize(new_meta_len, EntityMeta::EMPTY);
-            self.len += -current_free_cursor as u32;
             for (index, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
                 init(
                     Entity::from_raw_and_generation(index as u32, meta.generation),
@@ -859,7 +841,6 @@ impl Entities {
             0
         };
 
-        self.len += (self.pending.len() - new_free_cursor) as u32;
         for index in self.pending.drain(new_free_cursor..) {
             let meta = &mut self.meta[index as usize];
             init(
@@ -893,16 +874,35 @@ impl Entities {
         self.meta.len()
     }
 
+    /// The count of all entities in the [`World`] that are used,
+    /// including both those allocated and those reserved, but not those freed.
+    ///
+    /// [`World`]: crate::world::World
+    #[inline]
+    pub fn used_count(&self) -> usize {
+        (self.meta.len() as isize - self.free_cursor.load(Ordering::Relaxed) as isize) as usize
+    }
+
+    /// The count of all entities in the [`World`] that have ever been allocated or reserved, including those that are freed.
+    /// This is the value that [`Self::total_count()`] would return if [`Self::flush()`] were called right now.
+    ///
+    /// [`World`]: crate::world::World
+    #[inline]
+    pub fn total_prospective_count(&self) -> usize {
+        self.meta.len() + (-self.free_cursor.load(Ordering::Relaxed)).min(0) as usize
+    }
+
     /// The count of currently allocated entities.
     #[inline]
     pub fn len(&self) -> u32 {
-        self.len
+        // `pending`, by definition, can't be bigger than `meta`.
+        (self.meta.len() - self.pending.len()) as u32
     }
 
     /// Checks if any entity is currently active.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+        self.len() == 0
     }
 
     /// Sets the source code location from which this entity has last been spawned
