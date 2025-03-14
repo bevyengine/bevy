@@ -12,8 +12,8 @@ criterion_group!(
     concrete_struct_apply,
     concrete_struct_field,
     concrete_struct_type_info,
-    concrete_struct_clone,
-    dynamic_struct_clone,
+    concrete_struct_to_dynamic_struct,
+    dynamic_struct_to_dynamic_struct,
     dynamic_struct_apply,
     dynamic_struct_get_field,
     dynamic_struct_insert,
@@ -113,7 +113,7 @@ fn concrete_struct_apply(criterion: &mut Criterion) {
                 bencher.iter_batched(
                     || {
                         let (obj, _) = input();
-                        let patch = obj.clone_dynamic();
+                        let patch = obj.to_dynamic_struct();
                         (obj, patch)
                     },
                     |(mut obj, patch)| obj.apply(black_box(&patch)),
@@ -170,8 +170,8 @@ fn concrete_struct_type_info(criterion: &mut Criterion) {
     }
 }
 
-fn concrete_struct_clone(criterion: &mut Criterion) {
-    let mut group = create_group(criterion, bench!("concrete_struct_clone"));
+fn concrete_struct_to_dynamic_struct(criterion: &mut Criterion) {
+    let mut group = create_group(criterion, bench!("concrete_struct_to_dynamic_struct"));
 
     let structs: [(Box<dyn Struct>, Box<dyn Struct>); 5] = [
         (
@@ -203,28 +203,28 @@ fn concrete_struct_clone(criterion: &mut Criterion) {
             BenchmarkId::new("NonGeneric", field_count),
             &standard,
             |bencher, s| {
-                bencher.iter(|| s.clone_dynamic());
+                bencher.iter(|| s.to_dynamic_struct());
             },
         );
         group.bench_with_input(
             BenchmarkId::new("Generic", field_count),
             &generic,
             |bencher, s| {
-                bencher.iter(|| s.clone_dynamic());
+                bencher.iter(|| s.to_dynamic_struct());
             },
         );
     }
 }
 
-fn dynamic_struct_clone(criterion: &mut Criterion) {
-    let mut group = create_group(criterion, bench!("dynamic_struct_clone"));
+fn dynamic_struct_to_dynamic_struct(criterion: &mut Criterion) {
+    let mut group = create_group(criterion, bench!("dynamic_struct_to_dynamic_struct"));
 
     let structs: [Box<dyn Struct>; 5] = [
-        Box::new(Struct1::default().clone_dynamic()),
-        Box::new(Struct16::default().clone_dynamic()),
-        Box::new(Struct32::default().clone_dynamic()),
-        Box::new(Struct64::default().clone_dynamic()),
-        Box::new(Struct128::default().clone_dynamic()),
+        Box::new(Struct1::default().to_dynamic_struct()),
+        Box::new(Struct16::default().to_dynamic_struct()),
+        Box::new(Struct32::default().to_dynamic_struct()),
+        Box::new(Struct64::default().to_dynamic_struct()),
+        Box::new(Struct128::default().to_dynamic_struct()),
     ];
 
     for s in structs {
@@ -234,7 +234,7 @@ fn dynamic_struct_clone(criterion: &mut Criterion) {
             BenchmarkId::from_parameter(field_count),
             &s,
             |bencher, s| {
-                bencher.iter(|| s.clone_dynamic());
+                bencher.iter(|| s.to_dynamic_struct());
             },
         );
     }
@@ -265,7 +265,7 @@ fn dynamic_struct_apply(criterion: &mut Criterion) {
             &patch,
             |bencher, patch| {
                 bencher.iter_batched(
-                    || (base.clone_dynamic(), patch()),
+                    || (base.to_dynamic_struct(), patch()),
                     |(mut base, patch)| base.apply(black_box(&*patch)),
                     BatchSize::SmallInput,
                 );
@@ -289,7 +289,7 @@ fn dynamic_struct_apply(criterion: &mut Criterion) {
                 }
 
                 bencher.iter_batched(
-                    || base.clone_dynamic(),
+                    || base.to_dynamic_struct(),
                     |mut base| base.apply(black_box(&patch)),
                     BatchSize::SmallInput,
                 );
@@ -315,7 +315,7 @@ fn dynamic_struct_insert(criterion: &mut Criterion) {
 
                 let field = format!("field_{}", field_count);
                 bencher.iter_batched(
-                    || s.clone_dynamic(),
+                    || s.to_dynamic_struct(),
                     |mut s| {
                         s.insert(black_box(&field), ());
                     },
