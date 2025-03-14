@@ -8,6 +8,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{PartialReflect, TypePath, TypeRegistry};
 
+use crate::reflect_utils::clone_reflect_value;
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
 use bevy_ecs::component::ComponentCloneBehavior;
@@ -87,7 +88,6 @@ impl DynamicScene {
 
             // Apply/ add each component to the given entity.
             for component in &scene_entity.components {
-                let component = component.clone_value();
                 let type_info = component.get_represented_type_info().ok_or_else(|| {
                     SceneSpawnError::NoRepresentedType {
                         type_path: component.reflect_type_path().to_string(),
@@ -131,7 +131,6 @@ impl DynamicScene {
         // Insert resources after all entities have been added to the world.
         // This ensures the entities are available for the resources to reference during mapping.
         for resource in &self.resources {
-            let mut resource = resource.clone_value();
             let type_info = resource.get_represented_type_info().ok_or_else(|| {
                 SceneSpawnError::NoRepresentedType {
                     type_path: resource.reflect_type_path().to_string(),
@@ -151,6 +150,7 @@ impl DynamicScene {
             // If this component references entities in the scene, update
             // them to the entities in the world.
             if let Some(map_entities) = registration.data::<ReflectMapEntities>() {
+                let mut resource = clone_reflect_value(resource.as_partial_reflect(), registration);
                 SceneEntityMapper::world_scope(entity_map, world, |_, mapper| {
                     map_entities.map_entities(resource.as_partial_reflect_mut(), mapper);
                 });
