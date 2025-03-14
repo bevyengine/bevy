@@ -304,6 +304,16 @@ mod __rust_begin_short_backtrace {
     }
 
     #[inline(never)]
+    pub(super) fn run_without_applying_deferred(
+        system: &mut ScheduleSystem,
+        world: &mut World,
+    ) -> Result {
+        let result = system.run_without_applying_deferred((), world);
+        black_box(());
+        result
+    }
+
+    #[inline(never)]
     pub(super) fn readonly_run<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: &mut World,
