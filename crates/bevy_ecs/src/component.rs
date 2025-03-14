@@ -189,23 +189,32 @@ use thiserror::Error;
 /// assert_eq!(&C(20), world.entity(id).get::<C>().unwrap());
 /// ```
 ///
-/// for convenience sake, you can abbreviate enums
+/// for convenience sake, you can abbreviate enum labels or constant values
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Component)]
-/// #[require(B = One)]
+/// #[require(B = One, C = ONE)]
 /// struct A;
 ///
 /// #[derive(Component, PartialEq, Eq, Debug)]
 /// enum B {
+///    Zero,
 ///    One,
 ///    Two
+/// }
+///
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// struct C(u8);
+///
+/// impl C {
+///     pub const ONE: Self = Self(1);
 /// }
 ///
 /// # let mut world = World::default();
 /// let id = world.spawn(A).id();
 /// assert_eq!(&B::One, world.entity(id).get::<B>().unwrap());
+/// assert_eq!(&C(1), world.entity(id).get::<C>().unwrap());
 /// ````
 ///
 /// Required components are _recursive_. This means, if a Required Component has required components,
