@@ -1041,7 +1041,7 @@ impl<T: TrustedEntityBorrow> IndexMut<RangeToInclusive<usize>> for UniqueEntityV
 ///
 /// This `struct` is created by the [`IntoIterator::into_iter`] trait
 /// method on [`UniqueEntityVec`].
-pub type IntoIter<T> = UniqueEntityIter<vec::IntoIter<T>>;
+pub type IntoIter<T = Entity> = UniqueEntityIter<vec::IntoIter<T>>;
 
 impl<T: TrustedEntityBorrow> UniqueEntityIter<vec::IntoIter<T>> {
     /// Returns the remaining items of this iterator as a slice.
@@ -1065,7 +1065,7 @@ impl<T: TrustedEntityBorrow> UniqueEntityIter<vec::IntoIter<T>> {
 ///
 /// This struct is created by [`UniqueEntityVec::drain`].
 /// See its documentation for more.
-pub type Drain<'a, T> = UniqueEntityIter<vec::Drain<'a, T>>;
+pub type Drain<'a, T = Entity> = UniqueEntityIter<vec::Drain<'a, T>>;
 
 impl<'a, T: TrustedEntityBorrow> UniqueEntityIter<vec::Drain<'a, T>> {
     /// Returns the remaining items of this iterator as a slice.
