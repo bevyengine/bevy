@@ -81,7 +81,10 @@ impl ThinColumn {
         });
     }
 
-    /// Swap-remove and forget the removed element.
+    /// Removes an element from the [`ThinColumn`] and returns it.
+    /// This does not preserve ordering, but is O(1) and does not do any bounds checking.
+    ///
+    /// The element is replaced with the last element in the [`ThinColumn`].
     ///
     /// It's the caller's responsibility to ensure that the returned value is dropped or used.
     /// Failure to do so may result in resources not being released (i.e. file handles not
