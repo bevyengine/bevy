@@ -187,17 +187,17 @@ use thiserror::Error;
 /// // This will implicitly also insert C with the `|| C(20)` constructor closure
 /// let id = world.spawn(B).id();
 /// assert_eq!(&C(20), world.entity(id).get::<C>().unwrap());
-///
-/// let id = world.
 /// ```
 ///
 /// for convenience sake, you can abbreviate enums
+///
 /// ```
+/// # use bevy_ecs::prelude::*;
 /// #[derive(Component)]
 /// #[require(B = One)]
 /// struct A;
 ///
-/// #[derive(Component)]
+/// #[derive(Component, PartialEq, Eq, Debug)]
 /// enum B {
 ///    One,
 ///    Two
