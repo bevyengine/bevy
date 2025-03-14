@@ -75,7 +75,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::atomic::Ordering;
+use bevy_platform_support::sync::atomic::{AtomicUsize, Ordering};
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
@@ -516,6 +516,49 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
+
+struct PendingEntitiesChunk {
+    entities: Vec<Entity>,
+    reserved: AtomicUsize,
+    flushed: AtomicUsize,
+}
+
+impl PendingEntitiesChunk {
+    fn reserve(&self, num: u32) -> &[Entity] {
+        let num_reserved_so_far = self.reserved.fetch_add(num as usize, Ordering::Relaxed);
+        if num_reserved_so_far >= self.entities.len() {
+            &[]
+        } else {
+            let ideal_new_reserved = num_reserved_so_far + num as usize;
+            let range = num_reserved_so_far..self.entities.len().min(ideal_new_reserved);
+            &self.entities[range]
+        }
+    }
+
+    /// # Safety
+    ///
+    /// To prevent double flushing, this must not be called concurrently.
+    unsafe fn flush(&self, flusher: &mut impl FnMut(Entity)) {
+        let new_flushed = self.reserved.load(Ordering::Relaxed);
+        let flushed = self.flushed.swap(new_flushed, Ordering::Relaxed);
+        if self.entities.len() <= flushed {
+            return;
+        }
+
+        for to_flush in self.entities[flushed..new_flushed.min(self.entities.len())]
+            .iter()
+            .copied()
+        {
+            flusher(to_flush);
+        }
+    }
+
+    fn clear(&mut self) {
+        self.entities.clear();
+        *self.reserved.get_mut() = 0;
+        *self.flushed.get_mut() = 0;
+    }
+}
 
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
