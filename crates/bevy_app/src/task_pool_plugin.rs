@@ -1,7 +1,6 @@
 use crate::{App, Plugin};
 
 use alloc::string::ToString;
-use bevy_ecs::system::NonSendMarker;
 use bevy_platform_support::sync::Arc;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
 use core::fmt::Debug;
@@ -10,6 +9,7 @@ use log::trace;
 cfg_if::cfg_if! {
     if #[cfg(not(all(target_arch = "wasm32", feature = "web")))] {
         use {crate::Last, bevy_tasks::tick_global_task_pools_on_main_thread};
+        use bevy_ecs::system::NonSendMarker;
 
         /// A system used to check and advanced our task pools.
         ///
