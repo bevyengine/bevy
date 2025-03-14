@@ -103,16 +103,12 @@ impl ThinColumn {
             .data
             .swap_remove_unchecked(row.as_usize(), last_element_index);
         self.added_ticks
-            .swap_remove_unchecked(row.as_usize(), last_element_index)
-            .read();
+            .swap_remove_unchecked(row.as_usize(), last_element_index);
         self.changed_ticks
-            .swap_remove_unchecked(row.as_usize(), last_element_index)
-            .read();
-        self.changed_by.as_mut().map(|changed_by| {
-            changed_by
-                .swap_remove_unchecked(row.as_usize(), last_element_index)
-                .read()
-        });
+            .swap_remove_unchecked(row.as_usize(), last_element_index);
+        self.changed_by
+            .as_mut()
+            .map(|changed_by| changed_by.swap_remove_unchecked(row.as_usize(), last_element_index));
 
         data
     }
