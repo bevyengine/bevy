@@ -3,7 +3,7 @@ use crate::{
     identifier::masks::{IdentifierMask, HIGH_MASK},
     world::World,
 };
-
+pub use bevy_ecs_macros::MapEntities;
 use super::{hash_map::EntityHashMap, VisitEntitiesMut};
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.

@@ -2847,3 +2847,12 @@ mod tests {
     #[derive(Component, VisitEntities, VisitEntitiesMut)]
     struct MyEntitiesTuple(Vec<Entity>, Entity, #[visit_entities(ignore)] usize);
 }
+
+mod temp {
+    use crate::prelude::*;
+    use crate::entity::MapEntities;
+
+    #[derive(MapEntities)]
+    // #[derive(Component, MapEntities)]
+    struct MyStruct;
+}
