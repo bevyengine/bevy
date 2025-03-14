@@ -1,10 +1,10 @@
+use super::{hash_map::EntityHashMap, VisitEntitiesMut};
 use crate::{
     entity::Entity,
     identifier::masks::{IdentifierMask, HIGH_MASK},
     world::World,
 };
 pub use bevy_ecs_macros::MapEntities;
-use super::{hash_map::EntityHashMap, VisitEntitiesMut};
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -44,16 +44,16 @@ use super::{hash_map::EntityHashMap, VisitEntitiesMut};
 ///     }
 /// }
 /// ```
-/// 
-/// a derive macro is avaliable to reduce boilerplate
+///
+/// a derive macro is available to reduce boilerplate
 /// ```
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::entity::MapEntities;
-/// 
+///
 /// #[derive(MapEntities)]
 /// pub struct A;
 /// pub struct B;
-/// 
+///
 /// #[derive(MapEntities)]
 /// struct MyStruct {
 ///     a: A,
@@ -73,8 +73,8 @@ use super::{hash_map::EntityHashMap, VisitEntitiesMut};
 /// }
 /// */
 /// ```
-/// 
-/// 
+///
+///
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
