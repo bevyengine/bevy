@@ -25,7 +25,10 @@ use alloc::{
 use bevy_platform_support::sync::Arc;
 
 use super::{
-    unique_array::UniqueEntityArray, unique_vec::{self, UniqueEntityVec}, Entity, EntitySet, EntitySetIterator, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityIter
+    unique_array::UniqueEntityArray,
+    unique_vec::{self, UniqueEntityVec},
+    Entity, EntitySet, EntitySetIterator, FromEntitySetIterator, TrustedEntityBorrow,
+    UniqueEntityIter,
 };
 
 /// A slice that contains only unique entities.
@@ -1588,7 +1591,8 @@ pub type Split<'a, P, T = Entity> = UniqueEntitySliceIter<'a, T, slice::Split<'a
 /// function.
 ///
 /// This struct is created by [`UniqueEntitySlice::split_inclusive`].
-pub type SplitInclusive<'a, P, T = Entity> = UniqueEntitySliceIter<'a, T, slice::SplitInclusive<'a, T, P>>;
+pub type SplitInclusive<'a, P, T = Entity> =
+    UniqueEntitySliceIter<'a, T, slice::SplitInclusive<'a, T, P>>;
 
 /// An iterator over subslices separated by elements that match a predicate
 /// function, starting from the end of the slice.
@@ -1717,7 +1721,8 @@ pub type ChunksMut<'a, T = Entity> = UniqueEntitySliceIterMut<'a, T, slice::Chun
 /// elements at a time), starting at the beginning of the slice.
 ///
 /// This struct is created by [`UniqueEntitySlice::chunks_exact_mut`].
-pub type ChunksExactMut<'a, T = Entity> = UniqueEntitySliceIterMut<'a, T, slice::ChunksExactMut<'a, T>>;
+pub type ChunksExactMut<'a, T = Entity> =
+    UniqueEntitySliceIterMut<'a, T, slice::ChunksExactMut<'a, T>>;
 
 impl<'a, T: TrustedEntityBorrow> UniqueEntitySliceIterMut<'a, T, slice::ChunksExactMut<'a, T>> {
     /// Returns the remainder of the original slice that is not going to be
@@ -1740,7 +1745,8 @@ pub type RChunksMut<'a, T = Entity> = UniqueEntitySliceIterMut<'a, T, slice::RCh
 /// elements at a time), starting at the end of the slice.
 ///
 /// This struct is created by [`UniqueEntitySlice::rchunks_exact_mut`].
-pub type RChunksExactMut<'a, T = Entity> = UniqueEntitySliceIterMut<'a, T, slice::RChunksExactMut<'a, T>>;
+pub type RChunksExactMut<'a, T = Entity> =
+    UniqueEntitySliceIterMut<'a, T, slice::RChunksExactMut<'a, T>>;
 
 impl<'a, T: TrustedEntityBorrow> UniqueEntitySliceIterMut<'a, T, slice::RChunksExactMut<'a, T>> {
     /// Returns the remainder of the original slice that is not going to be
@@ -1757,7 +1763,8 @@ impl<'a, T: TrustedEntityBorrow> UniqueEntitySliceIterMut<'a, T, slice::RChunksE
 /// by a predicate.
 ///
 /// This struct is created by [`UniqueEntitySlice::chunk_by_mut`].
-pub type ChunkByMut<'a, P, T = Entity> = UniqueEntitySliceIterMut<'a, T, slice::ChunkByMut<'a, T, P>>;
+pub type ChunkByMut<'a, P, T = Entity> =
+    UniqueEntitySliceIterMut<'a, T, slice::ChunkByMut<'a, T, P>>;
 
 /// An iterator over the mutable subslices of the vector which are separated
 /// by elements that match `pred`.
@@ -1790,4 +1797,5 @@ pub type SplitNMut<'a, P, T = Entity> = UniqueEntitySliceIterMut<'a, T, slice::S
 /// from the end of the slice.
 ///
 /// This struct is created by [`UniqueEntitySlice::rsplitn_mut`].
-pub type RSplitNMut<'a, P, T = Entity> = UniqueEntitySliceIterMut<'a, T, slice::RSplitNMut<'a, T, P>>;
+pub type RSplitNMut<'a, P, T = Entity> =
+    UniqueEntitySliceIterMut<'a, T, slice::RSplitNMut<'a, T, P>>;
