@@ -130,7 +130,7 @@ use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{CameraUpdateSystem, Projection},
+    camera::{sort_cameras, CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
     render_asset::prepare_assets,
@@ -474,6 +474,7 @@ impl Plugin for PbrPlugin {
                 (
                     prepare_lights
                         .in_set(RenderSet::ManageViews)
+                        .after(sort_cameras)
                         .after(prepare_assets::<GpuImage>),
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
