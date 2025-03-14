@@ -2857,13 +2857,15 @@ mod temp {
     #[derive(Component)]
     struct B;
 
-    #[derive(MapEntities)]
-    struct MyStruct(A);
     // #[derive(MapEntities)]
-    // struct MyStruct {
-    //     a: A,
-    //     b: B,
-    // }
+    // struct MyStruct(A);
+
+    #[derive(MapEntities)]
+    struct MyStruct {
+        a: A,
+        #[skip_mapping]
+        b: B,
+    }
 
     impl MapEntities for A {
         fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {

@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput, Fields};
+use syn::{parse_macro_input, Attribute, Data, DeriveInput, Fields};
 
 pub(super) fn derive_map_entities(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -16,7 +16,17 @@ pub(super) fn derive_map_entities(input: TokenStream) -> TokenStream {
 fn map_struct(name: syn::Ident, fields: &Fields) -> proc_macro2::TokenStream {
     let mut map_entities = vec![];
 
-    for (i, field) in fields.iter().enumerate() {
+    'fields: for (i, field) in fields.iter().enumerate() {
+        // skip that field
+        for attr in &field.attrs {
+            if attr.path().is_ident("skip_mapping") {
+                match &attr.meta {
+                    syn::Meta::Path(_) => continue 'fields,
+                    _ => panic!("just use the bare `#[skip_mapping]`"),
+                }
+            }
+        }
+
         let ty = &field.ty;
         let map_field = if let Some(field_name) = &field.ident {
             // Named field (struct)

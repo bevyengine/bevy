@@ -614,7 +614,7 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
     states::derive_substates(input)
 }
 
-#[proc_macro_derive(MapEntities)]
+#[proc_macro_derive(MapEntities, attributes(skip_mapping))]
 pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     map_entities::derive_map_entities(input)
 }
