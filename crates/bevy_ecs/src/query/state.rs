@@ -1030,7 +1030,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn get_many_unique<'w, const N: usize>(
         &mut self,
         world: &'w World,
-        entities: UniqueEntityArray<N, Entity>,
+        entities: UniqueEntityArray<N>,
     ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError> {
         self.query(world).get_many_unique_inner(entities)
     }
@@ -1134,7 +1134,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn get_many_unique_mut<'w, const N: usize>(
         &mut self,
         world: &'w mut World,
-        entities: UniqueEntityArray<N, Entity>,
+        entities: UniqueEntityArray<N>,
     ) -> Result<[D::Item<'w>; N], QueryEntityError> {
         self.query_mut(world).get_many_unique_inner(entities)
     }
