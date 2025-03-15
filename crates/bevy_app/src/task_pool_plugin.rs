@@ -3,18 +3,19 @@ use crate::{App, Plugin};
 use alloc::string::ToString;
 use bevy_platform_support::sync::Arc;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
-use core::{fmt::Debug, marker::PhantomData};
+use core::fmt::Debug;
 use log::trace;
 
 cfg_if::cfg_if! {
     if #[cfg(not(all(target_arch = "wasm32", feature = "web")))] {
-        use {crate::Last, bevy_ecs::prelude::NonSend, bevy_tasks::tick_global_task_pools_on_main_thread};
+        use {crate::Last, bevy_tasks::tick_global_task_pools_on_main_thread};
+        use bevy_ecs::system::NonSendMarker;
 
         /// A system used to check and advanced our task pools.
         ///
         /// Calls [`tick_global_task_pools_on_main_thread`],
         /// and uses [`NonSendMarker`] to ensure that this system runs on the main thread
-        fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
+        fn tick_global_task_pools(_main_thread_marker: NonSendMarker) {
             tick_global_task_pools_on_main_thread();
         }
     }
@@ -36,8 +37,6 @@ impl Plugin for TaskPoolPlugin {
         _app.add_systems(Last, tick_global_task_pools);
     }
 }
-/// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
-pub struct NonSendMarker(PhantomData<*mut ()>);
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
 /// and number of total cores
