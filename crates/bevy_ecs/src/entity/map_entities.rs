@@ -1,10 +1,10 @@
+use super::{hash_map::EntityHashMap, VisitEntitiesMut};
 use crate::{
     entity::Entity,
     identifier::masks::{IdentifierMask, HIGH_MASK},
     world::World,
 };
-
-use super::{hash_map::EntityHashMap, VisitEntitiesMut};
+pub use bevy_ecs_macros::MapEntities;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -44,6 +44,37 @@ use super::{hash_map::EntityHashMap, VisitEntitiesMut};
 ///     }
 /// }
 /// ```
+///
+/// a derive macro is available to reduce boilerplate
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::entity::MapEntities;
+///
+/// #[derive(MapEntities)]
+/// pub struct A;
+/// pub struct B;
+///
+/// #[derive(MapEntities)]
+/// struct MyStruct {
+///     a: A,
+///     #[skip_mapping]
+///     b: B,
+/// }
+///
+/// # #[derive(MapEntities)]
+/// # struct TestTuple(A);
+///
+/// /* the above derive macro is equivalent to this
+/// impl MapEntities for MyStruct {
+///     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+///         self.a.map_entities(entity_mapper);
+///         // self.b is skipped because of the #[skip_mapping] attribute
+///     }
+/// }
+/// */
+/// ```
+///
+///
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
