@@ -29,16 +29,16 @@
 //! * Compatibility with SSAA and MSAA.
 //!
 //! [SMAA]: https://www.iryoku.com/smaa/
-#[cfg(not(feature = "smaa_luts"))]
-use crate::tonemapping::lut_placeholder;
-use crate::{
-    core_2d::graph::{Core2d, Node2d},
-    core_3d::graph::{Core3d, Node3d},
-};
 use bevy_app::{App, Plugin};
 #[cfg(feature = "smaa_luts")]
 use bevy_asset::load_internal_binary_asset;
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
+#[cfg(not(feature = "smaa_luts"))]
+use bevy_core_pipeline::tonemapping::lut_placeholder;
+use bevy_core_pipeline::{
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
