@@ -75,7 +75,10 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::atomic::Ordering;
+use bevy_platform_support::sync::{
+    atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering},
+    Arc,
+};
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
@@ -481,27 +484,25 @@ impl SparseSetIndex for Entity {
     }
 }
 
-/// An [`Iterator`] returning a sequence of [`Entity`] values from
-pub struct ReserveEntitiesIterator<'a> {
-    // Metas, so we can recover the current generation for anything in the freelist.
-    meta: &'a [EntityMeta],
-
+/// An [`Iterator`] returning a sequence of [`Entity`] values from [`EntityReservations`].
+///
+/// # Dropping
+///
+/// All reserved entities will continue to be reserved after dropping, *including those that were not iterated*.
+/// Dropping this without finishing the iterator is effectively leaking an entity.
+pub struct ReserveEntitiesIterator {
     // Reserved indices formerly in the freelist to hand out.
-    freelist_indices: core::slice::Iter<'a, u32>,
-
+    freelist_indices: alloc::vec::IntoIter<Entity>,
     // New Entity indices to hand out, outside the range of meta.len().
     new_indices: core::ops::Range<u32>,
 }
 
-impl<'a> Iterator for ReserveEntitiesIterator<'a> {
+impl Iterator for ReserveEntitiesIterator {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.freelist_indices
             .next()
-            .map(|&index| {
-                Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
-            })
             .or_else(|| self.new_indices.next().map(Entity::from_raw))
     }
 
@@ -511,11 +512,504 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for ReserveEntitiesIterator<'a> {}
-impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
+impl ExactSizeIterator for ReserveEntitiesIterator {}
+impl core::iter::FusedIterator for ReserveEntitiesIterator {}
 
 // SAFETY: Newly reserved entity values are unique.
-unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
+unsafe impl EntitySetIterator for ReserveEntitiesIterator {}
+
+/// This allows remote entity reservation via [`EntityReservations`] by keeping an underlying [`Arc`].
+/// This can be retrieved via [`Entities::new_remote`].
+///
+/// This is useful if you want to reserve entities from async contexts or without going through [`World`](crate::world::World)
+/// or [`Entities`]. This is no slower than reserving through [`Entities`],
+/// so for some uses, it may even be worth caching this.
+///
+/// When using this, keep in mind that [`Entity`]s reserved during [`Entities::clear`] will also be invalid.
+/// This *may* be done from other threads, so watch out!
+///
+/// Note also that remotely reserving an entity may make it unavailable for [`Entities::alloc_at`].
+#[derive(Clone)]
+pub struct RemoteEntities(Arc<EntityReservations>);
+
+impl core::ops::Deref for RemoteEntities {
+    type Target = EntityReservations;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
+    }
+}
+
+/// This allows entity reservation.
+/// See [`reserve_entity`](Self::reserve_entity) and [`reserve_entities`](Self::reserve_entities).
+///
+/// This powers both [`Entities`] and [`RemoteEntities`].
+///
+/// **Note:** The reserved [`Entity`]s will not be valid until [`Entities::flush`] is called,
+/// usually tbrough [`World::flush`](crate::world::World). Until then, the entity is *only* reserved.
+/// It does not actually exist yet.
+///
+/// # Example
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::entity::EntityReservations;
+/// use std::ops::Deref;
+///
+/// // reserve
+/// let mut world = World::new();
+/// let entities: &EntityReservations = world.entities().deref();
+/// let now_reserved = entities.reserve_entity();
+///
+/// // flush
+/// world.flush();
+/// ```
+pub struct EntityReservations {
+    /// This represents a [`Vec`] of [`Entity`].
+    ///
+    /// These are the previously freed or otherwise unused entities that are pending being reused.
+    /// [`Self::next_pending_index_truth`] determines which of these have been reused and therefore need to be flusehd
+    /// and which remain pending.
+    ///
+    /// # Safety
+    ///
+    /// This *slice* must only be accessed via [`Self::pending_scope`] and [`Self::pending_scope_mut`]
+    /// to ensure synchronization.
+    pending: AtomicPtr<Entity>,
+    /// This is the capacity for the [`Vec`] represented by [`Self::pending`].
+    pending_capacity: AtomicUsize,
+    /// This is the length for the [`Vec`] represented by [`Self::pending`].
+    pending_len: AtomicUsize,
+    /// This is the value of [`Self::meta_len`] the last time it was flushed.
+    /// Entities before this have been flushed once already, but
+    /// they may have been freed/pending since, requiring another flush.
+    meta_flushed_up_to: AtomicU32,
+    /// This is the prospective length of [`Entities::meta`].
+    /// This is the source of truth.
+    meta_len: AtomicU32,
+    /// This is the index in [`Self::pending`] of the next entity to reuse.
+    /// If this is negative, we are unable to use [`Self::pending`].
+    ///
+    /// This is effectively used for [`u32::saturating_sub`],
+    /// only instead of capping at 0, it just gets increasingly negative.
+    /// We use this instead because atomicaly doing [`u32::saturating_sub`]
+    /// is more work than doing [`AtomicIdCursor::fetch_sub`].
+    next_pending_index_intention: AtomicIdCursor,
+    /// This value follows [`Self::next_pending_index_intention`] on successful operations.
+    /// In other words, if [`Self::next_pending_index_intention`] is non-negative,
+    /// this will take on that value sooner or later.
+    /// If the two are not equal, something is accessing [`Self::pending`].
+    next_pending_index_truth: AtomicIdCursor,
+}
+
+impl EntityReservations {
+    /// Allows access to `num` of [`Self::pending`].
+    /// If access could not be obtained, returns `None`.
+    /// If there was at leas 1 but not `num` available, returns result of `func` with what was available.
+    ///
+    /// This will only access `pending` if `next_pending_index_intention` is non-negative, and
+    /// while accising, `next_pending_index_intention` will be desynced from `next_pending_index_truth`.
+    #[inline]
+    fn pending_scope<'a, T: 'static>(
+        &'a self,
+        num: u32,
+        func: impl FnOnce(&'a [Entity]) -> T,
+    ) -> Option<T> {
+        let num = num as IdCursor;
+        let upper_pending_index = self
+            .next_pending_index_intention
+            .fetch_sub(num, Ordering::Relaxed);
+        let new_next_pending_index = upper_pending_index - num;
+        let lower_pending_index = (new_next_pending_index + 1).max(0);
+
+        if upper_pending_index >= 0 {
+            let pending = self.pending.load(Ordering::Relaxed);
+
+            // SAFETY:
+            // The `upper_pending_index` is valid, so we know we aren't modifying `pending`,
+            // so borrow rules are satisfie.
+            //
+            // Pointer math is correct for the slice.
+            //
+            // Slice lifetime is correct because it is tied to self.
+            //
+            // Fields from self are known to be correct.
+            //
+            let result = unsafe {
+                let starting = pending.add(lower_pending_index as usize);
+                let len = upper_pending_index - lower_pending_index + 1;
+                let slice = core::slice::from_raw_parts::<'a>(starting, len as usize);
+                func(slice)
+            };
+
+            // successful, so we need to update parity
+            self.next_pending_index_truth
+                .fetch_sub(num, Ordering::Relaxed);
+            Some(result)
+        } else {
+            // unsuccessful, so we need to undo the change `next_pending_index_intention` to keep parity.
+            self.next_pending_index_intention
+                .fetch_add(num, Ordering::Relaxed);
+            None
+        }
+    }
+
+    /// Allows mutable access to [`Self::pending`] if nothing else is accessing it.
+    /// Otherwise, gives immutable access.
+    /// Each `func` takes [`Self::pending`] and the current [`Self::next_pending_index_truth`].
+    ///
+    /// # Safety
+    ///
+    /// `func` may change the vec, but it *must* not resize it if the passed bool is true.
+    /// If the bool is true, it is actively being read from.
+    ///
+    /// `func` must also not free the vec. In other words, it's capacity must be > 0 when it finishes.
+    ///
+    /// The layout of the reserved `Vec<Entity>` is as such:
+    ///
+    /// ```txt
+    /// -----------------------------------------------------------------------------------------------
+    /// |    pending entities    |   was pending, now reserved    | spare capacity                    |
+    /// -----------------------------------------------------------------------------------------------
+    /// |                      |                                  |                                   |
+    /// ptr (Self::pending)    (Self::next_pending_index_truth)   vec's length (Self::pending_len)    capacity (Self::pending_capacity)
+    /// ```
+    ///
+    /// If the provided bool is true, something is accessing some part of the "pending entities" slice,
+    /// so "ptr" and `next_pending_index_truth` must not change.
+    /// Effectively, that means `func` should only change the vec's length and access the "was pending, now reserved" slice.
+    /// For example, `func` could drain the vector up to the passed `next_pending_index_truth`.
+    /// When finished, the "pending entities" slice must be unchanged (at leas, unchanged by `func`).
+    ///
+    /// However, if the passed bool is false, `func` has complete access. That means it can do anything it wants to,
+    /// assomung the fields of the vec remain valid.
+    /// For example, `func` could resize the vec and move elements of the "pending entities" slice.
+    /// However, `func` could not set the capacity to 0 (since that *could* result in an invalid "ptr").
+    /// When finished, the "was pending, now reserved" slice must be empty.
+    ///
+    /// This must not be called concurrently. This is the *only* place we provide raw access to the vec,
+    /// even if it is being accessed.
+    /// If two threads did this at the same time, we might create the vec to modify
+    /// while the other thread is settings its data.
+    /// That could produce UB and dangling pointers inside the vec.
+    #[inline]
+    unsafe fn pending_scope_mut<T: 'static>(
+        &self,
+        func: impl FnOnce(&mut Vec<Entity>, IdCursor, bool) -> T,
+    ) -> T {
+        // disable other access and get the intention
+        let next_pending_index_intention = self
+            .next_pending_index_intention
+            .fetch_sub(u32::MAX as IdCursor, Ordering::Relaxed);
+        let next_pending_index = self.next_pending_index_truth.load(Ordering::Relaxed);
+
+        // SAFETY: These are known to be valid.
+        let mut pending = unsafe {
+            mem::ManuallyDrop::new(Vec::from_raw_parts(
+                self.pending.load(Ordering::Relaxed),
+                self.pending_len.load(Ordering::Relaxed),
+                self.pending_capacity.load(Ordering::Relaxed),
+            ))
+        };
+
+        let prev_pending_ptr = pending.as_ptr();
+        let prev_pending_cap = pending.capacity();
+
+        if next_pending_index == next_pending_index_intention {
+            // SAFETY: we just told all the remote entities that the next index is negative,
+            // and the parity succeeded,
+            // so nothing is or will access this while modifying.
+            let result = func(&mut pending, next_pending_index, false);
+
+            let new_next_pending_index = pending.len() as IdCursor - 1;
+            let diff = new_next_pending_index - next_pending_index;
+
+            // SAFETY: We are still preventing other writes so nothing will access this
+            // while we're halfway through setting these values.
+            self.pending.store(pending.as_mut_ptr(), Ordering::Relaxed);
+            self.pending_len.store(pending.len(), Ordering::Relaxed);
+            self.pending_capacity
+                .store(pending.capacity(), Ordering::Relaxed);
+
+            // first, apply the diff to the truth to make it correct
+            self.next_pending_index_truth
+                .fetch_add(diff, Ordering::Relaxed);
+            // including `u32::MAX` re-enables use now that the `next_pending_index_truth` is correct
+            self.next_pending_index_intention
+                .fetch_add(diff + u32::MAX as IdCursor, Ordering::Relaxed);
+
+            debug_assert!(prev_pending_cap == 0 || pending.capacity() > 0);
+
+            result
+        } else {
+            // SAFETY: we just told all the remote entities that the next index is negative,
+            // and the parity is still broken,
+            // so nothing is or will modify this this while accessing,
+            // and caller ensures we aren't modifying this ourselves.
+            let result = func(&mut pending, next_pending_index, true);
+
+            // we couldn't access it, so we need to return it to its source of truth.
+            self.next_pending_index_intention
+                .fetch_add(u32::MAX as IdCursor, Ordering::Relaxed);
+
+            // SAFETY: Caller ensures these didn't change
+            debug_assert_eq!(pending.capacity(), prev_pending_cap);
+            debug_assert_eq!(pending.as_ptr(), prev_pending_ptr);
+            // SAFETY: This is the only thing that changed, and we can set it immediately.
+            // There is no way for this to temporarily leave threads with invalid data.
+            self.pending_len.store(pending.len(), Ordering::Relaxed);
+
+            result
+        }
+    }
+
+    /// Gets [`Self::meta_flushed_up_to`]
+    ///
+    /// This is greedy and instantaneous.
+    /// If other threads are modifying this, we don't wait for them to finish.
+    ///
+    /// The returned value is not guaranteed to be correct now,
+    /// but it is guaranteed to be correct recently.
+    fn meta_flushed_up_to(&self) -> u32 {
+        self.meta_flushed_up_to.load(Ordering::Relaxed)
+    }
+
+    /// Flushes pending entities that have been reused.
+    /// This balances the owned and pending list.
+    /// See also [`Entities::owned`]
+    ///
+    /// # Safety
+    ///
+    /// All entities must have valid indices in `meta`.
+    ///
+    /// This must not be called concurrently. This requirement is inherity from [`Self::pending_scope_mut`].
+    #[inline]
+    unsafe fn flush_pending(
+        &self,
+        meta: &mut [EntityMeta],
+        owned: &mut Vec<Entity>,
+        mut needs_init: impl FnMut(Entity, &EntityMeta) -> bool,
+        mut init: impl FnMut(Entity, &mut EntityLocation),
+    ) {
+        // SAFETY: We return right after flushing if the bool is true
+        self.pending_scope_mut(|pending, next_pending_index, in_use_elsewhere| {
+            // flush
+            let new_pending_len = (next_pending_index + 1).max(0) as usize;
+            // SAFETY: This affects the slice [new_pending_len..] and the vec's length, but nothing else.
+            for reused in pending.drain(new_pending_len..) {
+                // SAFETY: The pending list is known to be valid.
+                let meta = unsafe { meta.get_unchecked_mut(reused.index() as usize) };
+
+                // We need to check this because it may have been "reserved" for direct allocation,
+                // in which case, we should not flush it since that's the allocator's job.
+                if needs_init(reused, meta) {
+                    init(reused, &mut meta.location);
+                }
+            }
+
+            // This ensures safety.
+            // Everything after this requires nothing else access `pending`
+            if in_use_elsewhere {
+                return;
+            }
+
+            // balance pending
+            let balanced_len = (new_pending_len + owned.len()) / 2;
+            if balanced_len < owned.len() {
+                pending.extend(owned.drain(balanced_len..).inspect(|entity| {
+                    // SAFETY: The pending list is known to be valid.
+                    let meta = unsafe { meta.get_unchecked_mut(entity.index() as usize) };
+                    // We ensure that items going onto pending will be flushed by default.
+                    // This may be changed if it is reserved for allocation.
+                    meta.location = EntityLocation::INVALID;
+                }));
+            } else {
+                let diff = balanced_len - owned.len();
+                let start = pending.len() - diff;
+                owned.extend(pending.drain(start..).inspect(|entity| {
+                    // SAFETY: The pending list is known to be valid.
+                    let meta = unsafe { meta.get_unchecked_mut(entity.index() as usize) };
+                    // We ensure that items going onto owned will not be flushed.
+                    // Owned entities are owned by [`Entities`], and should not be flushed here.
+                    meta.location = EntityLocation::INVALID_BUT_DONT_FLUSH;
+                }));
+            }
+        });
+    }
+
+    /// Steals the remote pending list, placing the values in "into".
+    /// This does not steal entities already reserved.
+    fn steal_pending(&self, into: impl FnOnce(&[Entity])) {
+        self.pending_scope(u32::MAX, into);
+    }
+
+    /// Flushes the entities that have been extended onto meta directly.
+    /// These are the new entities, the ones not reused.
+    #[inline]
+    fn flush_extended(
+        &self,
+        meta: &mut Vec<EntityMeta>,
+        mut needs_init: impl FnMut(Entity, &EntityMeta) -> bool,
+        mut init: impl FnMut(Entity, &mut EntityLocation),
+    ) {
+        // prep
+        let theoretical_len = self.meta_len.load(Ordering::Relaxed);
+        let meta_len = meta.len() as u32;
+        let meta_flushed_up_to = self
+            .meta_flushed_up_to
+            .swap(theoretical_len, Ordering::Relaxed);
+        debug_assert!(meta_len <= theoretical_len);
+
+        // flush those we missed
+        for index in meta_flushed_up_to..meta_len {
+            // SAFETY: The pending list is known to be valid.
+            let meta = unsafe { meta.get_unchecked_mut(index as usize) };
+            let entity = Entity::from_raw_and_generation(index, meta.generation);
+
+            // We need to check this because it may have been "reserved" for direct allocation,
+            // in which case, we should not flush it since that's the allocator's job.
+            if needs_init(entity, meta) {
+                init(entity, &mut meta.location);
+            }
+        }
+
+        // flush those that do not exist yet.
+        meta.resize(theoretical_len as usize, EntityMeta::EMPTY);
+        for index in meta_len..theoretical_len {
+            // SAFETY: We just extended the list for these
+            let meta = unsafe { meta.get_unchecked_mut(index as usize) };
+            let entity = Entity::from_raw_and_generation(index, meta.generation);
+            // we know this needs initializing since we just created it, so we skip `needs_init`.
+            init(entity, &mut meta.location);
+        }
+    }
+
+    /// Clears the instance.
+    /// Entities reserved during and prior to the clear will be invalid.
+    fn clear(&self) {
+        let mut blank = Self::new();
+
+        // we must set these so it is properly deallocated.
+        *blank.pending_capacity.get_mut() = self
+            .pending_capacity
+            .swap(*blank.pending_capacity.get_mut(), Ordering::Release);
+        *blank.pending_len.get_mut() = self
+            .pending_len
+            .swap(*blank.pending_len.get_mut(), Ordering::Release);
+        *blank.pending.get_mut() = self
+            .pending
+            .swap(*blank.pending.get_mut(), Ordering::Release);
+
+        self.meta_flushed_up_to
+            .store(*blank.meta_flushed_up_to.get_mut(), Ordering::Release);
+        self.meta_len
+            .store(*blank.meta_len.get_mut(), Ordering::Release);
+        self.next_pending_index_intention.store(
+            *blank.next_pending_index_intention.get_mut(),
+            Ordering::Release,
+        );
+        self.next_pending_index_truth
+            .store(*blank.next_pending_index_truth.get_mut(), Ordering::Release);
+    }
+
+    /// Returns true if it is worth flushing.
+    ///
+    /// This will return true even if another thread is actively flushing it.
+    pub fn worth_flushing(&self) -> bool {
+        let pending_len = self.pending_len.load(Ordering::Relaxed);
+        let next_pending_index = self.next_pending_index_truth.load(Ordering::Relaxed);
+        let is_pending_reserved = pending_len as IdCursor != next_pending_index - 1;
+
+        // technically, this may be a false positive, since we may have extended `meta_len` for `Entities::owned`,
+        // which don't need to be flushed. But a false positive here is fine.
+        let is_meta_unflushed = self.meta_flushed_up_to() < self.meta_len.load(Ordering::Relaxed);
+
+        is_pending_reserved || is_meta_unflushed
+    }
+
+    /// Same as [`reserve_entities`](Self::reserve_entities), but allows passing a `reused` to reuse.
+    ///
+    /// **Note:** If `reused` is not empty, it's contents will be included in the reutrned [`ReserveEntitiesIterator`],
+    /// which may or may not be desired.
+    #[inline]
+    pub fn reserve_entities_with(
+        &self,
+        count: u32,
+        mut reused: Vec<Entity>,
+    ) -> ReserveEntitiesIterator {
+        let prev_len = reused.len();
+        self.pending_scope(count, |reserved| reused.extend_from_slice(reserved));
+
+        // extend if needed
+        let num_extended = (count as usize + prev_len - reused.len()) as u32;
+        let new_indices = if num_extended > 0 {
+            let prev_len = self.meta_len.fetch_add(num_extended, Ordering::Relaxed);
+            let new_len = prev_len
+                .checked_add(num_extended)
+                .expect("too many entities");
+            prev_len..new_len
+        } else {
+            0..0
+        };
+
+        // finish
+        ReserveEntitiesIterator {
+            freelist_indices: reused.into_iter(),
+            new_indices,
+        }
+    }
+
+    /// Reserve entity IDs concurrently.
+    ///
+    /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
+    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
+        self.reserve_entities_with(count, Vec::new())
+    }
+
+    /// Reserve one entity ID concurrently.
+    ///
+    /// Equivalent to `self.reserve_entities(1).next().unwrap()`, but more efficient.
+    pub fn reserve_entity(&self) -> Entity {
+        self.pending_scope(1, |reserved| {
+            // SAFETY: there is always at least 1 reserved.
+            *unsafe { reserved.get_unchecked(0) }
+        })
+        .unwrap_or_else(|| {
+            let prev_len = self.meta_len.fetch_add(1, Ordering::Relaxed);
+            let _new_len = prev_len.checked_add(1).expect("too many entities");
+            let index = prev_len;
+            Entity::from_raw(index)
+        })
+    }
+
+    fn new() -> Self {
+        let mut pending = mem::ManuallyDrop::new(Vec::<Entity>::new());
+
+        Self {
+            pending: AtomicPtr::new(pending.as_mut_ptr()),
+            pending_capacity: AtomicUsize::new(pending.capacity()),
+            pending_len: AtomicUsize::new(pending.len()),
+            meta_flushed_up_to: AtomicU32::new(0),
+            meta_len: AtomicU32::new(0),
+            next_pending_index_intention: AtomicIdCursor::new(-1),
+            next_pending_index_truth: AtomicIdCursor::new(-1),
+        }
+    }
+}
+
+impl Drop for EntityReservations {
+    fn drop(&mut self) {
+        // SAFETY: the data is ultimately from `Vec::new`.
+        unsafe {
+            drop(Vec::from_raw_parts(
+                *self.pending.get_mut(),
+                *self.pending_len.get_mut(),
+                *self.pending_capacity.get_mut(),
+            ));
+        }
+    }
+}
 
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
@@ -524,190 +1018,167 @@ unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 ///  - The alive/dead status of a particular entity. (i.e. "has entity 3 been despawned?")
 ///  - The location of the entity's components in memory (via [`EntityLocation`])
 ///
+/// Note that for specialized use, you may wish to use
+/// [`set_allocation_reservation_size`](Self::set_allocation_reservation_size) to improve performance.
+///
+/// # Important
+///
+/// [`Entity`]s are [`reserved`](EntityReservations::reserve_entity) or [`allocated`](Self::alloc) with no regard to order.
+/// Sequential allocations is by no means guaranteed to have sequential indices under any condition.
+/// For example, is you allocate 5 entities, you may get back indices `[0, 2, 4, 7, 8]`, or even `[29, 13, 3, 2, 1]`.
+/// Hence, ordering should not be relied on at all.
+///
 /// [`World`]: crate::world::World
-#[derive(Debug)]
 pub struct Entities {
+    /// Stores information about entities that have been used.
     meta: Vec<EntityMeta>,
+    /// These are entities that this instance owns.
+    /// These are reserved for [`Self::alloc`], but they are shared with [`EntityReservations::pending`] when flushing.
+    /// Since these are not reserved by a user though, we should not flush them.
+    ///
+    /// To prevent these from being flushed,
+    /// we use [`EntityLocation::INVALID_BUT_DONT_FLUSH`] for all elements in the list.
+    /// In principal, we could use a hash set too, but this marker is faster.
+    owned: Vec<Entity>,
+    /// This handles reserving entities
+    reservations: Arc<EntityReservations>,
+    /// This is the number of reservations we make at a time when we need to extend [`Self::owned`] for [`Self::alloc`].
+    allocation_reservation_size: NonZero<u32>,
+}
 
-    /// The `pending` and `free_cursor` fields describe three sets of Entity IDs
-    /// that have been freed or are in the process of being allocated:
-    ///
-    /// - The `freelist` IDs, previously freed by `free()`. These IDs are available to any of
-    ///   [`alloc`], [`reserve_entity`] or [`reserve_entities`]. Allocation will always prefer
-    ///   these over brand new IDs.
-    ///
-    /// - The `reserved` list of IDs that were once in the freelist, but got reserved by
-    ///   [`reserve_entities`] or [`reserve_entity`]. They are now waiting for [`flush`] to make them
-    ///   fully allocated.
-    ///
-    /// - The count of new IDs that do not yet exist in `self.meta`, but which we have handed out
-    ///   and reserved. [`flush`] will allocate room for them in `self.meta`.
-    ///
-    /// The contents of `pending` look like this:
-    ///
-    /// ```txt
-    /// ----------------------------
-    /// |  freelist  |  reserved   |
-    /// ----------------------------
-    ///              ^             ^
-    ///          free_cursor   pending.len()
-    /// ```
-    ///
-    /// As IDs are allocated, `free_cursor` is atomically decremented, moving
-    /// items from the freelist into the reserved list by sliding over the boundary.
-    ///
-    /// Once the freelist runs out, `free_cursor` starts going negative.
-    /// The more negative it is, the more IDs have been reserved starting exactly at
-    /// the end of `meta.len()`.
-    ///
-    /// This formulation allows us to reserve any number of IDs first from the freelist
-    /// and then from the new IDs, using only a single atomic subtract.
-    ///
-    /// Once [`flush`] is done, `free_cursor` will equal `pending.len()`.
-    ///
-    /// [`alloc`]: Entities::alloc
-    /// [`reserve_entity`]: Entities::reserve_entity
-    /// [`reserve_entities`]: Entities::reserve_entities
-    /// [`flush`]: Entities::flush
-    pending: Vec<u32>,
-    free_cursor: AtomicIdCursor,
+impl fmt::Debug for Entities {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let total_count = self.total_count();
+        let used_count = self.used_count();
+        let total_prospective_count = self.total_prospective_count();
+        let len = self.len();
+        write!(f, "Entities: [ total: {total_count}, used: {used_count}, total_when_flushed: {total_prospective_count}, current: {len} ]")
+    }
+}
+
+impl core::ops::Deref for Entities {
+    type Target = EntityReservations;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.reservations.deref()
+    }
 }
 
 impl Entities {
-    pub(crate) const fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Entities {
             meta: Vec::new(),
-            pending: Vec::new(),
-            free_cursor: AtomicIdCursor::new(0),
+            owned: Vec::new(),
+            reservations: Arc::new(EntityReservations::new()),
+            // SAFETY: 256 > 0
+            allocation_reservation_size: unsafe { NonZero::new_unchecked(256) },
         }
     }
 
-    /// Reserve entity IDs concurrently.
+    /// Gets the amount of entities that are reserved at a time for [`alloc`](Self::alloc) when there are non available.
+    pub fn get_allocation_reservation_size(&self) -> NonZero<u32> {
+        self.allocation_reservation_size
+    }
+
+    /// Sets the amount of entities that are reserved at a time for [`alloc`](Self::alloc) when there are non available.
     ///
-    /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
-    #[expect(
-        clippy::allow_attributes,
-        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
-    )]
-    #[allow(
-        clippy::unnecessary_fallible_conversions,
-        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
-    )]
-    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
-        // Use one atomic subtract to grab a range of new IDs. The range might be
-        // entirely nonnegative, meaning all IDs come from the freelist, or entirely
-        // negative, meaning they are all new IDs to allocate, or a mix of both.
-        let range_end = self.free_cursor.fetch_sub(
-            IdCursor::try_from(count)
-                .expect("64-bit atomic operations are not supported on this platform."),
-            Ordering::Relaxed,
-        );
-        let range_start = range_end
-            - IdCursor::try_from(count)
-                .expect("64-bit atomic operations are not supported on this platform.");
-
-        let freelist_range = range_start.max(0) as usize..range_end.max(0) as usize;
-
-        let (new_id_start, new_id_end) = if range_start >= 0 {
-            // We satisfied all requests from the freelist.
-            (0, 0)
-        } else {
-            // We need to allocate some new Entity IDs outside of the range of self.meta.
-            //
-            // `range_start` covers some negative territory, e.g. `-3..6`.
-            // Since the nonnegative values `0..6` are handled by the freelist, that
-            // means we need to handle the negative range here.
-            //
-            // In this example, we truncate the end to 0, leaving us with `-3..0`.
-            // Then we negate these values to indicate how far beyond the end of `meta.end()`
-            // to go, yielding `meta.len()+0 .. meta.len()+3`.
-            let base = self.meta.len() as IdCursor;
-
-            let new_id_end = u32::try_from(base - range_start).expect("too many entities");
-
-            // `new_id_end` is in range, so no need to check `start`.
-            let new_id_start = (base - range_end.min(0)) as u32;
-
-            (new_id_start, new_id_end)
-        };
-
-        ReserveEntitiesIterator {
-            meta: &self.meta[..],
-            freelist_indices: self.pending[freelist_range].iter(),
-            new_indices: new_id_start..new_id_end,
-        }
+    /// If you have lots of memory and want faster [`alloc`](Self::alloc) calls, increase this.
+    /// If you have very little memory decrease this.
+    pub fn set_allocation_reservation_size(&mut self, allocation_reservation_size: NonZero<u32>) {
+        self.allocation_reservation_size = allocation_reservation_size;
     }
 
-    /// Reserve one entity ID concurrently.
+    /// Creates a new [`RemoteEntities`].
     ///
-    /// Equivalent to `self.reserve_entities(1).next().unwrap()`, but more efficient.
-    pub fn reserve_entity(&self) -> Entity {
-        let n = self.free_cursor.fetch_sub(1, Ordering::Relaxed);
-        if n > 0 {
-            // Allocate from the freelist.
-            let index = self.pending[(n - 1) as usize];
-            Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
-        } else {
-            // Grab a new ID, outside the range of `meta.len()`. `flush()` must
-            // eventually be called to make it valid.
-            //
-            // As `self.free_cursor` goes more and more negative, we return IDs farther
-            // and farther beyond `meta.len()`.
-            Entity::from_raw(
-                u32::try_from(self.meta.len() as IdCursor - n).expect("too many entities"),
-            )
-        }
+    /// This will enable remote reservations on these [`Entities`].
+    ///
+    /// Note that this *can* conflict with [`alloc_at`](Self::alloc_at).
+    ///
+    /// This does not have any additional cost over reserving directly on this instance.
+    #[inline]
+    pub fn new_remote(&self) -> RemoteEntities {
+        RemoteEntities(self.reservations.clone())
     }
 
-    /// Check that we do not have pending work requiring `flush()` to be called.
-    fn verify_flushed(&mut self) {
-        debug_assert!(
-            !self.needs_flush(),
-            "flush() needs to be called before this operation is legal"
-        );
+    /// Adds to [`Self::owned`] `num` entities by reserving them.
+    fn remote_reserve_and_own(&mut self, num: u32) {
+        // reserve more entities in bulk
+        let reserved = self.reservations.reserve_entities(num);
+
+        // ensure all indices are valid
+        if !reserved.new_indices.is_empty() {
+            let new_len = reserved.new_indices.end;
+            self.meta.resize(new_len as usize, EntityMeta::EMPTY);
+        }
+
+        // ensure reserved entities for allocation are not flushed.
+        // These entities are reserved in the sense that they are unique,
+        // but nobody has requested them yet, so they should not be flushed.
+        let reserved = reserved.inspect(|entity| {
+            // SAFETY: We just extended meta to ensure the new entities are valid,
+            // and reused entities are already valid.
+            let meta = unsafe { self.meta.get_unchecked_mut(entity.index() as usize) };
+            meta.location = EntityLocation::INVALID_BUT_DONT_FLUSH;
+        });
+
+        // finish
+        self.owned.extend(reserved);
     }
 
     /// Allocate an entity ID directly.
     pub fn alloc(&mut self) -> Entity {
-        self.verify_flushed();
-        if let Some(index) = self.pending.pop() {
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
+        if let Some(entity) = self.owned.pop() {
+            entity
         } else {
-            let index = u32::try_from(self.meta.len()).expect("too many entities");
-            self.meta.push(EntityMeta::EMPTY);
-            Entity::from_raw(index)
+            self.remote_reserve_and_own(self.allocation_reservation_size.get());
+            // SAFETY: we just extended it by a `NonZero`, so there is a value to pop.
+            unsafe { self.owned.pop().unwrap_unchecked() }
         }
+    }
+
+    fn steal_pending_reservations(&mut self) {
+        self.reservations.steal_pending(|stolen| {
+            self.owned.extend(stolen.iter().copied().inspect(|entity| {
+                // SAFETY: Pending is known to be valid.
+                let meta = unsafe { self.meta.get_unchecked_mut(entity.index() as usize) };
+                // We are taking ownership of the stolen entities, so they should not be flushed.
+                meta.location = EntityLocation::INVALID_BUT_DONT_FLUSH;
+            }));
+        });
     }
 
     /// Allocate a specific entity ID, overwriting its generation.
     ///
     /// Returns the location of the entity currently using the given ID, if any. Location should be
     /// written immediately.
+    ///
+    /// **NOTE:** This may return incorrect results if remote reservations are made at the same time,
+    /// and the entity index has never been reserved or allocated or if this entity was reserved again since the last flush.
     #[deprecated(
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
     pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
-        self.verify_flushed();
+        // make sure we are not missing any pending items.
+        self.steal_pending_reservations();
 
         let loc = if entity.index() as usize >= self.meta.len() {
-            self.pending
-                .extend((self.meta.len() as u32)..entity.index());
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
+            self.owned
+                .extend(((self.meta.len() as u32)..entity.index()).map(Entity::from_raw));
             self.meta
                 .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
             None
-        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
-            self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
+        } else if let Some(index) = self
+            .owned
+            .iter()
+            .position(|owned| owned.index() == entity.index())
+        {
+            self.owned.swap_remove(index);
             None
         } else {
             Some(mem::replace(
                 &mut self.meta[entity.index() as usize].location,
-                EntityMeta::EMPTY.location,
+                EntityLocation::INVALID_BUT_DONT_FLUSH,
             ))
         };
 
@@ -719,6 +1190,9 @@ impl Entities {
     /// Allocate a specific entity ID, overwriting its generation.
     ///
     /// Returns the location of the entity currently using the given ID, if any.
+    ///
+    /// **NOTE:** This may return incorrect results if remote reservations are made at the same time,
+    /// and the entity index has never been reserved or allocated or if this entity was reserved again since the last flush.
     #[deprecated(
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
@@ -730,20 +1204,21 @@ impl Entities {
         &mut self,
         entity: Entity,
     ) -> AllocAtWithoutReplacement {
-        self.verify_flushed();
+        // make sure we are not missing any pending items.
+        self.steal_pending_reservations();
 
         let result = if entity.index() as usize >= self.meta.len() {
-            self.pending
-                .extend((self.meta.len() as u32)..entity.index());
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
+            self.owned
+                .extend(((self.meta.len() as u32)..entity.index()).map(Entity::from_raw));
             self.meta
                 .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
             AllocAtWithoutReplacement::DidNotExist
-        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
-            self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
+        } else if let Some(index) = self
+            .owned
+            .iter()
+            .position(|owned| owned.index() == entity.index())
+        {
+            self.owned.swap_remove(index);
             AllocAtWithoutReplacement::DidNotExist
         } else {
             let current_meta = &self.meta[entity.index() as usize];
@@ -761,53 +1236,60 @@ impl Entities {
     }
 
     /// Destroy an entity, allowing it to be reused.
-    ///
-    /// Must not be called while reserved entities are awaiting `flush()`.
     pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
-        self.verify_flushed();
+        self.free_current_and_future_generations(entity, 0)
+    }
 
-        let meta = &mut self.meta[entity.index() as usize];
+    /// This is the same as [`free`](Entities::free), but it allows skipping some generations.
+    /// When the entity is reused, it will have a generation greater than the current generation + `generations`.
+    #[inline]
+    pub fn free_current_and_future_generations(
+        &mut self,
+        entity: Entity,
+        generations: u32,
+    ) -> Option<EntityLocation> {
+        let meta = &mut self.meta.get_mut(entity.index() as usize)?;
         if meta.generation != entity.generation {
             return None;
         }
 
-        meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, 1);
+        let prev_generation = meta.generation;
+        meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, 1 + generations);
 
-        if meta.generation == NonZero::<u32>::MIN {
+        if prev_generation > meta.generation {
             warn!(
                 "Entity({}) generation wrapped on Entities::free, aliasing may occur",
                 entity.index
             );
         }
 
-        let loc = mem::replace(&mut meta.location, EntityMeta::EMPTY.location);
+        let loc = mem::replace(&mut meta.location, EntityLocation::INVALID_BUT_DONT_FLUSH);
 
-        self.pending.push(entity.index());
+        self.owned.push(Entity::from_raw_and_generation(
+            entity.index,
+            meta.generation,
+        ));
 
-        let new_free_cursor = self.pending.len() as IdCursor;
-        *self.free_cursor.get_mut() = new_free_cursor;
         Some(loc)
     }
 
-    /// Ensure at least `n` allocations can succeed without reallocating.
-    #[expect(
-        clippy::allow_attributes,
-        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
-    )]
-    #[allow(
-        clippy::unnecessary_fallible_conversions,
-        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
-    )]
+    /// Ensure at least `additional` allocations can succeed without reallocating.
     pub fn reserve(&mut self, additional: u32) {
-        self.verify_flushed();
+        // This may reserve more space than needed since we do not account for [`EntityReservations::pending`].
+        // This does not check for "too many entities" because that happens during reservation.
 
-        let freelist_size = *self.free_cursor.get_mut();
-        let shortfall = IdCursor::try_from(additional)
-            .expect("64-bit atomic operations are not supported on this platform.")
-            - freelist_size;
-        if shortfall > 0 {
-            self.meta.reserve(shortfall as usize);
-        }
+        let from_owned = self.owned.len() as u32;
+        let short_fall = additional.saturating_sub(from_owned);
+        let current_len = self.meta.len();
+        // We can't let this exceed `u32::MAX`.
+        // We don't panic here since we don't account for [`EntityReservations::pending`],
+        // so there may be enough room for the passed `additional` anyway.
+        let new_len = (current_len + short_fall as usize).min(u32::MAX as usize);
+        let additional_meta = new_len - current_len;
+        self.meta.reserve(additional_meta);
+
+        // reserve allocation buffer
+        self.remote_reserve_and_own(short_fall);
     }
 
     /// Returns true if the [`Entities`] contains [`entity`](Entity).
@@ -819,10 +1301,11 @@ impl Entities {
     }
 
     /// Clears all [`Entity`] from the World.
+    /// Entities reserved during and prior to the clear will be invalid.
     pub fn clear(&mut self) {
         self.meta.clear();
-        self.pending.clear();
-        *self.free_cursor.get_mut() = 0;
+        self.owned.clear();
+        self.reservations.clear();
     }
 
     /// Returns the location of an [`Entity`].
@@ -855,51 +1338,24 @@ impl Entities {
         meta.location = location;
     }
 
-    /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
-    /// `index` will count `generation` starting from the prior `generation` + the specified
-    /// value + 1.
+    /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection.
+    /// Returns `None` if this [`Entity`] is outside of the range of currently reserved Entities.
     ///
-    /// Does nothing if no entity with this `index` has been allocated yet.
-    pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
-        if (index as usize) >= self.meta.len() {
-            return false;
-        }
-
-        let meta = &mut self.meta[index as usize];
-        if meta.location.archetype_id == ArchetypeId::INVALID {
-            meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, generations);
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
-    /// Returns `None` if this [`Entity`] is outside of the range of currently reserved Entities
-    ///
-    /// Note: This method may return [`Entities`](Entity) which are currently free
+    /// Note: This method may return [`Entities`](Entity) which are currently free.
     /// Note that [`contains`](Entities::contains) will correctly return false for freed
-    /// entities, since it checks the generation
+    /// entities, since it checks the generation.
     pub fn resolve_from_id(&self, index: u32) -> Option<Entity> {
-        let idu = index as usize;
-        if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
+        if let Some(&EntityMeta { generation, .. }) = self.meta.get(index as usize) {
             Some(Entity::from_raw_and_generation(index, generation))
         } else {
             // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
-            let free_cursor = self.free_cursor.load(Ordering::Relaxed);
-            // If this entity was manually created, then free_cursor might be positive
-            // Returning None handles that case correctly
-            let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then_some(Entity::from_raw(index))
+            let len = self.reservations.meta_len.load(Ordering::Relaxed);
+            (index < len).then_some(Entity::from_raw(index))
         }
     }
 
-    fn needs_flush(&mut self) -> bool {
-        *self.free_cursor.get_mut() != self.pending.len() as IdCursor
-    }
-
-    /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
-    /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the supplied function.
+    /// Allocates space for entities previously reserved with [`reserve_entity`](EntityReservations::reserve_entity) or
+    /// [`reserve_entities`](EntityReservations::reserve_entities), then initializes each one using the supplied function.
     ///
     /// # Safety
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
@@ -908,34 +1364,33 @@ impl Entities {
     ///
     /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
     /// to be initialized with the invalid archetype.
+    #[inline]
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
-        let free_cursor = self.free_cursor.get_mut();
-        let current_free_cursor = *free_cursor;
-
-        let new_free_cursor = if current_free_cursor >= 0 {
-            current_free_cursor as usize
-        } else {
-            let old_meta_len = self.meta.len();
-            let new_meta_len = old_meta_len + -current_free_cursor as usize;
-            self.meta.resize(new_meta_len, EntityMeta::EMPTY);
-            for (index, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
-                init(
-                    Entity::from_raw_and_generation(index as u32, meta.generation),
-                    &mut meta.location,
-                );
-            }
-
-            *free_cursor = 0;
-            0
-        };
-
-        for index in self.pending.drain(new_free_cursor..) {
-            let meta = &mut self.meta[index as usize];
-            init(
-                Entity::from_raw_and_generation(index, meta.generation),
-                &mut meta.location,
+        // First we flush the extended as is.
+        // We need to start with this because `flush_pending` can change the `EntityMeta` of newly extended entities.
+        self.reservations.flush_extended(
+            &mut self.meta,
+            |_entity, meta| meta.location == EntityLocation::INVALID,
+            |entity, meta| init(entity, meta),
+        );
+        // SAFETY: This can't be called concurrently since it is private,
+        // and only called here with an exclusive ref to self.
+        // Indices are valid since we borrow all of meta.
+        unsafe {
+            self.reservations.flush_pending(
+                &mut self.meta,
+                &mut self.owned,
+                |_entity, meta| meta.location == EntityLocation::INVALID,
+                |entity, meta| init(entity, meta),
             );
         }
+        // This is optional
+        // We `flush_extended` again to account for any reservations made during the flush.
+        self.reservations.flush_extended(
+            &mut self.meta,
+            |_entity, meta| meta.location == EntityLocation::INVALID,
+            |entity, meta| init(entity, meta),
+        );
     }
 
     /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
@@ -958,8 +1413,14 @@ impl Entities {
     ///
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn total_count(&self) -> usize {
-        self.meta.len()
+    pub fn total_count(&self) -> u32 {
+        let known = self.meta_flushed_up_to();
+        // include those that are allocated, skipping the gapps of unflushed, newly reserved entities.
+        let additional = self.meta[known as usize..]
+            .iter()
+            .filter(|meta| **meta != EntityMeta::EMPTY)
+            .count();
+        known + additional as u32
     }
 
     /// The count of all entities in the [`World`] that are used,
@@ -967,8 +1428,16 @@ impl Entities {
     ///
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn used_count(&self) -> usize {
-        (self.meta.len() as isize - self.free_cursor.load(Ordering::Relaxed) as isize) as usize
+    pub fn used_count(&self) -> u32 {
+        let total = self.reservations.meta_len.load(Ordering::Relaxed);
+        let owned = self.owned.len() as u32;
+        let pending = self
+            .reservations
+            .next_pending_index_intention
+            .load(Ordering::Relaxed)
+            .max(-1)
+            + 1;
+        total - owned - pending as u32
     }
 
     /// The count of all entities in the [`World`] that have ever been allocated or reserved, including those that are freed.
@@ -976,15 +1445,23 @@ impl Entities {
     ///
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn total_prospective_count(&self) -> usize {
-        self.meta.len() + (-self.free_cursor.load(Ordering::Relaxed)).min(0) as usize
+    pub fn total_prospective_count(&self) -> u32 {
+        self.reservations.meta_len.load(Ordering::Relaxed)
     }
 
     /// The count of currently allocated entities.
+    /// This does not include reserved or freed entities.
     #[inline]
     pub fn len(&self) -> u32 {
-        // `pending`, by definition, can't be bigger than `meta`.
-        (self.meta.len() - self.pending.len()) as u32
+        let ever_allocated = self.total_count();
+        let owned = self.owned.len();
+        let pending = self
+            .reservations
+            .next_pending_index_intention
+            .load(Ordering::Relaxed)
+            .max(-1)
+            + 1;
+        ever_allocated - owned as u32 - pending as u32
     }
 
     /// Checks if any entity is currently active.
@@ -1079,7 +1556,7 @@ impl fmt::Display for EntityDoesNotExistDetails {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 struct EntityMeta {
     /// The current generation of the [`Entity`].
     pub generation: NonZero<u32>,
@@ -1123,10 +1600,19 @@ pub struct EntityLocation {
 }
 
 impl EntityLocation {
-    /// location for **pending entity** and **invalid entity**
+    /// Location for **pending entity** and **invalid entity**.
     pub(crate) const INVALID: EntityLocation = EntityLocation {
         archetype_id: ArchetypeId::INVALID,
         archetype_row: ArchetypeRow::INVALID,
+        table_id: TableId::INVALID,
+        table_row: TableRow::INVALID,
+    };
+
+    /// This signifies that this entity should not be flushed.
+    /// See [`Entities::owned`] for details.
+    pub(crate) const INVALID_BUT_DONT_FLUSH: EntityLocation = EntityLocation {
+        archetype_id: ArchetypeId::INVALID,
+        archetype_row: ArchetypeRow::INVALID_BUT_DONT_FLUSH,
         table_id: TableId::INVALID,
         table_row: TableRow::INVALID,
     };
@@ -1198,9 +1684,10 @@ mod tests {
     fn reserve_generations() {
         let mut entities = Entities::new();
         let entity = entities.alloc();
-        entities.free(entity);
 
-        assert!(entities.reserve_generations(entity.index(), 1));
+        assert!(entities
+            .free_current_and_future_generations(entity, 1)
+            .is_some());
     }
 
     #[test]
@@ -1209,9 +1696,9 @@ mod tests {
 
         let mut entities = Entities::new();
         let entity = entities.alloc();
-        entities.free(entity);
-
-        assert!(entities.reserve_generations(entity.index(), GENERATIONS));
+        assert!(entities
+            .free_current_and_future_generations(entity, GENERATIONS)
+            .is_some());
 
         // The very next entity allocated should be a further generation on the same index
         let next_entity = entities.alloc();
