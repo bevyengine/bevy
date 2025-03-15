@@ -263,7 +263,7 @@ impl GltfSkin {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Clone, Default, Debug)]
 pub struct GltfExtras {
     /// Content of the extra data.
     pub value: String,
@@ -281,7 +281,7 @@ impl From<&serde_json::value::RawValue> for GltfExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Clone, Default, Debug)]
 pub struct GltfSceneExtras {
     /// Content of the extra data.
     pub value: String,
@@ -291,7 +291,7 @@ pub struct GltfSceneExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Clone, Default, Debug)]
 pub struct GltfMeshExtras {
     /// Content of the extra data.
     pub value: String,
@@ -301,7 +301,7 @@ pub struct GltfMeshExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Clone, Default, Debug)]
 pub struct GltfMaterialExtras {
     /// Content of the extra data.
     pub value: String,
@@ -311,5 +311,5 @@ pub struct GltfMaterialExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-material).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component)]
+#[reflect(Component, Clone)]
 pub struct GltfMaterialName(pub String);

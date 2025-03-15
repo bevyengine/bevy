@@ -37,7 +37,11 @@ pub trait Bounded2d {
 /// A 2D axis-aligned bounding box, or bounding rectangle
 #[doc(alias = "BoundingRectangle")]
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(Serialize), derive(Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -460,7 +464,11 @@ use crate::primitives::Circle;
 
 /// A bounding circle
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(Serialize), derive(Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),

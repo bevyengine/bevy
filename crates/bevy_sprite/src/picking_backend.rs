@@ -22,12 +22,12 @@ use bevy_window::PrimaryWindow;
 
 /// A component that marks cameras that should be used in the [`SpritePickingPlugin`].
 #[derive(Debug, Clone, Default, Component, Reflect)]
-#[reflect(Debug, Default, Component)]
+#[reflect(Debug, Default, Component, Clone)]
 pub struct SpritePickingCamera;
 
 /// How should the [`SpritePickingPlugin`] handle picking and how should it handle transparent pixels
 #[derive(Debug, Clone, Copy, Reflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Clone)]
 pub enum SpritePickingMode {
     /// Even if a sprite is picked on a transparent pixel, it should still count within the backend.
     /// Only consider the rect of a given sprite.

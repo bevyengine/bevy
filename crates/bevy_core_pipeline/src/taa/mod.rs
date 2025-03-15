@@ -131,7 +131,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// If no [`MipBias`] component is attached to the camera, TAA will add a `MipBias(-1.0)` component.
 #[derive(Component, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 #[require(TemporalJitter, DepthPrepass, MotionVectorPrepass)]
 #[doc(alias = "Taa")]
 pub struct TemporalAntiAliasing {

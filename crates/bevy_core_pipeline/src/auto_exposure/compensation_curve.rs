@@ -18,7 +18,7 @@ const LUT_SIZE: usize = 256;
 /// This curve is used to map the average log luminance of a scene to an
 /// exposure compensation value, to allow for fine control over the final exposure.
 #[derive(Asset, Reflect, Debug, Clone)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub struct AutoExposureCompensationCurve {
     /// The minimum log luminance value in the curve. (the x-axis)
     min_log_lum: f32,

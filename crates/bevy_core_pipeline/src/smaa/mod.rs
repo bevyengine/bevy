@@ -95,7 +95,7 @@ pub struct SmaaPlugin;
 /// A component for enabling Subpixel Morphological Anti-Aliasing (SMAA)
 /// for a [`bevy_render::camera::Camera`].
 #[derive(Clone, Copy, Default, Component, Reflect, ExtractComponent)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 #[doc(alias = "SubpixelMorphologicalAntiAliasing")]
 pub struct Smaa {
     /// A predefined set of SMAA parameters: i.e. a quality level.
@@ -110,7 +110,7 @@ pub struct Smaa {
 ///
 /// The default value is *high*.
 #[derive(Clone, Copy, Reflect, Default, PartialEq, Eq, Hash)]
-#[reflect(Default)]
+#[reflect(Default, Clone, PartialEq, Hash)]
 pub enum SmaaPreset {
     /// Four search steps; no diagonal or corner detection.
     Low,

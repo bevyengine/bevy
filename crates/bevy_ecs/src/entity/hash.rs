@@ -1,11 +1,11 @@
 use core::hash::{BuildHasher, Hasher};
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// A [`BuildHasher`] that results in a [`EntityHasher`].
 #[derive(Debug, Default, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default, Clone))]
 pub struct EntityHash;
 
 impl BuildHasher for EntityHash {

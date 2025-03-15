@@ -317,7 +317,7 @@ impl ExtractedView {
 /// `post_saturation` value in [`ColorGradingGlobal`], which is applied after
 /// tonemapping.
 #[derive(Component, Reflect, Debug, Default, Clone)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct ColorGrading {
     /// Filmic color grading values applied to the image as a whole (as opposed
     /// to individual sections, like shadows and highlights).
@@ -346,7 +346,7 @@ pub struct ColorGrading {
 /// Filmic color grading values applied to the image as a whole (as opposed to
 /// individual sections, like shadows and highlights).
 #[derive(Clone, Debug, Reflect)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub struct ColorGradingGlobal {
     /// Exposure value (EV) offset, measured in stops.
     pub exposure: f32,
@@ -412,6 +412,7 @@ pub struct ColorGradingUniform {
 /// A section of color grading values that can be selectively applied to
 /// shadows, midtones, and highlights.
 #[derive(Reflect, Debug, Copy, Clone, PartialEq)]
+#[reflect(Clone, PartialEq)]
 pub struct ColorGradingSection {
     /// Values below 1.0 desaturate, with a value of 0.0 resulting in a grayscale image
     /// with luminance defined by ITU-R BT.709.

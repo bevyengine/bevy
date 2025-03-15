@@ -166,7 +166,7 @@ type IdCursor = isize;
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug, Clone))]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
     reflect(Serialize, Deserialize)

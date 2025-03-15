@@ -950,7 +950,7 @@ impl ComponentInfo {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 pub struct ComponentId(usize);
 
@@ -2416,7 +2416,7 @@ impl Components {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 pub struct Tick {
     tick: u32,
@@ -2513,7 +2513,7 @@ impl<'a> TickCells<'a> {
 
 /// Records when a component or resource was added and when it was last mutably dereferenced (or added).
 #[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct ComponentTicks {
     /// Tick recording the time this component or resource was added.
     pub added: Tick,

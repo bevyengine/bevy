@@ -18,7 +18,7 @@ use bevy_reflect::{prelude::*, Reflect};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Component)
+    reflect(Debug, Default, Component, Clone)
 )]
 #[component(on_add = on_auto_focus_added)]
 pub struct AutoFocus;

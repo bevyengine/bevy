@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 /// This means "forward" is -Z.
 #[derive(Component, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 #[require(
     Camera,
     DebandDither(|| DebandDither::Enabled),
@@ -72,7 +72,7 @@ impl Default for Camera3d {
 }
 
 #[derive(Clone, Copy, Reflect, Serialize, Deserialize)]
-#[reflect(Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, Clone)]
 pub struct Camera3dDepthTextureUsage(pub u32);
 
 impl From<TextureUsages> for Camera3dDepthTextureUsage {
@@ -88,7 +88,7 @@ impl From<Camera3dDepthTextureUsage> for TextureUsages {
 
 /// The depth clear operation to perform for the main 3d pass.
 #[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
-#[reflect(Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, Clone, Default)]
 pub enum Camera3dDepthLoadOp {
     /// Clear with a specified value.
     /// Note that 0.0 is the far plane due to bevy's use of reverse-z projections.
@@ -119,7 +119,7 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
 ///
 /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
 #[derive(Resource, Default, Clone, Copy, Reflect, PartialEq, PartialOrd, Debug)]
-#[reflect(Resource, Default, Debug, PartialEq)]
+#[reflect(Resource, Default, Clone, Debug, PartialEq)]
 pub enum ScreenSpaceTransmissionQuality {
     /// Best performance at the cost of quality. Suitable for lower end GPUs. (e.g. Mobile)
     ///

@@ -149,7 +149,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 /// The default event that can be used to wake the window loop
 /// Wakes up the loop if in wait state
 #[derive(Debug, Default, Clone, Copy, Event, Reflect)]
-#[reflect(Debug, Default)]
+#[reflect(Debug, Default, Clone)]
 pub struct WakeUp;
 
 /// The original window event as produced by Winit. This is meant as an escape

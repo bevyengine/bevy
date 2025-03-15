@@ -36,7 +36,7 @@ pub use node::CasNode;
 ///
 /// To use this, add the [`ContrastAdaptiveSharpening`] component to a 2D or 3D camera.
 #[derive(Component, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct ContrastAdaptiveSharpening {
     /// Enable or disable sharpening.
     pub enabled: bool,
@@ -65,7 +65,7 @@ impl Default for ContrastAdaptiveSharpening {
 }
 
 #[derive(Component, Default, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct DenoiseCas(bool);
 
 /// The uniform struct extracted from [`ContrastAdaptiveSharpening`] attached to a [`Camera`].

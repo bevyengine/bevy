@@ -17,6 +17,8 @@ use crate::{
     world::{DeferredWorld, EntityWorldMut, FromWorld, World},
 };
 use alloc::{format, string::String, vec::Vec};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::std_traits::ReflectDefault;
 use core::ops::Deref;
 use core::slice;
 use disqualified::ShortName;
@@ -90,7 +92,7 @@ use log::warn;
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    reflect(Component, PartialEq, Debug, FromWorld)
+    reflect(Component, PartialEq, Debug, FromWorld, Clone)
 )]
 #[relationship(relationship_target = Children)]
 #[doc(alias = "IsChild", alias = "Parent")]
@@ -133,7 +135,7 @@ impl FromWorld for ChildOf {
 #[derive(Component, Default, Debug, PartialEq, Eq)]
 #[relationship_target(relationship = ChildOf, linked_spawn)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld, Default))]
 #[doc(alias = "IsParent")]
 pub struct Children(Vec<Entity>);
 

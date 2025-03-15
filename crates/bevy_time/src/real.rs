@@ -1,6 +1,6 @@
 use bevy_platform_support::time::Instant;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use core::time::Duration;
 
 use crate::time::Time;
@@ -41,7 +41,7 @@ use crate::time::Time;
 ///     [`Time<Real>#impl-Time<Real>`] is only a *mock* of wall clock time.
 ///
 #[derive(Debug, Copy, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone, Default))]
 pub struct Real {
     startup: Instant,
     first_update: Option<Instant>,
