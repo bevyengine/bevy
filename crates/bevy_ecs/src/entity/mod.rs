@@ -75,8 +75,17 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::atomic::{AtomicUsize, Ordering};
-use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
+use bevy_platform_support::sync::{
+    atomic::{AtomicPtr, AtomicUsize, Ordering},
+    Arc, Weak,
+};
+use core::{
+    fmt,
+    hash::Hash,
+    mem::{self, ManuallyDrop},
+    num::NonZero,
+    panic::Location,
+};
 use log::warn;
 
 #[cfg(feature = "serialize")]
@@ -572,6 +581,88 @@ impl PendingEntitiesChunk {
         self.entities.clear();
         *self.reserved.get_mut() = 0;
         *self.flushed.get_mut() = 0;
+    }
+}
+
+/// Allows atomic access to [`PendingEntitiesChunk`]. This is effectively an [`Arc`] itself.
+struct AtomicPendingEntitiesChunk(AtomicPtr<PendingEntitiesChunk>);
+
+impl AtomicPendingEntitiesChunk {
+    /// Scopes access to the inner arc via a `Weak`.
+    fn scope<T: 'static>(&self, func: impl FnOnce(&Weak<PendingEntitiesChunk>) -> T) -> T {
+        let ptr = self.0.load(Ordering::Relaxed);
+        // SAFETY: we know the pointer is not null, and we are not dropping the `Weak`.
+        unsafe {
+            // We use `Weak` instead of `Arc` here because if we were the only owner of the `Arc`, and a `Self::swap`
+            // happened inbetween loading the pointer and using it, we could have a use after free.
+            // `Weak::from_raw` checks if the ptr is valid, and can be called after and during the `Arc`'s drop.
+            // If the `Arc` no longer exists, it will simply return `None` when upgraded.
+            let weak = ManuallyDrop::new(Weak::from_raw(ptr));
+            func(&weak)
+        }
+    }
+
+    // Prepares the [`Arc`] to be owned by [`Self`]
+    //
+    // # Safety
+    //
+    // The returned pointer must be used in [`Self::on_arc_go_out`], and it must never be used mutably.
+    unsafe fn on_arc_come_in(new: &Arc<PendingEntitiesChunk>) -> *mut PendingEntitiesChunk {
+        let new_arc_ptr = Arc::as_ptr(new);
+        // SAFETY: `new` has not been dropped, and the ptr is correct.
+        unsafe {
+            // We are retaining a strong count for ourselves, so we act as an arc too.
+            Arc::increment_strong_count(new_arc_ptr);
+        }
+
+        let new_weak = Arc::downgrade(new);
+        new_weak.into_raw().cast_mut()
+    }
+
+    // Returns an [`Arc`] to normal after being owned by [`Self`]
+    //
+    // # Safety
+    //
+    // The passed pointer must have come from [`Self::on_arc_come_in`].
+    unsafe fn on_arc_go_out(old_ptr: *mut PendingEntitiesChunk) -> Arc<PendingEntitiesChunk> {
+        // SAFETY: the pointer is valid
+        let old_weak = unsafe { Weak::from_raw(old_ptr) };
+
+        // we incremented the strong count when it came in, so it must still be valid.
+        let old = old_weak.upgrade().unwrap();
+        let old_arc_ptr = Arc::as_ptr(&old);
+
+        // SAFETY: The pointer is valid. `old` is not dropped.
+        // We need to decrement the strong count because we aren't owning it anymore
+        unsafe {
+            Arc::decrement_strong_count(old_arc_ptr);
+        }
+
+        old
+    }
+
+    /// Puts the new arc in, returning the old one.
+    fn swap(&self, new: Arc<PendingEntitiesChunk>) -> Arc<PendingEntitiesChunk> {
+        // SAFETY: The ordering is preserved, and we don't mutate it.
+        unsafe {
+            let new_ptr = Self::on_arc_come_in(&new);
+            let old_ptr = self.0.swap(new_ptr, Ordering::Relaxed);
+            Self::on_arc_go_out(old_ptr)
+        }
+    }
+
+    fn new(chunk: Arc<PendingEntitiesChunk>) -> Self {
+        // SAFETY: Safety ensured by either [`Self::swap`] or `drop`
+        let ptr = unsafe { Self::on_arc_come_in(&chunk) };
+        Self(AtomicPtr::new(ptr))
+    }
+}
+
+impl Drop for AtomicPendingEntitiesChunk {
+    fn drop(&mut self) {
+        let old_ptr = *self.0.get_mut();
+        // SAFETY: The pointer must have come from [`Self::new`] or [`Self::swap`].
+        let _old = unsafe { Self::on_arc_go_out(old_ptr) };
     }
 }
 
