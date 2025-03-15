@@ -458,7 +458,14 @@ impl PrepassPipelineInternal {
             self.view_layout_no_motion_vectors.clone()
         }];
         let mut vertex_attributes = Vec::new();
+
+        // Let the shader code know that it's running in a prepass pipeline.
+        // (PBR code will use this to detect that it's running in deferred mode,
+        // since that's the only time it gets called from a prepass pipeline.)
         shader_defs.push("PREPASS_PIPELINE".into());
+
+        // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
+        // The main limitation right now is that bind group order is hardcoded in shaders.
         bind_group_layouts.push(self.material_layout.clone());
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
@@ -480,6 +487,8 @@ impl PrepassPipelineInternal {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
+        // For directional light shadow map views, use unclipped depth via either the native GPU feature,
+        // or emulated by setting depth in the fragment shader for GPUs that don't support it natively.
         let emulate_unclipped_depth = mesh_key.contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
             && !self.depth_clip_control_supported;
         if emulate_unclipped_depth {
@@ -574,20 +583,27 @@ impl PrepassPipelineInternal {
         );
         bind_group_layouts.insert(1, bind_group);
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
+        // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
         let mut targets = prepass_target_descriptors(
             mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS),
             mesh_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS),
             mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS),
         );
+
         if targets.iter().all(Option::is_none) {
             // if no targets are required then clear the list, so that no fragment shader is required
             // (though one may still be used for discarding depth buffer writes)
             targets.clear();
         }
+
+        // The fragment shader is only used when the normal prepass or motion vectors prepass
+        // is enabled, the material uses alpha cutoff values and doesn't rely on the standard
+        // prepass shader, or we are emulating unclipped depth in the fragment shader.
         let fragment_required = !targets.is_empty()
             || emulate_unclipped_depth
             || (mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && self.prepass_material_fragment_shader.is_some());
+
         let fragment = fragment_required.then(|| {
             // Use the fragment shader from the material
             let frag_shader_handle = if mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
@@ -609,6 +625,8 @@ impl PrepassPipelineInternal {
                 targets,
             }
         });
+
+        // Use the vertex shader from the material if present
         let vert_shader_handle = if mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
             if let Some(handle) = &self.deferred_material_vertex_shader {
                 handle.clone()
