@@ -171,7 +171,10 @@ pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHa
 /// connected to a bone named `Stomach`.
 ///
 /// [UUID]: https://en.wikipedia.org/wiki/Universally_unique_identifier
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Component, Reflect, Debug, Serialize, Deserialize,
+)]
+#[reflect(Component)]
 pub struct AnimationTargetId(pub Uuid);
 
 impl Hash for AnimationTargetId {

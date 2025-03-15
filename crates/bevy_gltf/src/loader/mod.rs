@@ -13,6 +13,8 @@ use bevy_asset::{
 };
 use bevy_color::{Color, LinearRgba};
 use bevy_core_pipeline::prelude::Camera3d;
+#[cfg(feature = "bevy_animation")]
+use bevy_ecs::world::EntityWorldMut;
 use bevy_ecs::{
     entity::{hash_map::EntityHashMap, Entity},
     hierarchy::ChildSpawner,
@@ -66,6 +68,8 @@ use crate::{
     GltfMaterialName, GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
+#[cfg(feature = "bevy_animation")]
+use self::gltf_ext::scene::collect_path;
 use self::{
     extensions::{AnisotropyExtension, ClearcoatExtension, SpecularExtension},
     gltf_ext::{
@@ -75,7 +79,7 @@ use self::{
             warn_on_differing_texture_transforms,
         },
         mesh::{primitive_name, primitive_topology},
-        scene::{collect_path, node_name, node_transform},
+        scene::{node_name, node_transform},
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
 };
@@ -176,6 +180,9 @@ pub struct GltfLoaderSettings {
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for gltf light nodes.
     pub load_lights: bool,
+    /// If true, the loader will include [`AnimationTargetId`] for all nodes,
+    /// even if there is no animation on the Gltf
+    pub include_animation_target_ids: bool,
     /// If true, the loader will include the root of the gltf root node.
     pub include_source: bool,
 }
@@ -187,6 +194,7 @@ impl Default for GltfLoaderSettings {
             load_materials: RenderAssetUsages::default(),
             load_cameras: true,
             load_lights: true,
+            include_animation_target_ids: false,
             include_source: false,
         }
     }
@@ -1312,22 +1320,25 @@ fn load_node(
     node.insert(name.clone());
 
     #[cfg(feature = "bevy_animation")]
-    if animation_context.is_none() && animation_roots.contains(&gltf_node.index()) {
-        // This is an animation root. Make a new animation context.
-        animation_context = Some(AnimationContext {
-            root: node.id(),
-            path: SmallVec::new(),
-        });
+    if animation_context.is_none() {
+        if animation_roots.contains(&gltf_node.index()) {
+            // This is an animation root. Make a new animation context.
+            animation_context = Some(AnimationContext::Animation {
+                root: node.id(),
+                path: SmallVec::new(),
+            });
+        } else if settings.include_animation_target_ids {
+            // Creating a AnimationContext to collect the paths for the `AnimationTargetId`.
+            animation_context = Some(AnimationContext::JustTargetId {
+                path: SmallVec::new(),
+            });
+        }
     }
 
     #[cfg(feature = "bevy_animation")]
     if let Some(ref mut animation_context) = animation_context {
-        animation_context.path.push(name);
-
-        node.insert(AnimationTarget {
-            id: AnimationTargetId::from_names(animation_context.path.iter()),
-            player: animation_context.root,
-        });
+        animation_context.push_name(name);
+        animation_context.insert_to_entity(&mut node);
     }
 
     if let Some(extras) = gltf_node.extras() {
@@ -1740,12 +1751,44 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
 /// nearest ancestor animation root.
 #[cfg(feature = "bevy_animation")]
 #[derive(Clone)]
-struct AnimationContext {
-    /// The nearest ancestor animation root.
-    pub root: Entity,
-    /// The path to the animation root. This is used for constructing the
-    /// animation target UUIDs.
-    pub path: SmallVec<[Name; 8]>,
+enum AnimationContext {
+    Animation {
+        /// The nearest ancestor animation root.
+        root: Entity,
+        /// The path to the animation root. This is used for constructing the
+        /// animation target UUIDs.
+        path: SmallVec<[Name; 8]>,
+    },
+    JustTargetId {
+        /// The path to the animation root. This is used for constructing the
+        /// animation target UUIDs.
+        path: SmallVec<[Name; 8]>,
+    },
+}
+
+#[cfg(feature = "bevy_animation")]
+impl AnimationContext {
+    fn push_name(&mut self, name: Name) {
+        let path = match self {
+            Self::JustTargetId { path } | Self::Animation { root: _, path } => path,
+        };
+
+        path.push(name);
+    }
+
+    fn insert_to_entity(&self, node: &mut EntityWorldMut) {
+        match self {
+            Self::Animation { root, path } => {
+                node.insert(AnimationTarget {
+                    id: AnimationTargetId::from_names(path.iter()),
+                    player: *root,
+                });
+            }
+            Self::JustTargetId { path } => {
+                node.insert(AnimationTargetId::from_names(path.iter()));
+            }
+        }
+    }
 }
 
 #[derive(Deserialize)]

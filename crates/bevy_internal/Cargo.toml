@@ -172,6 +172,9 @@ bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
+# Enables bone attachments
+bevy_bone_attachments = ["dep:bevy_bone_attachments", "bevy_animation"]
+
 bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos", "bevy_image"]
 bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr", "bevy_image"]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
@@ -201,6 +204,7 @@ bevy_render = [
   "bevy_color/wgpu-types",
   "bevy_color/encase",
 ]
+bevy_scene = ["dep:bevy_scene", "bevy_bone_attachments?/bevy_scene"]
 
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
@@ -353,6 +357,7 @@ web = [
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }
+bevy_bone_attachments = { path = "../bevy_bone_attachments", version = "0.16.0-dev", default-features = false, optional = true }
 bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev", default-features = false }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.16.0-dev", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false, features = [

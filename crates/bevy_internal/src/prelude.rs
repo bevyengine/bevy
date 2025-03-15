@@ -35,6 +35,10 @@ pub use crate::audio::prelude::*;
 pub use crate::animation::prelude::*;
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_bone_attachments")]
+pub use crate::bone_attachments::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_color")]
 pub use crate::color::prelude::*;
 
