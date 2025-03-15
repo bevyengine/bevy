@@ -1011,8 +1011,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// struct A(usize);
     ///
     /// let mut world = World::new();
-    /// let entity_set: UniqueEntityVec<_> = world.spawn_batch((0..3).map(A)).collect_set();
-    /// let entity_set: UniqueEntityArray<_, 3> = entity_set.try_into().unwrap();
+    /// let entity_set: UniqueEntityVec = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_set: UniqueEntityArray<3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
     ///
@@ -1030,7 +1030,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn get_many_unique<'w, const N: usize>(
         &mut self,
         world: &'w World,
-        entities: UniqueEntityArray<Entity, N>,
+        entities: UniqueEntityArray<N, Entity>,
     ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError> {
         self.query(world).get_many_unique_inner(entities)
     }
@@ -1107,8 +1107,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let mut world = World::new();
     ///
-    /// let entity_set: UniqueEntityVec<_> = world.spawn_batch((0..3).map(A)).collect_set();
-    /// let entity_set: UniqueEntityArray<_, 3> = entity_set.try_into().unwrap();
+    /// let entity_set: UniqueEntityVec = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_set: UniqueEntityArray<3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
     ///
@@ -1134,7 +1134,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn get_many_unique_mut<'w, const N: usize>(
         &mut self,
         world: &'w mut World,
-        entities: UniqueEntityArray<Entity, N>,
+        entities: UniqueEntityArray<N, Entity>,
     ) -> Result<[D::Item<'w>; N], QueryEntityError> {
         self.query_mut(world).get_many_unique_inner(entities)
     }

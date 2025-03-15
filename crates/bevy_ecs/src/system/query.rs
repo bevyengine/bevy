@@ -1351,8 +1351,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// struct A(usize);
     ///
     /// let mut world = World::new();
-    /// let entity_set: UniqueEntityVec<_> = world.spawn_batch((0..3).map(A)).collect_set();
-    /// let entity_set: UniqueEntityArray<_, 3> = entity_set.try_into().unwrap();
+    /// let entity_set: UniqueEntityVec = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_set: UniqueEntityArrayl3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
     ///
@@ -1381,7 +1381,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     pub fn get_many_unique<const N: usize>(
         &self,
-        entities: UniqueEntityArray<Entity, N>,
+        entities: UniqueEntityArray<N>,
     ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
         self.as_readonly().get_many_unique_inner(entities)
     }
@@ -1678,7 +1678,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     pub fn get_many_unique_mut<const N: usize>(
         &mut self,
-        entities: UniqueEntityArray<Entity, N>,
+        entities: UniqueEntityArray<N>,
     ) -> Result<[D::Item<'_>; N], QueryEntityError> {
         self.reborrow().get_many_unique_inner(entities)
     }
@@ -1747,7 +1747,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     pub fn get_many_unique_inner<const N: usize>(
         self,
-        entities: UniqueEntityArray<Entity, N>,
+        entities: UniqueEntityArray<N>,
     ) -> Result<[D::Item<'w>; N], QueryEntityError> {
         // SAFETY: All entities are unique, so the results don't alias.
         unsafe { self.get_many_impl(entities.into_inner()) }
