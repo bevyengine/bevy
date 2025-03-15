@@ -37,7 +37,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntityHashSet,
-    texture::DefaultImageSampler,
+    texture::{DefaultImageSampler, GpuImage},
     view::{
         self, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
         ViewTarget, ViewUniformOffset, ViewVisibility, VisibilityRange,
