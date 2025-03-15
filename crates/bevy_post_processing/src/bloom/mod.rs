@@ -5,12 +5,12 @@ mod upsampling_pipeline;
 use bevy_color::{Gray, LinearRgba};
 pub use settings::{Bloom, BloomCompositeMode, BloomPrefilter};
 
-use crate::{
+use bevy_app::{App, Plugin};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_core_pipeline::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
 };
-use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::{ops, UVec2};
 use bevy_render::{

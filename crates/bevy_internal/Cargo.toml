@@ -15,6 +15,7 @@ trace = [
   "bevy_asset?/trace",
   "bevy_core_pipeline?/trace",
   "bevy_anti_aliasing?/trace",
+  "bevy_post_processing?/trace",
   "bevy_ecs/trace",
   "bevy_log/trace",
   "bevy_pbr?/trace",
@@ -155,6 +156,7 @@ pbr_specular_textures = [
 webgl = [
   "bevy_core_pipeline?/webgl",
   "bevy_anti_aliasing?/webgl",
+  "bevy_post_processing?/webgl",
   "bevy_pbr?/webgl",
   "bevy_render?/webgl",
   "bevy_gizmos?/webgl",
@@ -164,6 +166,7 @@ webgl = [
 webgpu = [
   "bevy_core_pipeline?/webgpu",
   "bevy_anti_aliasing?/webgpu",
+  "bevy_post_processing?/webgpu",
   "bevy_pbr?/webgpu",
   "bevy_render?/webgpu",
   "bevy_gizmos?/webgpu",
@@ -181,6 +184,7 @@ bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr", "bevy_image"]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
 bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_image"]
 bevy_anti_aliasing = ["dep:bevy_anti_aliasing", "bevy_image"]
+bevy_post_processing = ["dep:bevy_post_processing", "bevy_image"]
 bevy_gizmos = ["dep:bevy_gizmos", "bevy_image"]
 bevy_gltf = ["dep:bevy_gltf", "bevy_image"]
 bevy_ui = ["dep:bevy_ui", "bevy_image"]
@@ -407,6 +411,7 @@ bevy_color = { path = "../bevy_color", optional = true, version = "0.16.0-dev", 
 ] }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.16.0-dev" }
 bevy_anti_aliasing = { path = "../bevy_anti_aliasing", optional = true, version = "0.16.0-dev" }
+bevy_post_processing = { path = "../bevy_post_processing", optional = true, version = "0.16.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.16.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.16.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.16.0-dev", default-features = false }

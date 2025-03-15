@@ -40,7 +40,7 @@ use bevy_render::{
 };
 use bevy_utils::prelude::default;
 
-use crate::{
+use bevy_core_pipeline::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader,

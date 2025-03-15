@@ -6,19 +6,14 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
-pub mod auto_exposure;
 pub mod blit;
-pub mod bloom;
 pub mod core_2d;
 pub mod core_3d;
 pub mod deferred;
-pub mod dof;
 pub mod experimental;
 pub mod fullscreen_vertex_shader;
-pub mod motion_blur;
 pub mod msaa_writeback;
 pub mod oit;
-pub mod post_process;
 pub mod prepass;
 mod skybox;
 pub mod tonemapping;
@@ -36,16 +31,12 @@ pub mod prelude {
 
 use crate::{
     blit::BlitPlugin,
-    bloom::BloomPlugin,
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
-    dof::DepthOfFieldPlugin,
     experimental::mip_generation::MipGenerationPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
-    motion_blur::MotionBlurPlugin,
     msaa_writeback::MsaaWritebackPlugin,
-    post_process::PostProcessingPlugin,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::TonemappingPlugin,
     upscaling::UpscalingPlugin,
@@ -77,10 +68,6 @@ impl Plugin for CorePipelinePlugin {
                 MsaaWritebackPlugin,
                 TonemappingPlugin,
                 UpscalingPlugin,
-                BloomPlugin,
-                MotionBlurPlugin,
-                DepthOfFieldPlugin,
-                PostProcessingPlugin,
                 OrderIndependentTransparencyPlugin,
                 MipGenerationPlugin,
             ));
