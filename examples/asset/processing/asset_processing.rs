@@ -153,8 +153,9 @@ impl AssetLoader for CoolTextLoader {
                 .loader()
                 .immediate()
                 .load::<Text>(&embedded)
-                .await?;
-            base_text.push_str(&complete_loaded.get_asset().get().0);
+                .await?
+                .1;
+            base_text.push_str(&complete_loaded.get_asset().0);
         }
         for (path, settings_override) in ron.dependencies_with_settings {
             let complete_loaded = load_context
@@ -164,8 +165,9 @@ impl AssetLoader for CoolTextLoader {
                 })
                 .immediate()
                 .load::<Text>(&path)
-                .await?;
-            base_text.push_str(&complete_loaded.get_asset().get().0);
+                .await?
+                .1;
+            base_text.push_str(&complete_loaded.get_asset().0);
         }
         Ok(CoolText {
             text: base_text,

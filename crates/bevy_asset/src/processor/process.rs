@@ -8,7 +8,7 @@ use crate::{
     saver::{AssetSaver, SavedAsset},
     transformer::{AssetTransformer, IdentityAssetTransformer, TransformedAsset},
     AssetLoadError, AssetLoader, AssetPath, CompleteErasedLoadedAsset, DeserializeMetaError,
-    MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
+    MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError, NestedAssets,
 };
 use alloc::{
     borrow::ToOwned,
@@ -17,6 +17,7 @@ use alloc::{
 };
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::marker::PhantomData;
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -310,8 +311,17 @@ impl<'a> ProcessContext<'a> {
         let loader_name = core::any::type_name::<L>();
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
         let mut reader = SliceReader::new(self.asset_bytes);
+        let nested_direct_loaded_assets = RwLock::new(NestedAssets::default());
         let complete_asset = server
-            .load_with_meta_loader_and_reader(self.path, &meta, &*loader, &mut reader, false, true)
+            .load_with_meta_loader_and_reader(
+                self.path,
+                &meta,
+                &*loader,
+                &mut reader,
+                false,
+                true,
+                &nested_direct_loaded_assets,
+            )
             .await?;
         for (path, full_hash) in &complete_asset.asset.loader_dependencies {
             self.new_processed_info
