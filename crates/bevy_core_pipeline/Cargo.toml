@@ -18,7 +18,6 @@ trace = []
 webgl = []
 webgpu = []
 tonemapping_luts = ["bevy_render/ktx2", "bevy_image/ktx2", "bevy_image/zstd"]
-smaa_luts = ["bevy_render/ktx2", "bevy_image/ktx2", "bevy_image/zstd"]
 
 [dependencies]
 # bevy

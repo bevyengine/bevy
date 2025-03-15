@@ -491,8 +491,7 @@ pub enum ShadowFilteringMethod {
     Gaussian,
     /// A randomized filter that varies over time, good when TAA is in use.
     ///
-    /// Good quality when used with
-    /// [`TemporalAntiAliasing`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasing)
+    /// Good quality when used with `TemporalAntiAliasing`
     /// and good performance.
     ///
     /// For directional and spot lights, this uses a [method by Jorge Jimenez for

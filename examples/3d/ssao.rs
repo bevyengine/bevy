@@ -1,7 +1,7 @@
 //! A scene showcasing screen space ambient occlusion.
 
 use bevy::{
-    core_pipeline::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
+    anti_aliasing::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
     math::ops,
     pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
