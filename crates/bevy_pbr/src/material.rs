@@ -35,6 +35,7 @@ use bevy_platform_support::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
+use bevy_render::render_asset::prepare_assets;
 use bevy_render::renderer::RenderQueue;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
