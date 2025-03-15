@@ -128,6 +128,15 @@ pbr_transmission_textures = [
   "bevy_gltf?/pbr_transmission_textures",
 ]
 
+# Clustered Decal support
+pbr_clustered_decals = ["bevy_pbr?/pbr_clustered_decals"]
+
+# Light Texture support
+pbr_light_textures = [
+  "bevy_pbr?/pbr_clustered_decals",
+  "bevy_pbr?/pbr_light_textures",
+]
+
 # Multi-layer material textures in `StandardMaterial`:
 pbr_multi_layer_material_textures = [
   "bevy_pbr?/pbr_multi_layer_material_textures",

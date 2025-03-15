@@ -49,7 +49,8 @@ use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bytemuck::{Pod, Zeroable};
 
 use crate::{
-    binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMeta, LightVisibilityClass,
+    binding_arrays_are_usable, prepare_lights, DirectionalLight, GlobalClusterableObjectMeta,
+    LightVisibilityClass, PointLight, SpotLight,
 };
 
 /// The handle to the `clustered.wgsl` shader.
@@ -97,6 +98,80 @@ pub struct ClusteredDecal {
     pub tag: u32,
 }
 
+/// Cubemap layout defines the order of images in a packed cubemap image.
+#[derive(Default, Reflect, Debug, Clone, Copy)]
+pub enum CubemapLayout {
+    /// layout in a vertical cross format
+    /// ```text
+    ///    +y
+    /// -x -z +x
+    ///    -y
+    ///    +z
+    /// ```
+    #[default]
+    CrossVertical = 0,
+    /// layout in a horizontal cross format
+    /// ```text
+    ///    +y
+    /// -x -z +x +z
+    ///    -y
+    /// ```
+    CrossHorizontal = 1,
+    /// layout in a vertical sequence
+    /// ```text
+    ///   +x
+    ///   -y
+    ///   +y
+    ///   -y
+    ///   -z
+    ///   +z
+    /// ```
+    SequenceVertical = 2,
+    /// layout in a horizontal sequence
+    /// ```text
+    /// +x -y +y -y -z +z
+    /// ```
+    SequenceHorizontal = 3,
+}
+
+/// Add to a [`PointLight`] to add a light texture effect.
+/// A texture mask is applied to the light source to modulate its intensity,  
+/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
+#[derive(Clone, Component, Debug, Reflect)]
+#[reflect(Component, Debug)]
+#[require(PointLight)]
+pub struct PointLightTexture {
+    /// The texture image. Only the R channel is read.
+    pub image: Handle<Image>,
+    /// The cubemap layout. The image should be a packed cubemap in one of the formats described by the [`CubemapLayout`] enum.
+    pub cubemap_layout: CubemapLayout,
+}
+
+/// Add to a [`SpotLight`] to add a light texture effect.
+/// A texture mask is applied to the light source to modulate its intensity,  
+/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
+#[derive(Clone, Component, Debug, Reflect)]
+#[reflect(Component, Debug)]
+#[require(SpotLight)]
+pub struct SpotLightTexture {
+    /// The texture image. Only the R channel is read.
+    /// Note the border of the image should be entirely black to avoid leaking light.
+    pub image: Handle<Image>,
+}
+
+/// Add to a [`DirectionalLight`] to add a light texture effect.
+/// A texture mask is applied to the light source to modulate its intensity,  
+/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
+#[derive(Clone, Component, Debug, Reflect)]
+#[reflect(Component, Debug)]
+#[require(DirectionalLight)]
+pub struct DirectionalLightTexture {
+    /// The texture image. Only the R channel is read.
+    pub image: Handle<Image>,
+    /// Whether to tile the image infinitely, or use only a single tile centered at the light's translation
+    pub tiled: bool,
+}
+
 /// Stores information about all the clustered decals in the scene.
 #[derive(Resource, Default)]
 pub struct RenderClusteredDecals {
@@ -123,6 +198,29 @@ impl RenderClusteredDecals {
         self.texture_to_binding_index.clear();
         self.decals.clear();
         self.entity_to_decal_index.clear();
+    }
+
+    pub fn insert_decal(
+        &mut self,
+        entity: Entity,
+        image: &AssetId<Image>,
+        local_from_world: Mat4,
+        tag: u32,
+    ) {
+        let image_index = self.get_or_insert_image(image);
+        let decal_index = self.decals.len();
+        self.decals.push(RenderClusteredDecal {
+            local_from_world,
+            image_index,
+            tag,
+            pad_a: 0,
+            pad_b: 0,
+        });
+        self.entity_to_decal_index.insert(entity, decal_index);
+    }
+
+    pub fn get(&self, entity: Entity) -> Option<usize> {
+        self.entity_to_decal_index.get(&entity).copied()
     }
 }
 
@@ -209,6 +307,30 @@ pub fn extract_decals(
             &ViewVisibility,
         )>,
     >,
+    spot_light_textures: Extract<
+        Query<(
+            RenderEntity,
+            &SpotLightTexture,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
+    point_light_textures: Extract<
+        Query<(
+            RenderEntity,
+            &PointLightTexture,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
+    directional_light_textures: Extract<
+        Query<(
+            RenderEntity,
+            &DirectionalLightTexture,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
     mut render_decals: ResMut<RenderClusteredDecals>,
 ) {
     // Clear out the `RenderDecals` in preparation for a new frame.
@@ -221,22 +343,54 @@ pub fn extract_decals(
             continue;
         }
 
-        // Insert or add the image.
-        let image_index = render_decals.get_or_insert_image(&clustered_decal.image.id());
+        render_decals.insert_decal(
+            decal_entity,
+            &clustered_decal.image.id(),
+            global_transform.affine().inverse().into(),
+            clustered_decal.tag,
+        );
+    }
 
-        // Record the decal.
-        let decal_index = render_decals.decals.len();
-        render_decals
-            .entity_to_decal_index
-            .insert(decal_entity, decal_index);
+    for (decal_entity, texture, global_transform, view_visibility) in &spot_light_textures {
+        // If the decal is invisible, skip it.
+        if !view_visibility.get() {
+            continue;
+        }
 
-        render_decals.decals.push(RenderClusteredDecal {
-            local_from_world: global_transform.affine().inverse().into(),
-            image_index,
-            tag: clustered_decal.tag,
-            pad_a: 0,
-            pad_b: 0,
-        });
+        render_decals.insert_decal(
+            decal_entity,
+            &texture.image.id(),
+            global_transform.affine().inverse().into(),
+            0,
+        );
+    }
+
+    for (decal_entity, texture, global_transform, view_visibility) in &point_light_textures {
+        // If the decal is invisible, skip it.
+        if !view_visibility.get() {
+            continue;
+        }
+
+        render_decals.insert_decal(
+            decal_entity,
+            &texture.image.id(),
+            global_transform.affine().inverse().into(),
+            texture.cubemap_layout as u32,
+        );
+    }
+
+    for (decal_entity, texture, global_transform, view_visibility) in &directional_light_textures {
+        // If the decal is invisible, skip it.
+        if !view_visibility.get() {
+            continue;
+        }
+
+        render_decals.insert_decal(
+            decal_entity,
+            &texture.image.id(),
+            global_transform.affine().inverse().into(),
+            if texture.tiled { 1 } else { 0 },
+        );
     }
 }
 
@@ -382,4 +536,5 @@ pub fn clustered_decals_are_usable(
     // Re-enable this when `wgpu` has first-class bindless.
     binding_arrays_are_usable(render_device, render_adapter)
         && cfg!(not(any(target_os = "macos", target_os = "ios")))
+        && cfg!(feature = "pbr_clustered_decals")
 }
