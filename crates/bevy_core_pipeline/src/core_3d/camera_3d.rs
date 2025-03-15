@@ -56,7 +56,7 @@ pub struct Camera3d {
     ///
     /// Higher qualities are more GPU-intensive.
     ///
-    /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
+    /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](bevy_anti_aliasing::experimental::taa::TemporalAntiAliasPlugin).
     pub screen_space_specular_transmission_quality: ScreenSpaceTransmissionQuality,
 }
 
