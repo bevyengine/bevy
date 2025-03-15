@@ -15,4 +15,4 @@ A large portion of Rust's `std` actually just re-exports items from `core`, such
 In addition, also re-exports from another crate, [`alloc`](https://doc.rust-lang.org/stable/alloc/).
 This crate is similar to `core` in that it's generally available on all platforms.
 Where it differs is that its inclusion requires access to a [global allocator](https://doc.rust-lang.org/stable/std/alloc/trait.GlobalAlloc.html).
-Currently, Bevy relies heavily on allocation, so we consider `alloc` to be just as available as `alloc`, since without it, Bevy will not compile.
+Currently, Bevy relies heavily on allocation, so we consider `alloc` to be just as available, since without it, Bevy will not compile.
