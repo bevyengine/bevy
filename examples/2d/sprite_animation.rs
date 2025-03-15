@@ -2,7 +2,7 @@
 //!
 //! See `sprite_sheet.rs` for an example where the sprite animation loops indefinitely.
 
-use std::time::Duration;
+use core::time::Duration;
 
 use bevy::{input::common_conditions::input_just_pressed, prelude::*};
 

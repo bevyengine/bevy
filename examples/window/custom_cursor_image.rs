@@ -1,7 +1,7 @@
 //! Illustrates how to use a custom cursor image with a texture atlas and
 //! animation.
 
-use std::time::Duration;
+use core::time::Duration;
 
 use bevy::{
     prelude::*,

@@ -5,7 +5,7 @@
 //!
 //! In this example, we will set up a simple UI with a grid of buttons that can be navigated using the arrow keys or gamepad input.
 
-use std::time::Duration;
+use core::time::Duration;
 
 use bevy::{
     input_focus::{

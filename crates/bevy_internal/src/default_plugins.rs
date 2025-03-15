@@ -135,7 +135,7 @@ plugin_group! {
     /// or remove the loop using [`run_once`](crate::app::ScheduleRunnerPlugin::run_once).
     /// # Example:
     /// ```rust, no_run
-    /// # use std::time::Duration;
+    /// # use core::time::Duration;
     /// # use bevy_app::{App, PluginGroup, ScheduleRunnerPlugin};
     /// # use bevy_internal::MinimalPlugins;
     /// App::new().add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(

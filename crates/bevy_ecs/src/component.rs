@@ -372,7 +372,7 @@ use thiserror::Error;
 /// use bevy_ecs::component::Component;
 ///
 /// // `Duration` is defined in the `std` crate.
-/// use std::time::Duration;
+/// use core::time::Duration;
 ///
 /// // It is not possible to implement `Component` for `Duration` from this position, as they are
 /// // both foreign items, defined in an external crate. However, nothing prevents to define a new
