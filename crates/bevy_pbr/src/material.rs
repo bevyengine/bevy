@@ -21,7 +21,7 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
-use bevy_ecs::system::SystemChangeTick;
+use bevy_ecs::system::{SystemChangeTick, SystemParam};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -803,7 +803,16 @@ pub fn check_entities_needing_specialization<M>(
     }
 }
 
+/// Parameters shared between specialize systems.
+#[derive(SystemParam)]
+pub struct SpecializeParams<'w, M: Material> {
+    pub pipeline_cache: Res<'w, PipelineCache>,
+    pub entity_specialization_ticks: Res<'w, EntitySpecializationTicks<M>>,
+    pub skin_uniforms: Res<'w, SkinUniforms>,
+}
+
 pub fn specialize_material_meshes<M: Material>(
+    params: SpecializeParams<M>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_mesh_instances: Res<RenderMeshInstances>,
@@ -825,12 +834,10 @@ pub fn specialize_material_meshes<M: Material>(
     ),
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline: Res<MaterialPipeline<M>>,
-    pipeline_cache: Res<PipelineCache>,
     ticks: SystemChangeTick,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -862,7 +869,10 @@ pub fn specialize_material_meshes<M: Material>(
             .or_default();
 
         for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let entity_tick = params
+                .entity_specialization_ticks
+                .get(visible_entity)
+                .unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
@@ -913,14 +923,17 @@ pub fn specialize_material_meshes<M: Material>(
                 mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
             }
 
+            let is_skinned = params.skin_uniforms.contains(*visible_entity);
+
+            if is_skinned {
+                mesh_key |= MeshPipelineKey::SKINNED;
+            }
+
             if view_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
-                // If the previous frame have skins or morph targets, note that.
-                if mesh_instance
-                    .flags
-                    .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
-                {
+                if is_skinned {
                     mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
                 }
+                // If the previous frame has morph targets, note that.
                 if mesh_instance
                     .flags
                     .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
@@ -935,7 +948,8 @@ pub fn specialize_material_meshes<M: Material>(
                     .get_extra_data(material.binding.slot)
                     .clone(),
             };
-            let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, key, &mesh.layout);
+            let pipeline_id =
+                pipelines.specialize(&params.pipeline_cache, &pipeline, key, &mesh.layout);
             let pipeline_id = match pipeline_id {
                 Ok(id) => id,
                 Err(err) => {
