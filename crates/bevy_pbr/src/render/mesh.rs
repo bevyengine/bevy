@@ -1905,7 +1905,7 @@ impl GetBatchData for MeshPipeline {
     type CompareData = (
         MaterialBindGroupIndex,
         AssetId<Mesh>,
-        Option<AssetId<Image>>,
+        Option<LightmapSlabIndex>,
     );
 
     type BufferData = MeshUniform;
@@ -1946,7 +1946,7 @@ impl GetBatchData for MeshPipeline {
             mesh_instance.should_batch().then_some((
                 material_bind_group_index.group,
                 mesh_instance.mesh_asset_id,
-                maybe_lightmap.map(|lightmap| lightmap.image),
+                maybe_lightmap.map(|lightmap| lightmap.slab_index),
             )),
         ))
     }
@@ -1976,7 +1976,7 @@ impl GetFullBatchData for MeshPipeline {
             mesh_instance.should_batch().then_some((
                 mesh_instance.material_bindings_index.group,
                 mesh_instance.mesh_asset_id,
-                maybe_lightmap.map(|lightmap| lightmap.image),
+                maybe_lightmap.map(|lightmap| lightmap.slab_index),
             )),
         ))
     }
