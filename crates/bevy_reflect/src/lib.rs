@@ -204,8 +204,8 @@
 //!
 //! They are most commonly used as "proxies" for other types,
 //! where they contain the same data as— and therefore, represent— a concrete type.
-//! The [`PartialReflect::clone_value`] method will return a dynamic type for all non-opaque types,
-//! allowing all types to essentially be "cloned".
+//! The [`PartialReflect::to_dynamic`] method will return a dynamic type for all non-opaque types,
+//! allowing all types to essentially be "cloned" into a dynamic type.
 //! And since dynamic types themselves implement [`PartialReflect`],
 //! we may pass them around just like most other reflected types.
 //!
@@ -219,9 +219,9 @@
 //!   foo: 123
 //! });
 //!
-//! // `cloned` will be a `DynamicStruct` representing a `MyStruct`
-//! let cloned: Box<dyn PartialReflect> = original.clone_value();
-//! assert!(cloned.represents::<MyStruct>());
+//! // `dynamic` will be a `DynamicStruct` representing a `MyStruct`
+//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic();
+//! assert!(dynamic.represents::<MyStruct>());
 //! ```
 //!
 //! ## Patching
@@ -253,8 +253,8 @@
 //!   foo: 123
 //! });
 //!
-//! let cloned: Box<dyn PartialReflect> = original.clone_value();
-//! let value = cloned.try_take::<MyStruct>().unwrap(); // PANIC!
+//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic();
+//! let value = dynamic.try_take::<MyStruct>().unwrap(); // PANIC!
 //! ```
 //!
 //! To resolve this issue, we'll need to convert the dynamic type to the concrete one.
@@ -278,8 +278,8 @@
 //!   foo: 123
 //! });
 //!
-//! let cloned: Box<dyn PartialReflect> = original.clone_value();
-//! let value = <MyStruct as FromReflect>::from_reflect(&*cloned).unwrap(); // OK!
+//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic();
+//! let value = <MyStruct as FromReflect>::from_reflect(&*dynamic).unwrap(); // OK!
 //! ```
 //!
 //! When deriving, all active fields and sub-elements must also implement `FromReflect`.
@@ -945,7 +945,7 @@ mod tests {
 
         let foo = Foo { a: 1 };
         assert!(foo.reflect_hash().is_some());
-        let dynamic = foo.clone_dynamic();
+        let dynamic = foo.to_dynamic_struct();
 
         let mut map = DynamicMap::default();
         map.insert(dynamic, 11u32);
@@ -1498,7 +1498,7 @@ mod tests {
         list.push(3isize);
         list.push(4isize);
         list.push(5isize);
-        foo_patch.insert("c", list.clone_dynamic());
+        foo_patch.insert("c", list.to_dynamic_list());
 
         let mut map = DynamicMap::default();
         map.insert(2usize, 3i8);
@@ -1507,7 +1507,7 @@ mod tests {
 
         let mut bar_patch = DynamicStruct::default();
         bar_patch.insert("x", 2u32);
-        foo_patch.insert("e", bar_patch.clone_dynamic());
+        foo_patch.insert("e", bar_patch.to_dynamic_struct());
 
         let mut tuple = DynamicTuple::default();
         tuple.insert(2i32);
@@ -1834,22 +1834,22 @@ mod tests {
     #[test]
     fn not_dynamic_names() {
         let list = Vec::<usize>::new();
-        let dyn_list = list.clone_dynamic();
+        let dyn_list = list.to_dynamic_list();
         assert_ne!(dyn_list.reflect_type_path(), Vec::<usize>::type_path());
 
         let array = [b'0'; 4];
-        let dyn_array = array.clone_dynamic();
+        let dyn_array = array.to_dynamic_array();
         assert_ne!(dyn_array.reflect_type_path(), <[u8; 4]>::type_path());
 
         let map = HashMap::<usize, String>::default();
-        let dyn_map = map.clone_dynamic();
+        let dyn_map = map.to_dynamic_map();
         assert_ne!(
             dyn_map.reflect_type_path(),
             HashMap::<usize, String>::type_path()
         );
 
         let tuple = (0usize, "1".to_string(), 2.0f32);
-        let mut dyn_tuple = tuple.clone_dynamic();
+        let mut dyn_tuple = tuple.to_dynamic_tuple();
         dyn_tuple.insert::<usize>(3);
         assert_ne!(
             dyn_tuple.reflect_type_path(),
@@ -1861,13 +1861,13 @@ mod tests {
             a: usize,
         }
         let struct_ = TestStruct { a: 0 };
-        let dyn_struct = struct_.clone_dynamic();
+        let dyn_struct = struct_.to_dynamic_struct();
         assert_ne!(dyn_struct.reflect_type_path(), TestStruct::type_path());
 
         #[derive(Reflect)]
         struct TestTupleStruct(usize);
         let tuple_struct = TestTupleStruct(0);
-        let dyn_tuple_struct = tuple_struct.clone_dynamic();
+        let dyn_tuple_struct = tuple_struct.to_dynamic_tuple_struct();
         assert_ne!(
             dyn_tuple_struct.reflect_type_path(),
             TestTupleStruct::type_path()
@@ -2252,7 +2252,7 @@ mod tests {
     #[test]
     fn should_permit_valid_represented_type_for_dynamic() {
         let type_info = <[i32; 2] as Typed>::type_info();
-        let mut dynamic_array = [123; 2].clone_dynamic();
+        let mut dynamic_array = [123; 2].to_dynamic_array();
         dynamic_array.set_represented_type(Some(type_info));
     }
 
@@ -2260,7 +2260,7 @@ mod tests {
     #[should_panic(expected = "expected TypeInfo::Array but received")]
     fn should_prohibit_invalid_represented_type_for_dynamic() {
         let type_info = <(i32, i32) as Typed>::type_info();
-        let mut dynamic_array = [123; 2].clone_dynamic();
+        let mut dynamic_array = [123; 2].to_dynamic_array();
         dynamic_array.set_represented_type(Some(type_info));
     }
 
@@ -2800,7 +2800,7 @@ bevy_reflect::tests::Test {
             map,
             value: 12,
         }
-        .clone_dynamic();
+        .to_dynamic_struct();
 
         // test unknown DynamicStruct
         let mut test_unknown_struct = DynamicStruct::default();
