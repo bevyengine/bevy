@@ -2911,12 +2911,14 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 /// - Component has [`TypeId`]
 /// - Component is registered
 /// - Component has [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) registered
-/// - Component has one of the following registered: [`ReflectFromReflect`](bevy_reflect::ReflectFromReflect),
+/// - Component can be cloned via [`PartialReflect::reflect_clone`] _or_ has one of the following registered: [`ReflectFromReflect`](bevy_reflect::ReflectFromReflect),
 ///   [`ReflectDefault`](bevy_reflect::std_traits::ReflectDefault), [`ReflectFromWorld`](crate::reflect::ReflectFromWorld)
 ///
 /// If any of the conditions is not satisfied, the component will be skipped.
 ///
 /// See [`EntityClonerBuilder`](crate::entity::EntityClonerBuilder) for details.
+///
+/// [`PartialReflect::reflect_clone`]: bevy_reflect::PartialReflect::reflect_clone
 #[cfg(feature = "bevy_reflect")]
 pub fn component_clone_via_reflect(
     commands: &mut Commands,
@@ -2933,6 +2935,21 @@ pub fn component_clone_via_reflect(
     let component_info = ctx.component_info();
     // checked in read_source_component_reflect
     let type_id = component_info.type_id().unwrap();
+
+    // Try to clone using `reflect_clone`
+    if let Ok(mut component) = source_component_reflect.reflect_clone() {
+        if let Some(reflect_component) =
+            registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
+        {
+            reflect_component.visit_entities_mut(&mut *component, &mut |entity| {
+                *entity = ctx.entity_mapper().get_mapped(*entity);
+            });
+        }
+        drop(registry);
+
+        ctx.write_target_component_reflect(component);
+        return;
+    }
 
     // Try to clone using ReflectFromReflect
     if let Some(reflect_from_reflect) =
@@ -2977,7 +2994,7 @@ pub fn component_clone_via_reflect(
                 mapped_entities.push(entity);
             });
         }
-        let source_component_cloned = source_component_reflect.clone_value();
+        let source_component_cloned = source_component_reflect.to_dynamic();
         let component_layout = component_info.layout();
         let target = ctx.target();
         let component_id = ctx.component_id();
@@ -3008,7 +3025,11 @@ pub fn component_clone_via_reflect(
                 world
                     .entity_mut(target)
                     .insert_by_id(component_id, OwningPtr::new(raw_component_ptr));
-                alloc::alloc::dealloc(raw_component_ptr.as_ptr(), component_layout);
+
+                if component_layout.size() > 0 {
+                    // Ensure we don't attempt to deallocate zero-sized components
+                    alloc::alloc::dealloc(raw_component_ptr.as_ptr(), component_layout);
+                }
             }
         });
     }

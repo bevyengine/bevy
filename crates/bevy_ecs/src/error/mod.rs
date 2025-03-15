@@ -8,10 +8,10 @@
 //! [`panic`] error handler function is used, resulting in a panic with the error message attached.
 //!
 //! You can change the default behavior by registering a custom error handler, either globally or
-//! per `Schedule`:
+//! per [`Schedule`]:
 //!
-//! - [`App::set_system_error_handler`] sets the global error handler for all systems of the
-//!   current [`World`].
+//! - `App::set_system_error_handler` (via `bevy_app`) sets the global error handler for all systems of the
+//!   current [`World`] by modifying the [`DefaultSystemErrorHandler`].
 //! - [`Schedule::set_error_handler`] sets the error handler for all systems of that schedule.
 //!
 //! Bevy provides a number of pre-built error-handlers for you to use:
@@ -76,5 +76,7 @@ mod handler;
 pub use bevy_error::*;
 pub use handler::*;
 
-/// A result type for use in fallible systems.
+/// A result type for use in fallible systems, commands and observers.
+///
+/// The [`BevyError`] type is a type-erased error type with optional Bevy-specific diagnostics.
 pub type Result<T = (), E = BevyError> = core::result::Result<T, E>;
