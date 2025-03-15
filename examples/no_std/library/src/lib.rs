@@ -56,7 +56,7 @@ use bevy::platform_support::{
 // The reason is not every platform has full support for atomic operations, so `Arc`, `AtomicBool`,
 // etc. aren't always available.
 // You can test for their inclusion with `#[cfg(target_has_atomic = "ptr")]` and other related flags.
-// You can get a more cross-platform alterative from `portable-atomic`, but Bevy handles this for you!
+// You can get a more cross-platform alternative from `portable-atomic`, but Bevy handles this for you!
 // Simply use `bevy::platform_support::sync` instead of `core::sync` and `alloc::sync` when possible,
 // and Bevy will handle selecting the fallback from `portable-atomic` when it is required.
 
