@@ -2644,6 +2644,14 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
+    fn should_allow_empty_enums() {
+        #[derive(Reflect)]
+        enum Empty {}
+
+        assert_impl_all!(Empty: Reflect);
+    }
+
+    #[test]
     fn recursive_typed_storage_does_not_hang() {
         #[derive(Reflect)]
         struct Recurse<T>(T);
