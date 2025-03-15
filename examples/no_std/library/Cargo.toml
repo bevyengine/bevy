@@ -11,8 +11,8 @@ default-features = false
 # We're free to enable any features our library needs.
 # Note that certain Bevy features rely on `std`.
 features = [
-    # "bevy_color",
-    # "bevy_state",
+  # "bevy_color",
+  # "bevy_state",
 ]
 
 [features]
