@@ -14,6 +14,7 @@ trace = [
   "bevy_app/trace",
   "bevy_asset?/trace",
   "bevy_core_pipeline?/trace",
+  "bevy_anti_aliasing?/trace",
   "bevy_ecs/trace",
   "bevy_log/trace",
   "bevy_pbr?/trace",
@@ -153,6 +154,7 @@ pbr_specular_textures = [
 # Optimise for WebGL2
 webgl = [
   "bevy_core_pipeline?/webgl",
+  "bevy_anti_aliasing?/webgl",
   "bevy_pbr?/webgl",
   "bevy_render?/webgl",
   "bevy_gizmos?/webgl",
@@ -161,6 +163,7 @@ webgl = [
 
 webgpu = [
   "bevy_core_pipeline?/webgpu",
+  "bevy_anti_aliasing?/webgpu",
   "bevy_pbr?/webgpu",
   "bevy_render?/webgpu",
   "bevy_gizmos?/webgpu",
@@ -177,6 +180,7 @@ bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos", "bevy_image"]
 bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr", "bevy_image"]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
 bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_image"]
+bevy_anti_aliasing = ["dep:bevy_anti_aliasing", "bevy_image"]
 bevy_gizmos = ["dep:bevy_gizmos", "bevy_image"]
 bevy_gltf = ["dep:bevy_gltf", "bevy_image"]
 bevy_ui = ["dep:bevy_ui", "bevy_image"]

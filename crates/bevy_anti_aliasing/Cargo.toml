@@ -9,6 +9,9 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+trace = []
+webgl = []
+webgpu = []
 dds = ["bevy_render/dds", "bevy_image/dds"]
 smaa_luts = ["bevy_render/ktx2", "bevy_image/ktx2", "bevy_image/zstd"]
 
