@@ -376,7 +376,8 @@ impl<'w> DynamicSceneBuilder<'w> {
 
                 let resource = type_registration
                     .data::<ReflectResource>()?
-                    .reflect(self.original_world)?;
+                    .reflect(self.original_world)
+                    .ok()?;
 
                 let resource =
                     clone_reflect_value(resource.as_partial_reflect(), type_registration);
