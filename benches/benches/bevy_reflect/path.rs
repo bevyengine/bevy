@@ -3,7 +3,7 @@ use core::{fmt::Write, hint::black_box, str, time::Duration};
 use benches::bench;
 use bevy_reflect::ParsedPath;
 use criterion::{criterion_group, BatchSize, BenchmarkId, Criterion, Throughput};
-use rand::{distributions::Uniform, Rng, SeedableRng};
+use rand::{distr::Uniform, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 criterion_group!(benches, parse_reflect_path);
@@ -18,20 +18,20 @@ fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)
 }
 fn random_ident(rng: &mut ChaCha8Rng, f: &mut dyn Write) {
-    let between = Uniform::from(b'a'..=b'z');
-    let ident_size = rng.gen_range(1..128);
+    let between = Uniform::new_inclusive(b'a', b'z').unwrap();
+    let ident_size = rng.random_range(1..128);
     let ident: Vec<u8> = rng.sample_iter(between).take(ident_size).collect();
     let ident = str::from_utf8(&ident).unwrap();
     let _ = write!(f, "{ident}");
 }
 
 fn random_index(rng: &mut ChaCha8Rng, f: &mut dyn Write) {
-    let index = rng.gen_range(1..128);
+    let index = rng.random_range(1..128);
     let _ = write!(f, "{index}");
 }
 
 fn write_random_access(rng: &mut ChaCha8Rng, f: &mut dyn Write) {
-    match rng.gen_range(0..4) {
+    match rng.random_range(0..4) {
         0 => {
             // Access::Field
             f.write_char('.').unwrap();
