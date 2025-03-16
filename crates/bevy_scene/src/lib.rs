@@ -91,12 +91,19 @@ impl Plugin for ScenePlugin {
         app.world_mut()
             .register_component_hooks::<SceneRoot>()
             .on_remove(|mut world, context| {
+                let Some(handle) = world.get::<SceneRoot>(context.entity) else {
+                    return;
+                };
+                let id = handle.id();
                 if let Some(&SceneInstance(scene_instance)) =
                     world.get::<SceneInstance>(context.entity)
                 {
                     let Some(mut scene_spawner) = world.get_resource_mut::<SceneSpawner>() else {
                         return;
                     };
+                    if let Some(instance_ids) = scene_spawner.spawned_scenes.get_mut(&id) {
+                        instance_ids.remove(&scene_instance);
+                    }
                     scene_spawner.unregister_instance(scene_instance);
                 }
             });

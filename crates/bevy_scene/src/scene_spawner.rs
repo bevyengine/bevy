@@ -73,11 +73,14 @@ impl InstanceId {
 /// - [`despawn_instance`](Self::despawn_instance)
 #[derive(Default, Resource)]
 pub struct SceneSpawner {
+    pub(crate) spawned_scenes: HashMap<AssetId<Scene>, HashSet<InstanceId>>,
     pub(crate) spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, HashSet<InstanceId>>,
     pub(crate) spawned_instances: HashMap<InstanceId, InstanceInfo>,
+    scene_asset_event_reader: EventCursor<AssetEvent<Scene>>,
     dynamic_scene_asset_event_reader: EventCursor<AssetEvent<DynamicScene>>,
     scenes_to_spawn: Vec<(Handle<Scene>, InstanceId, Option<Entity>)>,
     dynamic_scenes_to_spawn: Vec<(Handle<DynamicScene>, InstanceId, Option<Entity>)>,
+    scenes_to_despawn: Vec<AssetId<Scene>>,
     dynamic_scenes_to_despawn: Vec<AssetId<DynamicScene>>,
     instances_to_despawn: Vec<InstanceId>,
     scenes_with_parent: Vec<(InstanceId, Entity)>,
@@ -176,6 +179,11 @@ impl SceneSpawner {
         instance_id
     }
 
+    /// Schedule the despawn of all instances of the provided scene.
+    pub fn despawn(&mut self, id: impl Into<AssetId<Scene>>) {
+        self.scenes_to_despawn.push(id.into());
+    }
+
     /// Schedule the despawn of all instances of the provided dynamic scene.
     pub fn despawn_dynamic(&mut self, id: impl Into<AssetId<DynamicScene>>) {
         self.dynamic_scenes_to_despawn.push(id.into());
@@ -193,6 +201,20 @@ impl SceneSpawner {
     /// This will remove all records of this instance, without despawning any entities.
     pub fn unregister_instance(&mut self, instance_id: InstanceId) {
         self.spawned_instances.remove(&instance_id);
+    }
+
+    /// Immediately despawns all instances of a scene.
+    pub fn despawn_sync(
+        &mut self,
+        world: &mut World,
+        id: impl Into<AssetId<Scene>>,
+    ) -> Result<(), SceneSpawnError> {
+        if let Some(instance_ids) = self.spawned_scenes.remove(&id.into()) {
+            for instance_id in instance_ids {
+                self.despawn_instance_sync(world, &instance_id);
+            }
+        }
+        Ok(())
     }
 
     /// Immediately despawns all instances of a dynamic scene.
@@ -263,6 +285,8 @@ impl SceneSpawner {
         let instance_id = InstanceId::new();
         self.spawned_instances
             .insert(instance_id, InstanceInfo { entity_map });
+        let spawned = self.spawned_scenes.entry(id).or_default();
+        spawned.insert(instance_id);
         Ok(instance_id)
     }
 
@@ -286,7 +310,29 @@ impl SceneSpawner {
 
     /// Iterate through all instances of the provided scenes and update those immediately.
     ///
-    /// Useful for updating already spawned scene instances after their corresponding scene has been modified.
+    /// Useful for updating already spawned scene instances after their corresponding scene has been
+    /// modified.
+    pub fn update_spawned_scenes(
+        &mut self,
+        world: &mut World,
+        scene_ids: &[AssetId<Scene>],
+    ) -> Result<(), SceneSpawnError> {
+        for id in scene_ids {
+            if let Some(spawned_instances) = self.spawned_scenes.get(id) {
+                for instance_id in spawned_instances {
+                    if let Some(instance_info) = self.spawned_instances.get_mut(instance_id) {
+                        Self::spawn_sync_internal(world, *id, &mut instance_info.entity_map)?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Iterate through all instances of the provided dynamic scenes and update those immediately.
+    ///
+    /// Useful for updating already spawned scene instances after their corresponding dynamic scene
+    /// has been modified.
     pub fn update_spawned_dynamic_scenes(
         &mut self,
         world: &mut World,
@@ -306,8 +352,11 @@ impl SceneSpawner {
 
     /// Immediately despawns all scenes scheduled for despawn by despawning their instances.
     pub fn despawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
+        let scenes_to_despawn = core::mem::take(&mut self.scenes_to_despawn);
+        for scene_handle in scenes_to_despawn {
+            self.despawn_sync(world, scene_handle)?;
+        }
         let scenes_to_despawn = core::mem::take(&mut self.dynamic_scenes_to_despawn);
-
         for scene_handle in scenes_to_despawn {
             self.despawn_dynamic_sync(world, scene_handle)?;
         }
@@ -362,6 +411,8 @@ impl SceneSpawner {
                 Ok(_) => {
                     self.spawned_instances
                         .insert(instance_id, InstanceInfo { entity_map });
+                    let spawned = self.spawned_scenes.entry(scene_handle.id()).or_default();
+                    spawned.insert(instance_id);
 
                     // Scenes with parents need more setup before they are ready.
                     // See `set_scene_instance_parent_sync()`.
@@ -471,13 +522,25 @@ pub fn scene_spawner_system(world: &mut World) {
             .scenes_to_spawn
             .retain(|(_, instance, _)| !dead_instances.contains(instance));
 
-        let scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
-
-        let mut updated_spawned_dynamic_scenes = Vec::new();
+        let scene_asset_events = world.resource::<Events<AssetEvent<Scene>>>();
+        let dynamic_scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
         let scene_spawner = &mut *scene_spawner;
+
+        let mut updated_spawned_scenes = Vec::new();
+        for event in scene_spawner
+            .scene_asset_event_reader
+            .read(scene_asset_events)
+        {
+            if let AssetEvent::Modified { id } = event {
+                if scene_spawner.spawned_scenes.contains_key(id) {
+                    updated_spawned_scenes.push(*id);
+                }
+            }
+        }
+        let mut updated_spawned_dynamic_scenes = Vec::new();
         for event in scene_spawner
             .dynamic_scene_asset_event_reader
-            .read(scene_asset_events)
+            .read(dynamic_scene_asset_events)
         {
             if let AssetEvent::Modified { id } = event {
                 if scene_spawner.spawned_dynamic_scenes.contains_key(id) {
@@ -491,6 +554,9 @@ pub fn scene_spawner_system(world: &mut World) {
         scene_spawner
             .spawn_queued_scenes(world)
             .unwrap_or_else(|err| panic!("{}", err));
+        scene_spawner
+            .update_spawned_scenes(world, &updated_spawned_scenes)
+            .unwrap();
         scene_spawner
             .update_spawned_dynamic_scenes(world, &updated_spawned_dynamic_scenes)
             .unwrap();
