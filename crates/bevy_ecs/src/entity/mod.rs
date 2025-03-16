@@ -829,6 +829,7 @@ impl RemoteEntities {
     /// Reserves just 1 entity.
     ///
     /// If you only need one, this is faster than using [`Self::reserver`].
+    /// Otherwise, prefer [`EntityReserver`].
     pub fn reserve_entity(&self) -> Entity {
         self.coordinator
             .pending_chunk
