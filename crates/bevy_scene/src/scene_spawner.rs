@@ -75,10 +75,10 @@ impl InstanceId {
 pub struct SceneSpawner {
     pub(crate) spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, HashSet<InstanceId>>,
     pub(crate) spawned_instances: HashMap<InstanceId, InstanceInfo>,
-    scene_asset_event_reader: EventCursor<AssetEvent<DynamicScene>>,
-    dynamic_scenes_to_spawn: Vec<(Handle<DynamicScene>, InstanceId, Option<Entity>)>,
+    dynamic_scene_asset_event_reader: EventCursor<AssetEvent<DynamicScene>>,
     scenes_to_spawn: Vec<(Handle<Scene>, InstanceId, Option<Entity>)>,
-    scenes_to_despawn: Vec<AssetId<DynamicScene>>,
+    dynamic_scenes_to_spawn: Vec<(Handle<DynamicScene>, InstanceId, Option<Entity>)>,
+    dynamic_scenes_to_despawn: Vec<AssetId<DynamicScene>>,
     instances_to_despawn: Vec<InstanceId>,
     scenes_with_parent: Vec<(InstanceId, Entity)>,
     instances_ready: Vec<(InstanceId, Option<Entity>)>,
@@ -177,8 +177,8 @@ impl SceneSpawner {
     }
 
     /// Schedule the despawn of all instances of the provided dynamic scene.
-    pub fn despawn(&mut self, id: impl Into<AssetId<DynamicScene>>) {
-        self.scenes_to_despawn.push(id.into());
+    pub fn despawn_dynamic(&mut self, id: impl Into<AssetId<DynamicScene>>) {
+        self.dynamic_scenes_to_despawn.push(id.into());
     }
 
     /// Schedule the despawn of a scene instance, removing all its entities from the world.
@@ -196,7 +196,7 @@ impl SceneSpawner {
     }
 
     /// Immediately despawns all instances of a dynamic scene.
-    pub fn despawn_sync(
+    pub fn despawn_dynamic_sync(
         &mut self,
         world: &mut World,
         id: impl Into<AssetId<DynamicScene>>,
@@ -287,7 +287,7 @@ impl SceneSpawner {
     /// Iterate through all instances of the provided scenes and update those immediately.
     ///
     /// Useful for updating already spawned scene instances after their corresponding scene has been modified.
-    pub fn update_spawned_scenes(
+    pub fn update_spawned_dynamic_scenes(
         &mut self,
         world: &mut World,
         scene_ids: &[AssetId<DynamicScene>],
@@ -306,10 +306,10 @@ impl SceneSpawner {
 
     /// Immediately despawns all scenes scheduled for despawn by despawning their instances.
     pub fn despawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
-        let scenes_to_despawn = core::mem::take(&mut self.scenes_to_despawn);
+        let scenes_to_despawn = core::mem::take(&mut self.dynamic_scenes_to_despawn);
 
         for scene_handle in scenes_to_despawn {
-            self.despawn_sync(world, scene_handle)?;
+            self.despawn_dynamic_sync(world, scene_handle)?;
         }
         Ok(())
     }
@@ -473,15 +473,15 @@ pub fn scene_spawner_system(world: &mut World) {
 
         let scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
 
-        let mut updated_spawned_scenes = Vec::new();
+        let mut updated_spawned_dynamic_scenes = Vec::new();
         let scene_spawner = &mut *scene_spawner;
         for event in scene_spawner
-            .scene_asset_event_reader
+            .dynamic_scene_asset_event_reader
             .read(scene_asset_events)
         {
             if let AssetEvent::Modified { id } = event {
                 if scene_spawner.spawned_dynamic_scenes.contains_key(id) {
-                    updated_spawned_scenes.push(*id);
+                    updated_spawned_dynamic_scenes.push(*id);
                 }
             }
         }
@@ -492,7 +492,7 @@ pub fn scene_spawner_system(world: &mut World) {
             .spawn_queued_scenes(world)
             .unwrap_or_else(|err| panic!("{}", err));
         scene_spawner
-            .update_spawned_scenes(world, &updated_spawned_scenes)
+            .update_spawned_dynamic_scenes(world, &updated_spawned_dynamic_scenes)
             .unwrap();
         scene_spawner.set_scene_instance_parent_sync(world);
         scene_spawner.trigger_scene_ready_events(world);
@@ -615,7 +615,7 @@ mod tests {
 
         // let's try to delete the scene
         let mut scene_spawner = app.world_mut().resource_mut::<SceneSpawner>();
-        scene_spawner.despawn(&scene_handle);
+        scene_spawner.despawn_dynamic(&scene_handle);
 
         // run the scene spawner system to despawn the scene
         app.update();
