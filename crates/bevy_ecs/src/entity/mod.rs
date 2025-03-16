@@ -730,6 +730,13 @@ pub struct EntityReserver {
 }
 
 impl EntityReserver {
+    /// Gets the [`RemoteEntities`] for this reserver.
+    pub fn remote_entities(&self) -> RemoteEntities {
+        RemoteEntities {
+            coordinator: self.coordinator.clone(),
+        }
+    }
+
     /// Constructs a new [`EntityReserver`].
     fn new(coordinator: Arc<AtomicEntityReservations>) -> Self {
         const TIMEOUT: u8 = 5;
@@ -792,13 +799,46 @@ impl EntityReserver {
     }
 
     /// Reserves just 1 entity.
-    fn reserve_entity(&self) -> Entity {
+    pub fn reserve_entity(&self) -> Entity {
         self.pending.reserve_one().unwrap_or_else(|| {
             // SAFETY: The range is known to have length 1.
             Entity::from_raw(unsafe {
                 self.coordinator.reserve_append(1).next().unwrap_unchecked()
             })
         })
+    }
+}
+
+/// A version of [`Entities`] that can be used remotely.
+#[derive(Clone)]
+pub struct RemoteEntities {
+    coordinator: Arc<AtomicEntityReservations>,
+}
+
+impl RemoteEntities {
+    /// Creates a new [`EntityReserver`]. Use this to reserve entities in bulk.
+    pub fn reserver(&self) -> EntityReserver {
+        EntityReserver::new(self.coordinator.clone())
+    }
+
+    /// Creates a new [`EntityReserver`]. Use this to reserve entities in bulk.
+    pub fn into_reserver(self) -> EntityReserver {
+        EntityReserver::new(self.coordinator)
+    }
+
+    /// Reserves just 1 entity.
+    ///
+    /// If you only need one, this is faster than using [`Self::reserver`].
+    pub fn reserve_entity(&self) -> Entity {
+        self.coordinator
+            .pending_chunk
+            .get()
+            .and_then(|pending| pending.reserve_one())
+            .unwrap_or_else(|| {
+                // SAFETY: the range has exactly 1 item
+                let index = unsafe { self.coordinator.reserve_append(1).next().unwrap_unchecked() };
+                Entity::from_raw(index)
+            })
     }
 }
 
