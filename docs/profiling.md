@@ -162,7 +162,7 @@ The command will tell you where it saved the report, which will be in your targe
 The report is a `.html` file and can be opened and viewed in your browser.
 This will show how much time each crate in your app's dependency tree took to build.
 
-![image](https://user-images.githubusercontent.com/2694663/141657811-f4e15e3b-c9fc-491b-9313-236fd8c01288.png)
+![Cargo timings](https://user-images.githubusercontent.com/2694663/141657811-f4e15e3b-c9fc-491b-9313-236fd8c01288.png)
 
 ### rustc self-profile
 
