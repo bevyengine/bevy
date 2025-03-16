@@ -10,7 +10,12 @@ use crate::{
     },
 };
 
-/// Provides a safe interface for accessing *just* the entities in a [`World`].
+/// Provides a safe interface for non-structural access to the entities in a [`World`].
+///
+/// This cannot add or remove components, or spawn or despawn entities,
+/// making it relatively safe to access in concert with other ECS data.
+/// This type can be constructed via [`World::entities_and_commands`],
+/// or the equivalent method on [`DeferredWorld`].
 ///
 /// [`World`]: crate::world::World
 pub struct EntityFetcher<'w> {
