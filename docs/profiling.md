@@ -146,6 +146,16 @@ Graphics related work is not all CPU work or all GPU work, but a mix of both, an
 
 ## Compile time
 
+### General advice
+
+- Run `cargo clean` before timing a command.
+- If you are using a rustc wrapper (like `sccache`), disable it by setting `RUSTC_WRAPPER=""`
+- To measure noise in duration, run commands more than once and take the average. [`hyperfine`](https://github.com/sharkdp/hyperfine) can do that for you with a cleanup between each execution (`hyperfine --cleanup "sleep 1; cargo clean" "cargo build"`).
+- Avoid running benchmarks on a computer that can do power throttling or thermal throttling, like a laptop.
+- Avoid running benchmarks with a processor that has different types of cores (efficiency vs performance), unless you can force the processor to use only one type of core.
+
+### Cargo timings
+
 Append `--timings` to your app's cargo command (ex: `cargo build --timings`).
 If you want a "full" profile, make sure you run `cargo clean` first (note: this will clear previously generated reports).
 The command will tell you where it saved the report, which will be in your target directory under `cargo-timings/`.
