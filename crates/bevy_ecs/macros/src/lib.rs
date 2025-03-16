@@ -4,6 +4,7 @@
 extern crate proc_macro;
 
 mod component;
+mod map_entities;
 mod query_data;
 mod query_filter;
 mod states;
@@ -611,6 +612,10 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SubStates, attributes(source))]
 pub fn derive_substates(input: TokenStream) -> TokenStream {
     states::derive_substates(input)
+}
+#[proc_macro_derive(MapEntities, attributes(skip_mapping))]
+pub fn derive_map_entities(input: TokenStream) -> TokenStream {
+    map_entities::derive_map_entities(input)
 }
 
 #[proc_macro_derive(FromWorld, attributes(from_world))]
