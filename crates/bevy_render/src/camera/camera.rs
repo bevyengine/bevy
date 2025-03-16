@@ -44,6 +44,7 @@ use bevy_window::{
 };
 use core::ops::Range;
 use derive_more::derive::From;
+use thiserror::Error;
 use tracing::warn;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
@@ -249,7 +250,7 @@ impl Default for PhysicalCameraParameters {
 /// Error returned when a conversion between world-space and viewport-space coordinates fails.
 ///
 /// See [`world_to_viewport`][Camera::world_to_viewport] and [`viewport_to_world`][Camera::viewport_to_world].
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Error)]
 pub enum ViewportConversionError {
     /// The pre-computed size of the viewport was not available.
     ///
@@ -259,18 +260,22 @@ pub enum ViewportConversionError {
     ///   - it references a [`Window`](RenderTarget::Window) entity that doesn't exist or doesn't actually have a `Window` component,
     ///   - it references an [`Image`](RenderTarget::Image) that doesn't exist (invalid handle),
     ///   - it references a [`TextureView`](RenderTarget::TextureView) that doesn't exist (invalid handle).
+    #[error("pre-computed size of viewport not available")]
     NoViewportSize,
     /// The computed coordinate was beyond the `Camera`'s near plane.
     ///
     /// Only applicable when converting from world-space to viewport-space.
+    #[error("computed coordinate beyond `Camera`'s near plane")]
     PastNearPlane,
     /// The computed coordinate was beyond the `Camera`'s far plane.
     ///
     /// Only applicable when converting from world-space to viewport-space.
+    #[error("computed coordinate beyond `Camera`'s far plane")]
     PastFarPlane,
     /// The Normalized Device Coordinates could not be computed because the `camera_transform`, the
     /// `world_position`, or the projection matrix defined by [`CameraProjection`] contained `NAN`
     /// (see [`world_to_ndc`][Camera::world_to_ndc] and [`ndc_to_world`][Camera::ndc_to_world]).
+    #[error("found NaN while computing NDC")]
     InvalidData,
 }
 
