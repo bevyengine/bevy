@@ -48,6 +48,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 pub use clone_entities::*;
 pub use entity_set::*;
 pub use map_entities::*;
+use smallvec::SmallVec;
 pub use visit_entities::*;
 
 mod hash;
@@ -76,8 +77,8 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_platform_support::sync::{
-    atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering},
-    Arc, Weak,
+    atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicUsize, Ordering},
+    Arc, Mutex, PoisonError, Weak,
 };
 use core::{
     fmt,
@@ -695,6 +696,9 @@ struct AtomicEntityReservations {
     pending_chunk: AtomicPendingEntitiesChunk,
     meta_len: AtomicU32,
     flushed_meta_len: AtomicU32,
+    growing_pending: Mutex<PendingEntitiesChunk>,
+    worth_swap: AtomicBool,
+    pending_chunk_pool: Mutex<SmallVec<[PendingEntitiesChunk; 2]>>,
 }
 
 impl AtomicEntityReservations {
@@ -704,6 +708,9 @@ impl AtomicEntityReservations {
             pending_chunk: AtomicPendingEntitiesChunk::new(Arc::default()),
             meta_len: AtomicU32::default(),
             flushed_meta_len: AtomicU32::default(),
+            growing_pending: Mutex::default(),
+            worth_swap: AtomicBool::new(false),
+            pending_chunk_pool: Mutex::default(),
         }
     }
 
@@ -719,6 +726,52 @@ impl AtomicEntityReservations {
             }
         };
         current_meta..new_meta
+    }
+
+    /// If beneficial, swaps pending arcs to make more pending entities available.
+    /// Returns `true` if and only if the swap happened.
+    fn refresh(&self) -> bool {
+        let mut pending = self
+            .growing_pending
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+
+        if !self.worth_swap.swap(false, Ordering::Relaxed) {
+            return false;
+        }
+
+        let next_pending = self
+            .pending_chunk_pool
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .pop()
+            .unwrap_or_default();
+        let ready_pending = mem::replace::<PendingEntitiesChunk>(&mut pending, next_pending);
+        self.pending_chunk.swap(Arc::new(ready_pending));
+        true
+    }
+
+    /// Adds `reuse` to a pool to prevent further allocation.
+    fn reuse_pending(&self, mut reuse: PendingEntitiesChunk) {
+        reuse.clear();
+        self.pending_chunk_pool
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(reuse);
+    }
+
+    /// Gets access to a growing list of pending entities.
+    fn pending_mut<T: 'static>(&self, func: impl FnOnce(&mut PendingEntitiesChunk) -> T) -> T {
+        let mut pending = self
+            .growing_pending
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let res = func(&mut pending);
+        self.worth_swap.store(
+            pending.entities.len() - *pending.reserved.get_mut() > 0,
+            Ordering::Relaxed,
+        );
+        res
     }
 }
 
@@ -778,6 +831,7 @@ impl EntityReserver {
     ///
     /// Returns a `bool` that is true if and only if the refresh was effective.
     pub fn refresh(&mut self) -> bool {
+        self.coordinator.refresh();
         !self.coordinator.pending_chunk.get_into(&mut self.pending)
     }
 
