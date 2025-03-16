@@ -817,25 +817,40 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        fn init_state(
+            world: &mut World,
+            system_meta: &mut SystemMeta,
+            component_id: ComponentId,
+            name: &str,
+        ) -> ComponentId {
+            let archetype_component_id = world.initialize_resource_internal(component_id).id();
+
+            let combined_access = system_meta.component_access_set.combined_access();
+            assert!(
+                !combined_access.has_resource_write(component_id),
+                "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
+                name,
+                system_meta.name,
+            );
+            system_meta
+                .component_access_set
+                .add_unfiltered_resource_read(component_id);
+
+            system_meta
+                .archetype_component_access
+                .add_resource_read(archetype_component_id);
+
+            component_id
+        }
+
         let component_id = world.components_registrator().register_resource::<T>();
-        let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
-        let combined_access = system_meta.component_access_set.combined_access();
-        assert!(
-            !combined_access.has_resource_write(component_id),
-            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
+        init_state(
+            world,
+            system_meta,
+            component_id,
             core::any::type_name::<T>(),
-            system_meta.name,
-        );
-        system_meta
-            .component_access_set
-            .add_unfiltered_resource_read(component_id);
-
-        system_meta
-            .archetype_component_access
-            .add_resource_read(archetype_component_id);
-
-        component_id
+        )
     }
 
     #[inline]
