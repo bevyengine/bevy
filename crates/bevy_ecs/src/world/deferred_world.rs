@@ -341,7 +341,39 @@ impl<'w> DeferredWorld<'w> {
         self.get_entity_mut(entities).unwrap()
     }
 
-    /// Simultaneously provides access to entity data and a command queue, which will be applied when the [`World`] is next flushed.
+    /// Simultaneously provides access to entity data and a command queue, which
+    /// will be applied when the [`World`] is next flushed.
+    ///
+    /// This allows using borrowed entity data to construct commands where the
+    /// borrow checker would otherwise prevent it.
+    ///
+    /// See [`World::entities_and_commands`] for the non-deferred version.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use bevy_ecs::{prelude::*, world::DeferredWorld};
+    /// #[derive(Component)]
+    /// struct Targets(Vec<Entity>);
+    /// #[derive(Component)]
+    /// struct TargetedBy(Entity);
+    ///
+    /// # let mut _world = World::new();
+    /// # let e1 = _world.spawn_empty().id();
+    /// # let e2 = _world.spawn_empty().id();
+    /// # let eid = _world.spawn(Targets(vec![e1, e2])).id();
+    /// let mut world: DeferredWorld = // ...
+    /// #   DeferredWorld::from(&mut _world);
+    /// let (entities, mut commands) = world.entities_and_commands();
+    ///
+    /// let entity = entities.get(eid).unwrap();
+    /// for &target in entity.get::<Targets>().unwrap().0.iter() {
+    ///     commands.entity(target).insert(TargetedBy(eid));
+    /// }
+    /// # _world.flush();
+    /// # assert_eq!(_world.get::<TargetedBy>(e1).unwrap().0, eid);
+    /// # assert_eq!(_world.get::<TargetedBy>(e2).unwrap().0, eid);
+    /// ```
     pub fn entities_and_commands(&mut self) -> (EntityFetcher, Commands) {
         let cell = self.as_unsafe_world_cell();
         // SAFETY: `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
