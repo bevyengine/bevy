@@ -341,7 +341,7 @@ impl<'w> DeferredWorld<'w> {
         self.get_entity_mut(entities).unwrap()
     }
 
-    /// Provides split access to fetching entities and to queuing commands.
+    /// Simultaneously provides access to entity data and a command queue, which will be applied when the [`World`] is next flushed.
     pub fn entities_and_commands(&mut self) -> (EntityFetcher, Commands) {
         let cell = self.as_unsafe_world_cell();
         // SAFETY: `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
