@@ -877,7 +877,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        unsafe fn get_param<'w, 's>(
+        unsafe fn get_param<'w>(
             component_id: ComponentId,
             system_meta: &SystemMeta,
             world: UnsafeWorldCell<'w>,
