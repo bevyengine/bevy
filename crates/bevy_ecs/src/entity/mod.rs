@@ -491,34 +491,19 @@ impl SparseSetIndex for Entity {
 }
 
 /// An [`Iterator`] returning a sequence of [`Entity`] values from
-pub struct ReserveEntitiesIterator {
-    pending_chunk: Option<Arc<PendingEntitiesChunk>>,
-
-    // Indices of now reserved entities in [`Self::pending_chunk`].
-    //
-    // # Safety
-    //
-    // These must be valid indices. If this has any, [`Self::pending_chunk`] must not be `None`.
-    reused_entities: core::ops::Range<u32>,
+pub struct ReserveEntitiesIterator<'a> {
+    reused_entities: core::slice::Iter<'a, Entity>,
     // New Entity indices to hand out, outside the range of meta.len().
     new_indices: core::ops::Range<u32>,
 }
 
-impl Iterator for ReserveEntitiesIterator {
+impl Iterator for ReserveEntitiesIterator<'_> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.reused_entities
             .next()
-            // SAFETY: The indices are valid.
-            .map(|index| unsafe {
-                *self
-                    .pending_chunk
-                    .as_ref()
-                    .unwrap_unchecked()
-                    .entities
-                    .get_unchecked(index as usize)
-            })
+            .copied()
             .or_else(|| self.new_indices.next().map(Entity::from_raw))
     }
 
@@ -528,11 +513,11 @@ impl Iterator for ReserveEntitiesIterator {
     }
 }
 
-impl ExactSizeIterator for ReserveEntitiesIterator {}
-impl core::iter::FusedIterator for ReserveEntitiesIterator {}
+impl ExactSizeIterator for ReserveEntitiesIterator<'_> {}
+impl core::iter::FusedIterator for ReserveEntitiesIterator<'_> {}
 
 // SAFETY: Newly reserved entity values are unique.
-unsafe impl EntitySetIterator for ReserveEntitiesIterator {}
+unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 
 /// This represents some entities that were at some point pending.
 ///
@@ -557,12 +542,18 @@ impl PendingEntitiesChunk {
     /// Note that the slice may not be of length `num`, but it will not be more than `num`.
     ///
     /// If it is less than `num`, the chunk is empty.
-    fn reserve(&self, num: u32) -> core::ops::Range<u32> {
+    fn reserve(&self, num: u32) -> core::ops::Range<usize> {
         let num_reserved_so_far = self.reserved.fetch_add(num as usize, Ordering::Relaxed);
         let ideal_new_reserved = num_reserved_so_far + num as usize;
-        let start = self.entities.len().min(num_reserved_so_far) as u32;
-        let end = self.entities.len().min(ideal_new_reserved) as u32;
+        let start = self.entities.len().min(num_reserved_so_far);
+        let end = self.entities.len().min(ideal_new_reserved);
         start..end
+    }
+
+    /// Reserves just one entity.
+    fn reserve_one(&self) -> Option<Entity> {
+        let num_reserved_so_far = self.reserved.fetch_add(1, Ordering::Relaxed);
+        self.entities.get(num_reserved_so_far).copied()
     }
 
     /// Flushes the reserved slice with the passed `flusher`
@@ -597,9 +588,7 @@ impl PendingEntitiesChunk {
 struct AtomicPendingEntitiesChunk(AtomicPtr<PendingEntitiesChunk>);
 
 impl AtomicPendingEntitiesChunk {
-    /// Scopes access to the inner arc via a `Weak`.
-    fn get(&self) -> Option<Arc<PendingEntitiesChunk>> {
-        let ptr = self.0.load(Ordering::Relaxed);
+    fn ptr_to_arc(ptr: *mut PendingEntitiesChunk) -> Option<Arc<PendingEntitiesChunk>> {
         // SAFETY: we know the pointer is not null, and we are not dropping the `Weak`.
         let weak = unsafe {
             // We use `Weak` instead of `Arc` here because if we were the only owner of the `Arc`, and a `Self::swap`
@@ -609,6 +598,31 @@ impl AtomicPendingEntitiesChunk {
             ManuallyDrop::new(Weak::from_raw(ptr))
         };
         weak.upgrade()
+    }
+
+    /// Scopes access to the inner arc. If this is `None`, we must be doing a [`Self::swap`].
+    fn get(&self) -> Option<Arc<PendingEntitiesChunk>> {
+        let ptr = self.0.load(Ordering::Relaxed);
+        Self::ptr_to_arc(ptr)
+    }
+
+    /// This is the same as putting [`Self::get`] into `dest` if it is `Some`, but it's more efficient.
+    ///
+    /// Returns `true` if and only if `dest` is outdated but could not be replaced at the moment.
+    fn get_into(&self, dest: &mut Arc<PendingEntitiesChunk>) -> bool {
+        let ptr = self.0.load(Ordering::Relaxed);
+        if Arc::as_ptr(dest) == ptr.cast_const() {
+            // They're the same arc, so nothing changes
+            return false;
+        }
+
+        if let Some(new) = Self::ptr_to_arc(ptr) {
+            *dest = new;
+            false
+        } else {
+            // The arc isn't available right now
+            true
+        }
     }
 
     // Prepares the [`Arc`] to be owned by [`Self`]
@@ -676,14 +690,14 @@ impl Drop for AtomicPendingEntitiesChunk {
     }
 }
 
-/// Handles entity reservation
-pub struct EntityReservations {
+/// Coordinates entity reservation
+struct AtomicEntityReservations {
     pending_chunk: AtomicPendingEntitiesChunk,
     meta_len: AtomicU32,
     flushed_meta_len: AtomicU32,
 }
 
-impl EntityReservations {
+impl AtomicEntityReservations {
     /// Creates a new [`EntityReservations`]
     fn new() -> Self {
         Self {
@@ -693,49 +707,98 @@ impl EntityReservations {
         }
     }
 
+    /// Reserves a `num` entities by appending to the meta list.
+    /// This should only be called if reusing an entity from a pending list is not practical.
+    fn reserve_append(&self, num: u32) -> core::ops::Range<u32> {
+        let current_meta = self.meta_len.fetch_add(num, Ordering::Relaxed);
+        let new_meta = match current_meta.checked_add(num) {
+            Some(new) => new,
+            None => {
+                self.meta_len.store(u32::MAX, Ordering::Release);
+                panic!("too many entities")
+            }
+        };
+        current_meta..new_meta
+    }
+}
+
+/// Performs entity reservation.
+#[derive(Clone)]
+pub struct EntityReserver {
+    coordinator: Arc<AtomicEntityReservations>,
+    pending: Arc<PendingEntitiesChunk>,
+}
+
+impl EntityReserver {
+    /// Constructs a new [`EntityReserver`].
+    fn new(coordinator: Arc<AtomicEntityReservations>) -> Self {
+        const TIMEOUT: u8 = 5;
+        let mut timeout = TIMEOUT;
+        let pending = loop {
+            if let Some(found) = coordinator.pending_chunk.get() {
+                break Some(found);
+            }
+            // We must be swapping. Wait for the swap to succeed.
+            core::hint::spin_loop();
+
+            #[cfg(feature = "std")]
+            {
+                if let Some(found) = coordinator.pending_chunk.get() {
+                    break Some(found);
+                }
+                // The swap is taking longer than usual. There must have been an interrupt, so let's yield.
+                std::thread::yield_now();
+            }
+
+            if timeout == 0 {
+                break None;
+            }
+
+            timeout -= 1;
+        }
+        // This it a "just in case" measure.
+        .unwrap_or_default();
+
+        Self {
+            coordinator,
+            pending,
+        }
+    }
+
+    /// Refreshes the reserver to improve the quality of the reservations.
+    ///
+    /// This will make it more likely that reserved entities are reused.
+    ///
+    /// Returns a `bool` that is true if and only if the refresh was effective.
+    pub fn refresh(&mut self) -> bool {
+        !self.coordinator.pending_chunk.get_into(&mut self.pending)
+    }
+
     /// Reserves `num` entities in a [`ReserveEntitiesIterator`].
     pub fn reserve_entities(&self, num: u32) -> ReserveEntitiesIterator {
-        let reserved = self.pending_chunk.get();
-        let reused = reserved
-            .as_ref()
-            .map(|pending| pending.reserve(num))
-            .unwrap_or(0..0);
-        let still_needed = num - reused.len() as u32;
+        let reserved = self.pending.reserve(num);
+        let still_needed = num - reserved.len() as u32;
 
         let new = if still_needed == 0 {
             0..0
         } else {
-            let current_meta = self.meta_len.fetch_add(still_needed, Ordering::Relaxed);
-            let new_meta = current_meta
-                .checked_add(still_needed)
-                .expect("too many entities");
-            current_meta..new_meta
+            self.coordinator.reserve_append(still_needed)
         };
+
         ReserveEntitiesIterator {
-            pending_chunk: reserved,
-            reused_entities: reused,
+            reused_entities: self.pending.entities[reserved].iter(),
             new_indices: new,
         }
     }
 
     /// Reserves just 1 entity.
     fn reserve_entity(&self) -> Entity {
-        let reserved = self.pending_chunk.get();
-        reserved
-            .as_ref()
-            .and_then(|pending| {
-                pending
-                    .reserve(1)
-                    .next()
-                    .map(|index| unsafe { *pending.entities.get_unchecked(index as usize) })
+        self.pending.reserve_one().unwrap_or_else(|| {
+            // SAFETY: The range is known to have length 1.
+            Entity::from_raw(unsafe {
+                self.coordinator.reserve_append(1).next().unwrap_unchecked()
             })
-            .unwrap_or_else(|| {
-                let current_meta = self.meta_len.fetch_add(1, Ordering::Relaxed);
-                if current_meta == u32::MAX {
-                    panic!("too many entities")
-                }
-                Entity::from_raw(current_meta)
-            })
+        })
     }
 }
 
