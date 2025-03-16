@@ -4,6 +4,7 @@ use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
+    texture::GpuImage,
 };
 use bitflags::bitflags;
 

@@ -51,6 +51,7 @@ git checkout v0.4.0
   - [ECS (Entity Component System)](#ecs-entity-component-system)
   - [Games](#games)
   - [Gizmos](#gizmos)
+  - [Helpers](#helpers)
   - [Input](#input)
   - [Math](#math)
   - [Movement](#movement)
@@ -251,7 +252,7 @@ Example | Description
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
-[Mult-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
+[Multi-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
 [Repeated texture configuration](../examples/asset/repeated_texture.rs) | How to configure the texture to repeat instead of the default clamp to edges
 
 ## Async Tasks
@@ -351,6 +352,13 @@ Example | Description
 [3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos
 [Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
 [Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
+
+## Helpers
+
+Example | Description
+--- | ---
+[Camera Controller](../examples/helpers/camera_controller.rs) | Example Free-Cam Styled Camera Controller
+[Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
 
 ## Input
 

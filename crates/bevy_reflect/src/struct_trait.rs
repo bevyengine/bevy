@@ -72,7 +72,19 @@ pub trait Struct: PartialReflect {
     fn iter_fields(&self) -> FieldIter;
 
     /// Clones the struct into a [`DynamicStruct`].
-    fn clone_dynamic(&self) -> DynamicStruct;
+    #[deprecated(since = "0.16.0", note = "use `to_dynamic_struct` instead")]
+    fn clone_dynamic(&self) -> DynamicStruct {
+        self.to_dynamic_struct()
+    }
+
+    fn to_dynamic_struct(&self) -> DynamicStruct {
+        let mut dynamic_struct = DynamicStruct::default();
+        dynamic_struct.set_represented_type(self.get_represented_type_info());
+        for (i, value) in self.iter_fields().enumerate() {
+            dynamic_struct.insert_boxed(self.name_at(i).unwrap(), value.to_dynamic());
+        }
+        dynamic_struct
+    }
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_struct_info(&self) -> Option<&'static StructInfo> {
@@ -370,19 +382,6 @@ impl Struct for DynamicStruct {
             index: 0,
         }
     }
-
-    fn clone_dynamic(&self) -> DynamicStruct {
-        DynamicStruct {
-            represented_type: self.get_represented_type_info(),
-            field_names: self.field_names.clone(),
-            field_indices: self.field_indices.clone(),
-            fields: self
-                .fields
-                .iter()
-                .map(|value| value.clone_value())
-                .collect(),
-        }
-    }
 }
 
 impl PartialReflect for DynamicStruct {
@@ -447,11 +446,6 @@ impl PartialReflect for DynamicStruct {
     #[inline]
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Struct(self)
-    }
-
-    #[inline]
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
