@@ -15,9 +15,11 @@ use crate::{
 /// This cannot add or remove components, or spawn or despawn entities,
 /// making it relatively safe to access in concert with other ECS data.
 /// This type can be constructed via [`World::entities_and_commands`],
-/// or the equivalent method on [`DeferredWorld`].
+/// or [`DeferredWorld::entities_and_commands`].
 ///
 /// [`World`]: crate::world::World
+/// [`World::entities_and_commands`]: crate::world::World::entities_and_commands
+/// [`DeferredWorld::entities_and_commands`]: crate::world::DeferredWorld::entities_and_commands
 pub struct EntityFetcher<'w> {
     cell: UnsafeWorldCell<'w>,
 }
