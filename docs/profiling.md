@@ -59,6 +59,7 @@ For more details, check out the [tracing span docs](https://docs.rs/tracing/*/tr
 ### Tracy profiler
 
 The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
+
 > A real time, nanosecond resolution, remote telemetry, hybrid frame and sampling profiler for games and other applications.
 
 There are binaries available for Windows, and installation / build instructions for other operating systems can be found in the [Tracy documentation PDF](https://github.com/wolfpld/tracy/releases/latest/download/tracy.pdf).
@@ -166,11 +167,11 @@ This will show how much time each crate in your app's dependency tree took to bu
 
 ### rustc self-profile
 
-Cargo can generate a self-profile when building a crate. This is an unstalbe feature, but it can be used on a stable toolchain with `RUSTC_BOOTSTRAP`.
+Cargo can generate a self-profile when building a crate. This is an unstable feature, but it can be used on a stable toolchain with `RUSTC_BOOTSTRAP`.
 
 The following command will generate a self-profile for the `bevy_render` crate:
 
-```
+```sh
 RUSTC_BOOTSTRAP=1 cargo rustc --package bevy_render --  -Z self-profile -Z self-profile-events=default,args
 ```
 
