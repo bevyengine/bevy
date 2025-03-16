@@ -780,9 +780,30 @@ impl AtomicEntityReservations {
 pub struct EntityReserver {
     coordinator: Arc<AtomicEntityReservations>,
     pending: Arc<PendingEntitiesChunk>,
+    /// This is the number of entities the reserver is allowed to reserve by extension
+    /// before checking for more pending entities.
+    ///
+    /// Setting this too high can increase memory use and, in rare cases, exhaust the entity count, causing a crash.
+    /// Setting this too low will slow down reservation if there are no pending entities.
+    /// Setting this to `0` will ensure no pending entities are missed.
+    /// Setting this to `u32::MAX` effectively turns this off. You can use [`Self::refresh`] to do this manually.
+    ///
+    /// The default value is 10.
+    pub tolerance: u32,
+    /// This is the [`Self::tolerance`] left. When this hits 0, a [`Self::refresh`] will occor.
+    pub tolerance_left: u32,
+    /// This is just a temporary list of reserved entities.
+    tmp_reserved: Vec<Entity>,
 }
 
 impl EntityReserver {
+    /// Sets the [`Self::tolerance`] for this reserver.
+    pub fn with_tolerance(mut self, tolerance: u32) -> Self {
+        self.tolerance = tolerance;
+        self.tolerance_left = tolerance;
+        self
+    }
+
     /// Gets the [`RemoteEntities`] for this reserver.
     pub fn remote_entities(&self) -> RemoteEntities {
         RemoteEntities {
@@ -822,7 +843,11 @@ impl EntityReserver {
         Self {
             coordinator,
             pending,
+            tolerance: 0,
+            tolerance_left: 0,
+            tmp_reserved: Vec::new(),
         }
+        .with_tolerance(10)
     }
 
     /// Refreshes the reserver to improve the quality of the reservations.
@@ -832,11 +857,100 @@ impl EntityReserver {
     /// Returns a `bool` that is true if and only if the refresh was effective.
     pub fn refresh(&mut self) -> bool {
         self.coordinator.refresh();
-        !self.coordinator.pending_chunk.get_into(&mut self.pending)
+        let old_ptr = Arc::as_ptr(&self.pending);
+        self.coordinator.pending_chunk.get_into(&mut self.pending);
+        let new_ptr = Arc::as_ptr(&self.pending);
+        old_ptr != new_ptr
+    }
+
+    /// Based on [`Self::tolerance_left`], may [`Self::refresh`].
+    /// Returns `true` if and only if it refreshed effectively.
+    ///
+    /// `pre_on_refresh` runs with [`Self::tmp_reserved`] and [`Self::pending`] right before a refresh happens.
+    fn on_reserve_extended(
+        &mut self,
+        num_extended: u32,
+        pre_on_refresh: impl FnOnce(&mut Vec<Entity>, &PendingEntitiesChunk),
+    ) -> bool {
+        match self.tolerance_left.checked_sub(num_extended) {
+            Some(new_left) => {
+                self.tolerance_left = new_left;
+                false
+            }
+            None => {
+                pre_on_refresh(&mut self.tmp_reserved, &self.pending);
+                let res = self.refresh();
+                self.tolerance_left = self.tolerance;
+                res
+            }
+        }
     }
 
     /// Reserves `num` entities in a [`ReserveEntitiesIterator`].
-    pub fn reserve_entities(&self, num: u32) -> ReserveEntitiesIterator {
+    pub fn reserve_entities(&mut self, num: u32) -> ReserveEntitiesIterator {
+        let reserved = self.pending.reserve(num);
+        let reserved_copy = reserved.clone();
+        let mut still_needed = num - reserved.len() as u32;
+
+        let reused = if self.on_reserve_extended(still_needed, move |tmp_reserved, pending| {
+            // We're about to loose our current pending arc, so we need to put what we've reserved so far into a new slice
+            tmp_reserved.clear();
+            tmp_reserved.reserve(num as usize);
+            tmp_reserved.extend_from_slice(&pending.entities[reserved_copy]);
+        }) {
+            // We have a new pending arc, so we need to extend everything
+            // by trying to reserve the remaining from the new arc.
+            let more_reserved = self.pending.reserve(still_needed);
+            self.tmp_reserved
+                .extend_from_slice(&self.pending.entities[reserved]);
+            still_needed -= more_reserved.len() as u32;
+            self.tmp_reserved[..].iter()
+        } else {
+            // This is the usual case. We can just use our existing arc.
+            self.pending.entities[reserved].iter()
+        };
+
+        // reserve any final entities by appending.
+        let new = if still_needed == 0 {
+            0..0
+        } else {
+            self.coordinator.reserve_append(still_needed)
+        };
+
+        ReserveEntitiesIterator {
+            reused_entities: reused,
+            new_indices: new,
+        }
+    }
+
+    /// Reserves just 1 entity.
+    pub fn reserve_entity(&mut self) -> Entity {
+        // try to use pending
+        self.pending
+            .reserve_one()
+            .or_else(|| {
+                // if we refresh, try the new pending
+                if self.on_reserve_extended(1, |_, _| {}) {
+                    self.pending.reserve_one()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| {
+                // if there are no pending available, append reserve.
+
+                // SAFETY: The range is known to have length 1.
+                Entity::from_raw(unsafe {
+                    self.coordinator.reserve_append(1).next().unwrap_unchecked()
+                })
+            })
+    }
+
+    /// Reserves `num` entities in a [`ReserveEntitiesIterator`].
+    ///
+    /// **NOTE:** This ignores [`Self::tolerance_left`], so this may miss pending entities.
+    /// When possible, prefer [`reserve_entities`](Self::reserve_entities).
+    pub fn reserve_entities_no_refresh(&self, num: u32) -> ReserveEntitiesIterator {
         let reserved = self.pending.reserve(num);
         let still_needed = num - reserved.len() as u32;
 
@@ -853,7 +967,10 @@ impl EntityReserver {
     }
 
     /// Reserves just 1 entity.
-    pub fn reserve_entity(&self) -> Entity {
+    ///
+    /// **NOTE:** This ignores [`Self::tolerance_left`], so this may miss pending entities.
+    /// When possible, prefer [`reserve_entity`](Self::reserve_entity).
+    pub fn reserve_entity_no_refresh(&self) -> Entity {
         self.pending.reserve_one().unwrap_or_else(|| {
             // SAFETY: The range is known to have length 1.
             Entity::from_raw(unsafe {
