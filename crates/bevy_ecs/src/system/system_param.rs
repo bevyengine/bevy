@@ -19,7 +19,7 @@ use crate::{
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
-use bevy_ptr::UnsafeCellDeref;
+use bevy_ptr::{Ptr, UnsafeCellDeref};
 use bevy_utils::synccell::SyncCell;
 use core::{
     any::Any,
@@ -877,25 +877,51 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks, caller) =
-            world
-                .get_resource_with_ticks(component_id)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Resource requested by {} does not exist: {}",
-                        system_meta.name,
-                        core::any::type_name::<T>()
-                    )
-                });
-        Res {
-            value: ptr.deref(),
-            ticks: Ticks {
+        unsafe fn get_param<'w, 's>(
+            component_id: ComponentId,
+            system_meta: &SystemMeta,
+            world: UnsafeWorldCell<'w>,
+            change_tick: Tick,
+            name: &'static str,
+        ) -> (
+            Ptr<'w>,
+            Ticks<'w>,
+            MaybeLocation<&'w &'static Location<'static>>,
+        ) {
+            let (ptr, ticks, caller) =
+                world
+                    .get_resource_with_ticks(component_id)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Resource requested by {} does not exist: {}",
+                            system_meta.name, name,
+                        )
+                    });
+
+            let ticks = Ticks {
                 added: ticks.added.deref(),
                 changed: ticks.changed.deref(),
                 last_run: system_meta.last_run,
                 this_run: change_tick,
-            },
-            changed_by: caller.map(|caller| caller.deref()),
+            };
+
+            let changed_by = caller.map(|caller| caller.deref());
+
+            (ptr, ticks, changed_by)
+        }
+
+        let (ptr, ticks, changed_by) = get_param(
+            component_id,
+            system_meta,
+            world,
+            change_tick,
+            core::any::type_name::<T>(),
+        );
+
+        Res {
+            value: ptr.deref(),
+            ticks,
+            changed_by,
         }
     }
 }
