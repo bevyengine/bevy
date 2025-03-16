@@ -163,3 +163,17 @@ The report is a `.html` file and can be opened and viewed in your browser.
 This will show how much time each crate in your app's dependency tree took to build.
 
 ![image](https://user-images.githubusercontent.com/2694663/141657811-f4e15e3b-c9fc-491b-9313-236fd8c01288.png)
+
+### rustc self-profile
+
+Cargo can generate a self-profile when building a crate. This is an unstalbe feature, but it can be used on a stable toolchain with `RUSTC_BOOTSTRAP`.
+
+The following command will generate a self-profile for the `bevy_render` crate:
+
+```
+RUSTC_BOOTSTRAP=1 cargo rustc --package bevy_render --  -Z self-profile -Z self-profile-events=default,args
+```
+
+This will generate a file named something like `bevy_render-<id>>.mm_profdata` in the current directory. You can convert this file to a Chrome profiler trace with [`crox`](https://github.com/rust-lang/measureme/blob/master/crox/README.md) and view the resulting trace in [perfetto](https://ui.perfetto.dev/).
+
+![rustc self-profile](https://github.com/user-attachments/assets/12645add-c647-4611-b533-9145cbcbac1c)
