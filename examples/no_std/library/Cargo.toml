@@ -5,6 +5,8 @@ edition = "2024"
 
 # Normally we'd put all dependencies in [dependencies], but this syntax is easier to document
 [dependencies.bevy]
+# In your library you'd use version = "x.y.z", but since this is an example inside the Bevy
+# repository we use a path instead.
 path = "../../../"
 # Since `std` is a default feature, first we disable default features
 default-features = false
