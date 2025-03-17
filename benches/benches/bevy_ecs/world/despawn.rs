@@ -18,10 +18,7 @@ pub fn world_despawn(criterion: &mut Criterion) {
             world.spawn((A(Mat4::default()), B(Vec4::default())));
         }
 
-        let ents = world
-            .iter_all_entities()
-            .map(|e| e.id())
-            .collect::<Vec<_>>();
+        let ents = world.iter_entities().map(|e| e.id()).collect::<Vec<_>>();
         group.bench_function(format!("{}_entities", entity_count), |bencher| {
             bencher.iter(|| {
                 ents.iter().for_each(|e| {
