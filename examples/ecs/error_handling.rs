@@ -33,6 +33,10 @@ fn main() {
     // types of systems the same way, except for the error handling.
     app.add_systems(Startup, setup);
 
+    // Commands can also return `Result`s, which are automatically handled by the global error handler
+    // if not explicitly handled by the user.
+    app.add_systems(Startup, failing_commands);
+
     // Individual systems can also be handled by piping the output result:
     app.add_systems(
         PostStartup,
@@ -155,4 +159,29 @@ fn failing_system(world: &mut World) -> Result {
         .ok_or("Resource not initialized")?;
 
     Ok(())
+}
+
+fn failing_commands(mut commands: Commands) {
+    commands
+        // This entity doesn't exist!
+        .entity(Entity::from_raw(12345678))
+        // Normally, this failed command would panic,
+        // but since we've set the global error handler to `warn`
+        // it will log a warning instead.
+        .insert(Transform::default());
+
+    // The error handlers for commands can be set individually as well,
+    // by using the queue_handled method.
+    commands.queue_handled(
+        |world: &mut World| -> Result {
+            world
+                .get_resource::<UninitializedResource>()
+                .ok_or("Resource not initialized when accessed in a command")?;
+
+            Ok(())
+        },
+        |error, context| {
+            error!("{error}, {context}");
+        },
+    );
 }
