@@ -1481,7 +1481,7 @@ impl Entities {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn total_count(&self) -> usize {
-        self.meta.len()
+        self.coordinator.flushed_meta_len.load(Ordering::Relaxed) as usize
     }
 
     /// The count of all entities in the [`World`] that are used,
@@ -1490,7 +1490,10 @@ impl Entities {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn used_count(&self) -> usize {
-        (self.meta.len() as isize - self.free_cursor.load(Ordering::Relaxed) as isize) as usize
+        self.meta
+            .iter()
+            .filter(|meta| meta.location != EntityLocation::OWNED)
+            .count()
     }
 
     /// The count of all entities in the [`World`] that have ever been allocated or reserved, including those that are freed.
@@ -1499,20 +1502,24 @@ impl Entities {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn total_prospective_count(&self) -> usize {
-        self.meta.len() + (-self.free_cursor.load(Ordering::Relaxed)).min(0) as usize
+        self.coordinator.meta_len.load(Ordering::Relaxed) as usize
     }
 
     /// The count of currently allocated entities.
     #[inline]
     pub fn len(&self) -> u32 {
-        // `pending`, by definition, can't be bigger than `meta`.
-        (self.meta.len() - self.pending.len()) as u32
+        self.meta
+            .iter()
+            .filter(|meta| meta.location.archetype_id != ArchetypeId::INVALID)
+            .count() as u32
     }
 
     /// Checks if any entity is currently active.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.meta
+            .iter()
+            .all(|meta| meta.location.archetype_id != ArchetypeId::INVALID)
     }
 
     /// Sets the source code location from which this entity has last been spawned
