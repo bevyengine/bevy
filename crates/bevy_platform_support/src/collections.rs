@@ -7,7 +7,9 @@
 //! To bypass this issue, use [`HashMap::default`] instead.
 //!
 //! ```
-//! use bevy::{prelude::*, platform_support::collections::HashMap};
+//! # use bevy_ecs::component::Component;
+//! # use bevy_ecs::system::Commands;
+//! # use bevy_platform_support::collections::HashMap;
 //!
 //! #[derive(Component)]
 //! struct MyComponent {
