@@ -1,4 +1,4 @@
-use core::fmt;
+use core::{any::type_name, fmt};
 
 use crate::{
     entity::Entity,
@@ -6,21 +6,21 @@ use crate::{
     world::{error::EntityMutableFetchError, World},
 };
 
-use super::{command_error_handler, BevyError};
+use super::{default_error_handler, BevyError, ErrorContext};
 
 /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
 /// a [`Command`] that internally handles an error if it occurs and returns `()`.
 pub trait HandleError<Out = ()> {
     /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
-    fn handle_error_with(self, error_handler: fn(&mut World, BevyError)) -> impl Command;
+    fn handle_error_with(self, error_handler: fn(BevyError, ErrorContext)) -> impl Command;
     /// Takes a [`Command`] that returns a Result and uses the default error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
     fn handle_error(self) -> impl Command
     where
         Self: Sized,
     {
-        self.handle_error_with(command_error_handler::default_error_handler())
+        self.handle_error_with(default_error_handler())
     }
 }
 
@@ -29,10 +29,15 @@ where
     C: Command<Result<T, E>>,
     E: Into<BevyError>,
 {
-    fn handle_error_with(self, error_handler: fn(&mut World, BevyError)) -> impl Command {
+    fn handle_error_with(self, error_handler: fn(BevyError, ErrorContext)) -> impl Command {
         move |world: &mut World| match self.apply(world) {
             Ok(_) => {}
-            Err(err) => (error_handler)(world, err.into()),
+            Err(err) => (error_handler)(
+                err.into(),
+                ErrorContext::Command {
+                    name: type_name::<C>().into(),
+                },
+            ),
         }
     }
 }
@@ -42,7 +47,7 @@ where
     C: Command,
 {
     #[inline]
-    fn handle_error_with(self, _error_handler: fn(&mut World, BevyError)) -> impl Command {
+    fn handle_error_with(self, _error_handler: fn(BevyError, ErrorContext)) -> impl Command {
         self
     }
     #[inline]

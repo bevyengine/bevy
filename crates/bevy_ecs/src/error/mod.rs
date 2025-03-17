@@ -64,7 +64,6 @@
 //! [`system piping feature`]: crate::system::In
 
 mod bevy_error;
-pub mod command_error_handler;
 mod command_handling;
 mod handler;
 
