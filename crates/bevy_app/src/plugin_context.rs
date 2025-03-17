@@ -116,7 +116,7 @@ impl PluginContext<'_> {
     ///
     /// ```no_run
     /// # use bevy_ecs::resource::Resource;
-    /// # let ctx: bevy_app::PluginContext<'static> = todo!();
+    /// # let mut ctx: bevy_app::PluginContext<'static> = todo!();
     /// # async move {
     /// ctx.wait(|app| {
     ///     app.world()
