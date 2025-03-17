@@ -3,7 +3,6 @@
 pub(crate) mod command_queue;
 mod component_constants;
 mod deferred_world;
-mod entity_fetch;
 mod entity_ref;
 pub mod error;
 mod filtered_resource;
@@ -21,7 +20,6 @@ pub use crate::{
 pub use bevy_ecs_macros::FromWorld;
 pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
-pub use entity_fetch::WorldEntityFetch;
 pub use entity_ref::{
     DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut,
     Entry, FilteredEntityMut, FilteredEntityRef, OccupiedEntry, TryFromFilteredError, VacantEntry,
@@ -47,7 +45,8 @@ use crate::{
         RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{
-        AllocAtWithoutReplacement, Entities, Entity, EntityDoesNotExistError, EntityLocation,
+        unique_array::UniqueEntityArray, AllocAtWithoutReplacement, Entities, Entity, EntityBorrow,
+        EntityDoesNotExistError, EntityLocation, EntitySet, EntitySetIterator, UniqueEntityIter,
     },
     entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
@@ -69,7 +68,7 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform_support::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use core::{any::TypeId, fmt};
+use core::{any::TypeId, fmt, mem::MaybeUninit};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
@@ -614,26 +613,13 @@ impl World {
         self.components.get_resource_id(TypeId::of::<T>())
     }
 
-    /// Returns [`EntityRef`]s that expose read-only operations for the given
-    /// `entities`. This will panic if any of the given entities do not exist. Use
-    /// [`World::get_entity`] if you want to check for entity existence instead
-    /// of implicitly panicking.
-    ///
-    /// This function supports fetching a single entity or multiple entities:
-    /// - Pass an [`Entity`] to receive a single [`EntityRef`].
-    /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityRef>`].
-    /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityRef`]s.
-    ///
-    /// # Panics
-    ///
-    /// If any of the given `entities` do not exist in the world.
-    ///
-    /// # Examples
-    ///
-    /// ## Single [`Entity`]
+    /// Retrieves an [`EntityRef`] that exposes read-only operations for the given `entity`.
+    /// This will panic if the `entity` does not exist. Use [`World::get_entity`] if you want
+    /// to check for entity existence instead of implicitly panic-ing.
     ///
     /// ```
-    /// # use bevy_ecs::prelude::*;
+    /// use bevy_ecs::{component::Component, world::World};
+    ///
     /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
@@ -642,78 +628,12 @@ impl World {
     ///
     /// let mut world = World::new();
     /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
-    ///
     /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
-    ///
-    /// ## Array of [`Entity`]s
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #[derive(Component)]
-    /// struct Position {
-    ///   x: f32,
-    ///   y: f32,
-    /// }
-    ///
-    /// let mut world = World::new();
-    /// let e1 = world.spawn(Position { x: 0.0, y: 0.0 }).id();
-    /// let e2 = world.spawn(Position { x: 1.0, y: 1.0 }).id();
-    ///
-    /// let [e1_ref, e2_ref] = world.entity([e1, e2]);
-    /// let e1_position = e1_ref.get::<Position>().unwrap();
-    /// assert_eq!(e1_position.x, 0.0);
-    /// let e2_position = e2_ref.get::<Position>().unwrap();
-    /// assert_eq!(e2_position.x, 1.0);
-    /// ```
-    ///
-    /// ## Slice of [`Entity`]s
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #[derive(Component)]
-    /// struct Position {
-    ///   x: f32,
-    ///   y: f32,
-    /// }
-    ///
-    /// let mut world = World::new();
-    /// let e1 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
-    /// let e2 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
-    /// let e3 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
-    ///
-    /// let ids = vec![e1, e2, e3];
-    /// for eref in world.entity(&ids[..]) {
-    ///     assert_eq!(eref.get::<Position>().unwrap().y, 1.0);
-    /// }
-    /// ```
-    ///
-    /// ## [`EntityHashSet`](crate::entity::hash_map::EntityHashMap)
-    ///
-    /// ```
-    /// # use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet};
-    /// #[derive(Component)]
-    /// struct Position {
-    ///   x: f32,
-    ///   y: f32,
-    /// }
-    ///
-    /// let mut world = World::new();
-    /// let e1 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
-    /// let e2 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
-    /// let e3 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
-    ///
-    /// let ids = EntityHashSet::from_iter([e1, e2, e3]);
-    /// for (_id, eref) in world.entity(&ids) {
-    ///     assert_eq!(eref.get::<Position>().unwrap().y, 1.0);
-    /// }
-    /// ```
-    ///
-    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
     #[inline]
     #[track_caller]
-    pub fn entity<F: WorldEntityFetch>(&self, entities: F) -> F::Ref<'_> {
+    pub fn entity(&self, entity: Entity) -> EntityRef<'_> {
         #[inline(never)]
         #[cold]
         #[track_caller]
@@ -724,42 +644,19 @@ impl World {
             );
         }
 
-        match self.get_entity(entities) {
+        match self.get_entity(entity) {
             Ok(fetched) => fetched,
             Err(error) => panic_no_entity(self, error.entity),
         }
     }
 
-    /// Returns [`EntityMut`]s that expose read and write operations for the
-    /// given `entities`. This will panic if any of the given entities do not
-    /// exist. Use [`World::get_entity_mut`] if you want to check for entity
-    /// existence instead of implicitly panicking.
-    ///
-    /// This function supports fetching a single entity or multiple entities:
-    /// - Pass an [`Entity`] to receive a single [`EntityWorldMut`].
-    ///    - This reference type allows for structural changes to the entity,
-    ///      such as adding or removing components, or despawning the entity.
-    /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
-    /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`](crate::entity::hash_map::EntityHashMap) to receive an
-    ///   [`EntityHashMap<EntityMut>`](crate::entity::hash_map::EntityHashMap).
-    ///
-    /// In order to perform structural changes on the returned entity reference,
-    /// such as adding or removing components, or despawning the entity, only a
-    /// single [`Entity`] can be passed to this function. Allowing multiple
-    /// entities at the same time with structural access would lead to undefined
-    /// behavior, so [`EntityMut`] is returned when requesting multiple entities.
-    ///
-    /// # Panics
-    ///
-    /// If any of the given `entities` do not exist in the world.
-    ///
-    /// # Examples
-    ///
-    /// ## Single [`Entity`]
+    /// Retrieves an [`EntityWorldMut`] that exposes read and write operations for the given `entity`.
+    /// This will panic if the `entity` does not exist. Use [`World::get_entity_mut`] if you want
+    /// to check for entity existence instead of implicitly panic-ing.
     ///
     /// ```
-    /// # use bevy_ecs::prelude::*;
+    /// use bevy_ecs::{component::Component, world::World};
+    ///
     /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
@@ -768,88 +665,13 @@ impl World {
     ///
     /// let mut world = World::new();
     /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
-    ///
     /// let mut entity_mut = world.entity_mut(entity);
     /// let mut position = entity_mut.get_mut::<Position>().unwrap();
-    /// position.y = 1.0;
-    /// assert_eq!(position.x, 0.0);
-    /// entity_mut.despawn();
-    /// # assert!(world.get_entity_mut(entity).is_err());
+    /// position.x = 1.0;
     /// ```
-    ///
-    /// ## Array of [`Entity`]s
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #[derive(Component)]
-    /// struct Position {
-    ///   x: f32,
-    ///   y: f32,
-    /// }
-    ///
-    /// let mut world = World::new();
-    /// let e1 = world.spawn(Position { x: 0.0, y: 0.0 }).id();
-    /// let e2 = world.spawn(Position { x: 1.0, y: 1.0 }).id();
-    ///
-    /// let [mut e1_ref, mut e2_ref] = world.entity_mut([e1, e2]);
-    /// let mut e1_position = e1_ref.get_mut::<Position>().unwrap();
-    /// e1_position.x = 1.0;
-    /// assert_eq!(e1_position.x, 1.0);
-    /// let mut e2_position = e2_ref.get_mut::<Position>().unwrap();
-    /// e2_position.x = 2.0;
-    /// assert_eq!(e2_position.x, 2.0);
-    /// ```
-    ///
-    /// ## Slice of [`Entity`]s
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #[derive(Component)]
-    /// struct Position {
-    ///   x: f32,
-    ///   y: f32,
-    /// }
-    ///
-    /// let mut world = World::new();
-    /// let e1 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
-    /// let e2 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
-    /// let e3 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
-    ///
-    /// let ids = vec![e1, e2, e3];
-    /// for mut eref in world.entity_mut(&ids[..]) {
-    ///     let mut pos = eref.get_mut::<Position>().unwrap();
-    ///     pos.y = 2.0;
-    ///     assert_eq!(pos.y, 2.0);
-    /// }
-    /// ```
-    ///
-    /// ## [`EntityHashSet`](crate::entity::hash_map::EntityHashMap)
-    ///
-    /// ```
-    /// # use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet};
-    /// #[derive(Component)]
-    /// struct Position {
-    ///   x: f32,
-    ///   y: f32,
-    /// }
-    ///
-    /// let mut world = World::new();
-    /// let e1 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
-    /// let e2 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
-    /// let e3 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
-    ///
-    /// let ids = EntityHashSet::from_iter([e1, e2, e3]);
-    /// for (_id, mut eref) in world.entity_mut(&ids) {
-    ///     let mut pos = eref.get_mut::<Position>().unwrap();
-    ///     pos.y = 2.0;
-    ///     assert_eq!(pos.y, 2.0);
-    /// }
-    /// ```
-    ///
-    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
     #[inline]
     #[track_caller]
-    pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::Mut<'_> {
+    pub fn entity_mut(&mut self, entity: Entity) -> EntityWorldMut<'_> {
         #[inline(never)]
         #[cold]
         #[track_caller]
@@ -857,7 +679,7 @@ impl World {
             panic!("{e}");
         }
 
-        match self.get_entity_mut(entities) {
+        match self.get_entity_mut(entity) {
             Ok(fetched) => fetched,
             Err(e) => panic_on_err(e),
         }
@@ -884,78 +706,283 @@ impl World {
             .filter_map(|id| self.components().get_info(id)))
     }
 
-    /// Returns [`EntityRef`]s that expose read-only operations for the given
-    /// `entities`, returning [`Err`] if any of the given entities do not exist.
-    /// Instead of immediately unwrapping the value returned from this function,
-    /// prefer [`World::entity`].
-    ///
-    /// This function supports fetching a single entity or multiple entities:
-    /// - Pass an [`Entity`] to receive a single [`EntityRef`].
-    /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityRef>`].
-    /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityRef`]s.
-    /// - Pass a reference to a [`EntityHashSet`](crate::entity::hash_map::EntityHashMap) to receive an
-    ///   [`EntityHashMap<EntityRef>`](crate::entity::hash_map::EntityHashMap).
+    /// Retrieves an [`EntityRef`] that exposes read-only operations for the given `entity`.
     ///
     /// # Errors
     ///
-    /// If any of the given `entities` do not exist in the world, the first
-    /// [`Entity`] found to be missing will return an [`EntityDoesNotExistError`].
+    /// [`EntityDoesNotExistError`] if any entity does not exist in the world.
     ///
-    /// # Examples
+    /// # Example
     ///
-    /// For examples, see [`World::entity`].
+    /// ```
+    /// use bevy_ecs::{component::Component, world::World};
     ///
-    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
+    /// let entity_ref = world.get_entity(entity).unwrap();
+    /// let position = entity_ref.get::<Position>().unwrap();
+    /// assert_eq!(position.x, 0.0);
+    /// ```
     #[inline]
-    pub fn get_entity<F: WorldEntityFetch>(
-        &self,
-        entities: F,
-    ) -> Result<F::Ref<'_>, EntityDoesNotExistError> {
+    pub fn get_entity(&self, entity: Entity) -> Result<EntityRef<'_>, EntityDoesNotExistError> {
         let cell = self.as_unsafe_world_cell_readonly();
+        let ecell = cell.get_entity(entity)?;
         // SAFETY: `&self` gives read access to the entire world, and prevents mutable access.
-        unsafe { entities.fetch_ref(cell) }
+        Ok(unsafe { EntityRef::new(ecell) })
     }
 
-    /// Returns [`EntityMut`]s that expose read and write operations for the
-    /// given `entities`, returning [`Err`] if any of the given entities do not
-    /// exist. Instead of immediately unwrapping the value returned from this
-    /// function, prefer [`World::entity_mut`].
-    ///
-    /// This function supports fetching a single entity or multiple entities:
-    /// - Pass an [`Entity`] to receive a single [`EntityWorldMut`].
-    ///    - This reference type allows for structural changes to the entity,
-    ///      such as adding or removing components, or despawning the entity.
-    /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
-    /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`](crate::entity::hash_map::EntityHashMap) to receive an
-    ///   [`EntityHashMap<EntityMut>`](crate::entity::hash_map::EntityHashMap).
-    ///
-    /// In order to perform structural changes on the returned entity reference,
-    /// such as adding or removing components, or despawning the entity, only a
-    /// single [`Entity`] can be passed to this function. Allowing multiple
-    /// entities at the same time with structural access would lead to undefined
-    /// behavior, so [`EntityMut`] is returned when requesting multiple entities.
+    /// Gets an [`EntityRef`] for multiple entities at once.
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
-    ///     - Only the first entity found to be missing will be returned.
-    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
+    /// [`EntityDoesNotExistError`] if any entity does not exist in the world.
     ///
     /// # Examples
     ///
-    /// For examples, see [`World::entity_mut`].
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Getting multiple entities.
+    /// let [entity1, entity2] = world.get_many_entities([id1, id2]).unwrap();
     ///
-    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
+    /// // Trying to get a despawned entity will fail.
+    /// world.despawn(id2);
+    /// assert!(world.get_many_entities([id1, id2]).is_err());
+    /// ```
+    pub fn get_many_entities<const N: usize>(
+        &self,
+        entities: [Entity; N],
+    ) -> Result<[EntityRef<'_>; N], EntityDoesNotExistError> {
+        let cell = self.as_unsafe_world_cell_readonly();
+
+        let mut refs = [MaybeUninit::uninit(); N];
+        for (r, id) in core::iter::zip(&mut refs, entities) {
+            let ecell = cell.get_entity(id)?;
+            // SAFETY: `&self` gives read access to the entire world, and prevents mutable access.
+            *r = MaybeUninit::new(unsafe { EntityRef::new(ecell) });
+        }
+
+        // SAFETY: Each item was initialized in the loop above.
+        let refs = refs.map(|r| unsafe { MaybeUninit::assume_init(r) });
+
+        Ok(refs)
+    }
+
+    /// Gets an [`EntityRef`] for multiple entities at once.
+    ///
+    /// This is the same as [`Self::get_many_entities`], but it accepts a [`UniqueEntityArray`] instead of an array.
+    ///
+    /// # Errors
+    ///
+    /// [`EntityDoesNotExistError`] if any entity does not exist in the world.
+    pub fn get_many_unique_entities<const N: usize>(
+        &self,
+        entities: UniqueEntityArray<N>,
+    ) -> Result<[EntityRef<'_>; N], EntityDoesNotExistError> {
+        self.get_many_entities(entities.into_inner())
+    }
+
+    /// Gets an [`EntityRef`] for multiple entities at once.
+    /// Any entities that do not exist in the world are filtered out.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Getting multiple entities.
+    /// let entities: Vec<EntityRef> = world.iter_many_entities([id1, id2]).collect();
+    /// assert_eq!(entities.len(), 2);
+    ///
+    /// // Despawned entities will be excluded.
+    /// world.despawn(id2);
+    /// let entities: Vec<EntityRef> = world.iter_many_entities([id1, id2]).collect();
+    /// assert_eq!(entities.len(), 1);
+    /// ```
+    pub fn iter_many_entities(
+        &self,
+        entities: impl IntoIterator<Item: EntityBorrow>,
+    ) -> impl Iterator<Item = EntityRef<'_>> {
+        entities
+            .into_iter()
+            .filter_map(|e| self.get_entity(e.entity()).ok())
+    }
+
+    /// Gets an [`EntityRef`] for multiple entities at once.
+    /// Any entities that do not exist in the world are filtered out.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet};
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Getting multiple entities.
+    /// let ids = EntityHashSet::from_iter([id1, id2]);
+    /// let entities: Vec<EntityRef> = world.iter_many_unique_entities(&ids).collect();
+    /// assert_eq!(entities.len(), 2);
+    ///
+    /// // Despawned entities will be excluded.
+    /// world.despawn(id2);
+    /// let entities: Vec<EntityRef> = world.iter_many_unique_entities(&ids).collect();
+    /// assert_eq!(entities.len(), 1);
+    /// ```
+    pub fn iter_many_unique_entities(
+        &self,
+        entities: impl EntitySet,
+    ) -> impl EntitySetIterator<Item = EntityRef<'_>> {
+        let iter = self.iter_many_entities(entities);
+        // SAFETY: `EntitySet` ensures that `entities` are all unique, and each `EntityRef` corresponds to one of them
+        unsafe { UniqueEntityIter::from_iterator_unchecked(iter) }
+    }
+
+    /// Retrieves an [`EntityWorldMut`] that exposes read and write operations for the given `entity`.
+    ///
+    /// # Errors
+    ///
+    /// [`EntityDoesNotExistError`] if any entity does not exist in the world.
+    ///
+    /// ```
+    /// use bevy_ecs::{component::Component, world::World};
+    ///
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
+    /// let mut entity_mut = world.get_entity_mut(entity).unwrap();
+    /// let mut position = entity_mut.get_mut::<Position>().unwrap();
+    /// position.x = 1.0;
+    /// ```
     #[inline]
-    pub fn get_entity_mut<F: WorldEntityFetch>(
+    pub fn get_entity_mut(
         &mut self,
-        entities: F,
-    ) -> Result<F::Mut<'_>, EntityMutableFetchError> {
+        entity: Entity,
+    ) -> Result<EntityWorldMut<'_>, EntityMutableFetchError> {
         let cell = self.as_unsafe_world_cell();
-        // SAFETY: `&mut self` gives mutable access to the entire world,
-        // and prevents any other access to the world.
-        unsafe { entities.fetch_mut(cell) }
+        let location = cell
+            .entities()
+            .get(entity)
+            .ok_or(EntityDoesNotExistError::new(entity, cell.entities()))?;
+        // SAFETY: We have mutable access to the entire world
+        let world = unsafe { cell.world_mut() };
+        // SAFETY: location was fetched from the same world's `Entities`.
+        Ok(unsafe { EntityWorldMut::new(world, entity, location) })
+    }
+
+    /// Gets mutable access to multiple entities.
+    ///
+    /// # Errors
+    ///
+    /// - [`EntityMutableFetchError::EntityDoesNotExist`] if any entities do not exist in the world
+    /// - [`EntityMutableFetchError::AliasedMutability`] if the same entity is specified multiple times
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    ///
+    /// // Disjoint mutable access.
+    /// let [entity1, entity2] = world.get_many_entities_mut([id1, id2]).unwrap();
+    ///
+    /// // Trying to access the same entity multiple times will fail.
+    /// assert!(world.get_many_entities_mut([id1, id1]).is_err());
+    /// ```
+    pub fn get_many_entities_mut<const N: usize>(
+        &mut self,
+        entities: [Entity; N],
+    ) -> Result<[EntityMut<'_>; N], EntityMutableFetchError> {
+        // SAFETY: We have mutable access to the entire world
+        unsafe { self.as_unsafe_world_cell().get_many_entities_mut(entities) }
+    }
+
+    /// Gets mutable access to multiple entities.
+    ///
+    /// This takes a [`UniqueEntityArray`], which asserts that the entities are
+    /// all unique so that it doesn't need to perform additional checks.
+    ///
+    /// # Errors
+    ///
+    /// - [`EntityDoesNotExistError`] if any entities do not exist in the world
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::entity::unique_array::UniqueEntityArray;
+    /// let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    ///
+    /// // Assert that the IDs are disjoint
+    /// let array = unsafe { UniqueEntityArray::from_array_unchecked([id1, id2]) };
+    /// let [entity1, entity2] = world.get_many_unique_entities_mut(array).unwrap();
+    /// ```
+    pub fn get_many_unique_entities_mut<const N: usize>(
+        &mut self,
+        entities: UniqueEntityArray<N>,
+    ) -> Result<[EntityMut<'_>; N], EntityDoesNotExistError> {
+        // SAFETY: We have mutable access to the entire world
+        unsafe {
+            self.as_unsafe_world_cell()
+                .get_many_unique_entities_mut(entities)
+        }
+    }
+
+    /// Gets mutable access to multiple entities.
+    /// Any entities that do not exist in the world are filtered out.
+    ///
+    /// This takes a [`EntitySet`], which asserts that the entities are
+    /// all unique so that it doesn't need to perform additional checks.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///# use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet, world::DeferredWorld};
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// # let e1 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    /// # let e2 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    /// # let e3 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
+    ///
+    /// let ids = EntityHashSet::from_iter([e1, e2, e3]);
+    /// for mut eref in world.iter_many_unique_entities_mut(&ids) {
+    ///     let mut pos = eref.get_mut::<Position>().unwrap();
+    ///     pos.y = 2.0;
+    ///     assert_eq!(pos.y, 2.0);
+    /// }
+    /// ```
+    pub fn iter_many_unique_entities_mut(
+        &mut self,
+        entities: impl EntitySet,
+    ) -> impl EntitySetIterator<Item = EntityMut<'_>> {
+        // SAFETY: We have mutable access to the entire world
+        unsafe {
+            self.as_unsafe_world_cell()
+                .iter_many_unique_entities_mut(entities)
+        }
     }
 
     /// Returns an [`Entity`] iterator of current entities.
@@ -3698,7 +3725,6 @@ mod tests {
         borrow::ToOwned,
         string::{String, ToString},
         sync::Arc,
-        vec,
         vec::Vec,
     };
     use bevy_ecs_macros::Component;
@@ -4245,14 +4271,13 @@ mod tests {
         let e2 = world.spawn_empty().id();
 
         assert!(world.get_entity(e1).is_ok());
-        assert!(world.get_entity([e1, e2]).is_ok());
-        assert!(world
-            .get_entity(&[e1, e2] /* this is an array not a slice */)
-            .is_ok());
-        assert!(world.get_entity(&vec![e1, e2][..]).is_ok());
-        assert!(world
-            .get_entity(&EntityHashSet::from_iter([e1, e2]))
-            .is_ok());
+        assert!(world.get_many_entities([e1, e2]).is_ok());
+        assert_eq!(
+            world
+                .iter_many_entities(&EntityHashSet::from_iter([e1, e2]))
+                .count(),
+            2
+        );
 
         world.entity_mut(e1).despawn();
 
@@ -4262,28 +4287,17 @@ mod tests {
         );
         assert_eq!(
             Err(e1),
-            world.get_entity([e1, e2]).map(|_| {}).map_err(|e| e.entity)
-        );
-        assert_eq!(
-            Err(e1),
             world
-                .get_entity(&[e1, e2] /* this is an array not a slice */)
+                .get_many_entities([e1, e2])
                 .map(|_| {})
                 .map_err(|e| e.entity)
         );
         assert_eq!(
-            Err(e1),
             world
-                .get_entity(&vec![e1, e2][..])
-                .map(|_| {})
-                .map_err(|e| e.entity)
-        );
-        assert_eq!(
-            Err(e1),
-            world
-                .get_entity(&EntityHashSet::from_iter([e1, e2]))
-                .map(|_| {})
-                .map_err(|e| e.entity)
+                .iter_many_entities(&EntityHashSet::from_iter([e1, e2]))
+                .map(|e| e.id())
+                .collect::<EntityHashSet>(),
+            EntityHashSet::from_iter([e2])
         );
     }
 
@@ -4295,33 +4309,18 @@ mod tests {
         let e2 = world.spawn_empty().id();
 
         assert!(world.get_entity_mut(e1).is_ok());
-        assert!(world.get_entity_mut([e1, e2]).is_ok());
-        assert!(world
-            .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
-            .is_ok());
-        assert!(world.get_entity_mut(&vec![e1, e2][..]).is_ok());
-        assert!(world
-            .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
-            .is_ok());
+        assert!(world.get_many_entities_mut([e1, e2]).is_ok());
+        assert_eq!(
+            world
+                .iter_many_unique_entities_mut(&EntityHashSet::from_iter([e1, e2]))
+                .count(),
+            2
+        );
 
         assert_eq!(
             Err(EntityMutableFetchError::AliasedMutability(e1)),
-            world.get_entity_mut([e1, e2, e1]).map(|_| {})
+            world.get_many_entities_mut([e1, e2, e1]).map(|_| {})
         );
-        assert_eq!(
-            Err(EntityMutableFetchError::AliasedMutability(e1)),
-            world
-                .get_entity_mut(&[e1, e2, e1] /* this is an array not a slice */)
-                .map(|_| {})
-        );
-        assert_eq!(
-            Err(EntityMutableFetchError::AliasedMutability(e1)),
-            world.get_entity_mut(&vec![e1, e2, e1][..]).map(|_| {})
-        );
-        // Aliased mutability isn't allowed by HashSets
-        assert!(world
-            .get_entity_mut(&EntityHashSet::from_iter([e1, e2, e1]))
-            .is_ok());
 
         world.entity_mut(e1).despawn();
 
@@ -4330,22 +4329,15 @@ mod tests {
             Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1
         ));
         assert!(matches!(
-            world.get_entity_mut([e1, e2]).map(|_| {}),
+            world.get_many_entities_mut([e1, e2]).map(|_| {}),
             Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
-        assert!(matches!(
+        assert_eq!(
             world
-                .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
-                .map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
-        assert!(matches!(
-            world.get_entity_mut(&vec![e1, e2][..]).map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1,
-        ));
-        assert!(matches!(
-            world
-                .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
-                .map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
+                .iter_many_unique_entities_mut(&EntityHashSet::from_iter([e1, e2]))
+                .map(|e| e.id())
+                .collect::<EntityHashSet>(),
+            EntityHashSet::from_iter([e2])
+        );
     }
 
     #[test]

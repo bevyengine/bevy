@@ -5556,7 +5556,7 @@ mod tests {
         let x_id = world.register_component::<X>();
         let y_id = world.register_component::<Y>();
 
-        let e1_mut = &world.get_entity_mut([e1]).unwrap()[0];
+        let e1_mut = &world.get_entity_mut(e1).unwrap().into_mutable();
         // SAFETY: The entity e1 contains component X.
         let x_ptr = unsafe { e1_mut.get_mut_by_id_unchecked(x_id) }.unwrap();
         // SAFETY: The entity e1 contains component Y, with components X and Y being mutually independent.

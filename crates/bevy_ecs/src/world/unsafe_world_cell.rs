@@ -6,18 +6,24 @@ use crate::{
     bundle::Bundles,
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
-    entity::{Entities, Entity, EntityBorrow, EntityDoesNotExistError, EntityLocation},
+    entity::{
+        unique_array::UniqueEntityArray, Entities, Entity, EntityBorrow, EntityLocation, EntitySet,
+        EntitySetIterator, UniqueEntityIter,
+    },
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
     resource::Resource,
     storage::{ComponentSparseSet, Storages, Table},
-    world::RawCommandQueue,
+    world::{error::EntityMutableFetchError, EntityDoesNotExistError, EntityMut, RawCommandQueue},
 };
 use bevy_platform_support::sync::atomic::Ordering;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
-use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, panic::Location, ptr};
+use core::{
+    any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, mem::MaybeUninit,
+    panic::Location, ptr,
+};
 use thiserror::Error;
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
@@ -366,6 +372,74 @@ impl<'w> UnsafeWorldCell<'w> {
             .get(entity)
             .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
         Ok(UnsafeEntityCell::new(self, entity, location))
+    }
+
+    /// Shared implementation of [`World::get_many_entities_mut`] and [`DeferredWorld::get_many_entities_mut`](crate::world::DeferredWorld::get_many_entities_mut).
+    ///
+    /// # Safety
+    ///
+    /// The caller must have mutable access to all provided entities.
+    pub(crate) unsafe fn get_many_entities_mut<const N: usize>(
+        self,
+        entities: [Entity; N],
+    ) -> Result<[EntityMut<'w>; N], EntityMutableFetchError> {
+        // Check for duplicate entities.
+        for i in 0..entities.len() {
+            for j in 0..i {
+                if entities[i] == entities[j] {
+                    return Err(EntityMutableFetchError::AliasedMutability(
+                        entities[i].entity(),
+                    ));
+                }
+            }
+        }
+
+        // SAFETY: We just checked for duplicates
+        let entities = unsafe { UniqueEntityArray::from_array_unchecked(entities) };
+        // SAFETY: Caller ensures we have mutable access to these entities
+        Ok(self.get_many_unique_entities_mut(entities)?)
+    }
+
+    /// Shared implementation of [`World::get_many_unique_entities_mut`] and [`DeferredWorld::get_many_unique_entities_mut`](crate::world::DeferredWorld::get_many_unique_entities_mut).
+    ///
+    /// # Safety
+    ///
+    /// The caller must have mutable access to all provided entities.
+    pub(crate) unsafe fn get_many_unique_entities_mut<const N: usize>(
+        self,
+        entities: UniqueEntityArray<N>,
+    ) -> Result<[EntityMut<'w>; N], EntityDoesNotExistError> {
+        let mut refs = [const { MaybeUninit::uninit() }; N];
+        for (r, id) in core::iter::zip(&mut refs, entities) {
+            let ecell = self.get_entity(id.entity())?;
+            // SAFETY: `&mut self` gives read access to the entire world, and prevents mutable access.
+            // `UniqueEntityArray<N>` ensures all entities are unique
+            *r = MaybeUninit::new(unsafe { EntityMut::new(ecell) });
+        }
+
+        // SAFETY: Each item was initialized in the loop above.
+        let refs = refs.map(|r| unsafe { MaybeUninit::assume_init(r) });
+
+        Ok(refs)
+    }
+
+    /// Shared implementation of [`World::iter_many_unique_entities_mut`] and [`DeferredWorld::iter_many_unique_entities_mut`](crate::world::DeferredWorld::iter_many_unique_entities_mut).
+    ///
+    /// # Safety
+    ///
+    /// The caller must have mutable access to all provided entities.
+    pub(crate) unsafe fn iter_many_unique_entities_mut(
+        self,
+        entities: impl EntitySet,
+    ) -> impl EntitySetIterator<Item = EntityMut<'w>> {
+        let iter = entities
+            .into_iter()
+            .filter_map(move |e| self.get_entity(e.entity()).ok())
+            // SAFETY: `&mut self` gives read access to the entire world, and prevents mutable access.
+            // `EntitySet` ensures that the entities are all unique.
+            .map(|ecell| unsafe { EntityMut::new(ecell) });
+        // SAFETY: `EntitySet` ensures that `entities` are all unique, and each `EntityMut` corresponds to one of them
+        unsafe { UniqueEntityIter::from_iterator_unchecked(iter) }
     }
 
     /// Gets a reference to the resource of the given type if it exists
