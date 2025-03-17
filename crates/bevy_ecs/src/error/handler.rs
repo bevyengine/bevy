@@ -1,4 +1,4 @@
-use crate::{component::Tick, error::BevyError, resource::Resource};
+use crate::{component::Tick, error::BevyError};
 use alloc::borrow::Cow;
 
 /// Context for a [`BevyError`] to aid in debugging.
@@ -49,13 +49,19 @@ impl ErrorContext {
 /// A global error handler. This can be set at startup, as long as it is set before
 /// any uses. This should generally be configured _before_ initializing the app.
 ///
-/// This should be set in the following way:
+/// This should be set inside of your `main` function, before initializing the Bevy app.
+///
+/// # Example
 ///
 /// ```
 /// # use bevy_ecs::system::error_handler::{GLOBAL_ERROR_HANDLER, warn};
-/// GLOBAL_ERROR_HANDLER.set(warn());
+/// GLOBAL_ERROR_HANDLER.set(warn).expect("The error handler can only be set once, globally.");
 /// // initialize Bevy App here
 /// ```
+///
+/// # Warning
+///
+/// As this can *never* be overwritten, library code should never set this value.
 pub static GLOBAL_ERROR_HANDLER: std::sync::OnceLock<fn(BevyError, ErrorContext)> =
     std::sync::OnceLock::new();
 
@@ -64,17 +70,6 @@ pub static GLOBAL_ERROR_HANDLER: std::sync::OnceLock<fn(BevyError, ErrorContext)
 #[inline]
 pub fn default_error_handler() -> fn(BevyError, ErrorContext) {
     *GLOBAL_ERROR_HANDLER.get_or_init(|| panic)
-}
-
-/// The default systems error handler stored as a resource in the [`World`](crate::world::World).
-pub struct DefaultSystemErrorHandler(pub fn(BevyError, ErrorContext));
-
-impl Resource for DefaultSystemErrorHandler {}
-
-impl Default for DefaultSystemErrorHandler {
-    fn default() -> Self {
-        Self(panic)
-    }
 }
 
 macro_rules! inner {

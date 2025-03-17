@@ -8,7 +8,9 @@
 //! [`panic`] error handler function is used, resulting in a panic with the error message attached.
 //!
 //! You can change the default behavior by registering a custom error handler.
-//! Modify the [`DefaultSystemErrorHandler`] resource to change it for the entire [`World`].
+//! Modify the [`GLOBAL_ERROR_HANDLER`] value to set a custom error handler function for your entire app.
+//! In practice, this is generally feature-flagged: panicking or loudly logging errors in development,
+//! and quietly logging or ignoring them in production to avoid crashing the app.
 //!
 //! Bevy provides a number of pre-built error-handlers for you to use:
 //!
@@ -29,28 +31,27 @@
 //! ```
 //!
 //! The [`ErrorContext`] allows you to access additional details relevant to providing
-//! context surrounding the system error – such as the system's [`name`] – in your error messages.
+//! context surrounding the error – such as the system's [`name`] – in your error messages.
 //!
 //! For example:
 //!
 //! ```rust
-//! # use bevy_ecs::prelude::*;
-//! # use bevy_ecs::schedule::ScheduleLabel;
-//! # use log::trace;
-//! # fn update() -> Result { Ok(()) }
-//! # #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone, Copy)]
-//! # struct MySchedule;
-//! # fn main() {
-//! let mut world = World::new();
-//! world.insert_resource(DefaultSystemErrorHandler(|error, ctx| {
-//!     if ctx.name.ends_with("update") {
-//!         trace!("Nothing to see here, move along.");
-//!         return;
-//!     }
+//! use bevy_ecs::prelude::*;
+//! use log::trace;
 //!
-//!     bevy_ecs::error::error(error, ctx);
-//! });
-//! # }
+//! fn my_error_handler(error: BevyError, ctx: ErrorContext) {
+//!    if ctx.name().ends_with("plz_ignore") {
+//! 	  trace!("Nothing to see here, move along.");
+//! 	  return;
+//!   }
+//!   bevy_ecs::error::error(error, ctx);
+//! }
+//!
+//! fn main() {
+//! 	GLOBAL_ERROR_HANDLER.set(my_error_handler).expect("The error handler can only be set once.");
+//!
+//! 	// Initialize your Bevy App here
+//! }
 //! ```
 //!
 //! If you need special handling of individual fallible systems, you can use Bevy's [`system piping

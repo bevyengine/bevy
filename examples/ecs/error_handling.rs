@@ -1,16 +1,26 @@
 //! Showcases how fallible systems and observers can make use of Rust's powerful result handling
 //! syntax.
 
-use bevy::ecs::error::DefaultSystemErrorHandler;
-use bevy::ecs::world::DeferredWorld;
+use bevy::ecs::{error::warn, world::DeferredWorld};
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
+use bevy_ecs::error::GLOBAL_ERROR_HANDLER;
 use rand::distributions::Distribution;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
+    // By default, fallible systems that return an error will panic.
+    //
+    // We can change this by setting a custom error handler, which applies globally.
+    //Here we set the global error handler using one of the built-in
+    // error handlers. Bevy provides built-in handlers for `panic`, `error`, `warn`, `info`,
+    // `debug`, `trace` and `ignore`.
+    GLOBAL_ERROR_HANDLER
+        .set(warn)
+        .expect("The error handler can only be set once, globally.");
+
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins);
@@ -22,14 +32,6 @@ fn main() {
     // return a `Result<(), BevyError>` instead of a `()` (unit) type. Bevy will handle both
     // types of systems the same way, except for the error handling.
     app.add_systems(Startup, setup);
-
-    // By default, fallible systems that return an error will panic.
-    //
-    // We can change this by setting a custom error handler. This can be done globally for all
-    // systems in a given `World`. Here we set the global error handler using one of the built-in
-    // error handlers. Bevy provides built-in handlers for `panic`, `error`, `warn`, `info`,
-    // `debug`, `trace` and `ignore`.
-    app.insert_resource(DefaultSystemErrorHandler(bevy::ecs::error::warn));
 
     // Individual systems can also be handled by piping the output result:
     app.add_systems(
