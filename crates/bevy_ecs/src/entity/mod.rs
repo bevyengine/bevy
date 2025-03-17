@@ -962,7 +962,7 @@ impl EntityReserver {
         self.coordinator.is_closed()
     }
 
-    /// Refreshes the reserver to improve the quality of the reservations, setting [`Self::tolerance_left`].
+    /// Refreshes the reserver to improve the quality of the reservations, also setting [`Self::tolerance_left`].
     ///
     /// This will make it more likely that reserved entities are reused.
     ///
@@ -1475,6 +1475,9 @@ impl Entities {
                 pending.entities.extend(drain);
             });
         }
+
+        // update internal reserver
+        self.reserver.refresh();
     }
 
     /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
