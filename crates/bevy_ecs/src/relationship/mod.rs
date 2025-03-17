@@ -12,7 +12,7 @@ pub use relationship_source_collection::*;
 
 use crate::{
     component::{Component, HookContext, Mutable},
-    entity::{ComponentCloneCtx, Entity},
+    entity::{ComponentCloneCtx, Entity, SourceComponent},
     system::{
         command::HandleError,
         entity_command::{self, CommandWithEntity},
@@ -35,12 +35,24 @@ use log::warn;
 ///
 /// [`Relationship`] and [`RelationshipTarget`] should always be derived via the [`Component`] trait to ensure the hooks are set up properly.
 ///
+/// ## Derive
+///
+/// [`Relationship`] and [`RelationshipTarget`] can only be derived for structs with a single unnamed field, single named field
+/// or for named structs where one field is annotated with `#[relationship]`.
+/// If there are additional fields, they must all implement [`Default`].
+///
+/// [`RelationshipTarget`] also requires that the relationship field is private to prevent direct mutation,
+/// ensuring the correctness of relationships.
 /// ```
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
 /// #[relationship(relationship_target = Children)]
-/// pub struct ChildOf(pub Entity);
+/// pub struct ChildOf {
+///     #[relationship]
+///     pub parent: Entity,
+///     internal: u8,
+/// };
 ///
 /// #[derive(Component)]
 /// #[relationship_target(relationship = ChildOf)]
@@ -73,7 +85,24 @@ pub trait Relationship: Component + Sized {
     fn from(entity: Entity) -> Self;
 
     /// The `on_insert` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
-    fn on_insert(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
+    fn on_insert(
+        mut world: DeferredWorld,
+        HookContext {
+            entity,
+            caller,
+            relationship_insert_hook_mode,
+            ..
+        }: HookContext,
+    ) {
+        match relationship_insert_hook_mode {
+            RelationshipInsertHookMode::Run => {}
+            RelationshipInsertHookMode::Skip => return,
+            RelationshipInsertHookMode::RunIfNotLinked => {
+                if <Self::RelationshipTarget as RelationshipTarget>::LINKED_SPAWN {
+                    return;
+                }
+            }
+        }
         let target_entity = world.entity(entity).get::<Self>().unwrap().get();
         if target_entity == entity {
             warn!(
@@ -116,7 +145,7 @@ pub trait Relationship: Component + Sized {
             {
                 relationship_target.collection_mut_risky().remove(entity);
                 if relationship_target.len() == 0 {
-                    if let Some(mut entity) = world.commands().get_entity(target_entity) {
+                    if let Ok(mut entity) = world.commands().get_entity(target_entity) {
                         // this "remove" operation must check emptiness because in the event that an identical
                         // relationship is inserted on top, this despawn would result in the removal of that identical
                         // relationship ... not what we want!
@@ -143,7 +172,7 @@ pub type SourceIter<'w, R> =
 /// A [`Component`] containing the collection of entities that relate to this [`Entity`] via the associated `Relationship` type.
 /// See the [`Relationship`] documentation for more information.
 pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
-    /// If this is true, when despawning or cloning (when [recursion is enabled](crate::entity::EntityClonerBuilder::recursive)), the related entities targeting this entity will also be despawned or cloned.
+    /// If this is true, when despawning or cloning (when [linked cloning is enabled](crate::entity::EntityClonerBuilder::linked_cloning)), the related entities targeting this entity will also be despawned or cloned.
     ///
     /// For example, this is set to `true` for Bevy's built-in parent-child relation, defined by [`ChildOf`](crate::prelude::ChildOf) and [`Children`](crate::prelude::Children).
     /// This means that when a parent is despawned, any children targeting that parent are also despawned (and the same applies to cloning).
@@ -178,29 +207,23 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
     fn on_replace(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
-        // NOTE: this unsafe code is an optimization. We could make this safe, but it would require
-        // copying the RelationshipTarget collection
-        // SAFETY: This only reads the Self component and queues Remove commands
-        unsafe {
-            let world = world.as_unsafe_world_cell();
-            let relationship_target = world.get_entity(entity).unwrap().get::<Self>().unwrap();
-            let mut commands = world.get_raw_command_queue();
-            for source_entity in relationship_target.iter() {
-                if world.get_entity(source_entity).is_ok() {
-                    commands.push(
-                        entity_command::remove::<Self::Relationship>()
-                            .with_entity(source_entity)
-                            .handle_error_with(error_handler::silent()),
-                    );
-                } else {
-                    warn!(
-                        "{}Tried to despawn non-existent entity {}",
-                        caller
-                            .map(|location| format!("{location}: "))
-                            .unwrap_or_default(),
-                        source_entity
-                    );
-                }
+        let (entities, mut commands) = world.entities_and_commands();
+        let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
+        for source_entity in relationship_target.iter() {
+            if entities.get(source_entity).is_ok() {
+                commands.queue(
+                    entity_command::remove::<Self::Relationship>()
+                        .with_entity(source_entity)
+                        .handle_error_with(error_handler::silent()),
+                );
+            } else {
+                warn!(
+                    "{}Tried to despawn non-existent entity {}",
+                    caller
+                        .map(|location| format!("{location}: "))
+                        .unwrap_or_default(),
+                    source_entity
+                );
             }
         }
     }
@@ -209,29 +232,23 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// that entity is despawned.
     // note: think of this as "on_drop"
     fn on_despawn(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
-        // NOTE: this unsafe code is an optimization. We could make this safe, but it would require
-        // copying the RelationshipTarget collection
-        // SAFETY: This only reads the Self component and queues despawn commands
-        unsafe {
-            let world = world.as_unsafe_world_cell();
-            let relationship_target = world.get_entity(entity).unwrap().get::<Self>().unwrap();
-            let mut commands = world.get_raw_command_queue();
-            for source_entity in relationship_target.iter() {
-                if world.get_entity(source_entity).is_ok() {
-                    commands.push(
-                        entity_command::despawn()
-                            .with_entity(source_entity)
-                            .handle_error_with(error_handler::silent()),
-                    );
-                } else {
-                    warn!(
-                        "{}Tried to despawn non-existent entity {}",
-                        caller
-                            .map(|location| format!("{location}: "))
-                            .unwrap_or_default(),
-                        source_entity
-                    );
-                }
+        let (entities, mut commands) = world.entities_and_commands();
+        let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
+        for source_entity in relationship_target.iter() {
+            if entities.get(source_entity).is_ok() {
+                commands.queue(
+                    entity_command::despawn()
+                        .with_entity(source_entity)
+                        .handle_error_with(error_handler::silent()),
+                );
+            } else {
+                warn!(
+                    "{}Tried to despawn non-existent entity {}",
+                    caller
+                        .map(|location| format!("{location}: "))
+                        .unwrap_or_default(),
+                    source_entity
+                );
             }
         }
     }
@@ -272,16 +289,31 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 /// to spawn recursively.
 pub fn clone_relationship_target<T: RelationshipTarget>(
     _commands: &mut Commands,
+    source: &SourceComponent,
     context: &mut ComponentCloneCtx,
 ) {
-    if let Some(component) = context.read_source_component::<T>() {
-        if context.is_recursive() && T::LINKED_SPAWN {
+    if let Some(component) = source.read::<T>() {
+        let mut cloned = T::with_capacity(component.len());
+        if context.linked_cloning() && T::LINKED_SPAWN {
+            let collection = cloned.collection_mut_risky();
             for entity in component.iter() {
+                collection.add(entity);
                 context.queue_entity_clone(entity);
             }
         }
-        context.write_target_component(T::with_capacity(component.len()));
+        context.write_target_component(cloned);
     }
+}
+
+/// Configures the conditions under which the Relationship insert hook will be run.
+#[derive(Copy, Clone, Debug)]
+pub enum RelationshipInsertHookMode {
+    /// Relationship insert hooks will always run
+    Run,
+    /// Relationship insert hooks will run if [`RelationshipTarget::LINKED_SPAWN`] is false
+    RunIfNotLinked,
+    /// Relationship insert hooks will always be skipped
+    Skip,
 }
 
 #[cfg(test)]

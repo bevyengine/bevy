@@ -102,6 +102,7 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use crate::{
         archetype::Archetype,
@@ -111,7 +112,7 @@ mod tests {
             ArchetypeFilter, FilteredAccess, Has, QueryCombinationIter, QueryData,
             ReadOnlyQueryData, WorldQuery,
         },
-        schedule::{IntoSystemConfigs, Schedule},
+        schedule::{IntoScheduleConfigs, Schedule},
         storage::{Table, TableRow},
         system::{assert_is_system, IntoSystem, Query, System, SystemState},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -763,8 +764,8 @@ mod tests {
         let _: Option<&Foo> = q.get(&world, e).ok();
         let _: Option<&Foo> = q.get_manual(&world, e).ok();
         let _: Option<[&Foo; 1]> = q.get_many(&world, [e]).ok();
-        let _: Option<&Foo> = q.get_single(&world).ok();
-        let _: &Foo = q.single(&world);
+        let _: Option<&Foo> = q.single(&world).ok();
+        let _: &Foo = q.single(&world).unwrap();
 
         // system param
         let mut q = SystemState::<Query<&mut Foo>>::new(&mut world);
@@ -776,9 +777,8 @@ mod tests {
 
         let _: Option<&Foo> = q.get(e).ok();
         let _: Option<[&Foo; 1]> = q.get_many([e]).ok();
-        let _: Option<&Foo> = q.get_single().ok();
-        let _: [&Foo; 1] = q.many([e]);
-        let _: &Foo = q.single();
+        let _: Option<&Foo> = q.single().ok();
+        let _: &Foo = q.single().unwrap();
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/8029
@@ -864,7 +864,7 @@ mod tests {
         }
 
         fn init_state(world: &mut World) -> Self::State {
-            world.components.register_resource::<R>()
+            world.components_registrator().register_resource::<R>()
         }
 
         fn get_state(components: &Components) -> Option<Self::State> {
@@ -881,6 +881,7 @@ mod tests {
 
     /// SAFETY: `Self` is the same as `Self::ReadOnly`
     unsafe impl QueryData for ReadsRData {
+        const IS_READ_ONLY: bool = true;
         type ReadOnly = Self;
         type Item<'w> = ();
 

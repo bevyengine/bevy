@@ -48,7 +48,7 @@ pub mod prelude {
 /// This plugin contains several settings, and is added to the world as a resource after initialization.
 /// You can configure pointer input settings at runtime by accessing the resource.
 #[derive(Copy, Clone, Resource, Debug, Reflect)]
-#[reflect(Resource, Default)]
+#[reflect(Resource, Default, Clone)]
 pub struct PointerInputPlugin {
     /// Should touch inputs be updated?
     pub is_touch_enabled: bool,
@@ -118,7 +118,7 @@ pub fn mouse_pick_events(
             WindowEvent::CursorMoved(event) => {
                 let location = Location {
                     target: match RenderTarget::Window(WindowRef::Entity(event.window))
-                        .normalize(primary_window.get_single().ok())
+                        .normalize(primary_window.single().ok())
                     {
                         Some(target) => target,
                         None => continue,
@@ -138,7 +138,7 @@ pub fn mouse_pick_events(
             WindowEvent::MouseButtonInput(input) => {
                 let location = Location {
                     target: match RenderTarget::Window(WindowRef::Entity(input.window))
-                        .normalize(primary_window.get_single().ok())
+                        .normalize(primary_window.single().ok())
                     {
                         Some(target) => target,
                         None => continue,
@@ -162,7 +162,7 @@ pub fn mouse_pick_events(
 
                 let location = Location {
                     target: match RenderTarget::Window(WindowRef::Entity(window))
-                        .normalize(primary_window.get_single().ok())
+                        .normalize(primary_window.single().ok())
                     {
                         Some(target) => target,
                         None => continue,
@@ -195,7 +195,7 @@ pub fn touch_pick_events(
             let pointer = PointerId::Touch(touch.id);
             let location = Location {
                 target: match RenderTarget::Window(WindowRef::Entity(touch.window))
-                    .normalize(primary_window.get_single().ok())
+                    .normalize(primary_window.single().ok())
                 {
                     Some(target) => target,
                     None => continue,

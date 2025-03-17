@@ -84,7 +84,7 @@ pub fn ui_picking(
             .map(|(entity, camera, _)| {
                 (
                     entity,
-                    camera.target.normalize(primary_window.get_single().ok()),
+                    camera.target.normalize(primary_window.single().ok()),
                 )
             })
             .filter_map(|(entity, target)| Some(entity).zip(target))

@@ -12,7 +12,7 @@ use bevy_ecs::{
     world::{Mut, OnAdd, OnRemove, World},
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
 ///
@@ -119,7 +119,7 @@ impl Plugin for SyncWorldPlugin {
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
-#[reflect[Component]]
+#[reflect[Component, Default, Clone]]
 #[component(storage = "SparseSet")]
 pub struct SyncToRenderWorld;
 
@@ -185,7 +185,7 @@ pub type MainEntityHashSet = HashSet<MainEntity, EntityHash>;
 
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default, Clone)]
 pub struct TemporaryRenderEntity;
 
 /// A record enum to what entities with [`SyncToRenderWorld`] have been added or removed.
@@ -358,6 +358,7 @@ mod render_entities_world_query_impls {
     // SAFETY: Component access of Self::ReadOnly is a subset of Self.
     // Self::ReadOnly matches exactly the same archetypes/tables as Self.
     unsafe impl QueryData for RenderEntity {
+        const IS_READ_ONLY: bool = true;
         type ReadOnly = RenderEntity;
         type Item<'w> = Entity;
 
@@ -457,6 +458,7 @@ mod render_entities_world_query_impls {
     // SAFETY: Component access of Self::ReadOnly is a subset of Self.
     // Self::ReadOnly matches exactly the same archetypes/tables as Self.
     unsafe impl QueryData for MainEntity {
+        const IS_READ_ONLY: bool = true;
         type ReadOnly = MainEntity;
         type Item<'w> = Entity;
 
@@ -539,7 +541,7 @@ mod tests {
         // Only one synchronized entity
         assert!(q.iter(&render_world).count() == 1);
 
-        let render_entity = q.get_single(&render_world).unwrap();
+        let render_entity = q.single(&render_world).unwrap();
         let render_entity_component = main_world.get::<RenderEntity>(main_entity).unwrap();
 
         assert!(render_entity_component.id() == render_entity);

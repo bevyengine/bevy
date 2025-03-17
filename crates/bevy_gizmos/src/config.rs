@@ -2,10 +2,7 @@
 
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
-#[cfg(all(
-    feature = "bevy_render",
-    any(feature = "bevy_pbr", feature = "bevy_sprite")
-))]
+#[cfg(feature = "bevy_render")]
 use {crate::GizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
 use bevy_ecs::{reflect::ReflectResource, resource::Resource};
@@ -20,6 +17,7 @@ use core::{
 
 /// An enum configuring how line joints will be drawn.
 #[derive(Debug, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash)]
+#[reflect(Default, PartialEq, Hash, Clone)]
 pub enum GizmoLineJoint {
     /// Does not draw any line joints.
     #[default]
@@ -37,6 +35,7 @@ pub enum GizmoLineJoint {
 
 /// An enum used to configure the style of gizmo lines, similar to CSS line-style
 #[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
+#[reflect(Default, PartialEq, Hash, Clone)]
 #[non_exhaustive]
 pub enum GizmoLineStyle {
     /// A solid line without any decorators
@@ -83,11 +82,13 @@ pub trait GizmoConfigGroup: Reflect + TypePath + Default {}
 
 /// The default gizmo config group.
 #[derive(Default, Reflect, GizmoConfigGroup)]
+#[reflect(Default)]
 pub struct DefaultGizmoConfigGroup;
 
 /// Used when the gizmo config group needs to be type-erased.
 /// Also used for retained gizmos, which can't have a gizmo config group.
 #[derive(Default, Reflect, GizmoConfigGroup, Debug, Clone)]
+#[reflect(Default, Clone)]
 pub struct ErasedGizmoConfigGroup;
 
 /// A [`Resource`] storing [`GizmoConfig`] and [`GizmoConfigGroup`] structs
@@ -167,6 +168,7 @@ impl GizmoConfigStore {
 
 /// A struct that stores configuration for gizmos.
 #[derive(Clone, Reflect, Debug)]
+#[reflect(Clone, Default)]
 pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
     ///
@@ -208,6 +210,7 @@ impl Default for GizmoConfig {
 
 /// A struct that stores configuration for gizmos.
 #[derive(Clone, Reflect, Debug)]
+#[reflect(Clone, Default)]
 pub struct GizmoLineConfig {
     /// Line width specified in pixels.
     ///
@@ -238,10 +241,7 @@ impl Default for GizmoLineConfig {
     }
 }
 
-#[cfg(all(
-    feature = "bevy_render",
-    any(feature = "bevy_pbr", feature = "bevy_sprite")
-))]
+#[cfg(feature = "bevy_render")]
 #[derive(Component)]
 pub(crate) struct GizmoMeshConfig {
     pub line_perspective: bool,

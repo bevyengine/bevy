@@ -24,7 +24,7 @@ use bevy_utils::default;
 ///
 /// **Auto Exposure requires compute shaders and is not compatible with WebGL2.**
 #[derive(Component, Clone, Reflect, ExtractComponent)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct AutoExposure {
     /// The range of exposure values for the histogram.
     ///
