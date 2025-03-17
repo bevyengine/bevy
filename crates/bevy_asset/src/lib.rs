@@ -698,7 +698,7 @@ mod tests {
         #[error(transparent)]
         DuplicateLabelAssetError(#[from] DuplicateLabelAssetError),
         #[error("An IO error occurred during loading")]
-        Io(#[from] std::io::Error),
+        Io(#[from] bevy_platform_support::io::Error),
     }
 
     impl AssetLoader for CoolTextLoader {
@@ -754,7 +754,7 @@ mod tests {
     /// A dummy [`CoolText`] asset reader that only succeeds after `failure_count` times it's read from for each asset.
     #[derive(Default, Clone)]
     pub struct UnstableMemoryAssetReader {
-        pub attempt_counters: Arc<std::sync::Mutex<HashMap<Box<Path>, usize>>>,
+        pub attempt_counters: Arc<bevy_platform_support::sync::Mutex<HashMap<Box<Path>, usize>>>,
         pub load_delay: Duration,
         memory_reader: MemoryAssetReader,
         failure_count: usize,
@@ -800,8 +800,8 @@ mod tests {
             };
 
             if attempt_number <= self.failure_count {
-                let io_error = std::io::Error::new(
-                    std::io::ErrorKind::ConnectionRefused,
+                let io_error = bevy_platform_support::io::Error::new(
+                    bevy_platform_support::io::ErrorKind::ConnectionRefused,
                     format!(
                         "Simulated failure {attempt_number} of {}",
                         self.failure_count

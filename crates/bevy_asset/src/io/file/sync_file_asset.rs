@@ -23,7 +23,7 @@ impl AsyncRead for FileReader {
         self: Pin<&mut Self>,
         _cx: &mut core::task::Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<std::io::Result<usize>> {
+    ) -> Poll<bevy_platform_support::io::Result<usize>> {
         let this = self.get_mut();
         let read = this.0.read(buf);
         Poll::Ready(read)
@@ -35,7 +35,7 @@ impl AsyncSeekForward for FileReader {
         self: Pin<&mut Self>,
         _cx: &mut core::task::Context<'_>,
         offset: u64,
-    ) -> Poll<std::io::Result<u64>> {
+    ) -> Poll<bevy_platform_support::io::Result<u64>> {
         let this = self.get_mut();
         let current = this.0.stream_position()?;
         let seek = this.0.seek(std::io::SeekFrom::Start(current + offset));
@@ -48,8 +48,11 @@ impl Reader for FileReader {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
-    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { crate::io::STACK_FUTURE_SIZE }>
-    {
+    ) -> stackfuture::StackFuture<
+        'a,
+        bevy_platform_support::io::Result<usize>,
+        { crate::io::STACK_FUTURE_SIZE },
+    > {
         stackfuture::StackFuture::from(async { self.0.read_to_end(buf) })
     }
 }
@@ -61,7 +64,7 @@ impl AsyncWrite for FileWriter {
         self: Pin<&mut Self>,
         _cx: &mut core::task::Context<'_>,
         buf: &[u8],
-    ) -> Poll<std::io::Result<usize>> {
+    ) -> Poll<bevy_platform_support::io::Result<usize>> {
         let this = self.get_mut();
         let wrote = this.0.write(buf);
         Poll::Ready(wrote)
@@ -70,7 +73,7 @@ impl AsyncWrite for FileWriter {
     fn poll_flush(
         self: Pin<&mut Self>,
         _cx: &mut core::task::Context<'_>,
-    ) -> Poll<std::io::Result<()>> {
+    ) -> Poll<bevy_platform_support::io::Result<()>> {
         let this = self.get_mut();
         let flushed = this.0.flush();
         Poll::Ready(flushed)
@@ -79,7 +82,7 @@ impl AsyncWrite for FileWriter {
     fn poll_close(
         self: Pin<&mut Self>,
         _cx: &mut core::task::Context<'_>,
-    ) -> Poll<std::io::Result<()>> {
+    ) -> Poll<bevy_platform_support::io::Result<()>> {
         Poll::Ready(Ok(()))
     }
 }
@@ -104,7 +107,7 @@ impl AssetReader for FileAssetReader {
         match File::open(&full_path) {
             Ok(file) => Ok(FileReader(file)),
             Err(e) => {
-                if e.kind() == std::io::ErrorKind::NotFound {
+                if e.kind() == bevy_platform_support::io::ErrorKind::NotFound {
                     Err(AssetReaderError::NotFound(full_path))
                 } else {
                     Err(e.into())
@@ -119,7 +122,7 @@ impl AssetReader for FileAssetReader {
         match File::open(&full_path) {
             Ok(file) => Ok(FileReader(file)),
             Err(e) => {
-                if e.kind() == std::io::ErrorKind::NotFound {
+                if e.kind() == bevy_platform_support::io::ErrorKind::NotFound {
                     Err(AssetReaderError::NotFound(full_path))
                 } else {
                     Err(e.into())
@@ -153,7 +156,7 @@ impl AssetReader for FileAssetReader {
                 Ok(read_dir)
             }
             Err(e) => {
-                if e.kind() == std::io::ErrorKind::NotFound {
+                if e.kind() == bevy_platform_support::io::ErrorKind::NotFound {
                     Err(AssetReaderError::NotFound(full_path))
                 } else {
                     Err(e.into())

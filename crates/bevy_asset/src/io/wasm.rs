@@ -38,7 +38,7 @@ impl HttpWasmAssetReader {
     }
 }
 
-fn js_value_to_err(context: &str) -> impl FnOnce(JsValue) -> std::io::Error + '_ {
+fn js_value_to_err(context: &str) -> impl FnOnce(JsValue) -> bevy_platform_support::io::Error + '_ {
     move |value| {
         let message = match JSON::stringify(&value) {
             Ok(js_str) => format!("Failed to {context}: {js_str}"),
@@ -47,7 +47,7 @@ fn js_value_to_err(context: &str) -> impl FnOnce(JsValue) -> std::io::Error + '_
             }
         };
 
-        std::io::Error::new(std::io::ErrorKind::Other, message)
+        bevy_platform_support::io::Error::new(bevy_platform_support::io::ErrorKind::Other, message)
     }
 }
 
@@ -62,8 +62,8 @@ impl HttpWasmAssetReader {
             let worker: web_sys::WorkerGlobalScope = global.unchecked_into();
             worker.fetch_with_str(path.to_str().unwrap())
         } else {
-            let error = std::io::Error::new(
-                std::io::ErrorKind::Other,
+            let error = bevy_platform_support::io::Error::new(
+                bevy_platform_support::io::ErrorKind::Other,
                 "Unsupported JavaScript global context",
             );
             return Err(AssetReaderError::Io(error.into()));

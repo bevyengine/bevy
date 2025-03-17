@@ -137,7 +137,7 @@ impl AsyncRead for TransactionLockedReader<'_> {
         mut self: Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<futures_io::Result<usize>> {
+    ) -> Poll<bevy_platform_support::io::Result<usize>> {
         Pin::new(&mut self.reader).poll_read(cx, buf)
     }
 }
@@ -147,7 +147,7 @@ impl AsyncSeekForward for TransactionLockedReader<'_> {
         mut self: Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
         offset: u64,
-    ) -> Poll<std::io::Result<u64>> {
+    ) -> Poll<bevy_platform_support::io::Result<u64>> {
         Pin::new(&mut self.reader).poll_seek_forward(cx, offset)
     }
 }
@@ -156,7 +156,11 @@ impl Reader for TransactionLockedReader<'_> {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
-    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
+    ) -> stackfuture::StackFuture<
+        'a,
+        bevy_platform_support::io::Result<usize>,
+        { super::STACK_FUTURE_SIZE },
+    > {
         self.reader.read_to_end(buf)
     }
 }
