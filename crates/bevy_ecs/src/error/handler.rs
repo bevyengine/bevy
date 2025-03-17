@@ -1,5 +1,5 @@
 use core::fmt::Display;
-use std::sync::OnceLock;
+use bevy_platform_support::sync::OnceLock;
 
 use crate::{component::Tick, error::BevyError};
 use alloc::borrow::Cow;
