@@ -338,7 +338,7 @@ Example | Description
 
 Example | Description
 --- | ---
-[`no_std` Compatible Library](../examples/no_std/library/src/lib.rs) | Example Library Compatible with `std` and `no_std` Targets
+[`no_std` Compatible Library](../examples/no_std/library/src/lib.rs) | Example library compatible with `std` and `no_std` targets
 
 ## Games
 
