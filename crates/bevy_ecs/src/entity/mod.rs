@@ -770,8 +770,8 @@ impl AtomicEntityReservations {
     fn flush_appended(
         &self,
         metas: &mut Vec<EntityMeta>,
-        mut unseen_flusher: impl FnMut(&mut EntityMeta, u32),
-        mut brand_new_flusher: impl FnMut(&mut EntityMeta, u32),
+        mut should_flush_unseen: impl FnMut(&mut EntityMeta, u32) -> bool,
+        mut flusher: impl FnMut(&mut EntityMeta, u32),
     ) {
         let current_len = metas.len() as u32;
         let theoretical_len = self.meta_len.load(Ordering::Relaxed);
@@ -784,7 +784,9 @@ impl AtomicEntityReservations {
         for index in flushed_up_to..current_len {
             // SAFETY: It is known to be a valid index.
             let meta = unsafe { metas.get_unchecked_mut(index as usize) };
-            unseen_flusher(meta, index);
+            if should_flush_unseen(meta, index) {
+                flusher(meta, index);
+            }
         }
 
         // flush those we need to create
@@ -792,7 +794,7 @@ impl AtomicEntityReservations {
         for index in current_len..theoretical_len {
             // SAFETY: It is known to be a valid index.
             let meta = unsafe { metas.get_unchecked_mut(index as usize) };
-            brand_new_flusher(meta, index);
+            flusher(meta, index);
         }
     }
 
@@ -1202,14 +1204,6 @@ impl Entities {
         self.reserver.reserve_entity_no_refresh()
     }
 
-    /// Check that we do not have pending work requiring `flush()` to be called.
-    fn verify_flushed(&mut self) {
-        debug_assert!(
-            !self.needs_flush(),
-            "flush() needs to be called before this operation is legal"
-        );
-    }
-
     /// Safely extends [`Self::owned`].
     fn extend_owned(&mut self, num: NonZero<u32>) {
         let new = self.reserver.reserve_entities(num.get());
@@ -1373,20 +1367,13 @@ impl Entities {
             Some(Entity::from_raw_and_generation(index, generation))
         } else {
             // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
-            let free_cursor = self.free_cursor.load(Ordering::Relaxed);
-            // If this entity was manually created, then free_cursor might be positive
-            // Returning None handles that case correctly
-            let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then_some(Entity::from_raw(index))
+            let len = self.coordinator.meta_len.load(Ordering::Relaxed);
+            (index < len).then_some(Entity::from_raw(index))
         }
     }
 
-    fn needs_flush(&mut self) -> bool {
-        *self.free_cursor.get_mut() != self.pending.len() as IdCursor
-    }
-
-    /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
-    /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the supplied function.
+    /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity),
+    /// [`reserve_entities`](Entities::reserve_entities), or an associated [`EntityReserver`], then initializes each one using the supplied function.
     ///
     /// # Safety
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
@@ -1396,32 +1383,69 @@ impl Entities {
     /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
     /// to be initialized with the invalid archetype.
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
-        let free_cursor = self.free_cursor.get_mut();
-        let current_free_cursor = *free_cursor;
-
-        let new_free_cursor = if current_free_cursor >= 0 {
-            current_free_cursor as usize
-        } else {
-            let old_meta_len = self.meta.len();
-            let new_meta_len = old_meta_len + -current_free_cursor as usize;
-            self.meta.resize(new_meta_len, EntityMeta::EMPTY);
-            for (index, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
+        // flush appended reservations
+        self.coordinator.flush_appended(
+            &mut self.meta,
+            |meta, _index| {
+                // We shouldn't flush owned entities.
+                meta.location == EntityLocation::INVALID
+            },
+            |meta, index| {
                 init(
-                    Entity::from_raw_and_generation(index as u32, meta.generation),
+                    Entity::from_raw_and_generation(index, meta.generation),
                     &mut meta.location,
                 );
+            },
+        );
+
+        // update `wild_pending_chunks`
+        self.coordinator.get_new_pending_chunks(|new_chunks| {
+            self.wild_pending_chunks.extend(new_chunks);
+        });
+
+        // flush and reuse `wild_pending_chunks`
+        let hot_swap_arc = Arc::new(PendingEntitiesChunk::default());
+        self.wild_pending_chunks.retain_mut(|item| {
+            // flush the pending list
+            item.flush(|reserved| {
+                // SAFETY: The entity was pending, so it must have existed at some point, so the index is valid.
+                let meta = unsafe { self.meta.get_unchecked_mut(reserved.index() as usize) };
+                // We shouldn't flush owned entities or those already flushed.
+                // For example, one may have been reserved, freed, and reserved again, potentially causing a double flush.
+                if meta.location == EntityLocation::INVALID {
+                    init(reserved, &mut meta.location);
+                }
+            });
+
+            // see if we can get rid of it
+            let pending = mem::replace(item, hot_swap_arc.clone());
+            match Arc::try_unwrap(pending) {
+                Ok(inner) => {
+                    self.coordinator.reuse_pending(inner);
+                    false
+                }
+                Err(still_pending) => {
+                    let _hot_swapped = mem::replace(item, still_pending);
+                    true
+                }
             }
+        });
 
-            *free_cursor = 0;
-            0
-        };
-
-        for index in self.pending.drain(new_free_cursor..) {
-            let meta = &mut self.meta[index as usize];
-            init(
-                Entity::from_raw_and_generation(index, meta.generation),
-                &mut meta.location,
-            );
+        // balance owned entities
+        if self.owned.len() > self.ideal_owned.get() as usize {
+            let offload_range = self.ideal_owned.get() as usize..;
+            for no_longer_owned in self.owned[offload_range.clone()].iter() {
+                // SAFETY: Owned entities are known to have valid indices.
+                unsafe {
+                    self.meta
+                        .get_unchecked_mut(no_longer_owned.index() as usize)
+                }
+                .location = EntityLocation::INVALID;
+            }
+            let drain = self.owned.drain(offload_range);
+            self.coordinator.pending_mut(|pending| {
+                pending.entities.extend(drain);
+            });
         }
     }
 
