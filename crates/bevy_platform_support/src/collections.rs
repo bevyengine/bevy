@@ -7,7 +7,7 @@
 //! rather than the expected `FixedHasher` if you declare a `HashMap<K,V>` (without a hasher
 //! specified).  To bypass this issue, use [`HashMap::default`] instead.
 //! ```
-//! use bevy::{prelude::*, bevy_platform_support::collections::HashMap};
+//! use bevy::{prelude::*, platform_support::collections::HashMap};
 //!
 //! #[derive(Component)]
 //! struct MyComponent {
