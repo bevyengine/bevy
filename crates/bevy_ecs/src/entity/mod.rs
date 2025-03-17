@@ -1129,60 +1129,35 @@ impl RemoteEntities {
 ///  - The location of the entity's components in memory (via [`EntityLocation`])
 ///
 /// [`World`]: crate::world::World
-#[derive(Debug)]
 pub struct Entities {
+    /// The metadata for each entity.
     meta: Vec<EntityMeta>,
-
-    /// The `pending` and `free_cursor` fields describe three sets of Entity IDs
-    /// that have been freed or are in the process of being allocated:
-    ///
-    /// - The `freelist` IDs, previously freed by `free()`. These IDs are available to any of
-    ///   [`alloc`], [`reserve_entity`] or [`reserve_entities`]. Allocation will always prefer
-    ///   these over brand new IDs.
-    ///
-    /// - The `reserved` list of IDs that were once in the freelist, but got reserved by
-    ///   [`reserve_entities`] or [`reserve_entity`]. They are now waiting for [`flush`] to make them
-    ///   fully allocated.
-    ///
-    /// - The count of new IDs that do not yet exist in `self.meta`, but which we have handed out
-    ///   and reserved. [`flush`] will allocate room for them in `self.meta`.
-    ///
-    /// The contents of `pending` look like this:
-    ///
-    /// ```txt
-    /// ----------------------------
-    /// |  freelist  |  reserved   |
-    /// ----------------------------
-    ///              ^             ^
-    ///          free_cursor   pending.len()
-    /// ```
-    ///
-    /// As IDs are allocated, `free_cursor` is atomically decremented, moving
-    /// items from the freelist into the reserved list by sliding over the boundary.
-    ///
-    /// Once the freelist runs out, `free_cursor` starts going negative.
-    /// The more negative it is, the more IDs have been reserved starting exactly at
-    /// the end of `meta.len()`.
-    ///
-    /// This formulation allows us to reserve any number of IDs first from the freelist
-    /// and then from the new IDs, using only a single atomic subtract.
-    ///
-    /// Once [`flush`] is done, `free_cursor` will equal `pending.len()`.
-    ///
-    /// [`alloc`]: Entities::alloc
-    /// [`reserve_entity`]: Entities::reserve_entity
-    /// [`reserve_entities`]: Entities::reserve_entities
-    /// [`flush`]: Entities::flush
-    pending: Vec<u32>,
-    free_cursor: AtomicIdCursor,
+    /// Coordinates all reservations, locally and otherwise.
+    coordinator: Arc<AtomicEntityReservations>,
+    /// The local reserver for when we are unable to reserve anything directly.
+    reserver: EntityReserver,
+    /// These are the pending chunks that have been distributed.
+    /// They are "wild" and could be anywhere. We can reuse them as soon as the [`Arc`] is unique.
+    wild_pending_chunks: Vec<Arc<PendingEntitiesChunk>>,
+    /// These are [`Self::wild_pending_chunks`] but they don't have anymore reservable entities.
+    garbage_pending_chunks: Vec<Arc<PendingEntitiesChunk>>,
+    /// These are entities that neither exist nor need to be flushed into existence.
+    /// We own these entities and can do with them as we like.
+    /// These are marked with [`EntityLocation::OWNED`] to prevent them from being flushed.
+    owned: Vec<Entity>,
 }
 
 impl Entities {
-    pub(crate) const fn new() -> Self {
+    pub(crate) fn new() -> Self {
+        let coordinator = Arc::new(AtomicEntityReservations::new());
+        let reserver = EntityReserver::new(coordinator.clone());
         Entities {
             meta: Vec::new(),
-            pending: Vec::new(),
-            free_cursor: AtomicIdCursor::new(0),
+            coordinator,
+            reserver,
+            wild_pending_chunks: Vec::new(),
+            garbage_pending_chunks: Vec::new(),
+            owned: Vec::new(),
         }
     }
 
@@ -1293,31 +1268,7 @@ impl Entities {
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
     pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
-        self.verify_flushed();
-
-        let loc = if entity.index() as usize >= self.meta.len() {
-            self.pending
-                .extend((self.meta.len() as u32)..entity.index());
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            self.meta
-                .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
-            None
-        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
-            self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            None
-        } else {
-            Some(mem::replace(
-                &mut self.meta[entity.index() as usize].location,
-                EntityMeta::EMPTY.location,
-            ))
-        };
-
-        self.meta[entity.index() as usize].generation = entity.generation;
-
-        loc
+        todo!()
     }
 
     /// Allocate a specific entity ID, overwriting its generation.
@@ -1334,34 +1285,7 @@ impl Entities {
         &mut self,
         entity: Entity,
     ) -> AllocAtWithoutReplacement {
-        self.verify_flushed();
-
-        let result = if entity.index() as usize >= self.meta.len() {
-            self.pending
-                .extend((self.meta.len() as u32)..entity.index());
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            self.meta
-                .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
-            AllocAtWithoutReplacement::DidNotExist
-        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
-            self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            AllocAtWithoutReplacement::DidNotExist
-        } else {
-            let current_meta = &self.meta[entity.index() as usize];
-            if current_meta.location.archetype_id == ArchetypeId::INVALID {
-                AllocAtWithoutReplacement::DidNotExist
-            } else if current_meta.generation == entity.generation {
-                AllocAtWithoutReplacement::Exists(current_meta.location)
-            } else {
-                return AllocAtWithoutReplacement::ExistsWithWrongGeneration;
-            }
-        };
-
-        self.meta[entity.index() as usize].generation = entity.generation;
-        result
+        todo!()
     }
 
     /// Destroy an entity, allowing it to be reused.
@@ -1731,6 +1655,14 @@ impl EntityLocation {
     pub(crate) const INVALID: EntityLocation = EntityLocation {
         archetype_id: ArchetypeId::INVALID,
         archetype_row: ArchetypeRow::INVALID,
+        table_id: TableId::INVALID,
+        table_row: TableRow::INVALID,
+    };
+
+    /// location for **owned entity**. See [`Entities::owned`].
+    pub(crate) const OWNED: EntityLocation = EntityLocation {
+        archetype_id: ArchetypeId::INVALID,
+        archetype_row: ArchetypeRow::new(0),
         table_id: TableId::INVALID,
         table_row: TableRow::INVALID,
     };
