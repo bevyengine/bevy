@@ -548,13 +548,6 @@ impl PendingEntitiesChunk {
         start..end
     }
 
-    /// The number of entities that can still be reserved.
-    fn num_left(&self) -> u32 {
-        self.entities
-            .len()
-            .saturating_sub(self.reserved.load(Ordering::Relaxed)) as u32
-    }
-
     /// Reserves just one entity.
     fn reserve_one(&self) -> Option<Entity> {
         let num_reserved_so_far = self.reserved.fetch_add(1, Ordering::Relaxed);
@@ -748,6 +741,10 @@ impl AtomicEntityReservations {
         let new_meta = match current_meta.checked_add(num) {
             Some(new) => new,
             None => {
+                // Since this is relaxed, this may allow other reservations with the wrapped value before we set it back to the max.
+                // But future reservations would panic again, and this is extremely rare
+                // and would only cause a problem if it happened on an entirely separate thread that chose to ignore a poison error.
+                // So while this leaves a narrow opeining for invalid reservations, it is worth it for the speed.
                 self.meta_len.store(u32::MAX, Ordering::Release);
                 panic!("too many entities")
             }
@@ -1143,9 +1140,11 @@ pub struct Entities {
     /// These are entities that neither exist nor need to be flushed into existence.
     /// We own these entities and can do with them as we like.
     /// These are marked with [`EntityLocation::OWNED`] to prevent them from being flushed.
-    ///
-    /// However, we can also resrve from these entities if desired, hence using [`PendingEntitiesChunk`] instead of [`Vec<Entity>`].
-    owned: PendingEntitiesChunk,
+    owned: Vec<Entity>,
+    /// The number of [`entities`](Entity) to have on standby for allocations.
+    /// The higher the number, the faster allocations will be, but the more memory and entities will be taken up but unused.
+    /// The default value is 256.
+    pub ideal_owned: NonZero<u32>,
 }
 
 impl Entities {
@@ -1157,7 +1156,9 @@ impl Entities {
             coordinator,
             reserver,
             wild_pending_chunks: Vec::new(),
-            owned: PendingEntitiesChunk::default(),
+            owned: Vec::new(),
+            // SAFETY: 256 > 0
+            ideal_owned: unsafe { NonZero::new_unchecked(256) },
         }
     }
 
@@ -1167,44 +1168,15 @@ impl Entities {
     pub fn reserve_entities(
         &self,
         count: u32,
-    ) -> ReserveEntitiesIterator<
-        core::iter::Chain<
-            core::iter::Copied<core::slice::Iter<'_, Entity>>,
-            core::iter::Copied<core::slice::Iter<'_, Entity>>,
-        >,
-    > {
-        let reuse_owned = self.owned.reserve(count);
-        let still_needed = count - reuse_owned.len() as u32;
-
-        let ReserveEntitiesIterator {
-            reused_entities,
-            new_indices,
-        } = if still_needed > 0 {
-            self.reserver.reserve_entities_no_refresh(still_needed)
-        } else {
-            ReserveEntitiesIterator {
-                reused_entities: [].iter().copied(),
-                new_indices: 0..0,
-            }
-        };
-
-        let reused_entities = self.owned.entities[reuse_owned]
-            .iter()
-            .copied()
-            .chain(reused_entities);
-        ReserveEntitiesIterator {
-            reused_entities,
-            new_indices,
-        }
+    ) -> ReserveEntitiesIterator<core::iter::Copied<core::slice::Iter<'_, Entity>>> {
+        self.reserver.reserve_entities_no_refresh(count)
     }
 
     /// Reserve one entity ID concurrently.
     ///
     /// Equivalent to `self.reserve_entities(1).next().unwrap()`, but more efficient.
     pub fn reserve_entity(&self) -> Entity {
-        self.owned
-            .reserve_one()
-            .unwrap_or_else(|| self.reserver.reserve_entity_no_refresh())
+        self.reserver.reserve_entity_no_refresh()
     }
 
     /// Check that we do not have pending work requiring `flush()` to be called.
@@ -1215,18 +1187,33 @@ impl Entities {
         );
     }
 
+    /// Safely extends [`Self::owned`].
+    fn extend_owned(&mut self, num: NonZero<u32>) {
+        let new = self.reserver.reserve_entities(num.get());
+
+        // Make sure we don't actually flush these
+        self.meta
+            .resize(new.new_indices.end as usize, EntityMeta::EMPTY);
+
+        let new = new.inspect(|entity| {
+            // SAFETY: we just resized to ensure all are valid.
+            unsafe {
+                self.meta
+                    .get_unchecked_mut(entity.index() as usize)
+                    .location = EntityLocation::OWNED;
+            }
+        });
+
+        self.owned.extend(new);
+    }
+
     /// Allocate an entity ID directly.
     pub fn alloc(&mut self) -> Entity {
-        self.verify_flushed();
-        if let Some(index) = self.pending.pop() {
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
-        } else {
-            let index = u32::try_from(self.meta.len()).expect("too many entities");
-            self.meta.push(EntityMeta::EMPTY);
-            Entity::from_raw(index)
-        }
+        self.owned.pop().unwrap_or_else(|| {
+            self.extend_owned(self.ideal_owned);
+            // SAFETY: We just extended this by a non zero
+            unsafe { self.owned.pop().unwrap_unchecked() }
+        })
     }
 
     /// Allocate a specific entity ID, overwriting its generation.
@@ -1236,7 +1223,7 @@ impl Entities {
     #[deprecated(
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
-    pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
+    pub fn alloc_at(&mut self, _entity: Entity) -> Option<EntityLocation> {
         todo!()
     }
 
@@ -1252,7 +1239,7 @@ impl Entities {
     )]
     pub(crate) fn alloc_at_without_replacement(
         &mut self,
-        entity: Entity,
+        _entity: Entity,
     ) -> AllocAtWithoutReplacement {
         todo!()
     }
@@ -1286,24 +1273,11 @@ impl Entities {
         Some(loc)
     }
 
-    /// Ensure at least `n` allocations can succeed without reallocating.
-    #[expect(
-        clippy::allow_attributes,
-        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
-    )]
-    #[allow(
-        clippy::unnecessary_fallible_conversions,
-        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
-    )]
+    /// Ensure at least `n` allocations can succeed without allocations or internal reservations.
     pub fn reserve(&mut self, additional: u32) {
-        self.verify_flushed();
-
-        let freelist_size = *self.free_cursor.get_mut();
-        let shortfall = IdCursor::try_from(additional)
-            .expect("64-bit atomic operations are not supported on this platform.")
-            - freelist_size;
-        if shortfall > 0 {
-            self.meta.reserve(shortfall as usize);
+        let shortfal = additional.saturating_sub(self.owned.len() as u32);
+        if let Some(additional) = NonZero::new(shortfal) {
+            self.extend_owned(additional);
         }
     }
 
