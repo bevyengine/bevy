@@ -16,7 +16,7 @@ fn main() {
     // By default, fallible systems that return an error will panic.
     //
     // We can change this by setting a custom error handler, which applies globally.
-    //Here we set the global error handler using one of the built-in
+    // Here we set the global error handler using one of the built-in
     // error handlers. Bevy provides built-in handlers for `panic`, `error`, `warn`, `info`,
     // `debug`, `trace` and `ignore`.
     GLOBAL_ERROR_HANDLER
