@@ -2,10 +2,10 @@
 //!
 //! Also provides the [`HashTable`] type, which is specific to [`hashbrown`].
 //!
-//! Note that due to the implementation details of [`hashbrown`], [`HashMap::new`] produces a
-//! `HashMap<K,V,bevy::bevy_platform_support::hash::RandomState>` (uses a `RandomState` hasher)
-//! rather than the expected `FixedHasher` if you declare a `HashMap<K,V>` (without a hasher
-//! specified).  To bypass this issue, use [`HashMap::default`] instead.
+//! Note that due to the implementation details of [`hashbrown`], [`HashMap::new`] is only implemented for `HashMap<K, V, RandomState>`.
+//! Whereas, Bevy exports `HashMap<K, V, FixedHasher>` as its default [`HashMap`] type, meaning [`HashMap::new`] will typically fail.
+//! To bypass this issue, use [`HashMap::default`] instead.
+//!
 //! ```
 //! use bevy::{prelude::*, platform_support::collections::HashMap};
 //!
