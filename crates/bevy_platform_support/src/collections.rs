@@ -1,6 +1,25 @@
-//! Provides [`HashMap`] and [`HashSet`] from [`hashbrown`] with some customized defaults.\
+//! Provides [`HashMap`] and [`HashSet`] from [`hashbrown`] with some customized defaults.
 //!
 //! Also provides the [`HashTable`] type, which is specific to [`hashbrown`].
+//!
+//! Note that due to the implementation details of [`hashbrown`], [`HashMap::new`] produces a
+//! `HashMap<K,V,bevy::bevy_platform_support::hash::RandomState>` (uses a `RandomState` hasher)
+//! rather than the expected `FixedHasher` if you declare a `HashMap<K,V>` (without a hasher
+//! specified).  To bypass this issue, use [`HashMap::default`] instead.
+//! ```
+//! use bevy::{prelude::*, bevy_platform_support::collections::HashMap};
+//!
+//! #[derive(Component)]
+//! struct MyComponent {
+//!     map: HashMap<String, String>
+//! }
+//!
+//! fn my_system(mut commands: Commands) {
+//!     commands.spawn(MyComponent {
+//!         map: HashMap::default(),
+//!     });
+//! }
+//! ```
 
 pub use hash_map::HashMap;
 pub use hash_set::HashSet;
