@@ -65,16 +65,16 @@
             const traitName = removeGenerics(header.innerText).split(' ')[1].trim();
 
             let requiredComponents = [];
-            if (traitName === `Component`) {
+            if (traitName === 'Component') {
                 const docblock = Array.from(header.parentNode.children)
                     .find(child => child.classList.contains('docblock'));
                 if (docblock) {
                     for (const el of docblock.children[0].children) {
                         let code;
-                        if (el.nodeName === `A`) {
+                        if (el.nodeName === 'A') {
                             code = el.children[0];
                             requiredComponents.push([code.innerText, el.getAttribute('href')]);
-                        } else if (el.nodeName === `CODE`) {
+                        } else if (el.nodeName === 'CODE') {
                             requiredComponents.push([el.innerText]);
                         }
                     }
@@ -126,8 +126,8 @@
 
         if (requiredComponents.length > 0) {
             const tooltip = document.createElement('span');
-            tooltip.innerText = `Required Components:`;
-            tooltip.className = `bevy-tooltip`;
+            tooltip.innerText = 'Required Components:';
+            tooltip.className = 'bevy-tooltip';
 
             const ul = document.createElement('ul');
             for (const [component, componentHref] of requiredComponents) {
