@@ -1274,10 +1274,21 @@ impl Entities {
         entity: Entity,
         generations: u32,
     ) -> Option<EntityLocation> {
-        let meta = &mut self.meta.get_mut(entity.index() as usize)?;
-        if meta.generation != entity.generation {
+        let theoretical = self.resolve_from_id(entity.index());
+        if theoretical.is_none_or(|theoretcal| theoretcal != entity) {
             return None;
         }
+
+        let meta = match self.meta.get_mut(entity.index() as usize) {
+            Some(found) => found,
+            None => {
+                // The entity must have been reserved and needs to be flushed.
+                self.meta
+                    .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
+                // SAFETY: We just added it.
+                unsafe { self.meta.get_unchecked_mut(entity.index() as usize) }
+            }
+        };
 
         let prev_generation = meta.generation;
         meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, 1 + generations);
@@ -1289,7 +1300,7 @@ impl Entities {
             );
         }
 
-        let loc = mem::replace(&mut meta.location, EntityLocation::INVALID_BUT_DONT_FLUSH);
+        let loc = mem::replace(&mut meta.location, EntityLocation::OWNED);
 
         self.owned.push(Entity::from_raw_and_generation(
             entity.index,
