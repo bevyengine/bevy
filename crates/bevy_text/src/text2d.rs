@@ -229,7 +229,6 @@ pub fn extract_text2d_sprite(
                     ExtractedSprite {
                         transform,
                         color,
-                        custom_size: None,
                         image_handle_id: atlas_info.texture.id(),
                         flip_x: false,
                         flip_y: false,
