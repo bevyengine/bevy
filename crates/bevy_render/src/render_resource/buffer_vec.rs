@@ -525,7 +525,7 @@ where
 /// [`write_buffer`](RawBufferVec::write_buffer) queues copying of the data
 /// from system RAM to VRAM.
 ///
-/// Unlike [`RawBufferVec`] this will add padding to respect aligment rules if necessary when
+/// Unlike [`RawBufferVec`] this will add padding to respect alignment rules if necessary when
 /// adding data to it. This is useful when working with buffers that have alignment rules
 /// like uniform buffers.
 pub struct AlignedRawBufferVec<T: NoUninit> {
