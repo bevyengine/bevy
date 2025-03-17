@@ -12,7 +12,7 @@ use crate::{
     REFLECT_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME,
 };
 use bevy_macro_utils::ResultSifter;
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::token::Comma;
 
 use crate::enum_utility::{EnumVariantOutputData, ReflectCloneVariantBuilder, VariantBuilder};

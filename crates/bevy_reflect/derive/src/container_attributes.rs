@@ -7,7 +7,7 @@
 
 use crate::{custom_attributes::CustomAttributes, derive_data::ReflectTraitToImpl};
 use bevy_macro_utils::{
-    fq_std::{FQAny, FQOption},
+    fq_std::{FQAny, FQClone, FQOption, FQResult},
     terminated_parser,
 };
 use proc_macro2::{Ident, Span};
