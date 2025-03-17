@@ -15,6 +15,7 @@ extern crate alloc;
 mod components;
 mod dynamic_scene;
 mod dynamic_scene_builder;
+mod reflect_utils;
 mod scene;
 mod scene_filter;
 mod scene_loader;
@@ -26,7 +27,7 @@ pub mod serde;
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy scenes.
 pub use bevy_asset::ron;
 
-use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_ecs::schedule::IntoScheduleConfigs;
 pub use components::*;
 pub use dynamic_scene::*;
 pub use dynamic_scene_builder::*;

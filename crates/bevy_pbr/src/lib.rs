@@ -71,16 +71,10 @@ pub use volumetric_fog::{FogVolume, VolumetricFog, VolumetricFogPlugin, Volumetr
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[expect(
-        deprecated,
-        reason = "AmbientLight has been replaced by EnvironmentMapLight"
-    )]
-    #[doc(hidden)]
-    pub use crate::light::AmbientLight;
     #[doc(hidden)]
     pub use crate::{
         fog::{DistanceFog, FogFalloff},
-        light::{light_consts, DirectionalLight, PointLight, SpotLight},
+        light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
         light_probe::{environment_map::EnvironmentMapLight, LightProbe},
         material::{Material, MaterialPlugin},
         mesh_material::MeshMaterial3d,
@@ -136,14 +130,12 @@ use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{CameraUpdateSystem, Projection},
+    camera::{sort_cameras, CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_resource::Shader,
     sync_component::SyncComponentPlugin,
-    texture::GpuImage,
     view::VisibilitySystems,
     ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSet,
 };
@@ -171,6 +163,7 @@ pub const PBR_PREPASS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("9afeaeab-7c45-43ce-b322-4b97799eaeb9");
 pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> =
     weak_handle!("815b8618-f557-4a96-91a5-a2fb7e249fb0");
+pub const PBR_AMBIENT_HANDLE: Handle<Shader> = weak_handle!("4a90b95b-112a-4a10-9145-7590d6f14260");
 pub const PARALLAX_MAPPING_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("6cf57d9f-222a-429a-bba4-55ba9586e1d4");
 pub const VIEW_TRANSFORMATIONS_SHADER_HANDLE: Handle<Shader> =
@@ -287,6 +280,12 @@ impl Plugin for PbrPlugin {
         );
         load_internal_asset!(
             app,
+            PBR_AMBIENT_HANDLE,
+            "render/pbr_ambient.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
             PBR_FRAGMENT_HANDLE,
             "render/pbr_fragment.wgsl",
             Shader::from_wgsl
@@ -324,10 +323,6 @@ impl Plugin for PbrPlugin {
             Shader::from_wgsl
         );
 
-        #[expect(
-            deprecated,
-            reason = "AmbientLight has been replaced by EnvironmentMapLight"
-        )]
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
             .register_type::<CascadeShadowConfig>()
@@ -404,9 +399,6 @@ impl Plugin for PbrPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    map_ambient_lights
-                        .in_set(SimulationLightSystems::MapAmbientLights)
-                        .after(CameraUpdateSystem),
                     add_clusters
                         .in_set(SimulationLightSystems::AddClusters)
                         .after(CameraUpdateSystem),
@@ -480,7 +472,7 @@ impl Plugin for PbrPlugin {
                 (
                     prepare_lights
                         .in_set(RenderSet::ManageViews)
-                        .after(prepare_assets::<GpuImage>),
+                        .after(sort_cameras),
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )

@@ -10,7 +10,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::hash_set::EntityHashSet;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     prelude::{ReflectComponent, With},
     query::{Changed, Without},
@@ -371,7 +371,7 @@ mod tests {
 
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
 
     use crate::{detect_text_needs_rerender, TextIterScratch};
 

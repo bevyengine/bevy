@@ -2638,7 +2638,9 @@ mod tests {
 /// Setting this component on a non-root node will have no effect. It will be overridden
 /// by the root node's component.
 ///
-/// Optional if there is only one camera in the world. Required otherwise.
+/// Root node's without an explicit [`UiTargetCamera`] will be rendered to the default UI camera,
+/// which is either a single camera with the [`IsDefaultUiCamera`] marker component or the highest
+/// order camera targeting the primary window.
 #[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
 #[reflect(Component, Debug, PartialEq)]
 pub struct UiTargetCamera(pub Entity);

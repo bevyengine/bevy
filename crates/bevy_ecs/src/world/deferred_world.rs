@@ -9,6 +9,7 @@ use crate::{
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
+    relationship::RelationshipInsertHookMode,
     resource::Resource,
     system::{Commands, Query},
     traversal::Traversal,
@@ -159,6 +160,7 @@ impl<'w> DeferredWorld<'w> {
                 entity,
                 [component_id].into_iter(),
                 MaybeLocation::caller(),
+                RelationshipInsertHookMode::Run,
             );
             if archetype.has_insert_observer() {
                 self.trigger_observers(
@@ -508,6 +510,7 @@ impl<'w> DeferredWorld<'w> {
                             entity,
                             component_id,
                             caller,
+                            relationship_insert_hook_mode: RelationshipInsertHookMode::Run,
                         },
                     );
                 }
@@ -526,6 +529,7 @@ impl<'w> DeferredWorld<'w> {
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
         caller: MaybeLocation,
+        relationship_insert_hook_mode: RelationshipInsertHookMode,
     ) {
         if archetype.has_insert_hook() {
             for component_id in targets {
@@ -538,6 +542,7 @@ impl<'w> DeferredWorld<'w> {
                             entity,
                             component_id,
                             caller,
+                            relationship_insert_hook_mode,
                         },
                     );
                 }
@@ -568,6 +573,7 @@ impl<'w> DeferredWorld<'w> {
                             entity,
                             component_id,
                             caller,
+                            relationship_insert_hook_mode: RelationshipInsertHookMode::Run,
                         },
                     );
                 }
@@ -598,6 +604,7 @@ impl<'w> DeferredWorld<'w> {
                             entity,
                             component_id,
                             caller,
+                            relationship_insert_hook_mode: RelationshipInsertHookMode::Run,
                         },
                     );
                 }
@@ -628,6 +635,7 @@ impl<'w> DeferredWorld<'w> {
                             entity,
                             component_id,
                             caller,
+                            relationship_insert_hook_mode: RelationshipInsertHookMode::Run,
                         },
                     );
                 }

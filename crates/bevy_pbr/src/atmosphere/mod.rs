@@ -36,9 +36,9 @@ use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;
 use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     query::{Changed, QueryItem, With},
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{lifetimeless::Read, Query},
 };
 use bevy_math::{UVec2, UVec3, Vec3};

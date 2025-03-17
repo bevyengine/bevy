@@ -1,4 +1,6 @@
 //! Simple widgets for example UI.
+//!
+//! Unlike other examples, which demonstrate an application, this demonstrates a plugin library.
 
 use bevy::{ecs::system::EntityCommands, prelude::*};
 

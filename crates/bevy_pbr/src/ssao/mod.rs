@@ -7,11 +7,11 @@ use bevy_core_pipeline::{
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
-    prelude::{require, Component, Entity},
+    prelude::{Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };

@@ -25,7 +25,7 @@ use bevy_ecs::{
     component::{Component, HookContext},
     entity::{Entity, EntityBorrow},
     event::EventReader,
-    prelude::{require, With},
+    prelude::With,
     query::Has,
     reflect::ReflectComponent,
     resource::Resource,
@@ -44,6 +44,7 @@ use bevy_window::{
 };
 use core::ops::Range;
 use derive_more::derive::From;
+use thiserror::Error;
 use tracing::warn;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
@@ -249,7 +250,7 @@ impl Default for PhysicalCameraParameters {
 /// Error returned when a conversion between world-space and viewport-space coordinates fails.
 ///
 /// See [`world_to_viewport`][Camera::world_to_viewport] and [`viewport_to_world`][Camera::viewport_to_world].
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Error)]
 pub enum ViewportConversionError {
     /// The pre-computed size of the viewport was not available.
     ///
@@ -259,18 +260,22 @@ pub enum ViewportConversionError {
     ///   - it references a [`Window`](RenderTarget::Window) entity that doesn't exist or doesn't actually have a `Window` component,
     ///   - it references an [`Image`](RenderTarget::Image) that doesn't exist (invalid handle),
     ///   - it references a [`TextureView`](RenderTarget::TextureView) that doesn't exist (invalid handle).
+    #[error("pre-computed size of viewport not available")]
     NoViewportSize,
     /// The computed coordinate was beyond the `Camera`'s near plane.
     ///
     /// Only applicable when converting from world-space to viewport-space.
+    #[error("computed coordinate beyond `Camera`'s near plane")]
     PastNearPlane,
     /// The computed coordinate was beyond the `Camera`'s far plane.
     ///
     /// Only applicable when converting from world-space to viewport-space.
+    #[error("computed coordinate beyond `Camera`'s far plane")]
     PastFarPlane,
     /// The Normalized Device Coordinates could not be computed because the `camera_transform`, the
     /// `world_position`, or the projection matrix defined by [`CameraProjection`] contained `NAN`
     /// (see [`world_to_ndc`][Camera::world_to_ndc] and [`ndc_to_world`][Camera::ndc_to_world]).
+    #[error("found NaN while computing NDC")]
     InvalidData,
 }
 
@@ -472,10 +477,10 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Result<Vec2, ViewportConversionError> {
-        let target_size = self
-            .logical_viewport_size()
+        let target_rect = self
+            .logical_viewport_rect()
             .ok_or(ViewportConversionError::NoViewportSize)?;
-        let ndc_space_coords = self
+        let mut ndc_space_coords = self
             .world_to_ndc(camera_transform, world_position)
             .ok_or(ViewportConversionError::InvalidData)?;
         // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
@@ -486,10 +491,12 @@ impl Camera {
             return Err(ViewportConversionError::PastFarPlane);
         }
 
-        // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
-        let mut viewport_position = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size;
         // Flip the Y co-ordinate origin from the bottom to the top.
-        viewport_position.y = target_size.y - viewport_position.y;
+        ndc_space_coords.y = -ndc_space_coords.y;
+
+        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
+        let viewport_position =
+            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
         Ok(viewport_position)
     }
 
@@ -508,10 +515,10 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Result<Vec3, ViewportConversionError> {
-        let target_size = self
-            .logical_viewport_size()
+        let target_rect = self
+            .logical_viewport_rect()
             .ok_or(ViewportConversionError::NoViewportSize)?;
-        let ndc_space_coords = self
+        let mut ndc_space_coords = self
             .world_to_ndc(camera_transform, world_position)
             .ok_or(ViewportConversionError::InvalidData)?;
         // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
@@ -525,10 +532,12 @@ impl Camera {
         // Stretching ndc depth to value via near plane and negating result to be in positive room again.
         let depth = -self.depth_ndc_to_view_z(ndc_space_coords.z);
 
-        // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
-        let mut viewport_position = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size;
         // Flip the Y co-ordinate origin from the bottom to the top.
-        viewport_position.y = target_size.y - viewport_position.y;
+        ndc_space_coords.y = -ndc_space_coords.y;
+
+        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
+        let viewport_position =
+            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
         Ok(viewport_position.extend(depth))
     }
 
@@ -548,15 +557,16 @@ impl Camera {
     pub fn viewport_to_world(
         &self,
         camera_transform: &GlobalTransform,
-        mut viewport_position: Vec2,
+        viewport_position: Vec2,
     ) -> Result<Ray3d, ViewportConversionError> {
-        let target_size = self
-            .logical_viewport_size()
+        let target_rect = self
+            .logical_viewport_rect()
             .ok_or(ViewportConversionError::NoViewportSize)?;
+        let mut rect_relative = (viewport_position - target_rect.min) / target_rect.size();
         // Flip the Y co-ordinate origin from the top to the bottom.
-        viewport_position.y = target_size.y - viewport_position.y;
-        let ndc = viewport_position * 2. / target_size - Vec2::ONE;
+        rect_relative.y = 1.0 - rect_relative.y;
 
+        let ndc = rect_relative * 2. - Vec2::ONE;
         let ndc_to_world =
             camera_transform.compute_matrix() * self.computed.clip_from_view.inverse();
         let world_near_plane = ndc_to_world.project_point3(ndc.extend(1.));
@@ -586,14 +596,17 @@ impl Camera {
     pub fn viewport_to_world_2d(
         &self,
         camera_transform: &GlobalTransform,
-        mut viewport_position: Vec2,
+        viewport_position: Vec2,
     ) -> Result<Vec2, ViewportConversionError> {
-        let target_size = self
-            .logical_viewport_size()
+        let target_rect = self
+            .logical_viewport_rect()
             .ok_or(ViewportConversionError::NoViewportSize)?;
+        let mut rect_relative = (viewport_position - target_rect.min) / target_rect.size();
+
         // Flip the Y co-ordinate origin from the top to the bottom.
-        viewport_position.y = target_size.y - viewport_position.y;
-        let ndc = viewport_position * 2. / target_size - Vec2::ONE;
+        rect_relative.y = 1.0 - rect_relative.y;
+
+        let ndc = rect_relative * 2. - Vec2::ONE;
 
         let world_near_plane = self
             .ndc_to_world(camera_transform, ndc.extend(1.))
@@ -972,7 +985,7 @@ pub fn camera_system(
                         }
                     }
                 }
-                // This check is needed because when changing WindowMode to SizedFullscreen, the viewport may have invalid
+                // This check is needed because when changing WindowMode to Fullscreen, the viewport may have invalid
                 // arguments due to a sudden change on the window size to a lower value.
                 // If the size of the window is lower, the viewport will match that lower value.
                 if let Some(viewport) = &mut camera.viewport {

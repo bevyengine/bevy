@@ -175,6 +175,7 @@ pub fn time_system(
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
     use bevy_app::{App, FixedUpdate, Startup, Update};

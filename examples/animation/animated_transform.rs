@@ -10,6 +10,11 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(AmbientLight {
+            color: Color::WHITE,
+            brightness: 150.0,
+            ..default()
+        })
         .add_systems(Startup, setup)
         .run();
 }
@@ -17,7 +22,6 @@ fn main() {
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut animations: ResMut<Assets<AnimationClip>>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
@@ -26,10 +30,6 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        EnvironmentMapLight {
-            intensity: 150.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
-        },
     ));
 
     // Light
