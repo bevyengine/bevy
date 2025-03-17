@@ -283,16 +283,16 @@ impl<'w> DeferredWorld<'w> {
     ///
     /// // Assert that the IDs are disjoint
     /// let array = unsafe { UniqueEntityArray::from_array_unchecked([id1, id2]) };
-    /// let [entity1, entity2] = world.get_many_entities_unique_mut(array).unwrap();
+    /// let [entity1, entity2] = world.get_many_unique_entities_mut(array).unwrap();
     /// ```
-    pub fn get_many_entities_unique_mut<const N: usize>(
+    pub fn get_many_unique_entities_mut<const N: usize>(
         &mut self,
         entities: UniqueEntityArray<N>,
     ) -> Result<[EntityMut<'_>; N], EntityDoesNotExistError> {
         // SAFETY: We have mutable access to the entire world
         unsafe {
             self.as_unsafe_world_cell()
-                .get_many_entities_unique_mut(entities)
+                .get_many_unique_entities_mut(entities)
         }
     }
 
@@ -320,18 +320,21 @@ impl<'w> DeferredWorld<'w> {
     /// #   DeferredWorld::from(&mut world);
     ///
     /// let ids = EntityHashSet::from_iter([e1, e2, e3]);
-    /// for mut eref in world.iter_entities_mut(&ids) {
+    /// for mut eref in world.iter_many_unique_entities_mut(&ids) {
     ///     let mut pos = eref.get_mut::<Position>().unwrap();
     ///     pos.y = 2.0;
     ///     assert_eq!(pos.y, 2.0);
     /// }
     /// ```
-    pub fn iter_entities_mut(
+    pub fn iter_many_unique_entities_mut(
         &mut self,
         entities: impl EntitySet,
     ) -> impl EntitySetIterator<Item = EntityMut<'_>> {
         // SAFETY: We have mutable access to the entire world
-        unsafe { self.as_unsafe_world_cell().iter_entities_mut(entities) }
+        unsafe {
+            self.as_unsafe_world_cell()
+                .iter_many_unique_entities_mut(entities)
+        }
     }
 
     /// Returns [`Query`] for the given [`QueryState`], which is used to efficiently

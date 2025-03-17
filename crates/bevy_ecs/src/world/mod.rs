@@ -787,15 +787,15 @@ impl World {
     /// # let id1 = world.spawn_empty().id();
     /// # let id2 = world.spawn_empty().id();
     /// // Getting multiple entities.
-    /// let entities: Vec<EntityRef> = world.iter_entities([id1, id2]).collect();
+    /// let entities: Vec<EntityRef> = world.iter_many_entities([id1, id2]).collect();
     /// assert_eq!(entities.len(), 2);
     ///
     /// // Despawned entities will be excluded.
     /// world.despawn(id2);
-    /// let entities: Vec<EntityRef> = world.iter_entities([id1, id2]).collect();
+    /// let entities: Vec<EntityRef> = world.iter_many_entities([id1, id2]).collect();
     /// assert_eq!(entities.len(), 1);
     /// ```
-    pub fn iter_entities<I: IntoIterator<Item: EntityBorrow>>(
+    pub fn iter_many_entities<I: IntoIterator<Item: EntityBorrow>>(
         &self,
         entities: I,
     ) -> impl Iterator<Item = EntityRef<'_>> {
@@ -890,16 +890,16 @@ impl World {
     ///
     /// // Assert that the IDs are disjoint
     /// let array = unsafe { UniqueEntityArray::from_array_unchecked([id1, id2]) };
-    /// let [entity1, entity2] = world.get_many_entities_unique_mut(array).unwrap();
+    /// let [entity1, entity2] = world.get_many_unique_entities_mut(array).unwrap();
     /// ```
-    pub fn get_many_entities_unique_mut<const N: usize>(
+    pub fn get_many_unique_entities_mut<const N: usize>(
         &mut self,
         entities: UniqueEntityArray<N>,
     ) -> Result<[EntityMut<'_>; N], EntityDoesNotExistError> {
         // SAFETY: We have mutable access to the entire world
         unsafe {
             self.as_unsafe_world_cell()
-                .get_many_entities_unique_mut(entities)
+                .get_many_unique_entities_mut(entities)
         }
     }
 
@@ -925,18 +925,21 @@ impl World {
     /// # let e3 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
     ///
     /// let ids = EntityHashSet::from_iter([e1, e2, e3]);
-    /// for mut eref in world.iter_entities_mut(&ids) {
+    /// for mut eref in world.iter_many_unique_entities_mut(&ids) {
     ///     let mut pos = eref.get_mut::<Position>().unwrap();
     ///     pos.y = 2.0;
     ///     assert_eq!(pos.y, 2.0);
     /// }
     /// ```
-    pub fn iter_entities_mut(
+    pub fn iter_many_unique_entities_mut(
         &mut self,
         entities: impl EntitySet,
     ) -> impl EntitySetIterator<Item = EntityMut<'_>> {
         // SAFETY: We have mutable access to the entire world
-        unsafe { self.as_unsafe_world_cell().iter_entities_mut(entities) }
+        unsafe {
+            self.as_unsafe_world_cell()
+                .iter_many_unique_entities_mut(entities)
+        }
     }
 
     /// Returns an [`Entity`] iterator of current entities.
@@ -4228,7 +4231,7 @@ mod tests {
         assert!(world.get_many_entities([e1, e2]).is_ok());
         assert_eq!(
             world
-                .iter_entities(&EntityHashSet::from_iter([e1, e2]))
+                .iter_many_entities(&EntityHashSet::from_iter([e1, e2]))
                 .count(),
             2
         );
@@ -4248,7 +4251,7 @@ mod tests {
         );
         assert_eq!(
             world
-                .iter_entities(&EntityHashSet::from_iter([e1, e2]))
+                .iter_many_entities(&EntityHashSet::from_iter([e1, e2]))
                 .map(|e| e.id())
                 .collect::<EntityHashSet>(),
             EntityHashSet::from_iter([e2])
@@ -4266,7 +4269,7 @@ mod tests {
         assert!(world.get_many_entities_mut([e1, e2]).is_ok());
         assert_eq!(
             world
-                .iter_entities_mut(&EntityHashSet::from_iter([e1, e2]))
+                .iter_many_unique_entities_mut(&EntityHashSet::from_iter([e1, e2]))
                 .count(),
             2
         );
@@ -4287,7 +4290,7 @@ mod tests {
             Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
         assert_eq!(
             world
-                .iter_entities_mut(&EntityHashSet::from_iter([e1, e2]))
+                .iter_many_unique_entities_mut(&EntityHashSet::from_iter([e1, e2]))
                 .map(|e| e.id())
                 .collect::<EntityHashSet>(),
             EntityHashSet::from_iter([e2])

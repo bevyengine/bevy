@@ -397,15 +397,15 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY: We just checked for duplicates
         let entities = unsafe { UniqueEntityArray::from_array_unchecked(entities) };
         // SAFETY: Caller ensures we have mutable access to these entities
-        Ok(self.get_many_entities_unique_mut(entities)?)
+        Ok(self.get_many_unique_entities_mut(entities)?)
     }
 
-    /// Shared implementation of [`World::get_many_entities_unique_mut`] and [`DeferredWorld::get_many_entities_unique_mut`](crate::world::DeferredWorld::get_many_entities_unique_mut).
+    /// Shared implementation of [`World::get_many_unique_entities_mut`] and [`DeferredWorld::get_many_unique_entities_mut`](crate::world::DeferredWorld::get_many_unique_entities_mut).
     ///
     /// # Safety
     ///
     /// The caller must have mutable access to all provided entities.
-    pub(crate) unsafe fn get_many_entities_unique_mut<const N: usize>(
+    pub(crate) unsafe fn get_many_unique_entities_mut<const N: usize>(
         self,
         entities: UniqueEntityArray<N>,
     ) -> Result<[EntityMut<'w>; N], EntityDoesNotExistError> {
@@ -423,12 +423,12 @@ impl<'w> UnsafeWorldCell<'w> {
         Ok(refs)
     }
 
-    /// Shared implementation of [`World::iter_entities_mut`] and [`DeferredWorld::iter_entities_mut`](crate::world::DeferredWorld::iter_entities_mut).
+    /// Shared implementation of [`World::iter_many_unique_entities_mut`] and [`DeferredWorld::iter_many_unique_entities_mut`](crate::world::DeferredWorld::iter_many_unique_entities_mut).
     ///
     /// # Safety
     ///
     /// The caller must have mutable access to all provided entities.
-    pub(crate) unsafe fn iter_entities_mut(
+    pub(crate) unsafe fn iter_many_unique_entities_mut(
         self,
         entities: impl EntitySet,
     ) -> impl EntitySetIterator<Item = EntityMut<'w>> {
