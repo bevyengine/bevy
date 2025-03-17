@@ -1,4 +1,6 @@
 //! Provides [`exit`] and [`abort`] and all platforms.
+//! These are methods of absolute last resort and are almost _never_ the right choice.
+//! Consider using [`Result`] or [`panic!`] instead.
 
 pub use process::{abort, exit};
 
