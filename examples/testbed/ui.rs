@@ -253,23 +253,26 @@ mod borders {
 }
 
 mod box_shadow {
-    use bevy::{color::palettes::css::*, ecs::spawn::SpawnIter, prelude::*};
+    use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
         commands.spawn((Camera2d, StateScoped(super::Scene::BoxShadow)));
-        commands.spawn((
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                padding: UiRect::all(Val::Px(30.)),
-                column_gap: Val::Px(200.),
-                flex_wrap: FlexWrap::Wrap,
-                ..default()
-            },
-            BackgroundColor(GREEN.into()),
-            StateScoped(super::Scene::BoxShadow),
-            Children::spawn(SpawnIter(
-                [
+
+        commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    padding: UiRect::all(Val::Px(30.)),
+                    column_gap: Val::Px(200.),
+                    flex_wrap: FlexWrap::Wrap,
+                    ..default()
+                },
+                BackgroundColor(GREEN.into()),
+                StateScoped(super::Scene::BoxShadow),
+            ))
+            .with_children(|commands| {
+                let example_nodes = [
                     (
                         Vec2::splat(100.),
                         Vec2::ZERO,
@@ -306,10 +309,10 @@ mod box_shadow {
                         10.,
                         BorderRadius::MAX,
                     ),
-                ]
-                .into_iter()
-                .map(|(size, offset, spread, blur, border_radius)| {
-                    (
+                ];
+
+                for (size, offset, spread, blur, border_radius) in example_nodes {
+                    commands.spawn((
                         Node {
                             width: Val::Px(size.x),
                             height: Val::Px(size.y),
@@ -326,10 +329,9 @@ mod box_shadow {
                             Val::Percent(spread),
                             Val::Px(blur),
                         ),
-                    )
-                }),
-            )),
-        ));
+                    ));
+                }
+            });
     }
 }
 
@@ -376,68 +378,71 @@ mod text_wrap {
 }
 
 mod overflow {
-    use bevy::{color::palettes::css::*, ecs::spawn::SpawnIter, prelude::*};
+    use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, StateScoped(super::Scene::Overflow)));
         let image = asset_server.load("branding/icon.png");
-        let overflow_params = [
-            (Overflow::visible(), image.clone()),
-            (Overflow::clip_x(), image.clone()),
-            (Overflow::clip_y(), image.clone()),
-            (Overflow::clip(), image.clone()),
-        ];
 
-        commands.spawn((
-            Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::SpaceAround,
-                ..Default::default()
-            },
-            BackgroundColor(BLUE.into()),
-            StateScoped(super::Scene::Overflow),
-            Children::spawn(SpawnIter(overflow_params.into_iter().map(
-                |(overflow, image)| {
-                    (
-                        Node {
-                            width: Val::Px(100.),
-                            height: Val::Px(100.),
-                            padding: UiRect {
-                                left: Val::Px(25.),
-                                top: Val::Px(25.),
-                                ..Default::default()
-                            },
-                            border: UiRect::all(Val::Px(5.)),
-                            overflow,
-                            ..default()
-                        },
-                        BorderColor(RED.into()),
-                        BackgroundColor(Color::WHITE),
-                        children![(
-                            ImageNode::new(image),
+        commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceAround,
+                    ..Default::default()
+                },
+                BackgroundColor(BLUE.into()),
+                StateScoped(super::Scene::Overflow),
+            ))
+            .with_children(|parent| {
+                for overflow in [
+                    Overflow::visible(),
+                    Overflow::clip_x(),
+                    Overflow::clip_y(),
+                    Overflow::clip(),
+                ] {
+                    parent
+                        .spawn((
                             Node {
-                                min_width: Val::Px(100.),
-                                min_height: Val::Px(100.),
+                                width: Val::Px(100.),
+                                height: Val::Px(100.),
+                                padding: UiRect {
+                                    left: Val::Px(25.),
+                                    top: Val::Px(25.),
+                                    ..Default::default()
+                                },
+                                border: UiRect::all(Val::Px(5.)),
+                                overflow,
                                 ..default()
                             },
-                            Interaction::default(),
-                            Outline {
-                                width: Val::Px(2.),
-                                offset: Val::Px(2.),
-                                color: Color::NONE,
-                            },
-                        )],
-                    )
-                },
-            ))),
-        ));
+                            BorderColor(RED.into()),
+                            BackgroundColor(Color::WHITE),
+                        ))
+                        .with_children(|parent| {
+                            parent.spawn((
+                                ImageNode::new(image.clone()),
+                                Node {
+                                    min_width: Val::Px(100.),
+                                    min_height: Val::Px(100.),
+                                    ..default()
+                                },
+                                Interaction::default(),
+                                Outline {
+                                    width: Val::Px(2.),
+                                    offset: Val::Px(2.),
+                                    color: Color::NONE,
+                                },
+                            ));
+                        });
+                }
+            });
     }
 }
 
 mod slice {
-    use bevy::{ecs::spawn::SpawnIter, prelude::*};
+    use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, StateScoped(super::Scene::Slice)));
@@ -449,27 +454,24 @@ mod slice {
             sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
             ..default()
         };
-        let slice_params = [
-            (150.0, 150.0, image.clone(), slicer.clone()),
-            (300.0, 150.0, image.clone(), slicer.clone()),
-            (150.0, 300.0, image.clone(), slicer.clone()),
-        ];
-        commands.spawn((
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::SpaceAround,
-                ..default()
-            },
-            StateScoped(super::Scene::Slice),
-            Children::spawn(SpawnIter(slice_params.into_iter().map(
-                |(w, h, image, slicer)| {
-                    (
+        commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceAround,
+                    ..default()
+                },
+                StateScoped(super::Scene::Slice),
+            ))
+            .with_children(|parent| {
+                for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
+                    parent.spawn((
                         Button,
                         ImageNode {
-                            image,
-                            image_mode: NodeImageMode::Sliced(slicer),
+                            image: image.clone(),
+                            image_mode: NodeImageMode::Sliced(slicer.clone()),
                             ..default()
                         },
                         Node {
@@ -477,48 +479,51 @@ mod slice {
                             height: Val::Px(h),
                             ..default()
                         },
-                    )
-                },
-            ))),
-        ));
+                    ));
+                }
+            });
     }
 }
 
 mod layout_rounding {
-    use bevy::{color::palettes::css::*, ecs::spawn::SpawnIter, prelude::*};
+    use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
         commands.spawn((Camera2d, StateScoped(super::Scene::LayoutRounding)));
 
-        commands.spawn((
-            Node {
-                display: Display::Grid,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                grid_template_rows: vec![RepeatedGridTrack::fr(10, 1.)],
-                ..Default::default()
-            },
-            BackgroundColor(Color::WHITE),
-            StateScoped(super::Scene::LayoutRounding),
-            Children::spawn(SpawnIter((2..12).map(|i| {
-                (
-                    Node {
-                        display: Display::Grid,
-                        grid_template_columns: vec![RepeatedGridTrack::fr(i, 1.)],
-                        ..Default::default()
-                    },
-                    Children::spawn(SpawnIter((0..i).map(|_| {
-                        (
-                            Node {
-                                border: UiRect::all(Val::Px(5.)),
-                                ..Default::default()
-                            },
-                            BackgroundColor(MAROON.into()),
-                            BorderColor(DARK_BLUE.into()),
-                        )
-                    }))),
-                )
-            }))),
-        ));
+        commands
+            .spawn((
+                Node {
+                    display: Display::Grid,
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    grid_template_rows: vec![RepeatedGridTrack::fr(10, 1.)],
+                    ..Default::default()
+                },
+                BackgroundColor(Color::WHITE),
+                StateScoped(super::Scene::LayoutRounding),
+            ))
+            .with_children(|commands| {
+                for i in 2..12 {
+                    commands
+                        .spawn(Node {
+                            display: Display::Grid,
+                            grid_template_columns: vec![RepeatedGridTrack::fr(i, 1.)],
+                            ..Default::default()
+                        })
+                        .with_children(|commands| {
+                            for _ in 0..i {
+                                commands.spawn((
+                                    Node {
+                                        border: UiRect::all(Val::Px(5.)),
+                                        ..Default::default()
+                                    },
+                                    BackgroundColor(MAROON.into()),
+                                    BorderColor(DARK_BLUE.into()),
+                                ));
+                            }
+                        });
+                }
+            });
     }
 }
