@@ -19,11 +19,10 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::sync_world::RenderEntity;
+use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::view::{self, Visibility, VisibilityClass};
 use bevy_render::{
     primitives::Aabb,
-    sync_world::SyncToRenderWorld,
     view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
@@ -91,8 +90,7 @@ use bevy_window::{PrimaryWindow, Window};
     Anchor,
     Visibility,
     VisibilityClass,
-    Transform,
-    SyncToRenderWorld
+    Transform
 )]
 #[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
@@ -136,13 +134,13 @@ pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
 /// This system extracts the sprites from the 2D text components and adds them to the
 /// "render world".
 pub fn extract_text2d_sprite(
+    mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
         Query<(
             Entity,
-            RenderEntity,
             &ViewVisibility,
             &ComputedTextBlock,
             &TextLayoutInfo,
@@ -165,7 +163,6 @@ pub fn extract_text2d_sprite(
 
     for (
         main_entity,
-        render_entity,
         view_visibility,
         computed_block,
         text_layout_info,
@@ -226,6 +223,7 @@ pub fn extract_text2d_sprite(
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
                 info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
             }) {
+                let render_entity = commands.spawn(TemporaryRenderEntity).id();
                 extracted_sprites.sprites.insert(
                     (render_entity, main_entity.into()),
                     ExtractedSprite {
@@ -235,7 +233,6 @@ pub fn extract_text2d_sprite(
                         image_handle_id: atlas_info.texture.id(),
                         flip_x: false,
                         flip_y: false,
-                        anchor: Anchor::Center.as_vec(),
                         kind: bevy_sprite::ExtractedSpriteKind::Slices {
                             indices: start..end,
                         },

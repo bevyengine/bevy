@@ -340,7 +340,6 @@ pub struct ExtractedSprite {
     pub image_handle_id: AssetId<Image>,
     pub flip_x: bool,
     pub flip_y: bool,
-    pub anchor: Vec2,
     pub kind: ExtractedSpriteKind,
 }
 
@@ -349,6 +348,7 @@ pub enum ExtractedSpriteKind {
         indices: Range<usize>,
     },
     Sprite {
+        anchor: Vec2,
         rect: Option<Rect>,
         scaling_mode: Option<ScalingMode>,
     },
@@ -417,7 +417,7 @@ pub fn extract_sprites(
                     flip_x: sprite.flip_x,
                     flip_y: sprite.flip_y,
                     image_handle_id: sprite.image.id(),
-                    anchor: sprite.anchor.as_vec(),
+
                     kind: ExtractedSpriteKind::Slices {
                         indices: start..end,
                     },
@@ -451,8 +451,8 @@ pub fn extract_sprites(
                     flip_x: sprite.flip_x,
                     flip_y: sprite.flip_y,
                     image_handle_id: sprite.image.id(),
-                    anchor: sprite.anchor.as_vec(),
                     kind: ExtractedSpriteKind::Sprite {
+                        anchor: sprite.anchor.as_vec(),
                         rect,
                         scaling_mode: sprite.image_mode.scale(),
                     },
@@ -726,7 +726,11 @@ pub fn prepare_sprite_image_bind_groups(
                 ));
             }
             match extracted_sprite.kind {
-                ExtractedSpriteKind::Sprite { rect, scaling_mode } => {
+                ExtractedSpriteKind::Sprite {
+                    anchor,
+                    rect,
+                    scaling_mode,
+                } => {
                     // By default, the size of the quad is the size of the texture
                     let mut quad_size = batch_image_size;
                     let mut texture_size = batch_image_size;
@@ -789,9 +793,8 @@ pub fn prepare_sprite_image_bind_groups(
                         * Affine3A::from_scale_rotation_translation(
                             quad_size.extend(1.0),
                             Quat::IDENTITY,
-                            ((quad_size + quad_translation)
-                                * (-extracted_sprite.anchor - Vec2::splat(0.5)))
-                            .extend(0.0),
+                            ((quad_size + quad_translation) * (-anchor - Vec2::splat(0.5)))
+                                .extend(0.0),
                         );
 
                     // Store the vertex data and add the item to the render phase
@@ -810,13 +813,12 @@ pub fn prepare_sprite_image_bind_groups(
                     for i in indices.clone() {
                         let slice = &extracted_sprites.slices[i];
                         let rect = slice.rect;
+                        let rect_size = rect.size();
 
                         // Calculate vertex data for this item
                         let mut uv_offset_scale: Vec4;
 
                         // If a rect is specified, adjust UVs and the size of the quad
-
-                        let rect_size = rect.size();
                         uv_offset_scale = Vec4::new(
                             rect.min.x / batch_image_size.x,
                             rect.max.y / batch_image_size.y,
@@ -837,9 +839,7 @@ pub fn prepare_sprite_image_bind_groups(
                             * Affine3A::from_scale_rotation_translation(
                                 slice.size.extend(1.0),
                                 Quat::IDENTITY,
-                                (slice.size * (-extracted_sprite.anchor - Vec2::splat(0.5))
-                                    + slice.offset)
-                                    .extend(0.0),
+                                (slice.size * -Vec2::splat(0.5) + slice.offset).extend(0.0),
                             );
 
                         // Store the vertex data and add the item to the render phase
