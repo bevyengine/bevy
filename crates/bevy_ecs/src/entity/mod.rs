@@ -562,7 +562,7 @@ impl PendingEntitiesChunk {
     /// # Safety
     ///
     /// To prevent double flushing, this must not be called concurrently.
-    unsafe fn flush(&self, flusher: &mut impl FnMut(Entity)) {
+    unsafe fn flush(&self, mut flusher: impl FnMut(Entity)) {
         let new_flushed = self.reserved.load(Ordering::Relaxed);
         let flushed = self.flushed.swap(new_flushed, Ordering::Relaxed);
         if self.entities.len() <= flushed {
@@ -693,12 +693,21 @@ impl Drop for AtomicPendingEntitiesChunk {
 
 /// Coordinates entity reservation
 struct AtomicEntityReservations {
+    /// The current chunk of pending entities
     pending_chunk: AtomicPendingEntitiesChunk,
+    /// The total number of entities, including those reserved.
     meta_len: AtomicU32,
+    /// The value of [`Self::meta_len`] when the most recent flush started.
     flushed_meta_len: AtomicU32,
+
+    /// The pending list being added to. This will become the next [`Self::pending_chunk`].
     growing_pending: Mutex<PendingEntitiesChunk>,
+    /// This is true if [`Self::growing_pending`] is worth pushing into [`Self::pending_chunk`].
     worth_swap: AtomicBool,
+    /// A pool of pending entities to prevent allocations.
     pending_chunk_pool: Mutex<SmallVec<[PendingEntitiesChunk; 2]>>,
+    /// The newly created pending chunks.
+    new_pending_chunks: Mutex<SmallVec<[Arc<PendingEntitiesChunk>; 2]>>,
 }
 
 impl AtomicEntityReservations {
@@ -711,6 +720,7 @@ impl AtomicEntityReservations {
             growing_pending: Mutex::default(),
             worth_swap: AtomicBool::new(false),
             pending_chunk_pool: Mutex::default(),
+            new_pending_chunks: Mutex::default(),
         }
     }
 
@@ -731,6 +741,7 @@ impl AtomicEntityReservations {
     /// If beneficial, swaps pending arcs to make more pending entities available.
     /// Returns `true` if and only if the swap happened.
     fn refresh(&self) -> bool {
+        // We lock early to prevent concurrent refreshes.
         let mut pending = self
             .growing_pending
             .lock()
@@ -747,7 +758,18 @@ impl AtomicEntityReservations {
             .pop()
             .unwrap_or_default();
         let ready_pending = mem::replace::<PendingEntitiesChunk>(&mut pending, next_pending);
-        self.pending_chunk.swap(Arc::new(ready_pending));
+        let new_pending = Arc::new(ready_pending);
+        self.pending_chunk.swap(new_pending.clone());
+
+        // release the pending lock since we don't need it anymore
+        drop(pending);
+
+        // keep a m arc of the new pending list so we can ensure it is flushed before it is dropped.
+        self.new_pending_chunks
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(new_pending);
+
         true
     }
 
@@ -758,6 +780,19 @@ impl AtomicEntityReservations {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .push(reuse);
+    }
+
+    /// Collects the new [`PendingEntitiesChunk`]s so that they can be flushed as needed.
+    fn get_new_pending_chunks(
+        &self,
+        getter: impl FnOnce(smallvec::Drain<[Arc<PendingEntitiesChunk>; 2]>),
+    ) {
+        getter(
+            self.new_pending_chunks
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .drain(..),
+        )
     }
 
     /// Gets access to a growing list of pending entities.
