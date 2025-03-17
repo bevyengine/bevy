@@ -615,7 +615,9 @@ pub struct ViewTargetAttachments(HashMap<NormalizedRenderTarget, OutputColorAtta
 
 pub struct PostProcessWrite<'a> {
     pub source: &'a TextureView,
+    pub source_texture: &'a Texture,
     pub destination: &'a TextureView,
+    pub destination_texture: &'a Texture,
 }
 
 impl From<ColorGrading> for ColorGradingUniform {
@@ -843,13 +845,17 @@ impl ViewTarget {
             self.main_textures.b.mark_as_cleared();
             PostProcessWrite {
                 source: &self.main_textures.a.texture.default_view,
+                source_texture: &self.main_textures.a.texture.texture,
                 destination: &self.main_textures.b.texture.default_view,
+                destination_texture: &self.main_textures.b.texture.texture,
             }
         } else {
             self.main_textures.a.mark_as_cleared();
             PostProcessWrite {
                 source: &self.main_textures.b.texture.default_view,
+                source_texture: &self.main_textures.b.texture.texture,
                 destination: &self.main_textures.a.texture.default_view,
+                destination_texture: &self.main_textures.a.texture.texture,
             }
         }
     }
