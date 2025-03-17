@@ -77,7 +77,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_platform_support::sync::{
-    atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering},
     Arc, Mutex, PoisonError, Weak,
 };
 use core::{
@@ -486,7 +486,7 @@ impl SparseSetIndex for Entity {
 pub struct ReserveEntitiesIterator<T: Iterator<Item = Entity>> {
     reused_entities: T,
     // New Entity indices to hand out, outside the range of meta.len().
-    new_indices: core::ops::Range<u32>,
+    new_indices: core::ops::RangeInclusive<u32>,
 }
 
 impl<T: Iterator<Item = Entity>> Iterator for ReserveEntitiesIterator<T> {
@@ -500,7 +500,11 @@ impl<T: Iterator<Item = Entity>> Iterator for ReserveEntitiesIterator<T> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (min, max) = self.reused_entities.size_hint();
-        let additional = self.new_indices.len();
+        let additional = if *self.new_indices.start() <= *self.new_indices.end() {
+            *self.new_indices.end() as usize + 1 - *self.new_indices.start() as usize
+        } else {
+            0
+        };
         (min + additional, max.map(|max| max + additional))
     }
 }
@@ -710,9 +714,9 @@ struct AtomicEntityReservations {
     /// The current chunk of pending entities
     pending_chunk: AtomicPendingEntitiesChunk,
     /// The total number of entities, including those reserved.
-    meta_len: AtomicU32,
+    meta_len: AtomicUsize,
     /// The value of [`Self::meta_len`] when the most recent flush started.
-    flushed_meta_len: AtomicU32,
+    flushed_meta_len: AtomicUsize,
     /// This is true if and only if the backing [`Entities`] has been cut off.
     closed: AtomicBool,
 
@@ -731,8 +735,8 @@ impl AtomicEntityReservations {
     fn new() -> Self {
         Self {
             pending_chunk: AtomicPendingEntitiesChunk::new(Arc::default()),
-            meta_len: AtomicU32::default(),
-            flushed_meta_len: AtomicU32::default(),
+            meta_len: AtomicUsize::default(),
+            flushed_meta_len: AtomicUsize::default(),
             growing_pending: Mutex::default(),
             worth_swap: AtomicBool::new(false),
             pending_chunk_pool: Mutex::default(),
@@ -751,17 +755,13 @@ impl AtomicEntityReservations {
 
     /// Reserves a `num` entities by appending to the meta list.
     /// This should only be called if reusing an entity from a pending list is not practical.
-    fn reserve_append(&self, num: u32) -> core::ops::Range<u32> {
-        let current_meta = self.meta_len.fetch_add(num, Ordering::Relaxed);
-        let Some(new_meta) = current_meta.checked_add(num) else {
-            // Since this is relaxed, this may allow other reservations with the wrapped value before we set it back to the max.
-            // But future reservations would panic again, and this is extremely rare
-            // and would only cause a problem if it happened on an entirely separate thread that chose to ignore a poison error.
-            // So while this leaves a narrow opeining for invalid reservations, it is worth it for the speed.
-            self.meta_len.store(u32::MAX, Ordering::Release);
+    fn reserve_append(&self, num: u32) -> core::ops::RangeInclusive<u32> {
+        let current_meta = self.meta_len.fetch_add(num as usize, Ordering::Relaxed);
+        let new_meta = current_meta + num as usize;
+        if new_meta > u32::MAX as usize {
             panic!("too many entities");
-        };
-        current_meta..new_meta
+        }
+        current_meta as u32..=new_meta as u32
     }
 
     /// Flushes the meta data for entities from [`Self::reserve_append`].
@@ -774,8 +774,12 @@ impl AtomicEntityReservations {
         mut should_flush_unseen: impl FnMut(&mut EntityMeta, u32) -> bool,
         mut flusher: impl FnMut(&mut EntityMeta, u32),
     ) {
-        let current_len = metas.len() as u32;
-        let theoretical_len = self.meta_len.load(Ordering::Relaxed);
+        let current_len = metas.len();
+        let theoretical_len = self
+            .meta_len
+            .load(Ordering::Relaxed)
+            // there should be a maximum INDEX of `u32::MAX`, so the length needs to be 1 more
+            .min(u32::MAX as usize + 1);
         let flushed_up_to = self
             .flushed_meta_len
             .swap(theoretical_len, Ordering::Relaxed);
@@ -784,18 +788,18 @@ impl AtomicEntityReservations {
         // flush those we haven't seen/flushed yet
         for index in flushed_up_to..current_len {
             // SAFETY: It is known to be a valid index.
-            let meta = unsafe { metas.get_unchecked_mut(index as usize) };
-            if should_flush_unseen(meta, index) {
-                flusher(meta, index);
+            let meta = unsafe { metas.get_unchecked_mut(index) };
+            if should_flush_unseen(meta, index as u32) {
+                flusher(meta, index as u32);
             }
         }
 
         // flush those we need to create
-        metas.resize(theoretical_len as usize, EntityMeta::EMPTY);
+        metas.resize(theoretical_len, EntityMeta::EMPTY);
         for index in current_len..theoretical_len {
             // SAFETY: It is known to be a valid index.
-            let meta = unsafe { metas.get_unchecked_mut(index as usize) };
-            flusher(meta, index);
+            let meta = unsafe { metas.get_unchecked_mut(index) };
+            flusher(meta, index as u32);
         }
     }
 
@@ -1034,7 +1038,13 @@ impl EntityReserver {
 
         // reserve any final entities by appending.
         let new = if still_needed == 0 {
-            0..0
+            #[expect(
+                clippy::reversed_empty_ranges,
+                reason = "We need to create an empty range here."
+            )]
+            {
+                1..=0
+            }
         } else {
             self.coordinator.reserve_append(still_needed)
         };
@@ -1080,7 +1090,13 @@ impl EntityReserver {
         let still_needed = num - reserved.len() as u32;
 
         let new = if still_needed == 0 {
-            0..0
+            #[expect(
+                clippy::reversed_empty_ranges,
+                reason = "We need to create an empty range here."
+            )]
+            {
+                1..=0
+            }
         } else {
             self.coordinator.reserve_append(still_needed)
         };
@@ -1211,7 +1227,7 @@ impl Entities {
 
         // Make sure we don't actually flush these
         self.meta
-            .resize(new.new_indices.end as usize, EntityMeta::EMPTY);
+            .resize(*new.new_indices.end() as usize + 1, EntityMeta::EMPTY);
 
         let new = new.inspect(|entity| {
             // SAFETY: we just resized to ensure all are valid.
@@ -1380,7 +1396,7 @@ impl Entities {
         } else {
             // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
             let len = self.coordinator.meta_len.load(Ordering::Relaxed);
-            (index < len).then_some(Entity::from_raw(index))
+            (idu < len).then_some(Entity::from_raw(index))
         }
     }
 
@@ -1482,7 +1498,7 @@ impl Entities {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn total_count(&self) -> usize {
-        self.coordinator.flushed_meta_len.load(Ordering::Relaxed) as usize
+        self.coordinator.flushed_meta_len.load(Ordering::Relaxed)
     }
 
     /// The count of all entities in the [`World`] that are used,
@@ -1503,7 +1519,7 @@ impl Entities {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn total_prospective_count(&self) -> usize {
-        self.coordinator.meta_len.load(Ordering::Relaxed) as usize
+        self.coordinator.meta_len.load(Ordering::Relaxed)
     }
 
     /// The count of currently allocated entities.
