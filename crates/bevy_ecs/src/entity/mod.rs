@@ -738,6 +738,39 @@ impl AtomicEntityReservations {
         current_meta..new_meta
     }
 
+    /// Flushes the meta data for entities from [`Self::reserve_append`].
+    ///
+    /// `unseen_flusher` refers to [`EntityMeta`] that existed before this call but that this [`AtomicEntityReservations`] has not seen.
+    /// `brand_new_flusher` refers to [`EntityMeta`] that did not exist before this call.
+    fn flush_appended(
+        &self,
+        metas: &mut Vec<EntityMeta>,
+        mut unseen_flusher: impl FnMut(&mut EntityMeta, u32),
+        mut brand_new_flusher: impl FnMut(&mut EntityMeta, u32),
+    ) {
+        let current_len = metas.len() as u32;
+        let theoretical_len = self.meta_len.load(Ordering::Relaxed);
+        let flushed_up_to = self
+            .flushed_meta_len
+            .swap(theoretical_len, Ordering::Relaxed);
+        debug_assert!(current_len <= theoretical_len);
+
+        // flush those we haven't seen/flushed yet
+        for index in flushed_up_to..current_len {
+            // SAFETY: It is known to be a valid index.
+            let meta = unsafe { metas.get_unchecked_mut(index as usize) };
+            unseen_flusher(meta, index);
+        }
+
+        // flush those we need to create
+        metas.resize(theoretical_len as usize, EntityMeta::EMPTY);
+        for index in current_len..theoretical_len {
+            // SAFETY: It is known to be a valid index.
+            let meta = unsafe { metas.get_unchecked_mut(index as usize) };
+            brand_new_flusher(meta, index);
+        }
+    }
+
     /// If beneficial, swaps pending arcs to make more pending entities available.
     /// Returns `true` if and only if the swap happened.
     fn refresh(&self) -> bool {
