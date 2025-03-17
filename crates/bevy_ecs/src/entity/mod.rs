@@ -970,6 +970,9 @@ impl EntityReserver {
         num_extended: u32,
         pre_on_refresh: impl FnOnce(&mut Vec<Entity>, &PendingEntitiesChunk),
     ) -> bool {
+        if num_extended == 0 {
+            return false;
+        }
         match self.tolerance_left.checked_sub(num_extended) {
             Some(new_left) => {
                 self.tolerance_left = new_left;
@@ -1137,12 +1140,12 @@ pub struct Entities {
     /// These are the pending chunks that have been distributed.
     /// They are "wild" and could be anywhere. We can reuse them as soon as the [`Arc`] is unique.
     wild_pending_chunks: Vec<Arc<PendingEntitiesChunk>>,
-    /// These are [`Self::wild_pending_chunks`] but they don't have anymore reservable entities.
-    garbage_pending_chunks: Vec<Arc<PendingEntitiesChunk>>,
     /// These are entities that neither exist nor need to be flushed into existence.
     /// We own these entities and can do with them as we like.
     /// These are marked with [`EntityLocation::OWNED`] to prevent them from being flushed.
-    owned: Vec<Entity>,
+    ///
+    /// However, we can also resrve from these entities if desired, hence using [`PendingEntitiesChunk`] instead of [`Vec<Entity>`].
+    owned: PendingEntitiesChunk,
 }
 
 impl Entities {
@@ -1154,64 +1157,44 @@ impl Entities {
             coordinator,
             reserver,
             wild_pending_chunks: Vec::new(),
-            garbage_pending_chunks: Vec::new(),
-            owned: Vec::new(),
+            owned: PendingEntitiesChunk::default(),
         }
     }
 
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
-    #[expect(
-        clippy::allow_attributes,
-        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
-    )]
-    #[allow(
-        clippy::unnecessary_fallible_conversions,
-        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
-    )]
-    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
-        // Use one atomic subtract to grab a range of new IDs. The range might be
-        // entirely nonnegative, meaning all IDs come from the freelist, or entirely
-        // negative, meaning they are all new IDs to allocate, or a mix of both.
-        let range_end = self.free_cursor.fetch_sub(
-            IdCursor::try_from(count)
-                .expect("64-bit atomic operations are not supported on this platform."),
-            Ordering::Relaxed,
-        );
-        let range_start = range_end
-            - IdCursor::try_from(count)
-                .expect("64-bit atomic operations are not supported on this platform.");
+    pub fn reserve_entities(
+        &self,
+        count: u32,
+    ) -> ReserveEntitiesIterator<
+        core::iter::Chain<
+            core::iter::Copied<core::slice::Iter<'_, Entity>>,
+            core::iter::Copied<core::slice::Iter<'_, Entity>>,
+        >,
+    > {
+        let reuse_owned = self.owned.reserve(count);
+        let still_needed = count - reuse_owned.len() as u32;
 
-        let freelist_range = range_start.max(0) as usize..range_end.max(0) as usize;
-
-        let (new_id_start, new_id_end) = if range_start >= 0 {
-            // We satisfied all requests from the freelist.
-            (0, 0)
+        let ReserveEntitiesIterator {
+            reused_entities,
+            new_indices,
+        } = if still_needed > 0 {
+            self.reserver.reserve_entities_no_refresh(still_needed)
         } else {
-            // We need to allocate some new Entity IDs outside of the range of self.meta.
-            //
-            // `range_start` covers some negative territory, e.g. `-3..6`.
-            // Since the nonnegative values `0..6` are handled by the freelist, that
-            // means we need to handle the negative range here.
-            //
-            // In this example, we truncate the end to 0, leaving us with `-3..0`.
-            // Then we negate these values to indicate how far beyond the end of `meta.end()`
-            // to go, yielding `meta.len()+0 .. meta.len()+3`.
-            let base = self.meta.len() as IdCursor;
-
-            let new_id_end = u32::try_from(base - range_start).expect("too many entities");
-
-            // `new_id_end` is in range, so no need to check `start`.
-            let new_id_start = (base - range_end.min(0)) as u32;
-
-            (new_id_start, new_id_end)
+            ReserveEntitiesIterator {
+                reused_entities: [].iter().copied(),
+                new_indices: 0..0,
+            }
         };
 
+        let reused_entities = self.owned.entities[reuse_owned]
+            .iter()
+            .copied()
+            .chain(reused_entities);
         ReserveEntitiesIterator {
-            meta: &self.meta[..],
-            freelist_indices: self.pending[freelist_range].iter(),
-            new_indices: new_id_start..new_id_end,
+            reused_entities,
+            new_indices,
         }
     }
 
@@ -1219,21 +1202,9 @@ impl Entities {
     ///
     /// Equivalent to `self.reserve_entities(1).next().unwrap()`, but more efficient.
     pub fn reserve_entity(&self) -> Entity {
-        let n = self.free_cursor.fetch_sub(1, Ordering::Relaxed);
-        if n > 0 {
-            // Allocate from the freelist.
-            let index = self.pending[(n - 1) as usize];
-            Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
-        } else {
-            // Grab a new ID, outside the range of `meta.len()`. `flush()` must
-            // eventually be called to make it valid.
-            //
-            // As `self.free_cursor` goes more and more negative, we return IDs farther
-            // and farther beyond `meta.len()`.
-            Entity::from_raw(
-                u32::try_from(self.meta.len() as IdCursor - n).expect("too many entities"),
-            )
-        }
+        self.owned
+            .reserve_one()
+            .unwrap_or_else(|| self.reserver.reserve_entity_no_refresh())
     }
 
     /// Check that we do not have pending work requiring `flush()` to be called.
