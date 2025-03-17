@@ -1,10 +1,10 @@
-//! Error handling for "fallible" systems.
+//! Error handling for Bevy systems, commands, and observers.
 //!
 //! When a system is added to a [`Schedule`], and its return type is that of [`Result`], then Bevy
 //! considers those systems to be "fallible", and the ECS scheduler will special-case the [`Err`]
 //! variant of the returned `Result`.
 //!
-//! All [`BevyError`]s returned by a system are handled by an "error handler". By default, the
+//! All [`BevyError`]s returned by a system, observer or command are handled by an "error handler". By default, the
 //! [`panic`] error handler function is used, resulting in a panic with the error message attached.
 //!
 //! You can change the default behavior by registering a custom error handler.
@@ -55,7 +55,9 @@
 //! ```
 //!
 //! If you need special handling of individual fallible systems, you can use Bevy's [`system piping
-//! feature`] to capture the `Result` output of the system and handle it accordingly.
+//! feature`] to capture the [`Result`] output of the system and handle it accordingly.
+//!
+//! When working with commands, you can handle the result of each command separately using the [`HandleError::handle_error_with`] method.
 //!
 //! [`Schedule`]: crate::schedule::Schedule
 //! [`panic`]: panic()
