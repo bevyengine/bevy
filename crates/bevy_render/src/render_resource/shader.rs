@@ -177,7 +177,7 @@ impl Shader {
                             Ok(rel_path) => rel_path.to_path_buf(),
                             Err(_) => canonical_asset_path,
                         }
-                    },
+                    }
                     Err(_) => asset_path,
                 };
 
