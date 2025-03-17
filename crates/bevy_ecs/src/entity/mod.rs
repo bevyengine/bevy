@@ -1268,31 +1268,40 @@ impl Entities {
     }
 
     /// Destroy an entity, allowing it to be reused.
-    ///
-    /// Must not be called while reserved entities are awaiting `flush()`.
     pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
-        self.verify_flushed();
+        self.free_current_and_future_generations(entity, 0)
+    }
 
-        let meta = &mut self.meta[entity.index() as usize];
+    /// This is the same as [`free`](Entities::free), but it allows skipping some generations.
+    /// When the entity is reused, it will have a generation greater than the current generation + `generations`.
+    #[inline]
+    pub(crate) fn free_current_and_future_generations(
+        &mut self,
+        entity: Entity,
+        generations: u32,
+    ) -> Option<EntityLocation> {
+        let meta = &mut self.meta.get_mut(entity.index() as usize)?;
         if meta.generation != entity.generation {
             return None;
         }
 
-        meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, 1);
+        let prev_generation = meta.generation;
+        meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, 1 + generations);
 
-        if meta.generation == NonZero::<u32>::MIN {
+        if prev_generation > meta.generation {
             warn!(
                 "Entity({}) generation wrapped on Entities::free, aliasing may occur",
                 entity.index
             );
         }
 
-        let loc = mem::replace(&mut meta.location, EntityMeta::EMPTY.location);
+        let loc = mem::replace(&mut meta.location, EntityLocation::INVALID_BUT_DONT_FLUSH);
 
-        self.pending.push(entity.index());
+        self.owned.push(Entity::from_raw_and_generation(
+            entity.index,
+            meta.generation,
+        ));
 
-        let new_free_cursor = self.pending.len() as IdCursor;
-        *self.free_cursor.get_mut() = new_free_cursor;
         Some(loc)
     }
 
@@ -1350,25 +1359,6 @@ impl Entities {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
         meta.location = location;
-    }
-
-    /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
-    /// `index` will count `generation` starting from the prior `generation` + the specified
-    /// value + 1.
-    ///
-    /// Does nothing if no entity with this `index` has been allocated yet.
-    pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
-        if (index as usize) >= self.meta.len() {
-            return false;
-        }
-
-        let meta = &mut self.meta[index as usize];
-        if meta.location.archetype_id == ArchetypeId::INVALID {
-            meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, generations);
-            true
-        } else {
-            false
-        }
     }
 
     /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
