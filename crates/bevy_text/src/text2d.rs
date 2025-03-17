@@ -81,7 +81,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// });
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[require(
     TextLayout,
     TextFont,

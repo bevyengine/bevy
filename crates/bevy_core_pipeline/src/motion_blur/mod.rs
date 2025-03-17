@@ -54,7 +54,7 @@ pub mod pipeline;
 /// # }
 /// ````
 #[derive(Reflect, Component, Clone, ExtractComponent, ShaderType)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 #[extract_component_filter(With<Camera>)]
 #[require(DepthPrepass, MotionVectorPrepass)]
 pub struct MotionBlur {

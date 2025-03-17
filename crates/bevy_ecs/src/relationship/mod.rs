@@ -207,29 +207,23 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
     fn on_replace(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
-        // NOTE: this unsafe code is an optimization. We could make this safe, but it would require
-        // copying the RelationshipTarget collection
-        // SAFETY: This only reads the Self component and queues Remove commands
-        unsafe {
-            let world = world.as_unsafe_world_cell();
-            let relationship_target = world.get_entity(entity).unwrap().get::<Self>().unwrap();
-            let mut commands = world.get_raw_command_queue();
-            for source_entity in relationship_target.iter() {
-                if world.get_entity(source_entity).is_ok() {
-                    commands.push(
-                        entity_command::remove::<Self::Relationship>()
-                            .with_entity(source_entity)
-                            .handle_error_with(error_handler::silent()),
-                    );
-                } else {
-                    warn!(
-                        "{}Tried to despawn non-existent entity {}",
-                        caller
-                            .map(|location| format!("{location}: "))
-                            .unwrap_or_default(),
-                        source_entity
-                    );
-                }
+        let (entities, mut commands) = world.entities_and_commands();
+        let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
+        for source_entity in relationship_target.iter() {
+            if entities.get(source_entity).is_ok() {
+                commands.queue(
+                    entity_command::remove::<Self::Relationship>()
+                        .with_entity(source_entity)
+                        .handle_error_with(error_handler::silent()),
+                );
+            } else {
+                warn!(
+                    "{}Tried to despawn non-existent entity {}",
+                    caller
+                        .map(|location| format!("{location}: "))
+                        .unwrap_or_default(),
+                    source_entity
+                );
             }
         }
     }
@@ -238,29 +232,23 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// that entity is despawned.
     // note: think of this as "on_drop"
     fn on_despawn(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
-        // NOTE: this unsafe code is an optimization. We could make this safe, but it would require
-        // copying the RelationshipTarget collection
-        // SAFETY: This only reads the Self component and queues despawn commands
-        unsafe {
-            let world = world.as_unsafe_world_cell();
-            let relationship_target = world.get_entity(entity).unwrap().get::<Self>().unwrap();
-            let mut commands = world.get_raw_command_queue();
-            for source_entity in relationship_target.iter() {
-                if world.get_entity(source_entity).is_ok() {
-                    commands.push(
-                        entity_command::despawn()
-                            .with_entity(source_entity)
-                            .handle_error_with(error_handler::silent()),
-                    );
-                } else {
-                    warn!(
-                        "{}Tried to despawn non-existent entity {}",
-                        caller
-                            .map(|location| format!("{location}: "))
-                            .unwrap_or_default(),
-                        source_entity
-                    );
-                }
+        let (entities, mut commands) = world.entities_and_commands();
+        let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
+        for source_entity in relationship_target.iter() {
+            if entities.get(source_entity).is_ok() {
+                commands.queue(
+                    entity_command::despawn()
+                        .with_entity(source_entity)
+                        .handle_error_with(error_handler::silent()),
+                );
+            } else {
+                warn!(
+                    "{}Tried to despawn non-existent entity {}",
+                    caller
+                        .map(|location| format!("{location}: "))
+                        .unwrap_or_default(),
+                    source_entity
+                );
             }
         }
     }
