@@ -5,7 +5,8 @@ use std::f32::consts::PI;
 use bevy::{
     core_pipeline::{
         prepass::{DepthPrepass, MotionVectorPrepass},
-        Skybox, TemporalAntiAliasing,
+        taa::TemporalAntiAliasing,
+        Skybox,
     },
     math::vec3,
     pbr::{CubemapVisibleEntities, ShadowFilteringMethod, VisibleMeshEntities},
