@@ -1433,7 +1433,7 @@ impl Entities {
         let hot_swap_arc = Arc::new(PendingEntitiesChunk::default());
         self.wild_pending_chunks.retain_mut(|item| {
             // flush the pending list
-            item.flush(|reserved| {
+            let flusher = |reserved: Entity| {
                 // SAFETY: The entity was pending, so it must have existed at some point, so the index is valid.
                 let meta = unsafe { self.meta.get_unchecked_mut(reserved.index() as usize) };
                 // We shouldn't flush owned entities or those already flushed.
@@ -1441,7 +1441,12 @@ impl Entities {
                 if meta.location == EntityLocation::INVALID {
                     init(reserved, &mut meta.location);
                 }
-            });
+            };
+            // SAFETY: We have mutable access to self, we don't share these between different [`Entities`],
+            // and this is the only place this is called, so there is no way this could be called concurrently
+            unsafe {
+                item.flush(flusher);
+            }
 
             // see if we can get rid of it
             let pending = mem::replace(item, hot_swap_arc.clone());
