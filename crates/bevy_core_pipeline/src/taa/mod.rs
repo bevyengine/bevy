@@ -342,16 +342,11 @@ impl SpecializedRenderPipeline for TaaPipeline {
 }
 
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
-    let mut cameras_3d = main_world.query_filtered::<(
+    let mut cameras_3d = main_world.query::<(
         RenderEntity,
         &Camera,
         &Projection,
-        &mut TemporalAntiAliasing,
-    ), (
-        With<Camera3d>,
-        With<TemporalJitter>,
-        With<DepthPrepass>,
-        With<MotionVectorPrepass>,
+        Option<&mut TemporalAntiAliasing>,
     )>();
 
     for (entity, camera, camera_projection, mut taa_settings) in
@@ -361,14 +356,12 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("Camera entity wasn't synced.");
-        if camera.is_active && has_perspective_projection {
-            entity_commands.insert(taa_settings.clone());
-            taa_settings.reset = false;
+        if taa_settings.is_some() && camera.is_active && has_perspective_projection {
+            entity_commands.insert(taa_settings.as_deref().unwrap().clone());
+            taa_settings.as_mut().unwrap().reset = false;
         } else {
-            // TODO: needs better strategy for cleaning up
             entity_commands.remove::<(
                 TemporalAntiAliasing,
-                // components added in prepare systems (because `TemporalAntiAliasNode` does not query extracted components)
                 TemporalAntiAliasHistoryTextures,
                 TemporalAntiAliasPipelineId,
             )>();
@@ -378,7 +371,16 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
 
 fn prepare_taa_jitter(
     frame_count: Res<FrameCount>,
-    mut query: Query<&mut TemporalJitter, With<TemporalAntiAliasing>>,
+    mut query: Query<
+        &mut TemporalJitter,
+        (
+            With<TemporalAntiAliasing>,
+            With<Camera3d>,
+            With<TemporalJitter>,
+            With<DepthPrepass>,
+            With<MotionVectorPrepass>,
+        ),
+    >,
 ) {
     // Halton sequence (2, 3) - 0.5
     let halton_sequence = [
