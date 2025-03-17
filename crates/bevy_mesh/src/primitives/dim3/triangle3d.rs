@@ -5,7 +5,7 @@ use bevy_reflect::prelude::*;
 
 /// A builder used for creating a [`Mesh`] with a [`Triangle3d`] shape.
 #[derive(Clone, Copy, Debug, Default, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct Triangle3dMeshBuilder {
     triangle: Triangle3d,
 }

@@ -13,7 +13,7 @@ use crate::{
     resource::Resource,
     system::{Commands, Query},
     traversal::Traversal,
-    world::{error::EntityMutableFetchError, WorldEntityFetch},
+    world::{error::EntityMutableFetchError, EntityFetcher, WorldEntityFetch},
 };
 
 use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World, ON_INSERT, ON_REPLACE};
@@ -339,6 +339,53 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::DeferredMut<'_> {
         self.get_entity_mut(entities).unwrap()
+    }
+
+    /// Simultaneously provides access to entity data and a command queue, which
+    /// will be applied when the [`World`] is next flushed.
+    ///
+    /// This allows using borrowed entity data to construct commands where the
+    /// borrow checker would otherwise prevent it.
+    ///
+    /// See [`World::entities_and_commands`] for the non-deferred version.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use bevy_ecs::{prelude::*, world::DeferredWorld};
+    /// #[derive(Component)]
+    /// struct Targets(Vec<Entity>);
+    /// #[derive(Component)]
+    /// struct TargetedBy(Entity);
+    ///
+    /// # let mut _world = World::new();
+    /// # let e1 = _world.spawn_empty().id();
+    /// # let e2 = _world.spawn_empty().id();
+    /// # let eid = _world.spawn(Targets(vec![e1, e2])).id();
+    /// let mut world: DeferredWorld = // ...
+    /// #   DeferredWorld::from(&mut _world);
+    /// let (entities, mut commands) = world.entities_and_commands();
+    ///
+    /// let entity = entities.get(eid).unwrap();
+    /// for &target in entity.get::<Targets>().unwrap().0.iter() {
+    ///     commands.entity(target).insert(TargetedBy(eid));
+    /// }
+    /// # _world.flush();
+    /// # assert_eq!(_world.get::<TargetedBy>(e1).unwrap().0, eid);
+    /// # assert_eq!(_world.get::<TargetedBy>(e2).unwrap().0, eid);
+    /// ```
+    pub fn entities_and_commands(&mut self) -> (EntityFetcher, Commands) {
+        let cell = self.as_unsafe_world_cell();
+        // SAFETY: `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
+        let fetcher = unsafe { EntityFetcher::new(cell) };
+        // SAFETY:
+        // - `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
+        // - Command queue access does not conflict with entity access.
+        let raw_queue = unsafe { cell.get_raw_command_queue() };
+        // SAFETY: `&mut self` ensures the commands does not outlive the world.
+        let commands = unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities()) };
+
+        (fetcher, commands)
     }
 
     /// Returns [`Query`] for the given [`QueryState`], which is used to efficiently
