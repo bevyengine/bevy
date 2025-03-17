@@ -531,9 +531,7 @@ unsafe impl<T: Iterator<Item = Entity>> EntitySetIterator for ReserveEntitiesIte
 /// The last slice is entities that are still pending. This fills the rest of [`Self::entities`] up to its length.
 #[derive(Default)]
 struct PendingEntitiesChunk {
-    /// # Safety
-    ///
-    /// Length must be less than `u32::MAX`.
+    /// The entities that are reserved followed by those that are pending reservation.
     entities: Vec<Entity>,
     /// The number of entities that have been attempted to reserve.
     /// This may exceed the length of [`Self::entities`].
