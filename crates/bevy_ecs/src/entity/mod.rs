@@ -492,33 +492,39 @@ impl SparseSetIndex for Entity {
 }
 
 /// An [`Iterator`] returning a sequence of [`Entity`] values from
-pub struct ReserveEntitiesIterator<'a> {
-    reused_entities: core::slice::Iter<'a, Entity>,
+pub struct ReserveEntitiesIterator<T: Iterator<Item = Entity>> {
+    reused_entities: T,
     // New Entity indices to hand out, outside the range of meta.len().
     new_indices: core::ops::Range<u32>,
 }
 
-impl Iterator for ReserveEntitiesIterator<'_> {
+impl<T: Iterator<Item = Entity>> Iterator for ReserveEntitiesIterator<T> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.reused_entities
             .next()
-            .copied()
             .or_else(|| self.new_indices.next().map(Entity::from_raw))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.reused_entities.len() + self.new_indices.len();
-        (len, Some(len))
+        let (min, max) = self.reused_entities.size_hint();
+        let additional = self.new_indices.len();
+        (min + additional, max.map(|max| max + additional))
     }
 }
 
-impl ExactSizeIterator for ReserveEntitiesIterator<'_> {}
-impl core::iter::FusedIterator for ReserveEntitiesIterator<'_> {}
+impl<T: Iterator<Item = Entity> + ExactSizeIterator> ExactSizeIterator
+    for ReserveEntitiesIterator<T>
+{
+}
+impl<T: Iterator<Item = Entity> + core::iter::FusedIterator> core::iter::FusedIterator
+    for ReserveEntitiesIterator<T>
+{
+}
 
 // SAFETY: Newly reserved entity values are unique.
-unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
+unsafe impl<T: Iterator<Item = Entity>> EntitySetIterator for ReserveEntitiesIterator<T> {}
 
 /// This represents some entities that were at some point pending.
 ///
@@ -979,28 +985,34 @@ impl EntityReserver {
     }
 
     /// Reserves `num` entities in a [`ReserveEntitiesIterator`].
-    pub fn reserve_entities(&mut self, num: u32) -> ReserveEntitiesIterator {
+    pub fn reserve_entities(
+        &mut self,
+        num: u32,
+    ) -> ReserveEntitiesIterator<
+        core::iter::Chain<
+            alloc::vec::Drain<'_, Entity>,
+            core::iter::Copied<core::slice::Iter<'_, Entity>>,
+        >,
+    > {
         let reserved = self.pending.reserve(num);
         let reserved_copy = reserved.clone();
         let mut still_needed = num - reserved.len() as u32;
 
         let reused = if self.on_reserve_extended(still_needed, move |tmp_reserved, pending| {
-            // We're about to loose our current pending arc, so we need to put what we've reserved so far into a new slice
-            tmp_reserved.clear();
-            tmp_reserved.reserve(num as usize);
+            // We're about to loose our current pending arc, so we need to put what we've reserved so far into a new slice.
+            // It's already empty since this is the only place we use it, and we drain it as part of the iterator.
             tmp_reserved.extend_from_slice(&pending.entities[reserved_copy]);
         }) {
             // We have a new pending arc, so we need to extend everything
             // by trying to reserve the remaining from the new arc.
             let more_reserved = self.pending.reserve(still_needed);
-            self.tmp_reserved
-                .extend_from_slice(&self.pending.entities[reserved]);
             still_needed -= more_reserved.len() as u32;
-            self.tmp_reserved[..].iter()
+            self.pending.entities[more_reserved].iter()
         } else {
             // This is the usual case. We can just use our existing arc.
             self.pending.entities[reserved].iter()
         };
+        let reused = self.tmp_reserved.drain(..).chain(reused.copied());
 
         // reserve any final entities by appending.
         let new = if still_needed == 0 {
@@ -1042,7 +1054,10 @@ impl EntityReserver {
     ///
     /// **NOTE:** This ignores [`Self::tolerance_left`], so this may miss pending entities.
     /// When possible, prefer [`reserve_entities`](Self::reserve_entities).
-    pub fn reserve_entities_no_refresh(&self, num: u32) -> ReserveEntitiesIterator {
+    pub fn reserve_entities_no_refresh(
+        &self,
+        num: u32,
+    ) -> ReserveEntitiesIterator<core::iter::Copied<core::slice::Iter<'_, Entity>>> {
         let reserved = self.pending.reserve(num);
         let still_needed = num - reserved.len() as u32;
 
@@ -1053,7 +1068,7 @@ impl EntityReserver {
         };
 
         ReserveEntitiesIterator {
-            reused_entities: self.pending.entities[reserved].iter(),
+            reused_entities: self.pending.entities[reserved].iter().copied(),
             new_indices: new,
         }
     }
