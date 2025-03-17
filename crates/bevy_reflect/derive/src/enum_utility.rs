@@ -2,6 +2,7 @@ use crate::field_attributes::CloneBehavior;
 use crate::{
     derive_data::ReflectEnum, derive_data::StructField, field_attributes::DefaultBehavior,
 };
+use bevy_macro_utils::fq_std::{FQClone, FQResult};
 use bevy_macro_utils::{
     as_member,
     fq_std::{FQDefault, FQOption},
@@ -155,7 +156,7 @@ pub(crate) trait VariantBuilder: Sized {
             let mut field_constructors = Vec::with_capacity(fields.len());
 
             for field in fields {
-                let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                let member = as_member(field.data.ident.as_ref(), field.declaration_index);
                 let alias = format_ident!("_{}", member);
 
                 let variant_field = VariantField {
