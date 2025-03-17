@@ -278,7 +278,6 @@ mod gizmos {
     }
 
     pub fn draw_gizmos(mut gizmos: Gizmos) {
-        // gizmos.line_2d(Vec2::ZERO, Vec2::new(100.0, 100.0), RED);
         gizmos.rect_2d(Isometry2d::IDENTITY, Vec2::new(200.0, 200.0), RED);
         gizmos
             .circle_2d(Isometry2d::IDENTITY, 200.0, GREEN)
