@@ -540,7 +540,11 @@ struct PendingEntitiesChunk {
     ///
     /// Length must be less than `u32::MAX`.
     entities: Vec<Entity>,
+    /// The number of entities that have been attempted to reserve.
+    /// This may exceed the length of [`Self::entities`].
     reserved: AtomicUsize,
+    /// The number of entities that have been attempted to flush.
+    /// This may exceed the length of [`Self::entities`].
     flushed: AtomicUsize,
 }
 
@@ -555,6 +559,13 @@ impl PendingEntitiesChunk {
         let start = self.entities.len().min(num_reserved_so_far);
         let end = self.entities.len().min(ideal_new_reserved);
         start..end
+    }
+
+    /// The number of entities that can still be reserved.
+    fn num_left(&self) -> u32 {
+        self.entities
+            .len()
+            .saturating_sub(self.reserved.load(Ordering::Relaxed)) as u32
     }
 
     /// Reserves just one entity.
