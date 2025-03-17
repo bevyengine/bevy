@@ -57,7 +57,7 @@ impl Default for MeshPickingSettings {
 /// An optional component that marks cameras and target entities that should be used in the [`MeshPickingPlugin`].
 /// Only needed if [`MeshPickingSettings::require_markers`] is set to `true`, and ignored otherwise.
 #[derive(Debug, Clone, Default, Component, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct RayCastPickable;
 
 /// Adds the mesh picking backend to your app.
@@ -67,7 +67,9 @@ pub struct MeshPickingPlugin;
 impl Plugin for MeshPickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MeshPickingSettings>()
-            .register_type::<(RayCastPickable, MeshPickingSettings, SimplifiedMesh)>()
+            .register_type::<RayCastPickable>()
+            .register_type::<MeshPickingSettings>()
+            .register_type::<SimplifiedMesh>()
             .add_systems(PreUpdate, update_hits.in_set(PickSet::Backend));
     }
 }

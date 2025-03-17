@@ -1114,7 +1114,7 @@ pub fn queue_material_meshes<M: Material>(
 
 /// Default render method used for opaque materials.
 #[derive(Default, Resource, Clone, Debug, ExtractResource, Reflect)]
-#[reflect(Resource, Default, Debug)]
+#[reflect(Resource, Default, Debug, Clone)]
 pub struct DefaultOpaqueRendererMethod(OpaqueRendererMethod);
 
 impl DefaultOpaqueRendererMethod {
@@ -1154,6 +1154,7 @@ impl DefaultOpaqueRendererMethod {
 ///
 /// If a material indicates `OpaqueRendererMethod::Auto`, `DefaultOpaqueRendererMethod` will be used.
 #[derive(Default, Clone, Copy, Debug, PartialEq, Reflect)]
+#[reflect(Default, Clone, PartialEq)]
 pub enum OpaqueRendererMethod {
     #[default]
     Forward,
