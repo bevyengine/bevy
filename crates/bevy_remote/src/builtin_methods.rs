@@ -511,7 +511,7 @@ pub fn process_remote_get_resource_request(
     let reflect_resource =
         get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
 
-    let Some(reflected) = reflect_resource.reflect(world) else {
+    let Ok(reflected) = reflect_resource.reflect(world) else {
         return Err(BrpError::resource_not_present(&resource_path));
     };
 
@@ -978,7 +978,7 @@ pub fn process_remote_mutate_resource_request(
     // Get the actual resource value from the world as a `dyn Reflect`.
     let mut reflected_resource = reflect_resource
         .reflect_mut(world)
-        .ok_or_else(|| BrpError::resource_not_present(&resource_path))?;
+        .map_err(|_| BrpError::resource_not_present(&resource_path))?;
 
     // Get the type registration for the field with the given path.
     let value_registration = type_registry
