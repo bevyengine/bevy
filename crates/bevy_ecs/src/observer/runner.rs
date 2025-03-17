@@ -3,7 +3,7 @@ use core::any::Any;
 
 use crate::{
     component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
-    error::{DefaultSystemErrorHandler, SystemErrorContext},
+    error::{DefaultSystemErrorHandler, ErrorContext},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -273,7 +273,7 @@ pub struct Observer {
     system: Box<dyn Any + Send + Sync + 'static>,
     descriptor: ObserverDescriptor,
     hook_on_add: ComponentHook,
-    error_handler: Option<fn(BevyError, SystemErrorContext)>,
+    error_handler: Option<fn(BevyError, ErrorContext)>,
 }
 
 impl Observer {
@@ -322,7 +322,7 @@ impl Observer {
     /// Set the error handler to use for this observer.
     ///
     /// See the [`error` module-level documentation](crate::error) for more information.
-    pub fn with_error_handler(mut self, error_handler: fn(BevyError, SystemErrorContext)) -> Self {
+    pub fn with_error_handler(mut self, error_handler: fn(BevyError, ErrorContext)) -> Self {
         self.error_handler = Some(error_handler);
         self
     }
@@ -409,7 +409,7 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             if let Err(err) = (*system).run_unsafe(trigger, world) {
                 error_handler(
                     err,
-                    SystemErrorContext {
+                    ErrorContext::Observer {
                         name: (*system).name(),
                         last_run: (*system).get_last_run(),
                     },
