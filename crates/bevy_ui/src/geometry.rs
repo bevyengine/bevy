@@ -349,6 +349,13 @@ impl UiRect {
         bottom: Val::ZERO,
     };
 
+    pub const AUTO: Self = Self {
+        left: Val::Auto,
+        right: Val::Auto,
+        top: Val::Auto,
+        bottom: Val::Auto,
+    };
+
     /// Creates a new [`UiRect`] from the values specified.
     ///
     /// # Example
