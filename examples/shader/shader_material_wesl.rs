@@ -27,7 +27,7 @@ fn main() {
             CustomMaterialPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, update)
+        .add_systems(Update, (update, update_ui))
         .run();
 }
 
@@ -50,7 +50,14 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
+    mut standard_materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    // circular base
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(4.0))),
+        MeshMaterial3d(standard_materials.add(Color::WHITE)),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
     // cube
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
@@ -66,25 +73,50 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+
+    // Add instruction text
+    commands.spawn((
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
 }
 
 fn update(
     time: Res<Time>,
-    mut query: Query<(&MeshMaterial3d<CustomMaterial>, &mut Transform)>,
+    cube: Single<(&MeshMaterial3d<CustomMaterial>, &mut Transform)>,
     mut materials: ResMut<Assets<CustomMaterial>>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    for (material, mut transform) in query.iter_mut() {
-        let material = materials.get_mut(material).unwrap();
-        material.time = time.elapsed_secs();
-        if keys.just_pressed(KeyCode::Space) {
-            material.party_mode = !material.party_mode;
-        }
-
-        if material.party_mode {
-            transform.rotate(Quat::from_rotation_y(0.005));
-        }
+    let (material, mut transform) = cube.into_inner();
+    let material = materials.get_mut(material).unwrap();
+    material.time = time.elapsed_secs();
+    if keys.just_pressed(KeyCode::Space) {
+        material.party_mode = !material.party_mode;
     }
+
+    if material.party_mode {
+        transform.rotate(Quat::from_rotation_y(0.005));
+    }
+}
+
+fn update_ui(
+    cube: Single<&MeshMaterial3d<CustomMaterial>>,
+    mut ui: Single<&mut Text>,
+    materials: Res<Assets<CustomMaterial>>,
+) {
+    let material = materials.get(*cube).unwrap();
+    let text = if material.party_mode {
+        "Press space to disable party mode"
+    } else {
+        "Press space to enable party mode"
+    };
+    let ui = &mut ui.0;
+    *ui = text.to_string();
 }
 
 // This is the struct that will be passed to your shader
