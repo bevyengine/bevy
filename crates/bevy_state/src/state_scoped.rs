@@ -54,7 +54,7 @@ use crate::state::{StateTransitionEvent, States};
 /// app.add_systems(OnEnter(GameState::InGame), spawn_player);
 /// ```
 #[derive(Component, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
 pub struct StateScoped<S: States>(pub S);
 
 impl<S> Default for StateScoped<S>

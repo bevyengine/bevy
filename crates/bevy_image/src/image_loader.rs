@@ -81,7 +81,7 @@ impl ImageLoader {
     }
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub enum ImageFormatSetting {
     #[default]
     FromExtension,
@@ -89,7 +89,7 @@ pub enum ImageFormatSetting {
     Guess,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageLoaderSettings {
     pub format: ImageFormatSetting,
     pub is_srgb: bool,
