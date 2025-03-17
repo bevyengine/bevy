@@ -4,9 +4,8 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{
-        experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
         prepass::{DepthPrepass, MotionVectorPrepass},
-        Skybox,
+        Skybox, TemporalAntiAliasing,
     },
     math::vec3,
     pbr::{CubemapVisibleEntities, ShadowFilteringMethod, VisibleMeshEntities},
@@ -120,7 +119,6 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins(TemporalAntiAliasPlugin)
         .add_event::<WidgetClickEvent<AppSetting>>()
         .add_systems(Startup, setup)
         .add_systems(Update, widgets::handle_ui_interactions::<AppSetting>)

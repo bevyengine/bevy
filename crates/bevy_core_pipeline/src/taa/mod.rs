@@ -115,7 +115,6 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// # Usage Notes
 ///
-/// The [`TemporalAntiAliasPlugin`] must be added to your app.
 /// Any camera with this component must also disable [`Msaa`] by setting it to [`Msaa::Off`].
 ///
 /// [Currently](https://github.com/bevyengine/bevy/issues/8423), TAA cannot be used with [`bevy_render::camera::OrthographicProjection`].
@@ -153,7 +152,7 @@ impl Default for TemporalAntiAliasing {
 
 /// Render [`bevy_render::render_graph::Node`] used by temporal anti-aliasing.
 #[derive(Default)]
-pub struct TemporalAntiAliasNode;
+struct TemporalAntiAliasNode;
 
 impl ViewNode for TemporalAntiAliasNode {
     type ViewQuery = (
@@ -408,7 +407,7 @@ fn prepare_taa_jitter_and_mip_bias(
 }
 
 #[derive(Component)]
-pub struct TemporalAntiAliasHistoryTextures {
+struct TemporalAntiAliasHistoryTextures {
     write: CachedTexture,
     read: CachedTexture,
 }
@@ -465,7 +464,7 @@ fn prepare_taa_history_textures(
 }
 
 #[derive(Component)]
-pub struct TemporalAntiAliasPipelineId(CachedRenderPipelineId);
+struct TemporalAntiAliasPipelineId(CachedRenderPipelineId);
 
 fn prepare_taa_pipelines(
     mut commands: Commands,
