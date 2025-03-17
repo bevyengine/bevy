@@ -1728,9 +1728,9 @@ mod tests {
     fn reserve_generations() {
         let mut entities = Entities::new();
         let entity = entities.alloc();
-        entities.free(entity);
-
-        assert!(entities.reserve_generations(entity.index(), 1));
+        assert!(entities
+            .free_current_and_future_generations(entity, 1)
+            .is_some());
     }
 
     #[test]
@@ -1739,9 +1739,9 @@ mod tests {
 
         let mut entities = Entities::new();
         let entity = entities.alloc();
-        entities.free(entity);
-
-        assert!(entities.reserve_generations(entity.index(), GENERATIONS));
+        assert!(entities
+            .free_current_and_future_generations(entity, GENERATIONS)
+            .is_some());
 
         // The very next entity allocated should be a further generation on the same index
         let next_entity = entities.alloc();
