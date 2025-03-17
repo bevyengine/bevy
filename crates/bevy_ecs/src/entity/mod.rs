@@ -709,6 +709,8 @@ struct AtomicEntityReservations {
     meta_len: AtomicU32,
     /// The value of [`Self::meta_len`] when the most recent flush started.
     flushed_meta_len: AtomicU32,
+    /// This is true if and only if the backing [`Entities`] has been cut off.
+    closed: AtomicBool,
 
     /// The pending list being added to. This will become the next [`Self::pending_chunk`].
     growing_pending: Mutex<PendingEntitiesChunk>,
@@ -731,7 +733,16 @@ impl AtomicEntityReservations {
             worth_swap: AtomicBool::new(false),
             pending_chunk_pool: Mutex::default(),
             new_pending_chunks: Mutex::default(),
+            closed: AtomicBool::default(),
         }
+    }
+
+    fn close(&self) {
+        self.closed.store(true, Ordering::Relaxed);
+    }
+
+    fn is_closed(&self) -> bool {
+        self.closed.load(Ordering::Relaxed)
     }
 
     /// Reserves a `num` entities by appending to the meta list.
@@ -938,6 +949,12 @@ impl EntityReserver {
         .with_tolerance(10)
     }
 
+    /// Returns true if and only if the backing [`Entities`] has been closed.
+    /// That means entities reserved by this will not be flushed and are not valid.
+    pub fn is_closed(&self) -> bool {
+        self.coordinator.is_closed()
+    }
+
     /// Refreshes the reserver to improve the quality of the reservations, setting [`Self::tolerance_left`].
     ///
     /// This will make it more likely that reserved entities are reused.
@@ -1100,6 +1117,12 @@ impl RemoteEntities {
     /// Creates a new [`EntityReserver`]. Use this to reserve entities in bulk.
     pub fn into_reserver(self) -> EntityReserver {
         EntityReserver::new(self.coordinator)
+    }
+
+    /// Returns true if and only if the backing [`Entities`] has been closed.
+    /// That means entities reserved by this will not be flushed and are not valid.
+    pub fn is_closed(&self) -> bool {
+        self.coordinator.is_closed()
     }
 
     /// Reserves just 1 entity.
@@ -1292,8 +1315,11 @@ impl Entities {
     /// Clears all [`Entity`] from the World.
     pub fn clear(&mut self) {
         self.meta.clear();
-        self.pending.clear();
-        *self.free_cursor.get_mut() = 0;
+        self.owned.clear();
+        self.wild_pending_chunks.clear();
+        self.coordinator.close();
+        self.coordinator = Arc::new(AtomicEntityReservations::new());
+        self.reserver = EntityReserver::new(self.coordinator.clone());
     }
 
     /// Returns the location of an [`Entity`].
