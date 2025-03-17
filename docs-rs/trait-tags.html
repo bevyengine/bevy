@@ -73,12 +73,10 @@
                         let code;
                         if (el.nodeName === `A`) {
                             code = el.children[0];
+                            requiredComponents.push([code.innerText, el.getAttribute('href')]);
                         } else if (el.nodeName === `CODE`) {
-                            code = el;
-                        } else {
-                            continue;
+                            requiredComponents.push([el.innerText]);
                         }
-                        requiredComponents.push(code.innerText);
                     }
                 }
             }
@@ -132,9 +130,14 @@
             tooltip.className = `bevy-tooltip`;
 
             const ul = document.createElement('ul');
-            for (const component of requiredComponents) {
+            for (const [component, componentHref] of requiredComponents) {
                 const li = document.createElement('li');
-                li.innerText = component;
+                const a = document.createElement('a');
+                if (componentHref) {
+                    a.setAttribute('href', componentHref);
+                }
+                a.innerText = component;
+                li.appendChild(a);
                 ul.appendChild(li);
             }
 
