@@ -1652,6 +1652,23 @@ impl Entities {
     }
 }
 
+impl fmt::Debug for Entities {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let total_count = self.total_count();
+        let used_count = self.used_count();
+        let total_prospective_count = self.total_prospective_count();
+        let len = self.len();
+        write!(f, "Entities: [ total: {total_count}, used: {used_count}, total_when_flushed: {total_prospective_count}, current: {len} ]")
+    }
+}
+
+impl Drop for Entities {
+    fn drop(&mut self) {
+        // We need to notify any `RemoteEntities` that their reservations will be invalid.
+        self.coordinator.close();
+    }
+}
+
 /// An error that occurs when a specified [`Entity`] does not exist.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 #[error("The entity with ID {entity} {details}")]
