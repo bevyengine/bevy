@@ -19,7 +19,7 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::sync_world::{RenderEntity, TemporaryRenderEntity};
+use bevy_render::sync_world::RenderEntity;
 use bevy_render::view::{self, Visibility, VisibilityClass};
 use bevy_render::{
     primitives::Aabb,
@@ -134,7 +134,6 @@ pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
 /// This system extracts the sprites from the 2D text components and adds them to the
 /// "render world".
 pub fn extract_text2d_sprite(
-    mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
