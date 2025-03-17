@@ -879,7 +879,36 @@ impl AtomicEntityReservations {
     }
 }
 
-/// Performs entity reservation.
+/// See [`reserve_entity`](Self::reserve_entity) and [`reserve_entities`](Self::reserve_entities).
+///
+/// This powers both [`Entities`] and [`RemoteEntities`].
+///
+/// **Note:** The reserved [`Entity`]s will not be valid until [`Entities::flush`] is called,
+/// usually through [`World::flush`](crate::world::World). Until then, the entity is *only* reserved.
+/// It does not actually exist yet.
+///
+/// **Note:** The reserved entities *may* skip available pending entities.
+/// For example, if an entity is freed immediately before another is reserved, the two entities may not share an index.
+/// If you need to minimize this behavior, see [`tolerance`](Self::tolerance).
+///
+/// **Note:** If the source [`Entities`] is cleared, the reserved entities here will be meaningless and probably invalid.
+/// It's a good idea to use [`is_closed`](Self::is_closed) to ensure the reserved entities are still valid before actually using them in the [`World`](crate::world::World).
+///
+/// # Example
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::entity::EntityReservations;
+/// use std::ops::Deref;
+///
+/// // reserve
+/// let mut world = World::new();
+/// let entities: EntityReserver = world.entities().get_remote_entities().into_reserver();
+/// let now_reserved = entities.reserve_entity();
+///
+/// // flush
+/// world.flush();
+/// ```
 #[derive(Clone)]
 pub struct EntityReserver {
     coordinator: Arc<AtomicEntityReservations>,
@@ -1120,6 +1149,14 @@ impl EntityReserver {
 }
 
 /// A version of [`Entities`] that can be used remotely.
+///
+/// This allows remote entity reservation via [`EntityReserver`] and can be retrieved via [`Entities::get_remote_entities`].
+///
+/// This is useful if you want to reserve entities from async contexts or without going through [`World`](crate::world::World)
+/// or [`Entities`]. This is no slower than reserving through [`Entities`], so for some uses, it may even be worth caching this.
+///
+/// Functionally, this coordinates multiple [`EntityReserver`]s.
+/// See those docs for more details and important notes regarding reservation.
 #[derive(Clone)]
 pub struct RemoteEntities {
     coordinator: Arc<AtomicEntityReservations>,
@@ -1166,6 +1203,17 @@ impl RemoteEntities {
 ///  - The alive/dead status of a particular entity. (i.e. "has entity 3 been despawned?")
 ///  - The location of the entity's components in memory (via [`EntityLocation`])
 ///
+/// Note that for specialized use, you may wish to modify [`ideal_owned`](Self::ideal_owned) to improve performance or reduce memory consumption.
+///
+/// Use [`get_remote_entities`](Self::get_remote_entities) to reserve entities without keeping a reference to this instance.
+///
+/// # Important
+///
+/// [`Entity`]s are [`reserved`](Self::reserve_entity) or [`allocated`](Self::alloc) with no regard to order.
+/// Sequential allocations is by no means guaranteed to have sequential indices under *any* condition.
+/// For example, if you allocate 5 entities, you may get back indices `[0, 2, 4, 7, 8]`, or even `[29, 13, 3, 2, 1]`.
+/// Hence, ordering should not be relied on at all.
+///
 /// [`World`]: crate::world::World
 pub struct Entities {
     /// The metadata for each entity.
@@ -1182,8 +1230,12 @@ pub struct Entities {
     /// These are marked with [`EntityLocation::OWNED`] to prevent them from being flushed.
     owned: Vec<Entity>,
     /// The number of [`entities`](Entity) to have on standby for allocations.
-    /// The higher the number, the faster allocations will be, but the more memory and entities will be taken up but unused.
+    /// The higher the number, the faster allocations will be, but the more memory and entities will be taken up while still being unused.
     /// The default value is 256.
+    ///
+    /// Generally, this number of entities will be taken out of the total entities count.
+    /// As a result, the entities that will be available for use will be `u32::MAX - ideal_owned`.
+    /// If your purposes need close to `u32::MAX` entities, you may need to set this to `1`.
     pub ideal_owned: NonZero<u32>,
 }
 
@@ -1205,7 +1257,7 @@ impl Entities {
     /// Creates a new [`RemoteEntities`] for this [`Entities`].
     ///
     /// If the [`World`](crate::world::World) or this [`Entities`] may be [`cleared`](Self::clear),
-    /// the returned [`RemoteEntities`] will become irrelevant to this instance, it the [`entities`](Entity) it reserves will be invalid.
+    /// the returned [`RemoteEntities`] will become irrelevant to this instance, and the [`entities`](Entity) it reserves will be invalid.
     /// You can check if this has happened via [`RemoteEntities::is_closed`].
     pub fn get_remote_entities(&self) -> RemoteEntities {
         RemoteEntities {
