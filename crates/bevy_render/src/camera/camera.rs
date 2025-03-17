@@ -76,6 +76,42 @@ impl Default for Viewport {
     }
 }
 
+impl Viewport {
+    /// Cut the viewport rectangle so that it lies inside a rectangle of the
+    /// given size.
+    ///
+    /// If either of the viewport's position coordinates lies outside the given
+    /// dimensions, it will be moved just inside first. If either of the given
+    /// dimensions is zero, the position and size of the viewport rectangle will
+    /// both be set to zero in that dimension.
+    pub fn clamp_to_size(&mut self, size: UVec2) {
+        // If the origin of the viewport rect is outside, then adjust so that
+        // it's just barely inside. Then, cut off the part that is outside.
+        if self.physical_size.x + self.physical_position.x > size.x {
+            if self.physical_position.x < size.x {
+                self.physical_size.x = size.x - self.physical_position.x;
+            } else if size.x > 0 {
+                self.physical_position.x = size.x - 1;
+                self.physical_size.x = 1;
+            } else {
+                self.physical_position.x = 0;
+                self.physical_size.x = 0;
+            }
+        }
+        if self.physical_size.y + self.physical_position.y > size.y {
+            if self.physical_position.y < size.y {
+                self.physical_size.y = size.y - self.physical_position.y;
+            } else if size.y > 0 {
+                self.physical_position.y = size.y - 1;
+                self.physical_size.y = 1;
+            } else {
+                self.physical_position.y = 0;
+                self.physical_size.y = 0;
+            }
+        }
+    }
+}
+
 /// Settings to define a camera sub view.
 ///
 /// When [`Camera::sub_camera_view`] is `Some`, only the sub-section of the
@@ -991,12 +1027,7 @@ pub fn camera_system(
                 if let Some(viewport) = &mut camera.viewport {
                     let target_info = &new_computed_target_info;
                     if let Some(target) = target_info {
-                        if viewport.physical_size.x > target.physical_size.x {
-                            viewport.physical_size.x = target.physical_size.x;
-                        }
-                        if viewport.physical_size.y > target.physical_size.y {
-                            viewport.physical_size.y = target.physical_size.y;
-                        }
+                        viewport.clamp_to_size(target.physical_size);
                     }
                 }
                 camera.computed.target_info = new_computed_target_info;
