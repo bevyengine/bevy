@@ -12,7 +12,7 @@ For example, a [Raspberry Pi Pico](https://www.raspberrypi.com/documentation/mic
 For these platforms, Rust has a more fundamental alternative to `std`, [`core`](https://doc.rust-lang.org/stable/core/).
 A large portion of Rust's `std` actually just re-exports items from `core`, such as iterators, `Result`, and `Option`.
 
-In addition, also re-exports from another crate, [`alloc`](https://doc.rust-lang.org/stable/alloc/).
+In addition, `std` also re-exports from another crate, [`alloc`](https://doc.rust-lang.org/stable/alloc/).
 This crate is similar to `core` in that it's generally available on all platforms.
 Where it differs is that its inclusion requires access to a [global allocator](https://doc.rust-lang.org/stable/std/alloc/trait.GlobalAlloc.html).
 Currently, Bevy relies heavily on allocation, so we consider `alloc` to be just as available, since without it, Bevy will not compile.
