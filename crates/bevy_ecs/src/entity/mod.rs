@@ -754,12 +754,22 @@ impl AtomicEntityReservations {
     /// Reserves a `num` entities by appending to the meta list.
     /// This should only be called if reusing an entity from a pending list is not practical.
     fn reserve_append(&self, num: u32) -> core::ops::RangeInclusive<u32> {
+        if num == 0 {
+            #[expect(
+                clippy::reversed_empty_ranges,
+                reason = "We need to return an empty range since we aren't reserving anything."
+            )]
+            return 1..=0;
+        }
+
         let current_meta = self.meta_len.fetch_add(num as usize, Ordering::Relaxed);
         let new_meta = current_meta + num as usize;
         if new_meta > u32::MAX as usize {
             panic!("too many entities");
         }
-        current_meta as u32..=new_meta as u32
+
+        // inclusive, so we subtract 1.
+        current_meta as u32..=(new_meta - 1) as u32
     }
 
     /// Flushes the meta data for entities from [`Self::reserve_append`].
@@ -1286,10 +1296,12 @@ impl Entities {
     fn extend_owned(&mut self, num: NonZero<u32>) {
         let new = self.reserver.reserve_entities(num.get());
 
-        // Make sure we don't actually flush these
-        self.meta
-            .resize(*new.new_indices.end() as usize + 1, EntityMeta::EMPTY);
+        if !new.new_indices.is_empty() {
+            self.meta
+                .resize(*new.new_indices.end() as usize + 1, EntityMeta::EMPTY);
+        }
 
+        // Make sure we don't actually flush these
         let new = new.inspect(|entity| {
             // SAFETY: we just resized to ensure all are valid.
             unsafe {
