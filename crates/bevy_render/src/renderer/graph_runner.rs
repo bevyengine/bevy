@@ -1,5 +1,5 @@
 use bevy_ecs::{prelude::Entity, world::World};
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 

@@ -12,16 +12,15 @@ use bevy_ecs::{
     entity::Entity,
     event::{Event, EventReader, EventWriter},
     name::Name,
-    prelude::require,
     system::{Commands, Query},
 };
 use bevy_math::ops;
 use bevy_math::Vec2;
+use bevy_platform_support::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::HashMap;
 use derive_more::derive::From;
 use log::{info, warn};
 use thiserror::Error;
@@ -635,16 +634,16 @@ pub enum GamepadAxis {
     LeftStickX,
     /// The vertical value of the left stick.
     LeftStickY,
-    /// The value of the left `Z` button.
+    /// Generally the throttle axis of a HOTAS setup.
+    /// Refer to [`GamepadButton::LeftTrigger2`] for the analog trigger on a gamepad controller.
     LeftZ,
-
     /// The horizontal value of the right stick.
     RightStickX,
     /// The vertical value of the right stick.
     RightStickY,
-    /// The value of the right `Z` button.
+    /// The yaw of the main joystick, not supported on common gamepads.
+    /// Refer to [`GamepadButton::RightTrigger2`] for the analog trigger on a gamepad controller.
     RightZ,
-
     /// Non-standard support for other axis types (i.e. HOTAS sliders, potentiometers, etc).
     Other(u8),
 }
@@ -1460,7 +1459,7 @@ pub fn gamepad_connection_system(
                 vendor_id,
                 product_id,
             } => {
-                let Some(mut gamepad) = commands.get_entity(id) else {
+                let Ok(mut gamepad) = commands.get_entity(id) else {
                     warn!("Gamepad {} removed before handling connection event.", id);
                     continue;
                 };
@@ -1475,7 +1474,7 @@ pub fn gamepad_connection_system(
                 info!("Gamepad {} connected.", id);
             }
             GamepadConnection::Disconnected => {
-                let Some(mut gamepad) = commands.get_entity(id) else {
+                let Ok(mut gamepad) = commands.get_entity(id) else {
                     warn!("Gamepad {} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
                     continue;
                 };
@@ -1539,7 +1538,7 @@ pub fn gamepad_event_processing_system(
         match event {
             // Connections require inserting/removing components so they are done in a separate system
             RawGamepadEvent::Connection(send_event) => {
-                processed_events.send(GamepadEvent::from(send_event.clone()));
+                processed_events.write(GamepadEvent::from(send_event.clone()));
             }
             RawGamepadEvent::Axis(RawGamepadAxisChangedEvent {
                 gamepad,
@@ -1559,8 +1558,8 @@ pub fn gamepad_event_processing_system(
                 gamepad_axis.analog.set(axis, filtered_value.raw);
                 let send_event =
                     GamepadAxisChangedEvent::new(gamepad, axis, filtered_value.scaled.to_f32());
-                processed_axis_events.send(send_event);
-                processed_events.send(GamepadEvent::from(send_event));
+                processed_axis_events.write(send_event);
+                processed_events.write(GamepadEvent::from(send_event));
             }
             RawGamepadEvent::Button(RawGamepadButtonChangedEvent {
                 gamepad,
@@ -1583,7 +1582,7 @@ pub fn gamepad_event_processing_system(
                 if button_settings.is_released(filtered_value.raw) {
                     // Check if button was previously pressed
                     if gamepad_buttons.pressed(button) {
-                        processed_digital_events.send(GamepadButtonStateChangedEvent::new(
+                        processed_digital_events.write(GamepadButtonStateChangedEvent::new(
                             gamepad,
                             button,
                             ButtonState::Released,
@@ -1595,7 +1594,7 @@ pub fn gamepad_event_processing_system(
                 } else if button_settings.is_pressed(filtered_value.raw) {
                     // Check if button was previously not pressed
                     if !gamepad_buttons.pressed(button) {
-                        processed_digital_events.send(GamepadButtonStateChangedEvent::new(
+                        processed_digital_events.write(GamepadButtonStateChangedEvent::new(
                             gamepad,
                             button,
                             ButtonState::Pressed,
@@ -1615,8 +1614,8 @@ pub fn gamepad_event_processing_system(
                     button_state,
                     filtered_value.scaled.to_f32(),
                 );
-                processed_analog_events.send(send_event);
-                processed_events.send(GamepadEvent::from(send_event));
+                processed_analog_events.write(send_event);
+                processed_events.write(GamepadEvent::from(send_event));
             }
         }
     }
@@ -1699,7 +1698,7 @@ impl GamepadRumbleIntensity {
 ///     gamepads: Query<Entity, With<Gamepad>>,
 /// ) {
 ///     for entity in gamepads.iter() {
-///         rumble_requests.send(GamepadRumbleRequest::Add {
+///         rumble_requests.write(GamepadRumbleRequest::Add {
 ///             gamepad: entity,
 ///             intensity: GamepadRumbleIntensity::MAX,
 ///             duration: Duration::from_secs_f32(0.5),
@@ -1764,7 +1763,7 @@ mod tests {
     use bevy_app::{App, PreUpdate};
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
 
     fn test_button_axis_settings_filter(
         settings: ButtonAxisSettings,

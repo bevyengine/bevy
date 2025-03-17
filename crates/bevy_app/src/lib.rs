@@ -7,11 +7,6 @@
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![forbid(unsafe_code)]
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -25,6 +20,9 @@ extern crate std;
 
 extern crate alloc;
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_app;
+
 mod app;
 mod main_schedule;
 mod panic_handler;
@@ -32,7 +30,6 @@ mod plugin;
 mod plugin_group;
 mod schedule_runner;
 mod sub_app;
-#[cfg(feature = "bevy_tasks")]
 mod task_pool_plugin;
 #[cfg(all(any(unix, windows), feature = "std"))]
 mod terminal_ctrl_c_handler;
@@ -44,7 +41,6 @@ pub use plugin::*;
 pub use plugin_group::*;
 pub use schedule_runner::*;
 pub use sub_app::*;
-#[cfg(feature = "bevy_tasks")]
 pub use task_pool_plugin::*;
 #[cfg(all(any(unix, windows), feature = "std"))]
 pub use terminal_ctrl_c_handler::*;
@@ -62,10 +58,6 @@ pub mod prelude {
             RunFixedMainLoopSystem, SpawnScene, Startup, Update,
         },
         sub_app::SubApp,
-        Plugin, PluginGroup,
+        NonSendMarker, Plugin, PluginGroup, TaskPoolOptions, TaskPoolPlugin,
     };
-
-    #[cfg(feature = "bevy_tasks")]
-    #[doc(hidden)]
-    pub use crate::{NonSendMarker, TaskPoolOptions, TaskPoolPlugin};
 }

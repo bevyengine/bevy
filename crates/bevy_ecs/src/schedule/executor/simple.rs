@@ -8,6 +8,7 @@ use tracing::info_span;
 use std::eprintln;
 
 use crate::{
+    error::{BevyError, SystemErrorContext},
     schedule::{
         executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
@@ -43,6 +44,7 @@ impl SystemExecutor for SimpleExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
+        error_handler: fn(BevyError, SystemErrorContext),
     ) {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
@@ -104,17 +106,19 @@ impl SystemExecutor for SimpleExecutor {
             }
 
             let f = AssertUnwindSafe(|| {
-                // TODO: implement an error-handling API instead of panicking.
                 if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
-                    panic!(
-                        "Encountered an error in system `{}`: {:?}",
-                        &*system.name(),
-                        err
+                    error_handler(
+                        err,
+                        SystemErrorContext {
+                            name: system.name(),
+                            last_run: system.get_last_run(),
+                        },
                     );
                 }
             });
 
             #[cfg(feature = "std")]
+            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
                 if let Err(payload) = std::panic::catch_unwind(f) {
                     eprintln!("Encountered a panic in system `{}`!", &*system.name());
@@ -149,8 +153,10 @@ impl SimpleExecutor {
 }
 
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
-    // not short-circuiting is intentional
-    #[allow(clippy::unnecessary_fold)]
+    #[expect(
+        clippy::unnecessary_fold,
+        reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
+    )]
     conditions
         .iter_mut()
         .map(|condition| {

@@ -1,10 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -34,7 +29,7 @@ pub mod states;
 /// To enable developer tools, you can either:
 ///
 /// - Create a custom crate feature (e.g "`dev_mode`"), which enables the `bevy_dev_tools` feature
-///     along with any other development tools you might be using:
+///   along with any other development tools you might be using:
 ///
 /// ```toml
 /// [feature]

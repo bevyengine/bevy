@@ -7,7 +7,7 @@
 //! allows you to express more complex interactions, like detecting when a touch input drags a UI
 //! element and drops it on a 3d mesh rendered to a different camera.
 //!
-//! Pointer events bubble up the entity hieararchy and can be used with observers, allowing you to
+//! Pointer events bubble up the entity hierarchy and can be used with observers, allowing you to
 //! succinctly express rich interaction behaviors by attaching pointer callbacks to entities:
 //!
 //! ```rust
@@ -64,7 +64,7 @@
 //!             commands.entity(trigger.target()).despawn();
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Over>>, mut events: EventWriter<Greeting>| {
-//!             events.send(Greeting);
+//!             events.write(Greeting);
 //!         });
 //! }
 //! ```
@@ -155,11 +155,6 @@
 //! the plugin with arbitrary backends and input methods, yet still use all the high level features.
 
 #![deny(missing_docs)]
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 
 extern crate alloc;
 
@@ -392,6 +387,7 @@ impl Plugin for PickingPlugin {
             )
             .register_type::<Self>()
             .register_type::<Pickable>()
+            .register_type::<hover::PickingInteraction>()
             .register_type::<pointer::PointerId>()
             .register_type::<pointer::PointerLocation>()
             .register_type::<pointer::PointerPress>()
@@ -426,6 +422,7 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Out>>()
             .add_event::<Pointer<Over>>()
             .add_event::<Pointer<Released>>()
+            .add_event::<Pointer<Scroll>>()
             .add_systems(
                 PreUpdate,
                 (generate_hovermap, update_interactions, pointer_events)

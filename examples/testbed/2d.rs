@@ -2,9 +2,10 @@
 //!
 //! You can switch scene by pressing the spacebar
 
-#[cfg(feature = "bevy_ci_testing")]
-use bevy::dev_tools::ci_testing::CiTestingCustomEvent;
+mod helpers;
+
 use bevy::prelude::*;
+use helpers::Next;
 
 fn main() {
     let mut app = App::new();
@@ -15,6 +16,10 @@ fn main() {
         .add_systems(OnEnter(Scene::Text), text::setup)
         .add_systems(OnEnter(Scene::Sprite), sprite::setup)
         .add_systems(Update, switch_scene);
+
+    #[cfg(feature = "bevy_ci_testing")]
+    app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
+
     app.run();
 }
 
@@ -28,28 +33,25 @@ enum Scene {
     Sprite,
 }
 
-fn switch_scene(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    #[cfg(feature = "bevy_ci_testing")] mut ci_events: EventReader<CiTestingCustomEvent>,
-    scene: Res<State<Scene>>,
-    mut next_scene: ResMut<NextState<Scene>>,
-) {
-    let mut should_switch = false;
-    should_switch |= keyboard.just_pressed(KeyCode::Space);
-    #[cfg(feature = "bevy_ci_testing")]
-    {
-        should_switch |= ci_events.read().any(|event| match event {
-            CiTestingCustomEvent(event) => event == "switch_scene",
-        });
-    }
-    if should_switch {
-        info!("Switching scene");
-        next_scene.set(match scene.get() {
+impl Next for Scene {
+    fn next(&self) -> Self {
+        match self {
             Scene::Shapes => Scene::Bloom,
             Scene::Bloom => Scene::Text,
             Scene::Text => Scene::Sprite,
             Scene::Sprite => Scene::Shapes,
-        });
+        }
+    }
+}
+
+fn switch_scene(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    scene: Res<State<Scene>>,
+    mut next_scene: ResMut<NextState<Scene>>,
+) {
+    if keyboard.just_pressed(KeyCode::Space) {
+        info!("Switching scene");
+        next_scene.set(scene.get().next());
     }
 }
 
@@ -141,21 +143,114 @@ mod bloom {
 }
 
 mod text {
+    use bevy::color::palettes;
     use bevy::prelude::*;
+    use bevy::sprite::Anchor;
+    use bevy::text::TextBounds;
 
-    pub fn setup(mut commands: Commands) {
-        let text_font = TextFont {
-            font_size: 50.0,
-            ..default()
-        };
-        let text_justification = JustifyText::Center;
+    pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, StateScoped(super::Scene::Text)));
+
+        for (i, justify) in [
+            JustifyText::Left,
+            JustifyText::Right,
+            JustifyText::Center,
+            JustifyText::Justified,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let y = 230. - 150. * i as f32;
+            spawn_anchored_text(&mut commands, -300. * Vec3::X + y * Vec3::Y, justify, None);
+            spawn_anchored_text(
+                &mut commands,
+                300. * Vec3::X + y * Vec3::Y,
+                justify,
+                Some(TextBounds::new(150., 55.)),
+            );
+        }
+
+        let sans_serif = TextFont::from_font(asset_server.load("fonts/FiraSans-Bold.ttf"));
+
+        const NUM_ITERATIONS: usize = 10;
+        for i in 0..NUM_ITERATIONS {
+            let fraction = i as f32 / (NUM_ITERATIONS - 1) as f32;
+
+            commands.spawn((
+                Text2d::new("Bevy"),
+                sans_serif.clone(),
+                Transform::from_xyz(0.0, fraction * 200.0, i as f32)
+                    .with_scale(1.0 + Vec2::splat(fraction).extend(1.))
+                    .with_rotation(Quat::from_rotation_z(fraction * core::f32::consts::PI)),
+                TextColor(Color::hsla(fraction * 360.0, 0.8, 0.8, 0.8)),
+                StateScoped(super::Scene::Text),
+            ));
+        }
+
         commands.spawn((
-            Text2d::new("Hello World"),
-            text_font,
-            TextLayout::new_with_justify(text_justification),
+            Text2d::new("This text is invisible."),
+            Visibility::Hidden,
             StateScoped(super::Scene::Text),
         ));
+    }
+
+    fn spawn_anchored_text(
+        commands: &mut Commands,
+        dest: Vec3,
+        justify: JustifyText,
+        bounds: Option<TextBounds>,
+    ) {
+        commands.spawn((
+            Sprite {
+                color: palettes::css::YELLOW.into(),
+                custom_size: Some(5. * Vec2::ONE),
+                ..Default::default()
+            },
+            Transform::from_translation(dest),
+            StateScoped(super::Scene::Text),
+        ));
+
+        for anchor in [
+            Anchor::TopLeft,
+            Anchor::TopRight,
+            Anchor::BottomRight,
+            Anchor::BottomLeft,
+        ] {
+            let mut text = commands.spawn((
+                Text2d::new("L R\n"),
+                TextLayout::new_with_justify(justify),
+                Transform::from_translation(dest + Vec3::Z),
+                anchor,
+                StateScoped(super::Scene::Text),
+            ));
+            text.with_children(|parent| {
+                parent.spawn((
+                    TextSpan::new(format!("{anchor:?}\n")),
+                    TextFont::from_font_size(14.0),
+                    TextColor(palettes::tailwind::BLUE_400.into()),
+                ));
+                parent.spawn((
+                    TextSpan::new(format!("{justify:?}")),
+                    TextFont::from_font_size(14.0),
+                    TextColor(palettes::tailwind::GREEN_400.into()),
+                ));
+            });
+
+            if let Some(bounds) = bounds {
+                text.insert(bounds);
+
+                commands.spawn((
+                    Sprite {
+                        color: palettes::tailwind::GRAY_900.into(),
+                        custom_size: Some(Vec2::new(bounds.width.unwrap(), bounds.height.unwrap())),
+                        anchor,
+                        ..Default::default()
+                    },
+                    Transform::from_translation(dest - Vec3::Z),
+                    StateScoped(super::Scene::Text),
+                ));
+            }
+        }
     }
 }
 

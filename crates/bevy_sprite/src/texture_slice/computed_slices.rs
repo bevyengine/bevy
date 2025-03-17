@@ -5,7 +5,7 @@ use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{Rect, Vec2};
-use bevy_utils::HashSet;
+use bevy_platform_support::collections::HashSet;
 
 /// Component storing texture slices for tiled or sliced sprite entities
 ///
@@ -92,6 +92,9 @@ fn compute_sprite_slices(
         }
         SpriteImageMode::Auto => {
             unreachable!("Slices should not be computed for SpriteImageMode::Stretch")
+        }
+        SpriteImageMode::Scale(_) => {
+            unreachable!("Slices should not be computed for SpriteImageMode::Scale")
         }
     };
     Some(ComputedTextureSlices(slices))

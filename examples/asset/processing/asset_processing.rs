@@ -113,7 +113,10 @@ struct CoolTextRon {
 #[derive(Asset, TypePath, Debug)]
 struct CoolText {
     text: String,
-    #[allow(unused)]
+    #[expect(
+        dead_code,
+        reason = "Used to show that our assets can hold handles to other assets"
+    )]
     dependencies: Vec<Handle<Text>>,
 }
 
@@ -146,15 +149,15 @@ impl AssetLoader for CoolTextLoader {
         let ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
         let mut base_text = ron.text;
         for embedded in ron.embedded_dependencies {
-            let loaded = load_context
+            let complete_loaded = load_context
                 .loader()
                 .immediate()
                 .load::<Text>(&embedded)
                 .await?;
-            base_text.push_str(&loaded.get().0);
+            base_text.push_str(&complete_loaded.get_asset().get().0);
         }
         for (path, settings_override) in ron.dependencies_with_settings {
-            let loaded = load_context
+            let complete_loaded = load_context
                 .loader()
                 .with_settings(move |settings| {
                     *settings = settings_override.clone();
@@ -162,7 +165,7 @@ impl AssetLoader for CoolTextLoader {
                 .immediate()
                 .load::<Text>(&path)
                 .await?;
-            base_text.push_str(&loaded.get().0);
+            base_text.push_str(&complete_loaded.get_asset().get().0);
         }
         Ok(CoolText {
             text: base_text,

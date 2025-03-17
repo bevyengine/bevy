@@ -1,10 +1,4 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![forbid(unsafe_code)]
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -21,6 +15,7 @@ extern crate alloc;
 mod components;
 mod dynamic_scene;
 mod dynamic_scene_builder;
+mod reflect_utils;
 mod scene;
 mod scene_filter;
 mod scene_loader;
@@ -32,7 +27,7 @@ pub mod serde;
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy scenes.
 pub use bevy_asset::ron;
 
-use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_ecs::schedule::IntoScheduleConfigs;
 pub use components::*;
 pub use dynamic_scene::*;
 pub use dynamic_scene_builder::*;
@@ -73,31 +68,35 @@ impl Plugin for ScenePlugin {
         // Register component hooks for DynamicSceneRoot
         app.world_mut()
             .register_component_hooks::<DynamicSceneRoot>()
-            .on_remove(|mut world, entity, _| {
-                let Some(handle) = world.get::<DynamicSceneRoot>(entity) else {
+            .on_remove(|mut world, context| {
+                let Some(handle) = world.get::<DynamicSceneRoot>(context.entity) else {
                     return;
                 };
                 let id = handle.id();
-                if let Some(&SceneInstance(scene_instance)) = world.get::<SceneInstance>(entity) {
+                if let Some(&SceneInstance(scene_instance)) =
+                    world.get::<SceneInstance>(context.entity)
+                {
                     let Some(mut scene_spawner) = world.get_resource_mut::<SceneSpawner>() else {
                         return;
                     };
                     if let Some(instance_ids) = scene_spawner.spawned_dynamic_scenes.get_mut(&id) {
                         instance_ids.remove(&scene_instance);
                     }
-                    scene_spawner.despawn_instance(scene_instance);
+                    scene_spawner.unregister_instance(scene_instance);
                 }
             });
 
         // Register component hooks for SceneRoot
         app.world_mut()
             .register_component_hooks::<SceneRoot>()
-            .on_remove(|mut world, entity, _| {
-                if let Some(&SceneInstance(scene_instance)) = world.get::<SceneInstance>(entity) {
+            .on_remove(|mut world, context| {
+                if let Some(&SceneInstance(scene_instance)) =
+                    world.get::<SceneInstance>(context.entity)
+                {
                     let Some(mut scene_spawner) = world.get_resource_mut::<SceneSpawner>() else {
                         return;
                     };
-                    scene_spawner.despawn_instance(scene_instance);
+                    scene_spawner.unregister_instance(scene_instance);
                 }
             });
     }

@@ -17,6 +17,8 @@ use {
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
+use crate::VideoMode;
+
 /// Marker [`Component`] for the window considered the primary window.
 ///
 /// Currently this is assumed to only exist on 1 entity at a time.
@@ -127,11 +129,12 @@ impl EntityBorrow for NormalizedWindowRef {
 /// ```
 /// # use bevy_ecs::query::With;
 /// # use bevy_ecs::system::Query;
-/// # use bevy_window::{WindowMode, PrimaryWindow, Window, MonitorSelection};
+/// # use bevy_window::{WindowMode, PrimaryWindow, Window, MonitorSelection, VideoModeSelection};
 /// fn change_window_mode(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
 ///     // Query returns one window typically.
 ///     for mut window in windows.iter_mut() {
-///         window.mode = WindowMode::Fullscreen(MonitorSelection::Current);
+///         window.mode =
+///             WindowMode::Fullscreen(MonitorSelection::Current, VideoModeSelection::Current);
 ///     }
 /// }
 /// ```
@@ -291,6 +294,15 @@ pub struct Window {
     ///
     /// - Only supported on Windows.
     pub skip_taskbar: bool,
+    /// Sets whether the window should draw over its child windows.
+    ///
+    /// If `true`, the window excludes drawing over areas obscured by child windows.
+    /// If `false`, the window can draw over child windows.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only supported on Windows.
+    pub clip_children: bool,
     /// Optional hint given to the rendering API regarding the maximum number of queued frames admissible on the GPU.
     ///
     /// Given values are usually within the 1-3 range. If not provided, this will default to 2.
@@ -451,6 +463,7 @@ impl Default for Window {
             window_theme: None,
             visible: true,
             skip_taskbar: false,
+            clip_children: true,
             desired_maximum_frame_latency: None,
             recognize_pinch_gesture: false,
             recognize_rotation_gesture: false,
@@ -653,7 +666,7 @@ impl WindowResizeConstraints {
     /// Will output warnings if it isn't.
     #[must_use]
     pub fn check_constraints(&self) -> Self {
-        let WindowResizeConstraints {
+        let &WindowResizeConstraints {
             mut min_width,
             mut min_height,
             mut max_width,
@@ -698,7 +711,7 @@ pub struct CursorOptions {
     /// ## Platform-specific
     ///
     /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window.
-    ///     To stop the cursor from leaving the window, change [`CursorOptions::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
+    ///   To stop the cursor from leaving the window, change [`CursorOptions::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
     /// - **`macOS`**: The cursor is hidden only when the window is focused.
     /// - **`iOS`** and **`Android`** do not have cursors
     pub visible: bool,
@@ -782,14 +795,14 @@ impl WindowPosition {
 ///
 /// There are three sizes associated with a window:
 /// - the physical size,
-///     which represents the actual height and width in physical pixels
-///     the window occupies on the monitor,
+///   which represents the actual height and width in physical pixels
+///   the window occupies on the monitor,
 /// - the logical size,
-///     which represents the size that should be used to scale elements
-///     inside the window, measured in logical pixels,
+///   which represents the size that should be used to scale elements
+///   inside the window, measured in logical pixels,
 /// - the requested size,
-///     measured in logical pixels, which is the value submitted
-///     to the API when creating the window, or requesting that it be resized.
+///   measured in logical pixels, which is the value submitted
+///   to the API when creating the window, or requesting that it be resized.
 ///
 /// ## Scale factor
 ///
@@ -1113,6 +1126,24 @@ pub enum MonitorSelection {
     Entity(Entity),
 }
 
+/// References an exclusive fullscreen video mode.
+///
+/// Used when setting [`WindowMode::Fullscreen`] on a window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq)]
+pub enum VideoModeSelection {
+    /// Uses the video mode that the monitor is already in.
+    Current,
+    /// Uses a given [`crate::monitor::VideoMode`]. A list of video modes supported by the monitor
+    /// is supplied by [`crate::monitor::Monitor::video_modes`].
+    Specific(VideoMode),
+}
+
 /// Presentation mode for a [`Window`].
 ///
 /// The presentation mode specifies when a frame is presented to the window. The [`Fifo`]
@@ -1276,28 +1307,15 @@ pub enum WindowMode {
     /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
     /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
     BorderlessFullscreen(MonitorSelection),
-    /// The window should be in "true"/"legacy" Fullscreen mode on the given [`MonitorSelection`].
+    /// The window should be in "true"/"legacy"/"exclusive" Fullscreen mode on the given [`MonitorSelection`].
     ///
-    /// When setting this, the operating system will be requested to use the
-    /// **closest** resolution available for the current monitor to match as
-    /// closely as possible the window's physical size.
-    /// After that, the window's physical size will be modified to match
-    /// that monitor resolution, and the logical size will follow based on the
-    /// scale factor, see [`WindowResolution`].
-    SizedFullscreen(MonitorSelection),
-    /// The window should be in "true"/"legacy" Fullscreen mode on the given [`MonitorSelection`].
-    ///
-    /// When setting this, the operating system will be requested to use the
-    /// **biggest** resolution available for the current monitor.
-    /// After that, the window's physical size will be modified to match
-    /// that monitor resolution, and the logical size will follow based on the
-    /// scale factor, see [`WindowResolution`].
+    /// The resolution, refresh rate, and bit depth are selected based on the given [`VideoModeSelection`].
     ///
     /// Note: As this mode respects the scale factor provided by the operating system,
     /// the window's logical size may be different from its physical size.
     /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
     /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
-    Fullscreen(MonitorSelection),
+    Fullscreen(MonitorSelection, VideoModeSelection),
 }
 
 /// Specifies where a [`Window`] should appear relative to other overlapping windows (on top or under) .

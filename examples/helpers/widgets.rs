@@ -1,4 +1,6 @@
 //! Simple widgets for example UI.
+//!
+//! Unlike other examples, which demonstrate an application, this demonstrates a plugin library.
 
 use bevy::{ecs::system::EntityCommands, prelude::*};
 
@@ -22,6 +24,18 @@ pub struct RadioButton;
 #[derive(Clone, Copy, Component)]
 pub struct RadioButtonText;
 
+/// The size of the border that surrounds buttons.
+pub const BUTTON_BORDER: UiRect = UiRect::all(Val::Px(1.0));
+
+/// The color of the border that surrounds buttons.
+pub const BUTTON_BORDER_COLOR: BorderColor = BorderColor(Color::WHITE);
+
+/// The amount of rounding to apply to button corners.
+pub const BUTTON_BORDER_RADIUS_SIZE: Val = Val::Px(6.0);
+
+/// The amount of space between the edge of the button and its label.
+pub const BUTTON_PADDING: UiRect = UiRect::axes(Val::Px(12.0), Val::Px(6.0));
+
 /// Returns a [`Node`] appropriate for the outer main UI node.
 ///
 /// This UI is in the bottom left corner and has flex column support
@@ -41,7 +55,7 @@ pub fn main_ui_node() -> Node {
 /// The type parameter specifies the value that will be packaged up and sent in
 /// a [`WidgetClickEvent`] when the radio button is clicked.
 pub fn spawn_option_button<T>(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     option_value: T,
     option_name: &str,
     is_selected: bool,
@@ -61,20 +75,24 @@ pub fn spawn_option_button<T>(
         .spawn((
             Button,
             Node {
-                border: UiRect::all(Val::Px(1.0)).with_left(if is_first {
-                    Val::Px(1.0)
+                border: BUTTON_BORDER.with_left(if is_first { Val::Px(1.0) } else { Val::Px(0.0) }),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                padding: BUTTON_PADDING,
+                ..default()
+            },
+            BUTTON_BORDER_COLOR,
+            BorderRadius::ZERO
+                .with_left(if is_first {
+                    BUTTON_BORDER_RADIUS_SIZE
+                } else {
+                    Val::Px(0.0)
+                })
+                .with_right(if is_last {
+                    BUTTON_BORDER_RADIUS_SIZE
                 } else {
                     Val::Px(0.0)
                 }),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                ..default()
-            },
-            BorderColor(Color::WHITE),
-            BorderRadius::ZERO
-                .with_left(if is_first { Val::Px(6.0) } else { Val::Px(0.0) })
-                .with_right(if is_last { Val::Px(6.0) } else { Val::Px(0.0) }),
             BackgroundColor(bg_color),
         ))
         .insert(RadioButton)
@@ -91,8 +109,11 @@ pub fn spawn_option_button<T>(
 /// The user may change the setting to any one of the labeled `options`. The
 /// value of the given type parameter will be packaged up and sent as a
 /// [`WidgetClickEvent`] when one of the radio buttons is clicked.
-pub fn spawn_option_buttons<T>(parent: &mut ChildBuilder, title: &str, options: &[(T, &str)])
-where
+pub fn spawn_option_buttons<T>(
+    parent: &mut ChildSpawnerCommands,
+    title: &str,
+    options: &[(T, &str)],
+) where
     T: Clone + Send + Sync + 'static,
 {
     // Add the parent node for the row.
@@ -125,7 +146,7 @@ where
 /// Returns the `EntityCommands`, which allow further customization of the text
 /// style.
 pub fn spawn_ui_text<'a>(
-    parent: &'a mut ChildBuilder,
+    parent: &'a mut ChildSpawnerCommands,
     label: &str,
     color: Color,
 ) -> EntityCommands<'a> {
@@ -152,7 +173,7 @@ pub fn handle_ui_interactions<T>(
 {
     for (interaction, click_event) in interactions.iter_mut() {
         if *interaction == Interaction::Pressed {
-            widget_click_events.send(WidgetClickEvent((**click_event).clone()));
+            widget_click_events.write(WidgetClickEvent((**click_event).clone()));
         }
     }
 }

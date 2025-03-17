@@ -8,7 +8,6 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::prelude::*;
 use bevy_utils::once;
 use cosmic_text::{Buffer, Metrics};
@@ -87,6 +86,16 @@ impl ComputedTextBlock {
     pub fn needs_rerender(&self) -> bool {
         self.needs_rerender
     }
+    /// Accesses the underlying buffer which can be used for `cosmic-text` APIs such as accessing layout information
+    /// or calculating a cursor position.
+    ///
+    /// Mutable access is not offered because changes would be overwritten during the automated layout calculation.
+    /// If you want to control the buffer contents manually or use the `cosmic-text`
+    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
+    /// `TextLayoutInfo`.
+    pub fn buffer(&self) -> &CosmicBuffer {
+        &self.buffer
+    }
 }
 
 impl Default for ComputedTextBlock {
@@ -159,7 +168,10 @@ impl TextLayout {
     }
 }
 
-/// A span of UI text in a tree of spans under an entity with [`TextLayout`] and `Text` or `Text2d`.
+/// A span of text in a tree of spans.
+///
+/// `TextSpan` is only valid as a child of an entity with [`TextLayout`], which is provided by `Text`
+/// for text in `bevy_ui` or `Text2d` for text in 2d world-space.
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
 ///
@@ -169,12 +181,13 @@ impl TextLayout {
 /// # use bevy_color::palettes::basic::{RED, BLUE};
 /// # use bevy_ecs::world::World;
 /// # use bevy_text::{Font, TextLayout, TextFont, TextSpan, TextColor};
-/// # use bevy_hierarchy::BuildChildren;
 ///
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
 /// #
 /// world.spawn((
+///     // `Text` or `Text2d` are needed, and will provide default instances
+///     // of the following components.
 ///     TextLayout::default(),
 ///     TextFont {
 ///         font: font_handle.clone().into(),
@@ -184,6 +197,7 @@ impl TextLayout {
 ///     TextColor(BLUE.into()),
 /// ))
 /// .with_child((
+///     // Children must be `TextSpan`, not `Text` or `Text2d`.
 ///     TextSpan::new("Hello!"),
 ///     TextFont {
 ///         font: font_handle.into(),
@@ -370,8 +384,8 @@ impl Default for LineHeight {
 }
 
 /// The color of the text for this section.
-#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct TextColor(pub Color);
 
 impl Default for TextColor {
@@ -457,13 +471,13 @@ pub fn detect_text_needs_rerender<Root: Component>(
         ),
     >,
     changed_spans: Query<
-        (Entity, Option<&Parent>, Has<TextLayout>),
+        (Entity, Option<&ChildOf>, Has<TextLayout>),
         (
             Or<(
                 Changed<TextSpan>,
                 Changed<TextFont>,
                 Changed<Children>,
-                Changed<Parent>, // Included to detect broken text block hierarchies.
+                Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,
             )>,
             With<TextSpan>,
@@ -471,7 +485,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
         ),
     >,
     mut computed: Query<(
-        Option<&Parent>,
+        Option<&ChildOf>,
         Option<&mut ComputedTextBlock>,
         Has<TextSpan>,
     )>,
@@ -494,14 +508,14 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - Span component changed.
     // - Span TextFont changed.
     // - Span children changed (can include additions and removals).
-    for (entity, maybe_span_parent, has_text_block) in changed_spans.iter() {
+    for (entity, maybe_span_child_of, has_text_block) in changed_spans.iter() {
         if has_text_block {
             once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
                 text entities (that have {}); this warning only prints once",
                 entity, core::any::type_name::<Root>()));
         }
 
-        let Some(span_parent) = maybe_span_parent else {
+        let Some(span_child_of) = maybe_span_child_of else {
             once!(warn!(
                 "found entity {} with a TextSpan that has no parent; it should have an ancestor \
                 with a root text component ({}); this warning only prints once",
@@ -510,14 +524,14 @@ pub fn detect_text_needs_rerender<Root: Component>(
             ));
             continue;
         };
-        let mut parent: Entity = **span_parent;
+        let mut parent: Entity = span_child_of.parent;
 
         // Search for the nearest ancestor with ComputedTextBlock.
         // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
         // is outweighed by the expense of tracking visited spans.
         loop {
-            let Ok((maybe_parent, maybe_computed, has_span)) = computed.get_mut(parent) else {
-                once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a Parent \
+            let Ok((maybe_child_of, maybe_computed, has_span)) = computed.get_mut(parent) else {
+                once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a ChildOf \
                     component that points at non-existent entity {}; this warning only prints once",
                     entity, parent));
                 break;
@@ -532,7 +546,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                     entity, parent));
                 break;
             }
-            let Some(next_parent) = maybe_parent else {
+            let Some(next_child_of) = maybe_child_of else {
                 once!(warn!(
                     "found entity {} with a TextSpan that has no ancestor with the root text \
                     component ({}); this warning only prints once",
@@ -541,7 +555,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 ));
                 break;
             };
-            parent = **next_parent;
+            parent = next_child_of.parent;
         }
     }
 }

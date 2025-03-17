@@ -1,7 +1,5 @@
 //! A module adding debug visualization of [`Aabb`]s.
 
-use crate as bevy_gizmos;
-
 use bevy_app::{Plugin, PostUpdate};
 use bevy_color::{Color, Oklcha};
 use bevy_ecs::{
@@ -9,7 +7,7 @@ use bevy_ecs::{
     entity::Entity,
     query::Without,
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};

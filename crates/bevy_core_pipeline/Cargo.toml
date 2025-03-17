@@ -1,7 +1,7 @@
 [package]
 name = "bevy_core_pipeline"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 authors = [
   "Bevy Contributors <bevyengine@gmail.com>",
   "Carter Anderson <mcanders1@gmail.com>",
@@ -35,6 +35,10 @@ bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "std",
+  "serialize",
+] }
 
 serde = { version = "1", features = ["derive"] }
 bitflags = "2.3"
@@ -43,6 +47,7 @@ nonmax = "0.5"
 smallvec = "1"
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+bytemuck = { version = "1" }
 
 [lints]
 workspace = true

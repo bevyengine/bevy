@@ -51,6 +51,7 @@ git checkout v0.4.0
   - [ECS (Entity Component System)](#ecs-entity-component-system)
   - [Games](#games)
   - [Gizmos](#gizmos)
+  - [Helpers](#helpers)
   - [Input](#input)
   - [Math](#math)
   - [Movement](#movement)
@@ -103,10 +104,9 @@ Example | Description
 Example | Description
 --- | ---
 [2D Bloom](../examples/2d/bloom_2d.rs) | Illustrates bloom post-processing in 2d
-[2D Bounding Volume Intersections](../examples/2d/bounding_2d.rs) | Showcases bounding volumes and intersection tests
 [2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 [2D Shapes](../examples/2d/2d_shapes.rs) | Renders simple 2D primitive shapes like circles and polygons
-[2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method
+[2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera.
 [2D Wireframe](../examples/2d/wireframe_2d.rs) | Showcases wireframes for 2d meshes
 [Arc 2D Meshes](../examples/2d/mesh2d_arcs.rs) | Demonstrates UV-mapping of the circular segment and sector primitives
 [CPU Drawing](../examples/2d/cpu_draw.rs) | Manually read/write the pixels of a texture
@@ -115,11 +115,13 @@ Example | Description
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
 [Mesh2d Alpha Mode](../examples/2d/mesh2d_alpha_mode.rs) | Used to test alpha modes with mesh2d
+[Mesh2d Repeated Texture](../examples/2d/mesh2d_repeated_texture.rs) | Showcase of using `uv_transform` on the `ColorMaterial` of a `Mesh2d`
 [Move Sprite](../examples/2d/move_sprite.rs) | Changes the transform of a sprite
 [Pixel Grid Snapping](../examples/2d/pixel_grid_snap.rs) | Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
 [Sprite Animation](../examples/2d/sprite_animation.rs) | Animates a sprite in response to an event
 [Sprite Flipping](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
+[Sprite Scale](../examples/2d/sprite_scale.rs) | Shows how a sprite can be scaled into a rectangle while keeping the aspect ratio
 [Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
 [Sprite Slice](../examples/2d/sprite_slice.rs) | Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique
 [Sprite Tile](../examples/2d/sprite_tile.rs) | Renders a sprite tiled in a grid
@@ -138,15 +140,19 @@ Example | Description
 [Animated Material](../examples/3d/animated_material.rs) | Shows how to animate material properties
 [Anisotropy](../examples/3d/anisotropy.rs) | Displays an example model with anisotropy
 [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
+[Atmosphere](../examples/3d/atmosphere.rs) | A scene showcasing pbr atmospheric scattering
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
 [Built-in postprocessing](../examples/3d/post_processing.rs) | Demonstrates the built-in postprocessing features
 [Camera sub view](../examples/3d/camera_sub_view.rs) | Demonstrates using different sub view effects on a camera
 [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
+[Clustered Decals](../examples/3d/clustered_decals.rs) | Demonstrates clustered decals
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
+[Decal](../examples/3d/decal.rs) | Decal rendering
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
 [Depth of field](../examples/3d/depth_of_field.rs) | Demonstrates depth of field
+[Edit Gltf Material](../examples/3d/edit_material_on_gltf.rs) | Showcases changing materials of a Gltf after Scene spawn
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Fog volumes](../examples/3d/fog_volumes.rs) | Demonstrates fog volumes
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
@@ -160,6 +166,7 @@ Example | Description
 [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
 [Mixed lighting](../examples/3d/mixed_lighting.rs) | Demonstrates how to combine baked and dynamic lighting
 [Motion Blur](../examples/3d/motion_blur.rs) | Demonstrates per-pixel motion blur
+[Occlusion Culling](../examples/3d/occlusion_culling.rs) | Demonstration of Occlusion Culling
 [Order Independent Transparency](../examples/3d/order_independent_transparency.rs) | Demonstrates how to use OIT
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
 [Parallax Mapping](../examples/3d/parallax_mapping.rs) | Demonstrates use of a normal map and depth map for parallax mapping
@@ -176,6 +183,7 @@ Example | Description
 [Shadow Biases](../examples/3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 [Shadow Caster and Receiver](../examples/3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
 [Skybox](../examples/3d/skybox.rs) | Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats.
+[Specular Tint](../examples/3d/specular_tint.rs) | Demonstrates specular tints and maps
 [Spherical Area Lights](../examples/3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior
 [Split Screen](../examples/3d/split_screen.rs) | Demonstrates how to render two cameras to the same window to accomplish "split screen"
 [Spotlight](../examples/3d/spotlight.rs) | Illustrates spot lights
@@ -244,7 +252,7 @@ Example | Description
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
-[Mult-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
+[Multi-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
 [Repeated texture configuration](../examples/asset/repeated_texture.rs) | How to configure the texture to repeat instead of the default clamp to edges
 
 ## Async Tasks
@@ -301,6 +309,7 @@ Example | Description
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
+[Entity disabling](../examples/ecs/entity_disabling.rs) | Demonstrates how to hide entities from the ECS without deleting them
 [Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception
 [Fallible System Parameters](../examples/ecs/fallible_params.rs) | Systems are skipped if their parameters cannot be acquired
 [Fallible Systems](../examples/ecs/fallible_systems.rs) | Systems that return results to handle errors
@@ -314,6 +323,7 @@ Example | Description
 [Observers](../examples/ecs/observers.rs) | Demonstrates observers that react to events (both built-in life-cycle events and custom events)
 [One Shot Systems](../examples/ecs/one_shot_systems.rs) | Shows how to flexibly run systems without scheduling them
 [Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
+[Relationships](../examples/ecs/relationships.rs) | Define and work with custom relationships between entities
 [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed earlier in the current frame
 [Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met
 [Send and receive events](../examples/ecs/send_and_receive_events.rs) | Demonstrates how to send and receive events of the same type in a single system
@@ -343,6 +353,13 @@ Example | Description
 [Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
 [Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
 
+## Helpers
+
+Example | Description
+--- | ---
+[Camera Controller](../examples/helpers/camera_controller.rs) | Example Free-Cam Styled Camera Controller
+[Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
+
 ## Input
 
 Example | Description
@@ -365,6 +382,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Bounding Volume Intersections (2D)](../examples/math/bounding_2d.rs) | Showcases bounding volumes and intersection tests
 [Cubic Splines](../examples/math/cubic_splines.rs) | Exhibits different modes of constructing cubic curves using splines
 [Custom Primitives](../examples/math/custom_primitives.rs) | Demonstrates how to add custom primitives and useful traits for them.
 [Random Sampling](../examples/math/random_sampling.rs) | Demonstrates how to sample random points from mathematical primitives
@@ -425,6 +443,7 @@ Example | Description
 [Animated](../examples/shader/animate_shader.rs) | A shader that uses dynamic data like the time since startup
 [Array Texture](../examples/shader/array_texture.rs) | A shader that shows how to reuse the core bevy PBR shading functionality in a custom material that obtains the base color from an array texture.
 [Compute - Game of Life](../examples/shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life
+[Custom Render Phase](../examples/shader/custom_render_phase.rs) | Shows how to make a complete render phase
 [Custom Vertex Attribute](../examples/shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute
 [Custom phase item](../examples/shader/custom_phase_item.rs) | Demonstrates how to enqueue custom draw commands in a render phase
 [Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
@@ -436,6 +455,7 @@ Example | Description
 [Material - Bindless](../examples/shader/shader_material_bindless.rs) | Demonstrates how to make materials that use bindless textures
 [Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
 [Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates
+[Material - WESL](../examples/shader/shader_material_wesl.rs) | A shader that uses WESL
 [Material Prepass](../examples/shader/shader_prepass.rs) | A shader that uses the various textures generated by the prepass
 [Post Processing - Custom Render Pass](../examples/shader/custom_post_processing.rs) | A custom post processing effect, using a custom render pass that runs after the main pass
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
@@ -465,6 +485,7 @@ cargo run --release --example <example name>
 Example | Description
 --- | ---
 [Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
+[Many Animated Materials](../examples/stress_tests/many_materials.rs) | Benchmark to test rendering many animated materials
 [Many Animated Sprites](../examples/stress_tests/many_animated_sprites.rs) | Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing.
 [Many Buttons](../examples/stress_tests/many_buttons.rs) | Test rendering of many UI elements
 [Many Cameras & Lights](../examples/stress_tests/many_cameras_lights.rs) | Test rendering of many cameras and lights
@@ -544,6 +565,7 @@ Example | Description
 Example | Description
 --- | ---
 [Clear Color](../examples/window/clear_color.rs) | Creates a solid color window
+[Custom Cursor Image](../examples/window/custom_cursor_image.rs) | Demonstrates creating an animated custom cursor from an image
 [Custom User Event](../examples/window/custom_user_event.rs) | Handles custom user events within the event loop
 [Low Power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 [Monitor info](../examples/window/monitor_info.rs) | Displays information about available monitors (displays).

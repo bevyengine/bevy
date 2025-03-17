@@ -1,8 +1,8 @@
 use core::{fmt::Write, hint::black_box, iter, time::Duration};
 
 use benches::bench;
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{DynamicMap, Map};
-use bevy_utils::HashMap;
 use criterion::{
     criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId,
     Criterion, PlotConfiguration, Throughput,
@@ -108,7 +108,7 @@ fn concrete_map_apply(criterion: &mut Criterion) {
     );
 
     map_apply(&mut group, "empty_base_dynamic_patch", empty_base, |size| {
-        key_range_patch(size).clone_dynamic()
+        key_range_patch(size).to_dynamic_map()
     });
 
     map_apply(
@@ -122,7 +122,7 @@ fn concrete_map_apply(criterion: &mut Criterion) {
         &mut group,
         "same_keys_dynamic_patch",
         key_range_base,
-        |size| key_range_patch(size).clone_dynamic(),
+        |size| key_range_patch(size).to_dynamic_map(),
     );
 
     map_apply(
@@ -136,7 +136,7 @@ fn concrete_map_apply(criterion: &mut Criterion) {
         &mut group,
         "disjoint_keys_dynamic_patch",
         key_range_base,
-        |size| disjoint_patch(size).clone_dynamic(),
+        |size| disjoint_patch(size).to_dynamic_map(),
     );
 }
 
@@ -145,7 +145,7 @@ fn u64_to_n_byte_key(k: u64, n: usize) -> String {
     write!(&mut key, "{}", k).unwrap();
 
     // Pad key to n bytes.
-    key.extend(iter::repeat('\0').take(n - key.len()));
+    key.extend(iter::repeat_n('\0', n - key.len()));
     key
 }
 
@@ -159,7 +159,7 @@ fn dynamic_map_apply(criterion: &mut Criterion) {
             (0..size as u64)
                 .zip(iter::repeat(0))
                 .collect::<HashMap<u64, u64>>()
-                .clone_dynamic()
+                .to_dynamic_map()
         }
     };
 
@@ -183,7 +183,7 @@ fn dynamic_map_apply(criterion: &mut Criterion) {
     );
 
     map_apply(&mut group, "empty_base_dynamic_patch", empty_base, |size| {
-        key_range_patch(size).clone_dynamic()
+        key_range_patch(size).to_dynamic_map()
     });
 
     map_apply(
@@ -197,7 +197,7 @@ fn dynamic_map_apply(criterion: &mut Criterion) {
         &mut group,
         "same_keys_dynamic_patch",
         key_range_base,
-        |size| key_range_patch(size).clone_dynamic(),
+        |size| key_range_patch(size).to_dynamic_map(),
     );
 
     map_apply(
@@ -211,7 +211,7 @@ fn dynamic_map_apply(criterion: &mut Criterion) {
         &mut group,
         "disjoint_keys_dynamic_patch",
         key_range_base,
-        |size| disjoint_patch(size).clone_dynamic(),
+        |size| disjoint_patch(size).to_dynamic_map(),
     );
 }
 

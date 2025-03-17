@@ -7,10 +7,10 @@ use crate::{
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::entity::hash_set::EntityHashSet;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     prelude::{ReflectComponent, With},
     query::{Changed, Without},
@@ -19,7 +19,7 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::sync_world::TemporaryRenderEntity;
+use bevy_render::sync_world::{RenderEntity, TemporaryRenderEntity};
 use bevy_render::view::{self, Visibility, VisibilityClass};
 use bevy_render::{
     primitives::Aabb,
@@ -49,7 +49,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor};
+/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor, TextSpan};
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -73,6 +73,12 @@ use bevy_window::{PrimaryWindow, Window};
 ///     Text2d::new("hello world\nand bevy!"),
 ///     TextLayout::new_with_justify(JustifyText::Center)
 /// ));
+///
+/// // With spans
+/// world.spawn(Text2d::new("hello ")).with_children(|parent| {
+///     parent.spawn(TextSpan::new("world"));
+///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+/// });
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
@@ -135,9 +141,11 @@ pub fn extract_text2d_sprite(
     text2d_query: Extract<
         Query<(
             Entity,
+            RenderEntity,
             &ViewVisibility,
             &ComputedTextBlock,
             &TextLayoutInfo,
+            &TextBounds,
             &Anchor,
             &GlobalTransform,
         )>,
@@ -149,16 +157,18 @@ pub fn extract_text2d_sprite(
 
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
-        .get_single()
+        .single()
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
 
     for (
-        original_entity,
+        main_entity,
+        render_entity,
         view_visibility,
         computed_block,
         text_layout_info,
+        text_bounds,
         anchor,
         global_transform,
     ) in text2d_query.iter()
@@ -167,15 +177,16 @@ pub fn extract_text2d_sprite(
             continue;
         }
 
-        let text_anchor = -(anchor.as_vec() + 0.5);
-        let alignment_translation = text_layout_info.size * text_anchor;
-        let transform = *global_transform
-            * GlobalTransform::from_translation(alignment_translation.extend(0.))
-            * scaling;
+        let size = Vec2::new(
+            text_bounds.width.unwrap_or(text_layout_info.size.x),
+            text_bounds.height.unwrap_or(text_layout_info.size.y),
+        );
+        let bottom_left =
+            -(anchor.as_vec() + 0.5) * size + (size.y - text_layout_info.size.y) * Vec2::Y;
+        let transform =
+            *global_transform * GlobalTransform::from_translation(bottom_left.extend(0.)) * scaling;
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
-
-        let mut entities_iter = computed_block.entities.iter();
 
         for (
             i,
@@ -214,25 +225,19 @@ pub fn extract_text2d_sprite(
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
                 info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
             }) {
-                let render_entity = commands.spawn(TemporaryRenderEntity).id();
                 extracted_sprites.sprites.insert(
-                    entities_iter
-                        .next()
-                        .map(|t| t.entity)
-                        .unwrap_or_else(|| render_entity)
-                        .into(),
+                    (render_entity, main_entity.into()),
                     ExtractedSprite {
                         transform,
                         color,
-                        rect: None,
                         custom_size: None,
                         image_handle_id: atlas_info.texture.id(),
                         flip_x: false,
                         flip_y: false,
                         anchor: Anchor::Center.as_vec(),
-                        original_entity: Some(original_entity),
-                        render_entity,
-                        slice_indices: start..end,
+                        kind: bevy_sprite::ExtractedSpriteKind::Slices {
+                            indices: start..end,
+                        },
                     },
                 );
                 start = end;
@@ -273,7 +278,7 @@ pub fn update_text2d_layout(
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
-        .get_single()
+        .single()
         .ok()
         .map(|window| window.resolution.scale_factor())
         .or(*last_scale_factor)
@@ -348,16 +353,27 @@ pub fn scale_value(value: f32, factor: f32) -> f32 {
 pub fn calculate_bounds_text2d(
     mut commands: Commands,
     mut text_to_update_aabb: Query<
-        (Entity, &TextLayoutInfo, &Anchor, Option<&mut Aabb>),
+        (
+            Entity,
+            &TextLayoutInfo,
+            &Anchor,
+            &TextBounds,
+            Option<&mut Aabb>,
+        ),
         (Changed<TextLayoutInfo>, Without<NoFrustumCulling>),
     >,
 ) {
-    for (entity, layout_info, anchor, aabb) in &mut text_to_update_aabb {
-        // `Anchor::as_vec` gives us an offset relative to the text2d bounds, by negating it and scaling
-        // by the logical size we compensate the transform offset in local space to get the center.
-        let center = (-anchor.as_vec() * layout_info.size).extend(0.0).into();
-        // Distance in local space from the center to the x and y limits of the text2d bounds.
-        let half_extents = (layout_info.size / 2.0).extend(0.0).into();
+    for (entity, layout_info, anchor, text_bounds, aabb) in &mut text_to_update_aabb {
+        let size = Vec2::new(
+            text_bounds.width.unwrap_or(layout_info.size.x),
+            text_bounds.height.unwrap_or(layout_info.size.y),
+        );
+        let center = (-anchor.as_vec() * size + (size.y - layout_info.size.y) * Vec2::Y)
+            .extend(0.)
+            .into();
+
+        let half_extents = (0.5 * layout_info.size).extend(0.0).into();
+
         if let Some(mut aabb) = aabb {
             *aabb = Aabb {
                 center,
@@ -377,7 +393,7 @@ mod tests {
 
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
 
     use crate::{detect_text_needs_rerender, TextIterScratch};
 

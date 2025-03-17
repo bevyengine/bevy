@@ -1,15 +1,15 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     event::{Event, EventCursor, Events},
+    hierarchy::ChildOf,
     reflect::AppTypeRegistry,
-    system::Resource,
+    resource::Resource,
     world::{Mut, World},
 };
-use bevy_hierarchy::{BuildChildren, DespawnRecursiveExt, Parent};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_reflect::Reflect;
-use bevy_utils::{HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -179,8 +179,17 @@ impl SceneSpawner {
     }
 
     /// Schedule the despawn of a scene instance, removing all its entities from the world.
+    ///
+    /// Note: this will despawn _all_ entities associated with this instance, including those
+    /// that have been removed from the scene hierarchy. To despawn _only_ entities still in the hierarchy,
+    /// despawn the relevant root entity directly.
     pub fn despawn_instance(&mut self, instance_id: InstanceId) {
         self.instances_to_despawn.push(instance_id);
+    }
+
+    /// This will remove all records of this instance, without despawning any entities.
+    pub fn unregister_instance(&mut self, instance_id: InstanceId) {
+        self.spawned_instances.remove(&instance_id);
     }
 
     /// Immediately despawns all instances of a dynamic scene.
@@ -201,9 +210,8 @@ impl SceneSpawner {
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
         if let Some(instance) = self.spawned_instances.remove(instance_id) {
             for &entity in instance.entity_map.values() {
-                if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
-                    entity_mut.remove_parent();
-                    entity_mut.despawn_recursive();
+                if let Ok(entity_mut) = world.get_entity_mut(entity) {
+                    entity_mut.despawn();
                 };
             }
         }
@@ -378,7 +386,7 @@ impl SceneSpawner {
         for (instance_id, parent) in scenes_with_parent {
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
                 for &entity in instance.entity_map.values() {
-                    // Add the `Parent` component to the scene root, and update the `Children` component of
+                    // Add the `ChildOf` component to the scene root, and update the `Children` component of
                     // the scene parent
                     if !world
                         .get_entity(entity)
@@ -387,7 +395,7 @@ impl SceneSpawner {
                         // scene have a parent
                         // Entities that wouldn't exist anymore are also skipped
                         // this case shouldn't happen anyway
-                        .is_none_or(|entity| entity.contains::<Parent>())
+                        .is_none_or(|entity| entity.contains::<ChildOf>())
                     {
                         world.entity_mut(parent).add_child(entity);
                     }
@@ -519,6 +527,7 @@ mod tests {
     use bevy_asset::{AssetPlugin, AssetServer, Handle};
     use bevy_ecs::{
         component::Component,
+        hierarchy::Children,
         observer::Trigger,
         prelude::ReflectComponent,
         query::With,
@@ -536,7 +545,6 @@ mod tests {
         entity::Entity,
         prelude::{AppTypeRegistry, World},
     };
-    use bevy_hierarchy::{Children, HierarchyPlugin};
 
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
@@ -550,7 +558,6 @@ mod tests {
         let mut app = App::new();
 
         app.add_plugins(ScheduleRunnerPlugin::default())
-            .add_plugins(HierarchyPlugin)
             .add_plugins(AssetPlugin::default())
             .add_plugins(ScenePlugin)
             .register_type::<ComponentA>();
@@ -581,7 +588,8 @@ mod tests {
         let (scene_entity, scene_component_a) = app
             .world_mut()
             .query::<(Entity, &ComponentA)>()
-            .single(app.world());
+            .single(app.world())
+            .unwrap();
         assert_eq!(scene_component_a.x, 3.0);
         assert_eq!(scene_component_a.y, 4.0);
         assert_eq!(
@@ -624,7 +632,10 @@ mod tests {
 
         // clone only existing entity
         let mut scene_spawner = SceneSpawner::default();
-        let entity = world.query_filtered::<Entity, With<A>>().single(&world);
+        let entity = world
+            .query_filtered::<Entity, With<A>>()
+            .single(&world)
+            .unwrap();
         let scene = DynamicSceneBuilder::from_world(&world)
             .extract_entity(entity)
             .build();
@@ -854,7 +865,7 @@ mod tests {
             .run_system_once(
                 |mut commands: Commands, query: Query<Entity, With<ComponentF>>| {
                     for entity in query.iter() {
-                        commands.entity(entity).despawn_recursive();
+                        commands.entity(entity).despawn();
                     }
                 },
             )
@@ -862,5 +873,74 @@ mod tests {
 
         app.update();
         check(app.world_mut(), 0);
+    }
+
+    #[test]
+    fn scene_child_order_preserved_when_archetype_order_mismatched() {
+        let mut app = App::new();
+
+        app.add_plugins(ScheduleRunnerPlugin::default())
+            .add_plugins(AssetPlugin::default())
+            .add_plugins(ScenePlugin)
+            .register_type::<ComponentA>()
+            .register_type::<ComponentF>();
+        app.update();
+
+        let mut scene_world = World::new();
+        let root = scene_world.spawn_empty().id();
+        let temporary_root = scene_world.spawn_empty().id();
+        // Spawn entities with different parent first before parenting them to the actual root, allowing us
+        // to decouple child order from archetype-creation-order
+        let child1 = scene_world
+            .spawn((
+                ChildOf {
+                    parent: temporary_root,
+                },
+                ComponentA { x: 1.0, y: 1.0 },
+            ))
+            .id();
+        let child2 = scene_world
+            .spawn((
+                ChildOf {
+                    parent: temporary_root,
+                },
+                ComponentA { x: 2.0, y: 2.0 },
+            ))
+            .id();
+        // the "first" child is intentionally spawned with a different component to force it into a "newer" archetype,
+        // meaning it will be iterated later in the spawn code.
+        let child0 = scene_world
+            .spawn((
+                ChildOf {
+                    parent: temporary_root,
+                },
+                ComponentF,
+            ))
+            .id();
+
+        scene_world
+            .entity_mut(root)
+            .add_children(&[child0, child1, child2]);
+
+        let scene = Scene::new(scene_world);
+        let scene_handle = app.world_mut().resource_mut::<Assets<Scene>>().add(scene);
+
+        let spawned = app.world_mut().spawn(SceneRoot(scene_handle.clone())).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let spawned_root = world.entity(spawned).get::<Children>().unwrap()[0];
+        let children = world.entity(spawned_root).get::<Children>().unwrap();
+        assert_eq!(children.len(), 3);
+        assert!(world.entity(children[0]).get::<ComponentF>().is_some());
+        assert_eq!(
+            world.entity(children[1]).get::<ComponentA>().unwrap().x,
+            1.0
+        );
+        assert_eq!(
+            world.entity(children[2]).get::<ComponentA>().unwrap().x,
+            2.0
+        );
     }
 }

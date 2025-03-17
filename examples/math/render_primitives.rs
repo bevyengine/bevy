@@ -1,6 +1,5 @@
 //! This example demonstrates how each of Bevy's math primitives look like in 2D and 3D with meshes
 //! and with gizmos
-#![allow(clippy::match_same_arms)]
 
 use bevy::{input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*};
 
@@ -188,12 +187,14 @@ const LINE2D: Line2d = Line2d { direction: Dir2::X };
 const LINE3D: Line3d = Line3d { direction: Dir3::X };
 
 const SEGMENT_2D: Segment2d = Segment2d {
-    direction: Dir2::X,
-    half_length: BIG_2D,
+    vertices: [Vec2::new(-BIG_2D / 2., 0.), Vec2::new(BIG_2D / 2., 0.)],
 };
+
 const SEGMENT_3D: Segment3d = Segment3d {
-    direction: Dir3::X,
-    half_length: BIG_3D,
+    vertices: [
+        Vec3::new(-BIG_3D / 2., 0., 0.),
+        Vec3::new(BIG_3D / 2., 0., 0.),
+    ],
 };
 
 const POLYLINE_2D: Polyline2d<4> = Polyline2d {
@@ -334,7 +335,7 @@ fn update_active_cameras(
     state: Res<State<CameraActive>>,
     camera_2d: Single<(Entity, &mut Camera), With<Camera2d>>,
     camera_3d: Single<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
-    mut text: Query<&mut TargetCamera, With<HeaderNode>>,
+    mut text: Query<&mut UiTargetCamera, With<HeaderNode>>,
 ) {
     let (entity_2d, mut cam_2d) = camera_2d.into_inner();
     let (entity_3d, mut cam_3d) = camera_3d.into_inner();
@@ -350,7 +351,7 @@ fn update_active_cameras(
     };
 
     text.iter_mut().for_each(|mut target_camera| {
-        *target_camera = TargetCamera(active_camera);
+        *target_camera = UiTargetCamera(active_camera);
     });
 }
 
@@ -367,39 +368,31 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
         .iter()
         .find_map(|(entity, camera)| camera.is_active.then_some(entity))
         .expect("run condition ensures existence");
-    commands
-        .spawn((
-            HeaderNode,
-            Node {
-                justify_self: JustifySelf::Center,
-                top: Val::Px(5.0),
-                ..Default::default()
-            },
-            TargetCamera(active_camera),
-        ))
-        .with_children(|p| {
-            p.spawn((
-                Text::default(),
-                HeaderText,
-                TextLayout::new_with_justify(JustifyText::Center),
-            ))
-            .with_children(|p| {
-                p.spawn(TextSpan::new("Primitive: "));
-                p.spawn(TextSpan(format!(
-                    "{text}",
-                    text = PrimitiveSelected::default()
-                )));
-                p.spawn(TextSpan::new("\n\n"));
-                p.spawn(TextSpan::new(
+    commands.spawn((
+        HeaderNode,
+        Node {
+            justify_self: JustifySelf::Center,
+            top: Val::Px(5.0),
+            ..Default::default()
+        },
+        UiTargetCamera(active_camera),
+        children![(
+            Text::default(),
+            HeaderText,
+            TextLayout::new_with_justify(JustifyText::Center),
+            children![
+                TextSpan::new("Primitive: "),
+                TextSpan(format!("{text}", text = PrimitiveSelected::default())),
+                TextSpan::new("\n\n"),
+                TextSpan::new(
                     "Press 'C' to switch between 2D and 3D mode\n\
                     Press 'Up' or 'Down' to switch to the next/previous primitive",
-                ));
-                p.spawn(TextSpan::new("\n\n"));
-                p.spawn(TextSpan::new(
-                    "(If nothing is displayed, there's no rendering support yet)",
-                ));
-            });
-        });
+                ),
+                TextSpan::new("\n\n"),
+                TextSpan::new("(If nothing is displayed, there's no rendering support yet)",),
+            ]
+        )],
+    ));
 }
 
 fn update_text(
@@ -441,6 +434,10 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
     let isometry = Isometry2d::new(POSITION, Rot2::radians(angle));
     let color = Color::WHITE;
 
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Certain primitives don't have any 2D rendering support yet."
+    )]
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
             gizmos.primitive_2d(&RECTANGLE, isometry, color);
@@ -652,6 +649,10 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
     let color = Color::WHITE;
     let resolution = 10;
 
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Certain primitives don't have any 3D rendering support yet."
+    )]
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
             gizmos.primitive_3d(&CUBOID, isometry, color);

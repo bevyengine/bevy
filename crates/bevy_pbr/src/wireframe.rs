@@ -1,9 +1,9 @@
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin, MeshMaterial3d};
 use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_resource::ExtractResource,
     mesh::{Mesh3d, MeshVertexBufferLayoutRef},
@@ -11,7 +11,8 @@ use bevy_render::{
     render_resource::*,
 };
 
-pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
+pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("2646a633-f8e3-4380-87ae-b44d881abbce");
 
 /// A [`Plugin`] that draws wireframes.
 ///
@@ -39,6 +40,7 @@ impl Plugin for WireframePlugin {
             .register_type::<WireframeColor>()
             .init_resource::<WireframeConfig>()
             .add_plugins(MaterialPlugin::<WireframeMaterial>::default())
+            .register_asset_reflect::<WireframeMaterial>()
             .add_systems(Startup, setup_global_wireframe_material)
             .add_systems(
                 Update,
@@ -155,7 +157,7 @@ fn apply_wireframe_material(
     global_material: Res<GlobalWireframeMaterial>,
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
-        if let Some(mut commands) = commands.get_entity(e) {
+        if let Ok(mut commands) = commands.get_entity(e) {
             commands.remove::<MeshMaterial3d<WireframeMaterial>>();
         }
     }
@@ -165,7 +167,7 @@ fn apply_wireframe_material(
         let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
         material_to_spawn.push((e, MeshMaterial3d(material)));
     }
-    commands.insert_or_spawn_batch(material_to_spawn);
+    commands.try_insert_batch(material_to_spawn);
 }
 
 type WireframeFilter = (With<Mesh3d>, Without<Wireframe>, Without<NoWireframe>);
@@ -193,7 +195,7 @@ fn apply_global_wireframe_material(
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
             material_to_spawn.push((e, MeshMaterial3d(material)));
         }
-        commands.insert_or_spawn_batch(material_to_spawn);
+        commands.try_insert_batch(material_to_spawn);
     } else {
         for e in &meshes_with_global_material {
             commands
@@ -219,7 +221,7 @@ fn get_wireframe_material(
     }
 }
 
-#[derive(Default, AsBindGroup, TypePath, Debug, Clone, Asset)]
+#[derive(Default, AsBindGroup, Debug, Clone, Asset, Reflect)]
 pub struct WireframeMaterial {
     #[uniform(0)]
     pub color: LinearRgba,

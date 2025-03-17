@@ -16,7 +16,9 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, remove.run_if(input_just_pressed(KeyCode::Space)))
         .add_systems(Update, move_cube)
+        // New types must be registered in order to be usable with reflection.
         .register_type::<Cube>()
+        .register_type::<TestResource>()
         .run();
 }
 
@@ -40,6 +42,12 @@ fn setup(
         Cube(1.0),
     ));
 
+    // test resource
+    commands.insert_resource(TestResource {
+        foo: Vec2::new(1.0, -1.0),
+        bar: false,
+    });
+
     // light
     commands.spawn((
         PointLight {
@@ -54,6 +62,17 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+}
+
+/// An arbitrary resource that can be inspected and manipulated with remote methods.
+#[derive(Resource, Reflect, Serialize, Deserialize)]
+#[reflect(Resource, Serialize, Deserialize)]
+pub struct TestResource {
+    /// An arbitrary field of the test resource.
+    pub foo: Vec2,
+
+    /// Another arbitrary field.
+    pub bar: bool,
 }
 
 fn move_cube(mut query: Query<&mut Transform, With<Cube>>, time: Res<Time>) {
