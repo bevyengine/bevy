@@ -7,7 +7,7 @@ use crate::{
 };
 use bytemuck::{must_cast_slice, NoUninit};
 use encase::{
-    internal::{WriteInto, Writer},
+    internal::{AlignmentValue, WriteInto, Writer},
     ShaderType,
 };
 use wgpu::{BindingResource, BufferAddress, BufferBinding, BufferUsages};
@@ -547,8 +547,23 @@ impl<T: NoUninit> AlignedRawBufferVec<T> {
     /// size of `T`
     pub fn new(buffer_usage: BufferUsages, render_device: &RenderDevice) -> Self {
         let item_size = size_of::<T>();
-        let alignment =
-            AlignmentValue::new(render_device.limits().min_uniform_buffer_offset_alignment as u64);
+
+        let alignment = if cfg!(target_abi = "sim") {
+            // On iOS simulator on silicon macs, metal validation check that the host OS alignment
+            // is respected, but the device reports the correct value for iOS, which is smaller.
+            // Use the larger value.
+            // See https://github.com/gfx-rs/wgpu/issues/7057 - remove if it's not needed anymore.
+            AlignmentValue::new(256)
+        } else if buffer_usage.contains(BufferUsages::UNIFORM) {
+            AlignmentValue::new(render_device.limits().min_uniform_buffer_offset_alignment as u64)
+        } else if buffer_usage.contains(BufferUsages::STORAGE) {
+            AlignmentValue::new(render_device.limits().min_storage_buffer_offset_alignment as u64)
+        } else {
+            unimplemented!(
+                "buffer_usage does not have offset alignment limits. Use RawBufferVec instead."
+            )
+        };
+
         let aligned_size = alignment.round_up(item_size as u64);
         let required_padding = aligned_size - item_size as u64;
         Self {
