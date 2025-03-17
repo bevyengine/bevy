@@ -820,7 +820,6 @@ fn parse_examples() -> Vec<Example> {
                             .as_str()
                             .unwrap()
                         {
-                            "bin" => ExampleType::Bin,
                             "lib" => ExampleType::Lib,
                             _ => ExampleType::Bin,
                         }
