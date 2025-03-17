@@ -588,6 +588,16 @@ impl PendingEntitiesChunk {
 /// Allows atomic access to [`PendingEntitiesChunk`]. This is effectively an [`Arc`] itself.
 struct AtomicPendingEntitiesChunk(AtomicPtr<PendingEntitiesChunk>);
 
+/// See [`AtomicPendingEntitiesChunk::get_into`].
+enum AtomicPendingEntitiesChunkGetIntoResult {
+    /// The [`Arc`]s are the same, so no change.
+    SameArc,
+    /// The [`Arc`]s were different and have been unified.
+    Updated,
+    /// The [`Arc`]s were different but were not able to be unified.
+    Waiting,
+}
+
 impl AtomicPendingEntitiesChunk {
     fn ptr_to_arc(ptr: *mut PendingEntitiesChunk) -> Option<Arc<PendingEntitiesChunk>> {
         // SAFETY: we know the pointer is not null, and we are not dropping the `Weak`.
@@ -610,19 +620,22 @@ impl AtomicPendingEntitiesChunk {
     /// This is the same as putting [`Self::get`] into `dest` if it is `Some`, but it's more efficient.
     ///
     /// Returns `true` if and only if `dest` is outdated but could not be replaced at the moment.
-    fn get_into(&self, dest: &mut Arc<PendingEntitiesChunk>) -> bool {
+    fn get_into(
+        &self,
+        dest: &mut Arc<PendingEntitiesChunk>,
+    ) -> AtomicPendingEntitiesChunkGetIntoResult {
         let ptr = self.0.load(Ordering::Relaxed);
         if Arc::as_ptr(dest) == ptr.cast_const() {
             // They're the same arc, so nothing changes
-            return false;
+            return AtomicPendingEntitiesChunkGetIntoResult::SameArc;
         }
 
         if let Some(new) = Self::ptr_to_arc(ptr) {
             *dest = new;
-            false
+            AtomicPendingEntitiesChunkGetIntoResult::Updated
         } else {
             // The arc isn't available right now
-            true
+            AtomicPendingEntitiesChunkGetIntoResult::Waiting
         }
     }
 
@@ -774,6 +787,12 @@ impl AtomicEntityReservations {
     /// If beneficial, swaps pending arcs to make more pending entities available.
     /// Returns `true` if and only if the swap happened.
     fn refresh(&self) -> bool {
+        // This will early return unless a recent `Entities::free` has occored.
+        // We do this redundantly before locking `growing_pending` to this common early return faster.
+        if !self.worth_swap.load(Ordering::Relaxed) {
+            return false;
+        }
+
         // We lock early to prevent concurrent refreshes.
         let mut pending = self
             .growing_pending
@@ -918,23 +937,30 @@ impl EntityReserver {
         .with_tolerance(10)
     }
 
-    /// Refreshes the reserver to improve the quality of the reservations.
+    /// Refreshes the reserver to improve the quality of the reservations, setting [`Self::tolerance_left`].
     ///
     /// This will make it more likely that reserved entities are reused.
     ///
     /// Returns a `bool` that is true if and only if the refresh was effective.
     pub fn refresh(&mut self) -> bool {
-        self.coordinator.refresh();
-        let old_ptr = Arc::as_ptr(&self.pending);
-        self.coordinator.pending_chunk.get_into(&mut self.pending);
-        let new_ptr = Arc::as_ptr(&self.pending);
-        old_ptr != new_ptr
+        // We don't care if the swap happened here since another resrver may has swapped already, requiring us to "catch up".
+        let _swapped = self.coordinator.refresh();
+        let (new_tolerance, result) =
+            match self.coordinator.pending_chunk.get_into(&mut self.pending) {
+                AtomicPendingEntitiesChunkGetIntoResult::SameArc => (self.tolerance, false),
+                AtomicPendingEntitiesChunkGetIntoResult::Updated => (self.tolerance, true),
+                // We are waiting for a refresh to be complete, so the result is false, but keep the tolerance at 0 so we try again soon.
+                AtomicPendingEntitiesChunkGetIntoResult::Waiting => (0, false),
+            };
+        self.tolerance_left = new_tolerance;
+        result
     }
 
     /// Based on [`Self::tolerance_left`], may [`Self::refresh`].
     /// Returns `true` if and only if it refreshed effectively.
     ///
     /// `pre_on_refresh` runs with [`Self::tmp_reserved`] and [`Self::pending`] right before a refresh happens.
+    /// Note that it may run even if this returns `false`, but if it returns `true`, this must have run.
     fn on_reserve_extended(
         &mut self,
         num_extended: u32,
@@ -947,9 +973,7 @@ impl EntityReserver {
             }
             None => {
                 pre_on_refresh(&mut self.tmp_reserved, &self.pending);
-                let res = self.refresh();
-                self.tolerance_left = self.tolerance;
-                res
+                self.refresh()
             }
         }
     }
