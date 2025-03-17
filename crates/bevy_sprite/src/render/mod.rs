@@ -808,8 +808,8 @@ pub fn prepare_sprite_image_bind_groups(
                 }
                 ExtractedSpriteKind::Slices { ref indices } => {
                     for i in indices.clone() {
-                        let sprite = &extracted_sprites.slices[i];
-                        let rect = sprite.rect;
+                        let slice = &extracted_sprites.slices[i];
+                        let rect = slice.rect;
 
                         // Calculate vertex data for this item
                         let mut uv_offset_scale: Vec4;
@@ -835,10 +835,10 @@ pub fn prepare_sprite_image_bind_groups(
 
                         let transform = extracted_sprite.transform.affine()
                             * Affine3A::from_scale_rotation_translation(
-                                sprite.size.extend(1.0),
+                                slice.size.extend(1.0),
                                 Quat::IDENTITY,
-                                (sprite.size * (-extracted_sprite.anchor - Vec2::splat(0.5))
-                                    + sprite.offset)
+                                (slice.size * (-extracted_sprite.anchor - Vec2::splat(0.5))
+                                    + slice.offset)
                                     .extend(0.0),
                             );
 
