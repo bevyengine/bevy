@@ -45,8 +45,8 @@ use crate::{
         RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{
-        AllocAtWithoutReplacement, Entities, Entity, EntityBorrow, EntityDoesNotExistError,
-        EntityLocation, EntitySet, EntitySetIterator, TrustedEntityBorrow, UniqueEntityArray,
+        unique_array::UniqueEntityArray, AllocAtWithoutReplacement, Entities, Entity, EntityBorrow,
+        EntityDoesNotExistError, EntityLocation, EntitySet, EntitySetIterator,
     },
     entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
@@ -862,9 +862,9 @@ impl World {
     /// // Trying to access the same entity multiple times will fail.
     /// assert!(world.get_many_entities_mut([id1, id1]).is_err());
     /// ```
-    pub fn get_many_entities_mut<T: TrustedEntityBorrow, const N: usize>(
+    pub fn get_many_entities_mut<const N: usize>(
         &mut self,
-        entities: [T; N],
+        entities: [Entity; N],
     ) -> Result<[EntityMut<'_>; N], EntityMutableFetchError> {
         // SAFETY: We have mutable access to the entire world
         unsafe { self.as_unsafe_world_cell().get_many_entities_mut(entities) }
@@ -883,7 +883,7 @@ impl World {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::entity::UniqueEntityArray;
+    /// # use bevy_ecs::entity::unique_array::UniqueEntityArray;
     /// let mut world = World::new();
     /// # let id1 = world.spawn_empty().id();
     /// # let id2 = world.spawn_empty().id();
@@ -892,9 +892,9 @@ impl World {
     /// let array = unsafe { UniqueEntityArray::from_array_unchecked([id1, id2]) };
     /// let [entity1, entity2] = world.get_many_entities_unique_mut(array).unwrap();
     /// ```
-    pub fn get_many_entities_unique_mut<T: TrustedEntityBorrow, const N: usize>(
+    pub fn get_many_entities_unique_mut<const N: usize>(
         &mut self,
-        entities: UniqueEntityArray<T, N>,
+        entities: UniqueEntityArray<N>,
     ) -> Result<[EntityMut<'_>; N], EntityDoesNotExistError> {
         // SAFETY: We have mutable access to the entire world
         unsafe {

@@ -7,8 +7,8 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
     entity::{
-        Entities, Entity, EntityBorrow, EntityLocation, EntitySet, EntitySetIterator,
-        TrustedEntityBorrow, UniqueEntityArray, UniqueEntityIter,
+        unique_array::UniqueEntityArray, Entities, Entity, EntityBorrow, EntityLocation, EntitySet,
+        EntitySetIterator, UniqueEntityIter,
     },
     observer::Observers,
     prelude::Component,
@@ -379,9 +379,9 @@ impl<'w> UnsafeWorldCell<'w> {
     /// # Safety
     ///
     /// The caller must have mutable access to all provided entities.
-    pub(crate) unsafe fn get_many_entities_mut<T: TrustedEntityBorrow, const N: usize>(
+    pub(crate) unsafe fn get_many_entities_mut<const N: usize>(
         self,
-        entities: [T; N],
+        entities: [Entity; N],
     ) -> Result<[EntityMut<'w>; N], EntityMutableFetchError> {
         // Check for duplicate entities.
         for i in 0..entities.len() {
@@ -405,15 +405,15 @@ impl<'w> UnsafeWorldCell<'w> {
     /// # Safety
     ///
     /// The caller must have mutable access to all provided entities.
-    pub(crate) unsafe fn get_many_entities_unique_mut<T: TrustedEntityBorrow, const N: usize>(
+    pub(crate) unsafe fn get_many_entities_unique_mut<const N: usize>(
         self,
-        entities: UniqueEntityArray<T, N>,
+        entities: UniqueEntityArray<N>,
     ) -> Result<[EntityMut<'w>; N], EntityDoesNotExistError> {
         let mut refs = [const { MaybeUninit::uninit() }; N];
         for (r, id) in core::iter::zip(&mut refs, entities) {
             let ecell = self.get_entity(id.entity())?;
             // SAFETY: `&mut self` gives read access to the entire world, and prevents mutable access.
-            // `UniqueEntityArray<T, N>` ensures all entities are unique
+            // `UniqueEntityArray<N>` ensures all entities are unique
             *r = MaybeUninit::new(unsafe { EntityMut::new(ecell) });
         }
 
