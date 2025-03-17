@@ -46,9 +46,9 @@ impl ErrorContext {
     /// The name of the ECS construct that failed.
     pub fn name(&self) -> &str {
         match self {
-            Self::System { name, .. } => name,
-            Self::Command { name, .. } => name,
-            Self::Observer { name, .. } => name,
+            Self::System { name, .. }
+            | Self::Command { name, .. }
+            | Self::Observer { name, .. } => name,
         }
     }
 
