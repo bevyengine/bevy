@@ -23,6 +23,7 @@ use bevy_render::sync_world::RenderEntity;
 use bevy_render::view::{self, Visibility, VisibilityClass};
 use bevy_render::{
     primitives::Aabb,
+    sync_world::SyncToRenderWorld,
     view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
@@ -90,7 +91,8 @@ use bevy_window::{PrimaryWindow, Window};
     Anchor,
     Visibility,
     VisibilityClass,
-    Transform
+    Transform,
+    SyncToRenderWorld
 )]
 #[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
