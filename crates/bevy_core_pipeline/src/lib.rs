@@ -24,7 +24,7 @@ pub mod post_process;
 pub mod prepass;
 mod skybox;
 pub mod smaa;
-mod taa;
+pub mod taa;
 pub mod tonemapping;
 pub mod upscaling;
 
@@ -54,6 +54,7 @@ use crate::{
     post_process::PostProcessingPlugin,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     smaa::SmaaPlugin,
+    taa::TemporalAntiAliasPlugin,
     tonemapping::TonemappingPlugin,
     upscaling::UpscalingPlugin,
 };
@@ -93,6 +94,7 @@ impl Plugin for CorePipelinePlugin {
                 PostProcessingPlugin,
                 OrderIndependentTransparencyPlugin,
                 MipGenerationPlugin,
+                TemporalAntiAliasPlugin,
             ));
     }
 }

@@ -64,7 +64,7 @@ impl Plugin for TemporalAntiAliasPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_taa_jitter_and_mip_bias.in_set(RenderSet::ManageViews),
+                    prepare_taa_jitter.in_set(RenderSet::ManageViews),
                     prepare_taa_pipelines.in_set(RenderSet::Prepare),
                     prepare_taa_history_textures.in_set(RenderSet::PrepareResources),
                 ),
@@ -115,7 +115,6 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// # Usage Notes
 ///
-/// The [`TemporalAntiAliasPlugin`] must be added to your app.
 /// Any camera with this component must also disable [`Msaa`] by setting it to [`Msaa::Off`].
 ///
 /// [Currently](https://github.com/bevyengine/bevy/issues/8423), TAA cannot be used with [`bevy_render::camera::OrthographicProjection`].
@@ -128,11 +127,9 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// 1. Write particle motion vectors to the motion vectors prepass texture
 /// 2. Render particles after TAA
-///
-/// If no [`MipBias`] component is attached to the camera, TAA will add a `MipBias(-1.0)` component.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default)]
-#[require(TemporalJitter, DepthPrepass, MotionVectorPrepass)]
+#[require(TemporalJitter, MipBias, DepthPrepass, MotionVectorPrepass)]
 #[doc(alias = "Taa")]
 pub struct TemporalAntiAliasing {
     /// Set to true to delete the saved temporal history (past frames).
@@ -153,7 +150,7 @@ impl Default for TemporalAntiAliasing {
 
 /// Render [`bevy_render::render_graph::Node`] used by temporal anti-aliasing.
 #[derive(Default)]
-pub struct TemporalAntiAliasNode;
+struct TemporalAntiAliasNode;
 
 impl ViewNode for TemporalAntiAliasNode {
     type ViewQuery = (
@@ -345,16 +342,11 @@ impl SpecializedRenderPipeline for TaaPipeline {
 }
 
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
-    let mut cameras_3d = main_world.query_filtered::<(
+    let mut cameras_3d = main_world.query::<(
         RenderEntity,
         &Camera,
         &Projection,
-        &mut TemporalAntiAliasing,
-    ), (
-        With<Camera3d>,
-        With<TemporalJitter>,
-        With<DepthPrepass>,
-        With<MotionVectorPrepass>,
+        Option<&mut TemporalAntiAliasing>,
     )>();
 
     for (entity, camera, camera_projection, mut taa_settings) in
@@ -364,14 +356,12 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("Camera entity wasn't synced.");
-        if camera.is_active && has_perspective_projection {
-            entity_commands.insert(taa_settings.clone());
-            taa_settings.reset = false;
+        if taa_settings.is_some() && camera.is_active && has_perspective_projection {
+            entity_commands.insert(taa_settings.as_deref().unwrap().clone());
+            taa_settings.as_mut().unwrap().reset = false;
         } else {
-            // TODO: needs better strategy for cleaning up
             entity_commands.remove::<(
                 TemporalAntiAliasing,
-                // components added in prepare systems (because `TemporalAntiAliasNode` does not query extracted components)
                 TemporalAntiAliasHistoryTextures,
                 TemporalAntiAliasPipelineId,
             )>();
@@ -379,13 +369,22 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
     }
 }
 
-fn prepare_taa_jitter_and_mip_bias(
+fn prepare_taa_jitter(
     frame_count: Res<FrameCount>,
-    mut query: Query<(Entity, &mut TemporalJitter, Option<&MipBias>), With<TemporalAntiAliasing>>,
-    mut commands: Commands,
+    mut query: Query<
+        &mut TemporalJitter,
+        (
+            With<TemporalAntiAliasing>,
+            With<Camera3d>,
+            With<TemporalJitter>,
+            With<DepthPrepass>,
+            With<MotionVectorPrepass>,
+        ),
+    >,
 ) {
-    // Halton sequence (2, 3) - 0.5, skipping i = 0
+    // Halton sequence (2, 3) - 0.5
     let halton_sequence = [
+        vec2(0.0, 0.0),
         vec2(0.0, -0.16666666),
         vec2(-0.25, 0.16666669),
         vec2(0.25, -0.3888889),
@@ -393,22 +392,17 @@ fn prepare_taa_jitter_and_mip_bias(
         vec2(0.125, 0.2777778),
         vec2(-0.125, -0.2777778),
         vec2(0.375, 0.055555582),
-        vec2(-0.4375, 0.3888889),
     ];
 
     let offset = halton_sequence[frame_count.0 as usize % halton_sequence.len()];
 
-    for (entity, mut jitter, mip_bias) in &mut query {
+    for mut jitter in &mut query {
         jitter.offset = offset;
-
-        if mip_bias.is_none() {
-            commands.entity(entity).insert(MipBias(-1.0));
-        }
     }
 }
 
 #[derive(Component)]
-pub struct TemporalAntiAliasHistoryTextures {
+struct TemporalAntiAliasHistoryTextures {
     write: CachedTexture,
     read: CachedTexture,
 }
@@ -465,7 +459,7 @@ fn prepare_taa_history_textures(
 }
 
 #[derive(Component)]
-pub struct TemporalAntiAliasPipelineId(CachedRenderPipelineId);
+struct TemporalAntiAliasPipelineId(CachedRenderPipelineId);
 
 fn prepare_taa_pipelines(
     mut commands: Commands,
