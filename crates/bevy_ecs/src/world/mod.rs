@@ -46,7 +46,7 @@ use crate::{
     },
     entity::{
         unique_array::UniqueEntityArray, AllocAtWithoutReplacement, Entities, Entity, EntityBorrow,
-        EntityDoesNotExistError, EntityLocation, EntitySet, EntitySetIterator,
+        EntityDoesNotExistError, EntityLocation, EntitySet, EntitySetIterator, UniqueEntityIter,
     },
     entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
@@ -777,6 +777,20 @@ impl World {
     }
 
     /// Gets an [`EntityRef`] for multiple entities at once.
+    ///
+    /// This is the same as [`Self::get_many_entities`], but it accepts a [`UniqueEntityArray`] instead of an array.
+    ///
+    /// # Errors
+    ///
+    /// [`EntityDoesNotExistError`] if any entity does not exist in the world.
+    pub fn get_many_unique_entities<const N: usize>(
+        &self,
+        entities: UniqueEntityArray<N>,
+    ) -> Result<[EntityRef<'_>; N], EntityDoesNotExistError> {
+        self.get_many_entities(entities.into_inner())
+    }
+
+    /// Gets an [`EntityRef`] for multiple entities at once.
     /// Any entities that do not exist in the world are filtered out.
     ///
     /// # Examples
@@ -795,13 +809,42 @@ impl World {
     /// let entities: Vec<EntityRef> = world.iter_many_entities([id1, id2]).collect();
     /// assert_eq!(entities.len(), 1);
     /// ```
-    pub fn iter_many_entities<I: IntoIterator<Item: EntityBorrow>>(
+    pub fn iter_many_entities(
         &self,
-        entities: I,
+        entities: impl IntoIterator<Item: EntityBorrow>,
     ) -> impl Iterator<Item = EntityRef<'_>> {
         entities
             .into_iter()
             .filter_map(|e| self.get_entity(e.entity()).ok())
+    }
+
+    /// Gets an [`EntityRef`] for multiple entities at once.
+    /// Any entities that do not exist in the world are filtered out.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet};
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Getting multiple entities.
+    /// let ids = EntityHashSet::from_iter([id1, id2]);
+    /// let entities: Vec<EntityRef> = world.iter_many_unique_entities(&ids).collect();
+    /// assert_eq!(entities.len(), 2);
+    ///
+    /// // Despawned entities will be excluded.
+    /// world.despawn(id2);
+    /// let entities: Vec<EntityRef> = world.iter_many_unique_entities(&ids).collect();
+    /// assert_eq!(entities.len(), 1);
+    /// ```
+    pub fn iter_many_unique_entities(
+        &self,
+        entities: impl EntitySet,
+    ) -> impl EntitySetIterator<Item = EntityRef<'_>> {
+        let iter = self.iter_many_entities(entities);
+        // SAFETY: `EntitySet` ensures that `entities` are all unique, and each `EntityRef` corresponds to one of them
+        unsafe { UniqueEntityIter::from_iterator_unchecked(iter) }
     }
 
     /// Retrieves an [`EntityWorldMut`] that exposes read and write operations for the given `entity`.
