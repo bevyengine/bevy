@@ -1,9 +1,11 @@
+use core::fmt::Display;
 use std::sync::OnceLock;
 
 use crate::{component::Tick, error::BevyError};
 use alloc::borrow::Cow;
 
 /// Context for a [`BevyError`] to aid in debugging.
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ErrorContext {
     /// The error occurred in a system.
     System {
@@ -24,6 +26,20 @@ pub enum ErrorContext {
         /// The last tick that the observer was run.
         last_run: Tick,
     },
+}
+
+impl Display for ErrorContext {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::System { name, .. } => {
+                write!(f, "System `{}` failed", name)
+            }
+            Self::Command { name } => write!(f, "Command `{}` failed", name),
+            Self::Observer { name, .. } => {
+                write!(f, "Observer `{}` failed", name)
+            }
+        }
+    }
 }
 
 impl ErrorContext {
