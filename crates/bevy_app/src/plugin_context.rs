@@ -13,10 +13,16 @@ use thiserror::Error;
 
 use crate::App;
 
-/// Context provided to an `Async` plugin,
+/// Context provided to an `async` plugin,
 /// giving it access to the app and letting it wait
 /// for its dependencies.
 pub struct PluginContext<'app> {
+    /// Functionally this represents a mutable reference to the app,
+    /// however it's not available while other plugins run.
+    ///
+    /// The methods of `PluginContext` take `&mut self` to prevent
+    /// holding the lock across await points (which would usually panic)
+    /// and to hide the fact that this is implemented via a lock.
     pub(crate) inner: &'app RefCell<PluginContextInner<'app>>,
 }
 
@@ -38,10 +44,9 @@ pub(crate) enum TickProgress {
 impl PluginContext<'_> {
     #[track_caller]
     pub(crate) fn borrow_mut<'ctx>(&'ctx self) -> (RefMut<'ctx, App>, RefMut<'ctx, TickProgress>) {
-        let inner = self
-            .inner
-            .try_borrow_mut()
-            .expect("Error during plugin building: Reference to app was held across await point");
+        // Borrow always succeeds because we require the user to supply a mutable reference
+        // to wait on `Self`.
+        let inner = self.inner.borrow_mut();
         RefMut::map_split(inner, |inner| (inner.app, &mut inner.progress))
     }
 
@@ -51,7 +56,7 @@ impl PluginContext<'_> {
         self.borrow_mut().0
     }
 
-    /// Get a mutable reference to the app.
+    /// Get a mutable reference to the world.
     #[track_caller]
     pub fn world(&mut self) -> RefMut<'_, World> {
         RefMut::map(self.borrow_mut().0, |app| app.world_mut())
@@ -62,7 +67,7 @@ impl PluginContext<'_> {
     /// The function will be rerun until either it returns `Some`,
     /// or no other plugin is making progress either.
     pub fn get<'ctx, F, Return>(
-        &'ctx self,
+        &'ctx mut self,
         function: F,
     ) -> impl Future<Output = Result<Return, StuckError>> + 'ctx
     where
@@ -126,7 +131,7 @@ impl PluginContext<'_> {
     /// # enum MyLoadState { Done }
     /// ```
     pub fn wait<'ctx, F>(
-        &'ctx self,
+        &'ctx mut self,
         function: F,
     ) -> impl Future<Output = Result<(), StuckError>> + 'ctx
     where
@@ -139,7 +144,7 @@ impl PluginContext<'_> {
     ///
     /// Holding this reference across sync points will panic.
     pub fn resource<'ctx, R: Resource>(
-        &'ctx self,
+        &'ctx mut self,
     ) -> impl Future<Output = Result<RefMut<'ctx, R>, StuckError>> + 'ctx {
         self.get(|app| {
             RefMut::filter_map(app, |app| {
@@ -152,7 +157,7 @@ impl PluginContext<'_> {
     /// Wait for a plugin to be added to the app.
     /// For most plugins, their name is their type name.
     pub fn plugin_added<'ctx>(
-        &'ctx self,
+        &'ctx mut self,
         name: &'ctx str,
     ) -> impl Future<Output = Result<(), StuckError>> + 'ctx {
         self.wait(|app| app.main().added_plugins.contains(name))
@@ -166,7 +171,7 @@ impl PluginContext<'_> {
     ///
     /// [`build_async`]: crate::Plugin::build_async
     pub fn plugin_completed<'ctx>(
-        &'ctx self,
+        &'ctx mut self,
         name: &'ctx str,
     ) -> impl Future<Output = Result<(), StuckError>> + 'ctx {
         self.wait(|app| app.main().completed_plugins.contains(name))

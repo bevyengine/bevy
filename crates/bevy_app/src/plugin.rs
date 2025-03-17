@@ -71,13 +71,12 @@ use downcast_rs::{impl_downcast, Downcast};
 /// # struct AccessibilityPlugin;
 ///
 /// impl Plugin for AccessibilityPlugin {
-///     fn build_async<'ctx>(self: Box<Self>, mut ctx: PluginContext<'ctx>) -> impl Future<Output = ()> + 'ctx {
-///         async move {
-///             // Wait until another plugin makes the resource available
-///             let settings = ctx.resource::<Settings>().await.unwrap();
-///             if settings.flicker_damping {
-///                 ctx.app().add_systems(PostUpdate, damp_flickering);
-///             }
+///     async fn build_async(self: Box<Self>, mut ctx: PluginContext<'_>) {
+///         // Wait until another plugin makes the resource available
+///         let settings = ctx.resource::<Settings>().await.unwrap();
+///         if settings.flicker_damping {
+///             drop(settings);
+///             ctx.app().add_systems(PostUpdate, damp_flickering);
 ///         }
 ///     }
 /// }

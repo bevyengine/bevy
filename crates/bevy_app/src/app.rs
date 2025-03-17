@@ -263,7 +263,8 @@ impl App {
             loop {
                 let mut progress_made = false;
 
-                // Consume any newly added plugins
+                // Consume any newly added plugins.
+                //
                 futures.extend(
                     ctx.borrow_mut()
                         .app
@@ -278,6 +279,7 @@ impl App {
                         }),
                 );
 
+                // Tick all futures.
                 futures.retain_mut(|plugin| {
                     if ctx.borrow_mut().progress != TickProgress::Stuck {
                         ctx.borrow_mut().progress = TickProgress::Unknown;
