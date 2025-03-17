@@ -235,6 +235,10 @@ impl Hash for Entity {
 #[deprecated(
     note = "This is exclusively used with the now deprecated `Entities::alloc_at_without_replacement`."
 )]
+#[expect(
+    unused,
+    reason = "We are not supporting this deprecated on this branch yet. (It will be removed very soon.)"
+)]
 pub(crate) enum AllocAtWithoutReplacement {
     Exists(EntityLocation),
     DidNotExist,
@@ -749,16 +753,13 @@ impl AtomicEntityReservations {
     /// This should only be called if reusing an entity from a pending list is not practical.
     fn reserve_append(&self, num: u32) -> core::ops::Range<u32> {
         let current_meta = self.meta_len.fetch_add(num, Ordering::Relaxed);
-        let new_meta = match current_meta.checked_add(num) {
-            Some(new) => new,
-            None => {
-                // Since this is relaxed, this may allow other reservations with the wrapped value before we set it back to the max.
-                // But future reservations would panic again, and this is extremely rare
-                // and would only cause a problem if it happened on an entirely separate thread that chose to ignore a poison error.
-                // So while this leaves a narrow opeining for invalid reservations, it is worth it for the speed.
-                self.meta_len.store(u32::MAX, Ordering::Release);
-                panic!("too many entities")
-            }
+        let Some(new_meta) = current_meta.checked_add(num) else {
+            // Since this is relaxed, this may allow other reservations with the wrapped value before we set it back to the max.
+            // But future reservations would panic again, and this is extremely rare
+            // and would only cause a problem if it happened on an entirely separate thread that chose to ignore a poison error.
+            // So while this leaves a narrow opeining for invalid reservations, it is worth it for the speed.
+            self.meta_len.store(u32::MAX, Ordering::Release);
+            panic!("too many entities");
         };
         current_meta..new_meta
     }
@@ -858,7 +859,7 @@ impl AtomicEntityReservations {
                 .lock()
                 .unwrap_or_else(PoisonError::into_inner)
                 .drain(..),
-        )
+        );
     }
 
     /// Gets access to a growing list of pending entities.
