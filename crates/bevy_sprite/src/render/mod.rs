@@ -334,7 +334,6 @@ pub struct ExtractedSprite {
     pub transform: GlobalTransform,
     pub color: LinearRgba,
     /// Change the on-screen size of the sprite
-    pub custom_size: Option<Vec2>,
     /// Asset ID of the [`Image`] of this sprite
     /// PERF: storing an `AssetId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
     pub image_handle_id: AssetId<Image>,
@@ -351,6 +350,7 @@ pub enum ExtractedSpriteKind {
         anchor: Vec2,
         rect: Option<Rect>,
         scaling_mode: Option<ScalingMode>,
+        custom_size: Option<Vec2>,
     },
 }
 
@@ -412,8 +412,6 @@ pub fn extract_sprites(
                 ExtractedSprite {
                     color: sprite.color.into(),
                     transform: *transform,
-                    // Pass the custom size
-                    custom_size: sprite.custom_size,
                     flip_x: sprite.flip_x,
                     flip_y: sprite.flip_y,
                     image_handle_id: sprite.image.id(),
@@ -446,8 +444,6 @@ pub fn extract_sprites(
                 ExtractedSprite {
                     color: sprite.color.into(),
                     transform: *transform,
-                    // Pass the custom size
-                    custom_size: sprite.custom_size,
                     flip_x: sprite.flip_x,
                     flip_y: sprite.flip_y,
                     image_handle_id: sprite.image.id(),
@@ -455,6 +451,8 @@ pub fn extract_sprites(
                         anchor: sprite.anchor.as_vec(),
                         rect,
                         scaling_mode: sprite.image_mode.scale(),
+                        // Pass the custom size
+                        custom_size: sprite.custom_size,
                     },
                 },
             );
@@ -730,10 +728,12 @@ pub fn prepare_sprite_image_bind_groups(
                     anchor,
                     rect,
                     scaling_mode,
+                    custom_size,
                 } => {
                     // By default, the size of the quad is the size of the texture
                     let mut quad_size = batch_image_size;
                     let mut texture_size = batch_image_size;
+
                     // Calculate vertex data for this item
                     // If a rect is specified, adjust UVs and the size of the quad
                     let mut uv_offset_scale = if let Some(rect) = rect {
@@ -762,9 +762,7 @@ pub fn prepare_sprite_image_bind_groups(
                     }
 
                     // Override the size if a custom one is specified
-                    if let Some(custom_size) = extracted_sprite.custom_size {
-                        quad_size = custom_size;
-                    }
+                    quad_size = custom_size.unwrap_or(quad_size);
 
                     // Used for translation of the quad if `TextureScale::Fit...` is specified.
                     let mut quad_translation = Vec2::ZERO;
