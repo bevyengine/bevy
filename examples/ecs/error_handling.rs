@@ -1,11 +1,13 @@
 //! Showcases how fallible systems and observers can make use of Rust's powerful result handling
 //! syntax.
 
-use bevy::ecs::{error::warn, world::DeferredWorld};
+use bevy::ecs::{
+    error::{warn, GLOBAL_ERROR_HANDLER},
+    world::DeferredWorld,
+};
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
-use bevy_ecs::error::GLOBAL_ERROR_HANDLER;
 use rand::distributions::Distribution;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
