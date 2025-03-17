@@ -14,7 +14,7 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
-        camera::TemporalJitter,
+        camera::{MipBias, TemporalJitter},
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
@@ -31,6 +31,7 @@ fn main() {
 type TaaComponents = (
     TemporalAntiAliasing,
     TemporalJitter,
+    MipBias,
     DepthPrepass,
     MotionVectorPrepass,
 );

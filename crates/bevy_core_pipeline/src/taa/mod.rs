@@ -64,7 +64,7 @@ impl Plugin for TemporalAntiAliasPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_taa_jitter_and_mip_bias.in_set(RenderSet::ManageViews),
+                    prepare_taa_jitter.in_set(RenderSet::ManageViews),
                     prepare_taa_pipelines.in_set(RenderSet::Prepare),
                     prepare_taa_history_textures.in_set(RenderSet::PrepareResources),
                 ),
@@ -127,11 +127,9 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// 1. Write particle motion vectors to the motion vectors prepass texture
 /// 2. Render particles after TAA
-///
-/// If no [`MipBias`] component is attached to the camera, TAA will add a `MipBias(-1.0)` component.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default)]
-#[require(TemporalJitter, DepthPrepass, MotionVectorPrepass)]
+#[require(TemporalJitter, MipBias, DepthPrepass, MotionVectorPrepass)]
 #[doc(alias = "Taa")]
 pub struct TemporalAntiAliasing {
     /// Set to true to delete the saved temporal history (past frames).
@@ -378,10 +376,9 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
     }
 }
 
-fn prepare_taa_jitter_and_mip_bias(
+fn prepare_taa_jitter(
     frame_count: Res<FrameCount>,
-    mut query: Query<(Entity, &mut TemporalJitter, Option<&MipBias>), With<TemporalAntiAliasing>>,
-    mut commands: Commands,
+    mut query: Query<&mut TemporalJitter, With<TemporalAntiAliasing>>,
 ) {
     // Halton sequence (2, 3) - 0.5
     let halton_sequence = [
@@ -397,12 +394,8 @@ fn prepare_taa_jitter_and_mip_bias(
 
     let offset = halton_sequence[frame_count.0 as usize % halton_sequence.len()];
 
-    for (entity, mut jitter, mip_bias) in &mut query {
+    for mut jitter in &mut query {
         jitter.offset = offset;
-
-        if mip_bias.is_none() {
-            commands.entity(entity).insert(MipBias(-1.0));
-        }
     }
 }
 
