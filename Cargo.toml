@@ -4298,6 +4298,6 @@ crate-type = ["lib"]
 
 [package.metadata.example.no_std_library]
 name = "`no_std` Compatible Library"
-description = "Example Library Compatible with `std` and `no_std` Targets"
+description = "Example library compatible with `std` and `no_std` targets"
 category = "Embedded"
 wasm = true
