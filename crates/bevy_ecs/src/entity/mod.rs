@@ -1202,6 +1202,17 @@ impl Entities {
         }
     }
 
+    /// Creates a new [`RemoteEntities`] for this [`Entities`].
+    ///
+    /// If the [`World`](crate::world::World) or this [`Entities`] may be [`cleared`](Self::clear),
+    /// the returned [`RemoteEntities`] will become irrelevant to this instance, it the [`entities`](Entity) it reserves will be invalid.
+    /// You can check if this has happened via [`RemoteEntities::is_closed`].
+    pub fn get_remote_entities(&self) -> RemoteEntities {
+        RemoteEntities {
+            coordinator: self.coordinator.clone(),
+        }
+    }
+
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
