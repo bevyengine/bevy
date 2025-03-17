@@ -1372,10 +1372,10 @@ where
             }
 
             if let Some(required_binding_array_size) = required_binding_array_size {
-                sampler_bindings.extend(
-                    iter::repeat(&**fallback_sampler)
-                        .take(required_binding_array_size as usize - sampler_bindings.len()),
-                );
+                sampler_bindings.extend(iter::repeat_n(
+                    &**fallback_sampler,
+                    required_binding_array_size as usize - sampler_bindings.len(),
+                ));
             }
 
             let binding_number = bindless_resource_type
@@ -1436,10 +1436,10 @@ where
             }
 
             if let Some(required_binding_array_size) = required_binding_array_size {
-                texture_bindings.extend(
-                    iter::repeat(&*fallback_image.texture_view)
-                        .take(required_binding_array_size as usize - texture_bindings.len()),
-                );
+                texture_bindings.extend(iter::repeat_n(
+                    &*fallback_image.texture_view,
+                    required_binding_array_size as usize - texture_bindings.len(),
+                ));
             }
 
             binding_resource_arrays.push((
@@ -1489,14 +1489,14 @@ where
                 .collect();
 
             if let Some(required_binding_array_size) = required_binding_array_size {
-                buffer_bindings.extend(
-                    iter::repeat(BufferBinding {
+                buffer_bindings.extend(iter::repeat_n(
+                    BufferBinding {
                         buffer: fallback_buffer,
                         offset: 0,
                         size: None,
-                    })
-                    .take(required_binding_array_size as usize - buffer_bindings.len()),
-                );
+                    },
+                    required_binding_array_size as usize - buffer_bindings.len(),
+                ));
             }
 
             binding_resource_arrays.push((
