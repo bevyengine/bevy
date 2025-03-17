@@ -1572,6 +1572,7 @@ impl Entities {
 
     /// The count of all entities in the [`World`] that are used,
     /// including both those allocated and those reserved, but not those freed.
+    /// Note that this can be slow and is intended for debugging purposes.
     ///
     /// [`World`]: crate::world::World
     #[inline]
@@ -1592,6 +1593,7 @@ impl Entities {
     }
 
     /// The count of currently allocated entities.
+    /// Note that this can be slow and is intended for debugging purposes.
     #[inline]
     pub fn len(&self) -> u32 {
         self.meta
