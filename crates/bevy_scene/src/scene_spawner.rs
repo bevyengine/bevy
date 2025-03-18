@@ -55,11 +55,13 @@ impl InstanceId {
 /// Handles spawning and despawning scenes in the world, either synchronously or batched through the [`scene_spawner_system`].
 ///
 /// Synchronous methods: (Scene operations will take effect immediately)
-/// - [`spawn_dynamic_sync`](Self::spawn_dynamic_sync)
 /// - [`spawn_sync`](Self::spawn_sync)
+/// - [`spawn_dynamic_sync`](Self::spawn_dynamic_sync)
 /// - [`despawn_sync`](Self::despawn_sync)
+/// - [`despawn_dynamic_sync`](Self::despawn_dynamic_sync)
 /// - [`despawn_instance_sync`](Self::despawn_instance_sync)
 /// - [`update_spawned_scenes`](Self::update_spawned_scenes)
+/// - [`update_spawned_dynamic_scenes`](Self::update_spawned_dynamic_scenes)
 /// - [`spawn_queued_scenes`](Self::spawn_queued_scenes)
 /// - [`despawn_queued_scenes`](Self::despawn_queued_scenes)
 /// - [`despawn_queued_instances`](Self::despawn_queued_instances)
@@ -70,6 +72,7 @@ impl InstanceId {
 /// - [`spawn`](Self::spawn)
 /// - [`spawn_as_child`](Self::spawn_as_child)
 /// - [`despawn`](Self::despawn)
+/// - [`despawn_dynamic`](Self::despawn_dynamic)
 /// - [`despawn_instance`](Self::despawn_instance)
 #[derive(Default, Resource)]
 pub struct SceneSpawner {
