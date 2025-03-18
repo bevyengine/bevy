@@ -509,10 +509,11 @@ impl<T: Iterator<Item = Entity>> Iterator for ReserveEntitiesIterator<T> {
     }
 }
 
-impl<T: Iterator<Item = Entity> + ExactSizeIterator> ExactSizeIterator
-    for ReserveEntitiesIterator<T>
-{
-}
+// We don't constrain `T: ExactSizeIterator` since it misses `Chain`.
+// Normally `Chain` isn't an `ExactSizeIterator`, but in every cpntext,
+// `ReserveEntitiesIterator` is only constructed internally and is always of exact size.
+impl<T: Iterator<Item = Entity>> ExactSizeIterator for ReserveEntitiesIterator<T> {}
+
 impl<T: Iterator<Item = Entity> + core::iter::FusedIterator> core::iter::FusedIterator
     for ReserveEntitiesIterator<T>
 {
@@ -1310,6 +1311,7 @@ impl Entities {
             }
         });
 
+        self.owned.reserve(new.len());
         self.owned.extend(new);
     }
 
