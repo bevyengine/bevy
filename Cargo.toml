@@ -2213,7 +2213,7 @@ path = "examples/ecs/error_handling.rs"
 doc-scrape-examples = true
 required-features = ["bevy_mesh_picking_backend"]
 
-[package.metadata.example.fallible_systems]
+[package.metadata.example.error_handling]
 name = "Fallible Systems"
 description = "Systems that return results to handle errors"
 category = "ECS (Entity Component System)"
