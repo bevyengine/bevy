@@ -66,6 +66,8 @@ use crate::{
     GltfMaterialName, GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
+#[cfg(feature = "bevy_animation")]
+use self::gltf_ext::scene::collect_path;
 use self::{
     extensions::{AnisotropyExtension, ClearcoatExtension, SpecularExtension},
     gltf_ext::{
@@ -75,7 +77,7 @@ use self::{
             warn_on_differing_texture_transforms,
         },
         mesh::{primitive_name, primitive_topology},
-        scene::{collect_path, node_name, node_transform},
+        scene::{node_name, node_transform},
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
 };
