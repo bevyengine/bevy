@@ -3,7 +3,7 @@ use core::any::Any;
 
 use crate::{
     component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
-    error::{default_error_handler, ErrorContext},
+    error::{panic, ErrorContext, GLOBAL_ERROR_HANDLER},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -444,7 +444,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             ..Default::default()
         };
 
-        let error_handler = default_error_handler();
+        let error_handler = *GLOBAL_ERROR_HANDLER.get_or_init(|| panic);
 
         // Initialize System
         let system: *mut dyn ObserverSystem<E, B> =
