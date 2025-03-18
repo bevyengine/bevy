@@ -1601,7 +1601,7 @@ impl Entities {
         // flush owned
         for reserved_owned in self
             .owned
-            .drain(..mem::take(self.reserved_from_owned.get_mut()))
+            .drain(..mem::take(self.reserved_from_owned.get_mut()).min(self.owned.len()))
             // We need to reverse the direction so that the most recently freed and reserved entities are flushed first.
             // Consider reserving an entity 1v1, freeing it, and reserving it again, 1v2. 1v2 should be flushed, not 1v1.
             .rev()
