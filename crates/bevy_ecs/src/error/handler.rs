@@ -74,7 +74,7 @@ impl ErrorContext {
 /// To set the default, fallback error handler:
 ///
 /// ```
-/// # use bevy_ecs::system::error_handler::{GLOBAL_ERROR_HANDLER, warn};
+/// # use bevy_ecs::error::{GLOBAL_ERROR_HANDLER, warn};
 /// GLOBAL_ERROR_HANDLER.set(warn).expect("The error handler can only be set once, globally.");
 /// // initialize Bevy App here
 /// ```

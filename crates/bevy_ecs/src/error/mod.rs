@@ -41,16 +41,15 @@
 //!
 //! fn my_error_handler(error: BevyError, ctx: ErrorContext) {
 //!    if ctx.name().ends_with("plz_ignore") {
-//! 	  trace!("Nothing to see here, move along.");
-//! 	  return;
+//!       trace!("Nothing to see here, move along.");
+//!       return;
 //!   }
 //!   bevy_ecs::error::error(error, ctx);
 //! }
 //!
 //! fn main() {
-//! 	GLOBAL_ERROR_HANDLER.set(my_error_handler).expect("The error handler can only be set once.");
-//!
-//! 	// Initialize your Bevy App here
+//!     GLOBAL_ERROR_HANDLER.set(my_error_handler).expect("The error handler can only be set once.");
+//!     // Initialize your Bevy App here
 //! }
 //! ```
 //!

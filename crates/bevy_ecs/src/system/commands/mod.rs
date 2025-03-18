@@ -604,7 +604,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::system::error_handler;
     /// #[derive(Resource, Default)]
     /// struct Counter(u64);
     ///
@@ -620,7 +619,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// }
     ///
     /// fn add_three_to_counter_system(mut commands: Commands) {
-    ///     commands.queue_handled(AddToCounter("3".to_string()), error_handler::warn());
+    ///     commands.queue_handled(AddToCounter("3".to_string()), warn);
     /// }
     /// fn add_twenty_five_to_counter_system(mut commands: Commands) {
     ///     commands.queue(|world: &mut World| {
@@ -1813,7 +1812,6 @@ impl<'a> EntityCommands<'a> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::system::error_handler;
     /// # fn my_system(mut commands: Commands) {
     /// commands
     ///     .spawn_empty()
@@ -1824,7 +1822,7 @@ impl<'a> EntityCommands<'a> {
     ///             println!("Successfully parsed the value {} for entity {}", value, entity.id());
     ///             Ok(())
     ///         },
-    ///         error_handler::warn()
+    ///         warn
     ///     );
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
