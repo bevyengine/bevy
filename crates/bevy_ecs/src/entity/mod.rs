@@ -1576,7 +1576,7 @@ impl Entities {
             let meta = unsafe { self.meta.get_unchecked_mut(reserved_owned.index() as usize) };
             // We shouldn't flush owned entities or those already flushed.
             // For example, one may have been reserved, and then freed (no longer needing a flush).
-            if meta.location == EntityLocation::INVALID {
+            if meta.location == EntityLocation::OWNED {
                 init(reserved_owned, &mut meta.location);
             }
         }
