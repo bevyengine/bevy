@@ -16,7 +16,7 @@ use fixedbitset::FixedBitSet;
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
-    error::{BevyError, Result, SystemErrorContext},
+    error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
     query::Access,
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
@@ -33,7 +33,7 @@ pub(super) trait SystemExecutor: Send + Sync {
         schedule: &mut SystemSchedule,
         world: &mut World,
         skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(BevyError, SystemErrorContext),
+        error_handler: fn(BevyError, ErrorContext),
     );
     fn set_apply_final_deferred(&mut self, value: bool);
 }
