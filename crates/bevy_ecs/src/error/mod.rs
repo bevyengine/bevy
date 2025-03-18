@@ -48,7 +48,7 @@
 //! }
 //!
 //! fn main() {
-//! 	// This requires the "configurable_error_handler" feature to be enabled to be in scope.
+//!     // This requires the "configurable_error_handler" feature to be enabled to be in scope.
 //!     GLOBAL_ERROR_HANDLER.set(my_error_handler).expect("The error handler can only be set once.");
 //!     
 //!     // Initialize your Bevy App here
