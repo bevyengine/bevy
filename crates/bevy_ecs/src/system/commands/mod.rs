@@ -604,6 +604,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
+    /// use bevy_ecs::error::warn;
+    ///
     /// #[derive(Resource, Default)]
     /// struct Counter(u64);
     ///
@@ -1813,6 +1815,8 @@ impl<'a> EntityCommands<'a> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # fn my_system(mut commands: Commands) {
+    /// use bevy_ecs::error::warn;
+    ///
     /// commands
     ///     .spawn_empty()
     ///     // Closures with this signature implement `EntityCommand`.

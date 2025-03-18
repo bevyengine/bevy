@@ -36,7 +36,7 @@
 //! For example:
 //!
 //! ```rust
-//! use bevy_ecs::prelude::*;
+//! use bevy_ecs::error::{GLOBAL_ERROR_HANDLER, BevyError, ErrorContext};
 //! use log::trace;
 //!
 //! fn my_error_handler(error: BevyError, ctx: ErrorContext) {

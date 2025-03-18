@@ -82,6 +82,8 @@ impl ErrorContext {
 /// To use this error handler in your app for custom error handling logic:
 ///
 /// ```rust
+/// use bevy_ecs::error::{GLOBAL_ERROR_HANDLER, BevyError, ErrorContext, panic};
+///
 /// fn handle_errors(error: BevyError, ctx: ErrorContext) {
 ///    // By convention, panicking is the default behavior for errors if the user doesn't set an error handler.
 ///    // Libraries that you ship should follow this convention to avoid surprising users!
