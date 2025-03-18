@@ -38,7 +38,7 @@ fn deterministic_rand() -> ChaCha8Rng {
 fn setup<T: Component + Default>(entity_count: u32) -> World {
     let mut world = World::default();
     // SAFETY: We don't touch entity data.
-    unsafe { world.entities_mut() }.set_allocation_reservation_size(ALLOCATION_BATCHES);
+    unsafe { world.entities_mut() }.ideal_owned = ALLOCATION_BATCHES;
     world.spawn_batch((0..entity_count).map(|_| T::default()));
     black_box(world)
 }
@@ -46,7 +46,7 @@ fn setup<T: Component + Default>(entity_count: u32) -> World {
 fn setup_wide<T: Bundle<Effect: NoBundleEffect> + Default>(entity_count: u32) -> World {
     let mut world = World::default();
     // SAFETY: We don't touch entity data.
-    unsafe { world.entities_mut() }.set_allocation_reservation_size(ALLOCATION_BATCHES);
+    unsafe { world.entities_mut() }.ideal_owned = ALLOCATION_BATCHES;
     world.spawn_batch((0..entity_count).map(|_| T::default()));
     black_box(world)
 }
