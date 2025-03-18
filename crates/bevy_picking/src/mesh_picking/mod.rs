@@ -69,7 +69,6 @@ pub struct MeshPickingPlugin;
 impl Plugin for MeshPickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MeshPickingSettings>()
-            .register_type::<RayCastPickable>()
             .register_type::<MeshPickingSettings>()
             .register_type::<SimplifiedMesh>()
             .add_systems(PreUpdate, update_hits.in_set(PickSet::Backend));
