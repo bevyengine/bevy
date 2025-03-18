@@ -13,22 +13,22 @@ pub fn world_despawn_recursive(criterion: &mut Criterion) {
     group.measurement_time(core::time::Duration::from_secs(4));
 
     for entity_count in (0..5).map(|i| 10_u32.pow(i)) {
-        let mut world = World::default();
-        for _ in 0..entity_count {
-            world
-                .spawn((A(Mat4::default()), B(Vec4::default())))
-                .with_children(|parent| {
-                    parent.spawn((A(Mat4::default()), B(Vec4::default())));
-                });
-        }
-
-        let ents = world
-            .iter_entities()
-            .filter(|e| e.get::<ChildOf>().is_none())
-            .map(|e| e.id())
-            .collect::<Vec<_>>();
         group.bench_function(format!("{}_entities", entity_count), |bencher| {
             bencher.iter(|| {
+                let mut world = World::default();
+                for _ in 0..entity_count {
+                    world
+                        .spawn((A(Mat4::default()), B(Vec4::default())))
+                        .with_children(|parent| {
+                            parent.spawn((A(Mat4::default()), B(Vec4::default())));
+                        });
+                }
+
+                let ents = world
+                    .iter_entities()
+                    .filter(|e| e.get::<ChildOf>().is_none())
+                    .map(|e| e.id())
+                    .collect::<Vec<_>>();
                 ents.iter().for_each(|e| {
                     world.entity_mut(*e).despawn();
                 });
