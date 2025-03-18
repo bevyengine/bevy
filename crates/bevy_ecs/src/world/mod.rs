@@ -53,7 +53,7 @@ use crate::{
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
-    relationship::RelationshipInsertHookMode,
+    relationship::RelationshipHookMode,
     removal_detection::RemovedComponentEvents,
     resource::Resource,
     schedule::{Schedule, ScheduleLabel, Schedules},
@@ -2305,7 +2305,7 @@ impl World {
                                     bundle,
                                     InsertMode::Replace,
                                     caller,
-                                    RelationshipInsertHookMode::Run,
+                                    RelationshipHookMode::Run,
                                 )
                             };
                         }
@@ -2327,7 +2327,7 @@ impl World {
                                     bundle,
                                     InsertMode::Replace,
                                     caller,
-                                    RelationshipInsertHookMode::Run,
+                                    RelationshipHookMode::Run,
                                 )
                             };
                             spawn_or_insert =
@@ -2465,7 +2465,7 @@ impl World {
                         first_bundle,
                         insert_mode,
                         caller,
-                        RelationshipInsertHookMode::Run,
+                        RelationshipHookMode::Run,
                     )
                 };
 
@@ -2493,7 +2493,7 @@ impl World {
                                 bundle,
                                 insert_mode,
                                 caller,
-                                RelationshipInsertHookMode::Run,
+                                RelationshipHookMode::Run,
                             )
                         };
                     } else {
@@ -2615,7 +2615,7 @@ impl World {
                             first_bundle,
                             insert_mode,
                             caller,
-                            RelationshipInsertHookMode::Run,
+                            RelationshipHookMode::Run,
                         )
                     };
                     break Some(cache);
@@ -2652,7 +2652,7 @@ impl World {
                             bundle,
                             insert_mode,
                             caller,
-                            RelationshipInsertHookMode::Run,
+                            RelationshipHookMode::Run,
                         )
                     };
                 } else {

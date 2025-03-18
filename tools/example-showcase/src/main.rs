@@ -275,6 +275,7 @@ fn main() {
                 examples_to_run
                     .iter()
                     .filter(|example| example.category != "Stress Tests" || !ignore_stress_tests)
+                    .filter(|example| example.example_type == ExampleType::Bin)
                     .filter(|example| {
                         example_list.is_none() || example_filter.contains(&example.technical_name)
                     })
@@ -503,6 +504,10 @@ header_message = \"Examples (WebGL2)\"
 
             let mut categories = HashMap::new();
             for to_show in examples_to_run {
+                if to_show.example_type != ExampleType::Bin {
+                    continue;
+                }
+
                 if !to_show.wasm {
                     continue;
                 }
@@ -659,6 +664,7 @@ header_message = \"Examples ({})\"
                 examples_to_build
                     .iter()
                     .filter(|to_build| to_build.wasm)
+                    .filter(|to_build| to_build.example_type == ExampleType::Bin)
                     .skip(cli.page.unwrap_or(0) * cli.per_page.unwrap_or(0))
                     .take(cli.per_page.unwrap_or(usize::MAX))
             };
@@ -804,6 +810,22 @@ fn parse_examples() -> Vec<Example> {
                             .collect()
                     })
                     .unwrap_or_default(),
+                example_type: match val.get("crate-type") {
+                    Some(crate_type) => {
+                        match crate_type
+                            .as_array()
+                            .unwrap()
+                            .get(0)
+                            .unwrap()
+                            .as_str()
+                            .unwrap()
+                        {
+                            "lib" => ExampleType::Lib,
+                            _ => ExampleType::Bin,
+                        }
+                    }
+                    None => ExampleType::Bin,
+                },
             })
         })
         .collect()
@@ -833,4 +855,12 @@ struct Example {
     wasm: bool,
     /// List of commands to run before the example. Can be used for example to specify data to download
     setup: Vec<Vec<String>>,
+    /// Type of example
+    example_type: ExampleType,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+enum ExampleType {
+    Lib,
+    Bin,
 }
