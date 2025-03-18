@@ -73,6 +73,8 @@ impl Default for UiPickingSettings {
 }
 
 /// A plugin that adds picking support for UI nodes.
+///
+/// This is included by default in [`UiPlugin`](crate::UiPlugin).
 #[derive(Clone)]
 pub struct UiPickingPlugin;
 impl Plugin for UiPickingPlugin {
