@@ -913,7 +913,7 @@ mod tests {
             type_registry: registry,
         };
 
-        let (deserialized_scene, _bytes_read) =
+        let (deserialized_scene, _read_bytes) =
             bincode::serde::seed_decode_from_slice(scene_deserializer, &serialized_scene, config)
                 .unwrap();
 
