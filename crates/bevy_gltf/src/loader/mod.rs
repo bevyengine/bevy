@@ -1,10 +1,11 @@
 mod extensions;
 mod gltf_ext;
 
+use alloc::sync::Arc;
 use std::{
     io::Error,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::Mutex,
 };
 
 #[cfg(feature = "bevy_animation")]
