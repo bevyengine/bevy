@@ -4,8 +4,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        // Unlike UiPickingPlugin, MeshPickingPlugin is not a default plugin
-        .add_plugins((DefaultPlugins, MeshPickingPlugin))
+        .add_plugins((DefaultPlugins, MeshPickingPlugin, UiPickingPlugin))
         .add_systems(Startup, setup_scene)
         .run();
 }

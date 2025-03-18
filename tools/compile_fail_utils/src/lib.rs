@@ -7,13 +7,14 @@ use std::{
 pub use ui_test;
 
 use ui_test::{
+    bless_output_files,
     color_eyre::eyre::eyre,
     default_file_filter, default_per_file_config,
     dependencies::DependencyBuilder,
-    run_tests_generic,
+    ignore_output_conflict, run_tests_generic,
     spanned::Spanned,
     status_emitter::{Gha, StatusEmitter, Text},
-    Args, Config, OutputConflictHandling,
+    Args, Config,
 };
 
 /// Use this instead of hand rolling configs.
@@ -44,10 +45,10 @@ fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> ui_test::Result<Co
                 .to_string(),
         ),
         output_conflict_handling: if env::var_os("BLESS").is_some() {
-            OutputConflictHandling::Bless
+            bless_output_files
         } else {
             // stderr output changes between rust versions so we just rely on annotations
-            OutputConflictHandling::Ignore
+            ignore_output_conflict
         },
         ..Config::rustc(root_dir)
     };

@@ -185,13 +185,14 @@ impl TextPipeline {
             },
         );
 
-        buffer.set_rich_text(font_system, spans_iter, Attrs::new(), Shaping::Advanced);
+        buffer.set_rich_text(
+            font_system,
+            spans_iter,
+            Attrs::new(),
+            Shaping::Advanced,
+            Some(justify.into()),
+        );
 
-        // PERF: https://github.com/pop-os/cosmic-text/issues/166:
-        // Setting alignment afterwards appears to invalidate some layouting performed by `set_text` which is presumably not free?
-        for buffer_line in buffer.lines.iter_mut() {
-            buffer_line.set_align(Some(justify.into()));
-        }
         buffer.shape_until_scroll(font_system, false);
 
         // Workaround for alignment not working for unbounded text.
@@ -413,7 +414,7 @@ impl TextPipeline {
 /// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`] when an entity has
 /// [`TextLayout`] and [`ComputedTextBlock`] components.
 #[derive(Component, Clone, Default, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct TextLayoutInfo {
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,

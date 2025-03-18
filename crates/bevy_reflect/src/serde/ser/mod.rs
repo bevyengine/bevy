@@ -406,7 +406,7 @@ mod tests {
             some: Some(SomeStruct { foo: 999999999 }),
             none: None,
         };
-        let dynamic = value.clone_dynamic();
+        let dynamic = value.to_dynamic_struct();
         let reflect = dynamic.as_partial_reflect();
 
         let registry = get_registry();

@@ -11,7 +11,7 @@ use bevy_ecs::{
     prelude::{Component, Entity, ReflectComponent},
     query::{QueryItem, With},
     resource::Resource,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -131,7 +131,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// If no [`MipBias`] component is attached to the camera, TAA will add a `MipBias(-1.0)` component.
 #[derive(Component, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 #[require(TemporalJitter, DepthPrepass, MotionVectorPrepass)]
 #[doc(alias = "Taa")]
 pub struct TemporalAntiAliasing {

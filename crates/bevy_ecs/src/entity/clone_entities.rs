@@ -10,7 +10,7 @@ use alloc::boxed::Box;
 use crate::component::{ComponentCloneBehavior, ComponentCloneFn};
 use crate::entity::hash_map::EntityHashMap;
 use crate::entity::{Entities, EntityMapper};
-use crate::relationship::RelationshipInsertHookMode;
+use crate::relationship::RelationshipHookMode;
 use crate::system::Commands;
 use crate::{
     bundle::Bundle,
@@ -256,7 +256,11 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             );
             self.bundle_scratch
                 .push_ptr(self.component_id, PtrMut::new(target_component_data_ptr));
-            alloc::alloc::dealloc(component_data_ptr, component_layout);
+
+            if component_layout.size() > 0 {
+                // Ensure we don't attempt to deallocate zero-sized components
+                alloc::alloc::dealloc(component_data_ptr, component_layout);
+            }
         }
 
         self.target_component_written = true;
@@ -411,7 +415,7 @@ impl<'a> BundleScratch<'a> {
         self,
         world: &mut World,
         entity: Entity,
-        relationship_hook_insert_mode: RelationshipInsertHookMode,
+        relationship_hook_insert_mode: RelationshipHookMode,
     ) {
         // SAFETY:
         // - All `component_ids` are from the same world as `target` entity
@@ -449,7 +453,7 @@ impl EntityCloner {
         world: &mut World,
         source: Entity,
         mapper: &mut dyn EntityMapper,
-        relationship_hook_insert_mode: RelationshipInsertHookMode,
+        relationship_hook_insert_mode: RelationshipHookMode,
     ) -> Entity {
         let target = mapper.get_mapped(source);
         // PERF: reusing allocated space across clones would be more efficient. Consider an allocation model similar to `Commands`.
@@ -577,16 +581,15 @@ impl EntityCloner {
         mapper: &mut dyn EntityMapper,
     ) -> Entity {
         // All relationships on the root should have their hooks run
-        let target =
-            self.clone_entity_internal(world, source, mapper, RelationshipInsertHookMode::Run);
+        let target = self.clone_entity_internal(world, source, mapper, RelationshipHookMode::Run);
         let child_hook_insert_mode = if self.linked_cloning {
             // When spawning "linked relationships", we want to ignore hooks for relationships we are spawning, while
             // still registering with original relationship targets that are "not linked" to the current recursive spawn.
-            RelationshipInsertHookMode::RunIfNotLinked
+            RelationshipHookMode::RunIfNotLinked
         } else {
             // If we are not cloning "linked relationships" recursively, then we want any cloned relationship components to
             // register themselves with their original relationship target.
-            RelationshipInsertHookMode::Run
+            RelationshipHookMode::Run
         };
         loop {
             let queued = self.clone_queue.pop_front();
@@ -848,6 +851,7 @@ mod tests {
     use alloc::vec::Vec;
     use bevy_ptr::OwningPtr;
     use bevy_reflect::Reflect;
+    use core::marker::PhantomData;
     use core::{alloc::Layout, ops::Deref};
 
     #[cfg(feature = "bevy_reflect")]
@@ -888,67 +892,95 @@ mod tests {
             assert!(world.get::<A>(e_clone).is_some_and(|c| *c == component));
         }
 
-        // TODO: remove this when https://github.com/bevyengine/bevy/pull/13432 lands
         #[test]
         fn clone_entity_using_reflect_all_paths() {
-            // `ReflectDefault`-based fast path
+            #[derive(PartialEq, Eq, Default, Debug)]
+            struct NotClone;
+
+            // `reflect_clone`-based fast path
             #[derive(Component, Reflect, PartialEq, Eq, Default, Debug)]
-            #[reflect(Default)]
             #[reflect(from_reflect = false)]
             struct A {
                 field: usize,
                 field2: Vec<usize>,
             }
 
-            // `ReflectFromReflect`-based fast path
+            // `ReflectDefault`-based fast path
             #[derive(Component, Reflect, PartialEq, Eq, Default, Debug)]
+            #[reflect(Default)]
+            #[reflect(from_reflect = false)]
             struct B {
                 field: usize,
                 field2: Vec<usize>,
+                #[reflect(ignore)]
+                ignored: NotClone,
+            }
+
+            // `ReflectFromReflect`-based fast path
+            #[derive(Component, Reflect, PartialEq, Eq, Default, Debug)]
+            struct C {
+                field: usize,
+                field2: Vec<usize>,
+                #[reflect(ignore)]
+                ignored: NotClone,
             }
 
             // `ReflectFromWorld`-based fast path
             #[derive(Component, Reflect, PartialEq, Eq, Default, Debug)]
             #[reflect(FromWorld)]
             #[reflect(from_reflect = false)]
-            struct C {
+            struct D {
                 field: usize,
                 field2: Vec<usize>,
+                #[reflect(ignore)]
+                ignored: NotClone,
             }
 
             let mut world = World::default();
             world.init_resource::<AppTypeRegistry>();
             let registry = world.get_resource::<AppTypeRegistry>().unwrap();
-            registry.write().register::<(A, B, C)>();
+            registry.write().register::<(A, B, C, D)>();
 
             let a_id = world.register_component::<A>();
             let b_id = world.register_component::<B>();
             let c_id = world.register_component::<C>();
+            let d_id = world.register_component::<D>();
             let component_a = A {
                 field: 5,
                 field2: vec![1, 2, 3, 4, 5],
             };
             let component_b = B {
-                field: 6,
+                field: 5,
                 field2: vec![1, 2, 3, 4, 5],
+                ignored: NotClone,
             };
             let component_c = C {
+                field: 6,
+                field2: vec![1, 2, 3, 4, 5],
+                ignored: NotClone,
+            };
+            let component_d = D {
                 field: 7,
                 field2: vec![1, 2, 3, 4, 5],
+                ignored: NotClone,
             };
 
-            let e = world.spawn((component_a, component_b, component_c)).id();
+            let e = world
+                .spawn((component_a, component_b, component_c, component_d))
+                .id();
             let e_clone = world.spawn_empty().id();
 
             EntityCloner::build(&mut world)
                 .override_clone_behavior_with_id(a_id, ComponentCloneBehavior::reflect())
                 .override_clone_behavior_with_id(b_id, ComponentCloneBehavior::reflect())
                 .override_clone_behavior_with_id(c_id, ComponentCloneBehavior::reflect())
+                .override_clone_behavior_with_id(d_id, ComponentCloneBehavior::reflect())
                 .clone_entity(e, e_clone);
 
             assert_eq!(world.get::<A>(e_clone), Some(world.get::<A>(e).unwrap()));
             assert_eq!(world.get::<B>(e_clone), Some(world.get::<B>(e).unwrap()));
             assert_eq!(world.get::<C>(e_clone), Some(world.get::<C>(e).unwrap()));
+            assert_eq!(world.get::<D>(e_clone), Some(world.get::<D>(e).unwrap()));
         }
 
         #[test]
@@ -1025,16 +1057,16 @@ mod tests {
             #[derive(Component, PartialEq, Eq, Default, Debug)]
             struct A;
 
-            // No valid type data
+            // No valid type data and not `reflect_clone`-able
             #[derive(Component, Reflect, PartialEq, Eq, Default, Debug)]
             #[reflect(Component)]
             #[reflect(from_reflect = false)]
-            struct B;
+            struct B(#[reflect(ignore)] PhantomData<()>);
 
             let mut world = World::default();
 
             // No AppTypeRegistry
-            let e = world.spawn((A, B)).id();
+            let e = world.spawn((A, B(Default::default()))).id();
             let e_clone = world.spawn_empty().id();
             EntityCloner::build(&mut world)
                 .override_clone_behavior::<A>(ComponentCloneBehavior::reflect())
@@ -1048,7 +1080,7 @@ mod tests {
             let registry = world.get_resource::<AppTypeRegistry>().unwrap();
             registry.write().register::<B>();
 
-            let e = world.spawn((A, B)).id();
+            let e = world.spawn((A, B(Default::default()))).id();
             let e_clone = world.spawn_empty().id();
             EntityCloner::build(&mut world).clone_entity(e, e_clone);
             assert_eq!(world.get::<A>(e_clone), None);
@@ -1347,7 +1379,11 @@ mod tests {
     fn clone_with_reflect_from_world() {
         #[derive(Component, Reflect, PartialEq, Eq, Debug)]
         #[reflect(Component, FromWorld, from_reflect = false)]
-        struct SomeRef(#[entities] Entity);
+        struct SomeRef(
+            #[entities] Entity,
+            // We add an ignored field here to ensure `reflect_clone` fails and `FromWorld` is used
+            #[reflect(ignore)] PhantomData<()>,
+        );
 
         #[derive(Resource)]
         struct FromWorldCalled(bool);
@@ -1355,7 +1391,7 @@ mod tests {
         impl FromWorld for SomeRef {
             fn from_world(world: &mut World) -> Self {
                 world.insert_resource(FromWorldCalled(true));
-                SomeRef(Entity::PLACEHOLDER)
+                SomeRef(Entity::PLACEHOLDER, Default::default())
             }
         }
         let mut world = World::new();
@@ -1365,14 +1401,17 @@ mod tests {
 
         let a = world.spawn_empty().id();
         let b = world.spawn_empty().id();
-        let c = world.spawn(SomeRef(a)).id();
+        let c = world.spawn(SomeRef(a, Default::default())).id();
         let d = world.spawn_empty().id();
         let mut map = EntityHashMap::<Entity>::new();
         map.insert(a, b);
         map.insert(c, d);
 
         let cloned = EntityCloner::default().clone_entity_mapped(&mut world, c, &mut map);
-        assert_eq!(*world.entity(cloned).get::<SomeRef>().unwrap(), SomeRef(b));
+        assert_eq!(
+            *world.entity(cloned).get::<SomeRef>().unwrap(),
+            SomeRef(b, Default::default())
+        );
         assert!(world.resource::<FromWorldCalled>().0);
     }
 }
