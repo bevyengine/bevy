@@ -1241,6 +1241,8 @@ pub struct Entities {
     /// These are marked with [`EntityLocation::OWNED`] to prevent them from being flushed on accident.
     owned: VecDeque<Entity>,
     /// The number of entities from [`Self::owned`] that have been reserved. These reserve in front to back order.
+    ///
+    /// **NOTE:** This may be greater than `owned.len()` if all its items are reserved.
     reserved_from_owned: AtomicUsize,
     /// The number of [`entities`](Entity) to have on standby for allocations.
     /// The higher the number, the faster allocations will be, but the more memory and entities will be taken up while still being unused.
@@ -1285,15 +1287,59 @@ impl Entities {
     pub fn reserve_entities(
         &self,
         count: u32,
-    ) -> ReserveEntitiesIterator<core::iter::Copied<core::slice::Iter<'_, Entity>>> {
-        self.reserver.reserve_entities_no_refresh(count)
+    ) -> ReserveEntitiesIterator<
+        core::iter::Chain<
+            core::iter::Copied<alloc::collections::vec_deque::Iter<'_, Entity>>,
+            core::iter::Copied<core::slice::Iter<'_, Entity>>,
+        >,
+    > {
+        let reserved_from_owned = if self.owned.is_empty() {
+            0..0
+        } else {
+            let reserved_from_owned_start = self.owned.len().min(
+                self.reserved_from_owned
+                    .fetch_add(count as usize, Ordering::Relaxed),
+            );
+            let reserved_from_owned_end = self
+                .owned
+                .len()
+                .min(reserved_from_owned_start + count as usize);
+            reserved_from_owned_start..reserved_from_owned_end
+        };
+        let remaining = count - reserved_from_owned.len() as u32;
+
+        let ReserveEntitiesIterator {
+            reused_entities,
+            new_indices,
+        } = if remaining > 0 {
+            self.reserver.reserve_entities_no_refresh(remaining)
+        } else {
+            ReserveEntitiesIterator {
+                reused_entities: [].iter().copied(),
+                #[expect(
+                    clippy::reversed_empty_ranges,
+                    reason = "We need to create an empty range here."
+                )]
+                new_indices: 1..=0,
+            }
+        };
+
+        let owned = self.owned.range(reserved_from_owned).copied();
+        ReserveEntitiesIterator {
+            reused_entities: owned.chain(reused_entities),
+            new_indices,
+        }
     }
 
     /// Reserve one entity ID concurrently.
     ///
     /// Equivalent to `self.reserve_entities(1).next().unwrap()`, but more efficient.
     pub fn reserve_entity(&self) -> Entity {
-        self.reserver.reserve_entity_no_refresh()
+        let reserved_from_owned = self.reserved_from_owned.fetch_add(1, Ordering::Relaxed);
+        self.owned
+            .get(reserved_from_owned)
+            .copied()
+            .unwrap_or_else(|| self.reserver.reserve_entity_no_refresh())
     }
 
     /// Safely extends [`Self::owned`].
@@ -1402,6 +1448,10 @@ impl Entities {
         }
 
         let loc = mem::replace(&mut meta.location, EntityLocation::OWNED);
+
+        // The newly freed has not been reserved, so we need to cap it to the current length.
+        *self.reserved_from_owned.get_mut() =
+            self.owned.len().min(*self.reserved_from_owned.get_mut());
 
         self.owned.push_back(Entity::from_raw_and_generation(
             entity.index,
