@@ -729,7 +729,7 @@ struct AtomicEntityReservations {
 }
 
 impl AtomicEntityReservations {
-    /// Creates a new [`EntityReservations`]
+    /// Creates a new [`AtomicEntityReservations`]
     fn new() -> Self {
         Self {
             pending_chunk: AtomicPendingEntitiesChunk::new(Arc::default()),
