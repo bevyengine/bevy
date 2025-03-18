@@ -1592,7 +1592,6 @@ impl Entities {
         });
 
         // flush and reuse `wild_pending_chunks`
-        let hot_swap_arc = Arc::new(PendingEntitiesChunk::default());
         self.wild_pending_chunks.retain_mut(|item| {
             // flush the pending list
             let flusher = |reserved: Entity| {
@@ -1611,16 +1610,12 @@ impl Entities {
             }
 
             // see if we can get rid of it
-            let pending = mem::replace(item, hot_swap_arc.clone());
-            match Arc::try_unwrap(pending) {
-                Ok(inner) => {
-                    self.coordinator.reuse_pending(inner);
+            match Arc::get_mut(item) {
+                Some(inner) => {
+                    self.coordinator.reuse_pending(mem::take(inner));
                     false
                 }
-                Err(still_pending) => {
-                    let _hot_swapped = mem::replace(item, still_pending);
-                    true
-                }
+                None => true,
             }
         });
 
