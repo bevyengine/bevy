@@ -1,7 +1,13 @@
 //! Showcases how fallible systems and observers can make use of Rust's powerful result handling
 //! syntax.
+//!
+//! Important note: to set the global error handler, the `configurable_error_handler` feature must be
+//! enabled. This feature is disabled by default, as it may introduce runtime overhead, especially for commands.
 
-use bevy::ecs::world::DeferredWorld;
+use bevy::ecs::{
+    error::{warn, GLOBAL_ERROR_HANDLER},
+    world::DeferredWorld,
+};
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
@@ -10,6 +16,16 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
+    // By default, fallible systems that return an error will panic.
+    //
+    // We can change this by setting a custom error handler, which applies globally.
+    // Here we set the global error handler using one of the built-in
+    // error handlers. Bevy provides built-in handlers for `panic`, `error`, `warn`, `info`,
+    // `debug`, `trace` and `ignore`.
+    GLOBAL_ERROR_HANDLER
+        .set(warn)
+        .expect("The error handler can only be set once, globally.");
+
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins);
@@ -22,26 +38,9 @@ fn main() {
     // types of systems the same way, except for the error handling.
     app.add_systems(Startup, setup);
 
-    // By default, fallible systems that return an error will panic.
-    //
-    // We can change this by setting a custom error handler. This can be done globally for all
-    // systems in a given `App`. Here we set the global error handler using one of the built-in
-    // error handlers. Bevy provides built-in handlers for `panic`, `error`, `warn`, `info`,
-    // `debug`, `trace` and `ignore`.
-    app.set_system_error_handler(bevy::ecs::error::warn);
-
-    // Additionally, you can set a custom error handler per `Schedule`. This will take precedence
-    // over the global error handler.
-    //
-    // In this instance we provide our own non-capturing closure that coerces to the expected error
-    // handler function pointer:
-    //
-    //     fn(bevy_ecs::error::BevyError, bevy_ecs::error::SystemErrorContext)
-    //
-    app.add_systems(PostStartup, failing_system)
-        .get_schedule_mut(PostStartup)
-        .unwrap()
-        .set_error_handler(|err, ctx| error!("{} failed: {err}", ctx.name));
+    // Commands can also return `Result`s, which are automatically handled by the global error handler
+    // if not explicitly handled by the user.
+    app.add_systems(Startup, failing_commands);
 
     // Individual systems can also be handled by piping the output result:
     app.add_systems(
@@ -165,4 +164,29 @@ fn failing_system(world: &mut World) -> Result {
         .ok_or("Resource not initialized")?;
 
     Ok(())
+}
+
+fn failing_commands(mut commands: Commands) {
+    commands
+        // This entity doesn't exist!
+        .entity(Entity::from_raw(12345678))
+        // Normally, this failed command would panic,
+        // but since we've set the global error handler to `warn`
+        // it will log a warning instead.
+        .insert(Transform::default());
+
+    // The error handlers for commands can be set individually as well,
+    // by using the queue_handled method.
+    commands.queue_handled(
+        |world: &mut World| -> Result {
+            world
+                .get_resource::<UninitializedResource>()
+                .ok_or("Resource not initialized when accessed in a command")?;
+
+            Ok(())
+        },
+        |error, context| {
+            error!("{error}, {context}");
+        },
+    );
 }

@@ -8,7 +8,7 @@ use tracing::info_span;
 use std::eprintln;
 
 use crate::{
-    error::{BevyError, SystemErrorContext},
+    error::{BevyError, ErrorContext},
     schedule::{
         executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
@@ -44,7 +44,7 @@ impl SystemExecutor for SimpleExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(BevyError, SystemErrorContext),
+        error_handler: fn(BevyError, ErrorContext),
     ) {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
@@ -109,7 +109,7 @@ impl SystemExecutor for SimpleExecutor {
                 if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
                     error_handler(
                         err,
-                        SystemErrorContext {
+                        ErrorContext::System {
                             name: system.name(),
                             last_run: system.get_last_run(),
                         },

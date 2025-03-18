@@ -110,14 +110,16 @@ impl WinitWindows {
             }
         };
 
+        // It's crucial to avoid setting the window's final visibility here;
+        // as explained above, the window must be invisible until the AccessKit
+        // adapter is created.
         winit_window_attributes = winit_window_attributes
             .with_window_level(convert_window_level(window.window_level))
             .with_theme(window.window_theme.map(convert_window_theme))
             .with_resizable(window.resizable)
             .with_enabled_buttons(convert_enabled_buttons(window.enabled_buttons))
             .with_decorations(window.decorations)
-            .with_transparent(window.transparent)
-            .with_visible(window.visible);
+            .with_transparent(window.transparent);
 
         #[cfg(target_os = "windows")]
         {
@@ -283,6 +285,10 @@ impl WinitWindows {
             adapters,
             handlers,
         );
+
+        // Now that the AccessKit adapter is created, it's safe to show
+        // the window.
+        winit_window.set_visible(window.visible);
 
         // Do not set the grab mode on window creation if it's none. It can fail on mobile.
         if window.cursor_options.grab_mode != CursorGrabMode::None {

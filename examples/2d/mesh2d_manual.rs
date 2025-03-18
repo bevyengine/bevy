@@ -412,6 +412,7 @@ pub fn queue_colored_mesh2d(
                     // This material is not batched
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    extracted_index: usize::MAX,
                     indexed: mesh.indexed(),
                 });
             }

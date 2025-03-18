@@ -6,7 +6,7 @@ use crate::{
     change_detection::{MaybeLocation, MAX_CHANGE_AGE},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
     query::DebugCheckedUnwrap,
-    relationship::RelationshipInsertHookMode,
+    relationship::RelationshipHookMode,
     resource::Resource,
     storage::{SparseSetIndex, SparseSets, Table, TableRow},
     system::{Commands, Local, SystemParam},
@@ -584,7 +584,7 @@ pub struct HookContext {
     /// The caller location is `Some` if the `track_caller` feature is enabled.
     pub caller: MaybeLocation,
     /// Configures how relationship hooks will run
-    pub relationship_insert_hook_mode: RelationshipInsertHookMode,
+    pub relationship_hook_mode: RelationshipHookMode,
 }
 
 /// [`World`]-mutating functions that run as part of lifecycle events of a [`Component`].
@@ -950,7 +950,7 @@ impl ComponentInfo {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 pub struct ComponentId(usize);
 
@@ -2416,7 +2416,7 @@ impl Components {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 pub struct Tick {
     tick: u32,
@@ -2513,7 +2513,7 @@ impl<'a> TickCells<'a> {
 
 /// Records when a component or resource was added and when it was last mutably dereferenced (or added).
 #[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct ComponentTicks {
     /// Tick recording the time this component or resource was added.
     pub added: Tick,

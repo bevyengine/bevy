@@ -35,7 +35,7 @@ impl FileWatcher {
         sender: Sender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Result<Self, notify::Error> {
-        let root = normalize_path(&path);
+        let root = normalize_path(&path).canonicalize().unwrap();
         let watcher = new_asset_event_debouncer(
             path.clone(),
             debounce_wait_time,

@@ -27,7 +27,7 @@ mod node;
 pub use node::FxaaNode;
 
 #[derive(Debug, Reflect, Eq, PartialEq, Hash, Clone, Copy)]
-#[reflect(PartialEq, Hash)]
+#[reflect(PartialEq, Hash, Clone)]
 pub enum Sensitivity {
     Low,
     Medium,
@@ -51,7 +51,7 @@ impl Sensitivity {
 /// A component for enabling Fast Approximate Anti-Aliasing (FXAA)
 /// for a [`bevy_render::camera::Camera`].
 #[derive(Reflect, Component, Clone, ExtractComponent)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 #[extract_component_filter(With<Camera>)]
 #[doc(alias = "FastApproximateAntiAliasing")]
 pub struct Fxaa {

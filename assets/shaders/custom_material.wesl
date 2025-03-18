@@ -1,4 +1,4 @@
-import super::shaders::util::make_polka_dots;
+import super::util::make_polka_dots;
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
