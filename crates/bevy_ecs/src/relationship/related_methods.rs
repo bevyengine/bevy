@@ -1,14 +1,14 @@
 use crate::{
     bundle::Bundle,
     entity::{hash_set::EntityHashSet, Entity},
-    relationship::{Relationship, RelationshipSourceCollection, RelationshipTarget},
+    relationship::{
+        Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
+    },
     system::{Commands, EntityCommands},
     world::{EntityWorldMut, World},
 };
 use bevy_platform_support::prelude::{Box, Vec};
 use core::{marker::PhantomData, mem};
-
-use super::RelationshipInsertHookMode;
 
 impl<'w> EntityWorldMut<'w> {
     /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
@@ -72,10 +72,7 @@ impl<'w> EntityWorldMut<'w> {
                 // SAFETY: We'll manually be adjusting the contents of the parent to fit the final state.
                 world
                     .entity_mut(related)
-                    .insert_with_relationship_insert_hook_mode(
-                        R::from(id),
-                        RelationshipInsertHookMode::Skip,
-                    );
+                    .insert_with_relationship_hook_mode(R::from(id), RelationshipHookMode::Skip);
             }
         });
 
@@ -166,10 +163,7 @@ impl<'w> EntityWorldMut<'w> {
                 // We're changing the target collection manually so don't run the insert hook
                 world
                     .entity_mut(*new_relation)
-                    .insert_with_relationship_insert_hook_mode(
-                        R::from(this),
-                        RelationshipInsertHookMode::Skip,
-                    );
+                    .insert_with_relationship_hook_mode(R::from(this), RelationshipHookMode::Skip);
             }
         });
 

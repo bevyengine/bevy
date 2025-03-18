@@ -838,8 +838,9 @@ mod tests {
             &[],
             &[child_a, child_b],
             &[child_a],
+        );
     }
-    
+
     #[test]
     fn child_replace_hook_skip() {
         let mut world = World::new();
