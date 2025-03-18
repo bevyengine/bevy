@@ -908,12 +908,11 @@ impl AtomicEntityReservations {
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::entity::EntityReservations;
-/// use std::ops::Deref;
+/// use bevy_ecs::entity::EntityReserver;
 ///
 /// // reserve
 /// let mut world = World::new();
-/// let entities: EntityReserver = world.entities().get_remote_entities().into_reserver();
+/// let mut entities: EntityReserver = world.entities().get_remote_entities().into_reserver();
 /// let now_reserved = entities.reserve_entity();
 ///
 /// // flush
