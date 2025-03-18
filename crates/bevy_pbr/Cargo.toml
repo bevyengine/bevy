@@ -45,7 +45,6 @@ bevy_render = { path = "../bevy_render", version = "0.16.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "std",
 ] }
@@ -67,7 +66,6 @@ itertools = { version = "0.14", optional = true }
 bitvec = { version = "1", optional = true }
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive", "must_cast"] }
-radsort = "0.1"
 smallvec = "1.6"
 nonmax = "0.5"
 static_assertions = "1"
