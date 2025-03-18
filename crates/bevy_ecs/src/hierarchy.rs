@@ -331,7 +331,7 @@ mod tests {
     use crate::{
         entity::Entity,
         hierarchy::{ChildOf, Children},
-        relationship::RelationshipTarget,
+        relationship::{RelationshipHookMode, RelationshipTarget},
         spawn::{Spawn, SpawnRelated},
         world::World,
     };
@@ -491,5 +491,22 @@ mod tests {
         let mut world = World::new();
         let id = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
         assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 2,);
+    }
+
+    #[test]
+    fn child_replace_hook_skip() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().id();
+        let other = world.spawn_empty().id();
+        let child = world.spawn(ChildOf { parent }).id();
+        world.entity_mut(child).insert_with_relationship_hook_mode(
+            ChildOf { parent: other },
+            RelationshipHookMode::Skip,
+        );
+        assert_eq!(
+            &**world.entity(parent).get::<Children>().unwrap(),
+            &[child],
+            "Children should still have the old value, as on_insert/on_replace didn't run"
+        );
     }
 }
