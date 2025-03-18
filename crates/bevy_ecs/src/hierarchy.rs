@@ -17,12 +17,16 @@ use crate::{
     world::{DeferredWorld, EntityWorldMut, FromWorld, World},
 };
 use alloc::{format, string::String, vec::Vec};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::std_traits::ReflectDefault;
 use core::ops::Deref;
 use core::slice;
 use disqualified::ShortName;
 use log::warn;
 
-/// A [`Relationship`](crate::relationship::Relationship) component that creates the canonical
+/// Stores the parent entity of this child entity with this component.
+///
+/// This is a [`Relationship`](crate::relationship::Relationship) component, and creates the canonical
 /// "parent / child" hierarchy. This is the "source of truth" component, and it pairs with
 /// the [`Children`] [`RelationshipTarget`](crate::relationship::RelationshipTarget).
 ///
@@ -31,7 +35,6 @@ use log::warn;
 /// 1. Organizing entities in a scene
 /// 2. Propagating configuration or data inherited from a parent, such as "visibility" or "world-space global transforms".
 /// 3. Ensuring a hierarchy is despawned when an entity is despawned.
-/// 4.
 ///
 /// [`ChildOf`] contains a single "target" [`Entity`]. When [`ChildOf`] is inserted on a "source" entity,
 /// the "target" entity will automatically (and immediately, via a component hook) have a [`Children`]
@@ -51,9 +54,9 @@ use log::warn;
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::new();
 /// let root = world.spawn_empty().id();
-/// let child1 = world.spawn(ChildOf(root)).id();
-/// let child2 = world.spawn(ChildOf(root)).id();
-/// let grandchild = world.spawn(ChildOf(child1)).id();
+/// let child1 = world.spawn(ChildOf { parent: root }).id();
+/// let child2 = world.spawn(ChildOf { parent: root }).id();
+/// let grandchild = world.spawn(ChildOf { parent: child1 }).id();
 ///
 /// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
 /// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
@@ -89,25 +92,13 @@ use log::warn;
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    reflect(Component, PartialEq, Debug, FromWorld)
+    reflect(Component, PartialEq, Debug, FromWorld, Clone)
 )]
 #[relationship(relationship_target = Children)]
-pub struct ChildOf(pub Entity);
-
-impl ChildOf {
-    /// Returns the "target" entity.
-    pub fn get(&self) -> Entity {
-        self.0
-    }
-}
-
-impl Deref for ChildOf {
-    type Target = Entity;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+#[doc(alias = "IsChild", alias = "Parent")]
+pub struct ChildOf {
+    /// The parent entity of this child entity.
+    pub parent: Entity,
 }
 
 // TODO: We need to impl either FromWorld or Default so ChildOf can be registered as Reflect.
@@ -117,19 +108,35 @@ impl Deref for ChildOf {
 impl FromWorld for ChildOf {
     #[inline(always)]
     fn from_world(_world: &mut World) -> Self {
-        ChildOf(Entity::PLACEHOLDER)
+        ChildOf {
+            parent: Entity::PLACEHOLDER,
+        }
     }
 }
 
-/// A [`RelationshipTarget`](crate::relationship::RelationshipTarget) collection component that is populated
+/// Tracks which entities are children of this parent entity.
+///
+/// A [`RelationshipTarget`] collection component that is populated
 /// with entities that "target" this entity with the [`ChildOf`] [`Relationship`](crate::relationship::Relationship) component.
 ///
-/// Together, these components form the "canonical parent-child hierarchy". See the [`ChildOf`] component for all full
+/// Together, these components form the "canonical parent-child hierarchy". See the [`ChildOf`] component for the full
 /// description of this relationship and instructions on how to use it.
+///
+/// # Usage
+///
+/// Like all [`RelationshipTarget`] components, this data should not be directly manipulated to avoid desynchronization.
+/// Instead, modify the [`ChildOf`] components on the "source" entities.
+///
+/// To access the children of an entity, you can iterate over the [`Children`] component,
+/// using the [`IntoIterator`] trait.
+/// For more complex access patterns, see the [`RelationshipTarget`] trait.
+///
+/// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 #[derive(Component, Default, Debug, PartialEq, Eq)]
 #[relationship_target(relationship = ChildOf, linked_spawn)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld, Default))]
+#[doc(alias = "IsParent")]
 pub struct Children(Vec<Entity>);
 
 impl<'a> IntoIterator for &'a Children {
@@ -180,9 +187,9 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// [`with_children`]: EntityWorldMut::with_children
     pub fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
-        let id = self.id();
+        let parent = self.id();
         self.world_scope(|world| {
-            world.spawn((bundle, ChildOf(id)));
+            world.spawn((bundle, ChildOf { parent }));
         });
         self
     }
@@ -195,9 +202,12 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_mut.insert(ChildOf(entity))")]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use entity_mut.insert(ChildOf { parent: entity })"
+    )]
     pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
-        self.insert(ChildOf(parent));
+        self.insert(ChildOf { parent });
         self
     }
 }
@@ -228,8 +238,8 @@ impl<'a> EntityCommands<'a> {
     ///
     /// [`with_children`]: EntityCommands::with_children
     pub fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
-        let id = self.id();
-        self.commands.spawn((bundle, ChildOf(id)));
+        let parent = self.id();
+        self.commands.spawn((bundle, ChildOf { parent }));
         self
     }
 
@@ -241,9 +251,12 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_commands.insert(ChildOf(entity))")]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use entity_commands.insert(ChildOf { parent: entity })"
+    )]
     pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
-        self.insert(ChildOf(parent));
+        self.insert(ChildOf { parent });
         self
     }
 }
@@ -259,7 +272,7 @@ pub fn validate_parent_has_component<C: Component>(
         return;
     };
     if !world
-        .get_entity(child_of.get())
+        .get_entity(child_of.parent)
         .is_ok_and(|e| e.contains::<C>())
     {
         // TODO: print name here once Name lives in bevy_ecs
@@ -359,9 +372,9 @@ mod tests {
     fn hierarchy() {
         let mut world = World::new();
         let root = world.spawn_empty().id();
-        let child1 = world.spawn(ChildOf(root)).id();
-        let grandchild = world.spawn(ChildOf(child1)).id();
-        let child2 = world.spawn(ChildOf(root)).id();
+        let child1 = world.spawn(ChildOf { parent: root }).id();
+        let grandchild = world.spawn(ChildOf { parent: child1 }).id();
+        let child2 = world.spawn(ChildOf { parent: root }).id();
 
         // Spawn
         let hierarchy = get_hierarchy(&world, root);
@@ -382,7 +395,7 @@ mod tests {
         assert_eq!(hierarchy, Node::new_with(root, vec![Node::new(child2)]));
 
         // Insert
-        world.entity_mut(child1).insert(ChildOf(root));
+        world.entity_mut(child1).insert(ChildOf { parent: root });
         let hierarchy = get_hierarchy(&world, root);
         assert_eq!(
             hierarchy,
@@ -441,7 +454,7 @@ mod tests {
     fn self_parenting_invalid() {
         let mut world = World::new();
         let id = world.spawn_empty().id();
-        world.entity_mut(id).insert(ChildOf(id));
+        world.entity_mut(id).insert(ChildOf { parent: id });
         assert!(
             world.entity(id).get::<ChildOf>().is_none(),
             "invalid ChildOf relationships should self-remove"
@@ -453,7 +466,7 @@ mod tests {
         let mut world = World::new();
         let parent = world.spawn_empty().id();
         world.entity_mut(parent).despawn();
-        let id = world.spawn(ChildOf(parent)).id();
+        let id = world.spawn(ChildOf { parent }).id();
         assert!(
             world.entity(id).get::<ChildOf>().is_none(),
             "invalid ChildOf relationships should self-remove"
@@ -464,10 +477,10 @@ mod tests {
     fn reinsert_same_parent() {
         let mut world = World::new();
         let parent = world.spawn_empty().id();
-        let id = world.spawn(ChildOf(parent)).id();
-        world.entity_mut(id).insert(ChildOf(parent));
+        let id = world.spawn(ChildOf { parent }).id();
+        world.entity_mut(id).insert(ChildOf { parent });
         assert_eq!(
-            Some(&ChildOf(parent)),
+            Some(&ChildOf { parent }),
             world.entity(id).get::<ChildOf>(),
             "ChildOf should still be there"
         );

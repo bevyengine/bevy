@@ -1,0 +1,91 @@
+error: Custom on_insert hooks are not supported as relationships already define an on_insert hook
+ --> tests/ui/component_hook_relationship.rs:7:5
+  |
+7 |     #[component(on_insert = foo_hook)]
+  |     ^
+
+error: Custom on_replace hooks are not supported as RelationshipTarget already defines an on_replace hook
+  --> tests/ui/component_hook_relationship.rs:22:5
+   |
+22 |     #[component(on_replace = foo_hook)]
+   |     ^
+
+error: Custom on_replace hooks are not supported as Relationships already define an on_replace hook
+  --> tests/ui/component_hook_relationship.rs:37:5
+   |
+37 |     #[component(on_replace = foo_hook)]
+   |     ^
+
+error: Custom on_despawn hooks are not supported as this RelationshipTarget already defines an on_despawn hook, via the 'linked_spawn' attribute
+  --> tests/ui/component_hook_relationship.rs:52:5
+   |
+52 |     #[component(on_despawn = foo_hook)]
+   |     ^
+
+error[E0277]: the trait bound `FooTargetOfFail: Relationship` is not satisfied
+   --> tests/ui/component_hook_relationship.rs:13:42
+    |
+13  |     #[relationship_target(relationship = FooTargetOfFail)]
+    |                                          ^^^^^^^^^^^^^^^ the trait `Relationship` is not implemented for `FooTargetOfFail`
+    |
+    = help: the following other types implement trait `Relationship`:
+              BarTargetOf
+              ChildOf
+              FooTargetOf
+note: required by a bound in `bevy_ecs::relationship::RelationshipTarget::Relationship`
+   --> $BEVY_ROOT/bevy_ecs/src/relationship/mod.rs:167:24
+    |
+167 |     type Relationship: Relationship<RelationshipTarget = Self>;
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `RelationshipTarget::Relationship`
+
+error[E0277]: the trait bound `FooTargetsFail: bevy_ecs::relationship::RelationshipTarget` is not satisfied
+  --> tests/ui/component_hook_relationship.rs:28:42
+   |
+28 |     #[relationship(relationship_target = FooTargetsFail)]
+   |                                          ^^^^^^^^^^^^^^ the trait `bevy_ecs::relationship::RelationshipTarget` is not implemented for `FooTargetsFail`
+   |
+   = help: the following other types implement trait `bevy_ecs::relationship::RelationshipTarget`:
+             BarTargets
+             Children
+             FooTargets
+note: required by a bound in `bevy_ecs::relationship::Relationship::RelationshipTarget`
+  --> $BEVY_ROOT/bevy_ecs/src/relationship/mod.rs:79:30
+   |
+79 |     type RelationshipTarget: RelationshipTarget<Relationship = Self>;
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `Relationship::RelationshipTarget`
+
+error[E0277]: the trait bound `BarTargetOfFail: Relationship` is not satisfied
+   --> tests/ui/component_hook_relationship.rs:43:42
+    |
+43  |     #[relationship_target(relationship = BarTargetOfFail)]
+    |                                          ^^^^^^^^^^^^^^^ the trait `Relationship` is not implemented for `BarTargetOfFail`
+    |
+    = help: the following other types implement trait `Relationship`:
+              BarTargetOf
+              ChildOf
+              FooTargetOf
+note: required by a bound in `bevy_ecs::relationship::RelationshipTarget::Relationship`
+   --> $BEVY_ROOT/bevy_ecs/src/relationship/mod.rs:167:24
+    |
+167 |     type Relationship: Relationship<RelationshipTarget = Self>;
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `RelationshipTarget::Relationship`
+
+error[E0277]: the trait bound `BarTargetsFail: bevy_ecs::relationship::RelationshipTarget` is not satisfied
+  --> tests/ui/component_hook_relationship.rs:58:42
+   |
+58 |     #[relationship(relationship_target = BarTargetsFail)]
+   |                                          ^^^^^^^^^^^^^^ the trait `bevy_ecs::relationship::RelationshipTarget` is not implemented for `BarTargetsFail`
+   |
+   = help: the following other types implement trait `bevy_ecs::relationship::RelationshipTarget`:
+             BarTargets
+             Children
+             FooTargets
+note: required by a bound in `bevy_ecs::relationship::Relationship::RelationshipTarget`
+  --> $BEVY_ROOT/bevy_ecs/src/relationship/mod.rs:79:30
+   |
+79 |     type RelationshipTarget: RelationshipTarget<Relationship = Self>;
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `Relationship::RelationshipTarget`
+
+error: aborting due to 8 previous errors
+
+For more information about this error, try `rustc --explain E0277`.

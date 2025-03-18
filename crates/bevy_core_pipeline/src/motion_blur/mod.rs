@@ -9,10 +9,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{
-    component::{require, Component},
-    query::With,
-    reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    component::Component, query::With, reflect::ReflectComponent, schedule::IntoScheduleConfigs,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -57,7 +54,7 @@ pub mod pipeline;
 /// # }
 /// ````
 #[derive(Reflect, Component, Clone, ExtractComponent, ShaderType)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 #[extract_component_filter(With<Camera>)]
 #[require(DepthPrepass, MotionVectorPrepass)]
 pub struct MotionBlur {

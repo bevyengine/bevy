@@ -10,12 +10,12 @@ use alloc::{
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
+    error::{BevyError, SystemErrorContext},
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
-    result::{Error, SystemErrorContext},
-    schedule::{ScheduleBuildSettings, ScheduleLabel},
-    system::{IntoObserverSystem, SystemId, SystemInput},
+    schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform_support::collections::HashMap;
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
@@ -302,7 +302,7 @@ impl App {
     pub fn add_systems<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        systems: impl IntoSystemConfigs<M>,
+        systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
     ) -> &mut Self {
         self.main_mut().add_systems(schedule, systems);
         self
@@ -330,10 +330,10 @@ impl App {
 
     /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
     #[track_caller]
-    pub fn configure_sets(
+    pub fn configure_sets<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        sets: impl IntoSystemSetConfigs,
+        sets: impl IntoScheduleConfigs<InternedSystemSet, M>,
     ) -> &mut Self {
         self.main_mut().configure_sets(schedule, sets);
         self
@@ -1276,11 +1276,11 @@ impl App {
 
     /// Set the global system error handler to use for systems that return a [`Result`].
     ///
-    /// See the [`bevy_ecs::result` module-level documentation](../../bevy_ecs/result/index.html)
+    /// See the [`bevy_ecs::error` module-level documentation](bevy_ecs::error)
     /// for more information.
     pub fn set_system_error_handler(
         &mut self,
-        error_handler: fn(Error, SystemErrorContext),
+        error_handler: fn(BevyError, SystemErrorContext),
     ) -> &mut Self {
         self.main_mut().set_system_error_handler(error_handler);
         self
@@ -1353,7 +1353,7 @@ type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
 
 fn run_once(mut app: App) -> AppExit {
     while app.plugins_state() == PluginsState::Adding {
-        #[cfg(all(not(target_arch = "wasm32"), feature = "bevy_tasks"))]
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         bevy_tasks::tick_global_task_pools_on_main_thread();
     }
     app.finish();
@@ -1417,7 +1417,6 @@ impl AppExit {
 }
 
 impl From<u8> for AppExit {
-    #[must_use]
     fn from(value: u8) -> Self {
         Self::from_code(value)
     }
@@ -1436,7 +1435,7 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use core::{iter, marker::PhantomData};
+    use core::marker::PhantomData;
     use std::sync::Mutex;
 
     use bevy_ecs::{
@@ -1447,7 +1446,7 @@ mod tests {
         query::With,
         removal_detection::RemovedComponents,
         resource::Resource,
-        schedule::{IntoSystemConfigs, ScheduleLabel},
+        schedule::{IntoScheduleConfigs, ScheduleLabel},
         system::{Commands, Query},
         world::{FromWorld, World},
     };
@@ -1660,7 +1659,7 @@ mod tests {
         struct Foo;
 
         let mut app = App::new();
-        app.world_mut().spawn_batch(iter::repeat(Foo).take(5));
+        app.world_mut().spawn_batch(core::iter::repeat_n(Foo, 5));
 
         fn despawn_one_foo(mut commands: Commands, foos: Query<Entity, With<Foo>>) {
             if let Some(e) = foos.iter().next() {
@@ -1714,9 +1713,9 @@ mod tests {
         fn raise_exits(mut exits: EventWriter<AppExit>) {
             // Exit codes chosen by a fair dice roll.
             // Unlikely to overlap with default values.
-            exits.send(AppExit::Success);
-            exits.send(AppExit::from_code(4));
-            exits.send(AppExit::from_code(73));
+            exits.write(AppExit::Success);
+            exits.write(AppExit::from_code(4));
+            exits.write(AppExit::from_code(73));
         }
 
         let exit = App::new().add_systems(Update, raise_exits).run();

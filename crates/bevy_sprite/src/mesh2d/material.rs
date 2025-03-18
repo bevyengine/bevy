@@ -13,7 +13,6 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
-use bevy_ecs::entity::EntityHash;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
@@ -187,8 +186,8 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// ```
 ///
 /// [`MeshMaterial2d`]: crate::MeshMaterial2d
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
-#[reflect(Component, Default)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, From)]
+#[reflect(Component, Default, Clone)]
 pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
 
 impl<M: Material2d> Default for MeshMaterial2d<M> {
@@ -196,6 +195,14 @@ impl<M: Material2d> Default for MeshMaterial2d<M> {
         Self(Handle::default())
     }
 }
+
+impl<M: Material2d> PartialEq for MeshMaterial2d<M> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<M: Material2d> Eq for MeshMaterial2d<M> {}
 
 impl<M: Material2d> From<MeshMaterial2d<M>> for AssetId<M> {
     fn from(material: MeshMaterial2d<M>) -> Self {
@@ -223,7 +230,7 @@ impl<M: Material2d> AsAssetId for MeshMaterial2d<M> {
 /// This is very similar to [`AlphaMode`](bevy_render::alpha::AlphaMode) but this only applies to 2d meshes.
 /// We use a separate type because 2d doesn't support all the transparency modes that 3d does.
 #[derive(Debug, Default, Reflect, Copy, Clone, PartialEq)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub enum AlphaMode2d {
     /// Base color alpha values are overridden to be fully opaque (1.0).
     #[default]
@@ -590,15 +597,35 @@ impl<M> Default for EntitySpecializationTicks<M> {
     }
 }
 
+/// Stores the [`SpecializedMaterial2dViewPipelineCache`] for each view.
 #[derive(Resource, Deref, DerefMut)]
 pub struct SpecializedMaterial2dPipelineCache<M> {
-    // (view_entity, material_entity) -> (tick, pipeline_id)
+    // view_entity -> view pipeline cache
     #[deref]
-    map: HashMap<(MainEntity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>,
+    map: MainEntityHashMap<SpecializedMaterial2dViewPipelineCache<M>>,
+    marker: PhantomData<M>,
+}
+
+/// Stores the cached render pipeline ID for each entity in a single view, as
+/// well as the last time it was changed.
+#[derive(Deref, DerefMut)]
+pub struct SpecializedMaterial2dViewPipelineCache<M> {
+    // material entity -> (tick, pipeline_id)
+    #[deref]
+    map: MainEntityHashMap<(Tick, CachedRenderPipelineId)>,
     marker: PhantomData<M>,
 }
 
 impl<M> Default for SpecializedMaterial2dPipelineCache<M> {
+    fn default() -> Self {
+        Self {
+            map: HashMap::default(),
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<M> Default for SpecializedMaterial2dViewPipelineCache<M> {
     fn default() -> Self {
         Self {
             map: HashMap::default(),
@@ -665,11 +692,15 @@ pub fn specialize_material2d_meshes<M: Material2d>(
             continue;
         };
 
+        let view_tick = view_specialization_ticks.get(view_entity).unwrap();
+        let view_specialized_material_pipeline_cache = specialized_material_pipeline_cache
+            .entry(*view_entity)
+            .or_default();
+
         for (_, visible_entity) in visible_entities.iter::<Mesh2d>() {
-            let view_tick = view_specialization_ticks.get(view_entity).unwrap();
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
-            let last_specialized_tick = specialized_material_pipeline_cache
-                .get(&(*view_entity, *visible_entity))
+            let last_specialized_tick = view_specialized_material_pipeline_cache
+                .get(visible_entity)
                 .map(|(tick, _)| *tick);
             let needs_specialization = last_specialized_tick.is_none_or(|tick| {
                 view_tick.is_newer_than(tick, ticks.this_run())
@@ -713,10 +744,8 @@ pub fn specialize_material2d_meshes<M: Material2d>(
                 }
             };
 
-            specialized_material_pipeline_cache.insert(
-                (*view_entity, *visible_entity),
-                (ticks.this_run(), pipeline_id),
-            );
+            view_specialized_material_pipeline_cache
+                .insert(*visible_entity, (ticks.this_run(), pipeline_id));
         }
     }
 }
@@ -741,6 +770,12 @@ pub fn queue_material2d_meshes<M: Material2d>(
     }
 
     for (view_entity, view, visible_entities) in &views {
+        let Some(view_specialized_material_pipeline_cache) =
+            specialized_material_pipeline_cache.get(view_entity)
+        else {
+            continue;
+        };
+
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
@@ -754,8 +789,8 @@ pub fn queue_material2d_meshes<M: Material2d>(
         };
 
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh2d>() {
-            let Some((current_change_tick, pipeline_id)) = specialized_material_pipeline_cache
-                .get(&(*view_entity, *visible_entity))
+            let Some((current_change_tick, pipeline_id)) = view_specialized_material_pipeline_cache
+                .get(visible_entity)
                 .map(|(current_change_tick, pipeline_id)| (*current_change_tick, *pipeline_id))
             else {
                 continue;
@@ -845,6 +880,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         // Batching is done in batch_and_prepare_render_phase
                         batch_range: 0..1,
                         extra_index: PhaseItemExtraIndex::None,
+                        extracted_index: usize::MAX,
                         indexed: mesh.indexed(),
                     });
                 }

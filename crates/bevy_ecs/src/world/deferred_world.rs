@@ -9,10 +9,11 @@ use crate::{
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
+    relationship::RelationshipInsertHookMode,
     resource::Resource,
     system::{Commands, Query},
     traversal::Traversal,
-    world::{error::EntityFetchError, WorldEntityFetch},
+    world::{error::EntityMutableFetchError, EntityFetcher, WorldEntityFetch},
 };
 
 use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World, ON_INSERT, ON_REPLACE};
@@ -94,24 +95,13 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         entity: Entity,
         f: impl FnOnce(&mut T) -> R,
-    ) -> Result<Option<R>, EntityFetchError> {
+    ) -> Result<Option<R>, EntityMutableFetchError> {
         // If the component is not registered, then it doesn't exist on this entity, so no action required.
         let Some(component_id) = self.component_id::<T>() else {
             return Ok(None);
         };
 
-        let entity_cell = match self.get_entity_mut(entity) {
-            Ok(cell) => cell,
-            Err(EntityFetchError::AliasedMutability(..)) => {
-                return Err(EntityFetchError::AliasedMutability(entity))
-            }
-            Err(EntityFetchError::NoSuchEntity(..)) => {
-                return Err(EntityFetchError::NoSuchEntity(
-                    entity,
-                    self.entities().entity_does_not_exist_error_details(entity),
-                ))
-            }
-        };
+        let entity_cell = self.get_entity_mut(entity)?;
 
         if !entity_cell.contains::<T>() {
             return Ok(None);
@@ -170,6 +160,7 @@ impl<'w> DeferredWorld<'w> {
                 entity,
                 [component_id].into_iter(),
                 MaybeLocation::caller(),
+                RelationshipInsertHookMode::Run,
             );
             if archetype.has_insert_observer() {
                 self.trigger_observers(
@@ -201,9 +192,9 @@ impl<'w> DeferredWorld<'w> {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityFetchError::NoSuchEntity`] if any of the given `entities` do not exist in the world.
+    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
     ///     - Only the first entity found to be missing will be returned.
-    /// - Returns [`EntityFetchError::AliasedMutability`] if the same entity is requested multiple times.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
     ///
     /// # Examples
     ///
@@ -217,7 +208,7 @@ impl<'w> DeferredWorld<'w> {
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &mut self,
         entities: F,
-    ) -> Result<F::DeferredMut<'_>, EntityFetchError> {
+    ) -> Result<F::DeferredMut<'_>, EntityMutableFetchError> {
         let cell = self.as_unsafe_world_cell();
         // SAFETY: `&mut self` gives mutable access to the entire world,
         // and prevents any other access to the world.
@@ -348,6 +339,53 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::DeferredMut<'_> {
         self.get_entity_mut(entities).unwrap()
+    }
+
+    /// Simultaneously provides access to entity data and a command queue, which
+    /// will be applied when the [`World`] is next flushed.
+    ///
+    /// This allows using borrowed entity data to construct commands where the
+    /// borrow checker would otherwise prevent it.
+    ///
+    /// See [`World::entities_and_commands`] for the non-deferred version.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use bevy_ecs::{prelude::*, world::DeferredWorld};
+    /// #[derive(Component)]
+    /// struct Targets(Vec<Entity>);
+    /// #[derive(Component)]
+    /// struct TargetedBy(Entity);
+    ///
+    /// # let mut _world = World::new();
+    /// # let e1 = _world.spawn_empty().id();
+    /// # let e2 = _world.spawn_empty().id();
+    /// # let eid = _world.spawn(Targets(vec![e1, e2])).id();
+    /// let mut world: DeferredWorld = // ...
+    /// #   DeferredWorld::from(&mut _world);
+    /// let (entities, mut commands) = world.entities_and_commands();
+    ///
+    /// let entity = entities.get(eid).unwrap();
+    /// for &target in entity.get::<Targets>().unwrap().0.iter() {
+    ///     commands.entity(target).insert(TargetedBy(eid));
+    /// }
+    /// # _world.flush();
+    /// # assert_eq!(_world.get::<TargetedBy>(e1).unwrap().0, eid);
+    /// # assert_eq!(_world.get::<TargetedBy>(e2).unwrap().0, eid);
+    /// ```
+    pub fn entities_and_commands(&mut self) -> (EntityFetcher, Commands) {
+        let cell = self.as_unsafe_world_cell();
+        // SAFETY: `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
+        let fetcher = unsafe { EntityFetcher::new(cell) };
+        // SAFETY:
+        // - `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
+        // - Command queue access does not conflict with entity access.
+        let raw_queue = unsafe { cell.get_raw_command_queue() };
+        // SAFETY: `&mut self` ensures the commands does not outlive the world.
+        let commands = unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities()) };
+
+        (fetcher, commands)
     }
 
     /// Returns [`Query`] for the given [`QueryState`], which is used to efficiently
@@ -526,6 +564,7 @@ impl<'w> DeferredWorld<'w> {
                             entity,
                             component_id,
                             caller,
+                            relationship_insert_hook_mode: RelationshipInsertHookMode::Run,
                         },
                     );
                 }
@@ -544,6 +583,7 @@ impl<'w> DeferredWorld<'w> {
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
         caller: MaybeLocation,
+        relationship_insert_hook_mode: RelationshipInsertHookMode,
     ) {
         if archetype.has_insert_hook() {
             for component_id in targets {
@@ -556,6 +596,7 @@ impl<'w> DeferredWorld<'w> {
                             entity,
                             component_id,
                             caller,
+                            relationship_insert_hook_mode,
                         },
                     );
                 }
@@ -586,6 +627,7 @@ impl<'w> DeferredWorld<'w> {
                             entity,
                             component_id,
                             caller,
+                            relationship_insert_hook_mode: RelationshipInsertHookMode::Run,
                         },
                     );
                 }
@@ -616,6 +658,7 @@ impl<'w> DeferredWorld<'w> {
                             entity,
                             component_id,
                             caller,
+                            relationship_insert_hook_mode: RelationshipInsertHookMode::Run,
                         },
                     );
                 }
@@ -646,6 +689,7 @@ impl<'w> DeferredWorld<'w> {
                             entity,
                             component_id,
                             caller,
+                            relationship_insert_hook_mode: RelationshipInsertHookMode::Run,
                         },
                     );
                 }
@@ -685,7 +729,7 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         event: ComponentId,
         mut target: Entity,
-        components: &[ComponentId],
+        components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut E,
         mut propagate: bool,
         caller: MaybeLocation,
@@ -697,7 +741,7 @@ impl<'w> DeferredWorld<'w> {
                 self.reborrow(),
                 event,
                 target,
-                components.iter().copied(),
+                components.clone(),
                 data,
                 &mut propagate,
                 caller,

@@ -45,8 +45,6 @@ mod ssao;
 mod ssr;
 mod volumetric_fog;
 
-use crate::material_bind_groups::FallbackBindlessResources;
-
 use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
@@ -59,6 +57,7 @@ pub use light::*;
 pub use light_probe::*;
 pub use lightmap::*;
 pub use material::*;
+pub use material_bind_groups::*;
 pub use mesh_material::*;
 pub use parallax::*;
 pub use pbr_material::*;
@@ -88,23 +87,38 @@ pub mod prelude {
 pub mod graph {
     use bevy_render::render_graph::RenderLabel;
 
+    /// Render graph nodes specific to 3D PBR rendering.
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     pub enum NodePbr {
-        /// Label for the shadow pass node.
-        ShadowPass,
+        /// Label for the shadow pass node that draws meshes that were visible
+        /// from the light last frame.
+        EarlyShadowPass,
+        /// Label for the shadow pass node that draws meshes that became visible
+        /// from the light this frame.
+        LateShadowPass,
         /// Label for the screen space ambient occlusion render node.
         ScreenSpaceAmbientOcclusion,
         DeferredLightingPass,
         /// Label for the volumetric lighting pass.
         VolumetricFog,
-        /// Label for the compute shader instance data building pass.
+        /// Label for the shader that transforms and culls meshes that were
+        /// visible last frame.
         EarlyGpuPreprocess,
+        /// Label for the shader that transforms and culls meshes that became
+        /// visible this frame.
         LateGpuPreprocess,
         /// Label for the screen space reflections pass.
         ScreenSpaceReflections,
+        /// Label for the node that builds indirect draw parameters for meshes
+        /// that were visible last frame.
         EarlyPrepassBuildIndirectParameters,
+        /// Label for the node that builds indirect draw parameters for meshes
+        /// that became visible this frame.
         LatePrepassBuildIndirectParameters,
+        /// Label for the node that builds indirect draw parameters for the main
+        /// rendering pass, containing all meshes that are visible this frame.
         MainBuildIndirectParameters,
+        ClearIndirectParametersMetadata,
     }
 }
 
@@ -116,14 +130,12 @@ use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{CameraUpdateSystem, Projection},
+    camera::{sort_cameras, CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_resource::Shader,
     sync_component::SyncComponentPlugin,
-    texture::GpuImage,
     view::VisibilitySystems,
     ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSet,
 };
@@ -428,7 +440,8 @@ impl Plugin for PbrPlugin {
                         // NOTE: This MUST be scheduled AFTER the core renderer visibility check
                         // because that resets entity `ViewVisibility` for the first view
                         // which would override any results from this otherwise
-                        .after(VisibilitySystems::CheckVisibility),
+                        .after(VisibilitySystems::CheckVisibility)
+                        .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
                 ),
             );
 
@@ -459,7 +472,7 @@ impl Plugin for PbrPlugin {
                 (
                     prepare_lights
                         .in_set(RenderSet::ManageViews)
-                        .after(prepare_assets::<GpuImage>),
+                        .after(sort_cameras),
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
@@ -472,11 +485,17 @@ impl Plugin for PbrPlugin {
             .add_observer(remove_light_view_entities);
         render_app.world_mut().add_observer(extracted_light_removed);
 
-        let shadow_pass_node = ShadowPassNode::new(render_app.world_mut());
+        let early_shadow_pass_node = EarlyShadowPassNode::from_world(render_app.world_mut());
+        let late_shadow_pass_node = LateShadowPassNode::from_world(render_app.world_mut());
         let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
         let draw_3d_graph = graph.get_sub_graph_mut(Core3d).unwrap();
-        draw_3d_graph.add_node(NodePbr::ShadowPass, shadow_pass_node);
-        draw_3d_graph.add_node_edge(NodePbr::ShadowPass, Node3d::StartMainPass);
+        draw_3d_graph.add_node(NodePbr::EarlyShadowPass, early_shadow_pass_node);
+        draw_3d_graph.add_node(NodePbr::LateShadowPass, late_shadow_pass_node);
+        draw_3d_graph.add_node_edges((
+            NodePbr::EarlyShadowPass,
+            NodePbr::LateShadowPass,
+            Node3d::StartMainPass,
+        ));
     }
 
     fn finish(&self, app: &mut App) {

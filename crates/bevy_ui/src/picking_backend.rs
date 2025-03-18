@@ -18,8 +18,9 @@
 //! - `bevy_ui` can render on any camera with a flag, it is special, and is not tied to a particular
 //!   camera.
 //! - To correctly sort picks, the order of `bevy_ui` is set to be the camera order plus 0.5.
-//! - The position reported in `HitData` is normalized relative to the node, with `(0.,0.,0.)` at the top
-//!   left and `(1., 1., 0.)` in the bottom right. Coordinates are relative to the entire node, not just the visible region.
+//! - The `position` reported in `HitData` is normalized relative to the node, with `(0.,0.,0.)` at
+//!   the top left and `(1., 1., 0.)` in the bottom right. Coordinates are relative to the entire
+//!   node, not just the visible region. This backend does not provide a `normal`.
 
 #![deny(missing_docs)]
 
@@ -83,7 +84,7 @@ pub fn ui_picking(
             .map(|(entity, camera, _)| {
                 (
                     entity,
-                    camera.target.normalize(primary_window.get_single().ok()),
+                    camera.target.normalize(primary_window.single().ok()),
                 )
             })
             .filter_map(|(entity, target)| Some(entity).zip(target))
@@ -211,6 +212,6 @@ pub fn ui_picking(
             .unwrap_or_default() as f32
             + 0.5; // bevy ui can run on any camera, it's a special case
 
-        output.send(PointerHits::new(*pointer, picks, order));
+        output.write(PointerHits::new(*pointer, picks, order));
     }
 }

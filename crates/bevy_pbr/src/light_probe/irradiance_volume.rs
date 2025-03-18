@@ -81,17 +81,17 @@
 //! less ideal for this use case:
 //!
 //! 1. The level 1 spherical harmonic coefficients can be negative. That
-//!     prevents the use of the efficient [RGB9E5 texture format], which only
-//!     encodes unsigned floating point numbers, and forces the use of the
-//!     less-efficient [RGBA16F format] if hardware interpolation is desired.
+//!    prevents the use of the efficient [RGB9E5 texture format], which only
+//!    encodes unsigned floating point numbers, and forces the use of the
+//!    less-efficient [RGBA16F format] if hardware interpolation is desired.
 //!
 //! 2. As an alternative to RGBA16F, level 1 spherical harmonics can be
-//!     normalized and scaled to the SH0 base color, as [Frostbite] does. This
-//!     allows them to be packed in standard LDR RGBA8 textures. However, this
-//!     prevents the use of hardware trilinear filtering, as the nonuniform scale
-//!     factor means that hardware interpolation no longer produces correct results.
-//!     The 8 texture fetches needed to interpolate between voxels can be upwards of
-//!     twice as slow as the hardware interpolation.
+//!    normalized and scaled to the SH0 base color, as [Frostbite] does. This
+//!    allows them to be packed in standard LDR RGBA8 textures. However, this
+//!    prevents the use of hardware trilinear filtering, as the nonuniform scale
+//!    factor means that hardware interpolation no longer produces correct results.
+//!    The 8 texture fetches needed to interpolate between voxels can be upwards of
+//!    twice as slow as the hardware interpolation.
 //!
 //! The following chart summarizes the costs and benefits of ambient cubes,
 //! level 1 spherical harmonics, and level 2 spherical harmonics:
@@ -168,7 +168,7 @@ pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "w
 ///
 /// See [`crate::irradiance_volume`] for detailed information.
 #[derive(Clone, Reflect, Component, Debug)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct IrradianceVolume {
     /// The 3D texture that represents the ambient cubes, encoded in the format
     /// described in [`crate::irradiance_volume`].
@@ -251,7 +251,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
                 fallback_image,
             )
         } else {
-            RenderViewIrradianceVolumeBindGroupEntries::get_single(
+            RenderViewIrradianceVolumeBindGroupEntries::single(
                 render_view_irradiance_volumes,
                 images,
                 fallback_image,
@@ -295,7 +295,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
     /// Looks up and returns the bindings for any irradiance volumes visible in
     /// the view, as well as the sampler. This is the version used when binding
     /// arrays aren't available on the current platform.
-    fn get_single(
+    fn single(
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,

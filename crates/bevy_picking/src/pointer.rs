@@ -28,7 +28,7 @@ use crate::backend::HitData;
 /// stable ID that persists regardless of the Entity they are associated with.
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, Component, Reflect)]
 #[require(PointerLocation, PointerPress, PointerInteraction)]
-#[reflect(Component, Default, Debug, Hash, PartialEq)]
+#[reflect(Component, Default, Debug, Hash, PartialEq, Clone)]
 pub enum PointerId {
     /// The mouse pointer.
     #[default]
@@ -37,7 +37,7 @@ pub enum PointerId {
     Touch(u64),
     /// A custom, uniquely identified pointer. Useful for mocking inputs or implementing a software
     /// controlled cursor.
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     Custom(Uuid),
 }
 
@@ -67,7 +67,7 @@ impl PointerId {
 /// Holds a list of entities this pointer is currently interacting with, sorted from nearest to
 /// farthest.
 #[derive(Debug, Default, Clone, Component, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct PointerInteraction {
     pub(crate) sorted_entities: Vec<(Entity, HitData)>,
 }
@@ -110,7 +110,7 @@ pub fn update_pointer_map(pointers: Query<(Entity, &PointerId)>, mut map: ResMut
 
 /// Tracks the state of the pointer's buttons in response to [`PointerInput`] events.
 #[derive(Debug, Default, Clone, Component, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct PointerPress {
     primary: bool,
     secondary: bool,
@@ -145,6 +145,7 @@ impl PointerPress {
 
 /// The stage of the pointer button press event
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub enum PressDirection {
     /// The pointer button was just pressed
     Pressed,
@@ -154,6 +155,7 @@ pub enum PressDirection {
 
 /// The button that was just pressed or released
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub enum PointerButton {
     /// The primary pointer button
     Primary,
@@ -172,11 +174,11 @@ impl PointerButton {
 
 /// Component that tracks a pointer's current [`Location`].
 #[derive(Debug, Default, Clone, Component, Reflect, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct PointerLocation {
     /// The [`Location`] of the pointer. Note that a location is both the target, and the position
     /// on the target.
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub location: Option<Location>,
 }
 
@@ -204,7 +206,7 @@ impl PointerLocation {
 ///   render target. It is up to picking backends to associate a Pointer's `Location` with a
 ///   specific `Camera`, if any.
 #[derive(Debug, Clone, Component, Reflect, PartialEq)]
-#[reflect(Component, Debug, PartialEq)]
+#[reflect(Component, Debug, PartialEq, Clone)]
 pub struct Location {
     /// The [`NormalizedRenderTarget`] associated with the pointer, usually a window.
     pub target: NormalizedRenderTarget,
@@ -224,7 +226,7 @@ impl Location {
     ) -> bool {
         if camera
             .target
-            .normalize(Some(match primary_window.get_single() {
+            .normalize(Some(match primary_window.single() {
                 Ok(w) => w,
                 Err(_) => return false,
             }))
@@ -242,6 +244,7 @@ impl Location {
 
 /// Event sent to drive a pointer.
 #[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Clone)]
 pub enum PointerAction {
     /// Causes the pointer to press a button.
     Press(PointerButton),
@@ -267,6 +270,7 @@ pub enum PointerAction {
 
 /// An input event effecting a pointer.
 #[derive(Event, Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub struct PointerInput {
     /// The id of the pointer.
     pub pointer_id: PointerId,

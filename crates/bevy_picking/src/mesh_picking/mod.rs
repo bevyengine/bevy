@@ -7,6 +7,11 @@
 //! to `true` and add a [`RayCastPickable`] component to the desired camera and target entities.
 //!
 //! To manually perform mesh ray casts independent of picking, use the [`MeshRayCast`] system parameter.
+//!
+//! ## Implementation Notes
+//!
+//! - The `position` reported in `HitData` is in world space. The `normal` is a vector pointing
+//!   away from the face, it is not guaranteed to be normalized for scaled meshes.
 
 pub mod ray_cast;
 
@@ -52,7 +57,7 @@ impl Default for MeshPickingSettings {
 /// An optional component that marks cameras and target entities that should be used in the [`MeshPickingPlugin`].
 /// Only needed if [`MeshPickingSettings::require_markers`] is set to `true`, and ignored otherwise.
 #[derive(Debug, Clone, Default, Component, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct RayCastPickable;
 
 /// Adds the mesh picking backend to your app.
@@ -62,7 +67,9 @@ pub struct MeshPickingPlugin;
 impl Plugin for MeshPickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MeshPickingSettings>()
-            .register_type::<(RayCastPickable, MeshPickingSettings, SimplifiedMesh)>()
+            .register_type::<RayCastPickable>()
+            .register_type::<MeshPickingSettings>()
+            .register_type::<SimplifiedMesh>()
             .add_systems(PreUpdate, update_hits.in_set(PickSet::Backend));
     }
 }
@@ -123,7 +130,7 @@ pub fn update_hits(
             .collect::<Vec<_>>();
         let order = camera.order as f32;
         if !picks.is_empty() {
-            output.send(PointerHits::new(ray_id.pointer, picks, order));
+            output.write(PointerHits::new(ray_id.pointer, picks, order));
         }
     }
 }

@@ -164,7 +164,7 @@ mod tests {
         let mut registry = TypeRegistry::default();
         registry.register::<TestStruct>();
 
-        let value: DynamicStruct = TestStruct { a: 123, b: 456 }.clone_dynamic();
+        let value: DynamicStruct = TestStruct { a: 123, b: 456 }.to_dynamic_struct();
 
         let serializer = ReflectSerializer::new(&value, &registry);
 
@@ -175,7 +175,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(&result).unwrap();
         let reflect_deserializer = ReflectDeserializer::new(&registry);
 
-        let expected = value.clone_value();
+        let expected = value.to_dynamic();
         let result = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         assert!(expected
@@ -340,7 +340,7 @@ mod tests {
         fn create_arc_dyn_enemy<T: Enemy>(enemy: T) -> Arc<dyn Enemy> {
             let arc = Arc::new(enemy);
 
-            #[cfg(feature = "portable-atomic")]
+            #[cfg(not(target_has_atomic = "ptr"))]
             #[expect(
                 unsafe_code,
                 reason = "unsized coercion is an unstable feature for non-std types"
