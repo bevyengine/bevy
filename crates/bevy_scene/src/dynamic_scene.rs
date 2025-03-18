@@ -154,11 +154,21 @@ impl DynamicScene {
                 SceneEntityMapper::world_scope(entity_map, world, |_, mapper| {
                     map_entities.map_entities(resource.as_partial_reflect_mut(), mapper);
                 });
-            }
 
-            // If the world already contains an instance of the given resource
-            // just apply the (possibly) new value, otherwise insert the resource
-            reflect_resource.apply_or_insert(world, resource.as_partial_reflect(), &type_registry);
+                // If the world already contains an instance of the given resource
+                // just apply the (possibly) new value, otherwise insert the resource
+                reflect_resource.apply_or_insert(
+                    world,
+                    resource.as_partial_reflect(),
+                    &type_registry,
+                );
+            } else {
+                reflect_resource.apply_or_insert(
+                    world,
+                    resource.as_partial_reflect(),
+                    &type_registry,
+                );
+            }
         }
 
         Ok(())
