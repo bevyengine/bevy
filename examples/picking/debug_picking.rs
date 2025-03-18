@@ -10,7 +10,7 @@ fn main() {
             filter: "bevy_dev_tools=trace".into(), // Show picking logs trace level and up
             ..default()
         }))
-        .add_plugins((MeshPickingPlugin, DebugPickingPlugin, UiPickingPlugin))
+        .add_plugins((MeshPickingPlugin, DebugPickingPlugin))
         .add_systems(Startup, setup_scene)
         .insert_resource(DebugPickingMode::Normal)
         // A system that cycles the debugging state when you press F3:

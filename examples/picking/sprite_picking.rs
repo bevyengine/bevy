@@ -6,10 +6,7 @@ use std::fmt::Debug;
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(ImagePlugin::default_nearest()),
-            SpritePickingPlugin,
-        ))
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, (setup, setup_atlas))
         .add_systems(Update, (move_sprite, animate_sprite))
         .run();
