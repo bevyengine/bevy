@@ -620,9 +620,8 @@ impl<T: NoUninit> AlignedRawBufferVec<T> {
         let bytes: &[u8] = bytemuck::bytes_of(&value);
         self.values.extend(bytes);
         if self.required_padding > 0 {
-            for _ in 0..self.required_padding {
-                self.values.push(0);
-            }
+            self.values
+                .resize(self.values.len() + self.required_padding as usize, 0);
         }
         index
     }
