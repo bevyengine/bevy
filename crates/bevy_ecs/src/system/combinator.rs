@@ -5,7 +5,7 @@ use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     prelude::World,
-    query::Access,
+    query::{Access, FilteredAccessSet},
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
     world::unsafe_world_cell::UnsafeWorldCell,
@@ -114,7 +114,7 @@ pub struct CombinatorSystem<Func, A, B> {
     a: A,
     b: B,
     name: Cow<'static, str>,
-    component_access: Access<ComponentId>,
+    component_access_set: FilteredAccessSet<ComponentId>,
     archetype_component_access: Access<ArchetypeComponentId>,
 }
 
@@ -122,13 +122,13 @@ impl<Func, A, B> CombinatorSystem<Func, A, B> {
     /// Creates a new system that combines two inner systems.
     ///
     /// The returned system will only be usable if `Func` implements [`Combine<A, B>`].
-    pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
+    pub fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
         Self {
             _marker: PhantomData,
             a,
             b,
             name,
-            component_access: Access::new(),
+            component_access_set: FilteredAccessSet::default(),
             archetype_component_access: Access::new(),
         }
     }
@@ -148,7 +148,11 @@ where
     }
 
     fn component_access(&self) -> &Access<ComponentId> {
-        &self.component_access
+        self.component_access_set.combined_access()
+    }
+
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.component_access_set
     }
 
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
@@ -220,8 +224,10 @@ where
     fn initialize(&mut self, world: &mut World) {
         self.a.initialize(world);
         self.b.initialize(world);
-        self.component_access.extend(self.a.component_access());
-        self.component_access.extend(self.b.component_access());
+        self.component_access_set
+            .extend(self.a.component_access_set().clone());
+        self.component_access_set
+            .extend(self.b.component_access_set().clone());
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
@@ -352,7 +358,7 @@ pub struct PipeSystem<A, B> {
     a: A,
     b: B,
     name: Cow<'static, str>,
-    component_access: Access<ComponentId>,
+    component_access_set: FilteredAccessSet<ComponentId>,
     archetype_component_access: Access<ArchetypeComponentId>,
 }
 
@@ -363,12 +369,12 @@ where
     for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
 {
     /// Creates a new system that pipes two inner systems.
-    pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
+    pub fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
         Self {
             a,
             b,
             name,
-            component_access: Access::new(),
+            component_access_set: FilteredAccessSet::default(),
             archetype_component_access: Access::new(),
         }
     }
@@ -388,7 +394,11 @@ where
     }
 
     fn component_access(&self) -> &Access<ComponentId> {
-        &self.component_access
+        self.component_access_set.combined_access()
+    }
+
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.component_access_set
     }
 
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
@@ -443,8 +453,10 @@ where
     fn initialize(&mut self, world: &mut World) {
         self.a.initialize(world);
         self.b.initialize(world);
-        self.component_access.extend(self.a.component_access());
-        self.component_access.extend(self.b.component_access());
+        self.component_access_set
+            .extend(self.a.component_access_set().clone());
+        self.component_access_set
+            .extend(self.b.component_access_set().clone());
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
