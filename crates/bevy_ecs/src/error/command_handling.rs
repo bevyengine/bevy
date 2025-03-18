@@ -2,12 +2,11 @@ use core::{any::type_name, fmt};
 
 use crate::{
     entity::Entity,
-    error::panic,
     system::{entity_command::EntityCommandError, Command, EntityCommand},
     world::{error::EntityMutableFetchError, World},
 };
 
-use super::{BevyError, ErrorContext, GLOBAL_ERROR_HANDLER};
+use super::{default_error_handler, BevyError, ErrorContext};
 
 /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
 /// a [`Command`] that internally handles an error if it occurs and returns `()`.
@@ -21,8 +20,7 @@ pub trait HandleError<Out = ()> {
     where
         Self: Sized,
     {
-        let error_handler = GLOBAL_ERROR_HANDLER.get_or_init(|| panic);
-        self.handle_error_with(*error_handler)
+        self.handle_error_with(default_error_handler())
     }
 }
 

@@ -68,10 +68,10 @@ impl ErrorContext {
 /// any uses. This should generally be configured _before_ initializing the app.
 ///
 /// This should be set inside of your `main` function, before initializing the Bevy app.
+/// The value of this error handler can be accessed using the [`default_error_handler`] function,
+/// which calls [`OnceLock::get_or_init`] to get the value.
 ///
-/// # Examples
-///
-/// To set the default, fallback error handler:
+/// # Example
 ///
 /// ```
 /// # use bevy_ecs::error::{GLOBAL_ERROR_HANDLER, warn};
@@ -85,9 +85,7 @@ impl ErrorContext {
 /// use bevy_ecs::error::{GLOBAL_ERROR_HANDLER, BevyError, ErrorContext, panic};
 ///
 /// fn handle_errors(error: BevyError, ctx: ErrorContext) {
-///    // By convention, panicking is the default behavior for errors if the user doesn't set an error handler.
-///    // Libraries that you ship should follow this convention to avoid surprising users!
-///    let error_handler = *GLOBAL_ERROR_HANDLER.get_or_init(|| panic);
+///    let error_handler = default_error_handler();
 ///    error_handler(error, ctx);        
 /// }
 /// ```
@@ -96,6 +94,13 @@ impl ErrorContext {
 ///
 /// As this can *never* be overwritten, library code should never set this value.
 pub static GLOBAL_ERROR_HANDLER: OnceLock<fn(BevyError, ErrorContext)> = OnceLock::new();
+
+/// The default error handler. This defaults to [`panic()`],
+/// but if set, the [`GLOBAL_ERROR_HANDLER`] will be used instead, enabling error handler customization.
+#[inline]
+pub fn default_error_handler() -> fn(BevyError, ErrorContext) {
+    *GLOBAL_ERROR_HANDLER.get_or_init(|| panic)
+}
 
 macro_rules! inner {
     ($call:path, $e:ident, $c:ident) => {
