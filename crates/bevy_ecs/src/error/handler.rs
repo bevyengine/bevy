@@ -1,3 +1,4 @@
+#[cfg(feature = "configurable_error_handler")]
 use bevy_platform_support::sync::OnceLock;
 use core::fmt::Display;
 
