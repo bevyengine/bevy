@@ -1,6 +1,6 @@
 use core::ops::Range;
 
-use crate::{ComputedTextureSlices, ScalingMode, Sprite, SPRITE_SHADER_HANDLE};
+use crate::{Anchor, ComputedTextureSlices, ScalingMode, Sprite, SPRITE_SHADER_HANDLE};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
@@ -377,12 +377,14 @@ pub fn extract_sprites(
             &ViewVisibility,
             &Sprite,
             &GlobalTransform,
+            &Anchor,
             Option<&ComputedTextureSlices>,
         )>,
     >,
 ) {
     extracted_sprites.sprites.clear();
-    for (original_entity, entity, view_visibility, sprite, transform, slices) in sprite_query.iter()
+    for (original_entity, entity, view_visibility, sprite, transform, anchor, slices) in
+        sprite_query.iter()
     {
         if !view_visibility.get() {
             continue;
@@ -392,6 +394,7 @@ pub fn extract_sprites(
             extracted_sprites.sprites.extend(slices.extract_sprites(
                 &mut commands,
                 transform,
+                *anchor,
                 original_entity,
                 sprite,
             ));
@@ -423,7 +426,7 @@ pub fn extract_sprites(
                 flip_x: sprite.flip_x,
                 flip_y: sprite.flip_y,
                 image_handle_id: sprite.image.id(),
-                anchor: sprite.anchor.as_vec(),
+                anchor: anchor.as_vec(),
                 original_entity,
                 scaling_mode: sprite.image_mode.scale(),
             });
