@@ -65,6 +65,7 @@ impl Default for SpritePickingSettings {
     }
 }
 
+/// Enables the sprite picking backend, allowing you to click on, hover over and drag sprites.
 #[derive(Clone)]
 pub struct SpritePickingPlugin;
 
