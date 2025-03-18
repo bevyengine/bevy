@@ -1421,7 +1421,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
 }
 
 /// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
-pub struct NonSendMarker();
+pub struct NonSendMarker;
 
 // SAFETY: No world access.
 unsafe impl SystemParam for NonSendMarker {
@@ -1440,7 +1440,7 @@ unsafe impl SystemParam for NonSendMarker {
         _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        Self()
+        Self
     }
 }
 
