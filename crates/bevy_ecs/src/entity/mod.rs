@@ -1604,7 +1604,7 @@ impl Entities {
         self.coordinator.meta_len.load(Ordering::Relaxed)
     }
 
-    /// The count of currently allocated entities.
+    /// The count of all currently valid entities.
     /// Note that this can be slow and is intended for debugging purposes.
     #[inline]
     pub fn len(&self) -> u32 {
@@ -1614,7 +1614,7 @@ impl Entities {
             .count() as u32
     }
 
-    /// Checks if any entity is currently active.
+    /// Checks if any entity is currently valid.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.meta
@@ -1808,8 +1808,17 @@ mod tests {
     fn reserve_entity_len() {
         let mut e = Entities::new();
         e.reserve_entity();
-        // SAFETY: entity_location is left invalid
-        unsafe { e.flush(|_, _| {}) };
+        // SAFETY: There is no world. It is irrelevant.
+        unsafe {
+            e.flush(|_entity, loc| {
+                *loc = EntityLocation {
+                    archetype_id: ArchetypeId::new(0),
+                    archetype_row: ArchetypeRow::new(0),
+                    table_id: TableId::INVALID,
+                    table_row: TableRow::INVALID,
+                }
+            });
+        };
         assert_eq!(e.len(), 1);
     }
 
