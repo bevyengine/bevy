@@ -6,7 +6,7 @@ use crate::{
     change_detection::{MaybeLocation, MAX_CHANGE_AGE},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
     query::DebugCheckedUnwrap,
-    relationship::RelationshipInsertHookMode,
+    relationship::RelationshipHookMode,
     resource::Resource,
     storage::{SparseSetIndex, SparseSets, Table, TableRow},
     system::{Commands, Local, SystemParam},
@@ -584,7 +584,7 @@ pub struct HookContext {
     /// The caller location is `Some` if the `track_caller` feature is enabled.
     pub caller: MaybeLocation,
     /// Configures how relationship hooks will run
-    pub relationship_insert_hook_mode: RelationshipInsertHookMode,
+    pub relationship_hook_mode: RelationshipHookMode,
 }
 
 /// [`World`]-mutating functions that run as part of lifecycle events of a [`Component`].

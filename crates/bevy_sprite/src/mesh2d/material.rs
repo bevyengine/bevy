@@ -880,6 +880,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         // Batching is done in batch_and_prepare_render_phase
                         batch_range: 0..1,
                         extra_index: PhaseItemExtraIndex::None,
+                        extracted_index: usize::MAX,
                         indexed: mesh.indexed(),
                     });
                 }

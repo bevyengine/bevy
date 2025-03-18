@@ -227,6 +227,8 @@ pub fn extract_text2d_sprite(
                 extracted_sprites.sprites.insert(
                     (render_entity, main_entity.into()),
                     ExtractedSprite {
+                        main_entity,
+                        render_entity,
                         transform,
                         color,
                         image_handle_id: atlas_info.texture.id(),
