@@ -41,18 +41,38 @@ impl<T> OptimisticMutex<T> {
     /// # Safety
     ///
     /// The lock must not be held by another thread.
+    #[inline]
     pub unsafe fn raw_unlock(&self) {
         self.locked.store(false, Ordering::Release);
     }
 
     /// Locks the mutex.
+    #[inline]
     pub fn raw_lock(&self) {
-        while self.locked.swap(true, Ordering::Acquire) {
-            core::hint::spin_loop();
+        if !self.raw_try_lock() {
+            self.lock_contested();
+        }
+    }
+
+    #[cold]
+    fn lock_contested(&self) {
+        loop {
+            const ATTEMPTS: u8 = 5;
+            for _try in 0..ATTEMPTS {
+                if self.raw_try_lock() {
+                    return;
+                }
+                core::hint::spin_loop();
+            }
+            #[cfg(feature = "std")]
+            {
+                std::thread::yield_now();
+            }
         }
     }
 
     /// Tries to lock the mutex, returning true if it was locked
+    #[inline]
     pub fn raw_try_lock(&self) -> bool {
         !self.locked.swap(true, Ordering::Acquire)
     }
@@ -91,6 +111,7 @@ impl<T> Drop for OptimisticMutexGuard<'_, T> {
 impl<T> Deref for OptimisticMutexGuard<'_, T> {
     type Target = T;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         // SAFETY: We are holding the lock
         unsafe { &*self.0.value.get() }
@@ -98,6 +119,7 @@ impl<T> Deref for OptimisticMutexGuard<'_, T> {
 }
 
 impl<T> DerefMut for OptimisticMutexGuard<'_, T> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         // SAFETY: We are holding the lock
         unsafe { &mut *self.0.value.get() }
