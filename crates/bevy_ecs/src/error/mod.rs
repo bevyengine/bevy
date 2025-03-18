@@ -33,9 +33,9 @@
 //! The [`ErrorContext`] allows you to access additional details relevant to providing
 //! context surrounding the error – such as the system's [`name`] – in your error messages.
 //!
-//! For example:
+//! Remember to turn on the `configurable_error_handler` feature to set a global error handler!
 //!
-//! ```rust
+//! ```rust, ignore
 //! use bevy_ecs::error::{GLOBAL_ERROR_HANDLER, BevyError, ErrorContext};
 //! use log::trace;
 //!
@@ -48,7 +48,9 @@
 //! }
 //!
 //! fn main() {
+//! 	// This requires the "configurable_error_handler" feature to be enabled to be in scope.
 //!     GLOBAL_ERROR_HANDLER.set(my_error_handler).expect("The error handler can only be set once.");
+//!     
 //!     // Initialize your Bevy App here
 //! }
 //! ```
