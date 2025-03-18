@@ -18,12 +18,13 @@ use bevy_derive::Deref;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
+use core::cell::RefCell;
 use core::marker::PhantomData;
 use winit::{event_loop::EventLoop, window::WindowId};
 
 use bevy_a11y::AccessibilityRequested;
 use bevy_app::{App, Last, Plugin};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::NonSendMarker};
 use bevy_window::{exit_on_all_closed, Window, WindowCreated};
 use system::{changed_windows, check_keyboard_focus_lost, despawn_windows};
 pub use system::{create_monitors, create_windows};
@@ -52,6 +53,10 @@ mod system;
 mod winit_config;
 mod winit_monitors;
 mod winit_windows;
+
+thread_local! {
+    static WINIT_WINDOWS: RefCell<Option<WinitWindows>> = const { RefCell::new(None) };
+}
 
 /// A [`Plugin`] that uses `winit` to create and manage windows, and receive window and input
 /// events.
@@ -124,8 +129,8 @@ impl<T: Event> Plugin for WinitPlugin<T> {
             .build()
             .expect("Failed to build event loop");
 
-        app.init_non_send_resource::<WinitWindows>()
-            .init_resource::<WinitMonitors>()
+        WINIT_WINDOWS.set(Some(WinitWindows::from_world(app.world_mut())));
+        app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
             .add_event::<RawWinitWindowEvent>()
             .set_runner(|app| winit_runner(app, event_loop))
@@ -200,11 +205,11 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
         F,
     >,
     EventWriter<'w, WindowCreated>,
-    NonSendMut<'w, WinitWindows>,
     NonSendMut<'w, AccessKitAdapters>,
     ResMut<'w, WinitActionRequestHandlers>,
     Res<'w, AccessibilityRequested>,
     Res<'w, WinitMonitors>,
+    NonSendMarker,
 );
 
 /// The parameters of the [`create_monitors`] system.
