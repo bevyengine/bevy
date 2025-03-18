@@ -22,7 +22,11 @@ pub fn world_despawn_recursive(criterion: &mut Criterion) {
                 });
         }
 
-        let ents = world.iter_entities().map(|e| e.id()).collect::<Vec<_>>();
+        let ents = world
+            .iter_entities()
+            .filter(|e| e.get::<ChildOf>().is_none())
+            .map(|e| e.id())
+            .collect::<Vec<_>>();
         group.bench_function(format!("{}_entities", entity_count), |bencher| {
             bencher.iter(|| {
                 ents.iter().for_each(|e| {
