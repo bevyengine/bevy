@@ -1,5 +1,8 @@
 //! Showcases how fallible systems and observers can make use of Rust's powerful result handling
 //! syntax.
+//!
+//! Important note: to set the global error handler, the `configurable_error_handler` feature must be
+//! enabled. This feature is disabled by default, as it may introduce runtime overhead, especially for commands.
 
 use bevy::ecs::{
     error::{warn, GLOBAL_ERROR_HANDLER},
