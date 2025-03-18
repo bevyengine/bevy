@@ -4,7 +4,7 @@ use crate::{
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
-use bytemuck::{must_cast_slice, NoUninit};
+use bytemuck::{must_cast_slice, NoUninit, Pod};
 use encase::{
     internal::{AlignmentValue, WriteInto, Writer},
     ShaderType,
@@ -534,6 +534,7 @@ pub struct AlignedRawBufferVec<T: NoUninit> {
     buffer_usage: BufferUsages,
     label: Option<String>,
     changed: bool,
+    item_size: usize,
     aligned_size: u64,
     required_padding: u64,
     _marker: PhantomData<T>,
@@ -572,6 +573,7 @@ impl<T: NoUninit> AlignedRawBufferVec<T> {
             buffer_usage,
             label: None,
             changed: false,
+            item_size,
             aligned_size,
             required_padding,
             _marker: PhantomData,
@@ -606,6 +608,11 @@ impl<T: NoUninit> AlignedRawBufferVec<T> {
         self.values.len() / self.aligned_size as usize
     }
 
+    /// Returns the length of the buffer in bytes including padding.
+    pub fn len_bytes(&self) -> usize {
+        self.values.len()
+    }
+
     /// Returns true if the buffer is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
@@ -624,6 +631,36 @@ impl<T: NoUninit> AlignedRawBufferVec<T> {
                 .resize(self.values.len() + self.required_padding as usize, 0);
         }
         index
+    }
+
+    pub fn append(&mut self, other: &mut AlignedRawBufferVec<T>) {
+        self.values.append(&mut other.values);
+    }
+
+    /// Returns the value at the given index.
+    pub fn get(&self, index: usize) -> Option<&T>
+    where
+        T: Pod,
+    {
+        let bytes: &[u8] = &self.values[index..self.item_size];
+        bytemuck::try_from_bytes(bytes).ok()
+    }
+
+    /// Sets the value at the given index.
+    ///
+    /// The index must be less than [`RawBufferVec::len`].
+    pub fn set(&mut self, index: usize, value: T) {
+        self.values.splice(
+            index..self.item_size,
+            bytemuck::bytes_of(&value).iter().cloned(),
+        );
+    }
+
+    /// Preallocates space for `count` elements in the internal CPU-side buffer.
+    ///
+    /// Unlike [`AlignedRawBufferVec::reserve`], this doesn't have any effect on the GPU buffer.
+    pub fn reserve_internal(&mut self, count: usize) {
+        self.values.reserve(count * self.aligned_size as usize);
     }
 
     /// Changes the debugging label of the buffer.
@@ -683,8 +720,26 @@ impl<T: NoUninit> AlignedRawBufferVec<T> {
         }
     }
 
+    /// Reduces the length of the buffer.
+    pub fn truncate(&mut self, len: usize) {
+        self.values.truncate(len * self.aligned_size as usize);
+    }
+
     /// Removes all elements from the buffer.
     pub fn clear(&mut self) {
         self.values.clear();
+    }
+
+    pub fn values(&self) -> Vec<T>
+    where
+        T: Pod,
+    {
+        self.values
+            .chunks(self.aligned_size as usize)
+            .map(|aligned_bytes| {
+                let item_bytes = &aligned_bytes[0..self.item_size];
+                *bytemuck::from_bytes::<T>(item_bytes)
+            })
+            .collect()
     }
 }
