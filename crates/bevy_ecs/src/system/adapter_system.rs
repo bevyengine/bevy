@@ -163,12 +163,6 @@ where
     }
 
     #[inline]
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut crate::prelude::World) -> Self::Out {
-        self.func
-            .adapt(input, |input| self.system.run(input, world))
-    }
-
-    #[inline]
     fn apply_deferred(&mut self, world: &mut crate::prelude::World) {
         self.system.apply_deferred(world);
     }
