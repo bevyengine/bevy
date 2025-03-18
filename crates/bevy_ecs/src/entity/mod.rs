@@ -1565,10 +1565,15 @@ impl Entities {
             }
         }
 
+        // update internal reserver
+        let there_was_a_new_pending_chunk = self.reserver.refresh();
+
         // update `wild_pending_chunks`
-        self.coordinator.get_new_pending_chunks(|new_chunks| {
-            self.wild_pending_chunks.extend(new_chunks);
-        });
+        if there_was_a_new_pending_chunk {
+            self.coordinator.get_new_pending_chunks(|new_chunks| {
+                self.wild_pending_chunks.extend(new_chunks);
+            });
+        }
 
         // flush and reuse `wild_pending_chunks`
         self.wild_pending_chunks.retain_mut(|item| {
@@ -1613,9 +1618,6 @@ impl Entities {
                 pending.entities.extend(drain);
             });
         }
-
-        // update internal reserver
-        self.reserver.refresh();
     }
 
     /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
