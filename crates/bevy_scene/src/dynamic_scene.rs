@@ -12,7 +12,7 @@ use crate::reflect_utils::clone_reflect_value;
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
 use bevy_ecs::component::ComponentCloneBehavior;
-use bevy_ecs::relationship::RelationshipInsertHookMode;
+use bevy_ecs::relationship::RelationshipHookMode;
 #[cfg(feature = "serialize")]
 use serde::Serialize;
 
@@ -122,7 +122,7 @@ impl DynamicScene {
                         component.as_partial_reflect(),
                         &type_registry,
                         mapper,
-                        RelationshipInsertHookMode::Skip,
+                        RelationshipHookMode::Skip,
                     );
                 });
             }
