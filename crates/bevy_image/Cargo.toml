@@ -31,9 +31,9 @@ tga = ["image/tga"]
 tiff = ["image/tiff"]
 webp = ["image/webp"]
 serialize = [
-    "bevy_reflect",
-    "bevy_platform_support/serialize",
-    "bevy_utils/serde",
+  "bevy_reflect",
+  "bevy_platform_support/serialize",
+  "bevy_utils/serde",
 ]
 
 # For ktx2 supercompression
@@ -45,14 +45,14 @@ zstd = ["ruzstd"]
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.16.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.16.0-dev", features = [
-    "serialize",
-    "wgpu-types",
+  "serialize",
+  "wgpu-types",
 ] }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
-    "std",
+  "std",
 ] }
 
 # rendering
