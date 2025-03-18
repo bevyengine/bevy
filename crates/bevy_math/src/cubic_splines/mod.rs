@@ -15,7 +15,7 @@ use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools};
 /// A spline composed of a single cubic Bezier curve.
 ///
 /// Useful for user-drawn curves with local control, or animation easing. See
-/// [`CubicSegment::new_bezier`] for use in easing.
+/// [`CubicSegment::new_bezier_easing`] for use in easing.
 ///
 /// ### Interpolation
 ///
@@ -51,7 +51,7 @@ use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools};
 /// ```
 #[derive(Clone, Debug)]
 #[cfg(feature = "alloc")]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct CubicBezier<P: VectorSpace> {
     /// The control points of the Bezier curve.
     pub control_points: Vec<[P; 4]>,
@@ -73,20 +73,10 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
 
     #[inline]
     fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error> {
-        // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
-        // <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
-        // See section 4.2 and equation 11.
-        let char_matrix = [
-            [1., 0., 0., 0.],
-            [-3., 3., 0., 0.],
-            [3., -6., 3., 0.],
-            [-1., 3., -3., 1.],
-        ];
-
         let segments = self
             .control_points
             .iter()
-            .map(|p| CubicSegment::coefficients(*p, char_matrix))
+            .map(|p| CubicSegment::new_bezier(*p))
             .collect_vec();
 
         if segments.is_empty() {
@@ -151,7 +141,7 @@ pub struct CubicBezierError;
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
 #[derive(Clone, Debug)]
 #[cfg(feature = "alloc")]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct CubicHermite<P: VectorSpace> {
     /// The control points of the Hermite curve.
     pub control_points: Vec<(P, P)>,
@@ -280,7 +270,7 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
 #[derive(Clone, Debug)]
 #[cfg(feature = "alloc")]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct CubicCardinalSpline<P: VectorSpace> {
     /// Tension
     pub tension: f32,
@@ -442,7 +432,7 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
 #[derive(Clone, Debug)]
 #[cfg(feature = "alloc")]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct CubicBSpline<P: VectorSpace> {
     /// The control points of the spline
     pub control_points: Vec<P>,
@@ -619,7 +609,7 @@ pub enum CubicNurbsError {
 /// ```
 #[derive(Clone, Debug)]
 #[cfg(feature = "alloc")]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct CubicNurbs<P: VectorSpace> {
     /// The control points of the NURBS
     pub control_points: Vec<P>,
@@ -851,7 +841,7 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
 #[derive(Clone, Debug)]
 #[cfg(feature = "alloc")]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct LinearSpline<P: VectorSpace> {
     /// The control points of the linear spline.
     pub points: Vec<P>,
@@ -962,7 +952,11 @@ pub trait CyclicCubicGenerator<P: VectorSpace> {
 /// [`Curve`]: crate::curve::Curve
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Clone)
+)]
 pub struct CubicSegment<P: VectorSpace> {
     /// Polynomial coefficients for the segment.
     pub coeff: [P; 4],
@@ -993,14 +987,21 @@ impl<P: VectorSpace> CubicSegment<P> {
         c * 2.0 + d * 6.0 * t
     }
 
+    /// Creates a cubic segment from four points, representing a Bezier curve.
+    pub fn new_bezier(points: [P; 4]) -> Self {
+        // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
+        // <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
+        // See section 4.2 and equation 11.
+        let char_matrix = [
+            [1., 0., 0., 0.],
+            [-3., 3., 0., 0.],
+            [3., -6., 3., 0.],
+            [-1., 3., -3., 1.],
+        ];
+        Self::coefficients(points, char_matrix)
+    }
+
     /// Calculate polynomial coefficients for the cubic curve using a characteristic matrix.
-    #[cfg_attr(
-        not(feature = "alloc"),
-        expect(
-            dead_code,
-            reason = "Method only used when `alloc` feature is enabled."
-        )
-    )]
     #[inline]
     fn coefficients(p: [P; 4], char_matrix: [[f32; 4]; 4]) -> Self {
         let [c0, c1, c2, c3] = char_matrix;
@@ -1013,6 +1014,46 @@ impl<P: VectorSpace> CubicSegment<P> {
             p[0] * c3[0] + p[1] * c3[1] + p[2] * c3[2] + p[3] * c3[3],
         ];
         Self { coeff }
+    }
+
+    /// A flexible iterator used to sample curves with arbitrary functions.
+    ///
+    /// This splits the curve into `subdivisions` of evenly spaced `t` values across the
+    /// length of the curve from start (t = 0) to end (t = n), where `n = self.segment_count()`,
+    /// returning an iterator evaluating the curve with the supplied `sample_function` at each `t`.
+    ///
+    /// For `subdivisions = 2`, this will split the curve into two lines, or three points, and
+    /// return an iterator with 3 items, the three points, one at the start, middle, and end.
+    #[inline]
+    pub fn iter_samples<'a, 'b: 'a>(
+        &'b self,
+        subdivisions: usize,
+        mut sample_function: impl FnMut(&Self, f32) -> P + 'a,
+    ) -> impl Iterator<Item = P> + 'a {
+        self.iter_uniformly(subdivisions)
+            .map(move |t| sample_function(self, t))
+    }
+
+    /// An iterator that returns values of `t` uniformly spaced over `0..=subdivisions`.
+    #[inline]
+    fn iter_uniformly(&self, subdivisions: usize) -> impl Iterator<Item = f32> {
+        let step = 1.0 / subdivisions as f32;
+        (0..=subdivisions).map(move |i| i as f32 * step)
+    }
+
+    /// Iterate over the curve split into `subdivisions`, sampling the position at each step.
+    pub fn iter_positions(&self, subdivisions: usize) -> impl Iterator<Item = P> + '_ {
+        self.iter_samples(subdivisions, Self::position)
+    }
+
+    /// Iterate over the curve split into `subdivisions`, sampling the velocity at each step.
+    pub fn iter_velocities(&self, subdivisions: usize) -> impl Iterator<Item = P> + '_ {
+        self.iter_samples(subdivisions, Self::velocity)
+    }
+
+    /// Iterate over the curve split into `subdivisions`, sampling the acceleration at each step.
+    pub fn iter_accelerations(&self, subdivisions: usize) -> impl Iterator<Item = P> + '_ {
+        self.iter_samples(subdivisions, Self::acceleration)
     }
 }
 
@@ -1029,12 +1070,9 @@ impl CubicSegment<Vec2> {
     /// This is a very common tool for UI animations that accelerate and decelerate smoothly. For
     /// example, the ubiquitous "ease-in-out" is defined as `(0.25, 0.1), (0.25, 1.0)`.
     #[cfg(feature = "alloc")]
-    pub fn new_bezier(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
+    pub fn new_bezier_easing(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
         let (p0, p3) = (Vec2::ZERO, Vec2::ONE);
-        let bezier = CubicBezier::new([[p0, p1.into(), p2.into(), p3]])
-            .to_curve()
-            .unwrap(); // Succeeds because resulting curve is guaranteed to have one segment
-        bezier.segments[0]
+        Self::new_bezier([p0, p1.into(), p2.into(), p3])
     }
 
     /// Maximum allowable error for iterative Bezier solve
@@ -1051,7 +1089,7 @@ impl CubicSegment<Vec2> {
     /// # use bevy_math::prelude::*;
     /// # #[cfg(feature = "alloc")]
     /// # {
-    /// let cubic_bezier = CubicSegment::new_bezier((0.25, 0.1), (0.25, 1.0));
+    /// let cubic_bezier = CubicSegment::new_bezier_easing((0.25, 0.1), (0.25, 1.0));
     /// assert_eq!(cubic_bezier.ease(0.0), 0.0);
     /// assert_eq!(cubic_bezier.ease(1.0), 1.0);
     /// # }
@@ -1071,7 +1109,7 @@ impl CubicSegment<Vec2> {
     /// y
     /// │         ●
     /// │       ⬈
-    /// │     ⬈    
+    /// │     ⬈
     /// │   ⬈
     /// │ ⬈
     /// ●─────────── x (time)
@@ -1085,8 +1123,8 @@ impl CubicSegment<Vec2> {
     /// ```text
     /// y
     ///          ⬈➔●
-    /// │      ⬈   
-    /// │     ↑      
+    /// │      ⬈
+    /// │     ↑
     /// │     ↑
     /// │    ⬈
     /// ●➔⬈───────── x (time)
@@ -1139,7 +1177,7 @@ impl CubicSegment<Vec2> {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg(feature = "alloc")]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct CubicCurve<P: VectorSpace> {
     /// The segments comprising the curve. This must always be nonempty.
     segments: Vec<CubicSegment<P>>,
@@ -1296,7 +1334,11 @@ pub trait RationalGenerator<P: VectorSpace> {
 /// [`Curve`]: crate::curve::Curve
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Clone)
+)]
 pub struct RationalSegment<P: VectorSpace> {
     /// The coefficients matrix of the cubic curve.
     pub coeff: [P; 4],
@@ -1435,7 +1477,7 @@ impl<P: VectorSpace> RationalSegment<P> {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg(feature = "alloc")]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct RationalCurve<P: VectorSpace> {
     /// The segments comprising the curve. This must always be nonempty.
     segments: Vec<RationalSegment<P>>,
@@ -1656,7 +1698,7 @@ mod tests {
     #[test]
     fn easing_simple() {
         // A curve similar to ease-in-out, but symmetric
-        let bezier = CubicSegment::new_bezier([1.0, 0.0], [0.0, 1.0]);
+        let bezier = CubicSegment::new_bezier_easing([1.0, 0.0], [0.0, 1.0]);
         assert_eq!(bezier.ease(0.0), 0.0);
         assert!(bezier.ease(0.2) < 0.2); // tests curve
         assert_eq!(bezier.ease(0.5), 0.5); // true due to symmetry
@@ -1669,7 +1711,7 @@ mod tests {
     #[test]
     fn easing_overshoot() {
         // A curve that forms an upside-down "U", that should extend above 1.0
-        let bezier = CubicSegment::new_bezier([0.0, 2.0], [1.0, 2.0]);
+        let bezier = CubicSegment::new_bezier_easing([0.0, 2.0], [1.0, 2.0]);
         assert_eq!(bezier.ease(0.0), 0.0);
         assert!(bezier.ease(0.5) > 1.5);
         assert_eq!(bezier.ease(1.0), 1.0);
@@ -1679,7 +1721,7 @@ mod tests {
     /// the start and end positions, e.g. bouncing.
     #[test]
     fn easing_undershoot() {
-        let bezier = CubicSegment::new_bezier([0.0, -2.0], [1.0, -2.0]);
+        let bezier = CubicSegment::new_bezier_easing([0.0, -2.0], [1.0, -2.0]);
         assert_eq!(bezier.ease(0.0), 0.0);
         assert!(bezier.ease(0.5) < -0.5);
         assert_eq!(bezier.ease(1.0), 1.0);

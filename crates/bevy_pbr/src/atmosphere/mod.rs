@@ -36,13 +36,13 @@ use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;
 use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     query::{Changed, QueryItem, With},
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{lifetimeless::Read, Query},
 };
 use bevy_math::{UVec2, UVec3, Vec3};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
@@ -254,6 +254,7 @@ impl Plugin for AtmospherePlugin {
 /// high altitude.
 #[derive(Clone, Component, Reflect, ShaderType)]
 #[require(AtmosphereSettings)]
+#[reflect(Clone, Default)]
 pub struct Atmosphere {
     /// Radius of the planet
     ///
@@ -392,6 +393,7 @@ impl ExtractComponent for Atmosphere {
 /// scattered towards the camera at each point (RGB channels), alongside the average
 /// transmittance to that point (A channel).
 #[derive(Clone, Component, Reflect, ShaderType)]
+#[reflect(Clone, Default)]
 pub struct AtmosphereSettings {
     /// The size of the transmittance LUT
     pub transmittance_lut_size: UVec2,

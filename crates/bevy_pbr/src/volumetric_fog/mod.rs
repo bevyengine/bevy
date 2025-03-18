@@ -37,9 +37,7 @@ use bevy_core_pipeline::core_3d::{
     prepare_core_3d_depth_textures,
 };
 use bevy_ecs::{
-    component::{require, Component},
-    reflect::ReflectComponent,
-    schedule::IntoSystemConfigs as _,
+    component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs as _,
 };
 use bevy_image::Image;
 use bevy_math::{
@@ -73,14 +71,14 @@ pub struct VolumetricFogPlugin;
 ///
 /// This allows the light to generate light shafts/god rays.
 #[derive(Clone, Copy, Component, Default, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct VolumetricLight;
 
 /// When placed on a [`bevy_core_pipeline::core_3d::Camera3d`], enables
 /// volumetric fog and volumetric lighting, also known as light shafts or god
 /// rays.
 #[derive(Clone, Copy, Component, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct VolumetricFog {
     /// Color of the ambient light.
     ///
@@ -118,7 +116,7 @@ pub struct VolumetricFog {
 }
 
 #[derive(Clone, Component, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[require(Transform, Visibility)]
 pub struct FogVolume {
     /// The color of the fog.

@@ -82,7 +82,20 @@ pub trait Map: PartialReflect {
     fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)>;
 
     /// Clones the map, producing a [`DynamicMap`].
-    fn clone_dynamic(&self) -> DynamicMap;
+    #[deprecated(since = "0.16.0", note = "use `to_dynamic_map` instead")]
+    fn clone_dynamic(&self) -> DynamicMap {
+        self.to_dynamic_map()
+    }
+
+    /// Creates a new [`DynamicMap`] from this map.
+    fn to_dynamic_map(&self) -> DynamicMap {
+        let mut map = DynamicMap::default();
+        map.set_represented_type(self.get_represented_type_info());
+        for (key, value) in self.iter() {
+            map.insert_boxed(key.to_dynamic(), value.to_dynamic());
+        }
+        map
+    }
 
     /// Inserts a key-value pair into the map.
     ///
@@ -302,18 +315,6 @@ impl Map for DynamicMap {
         self.values.drain(..).collect()
     }
 
-    fn clone_dynamic(&self) -> DynamicMap {
-        DynamicMap {
-            represented_type: self.represented_type,
-            values: self
-                .values
-                .iter()
-                .map(|(key, value)| (key.clone_value(), value.clone_value()))
-                .collect(),
-            indices: self.indices.clone(),
-        }
-    }
-
     fn insert_boxed(
         &mut self,
         key: Box<dyn PartialReflect>,
@@ -429,10 +430,6 @@ impl PartialReflect for DynamicMap {
 
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Map(self)
-    }
-
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
@@ -620,7 +617,7 @@ pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), Ap
         if let Some(a_value) = a.get_mut(key) {
             a_value.try_apply(b_value)?;
         } else {
-            a.insert_boxed(key.clone_value(), b_value.clone_value());
+            a.insert_boxed(key.to_dynamic(), b_value.to_dynamic());
         }
     }
 

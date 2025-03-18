@@ -25,12 +25,12 @@ use bevy_window::PrimaryWindow;
 /// Only needed if [`SpritePickingSettings::require_markers`] is set to `true`, and ignored
 /// otherwise.
 #[derive(Debug, Clone, Default, Component, Reflect)]
-#[reflect(Debug, Default, Component)]
+#[reflect(Debug, Default, Component, Clone)]
 pub struct SpritePickingCamera;
 
 /// How should the [`SpritePickingPlugin`] handle picking and how should it handle transparent pixels
 #[derive(Debug, Clone, Copy, Reflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Clone)]
 pub enum SpritePickingMode {
     /// Even if a sprite is picked on a transparent pixel, it should still count within the backend.
     /// Only consider the rect of a given sprite.
@@ -71,11 +71,9 @@ pub struct SpritePickingPlugin;
 impl Plugin for SpritePickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SpritePickingSettings>()
-            .register_type::<(
-                SpritePickingCamera,
-                SpritePickingMode,
-                SpritePickingSettings,
-            )>()
+            .register_type::<SpritePickingCamera>()
+            .register_type::<SpritePickingMode>()
+            .register_type::<SpritePickingSettings>()
             .add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
     }
 }
@@ -118,7 +116,7 @@ fn sprite_picking(
         -transform.translation().z
     });
 
-    let primary_window = primary_window.get_single().ok();
+    let primary_window = primary_window.single().ok();
 
     for (pointer, location) in pointers.iter().filter_map(|(pointer, pointer_location)| {
         pointer_location.location().map(|loc| (pointer, loc))

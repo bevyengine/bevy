@@ -4,9 +4,9 @@ use core::marker::PhantomData;
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
+    error::Result,
     prelude::{Bundle, Trigger},
     query::Access,
-    result::Result,
     schedule::{Fallible, Infallible},
     system::{input::SystemIn, System},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},

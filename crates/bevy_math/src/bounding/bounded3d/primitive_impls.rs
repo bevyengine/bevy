@@ -457,9 +457,8 @@ mod tests {
 
     #[test]
     fn segment() {
-        let translation = Vec3::new(2.0, 1.0, 0.0);
-
         let segment = Segment3d::new(Vec3::new(-1.0, -0.5, 0.0), Vec3::new(1.0, 0.5, 0.0));
+        let translation = Vec3::new(2.0, 1.0, 0.0);
 
         let aabb = segment.aabb_3d(translation);
         assert_eq!(aabb.min, Vec3A::new(1.0, 0.5, 0.0));
