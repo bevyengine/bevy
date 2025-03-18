@@ -79,8 +79,9 @@ use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 use bevy_platform_support::sync::{
     atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering},
-    Arc, Mutex, PoisonError, Weak,
+    Arc, Weak,
 };
+use bevy_utils::optimistic_mutex::OptimisticMutex;
 use core::{
     fmt,
     hash::Hash,
@@ -721,13 +722,13 @@ struct AtomicEntityReservations {
     closed: AtomicBool,
 
     /// The pending list being added to. This will become the next [`Self::pending_chunk`].
-    growing_pending: Mutex<PendingEntitiesChunk>,
+    growing_pending: OptimisticMutex<PendingEntitiesChunk>,
     /// This is true if [`Self::growing_pending`] is worth pushing into [`Self::pending_chunk`].
     worth_swap: AtomicBool,
     /// A pool of pending entities to prevent allocations.
-    pending_chunk_pool: Mutex<SmallVec<[PendingEntitiesChunk; 2]>>,
+    pending_chunk_pool: OptimisticMutex<SmallVec<[PendingEntitiesChunk; 2]>>,
     /// The newly created pending chunks.
-    new_pending_chunks: Mutex<SmallVec<[Arc<PendingEntitiesChunk>; 2]>>,
+    new_pending_chunks: OptimisticMutex<SmallVec<[Arc<PendingEntitiesChunk>; 2]>>,
 }
 
 impl AtomicEntityReservations {
@@ -737,10 +738,10 @@ impl AtomicEntityReservations {
             pending_chunk: AtomicPendingEntitiesChunk::new(Arc::default()),
             meta_len: AtomicUsize::default(),
             flushed_meta_len: AtomicUsize::default(),
-            growing_pending: Mutex::default(),
+            growing_pending: OptimisticMutex::default(),
             worth_swap: AtomicBool::new(false),
-            pending_chunk_pool: Mutex::default(),
-            new_pending_chunks: Mutex::default(),
+            pending_chunk_pool: OptimisticMutex::default(),
+            new_pending_chunks: OptimisticMutex::default(),
             closed: AtomicBool::default(),
         }
     }
@@ -824,21 +825,13 @@ impl AtomicEntityReservations {
         }
 
         // We lock early to prevent concurrent refreshes.
-        let mut pending = self
-            .growing_pending
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
+        let mut pending = self.growing_pending.lock();
 
         if !self.worth_swap.swap(false, Ordering::Relaxed) {
             return false;
         }
 
-        let next_pending = self
-            .pending_chunk_pool
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .pop()
-            .unwrap_or_default();
+        let next_pending = self.pending_chunk_pool.lock().pop().unwrap_or_default();
         let ready_pending = mem::replace::<PendingEntitiesChunk>(&mut pending, next_pending);
         let new_pending = Arc::new(ready_pending);
         self.pending_chunk.swap(new_pending.clone());
@@ -847,10 +840,7 @@ impl AtomicEntityReservations {
         drop(pending);
 
         // keep a m arc of the new pending list so we can ensure it is flushed before it is dropped.
-        self.new_pending_chunks
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .push(new_pending);
+        self.new_pending_chunks.lock().push(new_pending);
 
         true
     }
@@ -858,10 +848,7 @@ impl AtomicEntityReservations {
     /// Adds `reuse` to a pool to prevent further allocation.
     fn reuse_pending(&self, mut reuse: PendingEntitiesChunk) {
         reuse.clear();
-        self.pending_chunk_pool
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .push(reuse);
+        self.pending_chunk_pool.lock().push(reuse);
     }
 
     /// Collects the new [`PendingEntitiesChunk`]s so that they can be flushed as needed.
@@ -869,20 +856,12 @@ impl AtomicEntityReservations {
         &self,
         getter: impl FnOnce(smallvec::Drain<[Arc<PendingEntitiesChunk>; 2]>),
     ) {
-        getter(
-            self.new_pending_chunks
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .drain(..),
-        );
+        getter(self.new_pending_chunks.lock().drain(..));
     }
 
     /// Gets access to a growing list of pending entities.
     fn pending_mut<T: 'static>(&self, func: impl FnOnce(&mut PendingEntitiesChunk) -> T) -> T {
-        let mut pending = self
-            .growing_pending
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
+        let mut pending = self.growing_pending.lock();
         let res = func(&mut pending);
         self.worth_swap.store(
             pending.entities.len() - *pending.reserved.get_mut() > 0,
