@@ -17,6 +17,8 @@ use crate::{
     world::{DeferredWorld, EntityWorldMut, FromWorld, World},
 };
 use alloc::{format, string::String, vec::Vec};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::std_traits::ReflectDefault;
 use core::ops::Deref;
 use core::slice;
 use disqualified::ShortName;
@@ -90,7 +92,7 @@ use log::warn;
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    reflect(Component, PartialEq, Debug, FromWorld)
+    reflect(Component, PartialEq, Debug, FromWorld, Clone)
 )]
 #[relationship(relationship_target = Children)]
 #[doc(alias = "IsChild", alias = "Parent")]
@@ -133,7 +135,7 @@ impl FromWorld for ChildOf {
 #[derive(Component, Default, Debug, PartialEq, Eq)]
 #[relationship_target(relationship = ChildOf, linked_spawn)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld, Default))]
 #[doc(alias = "IsParent")]
 pub struct Children(Vec<Entity>);
 
@@ -329,7 +331,7 @@ mod tests {
     use crate::{
         entity::Entity,
         hierarchy::{ChildOf, Children},
-        relationship::RelationshipTarget,
+        relationship::{RelationshipHookMode, RelationshipTarget},
         spawn::{Spawn, SpawnRelated},
         world::World,
     };
@@ -489,5 +491,22 @@ mod tests {
         let mut world = World::new();
         let id = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
         assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 2,);
+    }
+
+    #[test]
+    fn child_replace_hook_skip() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().id();
+        let other = world.spawn_empty().id();
+        let child = world.spawn(ChildOf { parent }).id();
+        world.entity_mut(child).insert_with_relationship_hook_mode(
+            ChildOf { parent: other },
+            RelationshipHookMode::Skip,
+        );
+        assert_eq!(
+            &**world.entity(parent).get::<Children>().unwrap(),
+            &[child],
+            "Children should still have the old value, as on_insert/on_replace didn't run"
+        );
     }
 }
