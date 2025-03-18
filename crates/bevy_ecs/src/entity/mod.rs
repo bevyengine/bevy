@@ -755,6 +755,7 @@ impl AtomicEntityReservations {
 
     /// Reserves a `num` entities by appending to the meta list.
     /// This should only be called if reusing an entity from a pending list is not practical.
+    #[inline]
     fn reserve_append(&self, num: u32) -> core::ops::RangeInclusive<u32> {
         if num == 0 {
             #[expect(
@@ -1120,6 +1121,7 @@ impl EntityReserver {
     ///
     /// **NOTE:** This ignores [`Self::tolerance_left`], so this may miss pending entities.
     /// When possible, prefer [`reserve_entities`](Self::reserve_entities).
+    #[inline]
     pub fn reserve_entities_no_refresh(
         &self,
         num: u32,
@@ -1149,6 +1151,7 @@ impl EntityReserver {
     ///
     /// **NOTE:** This ignores [`Self::tolerance_left`], so this may miss pending entities.
     /// When possible, prefer [`reserve_entity`](Self::reserve_entity).
+    #[inline]
     pub fn reserve_entity_no_refresh(&self) -> Entity {
         self.pending.reserve_one().unwrap_or_else(|| {
             // SAFETY: The range is known to have length 1.
@@ -1343,6 +1346,7 @@ impl Entities {
     }
 
     /// Safely extends [`Self::owned`].
+    #[inline]
     fn extend_owned(&mut self, num: NonZero<u32>) {
         let new = self.reserver.reserve_entities(num.get());
 
@@ -1527,6 +1531,7 @@ impl Entities {
     /// Note: This method may return [`Entities`](Entity) which are currently free
     /// Note that [`contains`](Entities::contains) will correctly return false for freed
     /// entities, since it checks the generation
+    #[inline]
     pub fn resolve_from_id(&self, index: u32) -> Option<Entity> {
         let idu = index as usize;
         if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
