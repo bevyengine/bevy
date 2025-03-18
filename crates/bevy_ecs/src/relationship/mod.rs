@@ -13,10 +13,10 @@ pub use relationship_source_collection::*;
 use crate::{
     component::{Component, HookContext, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
+    error::{ignore, CommandWithEntity, HandleError},
     system::{
-        command::HandleError,
-        entity_command::{self, CommandWithEntity},
-        error_handler, Commands,
+        entity_command::{self},
+        Commands,
     },
     world::{DeferredWorld, EntityWorldMut},
 };
@@ -90,14 +90,14 @@ pub trait Relationship: Component + Sized {
         HookContext {
             entity,
             caller,
-            relationship_insert_hook_mode,
+            relationship_hook_mode,
             ..
         }: HookContext,
     ) {
-        match relationship_insert_hook_mode {
-            RelationshipInsertHookMode::Run => {}
-            RelationshipInsertHookMode::Skip => return,
-            RelationshipInsertHookMode::RunIfNotLinked => {
+        match relationship_hook_mode {
+            RelationshipHookMode::Run => {}
+            RelationshipHookMode::Skip => return,
+            RelationshipHookMode::RunIfNotLinked => {
                 if <Self::RelationshipTarget as RelationshipTarget>::LINKED_SPAWN {
                     return;
                 }
@@ -137,7 +137,23 @@ pub trait Relationship: Component + Sized {
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
+    fn on_replace(
+        mut world: DeferredWorld,
+        HookContext {
+            entity,
+            relationship_hook_mode,
+            ..
+        }: HookContext,
+    ) {
+        match relationship_hook_mode {
+            RelationshipHookMode::Run => {}
+            RelationshipHookMode::Skip => return,
+            RelationshipHookMode::RunIfNotLinked => {
+                if <Self::RelationshipTarget as RelationshipTarget>::LINKED_SPAWN {
+                    return;
+                }
+            }
+        }
         let target_entity = world.entity(entity).get::<Self>().unwrap().get();
         if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
             if let Some(mut relationship_target) =
@@ -214,7 +230,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
                 commands.queue(
                     entity_command::remove::<Self::Relationship>()
                         .with_entity(source_entity)
-                        .handle_error_with(error_handler::silent()),
+                        .handle_error_with(ignore),
                 );
             } else {
                 warn!(
@@ -239,7 +255,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
                 commands.queue(
                     entity_command::despawn()
                         .with_entity(source_entity)
-                        .handle_error_with(error_handler::silent()),
+                        .handle_error_with(ignore),
                 );
             } else {
                 warn!(
@@ -305,14 +321,14 @@ pub fn clone_relationship_target<T: RelationshipTarget>(
     }
 }
 
-/// Configures the conditions under which the Relationship insert hook will be run.
+/// Configures the conditions under which the Relationship insert/replace hooks will be run.
 #[derive(Copy, Clone, Debug)]
-pub enum RelationshipInsertHookMode {
-    /// Relationship insert hooks will always run
+pub enum RelationshipHookMode {
+    /// Relationship insert/replace hooks will always run
     Run,
-    /// Relationship insert hooks will run if [`RelationshipTarget::LINKED_SPAWN`] is false
+    /// Relationship insert/replace hooks will run if [`RelationshipTarget::LINKED_SPAWN`] is false
     RunIfNotLinked,
-    /// Relationship insert hooks will always be skipped
+    /// Relationship insert/replace hooks will always be skipped
     Skip,
 }
 
