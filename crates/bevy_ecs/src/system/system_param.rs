@@ -1444,6 +1444,9 @@ unsafe impl SystemParam for NonSendMarker {
     }
 }
 
+// SAFETY: Does not read any world state
+unsafe impl ReadOnlySystemParam for NonSendMarker {}
+
 /// Shared borrow of a non-[`Send`] resource.
 ///
 /// Only `Send` resources may be accessed with the [`Res`] [`SystemParam`]. In case that the
