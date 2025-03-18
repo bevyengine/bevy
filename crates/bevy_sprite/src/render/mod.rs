@@ -345,7 +345,6 @@ pub struct ExtractedSprite {
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    //pub sprites: HashMap<(Entity, MainEntity), ExtractedSprite>,
     pub sprites: Vec<ExtractedSprite>,
 }
 
