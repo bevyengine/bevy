@@ -344,9 +344,10 @@ pub struct ExtractedSprite {
 }
 
 pub enum ExtractedSpriteKind {
-    Slices {
-        indices: Range<usize>,
-    },
+    /// Indexes into the list of `ExtractedSlice`s stored in the `ExtractedSlices` resource
+    /// Used for elements composed from multiple sprites such as text or nine-patched borders
+    Slices { indices: Range<usize> },
+    /// A single sprite
     Sprite {
         anchor: Vec2,
         rect: Option<Rect>,
@@ -358,6 +359,10 @@ pub enum ExtractedSpriteKind {
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
     pub sprites: Vec<ExtractedSprite>,
+}
+
+#[derive(Resource, Default)]
+pub struct ExtractedSlices {
     pub slices: Vec<ExtractedSlice>,
 }
 
@@ -380,6 +385,7 @@ pub fn extract_sprite_events(
 
 pub fn extract_sprites(
     mut extracted_sprites: ResMut<ExtractedSprites>,
+    mut extracted_slices: ResMut<ExtractedSlices>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     sprite_query: Extract<
         Query<(
@@ -393,7 +399,7 @@ pub fn extract_sprites(
     >,
 ) {
     extracted_sprites.sprites.clear();
-    extracted_sprites.slices.clear();
+    extracted_slices.slices.clear();
     for (main_entity, render_entity, view_visibility, sprite, transform, slices) in
         sprite_query.iter()
     {
@@ -402,11 +408,11 @@ pub fn extract_sprites(
         }
 
         if let Some(slices) = slices {
-            let start = extracted_sprites.slices.len();
-            extracted_sprites
+            let start = extracted_slices.slices.len();
+            extracted_slices
                 .slices
                 .extend(slices.extract_slices(sprite));
-            let end = extracted_sprites.slices.len();
+            let end = extracted_slices.slices.len();
             extracted_sprites.sprites.push(ExtractedSprite {
                 main_entity,
                 render_entity,
@@ -579,7 +585,7 @@ pub fn queue_sprites(
             .reserve(extracted_sprites.sprites.len());
 
         for (index, extracted_sprite) in extracted_sprites.sprites.iter().enumerate() {
-            let view_index = extracted_sprite.original_entity.index();
+            let view_index = extracted_sprite.main_entity.index();
 
             if !view_entities.contains(view_index as usize) {
                 continue;
@@ -594,7 +600,7 @@ pub fn queue_sprites(
                 pipeline,
                 entity: (
                     extracted_sprite.render_entity,
-                    extracted_sprite.original_entity.into(),
+                    extracted_sprite.main_entity.into(),
                 ),
                 sort_key,
                 // `batch_range` is calculated in `prepare_sprite_image_bind_groups`
@@ -648,6 +654,7 @@ pub fn prepare_sprite_image_bind_groups(
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     extracted_sprites: Res<ExtractedSprites>,
+    extracted_slices: Res<ExtractedSlices>,
     mut phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     events: Res<SpriteAssetEvents>,
     mut batches: ResMut<SpriteBatches>,
@@ -813,7 +820,7 @@ pub fn prepare_sprite_image_bind_groups(
                 }
                 ExtractedSpriteKind::Slices { ref indices } => {
                     for i in indices.clone() {
-                        let slice = &extracted_sprites.slices[i];
+                        let slice = &extracted_slices.slices[i];
                         let rect = slice.rect;
                         let rect_size = rect.size();
 

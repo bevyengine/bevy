@@ -26,7 +26,9 @@ use bevy_render::{
     view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSlice, ExtractedSprite, ExtractedSprites, Sprite};
+use bevy_sprite::{
+    Anchor, ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSprites, Sprite,
+};
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
@@ -136,6 +138,7 @@ pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
 pub fn extract_text2d_sprite(
     mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
+    mut extracted_slices: ResMut<ExtractedSlices>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
@@ -151,7 +154,7 @@ pub fn extract_text2d_sprite(
     >,
     text_colors: Extract<Query<&TextColor>>,
 ) {
-    let mut start = extracted_sprites.slices.len();
+    let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
 
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -214,7 +217,7 @@ pub fn extract_text2d_sprite(
                 .unwrap()
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
-            extracted_sprites.slices.push(ExtractedSlice {
+            extracted_slices.slices.push(ExtractedSlice {
                 offset: *position,
                 rect,
                 size: rect.size(),
@@ -224,21 +227,18 @@ pub fn extract_text2d_sprite(
                 info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
             }) {
                 let render_entity = commands.spawn(TemporaryRenderEntity).id();
-                extracted_sprites.sprites.insert(
-                    (render_entity, main_entity.into()),
-                    ExtractedSprite {
-                        main_entity,
-                        render_entity,
-                        transform,
-                        color,
-                        image_handle_id: atlas_info.texture.id(),
-                        flip_x: false,
-                        flip_y: false,
-                        kind: bevy_sprite::ExtractedSpriteKind::Slices {
-                            indices: start..end,
-                        },
+                extracted_sprites.sprites.push(ExtractedSprite {
+                    main_entity,
+                    render_entity,
+                    transform,
+                    color,
+                    image_handle_id: atlas_info.texture.id(),
+                    flip_x: false,
+                    flip_y: false,
+                    kind: bevy_sprite::ExtractedSpriteKind::Slices {
+                        indices: start..end,
                     },
-                );
+                });
                 start = end;
             }
 

@@ -6,8 +6,6 @@ use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{Rect, Vec2};
 use bevy_platform_support::collections::HashSet;
-use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_transform::prelude::*;
 
 /// Component storing texture slices for tiled or sliced sprite entities
 ///
