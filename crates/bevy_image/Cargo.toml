@@ -79,7 +79,6 @@ half = { version = "2.4.1" }
 
 [dev-dependencies]
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
-bevy_sprite = { path = "../bevy_sprite", version = "0.16.0-dev" }
 
 [lints]
 workspace = true
