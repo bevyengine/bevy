@@ -344,16 +344,16 @@ pub struct ExtractedSprite {
 }
 
 pub enum ExtractedSpriteKind {
-    /// Indexes into the list of `ExtractedSlice`s stored in the `ExtractedSlices` resource
-    /// Used for elements composed from multiple sprites such as text or nine-patched borders
-    Slices { indices: Range<usize> },
-    /// A single sprite
-    Sprite {
+    /// A single sprite with custom sizing and scaling options
+    Single {
         anchor: Vec2,
         rect: Option<Rect>,
         scaling_mode: Option<ScalingMode>,
         custom_size: Option<Vec2>,
     },
+    /// Indexes into the list of `ExtractedSlice`s stored in the `ExtractedSlices` resource
+    /// Used for elements composed from multiple sprites such as text or nine-patched borders
+    Slices { indices: Range<usize> },
 }
 
 #[derive(Resource, Default)]
@@ -450,7 +450,7 @@ pub fn extract_sprites(
                 flip_x: sprite.flip_x,
                 flip_y: sprite.flip_y,
                 image_handle_id: sprite.image.id(),
-                kind: ExtractedSpriteKind::Sprite {
+                kind: ExtractedSpriteKind::Single {
                     anchor: sprite.anchor.as_vec(),
                     rect,
                     scaling_mode: sprite.image_mode.scale(),
@@ -735,7 +735,7 @@ pub fn prepare_sprite_image_bind_groups(
                 ));
             }
             match extracted_sprite.kind {
-                ExtractedSpriteKind::Sprite {
+                ExtractedSpriteKind::Single {
                     anchor,
                     rect,
                     scaling_mode,
