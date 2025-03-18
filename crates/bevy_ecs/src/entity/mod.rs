@@ -75,6 +75,7 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
+use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 use bevy_platform_support::sync::{
     atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering},
@@ -1237,8 +1238,10 @@ pub struct Entities {
     wild_pending_chunks: Vec<Arc<PendingEntitiesChunk>>,
     /// These are entities that neither exist nor need to be flushed into existence.
     /// We own these entities and can do with them as we like.
-    /// These are marked with [`EntityLocation::OWNED`] to prevent them from being flushed.
-    owned: Vec<Entity>,
+    /// These are marked with [`EntityLocation::OWNED`] to prevent them from being flushed on accident.
+    owned: VecDeque<Entity>,
+    /// The number of entities from [`Self::owned`] that have been reserved. These reserve in front to back order.
+    reserved_from_owned: AtomicUsize,
     /// The number of [`entities`](Entity) to have on standby for allocations.
     /// The higher the number, the faster allocations will be, but the more memory and entities will be taken up while still being unused.
     /// The default value is 256.
@@ -1258,7 +1261,8 @@ impl Entities {
             coordinator,
             reserver,
             wild_pending_chunks: Vec::new(),
-            owned: Vec::new(),
+            owned: VecDeque::new(),
+            reserved_from_owned: AtomicUsize::new(0),
             // SAFETY: 256 > 0
             ideal_owned: unsafe { NonZero::new_unchecked(256) },
         }
@@ -1317,10 +1321,16 @@ impl Entities {
 
     /// Allocate an entity ID directly.
     pub fn alloc(&mut self) -> Entity {
-        self.owned.pop().unwrap_or_else(|| {
+        let available = if *self.reserved_from_owned.get_mut() < self.owned.len() {
+            self.owned.pop_back()
+        } else {
+            None
+        };
+
+        available.unwrap_or_else(|| {
             self.extend_owned(self.ideal_owned);
             // SAFETY: We just extended this by a non zero
-            unsafe { self.owned.pop().unwrap_unchecked() }
+            unsafe { self.owned.pop_back().unwrap_unchecked() }
         })
     }
 
@@ -1393,7 +1403,7 @@ impl Entities {
 
         let loc = mem::replace(&mut meta.location, EntityLocation::OWNED);
 
-        self.owned.push(Entity::from_raw_and_generation(
+        self.owned.push_back(Entity::from_raw_and_generation(
             entity.index,
             meta.generation,
         ));
@@ -1538,18 +1548,34 @@ impl Entities {
             }
         });
 
+        // flush owned
+        for reserved_owned in self
+            .owned
+            .drain(..mem::take(self.reserved_from_owned.get_mut()))
+            // We need to reverse the direction so that the most recently freed and reserved entities are flushed first.
+            // Consider reserving an entity 1v1, freeing it, and reserving it again, 1v2. 1v2 should be flushed, not 1v1.
+            .rev()
+        {
+            // SAFETY: The entity was pending, so it must have existed at some point, so the index is valid.
+            let meta = unsafe { self.meta.get_unchecked_mut(reserved_owned.index() as usize) };
+            // We shouldn't flush owned entities or those already flushed.
+            // For example, one may have been reserved, and then freed (no longer needing a flush).
+            if meta.location == EntityLocation::INVALID {
+                init(reserved_owned, &mut meta.location);
+            }
+        }
+
         // balance owned entities
         if self.owned.len() > self.ideal_owned.get() as usize {
             let offload_range = self.ideal_owned.get() as usize..;
-            for no_longer_owned in self.owned[offload_range.clone()].iter() {
+            let drain = self.owned.drain(offload_range).inspect(|no_longer_owned| {
                 // SAFETY: Owned entities are known to have valid indices.
                 unsafe {
                     self.meta
                         .get_unchecked_mut(no_longer_owned.index() as usize)
                 }
                 .location = EntityLocation::INVALID;
-            }
-            let drain = self.owned.drain(offload_range);
+            });
             self.coordinator.pending_mut(|pending| {
                 pending.entities.extend(drain);
             });
