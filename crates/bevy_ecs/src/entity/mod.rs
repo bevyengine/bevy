@@ -1361,6 +1361,10 @@ impl Entities {
             }
         });
 
+        // The newly owned entities have not been reserved via owned, so we need to cap it to the current length.
+        *self.reserved_from_owned.get_mut() =
+            self.owned.len().min(*self.reserved_from_owned.get_mut());
+
         self.owned.reserve(new.len());
         self.owned.extend(new);
     }
@@ -1560,6 +1564,23 @@ impl Entities {
             },
         );
 
+        // flush owned
+        for reserved_owned in self
+            .owned
+            .drain(..mem::take(self.reserved_from_owned.get_mut()).min(self.owned.len()))
+            // We need to reverse the direction so that the most recently freed and reserved entities are flushed first.
+            // Consider reserving an entity 1v1, freeing it, and reserving it again, 1v2. 1v2 should be flushed, not 1v1.
+            .rev()
+        {
+            // SAFETY: The entity was pending, so it must have existed at some point, so the index is valid.
+            let meta = unsafe { self.meta.get_unchecked_mut(reserved_owned.index() as usize) };
+            // We shouldn't flush owned entities or those already flushed.
+            // For example, one may have been reserved, and then freed (no longer needing a flush).
+            if meta.location == EntityLocation::INVALID {
+                init(reserved_owned, &mut meta.location);
+            }
+        }
+
         // update `wild_pending_chunks`
         self.coordinator.get_new_pending_chunks(|new_chunks| {
             self.wild_pending_chunks.extend(new_chunks);
@@ -1597,23 +1618,6 @@ impl Entities {
                 }
             }
         });
-
-        // flush owned
-        for reserved_owned in self
-            .owned
-            .drain(..mem::take(self.reserved_from_owned.get_mut()).min(self.owned.len()))
-            // We need to reverse the direction so that the most recently freed and reserved entities are flushed first.
-            // Consider reserving an entity 1v1, freeing it, and reserving it again, 1v2. 1v2 should be flushed, not 1v1.
-            .rev()
-        {
-            // SAFETY: The entity was pending, so it must have existed at some point, so the index is valid.
-            let meta = unsafe { self.meta.get_unchecked_mut(reserved_owned.index() as usize) };
-            // We shouldn't flush owned entities or those already flushed.
-            // For example, one may have been reserved, and then freed (no longer needing a flush).
-            if meta.location == EntityLocation::INVALID {
-                init(reserved_owned, &mut meta.location);
-            }
-        }
 
         // balance owned entities
         if self.owned.len() > self.ideal_owned.get() as usize {
