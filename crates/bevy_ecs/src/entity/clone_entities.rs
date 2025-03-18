@@ -10,7 +10,7 @@ use alloc::boxed::Box;
 use crate::component::{ComponentCloneBehavior, ComponentCloneFn};
 use crate::entity::hash_map::EntityHashMap;
 use crate::entity::{Entities, EntityMapper};
-use crate::relationship::RelationshipInsertHookMode;
+use crate::relationship::RelationshipHookMode;
 use crate::system::Commands;
 use crate::{
     bundle::Bundle,
@@ -415,7 +415,7 @@ impl<'a> BundleScratch<'a> {
         self,
         world: &mut World,
         entity: Entity,
-        relationship_hook_insert_mode: RelationshipInsertHookMode,
+        relationship_hook_insert_mode: RelationshipHookMode,
     ) {
         // SAFETY:
         // - All `component_ids` are from the same world as `target` entity
@@ -453,7 +453,7 @@ impl EntityCloner {
         world: &mut World,
         source: Entity,
         mapper: &mut dyn EntityMapper,
-        relationship_hook_insert_mode: RelationshipInsertHookMode,
+        relationship_hook_insert_mode: RelationshipHookMode,
     ) -> Entity {
         let target = mapper.get_mapped(source);
         // PERF: reusing allocated space across clones would be more efficient. Consider an allocation model similar to `Commands`.
@@ -581,16 +581,15 @@ impl EntityCloner {
         mapper: &mut dyn EntityMapper,
     ) -> Entity {
         // All relationships on the root should have their hooks run
-        let target =
-            self.clone_entity_internal(world, source, mapper, RelationshipInsertHookMode::Run);
+        let target = self.clone_entity_internal(world, source, mapper, RelationshipHookMode::Run);
         let child_hook_insert_mode = if self.linked_cloning {
             // When spawning "linked relationships", we want to ignore hooks for relationships we are spawning, while
             // still registering with original relationship targets that are "not linked" to the current recursive spawn.
-            RelationshipInsertHookMode::RunIfNotLinked
+            RelationshipHookMode::RunIfNotLinked
         } else {
             // If we are not cloning "linked relationships" recursively, then we want any cloned relationship components to
             // register themselves with their original relationship target.
-            RelationshipInsertHookMode::Run
+            RelationshipHookMode::Run
         };
         loop {
             let queued = self.clone_queue.pop_front();

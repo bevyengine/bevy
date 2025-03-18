@@ -15,7 +15,7 @@ use crate::{
     entity::{Entity, EntityClonerBuilder},
     error::Result,
     event::Event,
-    relationship::RelationshipInsertHookMode,
+    relationship::RelationshipHookMode,
     system::{command::HandleError, Command, IntoObserverSystem},
     world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld, World},
 };
@@ -157,7 +157,7 @@ where
 pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.insert_with_caller(bundle, mode, caller, RelationshipInsertHookMode::Run);
+        entity.insert_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
     }
 }
 
@@ -184,7 +184,7 @@ pub unsafe fn insert_by_id<T: Send + 'static>(
                 ptr,
                 mode,
                 caller,
-                RelationshipInsertHookMode::Run,
+                RelationshipHookMode::Run,
             );
         });
     }
@@ -197,7 +197,7 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         let value = entity.world_scope(|world| T::from_world(world));
-        entity.insert_with_caller(value, mode, caller, RelationshipInsertHookMode::Run);
+        entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
     }
 }
 
