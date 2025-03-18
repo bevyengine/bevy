@@ -129,7 +129,7 @@ mod sealed {
 ///
 /// The contained dynamic object can be downcast into a static type using [`CustomProjection::get`].
 #[derive(Component, Debug, Reflect, Deref, DerefMut)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub struct CustomProjection {
     #[reflect(ignore)]
     #[deref]
@@ -221,7 +221,7 @@ impl CustomProjection {
 ///
 /// [`Camera`]: crate::camera::Camera
 #[derive(Component, Debug, Clone, Reflect, From)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub enum Projection {
     Perspective(PerspectiveProjection),
     Orthographic(OrthographicProjection),
@@ -298,7 +298,7 @@ impl Default for Projection {
 
 /// A 3D camera projection in which distant objects appear smaller than close objects.
 #[derive(Debug, Clone, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct PerspectiveProjection {
     /// The vertical field of view (FOV) in radians.
     ///
@@ -433,7 +433,7 @@ impl Default for PerspectiveProjection {
 /// });
 /// ```
 #[derive(Default, Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
-#[reflect(Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, Default, Clone)]
 pub enum ScalingMode {
     /// Match the viewport size.
     ///
@@ -490,7 +490,7 @@ pub enum ScalingMode {
 /// });
 /// ```
 #[derive(Debug, Clone, Reflect)]
-#[reflect(Debug, FromWorld)]
+#[reflect(Debug, FromWorld, Clone)]
 pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.
     ///

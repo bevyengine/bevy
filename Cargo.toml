@@ -26,6 +26,8 @@ members = [
   "crates/bevy_reflect/compile_fail",
   # Examples of compiling Bevy for mobile platforms.
   "examples/mobile",
+  # Examples of using Bevy on no_std platforms.
+  "examples/no_std/*",
   # Benchmarks
   "benches",
   # Internal tools that are not published.
@@ -4286,4 +4288,16 @@ crate-type = ["lib"]
 name = "Widgets"
 description = "Example UI Widgets"
 category = "Helpers"
+wasm = true
+
+[[example]]
+name = "no_std_library"
+path = "examples/no_std/library/src/lib.rs"
+doc-scrape-examples = true
+crate-type = ["lib"]
+
+[package.metadata.example.no_std_library]
+name = "`no_std` Compatible Library"
+description = "Example library compatible with `std` and `no_std` targets"
+category = "Embedded"
 wasm = true

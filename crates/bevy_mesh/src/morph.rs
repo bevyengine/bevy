@@ -111,7 +111,7 @@ impl MorphTargetImage {
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Default, Debug, Clone, Component)]
-#[reflect(Debug, Component, Default)]
+#[reflect(Debug, Component, Default, Clone)]
 pub struct MorphWeights {
     weights: Vec<f32>,
     /// The first mesh primitive assigned to these weights
@@ -156,7 +156,7 @@ impl MorphWeights {
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Default, Debug, Clone, Component)]
-#[reflect(Debug, Component, Default)]
+#[reflect(Debug, Component, Default, Clone)]
 pub struct MeshMorphWeights {
     weights: Vec<f32>,
 }
