@@ -91,8 +91,8 @@ use crate::{
 /// They are granted exclusive access to the [`World`], which enables them to
 /// respond to the error in whatever way is necessary.
 ///
-/// The [default error handler](error_handler::default) panics.
-/// It can be configured by setting the `GLOBAL_ERROR_HANDLER`.
+/// The default error handler panics, but this can be configured
+/// by setting the [`GLOBAL_ERROR_HANDLER`](crate::error::GLOBAL_ERROR_HANDLER).
 ///
 /// Alternatively, you can customize the error handler for a specific command
 /// by calling [`Commands::queue_handled`].
@@ -542,7 +542,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a generic [`Command`] to the command queue.
     ///
     /// If the [`Command`] returns a [`Result`],
-    /// it will be handled using the [default error handler](error_handler::default).
+    /// it will be handled using the [`GLOBAL_ERROR_HANDLER`](crate::error::GLOBAL_ERROR_HANDLER).
     ///
     /// To use a custom error handler, see [`Commands::queue_handled`].
     ///
@@ -1154,8 +1154,8 @@ impl<'w, 's> Commands<'w, 's> {
 /// They are granted exclusive access to the [`World`], which enables them to
 /// respond to the error in whatever way is necessary.
 ///
-/// The [default error handler](error_handler::default) panics.
-/// It can be configured by setting the `GLOBAL_ERROR_HANDLER`.
+/// The default error handler panics, but this can be configured
+/// by setting the [`GLOBAL_ERROR_HANDLER`](crate::error::GLOBAL_ERROR_HANDLER).
 ///
 /// Alternatively, you can customize the error handler for a specific command
 /// by calling [`EntityCommands::queue_handled`].
@@ -1763,7 +1763,7 @@ impl<'a> EntityCommands<'a> {
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
     ///
     /// If the [`EntityCommand`] returns a [`Result`],
-    /// it will be handled using the [default error handler](error_handler::default).
+    /// it will be handled using the [`GLOBAL_ERROR_HANDLER`](crate::error::GLOBAL_ERROR_HANDLER).
     ///
     /// To use a custom error handler, see [`EntityCommands::queue_handled`].
     ///
