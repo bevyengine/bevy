@@ -4,7 +4,7 @@ mod texture_attachment;
 mod texture_cache;
 
 pub use crate::render_resource::DefaultImageSampler;
-#[cfg(feature = "basis-universal")]
+#[cfg(feature = "basis-universal-compressor")]
 use bevy_image::CompressedImageSaver;
 #[cfg(feature = "hdr")]
 use bevy_image::HdrTextureLoader;
@@ -80,7 +80,7 @@ impl Plugin for ImagePlugin {
         image_assets.insert(&Handle::default(), Image::default());
         image_assets.insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent());
 
-        #[cfg(feature = "basis-universal")]
+        #[cfg(feature = "basis-universal-compressor")]
         if let Some(processor) = app
             .world()
             .get_resource::<bevy_asset::processor::AssetProcessor>()
