@@ -46,11 +46,11 @@ zlib = ["flate2"]
 
 # A marker feature indicating zstd support is required for a particular feature.
 # One must select the "zstd_rust" or "zstd_native" feature.
-zstd = [] 
+zstd = []
 # Pure-rust zstd implementation (safer)
 zstd_rust = ["zstd", "dep:ruzstd"]
 # Binding to zstd C implementation (faster)
-zstd_native = ["zstd", "dep:zstd"] 
+zstd_native = ["zstd", "dep:zstd"]
 
 [dependencies]
 # bevy
