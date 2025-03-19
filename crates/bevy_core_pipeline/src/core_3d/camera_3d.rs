@@ -56,7 +56,7 @@ pub struct Camera3d {
     ///
     /// Higher qualities are more GPU-intensive.
     ///
-    /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
+    /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: `TemporalAntiAliasPlugin`
     pub screen_space_specular_transmission_quality: ScreenSpaceTransmissionQuality,
 }
 
@@ -117,7 +117,7 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
 ///
 /// Higher qualities are more GPU-intensive.
 ///
-/// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
+/// **Note:** You can get better-looking results at any quality level by enabling TAA. See: `TemporalAntiAliasPlugin`
 #[derive(Resource, Default, Clone, Copy, Reflect, PartialEq, PartialOrd, Debug)]
 #[reflect(Resource, Default, Clone, Debug, PartialEq)]
 pub enum ScreenSpaceTransmissionQuality {

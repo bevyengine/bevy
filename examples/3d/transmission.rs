@@ -36,7 +36,7 @@ use bevy::{
 };
 
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing};
+use bevy::anti_aliasing::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing};
 use rand::random;
 
 fn main() {
