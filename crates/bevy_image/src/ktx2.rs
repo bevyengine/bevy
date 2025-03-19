@@ -13,7 +13,9 @@ use wgpu_types::{
 use super::{CompressedImageFormats, DataFormat, Image, TextureError};
 
 #[cfg(feature = "basis-universal")]
-use basis_universal::{TranscoderBlockFormat, DecodeFlags, LowLevelUastcLdr4x4Transcoder, SliceParametersUastc};
+use basis_universal::{
+    DecodeFlags, LowLevelUastcLdr4x4Transcoder, SliceParametersUastc, TranscoderBlockFormat,
+};
 
 #[derive(Error, Debug)]
 pub enum Ktx2TextureError {
