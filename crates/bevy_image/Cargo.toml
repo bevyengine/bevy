@@ -83,9 +83,9 @@ ddsfile = { version = "0.5.2", optional = true }
 ktx2 = { git = "https://github.com/BVE-Reborn/ktx2", rev = "d081d3aa3ca6c7a20dd20479c7f5f1cd72375714", optional = true } # Unreleased 0.4.x
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
-# For transcoding of UASTC/ETC1S universal formats and for .basis file support
 zstd = { version = "0.13.3", optional = true }
 ruzstd = { version = "0.8.0", optional = true }
+# For transcoding of UASTC/ETC1S universal formats and for .basis file support
 basis-universal = { git = "https://github.com/naturalatlas/basis-universal-rs", rev = "69660b7138804f24d465601e32c3f67c95fb0aec", optional = true, default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 half = { version = "2.4.1" }
