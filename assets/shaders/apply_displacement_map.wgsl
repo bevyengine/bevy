@@ -11,7 +11,6 @@
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-
     // Sampling the displacement map, after translating it diagonally
     let timeshift = time * time_sensitivity;
     let timeshifted_uv = fract(in.uv + vec2<f32>(timeshift, timeshift));
