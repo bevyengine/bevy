@@ -319,6 +319,8 @@ trace = ["bevy_internal/trace", "dep:tracing"]
 
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
+
+# Basis Universal compression support for the asset processor
 basis-universal-compressor = ["bevy_internal/basis-universal-compressor"]
 
 # BMP image format support
@@ -369,10 +371,15 @@ webp = ["bevy_internal/webp"]
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
 
-# For KTX2 supercompression
-zstd = ["bevy_internal/zstd"] # A marker feature indicating zstd support is required for a particular feature. One must select the "zstd_rust" or "zstd_native" feature.
-zstd_rust = ["bevy_internal/zstd_rust"] # Pure-rust zstd implementation (safer)
-zstd_native = ["bevy_internal/zstd_native"] # Binding to zstd C implementation (faster)
+# A marker feature indicating zstd support is required for a particular feature.
+# One must select the "zstd_rust" or "zstd_native" backend.
+zstd = ["bevy_internal/zstd"]
+
+# Zstd backend: pure-rust zstd implementation (safer)
+zstd_rust = ["bevy_internal/zstd_rust"]
+
+# Zstd backend: zstd C implementation (faster)
+zstd_native = ["bevy_internal/zstd_native"]
 
 # FLAC audio format support
 flac = ["bevy_internal/flac"]
