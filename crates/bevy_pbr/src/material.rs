@@ -351,9 +351,11 @@ where
                         Render,
                         (
                             check_views_lights_need_specialization.in_set(RenderSet::PrepareAssets),
+                            // specialize_shadows::<M> also needs to run after prepare_assets::<PreparedMaterial<M>>,
+                            // which is fine since ManageViews is after PrepareAssets
                             specialize_shadows::<M>
-                                .in_set(RenderSet::PrepareMeshes)
-                                .after(prepare_assets::<PreparedMaterial<M>>),
+                                .in_set(RenderSet::ManageViews)
+                                .after(prepare_lights),
                             queue_shadows::<M>
                                 .in_set(RenderSet::QueueMeshes)
                                 .after(prepare_assets::<PreparedMaterial<M>>),
