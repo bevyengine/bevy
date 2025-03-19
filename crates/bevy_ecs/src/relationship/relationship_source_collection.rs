@@ -61,6 +61,17 @@ pub trait RelationshipSourceCollection {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Add multiple entities to collection at once.
+    ///
+    /// May be faster than repeatedly calling [`Self::add`].
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        // The method name shouldn't conflict with `Extend::extend` as it's in the rust prelude and
+        // would always conflict with it.
+        for entity in entities {
+            self.add(entity);
+        }
+    }
 }
 
 impl RelationshipSourceCollection for Vec<Entity> {
@@ -109,6 +120,10 @@ impl RelationshipSourceCollection for Vec<Entity> {
     fn shrink_to_fit(&mut self) {
         Vec::shrink_to_fit(self);
     }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
+    }
 }
 
 impl RelationshipSourceCollection for EntityHashSet {
@@ -150,6 +165,10 @@ impl RelationshipSourceCollection for EntityHashSet {
 
     fn shrink_to_fit(&mut self) {
         self.0.shrink_to_fit();
+    }
+  
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
     }
 }
 
@@ -199,6 +218,10 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
     fn shrink_to_fit(&mut self) {
         SmallVec::shrink_to_fit(self);
     }
+  
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
+    }
 }
 
 impl RelationshipSourceCollection for Entity {
@@ -246,6 +269,12 @@ impl RelationshipSourceCollection for Entity {
     }
 
     fn shrink_to_fit(&mut self) {}
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        if let Some(entity) = entities.into_iter().last() {
+            *self = entity;
+        }
+    }
 }
 
 #[cfg(test)]

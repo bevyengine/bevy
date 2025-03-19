@@ -18,6 +18,8 @@ pub use default_plugins::*;
 pub use bevy_a11y as a11y;
 #[cfg(feature = "bevy_animation")]
 pub use bevy_animation as animation;
+#[cfg(feature = "bevy_anti_aliasing")]
+pub use bevy_anti_aliasing as anti_aliasing;
 pub use bevy_app as app;
 #[cfg(feature = "bevy_asset")]
 pub use bevy_asset as asset;
