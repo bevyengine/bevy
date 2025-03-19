@@ -863,6 +863,9 @@ pub fn specialize_material_meshes<M: Material>(
             .or_default();
 
         for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
+            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
+                continue;
+            };
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -874,9 +877,6 @@ pub fn specialize_material_meshes<M: Material>(
             if !needs_specialization {
                 continue;
             }
-            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
-                continue;
-            };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
                 continue;
