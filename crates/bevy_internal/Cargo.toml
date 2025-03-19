@@ -30,7 +30,10 @@ sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
 
 # Texture formats that have specific rendering support (HDR enabled by default)
 basis-universal = ["bevy_image/basis-universal", "bevy_render/basis-universal"]
-basis-universal-compressor = ["bevy_image/basis-universal-compressor", "bevy_render/basis-universal-compressor"]
+basis-universal-compressor = [
+    "bevy_image/basis-universal-compressor",
+    "bevy_render/basis-universal-compressor",
+]
 dds = [
   "bevy_image/dds",
   "bevy_render/dds",
