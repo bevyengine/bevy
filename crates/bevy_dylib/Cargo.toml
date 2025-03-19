@@ -13,7 +13,7 @@ crate-type = ["dylib"]
 
 [dependencies]
 bevy_internal = { path = "../bevy_internal", version = "0.16.0-dev", default-features = false, features = [
-    "std",
+  "std",
 ] }
 
 [lints]
