@@ -38,6 +38,50 @@ pub trait RelationshipSourceCollection {
     }
 }
 
+/// This trait signals that a [`RelationshipSourceCollection`] is ordered.
+pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
+    /// Inserts the entity at a specific index.
+    /// If the index is too large, the entity will be added to the end of the collection.
+    fn insert(&mut self, index: usize, entity: Entity);
+    /// Removes the entity at the specified idnex if it exists.
+    fn remove_at(&mut self, index: usize) -> Option<Entity>;
+    /// Inserts the entity at a specific index.
+    /// This will never reorder other entities.
+    /// If the index is too large, the entity will be added to the end of the collection.
+    fn insert_stable(&mut self, index: usize, entity: Entity);
+    /// Removes the entity at the specified idnex if it exists.
+    /// This will never reorder other entities.
+    fn remove_at_stable(&mut self, index: usize) -> Option<Entity>;
+    /// Sorts the source collection.
+    fn sort(&mut self);
+    /// Inserts the entity at the proper place to maintain sorting.
+    fn insert_sorted(&mut self, entity: Entity);
+
+    /// Adds the entity at index 0.
+    fn push_front(&mut self, entity: Entity) {
+        self.insert(0, entity);
+    }
+
+    /// Adds the entity to the back of the collection.
+    fn push_back(&mut self, entity: Entity) {
+        self.insert(usize::MAX, entity);
+    }
+
+    /// Removes the first entity.
+    fn pop_front(&mut self) -> Option<Entity> {
+        self.remove_at(0)
+    }
+
+    /// Removes the last entity.
+    fn pop_back(&mut self) -> Option<Entity> {
+        if self.is_empty() {
+            None
+        } else {
+            self.remove_at(self.len() - 1)
+        }
+    }
+}
+
 impl RelationshipSourceCollection for Vec<Entity> {
     type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
 
@@ -61,6 +105,37 @@ impl RelationshipSourceCollection for Vec<Entity> {
 
     fn len(&self) -> usize {
         Vec::len(self)
+    }
+}
+
+impl OrderedRelationshipSourceCollection for Vec<Entity> {
+    fn insert(&mut self, index: usize, entity: Entity) {
+        self.push(entity);
+        let len = self.len();
+        if index < len {
+            self.swap(index, len - 1);
+        }
+    }
+
+    fn remove_at(&mut self, index: usize) -> Option<Entity> {
+        (index < self.len()).then(|| self.swap_remove(index))
+    }
+
+    fn sort(&mut self) {
+        self.sort_unstable();
+    }
+
+    fn insert_sorted(&mut self, entity: Entity) {
+        let index = self.partition_point(|e| e <= &entity);
+        self.insert_stable(index, entity);
+    }
+
+    fn insert_stable(&mut self, index: usize, entity: Entity) {
+        Vec::insert(self, index, entity);
+    }
+
+    fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
+        (index < self.len()).then(|| self.remove(index))
     }
 }
 
@@ -113,6 +188,37 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
 
     fn len(&self) -> usize {
         SmallVec::len(self)
+    }
+}
+
+impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N]> {
+    fn insert(&mut self, index: usize, entity: Entity) {
+        self.push(entity);
+        let len = self.len();
+        if index < len {
+            self.swap(index, len - 1);
+        }
+    }
+
+    fn remove_at(&mut self, index: usize) -> Option<Entity> {
+        (index < self.len()).then(|| self.swap_remove(index))
+    }
+
+    fn sort(&mut self) {
+        self.sort_unstable();
+    }
+
+    fn insert_sorted(&mut self, entity: Entity) {
+        let index = self.partition_point(|e| e <= &entity);
+        self.insert_stable(index, entity);
+    }
+
+    fn insert_stable(&mut self, index: usize, entity: Entity) {
+        SmallVec::<[Entity; N]>::insert(self, index, entity);
+    }
+
+    fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
+        (index < self.len()).then(|| self.remove(index))
     }
 }
 
