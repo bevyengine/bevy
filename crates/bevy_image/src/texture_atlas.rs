@@ -1,6 +1,6 @@
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp as _, AssetId, Assets, Handle};
-use bevy_math::{URect, UVec2};
+use bevy_math::{Rect, URect, UVec2};
 use bevy_platform_support::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -51,13 +51,27 @@ impl TextureAtlasSources {
         })
     }
 
-    /// Retrieves the texture *section* rectangle of the given `texture` handle.
+    /// Retrieves the texture *section* rectangle of the given `texture` handle in pixels.
     pub fn texture_rect(
         &self,
         layout: &TextureAtlasLayout,
         texture: impl Into<AssetId<Image>>,
     ) -> Option<URect> {
         layout.textures.get(self.texture_index(texture)?).cloned()
+    }
+
+    /// Retrieves the texture *section* rectangle of the given `texture` handle in UV coordinates.
+    /// These are within the range [0..1], as a fraction of the entire texture atlas' size.
+    pub fn uv_rect(
+        &self,
+        layout: &TextureAtlasLayout,
+        texture: impl Into<AssetId<Image>>,
+    ) -> Option<Rect> {
+        self.texture_rect(layout, texture).map(|rect| {
+            let rect = rect.as_rect();
+            let size = layout.size.as_vec2();
+            Rect::from_corners(rect.min / size, rect.max / size)
+        })
     }
 }
 
@@ -73,7 +87,11 @@ impl TextureAtlasSources {
 ///
 /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
 #[derive(Asset, PartialEq, Eq, Debug, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -186,7 +204,7 @@ impl TextureAtlasLayout {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Default, Debug, PartialEq, Hash)
+    reflect(Default, Debug, PartialEq, Hash, Clone)
 )]
 pub struct TextureAtlas {
     /// Texture atlas layout handle

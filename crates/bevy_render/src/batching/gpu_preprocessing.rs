@@ -8,7 +8,7 @@ use bevy_ecs::{
     prelude::Entity,
     query::{Has, With},
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{Query, Res, ResMut, StaticSystemParam},
     world::{FromWorld, World},
 };
@@ -1580,7 +1580,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
             }
 
             // Reserve space in the occlusion culling buffers, if necessary.
-            if let Some(ref mut gpu_occlusion_culling_buffers) = gpu_occlusion_culling_buffers {
+            if let Some(gpu_occlusion_culling_buffers) = gpu_occlusion_culling_buffers {
                 gpu_occlusion_culling_buffers
                     .late_indexed
                     .add_multiple(indexed_preparer.work_item_count);
@@ -1985,9 +1985,9 @@ pub fn write_batched_instance_buffers<GFBD>(
     GFBD: GetFullBatchData,
 {
     let BatchedInstanceBuffers {
-        ref mut current_input_buffer,
-        ref mut previous_input_buffer,
-        ref mut phase_instance_buffers,
+        current_input_buffer,
+        previous_input_buffer,
+        phase_instance_buffers,
     } = gpu_array_buffer.into_inner();
 
     current_input_buffer

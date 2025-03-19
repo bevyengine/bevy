@@ -5,7 +5,7 @@ use bevy_ecs::{
     query::{QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::{BevyDefault, Image};
@@ -90,7 +90,7 @@ impl Plugin for SkyboxPlugin {
 ///
 /// See also <https://en.wikipedia.org/wiki/Skybox_(video_games)>.
 #[derive(Component, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct Skybox {
     pub image: Handle<Image>,
     /// Scale factor applied to the skybox image.

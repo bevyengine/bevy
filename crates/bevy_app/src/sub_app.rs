@@ -3,9 +3,8 @@ use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
-    result::{DefaultSystemErrorHandler, SystemErrorContext},
-    schedule::{InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel},
-    system::{SystemId, SystemInput},
+    schedule::{InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    system::{ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
 use core::fmt::Debug;
@@ -212,7 +211,7 @@ impl SubApp {
     pub fn add_systems<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        systems: impl IntoSystemConfigs<M>,
+        systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
         schedules.add_systems(schedule, systems);
@@ -234,10 +233,10 @@ impl SubApp {
 
     /// See [`App::configure_sets`].
     #[track_caller]
-    pub fn configure_sets(
+    pub fn configure_sets<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        sets: impl IntoSystemSetConfigs,
+        sets: impl IntoScheduleConfigs<InternedSystemSet, M>,
     ) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
         schedules.configure_sets(schedule, sets);
@@ -333,22 +332,6 @@ impl SubApp {
 
         schedules.ignore_ambiguity(schedule, a, b);
 
-        self
-    }
-
-    /// Set the global error handler to use for systems that return a [`Result`].
-    ///
-    /// See the [`bevy_ecs::result` module-level documentation](../../bevy_ecs/result/index.html)
-    /// for more information.
-    pub fn set_system_error_handler(
-        &mut self,
-        error_handler: fn(Error, SystemErrorContext),
-    ) -> &mut Self {
-        let mut default_handler = self
-            .world_mut()
-            .get_resource_or_init::<DefaultSystemErrorHandler>();
-
-        default_handler.0 = error_handler;
         self
     }
 

@@ -276,10 +276,10 @@ pub unsafe trait SystemParam: Sized {
     ///
     /// # Safety
     ///
-    /// - The passed [`UnsafeWorldCell`] must have access to any world data
-    ///   registered in [`init_state`](SystemParam::init_state).
+    /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
+    ///   in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    /// - all `world`'s archetypes have been processed by [`new_archetype`](SystemParam::new_archetype).
+    /// - All `world`'s archetypes have been processed by [`new_archetype`](SystemParam::new_archetype).
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
@@ -408,7 +408,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
             state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
         };
         let single = query
-            .get_single_inner()
+            .single_inner()
             .expect("The query was expected to contain exactly one matching entity.");
         Single {
             item: single,
@@ -432,7 +432,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
                 world.change_tick(),
             )
         };
-        let is_valid = query.get_single_inner().is_ok();
+        let is_valid = query.single_inner().is_ok();
         if !is_valid {
             system_meta.try_warn_param::<Self>();
         }
@@ -474,7 +474,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         let query = unsafe {
             state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
         };
-        match query.get_single_inner() {
+        match query.single_inner() {
             Ok(single) => Some(Single {
                 item: single,
                 _filter: PhantomData,
@@ -500,7 +500,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
                 world.change_tick(),
             )
         };
-        let result = query.get_single_inner();
+        let result = query.single_inner();
         let is_valid = !matches!(result, Err(QuerySingleError::MultipleEntities(_)));
         if !is_valid {
             system_meta.try_warn_param::<Self>();
@@ -685,7 +685,7 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 ///         // ...
 ///         # let _event = event;
 ///     }
-///     set.p1().send(MyEvent::new());
+///     set.p1().write(MyEvent::new());
 ///
 ///     let entities = set.p2().entities();
 ///     // ...
@@ -817,7 +817,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.components.register_resource::<T>();
+        let component_id = world.components_registrator().register_resource::<T>();
         let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
@@ -926,7 +926,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.components.register_resource::<T>();
+        let component_id = world.components_registrator().register_resource::<T>();
         let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
@@ -1499,7 +1499,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
 
-        let component_id = world.components.register_non_send::<T>();
+        let component_id = world.components_registrator().register_non_send::<T>();
         let archetype_component_id = world.initialize_non_send_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
@@ -1605,7 +1605,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
 
-        let component_id = world.components.register_non_send::<T>();
+        let component_id = world.components_registrator().register_non_send::<T>();
         let archetype_component_id = world.initialize_non_send_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();

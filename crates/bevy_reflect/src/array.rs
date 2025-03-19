@@ -69,10 +69,16 @@ pub trait Array: PartialReflect {
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
 
     /// Clones the list, producing a [`DynamicArray`].
+    #[deprecated(since = "0.16.0", note = "use `to_dynamic_array` instead")]
     fn clone_dynamic(&self) -> DynamicArray {
+        self.to_dynamic_array()
+    }
+
+    /// Creates a new [`DynamicArray`] from this array.
+    fn to_dynamic_array(&self) -> DynamicArray {
         DynamicArray {
             represented_type: self.get_represented_type_info(),
-            values: self.iter().map(PartialReflect::clone_value).collect(),
+            values: self.iter().map(PartialReflect::to_dynamic).collect(),
         }
     }
 
@@ -257,11 +263,6 @@ impl PartialReflect for DynamicArray {
     }
 
     #[inline]
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
-    }
-
-    #[inline]
     fn reflect_hash(&self) -> Option<u64> {
         array_hash(self)
     }
@@ -306,18 +307,6 @@ impl Array for DynamicArray {
     #[inline]
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
         self.values.into_vec()
-    }
-
-    #[inline]
-    fn clone_dynamic(&self) -> DynamicArray {
-        DynamicArray {
-            represented_type: self.represented_type,
-            values: self
-                .values
-                .iter()
-                .map(|value| value.clone_value())
-                .collect(),
-        }
     }
 }
 

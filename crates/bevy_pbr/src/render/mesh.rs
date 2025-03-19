@@ -37,7 +37,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntityHashSet,
-    texture::DefaultImageSampler,
+    texture::{DefaultImageSampler, GpuImage},
     view::{
         self, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
         ViewTarget, ViewUniformOffset, ViewVisibility, VisibilityRange,
@@ -1675,7 +1675,7 @@ pub fn collect_meshes_for_gpu_building(
     frame_count: Res<FrameCount>,
     mut meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
 ) {
-    let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) =
+    let RenderMeshInstances::GpuBuilding(render_mesh_instances) =
         render_mesh_instances.into_inner()
     else {
         return;
@@ -1686,8 +1686,8 @@ pub fn collect_meshes_for_gpu_building(
 
     // Collect render mesh instances. Build up the uniform buffer.
     let gpu_preprocessing::BatchedInstanceBuffers {
-        ref mut current_input_buffer,
-        ref mut previous_input_buffer,
+        current_input_buffer,
+        previous_input_buffer,
         ..
     } = batched_instance_buffers.into_inner();
 
@@ -1905,7 +1905,7 @@ impl GetBatchData for MeshPipeline {
     type CompareData = (
         MaterialBindGroupIndex,
         AssetId<Mesh>,
-        Option<AssetId<Image>>,
+        Option<LightmapSlabIndex>,
     );
 
     type BufferData = MeshUniform;
@@ -1946,7 +1946,7 @@ impl GetBatchData for MeshPipeline {
             mesh_instance.should_batch().then_some((
                 material_bind_group_index.group,
                 mesh_instance.mesh_asset_id,
-                maybe_lightmap.map(|lightmap| lightmap.image),
+                maybe_lightmap.map(|lightmap| lightmap.slab_index),
             )),
         ))
     }
@@ -1976,7 +1976,7 @@ impl GetFullBatchData for MeshPipeline {
             mesh_instance.should_batch().then_some((
                 mesh_instance.material_bindings_index.group,
                 mesh_instance.mesh_asset_id,
-                maybe_lightmap.map(|lightmap| lightmap.image),
+                maybe_lightmap.map(|lightmap| lightmap.slab_index),
             )),
         ))
     }

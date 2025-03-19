@@ -4,8 +4,9 @@ use crate::{
     bounding::BoundingVolume,
     ops,
     primitives::{
-        Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
-        Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
+        Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon, Ellipse,
+        Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
+        Triangle2d,
     },
     Dir2, Isometry2d, Mat2, Rot2, Vec2,
 };
@@ -375,6 +376,16 @@ impl<const N: usize> Bounded2d for Polygon<N> {
     }
 }
 
+impl<const N: usize> Bounded2d for ConvexPolygon<N> {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        Aabb2d::from_point_cloud(isometry, self.vertices().as_slice())
+    }
+
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        BoundingCircle::from_point_cloud(isometry, self.vertices().as_slice())
+    }
+}
+
 #[cfg(feature = "alloc")]
 impl Bounded2d for BoxedPolygon {
     fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
@@ -438,6 +449,7 @@ impl Bounded2d for Capsule2d {
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_6, TAU};
     use std::println;
@@ -881,9 +893,9 @@ mod tests {
 
     #[test]
     fn segment() {
+        let segment = Segment2d::new(Vec2::new(-1.0, -0.5), Vec2::new(1.0, 0.5));
         let translation = Vec2::new(2.0, 1.0);
         let isometry = Isometry2d::from_translation(translation);
-        let segment = Segment2d::new(Vec2::new(-1.0, -0.5), Vec2::new(1.0, 0.5));
 
         let aabb = segment.aabb_2d(isometry);
         assert_eq!(aabb.min, Vec2::new(1.0, 0.5));

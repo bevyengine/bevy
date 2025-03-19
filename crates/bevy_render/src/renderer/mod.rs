@@ -391,12 +391,13 @@ impl<'w> RenderContext<'w> {
         adapter_info: AdapterInfo,
         diagnostics_recorder: Option<DiagnosticsRecorder>,
     ) -> Self {
-        // HACK: Parallel command encoding is currently bugged on AMD + Windows + Vulkan with wgpu 0.19.1
-        #[cfg(target_os = "windows")]
+        // HACK: Parallel command encoding is currently bugged on AMD + Windows/Linux + Vulkan
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         let force_serial =
             adapter_info.driver.contains("AMD") && adapter_info.backend == wgpu::Backend::Vulkan;
         #[cfg(not(any(
             target_os = "windows",
+            target_os = "linux",
             all(target_arch = "wasm32", target_feature = "atomics")
         )))]
         let force_serial = {
@@ -421,7 +422,7 @@ impl<'w> RenderContext<'w> {
 
     /// Gets the diagnostics recorder, used to track elapsed time and pipeline statistics
     /// of various render and compute passes.
-    pub fn diagnostic_recorder(&self) -> impl RecordDiagnostics {
+    pub fn diagnostic_recorder(&self) -> impl RecordDiagnostics + use<> {
         self.diagnostics_recorder.clone()
     }
 

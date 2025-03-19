@@ -186,8 +186,8 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// ```
 ///
 /// [`MeshMaterial2d`]: crate::MeshMaterial2d
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
-#[reflect(Component, Default)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, From)]
+#[reflect(Component, Default, Clone)]
 pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
 
 impl<M: Material2d> Default for MeshMaterial2d<M> {
@@ -195,6 +195,14 @@ impl<M: Material2d> Default for MeshMaterial2d<M> {
         Self(Handle::default())
     }
 }
+
+impl<M: Material2d> PartialEq for MeshMaterial2d<M> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<M: Material2d> Eq for MeshMaterial2d<M> {}
 
 impl<M: Material2d> From<MeshMaterial2d<M>> for AssetId<M> {
     fn from(material: MeshMaterial2d<M>) -> Self {
@@ -222,7 +230,7 @@ impl<M: Material2d> AsAssetId for MeshMaterial2d<M> {
 /// This is very similar to [`AlphaMode`](bevy_render::alpha::AlphaMode) but this only applies to 2d meshes.
 /// We use a separate type because 2d doesn't support all the transparency modes that 3d does.
 #[derive(Debug, Default, Reflect, Copy, Clone, PartialEq)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub enum AlphaMode2d {
     /// Base color alpha values are overridden to be fully opaque (1.0).
     #[default]
@@ -872,6 +880,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         // Batching is done in batch_and_prepare_render_phase
                         batch_range: 0..1,
                         extra_index: PhaseItemExtraIndex::None,
+                        extracted_index: usize::MAX,
                         indexed: mesh.indexed(),
                     });
                 }

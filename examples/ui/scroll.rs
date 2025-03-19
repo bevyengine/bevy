@@ -11,7 +11,7 @@ use bevy::{
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins)
+    app.add_plugins((DefaultPlugins, UiPickingPlugin))
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, update_scroll_position);
@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     // header
                     parent.spawn((
-                        Text::new("Horizontally Scrolling list (Ctrl + Mousewheel)"),
+                        Text::new("Horizontally Scrolling list (Ctrl + MouseWheel)"),
                         TextFont {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: FONT_SIZE,

@@ -1,5 +1,5 @@
 use crate::{Asset, AssetIndex};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -19,6 +19,7 @@ use thiserror::Error;
 ///
 /// For an "untyped" / "generic-less" id, see [`UntypedAssetId`].
 #[derive(Reflect, Serialize, Deserialize, From)]
+#[reflect(Clone, Default, Debug, PartialEq, Hash)]
 pub enum AssetId<A: Asset> {
     /// A small / efficient runtime identifier that can be used to efficiently look up an asset stored in [`Assets`]. This is
     /// the "default" identifier used for assets. The alternative(s) (ex: [`AssetId::Uuid`]) will only be used if assets are
@@ -29,7 +30,7 @@ pub enum AssetId<A: Asset> {
         /// The unstable, opaque index of the asset.
         index: AssetIndex,
         /// A marker to store the type information of the asset.
-        #[reflect(ignore)]
+        #[reflect(ignore, clone)]
         marker: PhantomData<fn() -> A>,
     },
     /// A stable-across-runs / const asset identifier. This will only be used if an asset is explicitly registered in [`Assets`]

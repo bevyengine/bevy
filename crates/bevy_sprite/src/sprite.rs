@@ -1,9 +1,6 @@
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
-use bevy_ecs::{
-    component::{require, Component},
-    reflect::ReflectComponent,
-};
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -18,7 +15,7 @@ use crate::TextureSlicer;
 /// Describes a sprite to be rendered to a 2D camera
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[require(Transform, Visibility, SyncToRenderWorld, VisibilityClass)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct Sprite {
     /// The image used to render the sprite
@@ -157,7 +154,7 @@ impl From<Handle<Image>> for Sprite {
 
 /// Controls how the image is altered when scaled.
 #[derive(Default, Debug, Clone, Reflect, PartialEq)]
-#[reflect(Debug)]
+#[reflect(Debug, Default, Clone)]
 pub enum SpriteImageMode {
     /// The sprite will take on the size of the image by default, and will be stretched or shrunk if [`Sprite::custom_size`] is set.
     #[default]
@@ -205,7 +202,7 @@ impl SpriteImageMode {
 ///
 /// Can be used in [`SpriteImageMode::Scale`].
 #[derive(Debug, Clone, Copy, PartialEq, Default, Reflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Default, Clone)]
 pub enum ScalingMode {
     /// Scale the texture uniformly (maintain the texture's aspect ratio)
     /// so that both dimensions (width and height) of the texture will be equal
@@ -246,7 +243,7 @@ pub enum ScalingMode {
 /// How a sprite is positioned relative to its [`Transform`].
 /// It defaults to `Anchor::Center`.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[doc(alias = "pivot")]
 pub enum Anchor {
     #[default]

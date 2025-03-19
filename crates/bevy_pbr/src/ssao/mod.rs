@@ -7,11 +7,11 @@ use bevy_core_pipeline::{
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
-    prelude::{require, Component, Entity},
+    prelude::{Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -151,7 +151,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 ///
 /// SSAO is not supported on `WebGL2`, and is not currently supported on `WebGPU`.
 #[derive(Component, ExtractComponent, Reflect, PartialEq, Clone, Debug)]
-#[reflect(Component, Debug, Default, PartialEq)]
+#[reflect(Component, Debug, Default, PartialEq, Clone)]
 #[require(DepthPrepass, NormalPrepass)]
 #[doc(alias = "Ssao")]
 pub struct ScreenSpaceAmbientOcclusion {
@@ -174,6 +174,7 @@ impl Default for ScreenSpaceAmbientOcclusion {
 }
 
 #[derive(Reflect, PartialEq, Eq, Hash, Clone, Copy, Default, Debug)]
+#[reflect(PartialEq, Hash, Clone, Default)]
 pub enum ScreenSpaceAmbientOcclusionQualityLevel {
     Low,
     Medium,

@@ -5,12 +5,12 @@ use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     query::With,
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
@@ -106,7 +106,7 @@ pub struct LightProbePlugin;
 /// specific technique but rather to a class of techniques. Developers familiar
 /// with other engines should be aware of this terminology difference.
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[require(Transform, Visibility)]
 pub struct LightProbe;
 
@@ -769,22 +769,22 @@ pub(crate) fn add_cubemap_texture_view<'a>(
 /// (a.k.a. bindless textures). This function checks for these pitfalls:
 ///
 /// 1. If GLSL support is enabled at the feature level, then in debug mode
-///     `naga_oil` will attempt to compile all shader modules under GLSL to check
-///     validity of names, even if GLSL isn't actually used. This will cause a crash
-///     if binding arrays are enabled, because binding arrays are currently
-///     unimplemented in the GLSL backend of Naga. Therefore, we disable binding
-///     arrays if the `shader_format_glsl` feature is present.
+///    `naga_oil` will attempt to compile all shader modules under GLSL to check
+///    validity of names, even if GLSL isn't actually used. This will cause a crash
+///    if binding arrays are enabled, because binding arrays are currently
+///    unimplemented in the GLSL backend of Naga. Therefore, we disable binding
+///    arrays if the `shader_format_glsl` feature is present.
 ///
 /// 2. If there aren't enough texture bindings available to accommodate all the
-///     binding arrays, the driver will panic. So we also bail out if there aren't
-///     enough texture bindings available in the fragment shader.
+///    binding arrays, the driver will panic. So we also bail out if there aren't
+///    enough texture bindings available in the fragment shader.
 ///
 /// 3. If binding arrays aren't supported on the hardware, then we obviously
 ///    can't use them. Adreno <= 610 claims to support bindless, but seems to be
 ///    too buggy to be usable.
 ///
 /// 4. If binding arrays are supported on the hardware, but they can only be
-///     accessed by uniform indices, that's not good enough, and we bail out.
+///    accessed by uniform indices, that's not good enough, and we bail out.
 ///
 /// If binding arrays aren't usable, we disable reflection probes and limit the
 /// number of irradiance volumes in the scene to 1.

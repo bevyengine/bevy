@@ -357,7 +357,7 @@ pub fn extract_colored_mesh2d(
         );
     }
     *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
+    commands.try_insert_batch(values);
 }
 
 /// Queue the 2d meshes marked with [`ColoredMesh2d`] using our custom pipeline and draw function
@@ -412,6 +412,7 @@ pub fn queue_colored_mesh2d(
                     // This material is not batched
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    extracted_index: usize::MAX,
                     indexed: mesh.indexed(),
                 });
             }
