@@ -692,12 +692,12 @@ impl<T: Event> WinitAppRunnerState<T> {
                         all(target_os = "linux", any(feature = "x11", feature = "wayland"))
                     )))]
                     {
-                        WINIT_WINDOWS.with(|ww_ref_cell| {
+                        let visible = WINIT_WINDOWS.with(|ww_ref_cell| {
                             let ww_ref = ww_ref_cell.borrow();
                             let winit_windows = ww_ref.as_ref().expect("Failed to initialize winit windows");
-                            let visible = winit_windows.windows.iter().any(|(_, w)| {
+                            winit_windows.windows.iter().any(|(_, w)| {
                                 w.is_visible().unwrap_or(false)
-                            });
+                            })
                         });
 
                         event_loop.set_control_flow(if visible {
