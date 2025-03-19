@@ -14,7 +14,11 @@ default = ["bevy_reflect"]
 bevy_reflect = ["dep:bevy_reflect", "bevy_math/bevy_reflect"]
 
 # Image formats
-basis-universal = ["dep:basis-universal", "basis-universal/transcoding", "basis-universal/ktx2"]
+basis-universal = [
+  "dep:basis-universal",
+  "basis-universal/transcoding",
+  "basis-universal/ktx2",
+]
 basis-universal-compressor = ["dep:basis-universal", "basis-universal/encoding"]
 bmp = ["image/bmp"]
 dds = ["ddsfile"]
@@ -39,9 +43,14 @@ serialize = [
 
 # For ktx2 supercompression
 zlib = ["flate2"]
-zstd = [] # A marker feature indicating zstd support is required for a particular feature. One must select the "zstd_rust" or "zstd_native" feature.
-zstd_rust = ["zstd", "dep:ruzstd"] # Pure-rust zstd implementation (safer)
-zstd_native = ["zstd", "dep:zstd"] # Binding to zstd C implementation (faster)
+
+# A marker feature indicating zstd support is required for a particular feature.
+# One must select the "zstd_rust" or "zstd_native" feature.
+zstd = [] 
+# Pure-rust zstd implementation (safer)
+zstd_rust = ["zstd", "dep:ruzstd"]
+# Binding to zstd C implementation (faster)
+zstd_native = ["zstd", "dep:zstd"] 
 
 [dependencies]
 # bevy
