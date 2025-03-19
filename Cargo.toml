@@ -371,14 +371,10 @@ webp = ["bevy_internal/webp"]
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
 
-# A marker feature indicating zstd support is required for a particular feature.
-# One must select the "zstd_rust" or "zstd_native" backend.
-zstd = ["bevy_internal/zstd"]
-
-# Zstd backend: pure-rust zstd implementation (safer)
+# For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd) (safer)
 zstd_rust = ["bevy_internal/zstd_rust"]
 
-# Zstd backend: zstd C implementation (faster)
+# For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd) (faster)
 zstd_native = ["bevy_internal/zstd_native"]
 
 # FLAC audio format support
@@ -448,7 +444,7 @@ android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 detailed_trace = ["bevy_internal/detailed_trace"]
 
 # Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.
-tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "zstd"]
+tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2"]
 
 # Include SMAA Look Up Tables KTX2 Files
 smaa_luts = ["bevy_internal/smaa_luts"]

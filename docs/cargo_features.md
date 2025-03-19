@@ -52,7 +52,7 @@ The default feature set enables most of the expected features of a game engine, 
 |vorbis|OGG/VORBIS audio format support|
 |webgl2|Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.|
 |x11|X11 display server support|
-|zstd_rust|For KTX2 zstd supercompression using pure-rust [ruzstd](https://crates.io/crates/ruzstd) (safer)|
+|zstd_rust|For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd) (safer)|
 
 ### Optional Features
 
@@ -63,7 +63,7 @@ The default feature set enables most of the expected features of a game engine, 
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |basis-universal|Basis Universal compressed texture support|
-|basis-universal-compressor|Basis Universal compressed texture writer for the asset processor.|
+|basis-universal-compressor|Basis Universal compression support for the asset processor|
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
@@ -127,4 +127,4 @@ The default feature set enables most of the expected features of a game engine, 
 |webgpu|Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.|
 |webp|WebP image format support|
 |zlib|For KTX2 supercompression|
-|zstd_native|For KTX2 zstd supercompression using a [zstd](https://crates.io/crates/zstd) binding (faster)|
+|zstd_native|For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd) (faster)|
