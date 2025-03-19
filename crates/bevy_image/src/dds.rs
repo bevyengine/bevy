@@ -2,6 +2,7 @@
 
 use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat};
 use std::io::Cursor;
+use thiserror::Error;
 use wgpu_types::{
     Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
 };
@@ -53,23 +54,25 @@ pub fn dds_buffer_to_image(
     let mut cursor = Cursor::new(buffer);
     let dds = Dds::read(&mut cursor)
         .map_err(|error| TextureError::InvalidData(format!("Failed to parse DDS file: {error}")))?;
+
     let (texture_format, transcoding_hint) = match dds_format_to_texture_format(&dds, is_srgb) {
         Ok(format) => (format, None),
-        Err(dds_error) => match dds_error {
+        Err(err) => match err {
             DdsTextureError::RequiresTranscoding(transcoding_hint) => match transcoding_hint {
                 DdsTranscodingHint::Rgb8 { is_srgb } => {
-                    // Note: In older Bevy releases, this used to be Bgra8Unorm[Srgb], which is assumed to be a typo.
+                    // Note: In older Bevy releases, this used to be Bgra8Unorm[Srgb], which is assumed to have been a typo.
                     let format = if is_srgb {
                         TextureFormat::Rgba8UnormSrgb
                     } else {
                         TextureFormat::Rgba8Unorm
                     };
-                    (format, transcoding_hint)
+                    (format, Some(transcoding_hint))
                 }
             },
-            err => return Err(dds_error.into()),
+            err => return Err(err.into()),
         },
     };
+
     if !supported_compressed_formats.supports(texture_format) {
         return Err(TextureError::UnsupportedTextureFormat(format!(
             "Format not supported by this GPU: {texture_format:?}",
@@ -138,8 +141,8 @@ pub fn dds_buffer_to_image(
 
     // DDS mipmap layout is directly compatible with wgpu's layout (Slice -> Face -> Mip):
     // https://learn.microsoft.com/fr-fr/windows/win32/direct3ddds/dx-graphics-dds-reference
-    image.data = if let Some(transcode_hint) = transcode_hint {
-        match transcode_hint {
+    image.data = if let Some(transcoding_hint) = transcoding_hint {
+        match transcoding_hint {
             DdsTranscodingHint::Rgb8 { .. } => {
                 let data = dds
                     .data
@@ -147,11 +150,6 @@ pub fn dds_buffer_to_image(
                     .flat_map(|pixel| [pixel[0], pixel[1], pixel[2], u8::MAX])
                     .collect();
                 Some(data)
-            }
-            _ => {
-                return Err(TextureError::TranscodeError(format!(
-                    "unsupported transcode {transcode_hint:?} to {texture_format:?}"
-                )))
             }
         }
     } else {
