@@ -21,7 +21,7 @@ Release notes are intended to capture the essence of:
 Draft release notes *do not need to be polished*: it's okay if you're not a native English speaker or aren't a wordsmith.
 Editing is easy: as someone with the expertise needed to implement an awesome feature we want a rough expert's perspective that we can shape into something that reads smoothly and has a consistent voice.
 
-Images and videos are lovely: shiny screen shots of rendering features, diagrams, performance metrics and cool examples are all a great choice.
+Images and videos are lovely: shiny screenshots of rendering features, diagrams, performance metrics, and cool examples are all a great choice.
 However, **do not put multimedia content in this folder**.
 We want to avoid bloating the git repo for `bevyengine/bevy`, which can cause problems for contributors (and Github).
 Instead, drop them in your PR description and we'll collect them as we're finalizing the release notes.
