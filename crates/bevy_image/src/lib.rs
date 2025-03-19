@@ -37,8 +37,6 @@ mod image_loader;
 mod ktx2;
 #[cfg(all(feature = "ktx2", feature = "basis-universal"))]
 mod ktx2_using_basisu;
-#[cfg(feature = "ktx2")]
-mod ktx2_using_rust;
 mod texture_atlas;
 mod texture_atlas_builder;
 
@@ -56,8 +54,6 @@ pub use image_loader::*;
 pub use ktx2::*;
 #[cfg(all(feature = "ktx2", feature = "basis-universal"))]
 pub use ktx2_using_basisu::*;
-#[cfg(feature = "ktx2")]
-pub use ktx2_using_rust::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 
