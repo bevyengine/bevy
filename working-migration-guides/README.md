@@ -34,7 +34,7 @@ However, it's not always possible to use this attribute, and Bevy does not consi
 ## Where to put your migration guides
 
 Each major Bevy version (e.g. 0.12, or 2.0) will get its own migration guide.
-The draft release notes are organized into a folder of the same name inside of `bevyengine/bevy/working-migration-guides`.
+The draft migration guides are organized into a folder of the same name inside of `bevyengine/bevy/working-migration-guides`.
 
 When we release our first release candidate for a cycle, these notes are moved from `bevyengine/bevy`, and into `bevyengine/bevy-website`,
 where they will receive a final editing pass.
