@@ -1,4 +1,4 @@
-# Bevy's Release Notes Process
+# Bevy's Migration Guide Process
 
 Hi! Did someone add `M-Needs-Migration-Guide` to your PR? If so, you're in the right place.
 Let's talk about how this process works.
@@ -6,9 +6,9 @@ Let's talk about how this process works.
 When we make breaking changes to Bevy, we need to communicate them to users so their libraries and applications can be moved to the new Bevy version.
 To do this, we write and ship a migration guide for every major Bevy version.
 To avoid a crunch at the end of the cycle as we *write* all of these,
-Bevy asks authors (and reviewers) to write draft release notes as part of the pull requests that make breaking changes.
+Bevy asks authors (and reviewers) to write a draft migration guide as part of the pull requests that make breaking changes.
 
-## What to put in your draft release notes
+## What to put in your draft migration guide
 
 A `template.md` file is provided in `bevyengine/bevy/working-migration-guides`: copy-paste that to get started!
 
