@@ -24,11 +24,13 @@ pub enum DdsTextureError {
     RequiresTranscoding(DdsTranscodingHint),
 }
 
-impl Into<TextureError> for DdsTextureError {
-    fn into(self) -> TextureError {
-        match self {
-            Self::Unsupported(message) => TextureError::UnsupportedTextureFormat(message),
-            Self::RequiresTranscoding(..) => {
+impl From<DdsTextureError> for TextureError {
+    fn from(val: DdsTextureError) -> Self {
+        match val {
+            DdsTextureError::Unsupported(message) => {
+                TextureError::UnsupportedTextureFormat(message)
+            }
+            DdsTextureError::RequiresTranscoding(..) => {
                 TextureError::TranscodeError("This image requires transcoding".to_string())
             }
         }
