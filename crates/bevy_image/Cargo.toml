@@ -77,7 +77,7 @@ flate2 = { version = "1.0.22", optional = true }
 # For transcoding of UASTC/ETC1S universal formats and for .basis file support
 zstd = { version = "0.13.3", optional = true }
 ruzstd = { version = "0.8.0", optional = true }
-basis-universal = { git = "https://github.com/naturalatlas/basis-universal-rs", rev = "cef24e6d0dc3f391c50ca918a50bb74112e3f6a4", optional = true, default-features = false }
+basis-universal = { git = "https://github.com/naturalatlas/basis-universal-rs", rev = "69660b7138804f24d465601e32c3f67c95fb0aec", optional = true, default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 half = { version = "2.4.1" }
 
