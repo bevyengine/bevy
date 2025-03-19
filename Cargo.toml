@@ -2843,6 +2843,17 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "displacement_map"
+path = "examples/shader/displacement_map.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.displacement_map]
+name = "Displacement Map"
+description = "Create inexpensive fluid effects using grayscale noise"
+category = "Shaders"
+wasm = false
+
+[[example]]
 name = "gpu_readback"
 path = "examples/shader/gpu_readback.rs"
 doc-scrape-examples = true
