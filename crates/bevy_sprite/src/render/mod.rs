@@ -10,6 +10,7 @@ use bevy_core_pipeline::{
         TonemappingLuts,
     },
 };
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -18,8 +19,7 @@ use bevy_ecs::{
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_platform_support::collections::HashMap;
-use bevy_render::sync_world::MainEntity;
-use bevy_render::view::RenderVisibleEntities;
+use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -31,7 +31,7 @@ use bevy_render::{
         *,
     },
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    sync_world::RenderEntity,
     texture::{DefaultImageSampler, FallbackImage, GpuImage},
     view::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
@@ -101,8 +101,8 @@ impl FromWorld for SpritePipeline {
             let format_size = image.texture_descriptor.format.pixel_size();
             render_queue.write_texture(
                 texture.as_image_copy(),
-                &image.data,
-                ImageDataLayout {
+                image.data.as_ref().expect("Image has no data"),
+                TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(image.width() * format_size as u32),
                     rows_per_image: None,
@@ -338,13 +338,14 @@ pub struct ExtractedSprite {
     pub anchor: Vec2,
     /// For cases where additional [`ExtractedSprites`] are created during extraction, this stores the
     /// entity that caused that creation for use in determining visibility.
-    pub original_entity: Option<Entity>,
+    pub original_entity: Entity,
     pub scaling_mode: Option<ScalingMode>,
+    pub render_entity: Entity,
 }
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: HashMap<(Entity, MainEntity), ExtractedSprite>,
+    pub sprites: Vec<ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]
@@ -387,19 +388,12 @@ pub fn extract_sprites(
         }
 
         if let Some(slices) = slices {
-            extracted_sprites.sprites.extend(
-                slices
-                    .extract_sprites(transform, original_entity, sprite)
-                    .map(|e| {
-                        (
-                            (
-                                commands.spawn(TemporaryRenderEntity).id(),
-                                original_entity.into(),
-                            ),
-                            e,
-                        )
-                    }),
-            );
+            extracted_sprites.sprites.extend(slices.extract_sprites(
+                &mut commands,
+                transform,
+                original_entity,
+                sprite,
+            ));
         } else {
             let atlas_rect = sprite
                 .texture_atlas
@@ -418,22 +412,20 @@ pub fn extract_sprites(
             };
 
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
-            extracted_sprites.sprites.insert(
-                (entity, original_entity.into()),
-                ExtractedSprite {
-                    color: sprite.color.into(),
-                    transform: *transform,
-                    rect,
-                    // Pass the custom size
-                    custom_size: sprite.custom_size,
-                    flip_x: sprite.flip_x,
-                    flip_y: sprite.flip_y,
-                    image_handle_id: sprite.image.id(),
-                    anchor: sprite.anchor.as_vec(),
-                    original_entity: Some(original_entity),
-                    scaling_mode: sprite.image_mode.scale(),
-                },
-            );
+            extracted_sprites.sprites.push(ExtractedSprite {
+                render_entity: entity,
+                color: sprite.color.into(),
+                transform: *transform,
+                rect,
+                // Pass the custom size
+                custom_size: sprite.custom_size,
+                flip_x: sprite.flip_x,
+                flip_y: sprite.flip_y,
+                image_handle_id: sprite.image.id(),
+                anchor: sprite.anchor.as_vec(),
+                original_entity,
+                scaling_mode: sprite.image_mode.scale(),
+            });
         }
     }
 }
@@ -483,7 +475,10 @@ pub struct SpriteViewBindGroup {
     pub value: BindGroup,
 }
 
-#[derive(Component, PartialEq, Eq, Clone)]
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct SpriteBatches(HashMap<(RetainedViewEntity, Entity), SpriteBatch>);
+
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct SpriteBatch {
     image_handle_id: AssetId<Image>,
     range: Range<u32>,
@@ -557,10 +552,10 @@ pub fn queue_sprites(
             .items
             .reserve(extracted_sprites.sprites.len());
 
-        for ((entity, main_entity), extracted_sprite) in extracted_sprites.sprites.iter() {
-            let index = extracted_sprite.original_entity.unwrap_or(*entity).index();
+        for (index, extracted_sprite) in extracted_sprites.sprites.iter().enumerate() {
+            let view_index = extracted_sprite.original_entity.index();
 
-            if !view_entities.contains(index as usize) {
+            if !view_entities.contains(view_index as usize) {
                 continue;
             }
 
@@ -571,11 +566,15 @@ pub fn queue_sprites(
             transparent_phase.add(Transparent2d {
                 draw_function: draw_sprite_function,
                 pipeline,
-                entity: (*entity, *main_entity),
+                entity: (
+                    extracted_sprite.render_entity,
+                    extracted_sprite.original_entity.into(),
+                ),
                 sort_key,
-                // batch_range and dynamic_offset will be calculated in prepare_sprites
+                // `batch_range` is calculated in `prepare_sprite_image_bind_groups`
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
+                extracted_index: index,
                 indexed: true,
             });
         }
@@ -616,8 +615,6 @@ pub fn prepare_sprite_view_bind_groups(
 }
 
 pub fn prepare_sprite_image_bind_groups(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut sprite_meta: ResMut<SpriteMeta>,
@@ -627,6 +624,7 @@ pub fn prepare_sprite_image_bind_groups(
     extracted_sprites: Res<ExtractedSprites>,
     mut phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     events: Res<SpriteAssetEvents>,
+    mut batches: ResMut<SpriteBatches>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
@@ -640,7 +638,7 @@ pub fn prepare_sprite_image_bind_groups(
         };
     }
 
-    let mut batches: Vec<(Entity, SpriteBatch)> = Vec::with_capacity(*previous_len);
+    batches.clear();
 
     // Clear the sprite instances
     sprite_meta.sprite_instance_buffer.clear();
@@ -650,7 +648,8 @@ pub fn prepare_sprite_image_bind_groups(
 
     let image_bind_groups = &mut *image_bind_groups;
 
-    for transparent_phase in phases.values_mut() {
+    for (retained_view, transparent_phase) in phases.iter_mut() {
+        let mut current_batch = None;
         let mut batch_item_index = 0;
         let mut batch_image_size = Vec2::ZERO;
         let mut batch_image_handle = AssetId::invalid();
@@ -660,7 +659,12 @@ pub fn prepare_sprite_image_bind_groups(
         // Compatible items share the same entity.
         for item_index in 0..transparent_phase.items.len() {
             let item = &transparent_phase.items[item_index];
-            let Some(extracted_sprite) = extracted_sprites.sprites.get(&item.entity) else {
+
+            let Some(extracted_sprite) = extracted_sprites
+                .sprites
+                .get(item.extracted_index)
+                .filter(|extracted_sprite| extracted_sprite.render_entity == item.entity())
+            else {
                 // If there is a phase item that is not a sprite, then we must start a new
                 // batch to draw the other phase item(s) and to respect draw order. This can be
                 // done by invalidating the batch_image_handle
@@ -690,8 +694,7 @@ pub fn prepare_sprite_image_bind_groups(
                     });
 
                 batch_item_index = item_index;
-                batches.push((
-                    item.entity(),
+                current_batch = Some(batches.entry((*retained_view, item.entity())).insert(
                     SpriteBatch {
                         image_handle_id: batch_image_handle,
                         range: index..index,
@@ -771,7 +774,7 @@ pub fn prepare_sprite_image_bind_groups(
             transparent_phase.items[batch_item_index]
                 .batch_range_mut()
                 .end += 1;
-            batches.last_mut().unwrap().1.range.end += 1;
+            current_batch.as_mut().unwrap().get_mut().range.end += 1;
             index += 1;
         }
     }
@@ -802,9 +805,6 @@ pub fn prepare_sprite_image_bind_groups(
             .sprite_index_buffer
             .write_buffer(&render_device, &render_queue);
     }
-
-    *previous_len = batches.len();
-    commands.insert_or_spawn_batch(batches);
 }
 
 /// [`RenderCommand`] for sprite rendering.
@@ -834,19 +834,19 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
 }
 pub struct SetSpriteTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
-    type Param = SRes<ImageBindGroups>;
-    type ViewQuery = ();
-    type ItemQuery = Read<SpriteBatch>;
+    type Param = (SRes<ImageBindGroups>, SRes<SpriteBatches>);
+    type ViewQuery = Read<ExtractedView>;
+    type ItemQuery = ();
 
     fn render<'w>(
-        _item: &P,
-        _view: (),
-        batch: Option<&'_ SpriteBatch>,
-        image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
+        item: &P,
+        view: ROQueryItem<'w, Self::ViewQuery>,
+        _entity: Option<()>,
+        (image_bind_groups, batches): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
-        let Some(batch) = batch else {
+        let Some(batch) = batches.get(&(view.retained_view_entity, item.entity())) else {
             return RenderCommandResult::Skip;
         };
 
@@ -864,19 +864,19 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
 
 pub struct DrawSpriteBatch;
 impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
-    type Param = SRes<SpriteMeta>;
-    type ViewQuery = ();
-    type ItemQuery = Read<SpriteBatch>;
+    type Param = (SRes<SpriteMeta>, SRes<SpriteBatches>);
+    type ViewQuery = Read<ExtractedView>;
+    type ItemQuery = ();
 
     fn render<'w>(
-        _item: &P,
-        _view: (),
-        batch: Option<&'_ SpriteBatch>,
-        sprite_meta: SystemParamItem<'w, '_, Self::Param>,
+        item: &P,
+        view: ROQueryItem<'w, Self::ViewQuery>,
+        _entity: Option<()>,
+        (sprite_meta, batches): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
-        let Some(batch) = batch else {
+        let Some(batch) = batches.get(&(view.retained_view_entity, item.entity())) else {
             return RenderCommandResult::Skip;
         };
 

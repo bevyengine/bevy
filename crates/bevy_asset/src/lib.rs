@@ -149,6 +149,9 @@
 extern crate alloc;
 extern crate std;
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_asset;
+
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -202,6 +205,7 @@ pub use server::*;
 
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
 pub use ron;
+pub use uuid;
 
 use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
@@ -212,11 +216,11 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
-use bevy_app::{App, Last, Plugin, PreUpdate};
+use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
 use bevy_ecs::prelude::Component;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
+    schedule::{IntoScheduleConfigs, SystemSet},
     world::FromWorld,
 };
 use bevy_platform_support::collections::HashSet;
@@ -495,8 +499,8 @@ pub trait AssetApp {
     /// * Initializing the [`AssetEvent`] resource for the [`Asset`]
     /// * Adding other relevant systems and resources for the [`Asset`]
     /// * Ignoring schedule ambiguities in [`Assets`] resource. Any time a system takes
-    ///     mutable access to this resource this causes a conflict, but they rarely actually
-    ///     modify the same underlying asset.
+    ///   mutable access to this resource this causes a conflict, but they rarely actually
+    ///   modify the same underlying asset.
     fn init_asset<A: Asset>(&mut self) -> &mut Self;
     /// Registers the asset type `T` using `[App::register]`,
     /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
@@ -580,7 +584,7 @@ impl AssetApp for App {
             .add_event::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
             .add_systems(
-                Last,
+                PostUpdate,
                 Assets::<A>::asset_events
                     .run_if(Assets::<A>::asset_events_condition)
                     .in_set(AssetEvents),
@@ -626,7 +630,6 @@ pub struct AssetEvents;
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_asset,
         folder::LoadedFolder,
         handle::Handle,
         io::{
@@ -636,7 +639,7 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets,
+        AssetPlugin, AssetServer, Assets, DuplicateLabelAssetError, LoadState,
     };
     use alloc::{
         boxed::Box,
@@ -692,6 +695,8 @@ mod tests {
         CannotLoadDependency { dependency: AssetPath<'static> },
         #[error("A RON error occurred during loading")]
         RonSpannedError(#[from] ron::error::SpannedError),
+        #[error(transparent)]
+        DuplicateLabelAssetError(#[from] DuplicateLabelAssetError),
         #[error("An IO error occurred during loading")]
         Io(#[from] std::io::Error),
     }
@@ -722,7 +727,7 @@ mod tests {
                     .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
                     })?;
-                let cool = loaded.get();
+                let cool = loaded.get_asset().get();
                 embedded.push_str(&cool.text);
             }
             Ok(CoolText {
@@ -737,7 +742,7 @@ mod tests {
                     .sub_texts
                     .drain(..)
                     .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
-                    .collect(),
+                    .collect::<Result<Vec<_>, _>>()?,
             })
         }
 
@@ -1773,6 +1778,126 @@ mod tests {
 
         // running schedule does not error on ambiguity between the 2 uses_assets systems
         app.world_mut().run_schedule(Update);
+    }
+
+    #[test]
+    fn fails_to_load_for_duplicate_subasset_labels() {
+        let mut app = App::new();
+
+        let dir = Dir::default();
+        dir.insert_asset_text(
+            Path::new("a.ron"),
+            r#"(
+    text: "b",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: ["A", "A"],
+)"#,
+        );
+
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build()
+                .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() })),
+        )
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            LogPlugin::default(),
+            AssetPlugin::default(),
+        ));
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<CoolText>("a.ron");
+
+        run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
+            LoadState::Loading => None,
+            LoadState::Failed(err) => {
+                assert!(matches!(*err, AssetLoadError::AssetLoaderError(_)));
+                Some(())
+            }
+            state => panic!("Unexpected asset state: {state:?}"),
+        });
+    }
+
+    // This test is not checking a requirement, but documenting a current limitation. We simply are
+    // not capable of loading subassets when doing nested immediate loads.
+    #[test]
+    fn error_on_nested_immediate_load_of_subasset() {
+        let mut app = App::new();
+
+        let dir = Dir::default();
+        dir.insert_asset_text(
+            Path::new("a.cool.ron"),
+            r#"(
+    text: "b",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: ["A"],
+)"#,
+        );
+        dir.insert_asset_text(Path::new("empty.txt"), "");
+
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build()
+                .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() })),
+        )
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            LogPlugin::default(),
+            AssetPlugin::default(),
+        ));
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+
+        struct NestedLoadOfSubassetLoader;
+
+        impl AssetLoader for NestedLoadOfSubassetLoader {
+            type Asset = TestAsset;
+            type Error = crate::loader::LoadDirectError;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                // We expect this load to fail.
+                load_context
+                    .loader()
+                    .immediate()
+                    .load::<SubText>("a.cool.ron#A")
+                    .await?;
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["txt"]
+            }
+        }
+
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(NestedLoadOfSubassetLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<TestAsset>("empty.txt");
+
+        run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
+            LoadState::Loading => None,
+            LoadState::Failed(err) => {
+                let error_message = format!("{err}");
+                assert!(error_message.contains("Requested to load an asset path (a.cool.ron#A) with a subasset, but this is unsupported"), "what? \"{error_message}\"");
+                Some(())
+            }
+            state => panic!("Unexpected asset state: {state:?}"),
+        });
     }
 
     // validate the Asset derive macro for various asset types

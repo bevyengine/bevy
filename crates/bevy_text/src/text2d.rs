@@ -10,7 +10,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::hash_set::EntityHashSet;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     prelude::{ReflectComponent, With},
     query::{Changed, Without},
@@ -49,7 +49,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor};
+/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor, TextSpan};
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -73,9 +73,15 @@ use bevy_window::{PrimaryWindow, Window};
 ///     Text2d::new("hello world\nand bevy!"),
 ///     TextLayout::new_with_justify(JustifyText::Center)
 /// ));
+///
+/// // With spans
+/// world.spawn(Text2d::new("hello ")).with_children(|parent| {
+///     parent.spawn(TextSpan::new("world"));
+///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+/// });
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[require(
     TextLayout,
     TextFont,
@@ -147,7 +153,7 @@ pub fn extract_text2d_sprite(
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
-        .get_single()
+        .single()
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
@@ -198,24 +204,19 @@ pub fn extract_text2d_sprite(
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            extracted_sprites.sprites.insert(
-                (
-                    commands.spawn(TemporaryRenderEntity).id(),
-                    original_entity.into(),
-                ),
-                ExtractedSprite {
-                    transform: transform * GlobalTransform::from_translation(position.extend(0.)),
-                    color,
-                    rect: Some(atlas.textures[atlas_info.location.glyph_index].as_rect()),
-                    custom_size: None,
-                    image_handle_id: atlas_info.texture.id(),
-                    flip_x: false,
-                    flip_y: false,
-                    anchor: Anchor::Center.as_vec(),
-                    original_entity: Some(original_entity),
-                    scaling_mode: None,
-                },
-            );
+            extracted_sprites.sprites.push(ExtractedSprite {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                transform: transform * GlobalTransform::from_translation(position.extend(0.)),
+                color,
+                rect: Some(atlas.textures[atlas_info.location.glyph_index].as_rect()),
+                custom_size: None,
+                image_handle_id: atlas_info.texture.id(),
+                flip_x: false,
+                flip_y: false,
+                anchor: Anchor::Center.as_vec(),
+                original_entity,
+                scaling_mode: None,
+            });
         }
     }
 }
@@ -250,7 +251,7 @@ pub fn update_text2d_layout(
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
-        .get_single()
+        .single()
         .ok()
         .map(|window| window.resolution.scale_factor())
         .or(*last_scale_factor)
@@ -365,7 +366,7 @@ mod tests {
 
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
 
     use crate::{detect_text_needs_rerender, TextIterScratch};
 

@@ -105,7 +105,7 @@ impl AssetBarrier {
     }
 
     /// Wait for all [`AssetBarrierGuard`]s to be dropped asynchronously.
-    pub fn wait_async(&self) -> impl Future<Output = ()> + 'static {
+    pub fn wait_async(&self) -> impl Future<Output = ()> + 'static + use<> {
         let shared = self.0.clone();
         async move {
             loop {
@@ -258,7 +258,7 @@ fn get_async_loading_state(
     // If loaded, change the state.
     if is_loaded {
         next_loading_state.set(LoadingState::Loaded);
-        if let Ok(mut text) = text.get_single_mut() {
+        if let Ok(mut text) = text.single_mut() {
             "Loaded!".clone_into(&mut **text);
         }
     }

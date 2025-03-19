@@ -8,6 +8,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
+    bundle::NoBundleEffect,
     component::Component,
     prelude::*,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
@@ -53,7 +54,7 @@ pub trait ExtractComponent: Component {
     ///
     /// `Out` has a [`Bundle`] trait bound instead of a [`Component`] trait bound in order to allow use cases
     /// such as tuples of components as output.
-    type Out: Bundle;
+    type Out: Bundle<Effect: NoBundleEffect>;
 
     // TODO: https://github.com/rust-lang/rust/issues/29661
     // type Out: Component = Self;
@@ -153,7 +154,7 @@ fn prepare_uniform_components<C>(
             )
         })
         .collect::<Vec<_>>();
-    commands.insert_or_spawn_batch(entities);
+    commands.try_insert_batch(entities);
 }
 
 /// This plugin extracts the components into the render world for synced entities.
@@ -211,7 +212,7 @@ fn extract_components<C: ExtractComponent>(
         }
     }
     *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
+    commands.try_insert_batch(values);
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
@@ -231,5 +232,5 @@ fn extract_visible_components<C: ExtractComponent>(
         }
     }
     *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
+    commands.try_insert_batch(values);
 }

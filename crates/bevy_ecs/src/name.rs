@@ -1,6 +1,6 @@
 //! Provides the [`Name`] [`Component`], used for identifying an [`Entity`].
 
-use crate::{self as bevy_ecs, component::Component, entity::Entity, query::QueryData};
+use crate::{component::Component, entity::Entity, query::QueryData};
 
 use alloc::{
     borrow::{Cow, ToOwned},
@@ -41,7 +41,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Component, Default, Debug)
+    reflect(Component, Default, Debug, Clone, Hash, PartialEq)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),

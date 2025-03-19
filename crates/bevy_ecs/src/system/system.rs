@@ -30,7 +30,7 @@ use super::IntoSystem;
 ///
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
 /// It's possible to specify explicit execution order between specific systems,
-/// see [`IntoSystemConfigs`](crate::schedule::IntoSystemConfigs).
+/// see [`IntoScheduleConfigs`](crate::schedule::IntoScheduleConfigs).
 #[diagnostic::on_unimplemented(message = "`{Self}` is not a system", label = "invalid system")]
 pub trait System: Send + Sync + 'static {
     /// The system's input.
@@ -83,14 +83,25 @@ pub trait System: Send + Sync + 'static {
     ///
     /// [`run_readonly`]: ReadOnlySystem::run_readonly
     fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        let ret = self.run_without_applying_deferred(input, world);
+        self.apply_deferred(world);
+        ret
+    }
+
+    /// Runs the system with the given input in the world.
+    ///
+    /// [`run_readonly`]: ReadOnlySystem::run_readonly
+    fn run_without_applying_deferred(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: &mut World,
+    ) -> Self::Out {
         let world_cell = world.as_unsafe_world_cell();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.
         // - `update_archetype_component_access` has been called.
-        let ret = unsafe { self.run_unsafe(input, world_cell) };
-        self.apply_deferred(world);
-        ret
+        unsafe { self.run_unsafe(input, world_cell) }
     }
 
     /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers) of this system to the world.
@@ -381,7 +392,6 @@ impl Debug for RunSystemError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_ecs;
     use crate::prelude::*;
 
     #[test]

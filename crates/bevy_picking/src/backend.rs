@@ -56,7 +56,7 @@ pub mod prelude {
 /// ambiguities with picking backends. Take care to ensure such systems are explicitly ordered
 /// against [`PickSet::Backend`](crate::PickSet::Backend), or better, avoid reading `PointerHits` in `PreUpdate`.
 #[derive(Event, Debug, Clone, Reflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Clone)]
 pub struct PointerHits {
     /// The pointer associated with this hit test.
     pub pointer: prelude::PointerId,
@@ -96,6 +96,7 @@ impl PointerHits {
 
 /// Holds data from a successful pointer hit test. See [`HitData::depth`] for important details.
 #[derive(Clone, Debug, PartialEq, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct HitData {
     /// The camera entity used to detect this hit. Useful when you need to find the ray that was
     /// casted for this hit when using a raycasting backend.
@@ -105,7 +106,8 @@ pub struct HitData {
     /// distance from the pointer to the hit, measured from the near plane of the camera, to the
     /// point, in world space.
     pub depth: f32,
-    /// The position of the intersection in the world, if the data is available from the backend.
+    /// The position reported by the backend, if the data is available. Position data may be in any
+    /// space (e.g. World space, Screen space, Local space), specified by the backend providing it.
     pub position: Option<Vec3>,
     /// The normal vector of the hit test, if the data is available from the backend.
     pub normal: Option<Vec3>,
@@ -138,6 +140,7 @@ pub mod ray {
     /// Identifies a ray constructed from some (pointer, camera) combination. A pointer can be over
     /// multiple cameras, which is why a single pointer may have multiple rays.
     #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Reflect)]
+    #[reflect(Clone, PartialEq, Hash)]
     pub struct RayId {
         /// The camera whose projection was used to calculate the ray.
         pub camera: Entity,

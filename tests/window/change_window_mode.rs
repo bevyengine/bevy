@@ -1,8 +1,8 @@
-//! a test that confirms that 'bevy' does not panic while changing from Windowed to SizedFullscreen when viewport is set
+//! a test that confirms that 'bevy' does not panic while changing from Windowed to Fullscreen when viewport is set
 
 use bevy::{prelude::*, render::camera::Viewport, window::WindowMode};
 
-//Having a viewport set to the same size as a window used to cause panic on some occasions when switching to SizedFullscreen
+//Having a viewport set to the same size as a window used to cause panic on some occasions when switching to Fullscreen
 const WINDOW_WIDTH: f32 = 1366.0;
 const WINDOW_HEIGHT: f32 = 768.0;
 
@@ -41,15 +41,18 @@ fn startup(mut cmds: Commands) {
 }
 
 fn toggle_window_mode(mut qry_window: Query<&mut Window>) {
-    let Ok(mut window) = qry_window.get_single_mut() else {
+    let Ok(mut window) = qry_window.single_mut() else {
         return;
     };
 
     window.mode = match window.mode {
         WindowMode::Windowed => {
-            //it takes a while for the window to change from windowed to sizedfullscreen and back
+            // it takes a while for the window to change from `Windowed` to `Fullscreen` and back
             std::thread::sleep(std::time::Duration::from_secs(4));
-            WindowMode::SizedFullscreen
+            WindowMode::Fullscreen(
+                MonitorSelection::Entity(entity),
+                VideoModeSelection::Current,
+            )
         }
         _ => {
             std::thread::sleep(std::time::Duration::from_secs(4));

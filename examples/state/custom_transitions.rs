@@ -243,40 +243,37 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn setup_menu(mut commands: Commands) {
     let button_entity = commands
-        .spawn(Node {
-            // center button
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        })
-        .with_children(|parent| {
-            parent
-                .spawn((
-                    Button,
-                    Node {
-                        width: Val::Px(150.),
-                        height: Val::Px(65.),
-                        // horizontally center child text
-                        justify_content: JustifyContent::Center,
-                        // vertically center child text
-                        align_items: AlignItems::Center,
+        .spawn((
+            Node {
+                // center button
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            children![(
+                Button,
+                Node {
+                    width: Val::Px(150.),
+                    height: Val::Px(65.),
+                    // horizontally center child text
+                    justify_content: JustifyContent::Center,
+                    // vertically center child text
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Play"),
+                    TextFont {
+                        font_size: 33.0,
                         ..default()
                     },
-                    BackgroundColor(NORMAL_BUTTON),
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Play"),
-                        TextFont {
-                            font_size: 33.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                    ));
-                });
-        })
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                )]
+            )],
+        ))
         .id();
     commands.insert_resource(MenuData { button_entity });
 }

@@ -1,6 +1,6 @@
 use crate::{
-    Alpha, ColorToComponents, Gray, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba,
-    StandardColor, Xyza,
+    Alpha, ColorToComponents, Gray, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Mix, Saturation,
+    Srgba, StandardColor, Xyza,
 };
 use bevy_math::{Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
@@ -13,7 +13,11 @@ use bevy_reflect::prelude::*;
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -156,6 +160,26 @@ impl Hue for Hsla {
     #[inline]
     fn set_hue(&mut self, hue: f32) {
         self.hue = hue;
+    }
+}
+
+impl Saturation for Hsla {
+    #[inline]
+    fn with_saturation(&self, saturation: f32) -> Self {
+        Self {
+            saturation,
+            ..*self
+        }
+    }
+
+    #[inline]
+    fn saturation(&self) -> f32 {
+        self.saturation
+    }
+
+    #[inline]
+    fn set_saturation(&mut self, saturation: f32) {
+        self.saturation = saturation;
     }
 }
 

@@ -20,10 +20,16 @@ pub trait RelationshipSourceCollection {
     fn with_capacity(capacity: usize) -> Self;
 
     /// Adds the given `entity` to the collection.
-    fn add(&mut self, entity: Entity);
+    ///
+    /// Returns whether the entity was added to the collection.
+    /// Mainly useful when dealing with collections that don't allow
+    /// multiple instances of the same entity ([`EntityHashSet`]).
+    fn add(&mut self, entity: Entity) -> bool;
 
     /// Removes the given `entity` from the collection.
-    /// Returns true if and only if it was present.
+    ///
+    /// Returns whether the collection actually contained
+    /// the entity.
     fn remove(&mut self, entity: Entity) -> bool;
 
     /// Iterates all entities in the collection.
@@ -31,6 +37,9 @@ pub trait RelationshipSourceCollection {
 
     /// Returns the current length of the collection.
     fn len(&self) -> usize;
+
+    /// Clears the collection.
+    fn clear(&mut self);
 
     /// Returns true if the collection contains no entities.
     #[inline]
@@ -117,17 +126,19 @@ impl RelationshipSourceCollection for Vec<Entity> {
         Vec::with_capacity(capacity)
     }
 
-    fn add(&mut self, entity: Entity) {
+    fn add(&mut self, entity: Entity) -> bool {
         Vec::push(self, entity);
+
+        true
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
         if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
             Vec::remove(self, index);
-            true
-        } else {
-            false
+            return true;
         }
+
+        false
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
@@ -136,6 +147,10 @@ impl RelationshipSourceCollection for Vec<Entity> {
 
     fn len(&self) -> usize {
         Vec::len(self)
+    }
+
+    fn clear(&mut self) {
+        self.clear();
     }
 }
 
@@ -181,8 +196,8 @@ impl RelationshipSourceCollection for EntityHashSet {
         EntityHashSet::with_capacity(capacity)
     }
 
-    fn add(&mut self, entity: Entity) {
-        self.insert(entity);
+    fn add(&mut self, entity: Entity) -> bool {
+        self.insert(entity)
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
@@ -198,6 +213,10 @@ impl RelationshipSourceCollection for EntityHashSet {
     fn len(&self) -> usize {
         self.len()
     }
+
+    fn clear(&mut self) {
+        self.0.clear();
+    }
 }
 
 impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
@@ -207,17 +226,19 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
         SmallVec::with_capacity(capacity)
     }
 
-    fn add(&mut self, entity: Entity) {
+    fn add(&mut self, entity: Entity) -> bool {
         SmallVec::push(self, entity);
+
+        true
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
         if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
             SmallVec::remove(self, index);
-            true
-        } else {
-            false
+            return true;
         }
+
+        false
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
@@ -226,6 +247,49 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
 
     fn len(&self) -> usize {
         SmallVec::len(self)
+    }
+
+    fn clear(&mut self) {
+        self.clear();
+    }
+}
+
+impl RelationshipSourceCollection for Entity {
+    type SourceIter<'a> = core::iter::Once<Entity>;
+
+    fn with_capacity(_capacity: usize) -> Self {
+        Entity::PLACEHOLDER
+    }
+
+    fn add(&mut self, entity: Entity) -> bool {
+        *self = entity;
+
+        true
+    }
+
+    fn remove(&mut self, entity: Entity) -> bool {
+        if *self == entity {
+            *self = Entity::PLACEHOLDER;
+
+            return true;
+        }
+
+        false
+    }
+
+    fn iter(&self) -> Self::SourceIter<'_> {
+        core::iter::once(*self)
+    }
+
+    fn len(&self) -> usize {
+        if *self == Entity::PLACEHOLDER {
+            return 0;
+        }
+        1
+    }
+
+    fn clear(&mut self) {
+        *self = Entity::PLACEHOLDER;
     }
 }
 
@@ -267,7 +331,6 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_ecs;
     use crate::prelude::{Component, World};
     use crate::relationship::RelationshipTarget;
 
@@ -278,7 +341,7 @@ mod tests {
         struct Rel(Entity);
 
         #[derive(Component)]
-        #[relationship_target(relationship = Rel, despawn_descendants)]
+        #[relationship_target(relationship = Rel, linked_spawn)]
         struct RelTarget(Vec<Entity>);
 
         let mut world = World::new();
@@ -293,34 +356,13 @@ mod tests {
     }
 
     #[test]
-    fn entity_hash_set_relationship_source_collection() {
-        #[derive(Component)]
-        #[relationship(relationship_target = RelTarget)]
-        struct Rel(Entity);
-
-        #[derive(Component)]
-        #[relationship_target(relationship = Rel, despawn_descendants)]
-        struct RelTarget(EntityHashSet);
-
-        let mut world = World::new();
-        let a = world.spawn_empty().id();
-        let b = world.spawn_empty().id();
-
-        world.entity_mut(a).insert(Rel(b));
-
-        let rel_target = world.get::<RelTarget>(b).unwrap();
-        let collection = rel_target.collection();
-        assert_eq!(collection, &EntityHashSet::from([a]));
-    }
-
-    #[test]
     fn smallvec_relationship_source_collection() {
         #[derive(Component)]
         #[relationship(relationship_target = RelTarget)]
         struct Rel(Entity);
 
         #[derive(Component)]
-        #[relationship_target(relationship = Rel, despawn_descendants)]
+        #[relationship_target(relationship = Rel, linked_spawn)]
         struct RelTarget(SmallVec<[Entity; 4]>);
 
         let mut world = World::new();
@@ -332,5 +374,59 @@ mod tests {
         let rel_target = world.get::<RelTarget>(b).unwrap();
         let collection = rel_target.collection();
         assert_eq!(collection, &SmallVec::from_buf([a]));
+    }
+
+    #[test]
+    fn entity_relationship_source_collection() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Entity);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Rel(b));
+
+        let rel_target = world.get::<RelTarget>(b).unwrap();
+        let collection = rel_target.collection();
+        assert_eq!(collection, &a);
+    }
+
+    #[test]
+    fn one_to_one_relationships() {
+        #[derive(Component)]
+        #[relationship(relationship_target = Below)]
+        struct Above(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Above)]
+        struct Below(Entity);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Above(b));
+        assert_eq!(a, world.get::<Below>(b).unwrap().0);
+
+        // Verify removing target removes relationship
+        world.entity_mut(b).remove::<Below>();
+        assert!(world.get::<Above>(a).is_none());
+
+        // Verify removing relationship removes target
+        world.entity_mut(a).insert(Above(b));
+        world.entity_mut(a).remove::<Above>();
+        assert!(world.get::<Below>(b).is_none());
+
+        // Actually - a is above c now! Verify relationship was updated correctly
+        let c = world.spawn_empty().id();
+        world.entity_mut(a).insert(Above(c));
+        assert!(world.get::<Below>(b).is_none());
+        assert_eq!(a, world.get::<Below>(c).unwrap().0);
     }
 }

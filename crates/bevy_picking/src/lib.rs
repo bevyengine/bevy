@@ -7,7 +7,7 @@
 //! allows you to express more complex interactions, like detecting when a touch input drags a UI
 //! element and drops it on a 3d mesh rendered to a different camera.
 //!
-//! Pointer events bubble up the entity hieararchy and can be used with observers, allowing you to
+//! Pointer events bubble up the entity hierarchy and can be used with observers, allowing you to
 //! succinctly express rich interaction behaviors by attaching pointer callbacks to entities:
 //!
 //! ```rust
@@ -64,7 +64,7 @@
 //!             commands.entity(trigger.target()).despawn();
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Over>>, mut events: EventWriter<Greeting>| {
-//!             events.send(Greeting);
+//!             events.write(Greeting);
 //!         });
 //! }
 //! ```
@@ -179,7 +179,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
-        MeshPickingPlugin, MeshPickingSettings, RayCastPickable,
+        MeshPickingCamera, MeshPickingPlugin, MeshPickingSettings,
     };
     #[doc(hidden)]
     pub use crate::{
@@ -195,7 +195,7 @@ pub mod prelude {
 ///
 /// See the documentation on the fields for more details.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct Pickable {
     /// Should this entity block entities below it from being picked?
     ///
@@ -300,7 +300,7 @@ impl PluginGroup for DefaultPickingPlugins {
 /// This plugin contains several settings, and is added to the world as a resource after initialization. You
 /// can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
-#[reflect(Resource, Default, Debug)]
+#[reflect(Resource, Default, Debug, Clone)]
 pub struct PickingPlugin {
     /// Enables and disables all picking features.
     pub is_enabled: bool,
@@ -422,6 +422,7 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Out>>()
             .add_event::<Pointer<Over>>()
             .add_event::<Pointer<Released>>()
+            .add_event::<Pointer<Scroll>>()
             .add_systems(
                 PreUpdate,
                 (generate_hovermap, update_interactions, pointer_events)

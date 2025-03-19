@@ -1,7 +1,8 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_diagnostic::FrameCount;
 pub use visibility::*;
 pub use window::*;
 
@@ -45,7 +46,7 @@ use wgpu::{
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
-pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
+pub const VIEW_TYPE_HANDLE: Handle<Shader> = weak_handle!("7234423c-38bb-411c-acec-f67730f6db5b");
 
 /// The matrix that converts from the RGB to the LMS color space.
 ///
@@ -186,6 +187,16 @@ impl Msaa {
     pub fn samples(&self) -> u32 {
         *self as u32
     }
+
+    pub fn from_samples(samples: u32) -> Self {
+        match samples {
+            1 => Msaa::Off,
+            2 => Msaa::Sample2,
+            4 => Msaa::Sample4,
+            8 => Msaa::Sample8,
+            _ => panic!("Unsupported MSAA sample count: {}", samples),
+        }
+    }
 }
 
 /// An identifier for a view that is stable across frames.
@@ -306,7 +317,7 @@ impl ExtractedView {
 /// `post_saturation` value in [`ColorGradingGlobal`], which is applied after
 /// tonemapping.
 #[derive(Component, Reflect, Debug, Default, Clone)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct ColorGrading {
     /// Filmic color grading values applied to the image as a whole (as opposed
     /// to individual sections, like shadows and highlights).
@@ -335,7 +346,7 @@ pub struct ColorGrading {
 /// Filmic color grading values applied to the image as a whole (as opposed to
 /// individual sections, like shadows and highlights).
 #[derive(Clone, Debug, Reflect)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub struct ColorGradingGlobal {
     /// Exposure value (EV) offset, measured in stops.
     pub exposure: f32,
@@ -401,6 +412,7 @@ pub struct ColorGradingUniform {
 /// A section of color grading values that can be selectively applied to
 /// shadows, midtones, and highlights.
 #[derive(Reflect, Debug, Copy, Clone, PartialEq)]
+#[reflect(Clone, PartialEq)]
 pub struct ColorGradingSection {
     /// Values below 1.0 desaturate, with a value of 0.0 resulting in a grayscale image
     /// with luminance defined by ITU-R BT.709.
@@ -558,6 +570,7 @@ pub struct ViewUniform {
     pub frustum: [Vec4; 6],
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
+    pub frame_count: u32,
 }
 
 #[derive(Resource)]
@@ -603,7 +616,9 @@ pub struct ViewTargetAttachments(HashMap<NormalizedRenderTarget, OutputColorAtta
 
 pub struct PostProcessWrite<'a> {
     pub source: &'a TextureView,
+    pub source_texture: &'a Texture,
     pub destination: &'a TextureView,
+    pub destination_texture: &'a Texture,
 }
 
 impl From<ColorGrading> for ColorGradingUniform {
@@ -831,13 +846,17 @@ impl ViewTarget {
             self.main_textures.b.mark_as_cleared();
             PostProcessWrite {
                 source: &self.main_textures.a.texture.default_view,
+                source_texture: &self.main_textures.a.texture.texture,
                 destination: &self.main_textures.b.texture.default_view,
+                destination_texture: &self.main_textures.b.texture.texture,
             }
         } else {
             self.main_textures.a.mark_as_cleared();
             PostProcessWrite {
                 source: &self.main_textures.b.texture.default_view,
+                source_texture: &self.main_textures.b.texture.texture,
                 destination: &self.main_textures.a.texture.default_view,
+                destination_texture: &self.main_textures.a.texture.texture,
             }
         }
     }
@@ -879,6 +898,7 @@ pub fn prepare_view_uniforms(
         Option<&TemporalJitter>,
         Option<&MipBias>,
     )>,
+    frame_count: Res<FrameCount>,
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
@@ -932,6 +952,7 @@ pub fn prepare_view_uniforms(
                 frustum,
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
+                frame_count: frame_count.0,
             }),
         };
 
@@ -1029,7 +1050,7 @@ pub fn prepare_view_targets(
         };
 
         let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), view.hdr, msaa))
+            .entry((camera.target.clone(), texture_usage.0, view.hdr, msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,
