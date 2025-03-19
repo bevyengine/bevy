@@ -186,12 +186,12 @@ unsafe impl TrustedEntityBorrow for MainEntity {}
 unsafe impl TrustedBuildHasher<MainEntity> for EntityHash {}
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
-/// 
+///
 /// [`HashMap`]: `bevy_platform_support::collections::HashMap`
 pub type MainEntityHashMap<V> = EntityEquivalentHashMap<MainEntity, V>;
 
 /// A [`HashSet`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
-/// 
+///
 /// [`HashSet`]: `bevy_platform_support::collections::HashSet`
 pub type MainEntityHashSet = EntityEquivalentHashSet<MainEntity>;
 
