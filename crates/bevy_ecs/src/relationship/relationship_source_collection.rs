@@ -166,7 +166,7 @@ impl RelationshipSourceCollection for EntityHashSet {
     fn shrink_to_fit(&mut self) {
         self.0.shrink_to_fit();
     }
-  
+
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
         self.extend(entities);
     }
@@ -218,7 +218,7 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
     fn shrink_to_fit(&mut self) {
         SmallVec::shrink_to_fit(self);
     }
-  
+
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
         self.extend(entities);
     }
