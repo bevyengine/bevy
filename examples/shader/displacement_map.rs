@@ -101,12 +101,15 @@ fn setup(
         },
     );
 
-    // Creating a new quad mesh that the base texture will be applied to.
+    // Creating a new quad mesh that the effect will be applied to.
     let quad_width = 8.0;
     let quad_height = 8.0;
     let quad_handle = meshes.add(Rectangle::new(quad_width, quad_height));
 
-    // Creating the material that will be applied to the quad.
+    // Creating the custom material with some sensible parameters.
+    // Modify `time_sensitivity` to change the flow speed, and
+    // modify `displacement_intensity` to change the "amplitude"
+    // of the water waves / amount of distortion.
     let material_handle = materials.add(FlowingWaterMaterial {
         base_texture: Some(base_texture_handle),
         displacement_texture: Some(displacement_texture_handle),
