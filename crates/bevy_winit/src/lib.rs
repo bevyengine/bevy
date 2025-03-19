@@ -38,7 +38,7 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use crate::{
-    accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionRequestHandlers},
+    accessibility::{AccessKitPlugin, WinitActionRequestHandlers},
     state::winit_runner,
     winit_monitors::WinitMonitors,
 };
@@ -205,7 +205,6 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
         F,
     >,
     EventWriter<'w, WindowCreated>,
-    NonSendMut<'w, AccessKitAdapters>,
     ResMut<'w, WinitActionRequestHandlers>,
     Res<'w, AccessibilityRequested>,
     Res<'w, WinitMonitors>,
