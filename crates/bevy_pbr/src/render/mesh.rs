@@ -699,12 +699,9 @@ bitflags::bitflags! {
         /// The mesh had a transform last frame and so is eligible for motion
         /// vector computation.
         const HAS_PREVIOUS_TRANSFORM  = 1 << 2;
-        /// The mesh had a skin last frame and so that skin should be taken into
-        /// account for motion vector computation.
-        const HAS_PREVIOUS_SKIN       = 1 << 3;
         /// The mesh had morph targets last frame and so they should be taken
         /// into account for motion vector computation.
-        const HAS_PREVIOUS_MORPH      = 1 << 4;
+        const HAS_PREVIOUS_MORPH      = 1 << 3;
     }
 }
 
@@ -1629,29 +1626,22 @@ fn extract_mesh_for_gpu_building(
     );
 }
 
-/// A system that sets the [`RenderMeshInstanceFlags`] for each mesh based on
-/// whether the previous frame had skins and/or morph targets.
+/// A system that sets [`RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH`] for each
+/// mesh.
 ///
 /// Ordinarily, [`RenderMeshInstanceFlags`] are set during the extraction phase.
-/// However, we can't do that for the flags related to skins and morph targets
-/// because the previous frame's skin and morph targets are the responsibility
-/// of [`extract_skins`] and [`extract_morphs`] respectively. We want to run
-/// those systems in parallel with mesh extraction for performance, so we need
-/// to defer setting of these mesh instance flags to after extraction, which
-/// this system does. An alternative to having skin- and morph-target-related
-/// data in [`RenderMeshInstanceFlags`] would be to have
-/// [`crate::material::queue_material_meshes`] check the skin and morph target
-/// tables for each mesh, but that would be too slow in the hot mesh queuing
-/// loop.
+/// However, we can't do that for the flags related to morph targets because the
+/// previous frame's morph targets are the responsibility of [`extract_morphs`].
+/// We want to run that system in parallel with mesh extraction for performance,
+/// so we need to defer setting of the mesh instance flag to after extraction,
+/// which this system does. An alternative to having morph target related data
+/// in [`RenderMeshInstanceFlags`] would be to have
+/// [`crate::material::queue_material_meshes`] check the morph target tables for
+/// each mesh, but that would be too slow in the hot mesh queuing loop.
 fn set_mesh_motion_vector_flags(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
-    skin_uniforms: Res<SkinUniforms>,
     morph_indices: Res<MorphIndices>,
 ) {
-    for &entity in skin_uniforms.all_skins() {
-        render_mesh_instances
-            .insert_mesh_instance_flags(entity, RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN);
-    }
     for &entity in morph_indices.prev.keys() {
         render_mesh_instances
             .insert_mesh_instance_flags(entity, RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH);
@@ -2092,10 +2082,11 @@ bitflags::bitflags! {
         const IRRADIANCE_VOLUME                 = 1 << 15;
         const VISIBILITY_RANGE_DITHER           = 1 << 16;
         const SCREEN_SPACE_REFLECTIONS          = 1 << 17;
-        const HAS_PREVIOUS_SKIN                 = 1 << 18;
-        const HAS_PREVIOUS_MORPH                = 1 << 19;
-        const OIT_ENABLED                       = 1 << 20;
-        const DISTANCE_FOG                      = 1 << 21;
+        const SKINNED                           = 1 << 18;
+        const HAS_PREVIOUS_SKIN                 = 1 << 19;
+        const HAS_PREVIOUS_MORPH                = 1 << 20;
+        const OIT_ENABLED                       = 1 << 21;
+        const DISTANCE_FOG                      = 1 << 22;
         const LAST_FLAG                         = Self::DISTANCE_FOG.bits();
 
         // Bitfields
@@ -2218,19 +2209,15 @@ const_assert_eq!(
     0
 );
 
-fn is_skinned(layout: &MeshVertexBufferLayoutRef) -> bool {
-    layout.0.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
-        && layout.0.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
-}
 pub fn setup_morph_and_skinning_defs(
     mesh_layouts: &MeshLayouts,
-    layout: &MeshVertexBufferLayoutRef,
     offset: u32,
     key: &MeshPipelineKey,
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
     skins_use_uniform_buffers: bool,
 ) -> BindGroupLayout {
+    let is_skinned = key.intersects(MeshPipelineKey::SKINNED);
     let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
     let is_lightmapped = key.intersects(MeshPipelineKey::LIGHTMAPPED);
     let motion_vector_prepass = key.intersects(MeshPipelineKey::MOTION_VECTOR_PREPASS);
@@ -2246,7 +2233,7 @@ pub fn setup_morph_and_skinning_defs(
     };
 
     match (
-        is_skinned(layout),
+        is_skinned,
         is_morphed,
         is_lightmapped,
         motion_vector_prepass,
@@ -2351,7 +2338,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         bind_group_layout.push(setup_morph_and_skinning_defs(
             &self.mesh_layouts,
-            layout,
             6,
             &key,
             &mut shader_defs,
@@ -2787,6 +2773,11 @@ pub fn prepare_mesh_bind_groups(
             gpu_preprocessing_mesh_bind_groups,
         ));
     }
+}
+
+fn is_skinned(layout: &MeshVertexBufferLayoutRef) -> bool {
+    layout.0.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
+        && layout.0.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
 }
 
 /// Creates the per-mesh bind groups for each type of mesh, for a single phase.

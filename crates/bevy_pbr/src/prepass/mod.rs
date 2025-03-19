@@ -3,11 +3,11 @@ mod prepass_bindings;
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, material_bind_groups::MaterialBindGroupAllocator,
-    queue_material_meshes, setup_morph_and_skinning_defs, skin, DrawMesh,
-    EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey, MeshLayouts,
-    MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, RenderLightmaps,
-    RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
-    SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
+    queue_material_meshes, setup_morph_and_skinning_defs, skin, DrawMesh, Material,
+    MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
+    OpaqueRendererMethod, PreparedMaterial, RenderLightmaps, RenderMaterialInstances,
+    RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup,
+    SetMeshBindGroup, ShadowView, SpecializeParams, StandardMaterial,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -589,7 +589,6 @@ where
 
         let bind_group = setup_morph_and_skinning_defs(
             &self.mesh_layouts,
-            layout,
             5,
             &key.mesh_key,
             &mut shader_defs,
@@ -893,6 +892,7 @@ pub fn check_prepass_views_need_specialization(
 }
 
 pub fn specialize_prepass_material_meshes<M>(
+    params: SpecializeParams<M>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_mesh_instances: Res<RenderMeshInstances>,
@@ -924,17 +924,13 @@ pub fn specialize_prepass_material_meshes<M>(
         ticks,
         prepass_pipeline,
         mut pipelines,
-        pipeline_cache,
         view_specialization_ticks,
-        entity_specialization_ticks,
     ): (
         ResMut<SpecializedPrepassMaterialPipelineCache<M>>,
         SystemChangeTick,
         Res<PrepassPipeline<M>>,
         ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
-        Res<PipelineCache>,
         Res<ViewPrepassSpecializationTicks>,
-        Res<EntitySpecializationTicks<M>>,
     ),
 ) where
     M: Material,
@@ -962,7 +958,10 @@ pub fn specialize_prepass_material_meshes<M>(
             .or_default();
 
         for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let entity_tick = params
+                .entity_specialization_ticks
+                .get(visible_entity)
+                .unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
@@ -1042,14 +1041,17 @@ pub fn specialize_prepass_material_meshes<M>(
                 mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
             }
 
-            // If the previous frame has skins or morph targets, note that.
+            let is_skinned = params.skin_uniforms.contains(*visible_entity);
+
+            if is_skinned {
+                mesh_key |= MeshPipelineKey::SKINNED;
+            }
+
             if motion_vector_prepass.is_some() {
-                if mesh_instance
-                    .flags
-                    .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
-                {
+                if is_skinned {
                     mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
                 }
+                // If the previous frame has morph targets, note that.
                 if mesh_instance
                     .flags
                     .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
@@ -1059,7 +1061,7 @@ pub fn specialize_prepass_material_meshes<M>(
             }
 
             let pipeline_id = pipelines.specialize(
-                &pipeline_cache,
+                &params.pipeline_cache,
                 &prepass_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
