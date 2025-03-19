@@ -29,6 +29,7 @@ impl Plugin for CameraPlugin {
             .register_type::<Exposure>()
             .register_type::<TemporalJitter>()
             .register_type::<MipBias>()
+            .register_type::<MainPassResolutionOverride>()
             .init_resource::<ManualTextureViews>()
             .init_resource::<ClearColor>()
             .add_plugins((

@@ -1,5 +1,5 @@
 use crate::{
-    camera::Viewport,
+    camera::{MainPassResolutionOverride, Viewport},
     diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
@@ -587,12 +587,20 @@ impl<'a> TrackedRenderPass<'a> {
     /// Set the rendering viewport to the given camera [`Viewport`].
     ///
     /// Subsequent draw calls will be projected into that viewport.
-    pub fn set_camera_viewport(&mut self, viewport: &Viewport) {
+    pub fn set_camera_viewport(
+        &mut self,
+        viewport: &Viewport,
+        resolution_override: Option<&MainPassResolutionOverride>,
+    ) {
         self.set_viewport(
             viewport.physical_position.x as f32,
             viewport.physical_position.y as f32,
-            viewport.physical_size.x as f32,
-            viewport.physical_size.y as f32,
+            resolution_override
+                .map(|resolution_override| resolution_override.0.x)
+                .unwrap_or(viewport.physical_size.x) as f32,
+            resolution_override
+                .map(|resolution_override| resolution_override.0.y)
+                .unwrap_or(viewport.physical_size.y) as f32,
             viewport.depth.start,
             viewport.depth.end,
         );

@@ -1342,3 +1342,16 @@ impl TemporalJitter {
 #[derive(Default, Component, Reflect)]
 #[reflect(Default, Component)]
 pub struct MipBias(pub f32);
+
+/// Override the resolution a 3d camera's main pass is rendered at.
+///
+/// Does not affect post processing.
+///
+/// ## Usage
+///
+/// * Insert this component on a 3d camera entity in the render world.
+/// * The resolution override must be smaller than the camera's viewport size.
+/// * The resolution override is specified in physical pixels.
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+pub struct MainPassResolutionOverride(pub UVec2);
