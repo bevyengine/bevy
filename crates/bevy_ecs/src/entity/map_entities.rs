@@ -1,10 +1,14 @@
+pub use bevy_ecs_macros::MapEntities;
+
 use crate::{
-    entity::Entity,
+    entity::{hash_map::EntityHashMap, Entity},
     identifier::masks::{IdentifierMask, HIGH_MASK},
     world::World,
 };
 
-use super::{hash_map::EntityHashMap, VisitEntitiesMut};
+use alloc::{collections::VecDeque, vec::Vec};
+use bevy_platform_support::collections::HashSet;
+use smallvec::SmallVec;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -15,13 +19,9 @@ use super::{hash_map::EntityHashMap, VisitEntitiesMut};
 /// (usually by using an [`EntityHashMap<Entity>`] between source entities and entities in the
 /// current world).
 ///
-/// This trait is similar to [`VisitEntitiesMut`]. They differ in that [`VisitEntitiesMut`] operates
-/// on `&mut Entity` and allows for in-place modification, while this trait makes no assumption that
-/// such in-place modification is occurring, which is impossible for types such as [`HashSet<Entity>`]
-/// and [`EntityHashMap`] which must be rebuilt when their contained [`Entity`]s are remapped.
-///
-/// Implementing this trait correctly is required for properly loading components
-/// with entity references from scenes.
+/// Components use [`Component::map_entities`](crate::component::Component::map_entities) to map
+/// entities in the context of scenes and entity cloning, which generally uses [`MapEntities`] internally
+/// to map each field (see those docs for usage).
 ///
 /// [`HashSet<Entity>`]: bevy_platform_support::collections::HashSet
 ///
@@ -49,17 +49,54 @@ pub trait MapEntities {
     ///
     /// Implementors should look up any and all [`Entity`] values stored within `self` and
     /// update them to the mapped values via `entity_mapper`.
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M);
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E);
 }
 
-impl<T: VisitEntitiesMut> MapEntities for T {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-        self.visit_entities_mut(|entity| {
-            *entity = entity_mapper.get_mapped(*entity);
-        });
+impl MapEntities for Entity {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        *self = entity_mapper.get_mapped(*self);
     }
 }
 
+impl MapEntities for Option<Entity> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        if let Some(entity) = self {
+            *entity = entity_mapper.get_mapped(*entity);
+        }
+    }
+}
+
+impl MapEntities for HashSet<Entity> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        *self = self
+            .drain()
+            .map(|e| entity_mapper.get_mapped(e))
+            .collect::<HashSet<_>>();
+    }
+}
+impl MapEntities for Vec<Entity> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        for entity in self.iter_mut() {
+            *entity = entity_mapper.get_mapped(*entity);
+        }
+    }
+}
+
+impl MapEntities for VecDeque<Entity> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        for entity in self.iter_mut() {
+            *entity = entity_mapper.get_mapped(*entity);
+        }
+    }
+}
+
+impl<A: smallvec::Array<Item = Entity>> MapEntities for SmallVec<A> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        for entity in self.iter_mut() {
+            *entity = entity_mapper.get_mapped(*entity);
+        }
+    }
+}
 /// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
 ///
 /// Usually this is done by using an [`EntityHashMap<Entity>`] to map source entities

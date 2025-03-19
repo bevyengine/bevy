@@ -176,9 +176,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// - Component being written is not registered in the world.
     /// - `ComponentId` of component being written does not match expected `ComponentId`.
     pub fn write_target_component<C: Component>(&mut self, mut component: C) {
-        C::visit_entities_mut(&mut component, |entity| {
-            *entity = self.mapper.get_mapped(*entity);
-        });
+        C::map_entities(&mut component, &mut self.mapper);
         let short_name = disqualified::ShortName::of::<C>();
         if self.target_component_written {
             panic!("Trying to write component '{short_name}' multiple times")
@@ -280,6 +278,16 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         self.mapper.set_mapped(entity, target);
         self.entity_cloner.clone_queue.push_back(entity);
     }
+
+    /// Queues a deferred clone operation, which will run with exclusive [`World`] access immediately after normal clones for this entity finish.
+    pub fn queue_deferred(
+        &mut self,
+        deferred: impl FnOnce(&mut World, &mut dyn EntityMapper) + 'static,
+    ) {
+        self.entity_cloner
+            .deferred_commands
+            .push_back(Box::new(deferred));
+    }
 }
 
 /// A configuration determining how to clone entities. This can be built using [`EntityCloner::build`], which
@@ -341,7 +349,6 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 /// 2. component-defined handler using [`Component::clone_behavior`]
 /// 3. default handler override using [`EntityClonerBuilder::with_default_clone_fn`].
 /// 4. reflect-based or noop default clone handler depending on if `bevy_reflect` feature is enabled or not.
-#[derive(Debug)]
 pub struct EntityCloner {
     filter_allows_components: bool,
     filter: HashSet<ComponentId>,
@@ -350,18 +357,20 @@ pub struct EntityCloner {
     linked_cloning: bool,
     default_clone_fn: ComponentCloneFn,
     clone_queue: VecDeque<Entity>,
+    deferred_commands: VecDeque<Box<dyn FnOnce(&mut World, &mut dyn EntityMapper)>>,
 }
 
 impl Default for EntityCloner {
     fn default() -> Self {
         Self {
             filter_allows_components: false,
-            filter: Default::default(),
-            clone_behavior_overrides: Default::default(),
             move_components: false,
             linked_cloning: false,
             default_clone_fn: ComponentCloneBehavior::global_default_fn(),
+            filter: Default::default(),
+            clone_behavior_overrides: Default::default(),
             clone_queue: Default::default(),
+            deferred_commands: Default::default(),
         }
     }
 }
@@ -533,6 +542,10 @@ impl EntityCloner {
 
         world.flush();
 
+        for deferred in self.deferred_commands.drain(..) {
+            (deferred)(world, mapper);
+        }
+
         if !world.entities.contains(target) {
             panic!("Target entity does not exist");
         }
@@ -609,7 +622,6 @@ impl EntityCloner {
 }
 
 /// A builder for configuring [`EntityCloner`]. See [`EntityCloner`] for more information.
-#[derive(Debug)]
 pub struct EntityClonerBuilder<'w> {
     world: &'w mut World,
     entity_cloner: EntityCloner,

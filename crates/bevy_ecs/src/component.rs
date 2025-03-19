@@ -4,7 +4,7 @@ use crate::{
     archetype::ArchetypeFlags,
     bundle::BundleInfo,
     change_detection::{MaybeLocation, MAX_CHANGE_AGE},
-    entity::{ComponentCloneCtx, Entity, SourceComponent},
+    entity::{ComponentCloneCtx, Entity, EntityMapper, SourceComponent},
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     resource::Resource,
@@ -485,14 +485,21 @@ pub trait Component: Send + Sync + 'static {
         ComponentCloneBehavior::Default
     }
 
-    /// Visits entities stored on the component.
+    /// Maps the entities on this component using the given [`EntityMapper`]. This is used to remap entities in contexts like scenes and entity cloning.
+    /// When deriving [`Component`], this is populated by annotating fields containing entities with `#[entities]`
+    ///
+    /// ```
+    /// # use bevy_ecs::{component::Component, entity::Entity};
+    /// #[derive(Component)]
+    /// struct Inventory {
+    ///     #[entities]
+    ///     items: Vec<Entity>
+    /// }
+    /// ```
+    ///
+    /// Fields with `#[entities]` must implement [`MapEntities`](crate::entity::MapEntities).
     #[inline]
-    fn visit_entities(_this: &Self, _f: impl FnMut(Entity)) {}
-
-    /// Returns pointers to every entity stored on the component. This will be used to remap entity references when this entity
-    /// is cloned.
-    #[inline]
-    fn visit_entities_mut(_this: &mut Self, _f: impl FnMut(&mut Entity)) {}
+    fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
 }
 
 mod private {
@@ -2921,7 +2928,7 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 /// [`PartialReflect::reflect_clone`]: bevy_reflect::PartialReflect::reflect_clone
 #[cfg(feature = "bevy_reflect")]
 pub fn component_clone_via_reflect(
-    commands: &mut Commands,
+    _commands: &mut Commands,
     source: &SourceComponent,
     ctx: &mut ComponentCloneCtx,
 ) {
@@ -2941,9 +2948,7 @@ pub fn component_clone_via_reflect(
         if let Some(reflect_component) =
             registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
         {
-            reflect_component.visit_entities_mut(&mut *component, &mut |entity| {
-                *entity = ctx.entity_mapper().get_mapped(*entity);
-            });
+            reflect_component.map_entities(&mut *component, ctx.entity_mapper());
         }
         drop(registry);
 
@@ -2961,9 +2966,7 @@ pub fn component_clone_via_reflect(
             if let Some(reflect_component) =
                 registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
             {
-                reflect_component.visit_entities_mut(&mut *component, &mut |entity| {
-                    *entity = ctx.entity_mapper().get_mapped(*entity);
-                });
+                reflect_component.map_entities(&mut *component, ctx.entity_mapper());
             }
             drop(registry);
 
@@ -2986,23 +2989,12 @@ pub fn component_clone_via_reflect(
         registry.get_type_data::<crate::reflect::ReflectFromWorld>(type_id)
     {
         let reflect_from_world = reflect_from_world.clone();
-        let mut mapped_entities = Vec::new();
-        if let Some(reflect_component) =
-            registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
-        {
-            reflect_component.visit_entities(source_component_reflect, &mut |entity| {
-                mapped_entities.push(entity);
-            });
-        }
         let source_component_cloned = source_component_reflect.to_dynamic();
         let component_layout = component_info.layout();
         let target = ctx.target();
         let component_id = ctx.component_id();
-        for entity in mapped_entities.iter_mut() {
-            *entity = ctx.entity_mapper().get_mapped(*entity);
-        }
         drop(registry);
-        commands.queue(move |world: &mut World| {
+        ctx.queue_deferred(move |world: &mut World, mapper: &mut dyn EntityMapper| {
             let mut component = reflect_from_world.from_world(world);
             assert_eq!(type_id, (*component).type_id());
             component.apply(source_component_cloned.as_partial_reflect());
@@ -3010,11 +3002,7 @@ pub fn component_clone_via_reflect(
                 .read()
                 .get_type_data::<crate::reflect::ReflectComponent>(type_id)
             {
-                let mut i = 0;
-                reflect_component.visit_entities_mut(&mut *component, &mut |entity| {
-                    *entity = mapped_entities[i];
-                    i += 1;
-                });
+                reflect_component.map_entities(&mut *component, mapper);
             }
             // SAFETY:
             // - component_id is from the same world as target entity
