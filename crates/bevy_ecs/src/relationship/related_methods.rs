@@ -36,6 +36,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Relates the given entities to this entity with the relation `R`, starting at this particular index.
+    /// Note that this first adds the relation and then rearanges it.
     /// See [`OrderedRelationshipSourceCollection::place`] for details on behavior.
     pub fn insert_related<R: Relationship>(&mut self, index: usize, related: &[Entity]) -> &mut Self
     where
