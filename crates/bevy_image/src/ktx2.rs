@@ -13,7 +13,7 @@ use wgpu_types::{
 use super::{CompressedImageFormats, DataFormat, Image, TextureError};
 
 #[cfg(feature = "basis-universal")]
-use basis_universal::TranscoderBlockFormat;
+use basis_universal::{TranscoderBlockFormat, DecodeFlags, LowLevelUastcLdr4x4Transcoder, SliceParametersUastc};
 
 #[derive(Error, Debug)]
 pub enum Ktx2TextureError {
@@ -73,7 +73,6 @@ pub fn ktx2_buffer_to_image(
     buffer: &[u8],
     supported_compressed_formats: CompressedImageFormats,
 ) -> Result<Image, TextureError> {
-    use basis_universal::{DecodeFlags, LowLevelUastcLdr4x4Transcoder, SliceParametersUastc};
     use wgpu_types::Features;
 
     let ktx2 = ktx2::Reader::new(buffer)
@@ -121,9 +120,10 @@ pub fn ktx2_buffer_to_image(
             );
         }
         #[cfg(not(feature = "basis-universal"))]
-        return Err(Ktx2TextureError::Unsupported(format!(
-            "This image requires Bevy to be compiled with the 'basis-universal' feature",
-        )));
+        return Err(TextureError::UnsupportedTextureFormat(
+            "This image requires Bevy to be compiled with the 'basis-universal' feature"
+                .to_string(),
+        ));
     }
 
     // Decompressed/transcoded levels. This starts out as the raw data from the KTX, but if we decompress
