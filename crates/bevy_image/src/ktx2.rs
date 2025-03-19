@@ -209,7 +209,7 @@ pub fn ktx2_buffer_to_image(
                     }
                     TextureFormat::Rg8Unorm
                 }
-                Ktx2TranscodingHint::Rgb8 { is_srgb} => {
+                Ktx2TranscodingHint::Rgb8 { is_srgb } => {
                     // Add an alpha channel
                     for level_data in scratch_levels.iter_mut() {
                         let pixel_count = level_data.len() / 3;
@@ -1311,8 +1311,6 @@ pub fn ktx2_dfd_to_texture_format(
 }
 
 /// Translates a [`ktx2::Format`] to its corresponding [`wgpu_types::TextureFormat`].
-///
-/// If there is no match, a [`Ktx2TextureError::Unsupported`] error will be returned.
 pub fn ktx2_format_to_texture_format(
     ktx2_format: ktx2::Format,
 ) -> Result<TextureFormat, Ktx2TextureError> {
@@ -1333,17 +1331,33 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::A1R5G5B5_UNORM_PACK16 => no_wgpu_format("A1R5G5B5_UNORM_PACK16")?,
 
         ktx2::Format::R8_UNORM => TextureFormat::R8Unorm,
-        ktx2::Format::R8_SRGB => no_wgpu_format("R8_SRGB")?,
+        ktx2::Format::R8_SRGB => {
+            return Err(Ktx2TextureError::RequiresTranscoding(
+                Ktx2TranscodingHint::R8UnormSrgb,
+            ));
+        }
         ktx2::Format::R8_SNORM => TextureFormat::R8Snorm,
         ktx2::Format::R8_UINT => TextureFormat::R8Uint,
         ktx2::Format::R8_SINT => TextureFormat::R8Sint,
         ktx2::Format::R8G8_UNORM => TextureFormat::Rg8Unorm,
-        ktx2::Format::R8G8_SRGB => no_wgpu_format("R8G8_SRGB")?,
+        ktx2::Format::R8G8_SRGB => {
+            return Err(Ktx2TextureError::RequiresTranscoding(
+                Ktx2TranscodingHint::Rg8UnormSrgb,
+            ));
+        }
         ktx2::Format::R8G8_SNORM => TextureFormat::Rg8Snorm,
         ktx2::Format::R8G8_UINT => TextureFormat::Rg8Uint,
         ktx2::Format::R8G8_SINT => TextureFormat::Rg8Sint,
-        ktx2::Format::R8G8B8_UNORM => no_wgpu_format("R8G8B8_UNORM")?,
-        ktx2::Format::R8G8B8_SRGB => no_wgpu_format("R8G8B8_SRGB")?,
+        ktx2::Format::R8G8B8_UNORM => {
+            return Err(Ktx2TextureError::RequiresTranscoding(
+                Ktx2TranscodingHint::Rgb8 { is_srgb: false },
+            ));
+        }
+        ktx2::Format::R8G8B8_SRGB => {
+            return Err(Ktx2TextureError::RequiresTranscoding(
+                Ktx2TranscodingHint::Rgb8 { is_srgb: true },
+            ));
+        }
         ktx2::Format::R8G8B8A8_UNORM => TextureFormat::Rgba8Unorm,
         ktx2::Format::R8G8B8A8_SRGB => TextureFormat::Rgba8UnormSrgb,
         ktx2::Format::R8G8B8A8_SNORM => TextureFormat::Rgba8Snorm,
@@ -1383,8 +1397,11 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::R32G32_SINT => TextureFormat::Rg32Sint,
         ktx2::Format::R32G32_SFLOAT => TextureFormat::Rg32Float,
 
+        // TODO: Write a transcoder (add an alpha channel to make a TextureFormat::Rgba32Uint)
         ktx2::Format::R32G32B32_UINT => no_wgpu_format("R32G32B32_UINT")?,
+        // TODO: Write a transcoder (add an alpha channel to make a TextureFormat::Rgba32Sint)
         ktx2::Format::R32G32B32_SINT => no_wgpu_format("R32G32B32_SINT")?,
+        // TODO: Write a transcoder (add an alpha channel to make a TextureFormat::Rgba32Float)
         ktx2::Format::R32G32B32_SFLOAT => no_wgpu_format("R32G32B32_SFLOAT")?,
 
         ktx2::Format::R32G32B32A32_UINT => TextureFormat::Rgba32Uint,
