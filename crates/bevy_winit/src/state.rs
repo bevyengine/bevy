@@ -692,8 +692,7 @@ impl<T: Event> WinitAppRunnerState<T> {
                         all(target_os = "linux", any(feature = "x11", feature = "wayland"))
                     )))]
                     {
-                        let visible = WINIT_WINDOWS.with(|ww_ref_cell| {
-                            let ww_ref = ww_ref_cell.borrow();
+                        let visible = WINIT_WINDOWS.with_borrow(|ww_ref| {
                             let winit_windows = ww_ref.as_ref().expect("Failed to initialize winit windows");
                             winit_windows.windows.iter().any(|(_, w)| {
                                 w.is_visible().unwrap_or(false)
@@ -727,8 +726,7 @@ impl<T: Event> WinitAppRunnerState<T> {
         }
 
         if self.redraw_requested && self.lifecycle != AppLifecycle::Suspended {
-            WINIT_WINDOWS.with(|ww_ref_cell| {
-                let ww_ref = ww_ref_cell.borrow();
+            WINIT_WINDOWS.with_borrow(|ww_ref| {
                 let winit_windows = ww_ref.as_ref().expect("Failed to initialize winit windows");
                 for window in winit_windows.windows.values() {
                     window.request_redraw();
@@ -897,8 +895,7 @@ impl<T: Event> WinitAppRunnerState<T> {
         #[cfg(not(feature = "custom_cursor"))]
         let mut windows = windows_state.get_mut(self.world_mut());
 
-        WINIT_WINDOWS.with(|ww_ref_cell| {
-            let ww_ref = ww_ref_cell.borrow();
+        WINIT_WINDOWS.with_borrow(|ww_ref| {
             let winit_windows = ww_ref.as_ref().expect("Failed to initialize winit windows");
 
             for (entity, mut pending_cursor) in windows.iter_mut() {
