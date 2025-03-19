@@ -101,29 +101,28 @@ fn bench_prepare_buffers(
         .buffer_vec
         .write_buffer(&render_device, &render_queue);
     let elapsed = start.elapsed();
-    println!("AlignedRawBufferVec: {} micros", elapsed.as_micros());
+    println!("AlignedRawBufferVec_push: {} micros", elapsed.as_micros());
 
     let start = Instant::now();
     {
         let mut writer = bench_uniforms
-            .uniform_buffer
+            .buffer_vec
             .get_writer(capacity, &render_device, &render_queue)
             .unwrap();
         for _ in 0..capacity {
-            writer.write(&BenchUniformShaderType {
+            writer.write(BenchUniform {
                 a: Vec3::ONE,
                 b: 1.0,
                 c: Vec4::ONE,
                 d: 1.0,
+                pad0: 0.0,
+                pad1: 0.0,
+                pad2: 0.0,
             });
         }
     }
-
     let elapsed = start.elapsed();
-    println!(
-        "DynamicUniformBuffer_writer: {} micros",
-        elapsed.as_micros()
-    );
+    println!("AlignedRawBufferVec_writer: {} micros", elapsed.as_micros());
 
     let start = Instant::now();
     {
@@ -142,4 +141,25 @@ fn bench_prepare_buffers(
     }
     let elapsed = start.elapsed();
     println!("DynamicUniformBuffer_push: {} micros", elapsed.as_micros());
+
+    let start = Instant::now();
+    {
+        let mut writer = bench_uniforms
+            .uniform_buffer
+            .get_writer(capacity, &render_device, &render_queue)
+            .unwrap();
+        for _ in 0..capacity {
+            writer.write(&BenchUniformShaderType {
+                a: Vec3::ONE,
+                b: 1.0,
+                c: Vec4::ONE,
+                d: 1.0,
+            });
+        }
+    }
+    let elapsed = start.elapsed();
+    println!(
+        "DynamicUniformBuffer_writer: {} micros",
+        elapsed.as_micros()
+    );
 }

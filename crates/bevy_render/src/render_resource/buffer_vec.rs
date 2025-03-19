@@ -6,10 +6,10 @@ use crate::{
 };
 use bytemuck::{must_cast_slice, NoUninit, Pod};
 use encase::{
-    internal::{AlignmentValue, WriteInto, Writer},
+    internal::{AlignmentValue, BufferMut, WriteInto, Writer},
     ShaderType,
 };
-use wgpu::{BindingResource, BufferAddress, BufferBinding, BufferUsages};
+use wgpu::{BindingResource, BufferAddress, BufferBinding, BufferUsages, QueueWriteBufferView};
 
 use super::GpuArrayBufferable;
 
@@ -741,5 +741,60 @@ impl<T: NoUninit> AlignedRawBufferVec<T> {
                 *bytemuck::from_bytes::<T>(item_bytes)
             })
             .collect()
+    }
+
+    /// Creates a writer that can be used to directly write elements into the target buffer.
+    ///
+    /// This method uses less memory and performs fewer memory copies using over [`push`] and [`write_buffer`].
+    ///
+    /// `max_count` *must* be greater than or equal to the number of elements that are to be written to the buffer, or
+    /// the writer will panic while writing.  Dropping the writer will schedule the buffer write into the provided
+    /// [`RenderQueue`].
+    ///
+    /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
+    /// allocated does not have enough capacity to hold `max_count` elements, a new GPU-side buffer is created.
+    ///
+    /// Returns `None` if there is no allocated GPU-side buffer, and `max_count` is 0.
+    ///
+    /// [`push`]: Self::push
+    /// [`write_buffer`]: Self::write_buffer
+    pub fn get_writer<'a>(
+        &'a mut self,
+        max_count: usize,
+        device: &RenderDevice,
+        queue: &'a RenderQueue,
+    ) -> Option<AlignedRawBufferVecWriter<'a, T>> {
+        self.reserve(max_count, device);
+
+        if let Some(buffer) = self.buffer.as_deref() {
+            let buffer_view = queue
+                .write_buffer_with(buffer, 0, NonZero::<u64>::new(buffer.size())?)
+                .unwrap();
+            Some(AlignedRawBufferVecWriter {
+                buffer_view,
+                aligned_size: self.aligned_size as usize,
+                offset: 0,
+                _marker: PhantomData,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+pub struct AlignedRawBufferVecWriter<'a, T: NoUninit> {
+    buffer_view: QueueWriteBufferView<'a>,
+    offset: usize,
+    aligned_size: usize,
+    _marker: PhantomData<T>,
+}
+
+impl<'a, T: NoUninit> AlignedRawBufferVecWriter<'a, T> {
+    pub fn write(&mut self, value: T) -> usize {
+        let offset = self.offset;
+        let bytes: &[u8] = bytemuck::bytes_of(&value);
+        self.buffer_view.write_slice(offset, bytes);
+        self.offset += self.aligned_size;
+        offset
     }
 }
