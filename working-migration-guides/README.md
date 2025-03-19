@@ -16,7 +16,7 @@ Migration guides are intended to briefly communicate:
 
 - what has been changed?
 - why did we make this breaking change?
-- how can they migrate their existing code?
+- how can users migrate their existing code?
 
 Draft migration guides *do not need to be polished*: it's okay if you're not a native English speaker or aren't a wordsmith.
 Editing is easy; we just want to have an expert's view on the questions above.
