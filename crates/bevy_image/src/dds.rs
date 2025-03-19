@@ -8,7 +8,40 @@ use wgpu_types::{
 #[cfg(debug_assertions)]
 use {bevy_utils::once, tracing::warn};
 
-use super::{CompressedImageFormats, Image, TextureError, TranscodeFormat};
+use super::{CompressedImageFormats, Image, TextureError};
+
+#[derive(Error, Debug)]
+pub enum DdsTextureError {
+    /// This texture data is not supported and there's no way to transcode it.
+    #[error("unsupported dds texture: {0}")]
+    Unsupported(String),
+
+    /// The texture data cannot be used as-is; it needs to be transcoded into a format that wgpu can understand.
+    ///
+    /// Like [`DdsTextureError::Unsupported`], but with extra information to help Bevy transcode it.
+    #[error("unsupported dds texture (requires transcoding): {0:?}")]
+    RequiresTranscoding(DdsTranscodingHint),
+}
+
+impl Into<TextureError> for DdsTextureError {
+    fn into(self) -> TextureError {
+        match self {
+            Self::Unsupported(message) => TextureError::UnsupportedTextureFormat(message),
+            Self::RequiresTranscoding(..) => {
+                TextureError::TranscodeError("This image requires transcoding".to_string())
+            }
+        }
+    }
+}
+
+/// Bevy-specific information on what the underlying DDS data format is that needs transcoded for wgpu.
+///
+/// This enum is non-exhaustive – it is only meant meant to hold formats that Bevy actually knows how to natively transcode.
+#[derive(Clone, Copy, Debug)]
+pub enum DdsTranscodingHint {
+    /// This needs an alpha channel added (to end up as a [`TextureFormat::Rgba8Unorm`] or [`TextureFormat::Rgba8UnormSrgb`])
+    Rgb8 { is_srgb: bool },
+}
 
 #[cfg(feature = "dds")]
 pub fn dds_buffer_to_image(
@@ -20,17 +53,22 @@ pub fn dds_buffer_to_image(
     let mut cursor = Cursor::new(buffer);
     let dds = Dds::read(&mut cursor)
         .map_err(|error| TextureError::InvalidData(format!("Failed to parse DDS file: {error}")))?;
-    let (texture_format, transcode_format) = match dds_format_to_texture_format(&dds, is_srgb) {
+    let (texture_format, transcoding_hint) = match dds_format_to_texture_format(&dds, is_srgb) {
         Ok(format) => (format, None),
-        Err(TextureError::FormatRequiresTranscodingError(TranscodeFormat::Rgb8)) => {
-            let format = if is_srgb {
-                TextureFormat::Bgra8UnormSrgb
-            } else {
-                TextureFormat::Bgra8Unorm
-            };
-            (format, Some(TranscodeFormat::Rgb8))
-        }
-        Err(error) => return Err(error),
+        Err(dds_error) => match dds_error {
+            DdsTextureError::RequiresTranscoding(transcoding_hint) => match transcoding_hint {
+                DdsTranscodingHint::Rgb8 { is_srgb } => {
+                    // Note: In older Bevy releases, this used to be Bgra8Unorm[Srgb], which is assumed to be a typo.
+                    let format = if is_srgb {
+                        TextureFormat::Rgba8UnormSrgb
+                    } else {
+                        TextureFormat::Rgba8Unorm
+                    };
+                    (format, transcoding_hint)
+                }
+            },
+            err => return Err(dds_error.into()),
+        },
     };
     if !supported_compressed_formats.supports(texture_format) {
         return Err(TextureError::UnsupportedTextureFormat(format!(
@@ -100,9 +138,9 @@ pub fn dds_buffer_to_image(
 
     // DDS mipmap layout is directly compatible with wgpu's layout (Slice -> Face -> Mip):
     // https://learn.microsoft.com/fr-fr/windows/win32/direct3ddds/dx-graphics-dds-reference
-    image.data = if let Some(transcode_format) = transcode_format {
-        match transcode_format {
-            TranscodeFormat::Rgb8 => {
+    image.data = if let Some(transcode_hint) = transcode_hint {
+        match transcode_hint {
+            DdsTranscodingHint::Rgb8 { .. } => {
                 let data = dds
                     .data
                     .chunks_exact(3)
@@ -112,7 +150,7 @@ pub fn dds_buffer_to_image(
             }
             _ => {
                 return Err(TextureError::TranscodeError(format!(
-                    "unsupported transcode from {transcode_format:?} to {texture_format:?}"
+                    "unsupported transcode {transcode_hint:?} to {texture_format:?}"
                 )))
             }
         }
@@ -127,10 +165,11 @@ pub fn dds_buffer_to_image(
 pub fn dds_format_to_texture_format(
     dds: &Dds,
     is_srgb: bool,
-) -> Result<TextureFormat, TextureError> {
+) -> Result<TextureFormat, DdsTextureError> {
     Ok(if let Some(d3d_format) = dds.get_d3d_format() {
         match d3d_format {
             D3DFormat::A8B8G8R8 => {
+                // TODO: Transcode ABGR->RGBA instead of reinterpreting field order?
                 if is_srgb {
                     TextureFormat::Rgba8UnormSrgb
                 } else {
@@ -139,6 +178,7 @@ pub fn dds_format_to_texture_format(
             }
             D3DFormat::A8 => TextureFormat::R8Unorm,
             D3DFormat::A8R8G8B8 => {
+                // TODO: Transcode ARGB->RGBA instead of reinterpreting field order?
                 if is_srgb {
                     TextureFormat::Bgra8UnormSrgb
                 } else {
@@ -146,7 +186,7 @@ pub fn dds_format_to_texture_format(
                 }
             }
             D3DFormat::R8G8B8 => {
-                return Err(TextureError::FormatRequiresTranscodingError(TranscodeFormat::Rgb8));
+                return Err(DdsTextureError::RequiresTranscoding(DdsTranscodingHint::Rgb8 { is_srgb }));
             },
             D3DFormat::G16R16 => TextureFormat::Rg16Uint,
             D3DFormat::A2B10G10R10 => TextureFormat::Rgb10a2Unorm,
@@ -199,7 +239,7 @@ pub fn dds_format_to_texture_format(
             | D3DFormat::UYVY
             | D3DFormat::YUY2
             | D3DFormat::CXV8U8 => {
-                return Err(TextureError::UnsupportedTextureFormat(format!(
+                return Err(DdsTextureError::Unsupported(format!(
                     "{d3d_format:?}",
                 )))
             }
@@ -308,16 +348,10 @@ pub fn dds_format_to_texture_format(
                     TextureFormat::Bc7RgbaUnorm
                 }
             }
-            _ => {
-                return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "{dxgi_format:?}",
-                )))
-            }
+            _ => return Err(DdsTextureError::Unsupported(format!("{dxgi_format:?}",))),
         }
     } else {
-        return Err(TextureError::UnsupportedTextureFormat(
-            "unspecified".to_string(),
-        ));
+        return Err(DdsTextureError::Unsupported("unspecified".to_string()));
     })
 }
 
