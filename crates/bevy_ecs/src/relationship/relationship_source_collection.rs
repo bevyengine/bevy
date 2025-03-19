@@ -46,6 +46,17 @@ pub trait RelationshipSourceCollection {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Add multiple entities to collection at once.
+    ///
+    /// May be faster than repeatedly calling [`Self::add`].
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        // The method name shouldn't conflict with `Extend::extend` as it's in the rust prelude and
+        // would always conflict with it.
+        for entity in entities {
+            self.add(entity);
+        }
+    }
 }
 
 /// This trait signals that a [`RelationshipSourceCollection`] is ordered.
@@ -152,6 +163,10 @@ impl RelationshipSourceCollection for Vec<Entity> {
     fn clear(&mut self) {
         self.clear();
     }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
+    }
 }
 
 impl OrderedRelationshipSourceCollection for Vec<Entity> {
@@ -217,6 +232,10 @@ impl RelationshipSourceCollection for EntityHashSet {
     fn clear(&mut self) {
         self.0.clear();
     }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
+    }
 }
 
 impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
@@ -251,6 +270,10 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
 
     fn clear(&mut self) {
         self.clear();
+    }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
     }
 }
 
@@ -290,6 +313,12 @@ impl RelationshipSourceCollection for Entity {
 
     fn clear(&mut self) {
         *self = Entity::PLACEHOLDER;
+    }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        if let Some(entity) = entities.into_iter().last() {
+            *self = entity;
+        }
     }
 }
 

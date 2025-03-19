@@ -14,6 +14,7 @@ trace = [
   "bevy_app/trace",
   "bevy_asset?/trace",
   "bevy_core_pipeline?/trace",
+  "bevy_anti_aliasing?/trace",
   "bevy_ecs/trace",
   "bevy_log/trace",
   "bevy_pbr?/trace",
@@ -33,6 +34,7 @@ dds = [
   "bevy_image/dds",
   "bevy_render/dds",
   "bevy_core_pipeline/dds",
+  "bevy_anti_aliasing/dds",
   "bevy_gltf?/dds",
 ]
 exr = ["bevy_image/exr", "bevy_render/exr"]
@@ -67,7 +69,7 @@ statically-linked-dxc = ["bevy_render/statically-linked-dxc"]
 tonemapping_luts = ["bevy_core_pipeline/tonemapping_luts"]
 
 # Include SMAA LUT KTX2 Files
-smaa_luts = ["bevy_core_pipeline/smaa_luts"]
+smaa_luts = ["bevy_anti_aliasing/smaa_luts"]
 
 # Audio format support (vorbis is enabled by default)
 flac = ["bevy_audio/flac"]
@@ -152,6 +154,7 @@ pbr_specular_textures = [
 # Optimise for WebGL2
 webgl = [
   "bevy_core_pipeline?/webgl",
+  "bevy_anti_aliasing?/webgl",
   "bevy_pbr?/webgl",
   "bevy_render?/webgl",
   "bevy_gizmos?/webgl",
@@ -160,6 +163,7 @@ webgl = [
 
 webgpu = [
   "bevy_core_pipeline?/webgpu",
+  "bevy_anti_aliasing?/webgpu",
   "bevy_pbr?/webgpu",
   "bevy_render?/webgpu",
   "bevy_gizmos?/webgpu",
@@ -176,6 +180,7 @@ bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite", "bevy_image"]
 bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr", "bevy_image"]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
 bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_image"]
+bevy_anti_aliasing = ["dep:bevy_anti_aliasing", "bevy_image"]
 bevy_gizmos = ["dep:bevy_gizmos", "bevy_image"]
 bevy_gltf = ["dep:bevy_gltf", "bevy_image"]
 bevy_ui = ["dep:bevy_ui", "bevy_image"]
@@ -401,6 +406,7 @@ bevy_color = { path = "../bevy_color", optional = true, version = "0.16.0-dev", 
   "bevy_reflect",
 ] }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.16.0-dev" }
+bevy_anti_aliasing = { path = "../bevy_anti_aliasing", optional = true, version = "0.16.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.16.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.16.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.16.0-dev", default-features = false }
