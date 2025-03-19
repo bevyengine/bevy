@@ -1,5 +1,6 @@
 use basis_universal::{
-    BasisTextureType, DecodeFlags, TranscodeParameters, Transcoder, TranscoderTextureFormat,
+    BasisTextureType, BasisUniversalTranscodeParameters, BasisUniversalTranscoder, DecodeFlags,
+    TranscoderTextureFormat,
 };
 use wgpu_types::{AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat};
 
@@ -10,7 +11,7 @@ pub fn basis_buffer_to_image(
     supported_compressed_formats: CompressedImageFormats,
     is_srgb: bool,
 ) -> Result<Image, TextureError> {
-    let mut transcoder = Transcoder::new();
+    let mut transcoder = BasisUniversalTranscoder::new();
 
     #[cfg(debug_assertions)]
     if !transcoder.validate_file_checksums(buffer, true) {
@@ -79,7 +80,7 @@ pub fn basis_buffer_to_image(
                 .transcode_image_level(
                     buffer,
                     transcode_format,
-                    TranscodeParameters {
+                    BasisUniversalTranscodeParameters {
                         image_index,
                         level_index,
                         decode_flags: Some(DecodeFlags::HIGH_QUALITY),

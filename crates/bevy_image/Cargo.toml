@@ -14,14 +14,15 @@ default = ["bevy_reflect"]
 bevy_reflect = ["dep:bevy_reflect", "bevy_math/bevy_reflect"]
 
 # Image formats
-basis-universal = ["dep:basis-universal"]
+basis-universal = ["dep:basis-universal", "basis-universal/transcoding", "basis-universal/ktx2"]
+basis-universal-compressor = ["dep:basis-universal", "basis-universal/encoding"]
 bmp = ["image/bmp"]
 dds = ["ddsfile"]
 exr = ["image/exr"]
 ff = ["image/ff"]
 gif = ["image/gif"]
 hdr = ["image/hdr"]
-ktx2 = ["dep:ktx2"]
+ktx2 = ["dep:ktx2", "basis-universal"]
 ico = ["image/ico"]
 jpeg = ["image/jpeg"]
 png = ["image/png"]
@@ -38,7 +39,9 @@ serialize = [
 
 # For ktx2 supercompression
 zlib = ["flate2"]
-zstd = ["ruzstd"]
+zstd = [] # A marker feature indicating zstd support is required for a particular feature. One must select the "zstd_rust" or "zstd_native" feature.
+zstd_rust = ["zstd", "dep:ruzstd"] # Pure-rust zstd implementation (safer)
+zstd_native = ["zstd", "dep:zstd"] # Binding to zstd C implementation (faster)
 
 [dependencies]
 # bevy
@@ -68,12 +71,13 @@ futures-lite = "2.0.1"
 guillotiere = "0.6.0"
 rectangle-pack = "0.4"
 ddsfile = { version = "0.5.2", optional = true }
-ktx2 = { version = "0.3.0", optional = true }
+ktx2 = { git = "https://github.com/BVE-Reborn/ktx2", rev = "d081d3aa3ca6c7a20dd20479c7f5f1cd72375714", optional = true } # Unreleased 0.4.x
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
+# For transcoding of UASTC/ETC1S universal formats and for .basis file support
+zstd = { version = "0.13.3", optional = true }
 ruzstd = { version = "0.8.0", optional = true }
-# For transcoding of UASTC/ETC1S universal formats, and for .basis file support
-basis-universal = { version = "0.3.0", optional = true }
+basis-universal = { git = "https://github.com/naturalatlas/basis-universal-rs", rev = "cef24e6d0dc3f391c50ca918a50bb74112e3f6a4", optional = true, default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 half = { version = "2.4.1" }
 
