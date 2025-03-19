@@ -893,7 +893,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
         )> = SystemState::new(self.world_mut());
         #[cfg(not(feature = "custom_cursor"))]
-        let mut windows = windows_state.get_mut(self.world_mut());
+        let (mut windows,) = windows_state.get_mut(self.world_mut());
 
         WINIT_WINDOWS.with_borrow(|ww_ref| {
             let winit_windows = ww_ref.as_ref().expect("Failed to initialize winit windows");
