@@ -289,7 +289,6 @@ pub fn update_mesh_previous_global_transforms(
 pub struct PrepassPipeline<M: Material> {
     pub internal: PrepassPipelineInternal,
     pub material_pipeline: MaterialPipeline<M>,
-    _marker: PhantomData<M>,
 }
 
 /// Internal fields of the `PrepassPipeline` that don't need the generic bound
@@ -409,7 +408,6 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
         PrepassPipeline {
             internal,
             material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
-            _marker: PhantomData,
         }
     }
 }
