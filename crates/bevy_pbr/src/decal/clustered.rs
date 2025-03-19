@@ -21,7 +21,7 @@ use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
-    entity::{hash_map::EntityHashMap, Entity},
+    entity::{Entity, EntityHashMap},
     prelude::ReflectComponent,
     query::With,
     resource::Resource,

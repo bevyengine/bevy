@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::{ComponentId, Tick},
-    entity::{unique_array::UniqueEntityArray, Entity, EntityBorrow, EntitySet},
+    entity::{Entity, EntityBorrow, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
     query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-use crate::entity::{unique_slice::UniqueEntitySlice, TrustedEntityBorrow};
+use crate::entity::{TrustedEntityBorrow, UniqueEntitySlice};
 
 use alloc::vec::Vec;
 use core::{fmt, ptr};
@@ -1005,7 +1005,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
+    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, UniqueEntityArray, UniqueEntityVec}};
     ///
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
@@ -1100,7 +1100,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// returned instead.
     ///
     /// ```
-    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
+    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, UniqueEntityArray, UniqueEntityVec}};
     ///
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);

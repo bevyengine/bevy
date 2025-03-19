@@ -11,7 +11,7 @@ use crate::{
     archetype::ArchetypeFlags,
     change_detection::MaybeLocation,
     component::ComponentId,
-    entity::hash_map::EntityHashMap,
+    entity::EntityHashMap,
     prelude::*,
     system::IntoObserverSystem,
     world::{DeferredWorld, *},

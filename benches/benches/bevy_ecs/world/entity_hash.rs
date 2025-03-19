@@ -1,4 +1,4 @@
-use bevy_ecs::entity::{hash_set::EntityHashSet, Entity};
+use bevy_ecs::entity::{Entity, EntityHashSet};
 use criterion::{BenchmarkId, Criterion, Throughput};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
