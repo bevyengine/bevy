@@ -51,14 +51,14 @@ impl From<Ktx2TextureError> for TextureError {
 /// This enum is non-exhaustive – it is only meant meant to hold formats that Bevy actually knows how to natively transcode.
 #[derive(Clone, Copy, Debug)]
 pub enum Ktx2TranscodingHint {
-    /// Use basis-universal's [`LowLevelUastcLdr4x4Transcoder`] to decode the data to a supported format
+    /// Use basis-universal's low-level UASTC LDR 4x4 transcoder to decode the data to a supported format
     UastcLdr4x4 {
         is_srgb: bool,
         data_format: DataFormat,
     },
     /// Conversion from srgb to linear is needed (to end up as a [`TextureFormat::R8Unorm`])
     R8UnormSrgb,
-    /// Conversion from srgb to linear is needed (to end up as a [`TextureFormat::RG8Unorm`])
+    /// Conversion from srgb to linear is needed (to end up as a [`TextureFormat::Rg8Unorm`])
     Rg8UnormSrgb,
     /// This needs an alpha channel added (to end up as a [`TextureFormat::Rgba8Unorm`] or [`TextureFormat::Rgba8UnormSrgb`])
     Rgb8 { is_srgb: bool },
