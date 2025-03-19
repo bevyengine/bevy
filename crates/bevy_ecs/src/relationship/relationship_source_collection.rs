@@ -21,7 +21,7 @@ pub trait RelationshipSourceCollection {
 
     /// Returns an instance with the given pre-allocated entity `capacity`.
     ///
-    /// Not all collections support this operation, in which it returns a new empty instance.
+    /// Some collections will ignore the provided `capacity` and return a default instance.
     fn with_capacity(capacity: usize) -> Self;
 
     /// Reserves capacity for at least `additional` more entities to be inserted.
