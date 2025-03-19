@@ -1,4 +1,5 @@
-use std::time::Duration;
+//! A stress test comparing AlignedRawBufferVec with DynamicUniformBuffer
+
 use std::time::Instant;
 
 use bevy::{
