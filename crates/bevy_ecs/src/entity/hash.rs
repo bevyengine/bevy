@@ -55,7 +55,7 @@ unsafe impl<B: Bundle> TrustedBuildHasher<EntityRefExcept<'_, B>> for EntityHash
 unsafe impl<B: Bundle> TrustedBuildHasher<EntityMutExcept<'_, B>> for EntityHash {}
 
 /// A very fast hash that is only designed to work on generational indices
-/// like [`Entity`](super::Entity). It will panic if attempting to hash a type containing
+/// like [`Entity`]. It will panic if attempting to hash a type containing
 /// non-u64 fields.
 ///
 /// This is heavily optimized for typical cases, where you have mostly live
