@@ -1665,7 +1665,7 @@ mod tests {
             0x4a,
         ];
         let supported_compressed_formats = CompressedImageFormats::empty();
-        let result = ktx2_buffer_to_image(&buffer, supported_compressed_formats, true);
+        let result = ktx2_buffer_to_image(&buffer, supported_compressed_formats);
         assert!(result.is_ok());
     }
 }
