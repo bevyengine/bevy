@@ -12,7 +12,7 @@ use crate::reflect_utils::clone_reflect_value;
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
 use bevy_ecs::component::ComponentCloneBehavior;
-use bevy_ecs::relationship::RelationshipInsertHookMode;
+use bevy_ecs::relationship::RelationshipHookMode;
 #[cfg(feature = "serialize")]
 use serde::Serialize;
 
@@ -122,7 +122,7 @@ impl DynamicScene {
                         component.as_partial_reflect(),
                         &type_registry,
                         mapper,
-                        RelationshipInsertHookMode::Skip,
+                        RelationshipHookMode::Skip,
                     );
                 });
             }
@@ -149,16 +149,22 @@ impl DynamicScene {
 
             // If this component references entities in the scene, update
             // them to the entities in the world.
-            if let Some(map_entities) = registration.data::<ReflectMapEntities>() {
-                let mut resource = clone_reflect_value(resource.as_partial_reflect(), registration);
+            let mut cloned_resource;
+            let partial_reflect_resource = if let Some(map_entities) =
+                registration.data::<ReflectMapEntities>()
+            {
+                cloned_resource = clone_reflect_value(resource.as_partial_reflect(), registration);
                 SceneEntityMapper::world_scope(entity_map, world, |_, mapper| {
-                    map_entities.map_entities(resource.as_partial_reflect_mut(), mapper);
+                    map_entities.map_entities(cloned_resource.as_partial_reflect_mut(), mapper);
                 });
-            }
+                cloned_resource.as_partial_reflect()
+            } else {
+                resource.as_partial_reflect()
+            };
 
             // If the world already contains an instance of the given resource
             // just apply the (possibly) new value, otherwise insert the resource
-            reflect_resource.apply_or_insert(world, resource.as_partial_reflect(), &type_registry);
+            reflect_resource.apply_or_insert(world, partial_reflect_resource, &type_registry);
         }
 
         Ok(())

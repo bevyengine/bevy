@@ -90,7 +90,7 @@ impl Plugin for SkyboxPlugin {
 ///
 /// See also <https://en.wikipedia.org/wiki/Skybox_(video_games)>.
 #[derive(Component, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct Skybox {
     pub image: Handle<Image>,
     /// Scale factor applied to the skybox image.

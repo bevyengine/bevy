@@ -9,7 +9,7 @@ use crate::{
 use alloc::boxed::Box;
 use bevy_ecs_macros::{Component, Resource};
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use core::marker::PhantomData;
 use thiserror::Error;
 
@@ -33,7 +33,7 @@ impl<I, O> RegisteredSystem<I, O> {
 /// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
 #[derive(Component, Default)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, Default))]
 pub struct SystemIdMarker;
 
 /// A system that has been removed from the registry.

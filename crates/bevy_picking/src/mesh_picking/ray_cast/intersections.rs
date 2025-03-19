@@ -6,6 +6,7 @@ use super::Backfaces;
 
 /// Hit data for an intersection between a ray and a mesh.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub struct RayMeshHit {
     /// The point of intersection in world space.
     pub point: Vec3,
