@@ -740,9 +740,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 .read_inverse_bind_matrices()
                 .map(|mats| mats.map(|mat| Mat4::from_cols_array_2d(&mat)).collect())
                 .unwrap_or_else(|| {
-                    core::iter::repeat(Mat4::IDENTITY)
-                        .take(gltf_skin.joints().len())
-                        .collect()
+                    core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
                 });
 
             load_context
