@@ -1,11 +1,10 @@
-
 //! This example demonstrates the use of displacement maps,
 //! which can be used to create inexpensive fluid effects.
 
 use bevy::{
+    image::{ImageLoaderSettings, ImageSampler},
     prelude::*,
     reflect::TypePath,
-    image::{ImageSampler, ImageLoaderSettings},
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
@@ -127,4 +126,3 @@ fn setup(
         Transform::from_xyz(0.0, 0.0, 30.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
-
