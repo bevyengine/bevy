@@ -19,7 +19,6 @@ use bevy_ecs::{
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_math::FloatOrd;
-use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::render_phase::{DrawFunctionId, InputUniformIndex};
 use bevy_render::render_resource::CachedRenderPipelineId;
@@ -619,7 +618,7 @@ pub struct SpecializedMaterial2dViewPipelineCache<M> {
 impl<M> Default for SpecializedMaterial2dPipelineCache<M> {
     fn default() -> Self {
         Self {
-            map: HashMap::default(),
+            map: MainEntityHashMap::default(),
             marker: PhantomData,
         }
     }
@@ -628,7 +627,7 @@ impl<M> Default for SpecializedMaterial2dPipelineCache<M> {
 impl<M> Default for SpecializedMaterial2dViewPipelineCache<M> {
     fn default() -> Self {
         Self {
-            map: HashMap::default(),
+            map: MainEntityHashMap::default(),
             marker: PhantomData,
         }
     }
