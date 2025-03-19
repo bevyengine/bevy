@@ -887,17 +887,15 @@ impl<T: Event> WinitAppRunnerState<T> {
         let mut windows_state: SystemState<(
             ResMut<CustomCursorCache>,
             Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
-            NonSendMarker,
         )> = SystemState::new(self.world_mut());
         #[cfg(feature = "custom_cursor")]
-        let (mut cursor_cache, mut windows, _) = windows_state.get_mut(self.world_mut());
+        let (mut cursor_cache, mut windows) = windows_state.get_mut(self.world_mut());
         #[cfg(not(feature = "custom_cursor"))]
         let mut windows_state: SystemState<(
             Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
-            NonSendMarker,
         )> = SystemState::new(self.world_mut());
         #[cfg(not(feature = "custom_cursor"))]
-        let (mut windows, _) = windows_state.get_mut(self.world_mut());
+        let mut windows = windows_state.get_mut(self.world_mut());
 
         WINIT_WINDOWS.with(|ww_ref_cell| {
             let ww_ref = ww_ref_cell.borrow();
