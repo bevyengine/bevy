@@ -32,12 +32,14 @@ pub enum Ktx2TextureError {
     Invalid(String),
 }
 
-impl Into<TextureError> for Ktx2TextureError {
-    fn into(self) -> TextureError {
-        match self {
-            Self::Unsupported(message) => TextureError::UnsupportedTextureFormat(message),
-            Self::Invalid(message) => TextureError::InvalidData(message),
-            Self::RequiresTranscoding(..) => {
+impl From<Ktx2TextureError> for TextureError {
+    fn from(val: Ktx2TextureError) -> Self {
+        match val {
+            Ktx2TextureError::Unsupported(message) => {
+                TextureError::UnsupportedTextureFormat(message)
+            }
+            Ktx2TextureError::Invalid(message) => TextureError::InvalidData(message),
+            Ktx2TextureError::RequiresTranscoding(..) => {
                 TextureError::TranscodeError("This image requires transcoding".to_string())
             }
         }
@@ -49,7 +51,7 @@ impl Into<TextureError> for Ktx2TextureError {
 /// This enum is non-exhaustive – it is only meant meant to hold formats that Bevy actually knows how to natively transcode.
 #[derive(Clone, Copy, Debug)]
 pub enum Ktx2TranscodingHint {
-    /// Use basis-universal's LowLevelUastcLdr4x4Transcoder to decode the data to a supported format
+    /// Use basis-universal's [`LowLevelUastcLdr4x4Transcoder`] to decode the data to a supported format
     UastcLdr4x4 {
         is_srgb: bool,
         data_format: DataFormat,
@@ -196,7 +198,7 @@ pub fn ktx2_buffer_to_image(
                 Ktx2TranscodingHint::R8UnormSrgb => {
                     for level_data in scratch_levels.iter_mut() {
                         for byte in level_data.iter_mut() {
-                            *byte = Srgba::gamma_function(((*byte) as f32 / 255.) * 255.).floor() as u8
+                            *byte = Srgba::gamma_function(((*byte) as f32 / 255.) * 255.).floor() as u8;
                         }
                     }
                     TextureFormat::R8Unorm
@@ -204,7 +206,7 @@ pub fn ktx2_buffer_to_image(
                 Ktx2TranscodingHint::Rg8UnormSrgb => {
                     for level_data in scratch_levels.iter_mut() {
                         for byte in level_data.iter_mut() {
-                            *byte = Srgba::gamma_function(((*byte) as f32 / 255.) * 255.).floor() as u8
+                            *byte = Srgba::gamma_function(((*byte) as f32 / 255.) * 255.).floor() as u8;
                         }
                     }
                     TextureFormat::Rg8Unorm
@@ -566,12 +568,8 @@ pub fn ktx2_dfd_to_texture_format(
     data_format_descriptor: &BasicDataFormatDescriptor,
     sample_information: &[SampleInformation],
 ) -> Result<TextureFormat, Ktx2TextureError> {
-    let is_srgb = data_format_descriptor
-        .header
-        .transfer_function
-        .map_or(false, |transfer_function| {
-            transfer_function == ktx2::TransferFunction::SRGB
-        });
+    let is_srgb =
+        data_format_descriptor.header.transfer_function == Some(ktx2::TransferFunction::SRGB);
 
     Ok(match data_format_descriptor.header.color_model {
         Some(ColorModel::RGBSDA) => {
@@ -1601,7 +1599,7 @@ pub fn ktx2_format_to_texture_format(
         },
         ktx2::Format::ASTC_10x8_SFLOAT_BLOCK => TextureFormat::Astc {
             block: AstcBlock::B10x8,
-            channel: AstcChannel::UnormSrgb,
+            channel: AstcChannel::Hdr,
         },
         // ASTC 10x10
         ktx2::Format::ASTC_10x10_UNORM_BLOCK => TextureFormat::Astc {
