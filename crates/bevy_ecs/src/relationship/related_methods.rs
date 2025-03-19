@@ -55,7 +55,7 @@ impl<'w> EntityWorldMut<'w> {
         }
         self
     }
-  
+
     /// Relates the given entity to this with the relation `R`.
     ///
     /// See [`add_related`](Self::add_related) if you want to relate more than one entity.
