@@ -1,12 +1,15 @@
 use crate::{
     bundle::Bundle,
     entity::Entity,
+    prelude::DetectChangesMut,
     relationship::{Relationship, RelationshipTarget},
     system::{Commands, EntityCommands},
     world::{EntityWorldMut, World},
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
+
+use super::OrderedRelationshipSourceCollection;
 
 impl<'w> EntityWorldMut<'w> {
     /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
@@ -29,6 +32,24 @@ impl<'w> EntityWorldMut<'w> {
                 world.entity_mut(*related).insert(R::from(id));
             }
         });
+        self
+    }
+
+    /// Relates the given entities to this entity with the relation `R`, starting at this particular index.
+    /// See [`OrderedRelationshipSourceCollection::place`] for details on behavior.
+    pub fn insert_related<R: Relationship>(&mut self, index: usize, related: &[Entity]) -> &mut Self
+    where
+        <R::RelationshipTarget as RelationshipTarget>::Collection:
+            OrderedRelationshipSourceCollection,
+    {
+        self.add_related::<R>(related);
+        if let Some(mut target) = self.get_mut::<R::RelationshipTarget>() {
+            // We aren't really changing this, just polishing up the first change.
+            let target = target.bypass_change_detection();
+
+            let source = target.collection_mut_risky();
+            source.place(index, related);
+        }
         self
     }
 

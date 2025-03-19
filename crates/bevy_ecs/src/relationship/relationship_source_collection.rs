@@ -23,7 +23,8 @@ pub trait RelationshipSourceCollection {
     fn add(&mut self, entity: Entity);
 
     /// Removes the given `entity` from the collection.
-    fn remove(&mut self, entity: Entity);
+    /// Returns true if and only if it was present.
+    fn remove(&mut self, entity: Entity) -> bool;
 
     /// Iterates all entities in the collection.
     fn iter(&self) -> Self::SourceIter<'_>;
@@ -56,6 +57,33 @@ pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
     fn sort(&mut self);
     /// Inserts the entity at the proper place to maintain sorting.
     fn insert_sorted(&mut self, entity: Entity);
+
+    /// Places the `contents` at the given `start` index.
+    /// This does not add these entities if they do not exist.
+    ///
+    /// If the entities contain duplicates, the indices will be respected,
+    /// with each entity landing at the index corresponding to its last entry in `contents`.
+    /// In the event that any indices extend beyond the length of the collection,
+    /// they will be "squezzed" into the proper size.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::relationship::OrderedRelationshipSourceCollection;
+    /// use bevy_ecs::prelude::Entity;
+    ///
+    /// let mut relationship_source = vec![Entity::from_raw(0), Entity::from_raw(1), Entity::from_raw(2), Entity::from_raw(3), Entity::from_raw(4)];
+    /// relationship_source.place(1, &[Entity::from_raw(2), Entity::from_raw(3), Entity::from_raw(4), Entity::from_raw(4), Entity::from_raw(4)]);
+    /// assert_eq!(&relationship_source, &[Entity::from_raw(0), Entity::from_raw(2), Entity::from_raw(3), Entity::from_raw(1), Entity::from_raw(4)]);
+    /// ```
+    fn place(&mut self, start: usize, contents: &[Entity]) {
+        for (offset, entity) in contents.iter().enumerate() {
+            let index = start + offset;
+            if self.remove(*entity) {
+                self.insert_stable(index, *entity);
+            }
+        }
+    }
 
     /// Adds the entity at index 0.
     fn push_front(&mut self, entity: Entity) {
@@ -93,9 +121,12 @@ impl RelationshipSourceCollection for Vec<Entity> {
         Vec::push(self, entity);
     }
 
-    fn remove(&mut self, entity: Entity) {
+    fn remove(&mut self, entity: Entity) -> bool {
         if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
             Vec::remove(self, index);
+            true
+        } else {
+            false
         }
     }
 
@@ -131,7 +162,11 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
     }
 
     fn insert_stable(&mut self, index: usize, entity: Entity) {
-        Vec::insert(self, index, entity);
+        if index < self.len() {
+            Vec::insert(self, index, entity);
+        } else {
+            self.push(entity);
+        }
     }
 
     fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
@@ -150,10 +185,10 @@ impl RelationshipSourceCollection for EntityHashSet {
         self.insert(entity);
     }
 
-    fn remove(&mut self, entity: Entity) {
+    fn remove(&mut self, entity: Entity) -> bool {
         // We need to call the remove method on the underlying hash set,
         // which takes its argument by reference
-        self.0.remove(&entity);
+        self.0.remove(&entity)
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
@@ -176,9 +211,12 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
         SmallVec::push(self, entity);
     }
 
-    fn remove(&mut self, entity: Entity) {
+    fn remove(&mut self, entity: Entity) -> bool {
         if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
             SmallVec::remove(self, index);
+            true
+        } else {
+            false
         }
     }
 
@@ -214,7 +252,11 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
     }
 
     fn insert_stable(&mut self, index: usize, entity: Entity) {
-        SmallVec::<[Entity; N]>::insert(self, index, entity);
+        if index < self.len() {
+            SmallVec::<[Entity; N]>::insert(self, index, entity);
+        } else {
+            self.push(entity);
+        }
     }
 
     fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {

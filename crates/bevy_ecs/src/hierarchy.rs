@@ -187,29 +187,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Insert children at specific index
     pub fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
-        let parent = self.id();
-        if children.contains(&parent) {
-            panic!("Cannot insert entity as a child of itself.");
-        }
-        if let Some(mut children_component) = self.get_mut::<Children>() {
-            children_component
-                .0
-                .retain(|value| !children.contains(value));
-            if index >= children_component.len() {
-                panic!(
-                    "Index {} out of bounds! There are only {} children!",
-                    index,
-                    children.len()
-                );
-            }
-            children_component.0.reserve(children.len());
-            let mut v = children_component.0.split_off(index);
-            children_component.0.extend_from_slice(children);
-            children_component.0.append(&mut v);
-        } else {
-            self.insert(Children(children.to_vec()));
-        }
-        self
+        self.insert_related::<ChildOf>(index, children)
     }
 
     /// Adds the given child to this entity
