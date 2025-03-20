@@ -1,21 +1,15 @@
-use alloc::{borrow::ToOwned, collections::VecDeque, vec::Vec};
+use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, vec::Vec};
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_ptr::{Ptr, PtrMut};
 use bumpalo::Bump;
 use core::any::TypeId;
 
-#[cfg(feature = "bevy_reflect")]
-use alloc::boxed::Box;
-
-use crate::component::{ComponentCloneBehavior, ComponentCloneFn};
-use crate::entity::hash_map::EntityHashMap;
-use crate::entity::{Entities, EntityMapper};
-use crate::relationship::RelationshipHookMode;
 use crate::{
     bundle::Bundle,
-    component::{Component, ComponentId, ComponentInfo},
-    entity::Entity,
+    component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
+    entity::{hash_map::EntityHashMap, Entities, Entity, EntityMapper},
     query::DebugCheckedUnwrap,
+    relationship::RelationshipHookMode,
     world::World,
 };
 
