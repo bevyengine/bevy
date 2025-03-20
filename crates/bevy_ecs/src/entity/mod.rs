@@ -632,6 +632,10 @@ impl Drop for PortableEntities<'_> {
             if downgraded.strong_count() == 0 {
                 break;
             }
+
+            // We should be able to break *really* soon, so we don't yield.
+            // But this should be more friendly to the cpu.
+            core::hint::spin_loop();
         }
     }
 }
