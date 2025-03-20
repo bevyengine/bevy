@@ -983,6 +983,30 @@ impl SparseSetIndex for ComponentId {
     }
 }
 
+/// Represents the name of a component.
+#[derive(Clone)]
+pub struct ComponentName(Arc<ComponentDescriptor>);
+
+impl Deref for ComponentName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.name()
+    }
+}
+
+impl Debug for ComponentName {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.0.name())
+    }
+}
+
+impl core::fmt::Display for ComponentName {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.0.name())
+    }
+}
+
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
 #[derive(Clone)]
 pub struct ComponentDescriptor {
@@ -1983,13 +2007,49 @@ impl Components {
         self.components.get(id.0).and_then(|info| info.as_ref())
     }
 
-    /// Returns the name associated with the given component, if it is registered.
-    /// This will return `None` if the id is not regiserted or is queued.
+    /// Gets the [`ComponentDescriptor`] of the component with this [`ComponentId`] if it is present.
+    /// This will return `None` only if the id is neither regisered nor queued to be registered.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
-    pub fn get_name(&self, id: ComponentId) -> Option<&str> {
-        self.get_info(id).map(ComponentInfo::name)
+    pub fn get_descriptor(&self, id: ComponentId) -> Option<Arc<ComponentDescriptor>> {
+        self.components
+            .get(id.0)
+            .and_then(|info| info.as_ref().map(|info| info.descriptor.clone()))
+            .or_else(|| {
+                let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
+                // first check components
+                queued
+                    .components
+                    .values()
+                    .find(|queued| queued.id == id)
+                    .map(|queued| queued.descriptor.clone())
+                    .or_else(|| {
+                        // otherwise check resources
+                        queued
+                            .resources
+                            .values()
+                            .find(|queued| queued.id == id)
+                            .map(|queued| queued.descriptor.clone())
+                    })
+                    .or_else(|| {
+                        // otherwise check dynamic
+                        queued
+                            .dynamic_registrations
+                            .iter()
+                            .find(|queued| queued.id == id)
+                            .map(|queued| queued.descriptor.clone())
+                    })
+            })
+    }
+
+    /// Gets the [`ComponentName`] of the component with this [`ComponentId`] if it is present.
+    /// This will return `None` only if the id is neither regisered nor queued to be registered.
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
+    #[inline]
+    pub fn get_name(&self, id: ComponentId) -> Option<ComponentName> {
+        self.get_descriptor(id).map(ComponentName)
     }
 
     /// Gets the metadata associated with the given component.
@@ -2896,13 +2956,13 @@ pub fn enforce_no_required_components_recursion(
                 "Recursive required components detected: {}\nhelp: {}",
                 recursion_check_stack
                     .iter()
-                    .map(|id| format!("{}", ShortName(components.get_name(*id).unwrap())))
+                    .map(|id| format!("{}", ShortName(&components.get_name(*id).unwrap())))
                     .collect::<Vec<_>>()
                     .join(" → "),
                 if direct_recursion {
                     format!(
                         "Remove require({}).",
-                        ShortName(components.get_name(requiree).unwrap())
+                        ShortName(&components.get_name(requiree).unwrap())
                     )
                 } else {
                     "If this is intentional, consider merging the components.".into()
