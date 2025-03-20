@@ -129,7 +129,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
             .build()
             .expect("Failed to build event loop");
 
-        WINIT_WINDOWS.set(Some(WinitWindows::from_world(app.world_mut())));
+        WINIT_WINDOWS.set(Some(WinitWindows::default()));
         app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
             .add_event::<RawWinitWindowEvent>()
