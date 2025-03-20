@@ -8,6 +8,14 @@ To do this, we write and ship a [migration guide](https://bevyengine.org/learn/m
 To avoid a crunch at the end of the cycle as we *write* all of these,
 Bevy asks authors (and reviewers) to write a draft migration guide as part of the pull requests that make breaking changes.
 
+## Where to put your migration guides
+
+Each major Bevy version (e.g. 0.12, or 2.0) will get its own migration guide.
+The draft migration guides are organized into a folder of the same name inside of `bevyengine/bevy/working-migration-guides`.
+
+When we publish our first release candidate for a cycle, these notes are moved from `bevyengine/bevy`, and into `bevyengine/bevy-website`,
+where they will receive a final editing pass.
+
 ## What to put in your draft migration guide
 
 A `template.md` file is provided in `bevyengine/bevy/working-migration-guides`: copy-paste that to get started!
@@ -23,14 +31,6 @@ Editing is easy; we just want to have an expert's view on the questions above.
 
 When writing migration guides, prefer terse, technical language, and be sure to include terms that users might search for.
 Migration guides are not read end-to-end: instead, they are navigated via Ctrl+F as the reader follows the compiler errors and bugs.
-
-## Where to put your migration guides
-
-Each major Bevy version (e.g. 0.12, or 2.0) will get its own migration guide.
-The draft migration guides are organized into a folder of the same name inside of `bevyengine/bevy/working-migration-guides`.
-
-When we publish our first release candidate for a cycle, these notes are moved from `bevyengine/bevy`, and into `bevyengine/bevy-website`,
-where they will receive a final editing pass.
 
 ## Grouping changes into migration guides
 

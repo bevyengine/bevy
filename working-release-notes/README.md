@@ -8,6 +8,14 @@ For the most part, this is done via our [famously in-depth release notes](https:
 To avoid a crunch at the end of the cycle as we *write* all of these,
 Bevy asks authors (and reviewers) to write draft release notes as part of the pull requests to add high-impact features.
 
+## Where to put your release notes
+
+Each major Bevy version (e.g. 0.12, or 2.0) will get its own set of release notes.
+The draft release notes are organized into a folder of the same name inside of `bevyengine/bevy/working-release-notes`.
+
+When we publish our first release candidate for a cycle, these notes are moved from `bevyengine/bevy`, and into `bevyengine/bevy-website`,
+where they will receive a final editing pass and any multimedia.
+
 ## What to put in your draft release notes
 
 A `template.md` file is provided in `bevyengine/bevy/working-release-notes`: copy-paste that to get started!
@@ -25,14 +33,6 @@ Images and videos are lovely: shiny screenshots of rendering features, diagrams,
 However, **do not put multimedia content in this folder**.
 We want to avoid bloating the git repo for `bevyengine/bevy`, which can cause problems for contributors (and GitHub).
 Instead, drop them in your PR description and we'll collect them as we're finalizing the release notes.
-
-## Where to put your release notes
-
-Each major Bevy version (e.g. 0.12, or 2.0) will get its own set of release notes.
-The draft release notes are organized into a folder of the same name inside of `bevyengine/bevy/working-release-notes`.
-
-When we publish our first release candidate for a cycle, these notes are moved from `bevyengine/bevy`, and into `bevyengine/bevy-website`,
-where they will receive a final editing pass and any multimedia.
 
 ## Grouping content into release notes
 
