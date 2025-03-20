@@ -528,6 +528,43 @@ pub struct PortableEntities<'a> {
     security: Arc<EntitiesPtr>,
 }
 
+impl<'a> PortableEntities<'a> {
+    /// Constructs a [`RemoteEntitiesReserver`] that can be shared between threads.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the returned value is only use when either `self` is in scope,
+    /// or the returned [`RemoteEntitiesReserver`] is on a thread which has no active reference to the source [`&Entities`].
+    /// If this safety is broken, a deadlock may occor.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let world = World::new();
+    /// let entities = world.entities().portable();
+    /// let remote = entities.get_remote();
+    ///
+    /// // drop(entities); This would violate safety and cause a deadlock.
+    ///
+    /// let reserved = remote.reserve_entity();
+    /// ```
+    pub unsafe fn get_remote(&self) -> RemoteEntitiesReserver {
+        RemoteEntitiesReserver {
+            source: self.entities.remote.clone(),
+            current: Vec::new(),
+            entities: Arc::downgrade(&self.security),
+            batch_size: RemoteEntitiesReserver::DEFAULT_BATCH_SIZE,
+        }
+    }
+
+    /// Drops this value for the inner [`Entities`].
+    pub fn into_inner(self) -> &'a Entities {
+        self.entities
+    }
+}
+
 impl core::ops::Deref for PortableEntities<'_> {
     type Target = Entities;
 
@@ -579,6 +616,9 @@ pub struct RemoteEntitiesReserver {
 }
 
 impl RemoteEntitiesReserver {
+    /// Corresponds to the default value of [`batch_size`](Self::batch_size)
+    pub const DEFAULT_BATCH_SIZE: NonZero<u32> = NonZero::new(16).unwrap();
+
     /// Reserves an entity remotely.
     pub fn reserve_entity(&mut self) -> Result<Entity, RemoteReservationError> {
         if let Some(reserved) = self.current.pop() {
@@ -718,6 +758,19 @@ impl RemoteEntitiesSource {
             do_fulfill(self, entities);
         }
     }
+
+    fn new() -> Self {
+        Self {
+            generation: AtomicU32::new(0),
+            request_more: ConcurrentQueue::unbounded(),
+            reserved: ConcurrentQueue::unbounded(),
+        }
+    }
+
+    fn close(&self) {
+        self.reserved.close();
+        self.request_more.close();
+    }
 }
 
 /// A [`World`]'s internal metadata store on all of its entities.
@@ -783,11 +836,15 @@ impl Entities {
             meta: Vec::new(),
             pending: Vec::new(),
             free_cursor: AtomicIdCursor::new(0),
-            remote: Arc::new(RemoteEntitiesSource {
-                generation: AtomicU32::new(0),
-                request_more: ConcurrentQueue::unbounded(),
-                reserved: ConcurrentQueue::unbounded(),
-            }),
+            remote: Arc::new(RemoteEntitiesSource::new()),
+        }
+    }
+
+    /// Constructs a new [`PortableEntities`] for this instance.
+    pub fn portable(&self) -> PortableEntities {
+        PortableEntities {
+            entities: self,
+            security: Arc::new(EntitiesPtr(self)),
         }
     }
 
@@ -1032,6 +1089,8 @@ impl Entities {
         self.meta.clear();
         self.pending.clear();
         *self.free_cursor.get_mut() = 0;
+        self.remote.close();
+        self.remote = Arc::new(RemoteEntitiesSource::new());
     }
 
     /// Returns the location of an [`Entity`].
