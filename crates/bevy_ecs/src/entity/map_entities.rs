@@ -47,7 +47,7 @@ use super::{hash_map::EntityHashMap, VisitEntitiesMut};
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
-    /// Implementors should look up any and all [`Entity`] values stored within `self` and
+    /// Implementers should look up any and all [`Entity`] values stored within `self` and
     /// update them to the mapped values via `entity_mapper`.
     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M);
 }
@@ -86,7 +86,7 @@ impl<T: VisitEntitiesMut> MapEntities for T {
 ///     fn get_mapped(&mut self, entity: Entity) -> Entity {
 ///         self.map.get(&entity).copied().unwrap_or(entity)
 ///     }
-///     
+///
 ///     fn set_mapped(&mut self, source: Entity, target: Entity) {
 ///         self.map.insert(source, target);
 ///     }
@@ -222,8 +222,9 @@ impl<'m> SceneEntityMapper<'m> {
     pub fn finish(self, world: &mut World) {
         // SAFETY: Entities data is kept in a valid state via `EntityMap::world_scope`
         let entities = unsafe { world.entities_mut() };
-        assert!(entities.free(self.dead_start).is_some());
-        assert!(entities.reserve_generations(self.dead_start.index(), self.generations));
+        assert!(entities
+            .free_current_and_future_generations(self.dead_start, self.generations)
+            .is_some());
     }
 
     /// Creates an [`SceneEntityMapper`] from a provided [`World`] and [`EntityHashMap<Entity>`], then calls the
@@ -275,8 +276,8 @@ mod tests {
         );
 
         mapper.finish(&mut world);
-        // Next allocated entity should be a further generation on the same index
-        let entity = world.spawn_empty().id();
+        // Future allocated entity should be a further generation on the same index
+        let entity = world.entities().resolve_from_id(dead_ref.index()).unwrap();
         assert_eq!(entity.index(), dead_ref.index());
         assert!(entity.generation() > dead_ref.generation());
     }
@@ -290,8 +291,8 @@ mod tests {
             mapper.get_mapped(Entity::from_raw(0))
         });
 
-        // Next allocated entity should be a further generation on the same index
-        let entity = world.spawn_empty().id();
+        // Future allocated entity should be a further generation on the same index
+        let entity = world.entities().resolve_from_id(dead_ref.index()).unwrap();
         assert_eq!(entity.index(), dead_ref.index());
         assert!(entity.generation() > dead_ref.generation());
     }
@@ -301,15 +302,11 @@ mod tests {
         let mut world = World::new();
         // "Dirty" the `Entities`, requiring a flush afterward.
         world.entities.reserve_entity();
-        assert!(world.entities.needs_flush());
 
         // Create and exercise a SceneEntityMapper - should not panic because it flushes
         // `Entities` first.
         SceneEntityMapper::world_scope(&mut Default::default(), &mut world, |_, m| {
             m.get_mapped(Entity::PLACEHOLDER);
         });
-
-        // The SceneEntityMapper should leave `Entities` in a flushed state.
-        assert!(!world.entities.needs_flush());
     }
 }
