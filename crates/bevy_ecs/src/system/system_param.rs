@@ -2590,6 +2590,9 @@ pub enum SystemParamValidationError {
     /// A run condition failed to validate a parameter.
     #[error("Run condition failed to validate parameter")]
     RunCondition,
+    /// An observer failed to validate a parameter.
+    #[error("Observer failed to validate parameter")]
+    Observer,
 }
 
 #[cfg(test)]
