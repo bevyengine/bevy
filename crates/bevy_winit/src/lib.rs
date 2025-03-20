@@ -24,7 +24,7 @@ use winit::{event_loop::EventLoop, window::WindowId};
 
 use bevy_a11y::AccessibilityRequested;
 use bevy_app::{App, Last, Plugin};
-use bevy_ecs::{prelude::*, system::NonSendMarker};
+use bevy_ecs::prelude::*;
 use bevy_window::{exit_on_all_closed, Window, WindowCreated};
 use system::{changed_windows, check_keyboard_focus_lost, despawn_windows};
 pub use system::{create_monitors, create_windows};
@@ -208,7 +208,6 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
     ResMut<'w, WinitActionRequestHandlers>,
     Res<'w, AccessibilityRequested>,
     Res<'w, WinitMonitors>,
-    NonSendMarker,
 );
 
 /// The parameters of the [`create_monitors`] system.

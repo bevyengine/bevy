@@ -55,7 +55,6 @@ pub fn create_windows<F: QueryFilter + 'static>(
         mut handlers,
         accessibility_requested,
         monitors,
-        _marker,
     ): SystemParamItem<CreateWindowParams<F>>,
 ) {
     WINIT_WINDOWS.with_borrow_mut(|ww_ref| {
