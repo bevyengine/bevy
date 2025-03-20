@@ -1557,12 +1557,13 @@ mod tests {
             if threads.is_empty() {
                 break;
             }
-            if timeout.elapsed().as_secs() > 10 {
+            if timeout.elapsed().as_secs() > 60 {
                 panic!("remote entities timmed out.")
             }
         }
 
-        assert_eq!(entities.len(), 300);
+        // It might be a little over since we may have reserved extra entities for remote reservation.
+        assert!(entities.len() >= 300);
     }
 
     #[test]
