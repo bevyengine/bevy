@@ -37,7 +37,7 @@ pub enum GltfAssetLabel {
     Node(usize),
     /// `Mesh{}`: glTF Mesh as a [`GltfMesh`](crate::GltfMesh)
     Mesh(usize),
-    /// `Mesh{}/Primitive{}`: glTF Primitive as a Bevy [`Mesh`](bevy_render::mesh::Mesh)
+    /// `Mesh{}/Primitive{}`: glTF Primitive as a Bevy [`Mesh`](bevy_mesh::Mesh)
     Primitive {
         /// Index of the mesh for this primitive
         mesh: usize,
@@ -70,7 +70,7 @@ pub enum GltfAssetLabel {
     /// `Skin{}`: glTF mesh skin as [`GltfSkin`](crate::GltfSkin)
     Skin(usize),
     /// `Skin{}/InverseBindMatrices`: glTF mesh skin matrices as Bevy
-    /// [`SkinnedMeshInverseBindposes`](bevy_render::mesh::skinning::SkinnedMeshInverseBindposes)
+    /// [`SkinnedMeshInverseBindposes`](bevy_mesh::skinning::SkinnedMeshInverseBindposes)
     InverseBindMatrices(usize),
 }
 

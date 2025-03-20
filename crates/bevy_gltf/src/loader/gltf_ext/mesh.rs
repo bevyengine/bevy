@@ -1,4 +1,4 @@
-use bevy_render::mesh::PrimitiveTopology;
+use bevy_mesh::PrimitiveTopology;
 
 use gltf::mesh::{Mesh, Mode, Primitive};
 
