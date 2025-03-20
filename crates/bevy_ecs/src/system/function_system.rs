@@ -231,7 +231,10 @@ impl ParamWarnPolicy {
 }
 
 /// Trait for manipulating warn policy of systems.
-#[doc(hidden)]
+///
+/// By default, the fallback behavior of a system with invalid parameters is to panic,
+/// although that can be configured globally via the [`GLOBAL_ERROR_HANDLER`](bevy_ecs::error::GLOBAL_ERROR_HANDLER).,
+/// found in [`bevy_ecs::error`].
 pub trait WithParamWarnPolicy<M, F>
 where
     M: 'static,

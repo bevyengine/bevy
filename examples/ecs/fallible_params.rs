@@ -6,6 +6,9 @@
 //! - [`Single<D, F>`] - There must be exactly one matching entity.
 //! - [`Option<Single<D, F>>`] - There must be zero or one matching entity.
 //! - [`Populated<D, F>`] - There must be at least one matching entity.
+//!
+//! To set the fallback behavior for when a parameter fails to be fetched,
+//! please see the `error_handling.rs` example.
 
 use bevy::prelude::*;
 use rand::Rng;
@@ -20,8 +23,11 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        // Default system policy is to panic if parameters fail to be fetched.
-        // We overwrite that configuration, to either warn us once or never.
+        // By default, if a parameter fail to be fetched,
+        // the `GLOBAL_ERROR_HANDLER` will be used to handle the error,
+        // which by default is set to panic.
+        //
+        // However, we can overwrite that configuration, to either warn us once or never.
         // This is good for catching unexpected behavior without crashing the app,
         // but can lead to spam.
         .add_systems(
