@@ -251,8 +251,8 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     ) {
         self.window_event_received = true;
 
-        WINIT_WINDOWS.with_borrow_mut(|ww_ref| {
-            let winit_windows = ww_ref.as_mut().expect("Failed to initialize winit windows");
+        WINIT_WINDOWS.with_borrow(|ww_ref| {
+            let winit_windows = ww_ref.as_ref().expect("Failed to initialize winit windows");
             ACCESS_KIT_ADAPTERS.with_borrow_mut(|aka_ref| {
                 let access_kit_adapters = aka_ref
                     .as_mut()
