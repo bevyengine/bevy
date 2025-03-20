@@ -11,8 +11,8 @@ use crate::{
     },
     change_detection::MaybeLocation,
     component::{
-        Component, ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor,
-        RequiredComponents, StorageType, Tick,
+        Component, ComponentId, Components, ComponentsQueuedRegistrator, ComponentsRegistrator,
+        RequiredComponentConstructor, RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
@@ -154,7 +154,10 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId));
 
     /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
-    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
+    fn get_component_ids(
+        components: ComponentsQueuedRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    );
 
     /// Registers components that are required by the components in this [`Bundle`].
     fn register_required_components(
@@ -241,8 +244,11 @@ unsafe impl<C: Component> Bundle for C {
         );
     }
 
-    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
-        ids(components.get_id(TypeId::of::<C>()));
+    fn get_component_ids(
+        components: ComponentsQueuedRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    ) {
+        ids(components.queue_register_component::<C>());
     }
 }
 
@@ -292,7 +298,10 @@ macro_rules! tuple_impl {
                 $(<$name as Bundle>::component_ids(components, ids);)*
             }
 
-            fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
+            fn get_component_ids(
+                components: ComponentsQueuedRegistrator,
+                ids: &mut impl FnMut(ComponentId),
+            ){
                 $(<$name as Bundle>::get_component_ids(components, ids);)*
             }
 

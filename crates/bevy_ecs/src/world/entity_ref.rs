@@ -6,8 +6,8 @@ use crate::{
     },
     change_detection::{MaybeLocation, MutUntyped},
     component::{
-        Component, ComponentId, ComponentTicks, Components, ComponentsRegistrator, Mutable,
-        StorageType,
+        Component, ComponentId, ComponentTicks, Components, ComponentsQueuedRegistrator,
+        ComponentsRegistrator, Mutable, StorageType,
     },
     entity::{
         Entities, Entity, EntityBorrow, EntityCloner, EntityClonerBuilder, EntityLocation,
@@ -3388,11 +3388,9 @@ impl<'a, B: Bundle> From<&'a EntityRefExcept<'_, B>> for FilteredEntityRef<'a> {
         unsafe {
             let mut access = Access::default();
             access.read_all();
-            let components = value.entity.world().components();
-            B::get_component_ids(components, &mut |maybe_id| {
-                if let Some(id) = maybe_id {
-                    access.remove_component_read(id);
-                }
+            let components = value.entity.world().components_queue();
+            B::get_component_ids(components, &mut |id| {
+                access.remove_component_read(id);
             });
             FilteredEntityRef::new(value.entity, access)
         }
@@ -3731,11 +3729,9 @@ impl<'a, B: Bundle> From<&'a EntityMutExcept<'_, B>> for FilteredEntityMut<'a> {
         unsafe {
             let mut access = Access::default();
             access.write_all();
-            let components = value.entity.world().components();
-            B::get_component_ids(components, &mut |maybe_id| {
-                if let Some(id) = maybe_id {
-                    access.remove_component_read(id);
-                }
+            let components = value.entity.world().components_queue();
+            B::get_component_ids(components, &mut |id| {
+                access.remove_component_read(id);
             });
             FilteredEntityMut::new(value.entity, access)
         }
@@ -3832,8 +3828,8 @@ where
     where
         C: Component,
     {
-        let components = self.entity.world().components();
-        let id = components.component_id::<C>()?;
+        let components = self.entity.world().components_queue();
+        let id = components.queue_register_component::<C>();
         if bundle_contains_component::<B>(components, id) {
             None
         } else {
@@ -3852,8 +3848,8 @@ where
     where
         C: Component,
     {
-        let components = self.entity.world().components();
-        let id = components.component_id::<C>()?;
+        let components = self.entity.world().components_queue();
+        let id = components.queue_register_component::<C>();
         if bundle_contains_component::<B>(components, id) {
             None
         } else {
@@ -3878,7 +3874,7 @@ where
     /// which is only valid while the [`EntityRefExcept`] is alive.
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
-        let components = self.entity.world().components();
+        let components = self.entity.world().components_queue();
         (!bundle_contains_component::<B>(components, component_id))
             .then(|| {
                 // SAFETY: We have read access for this component
@@ -3928,8 +3924,8 @@ where
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        let component_id = self.entity.world().components().get_id(TypeId::of::<T>())?;
-        let components = self.entity.world().components();
+        let components = self.entity.world().components_queue();
+        let component_id = components.queue_register_component::<T>();
         (!bundle_contains_component::<B>(components, component_id))
             .then(|| {
                 // SAFETY: We have read access
@@ -3946,7 +3942,7 @@ where
     /// compile time.**
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
-        let components = self.entity.world().components();
+        let components = self.entity.world().components_queue();
         (!bundle_contains_component::<B>(components, component_id))
             .then(|| {
                 // SAFETY: We have read access
@@ -4096,8 +4092,8 @@ where
     where
         C: Component<Mutability = Mutable>,
     {
-        let components = self.entity.world().components();
-        let id = components.component_id::<C>()?;
+        let components = self.entity.world().components_queue();
+        let id = components.queue_register_component::<C>();
         if bundle_contains_component::<B>(components, id) {
             None
         } else {
@@ -4175,7 +4171,7 @@ where
         &mut self,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
-        let components = self.entity.world().components();
+        let components = self.entity.world().components_queue();
         (!bundle_contains_component::<B>(components, component_id))
             .then(|| {
                 // SAFETY: We have write access
@@ -4222,15 +4218,16 @@ impl<B: Bundle> EntityBorrow for EntityMutExcept<'_, B> {
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
 unsafe impl<B: Bundle> TrustedEntityBorrow for EntityMutExcept<'_, B> {}
 
-fn bundle_contains_component<B>(components: &Components, query_id: ComponentId) -> bool
+fn bundle_contains_component<B>(
+    components: ComponentsQueuedRegistrator,
+    query_id: ComponentId,
+) -> bool
 where
     B: Bundle,
 {
     let mut found = false;
-    B::get_component_ids(components, &mut |maybe_id| {
-        if let Some(id) = maybe_id {
-            found = found || id == query_id;
-        }
+    B::get_component_ids(components, &mut |id| {
+        found |= id == query_id;
     });
     found
 }

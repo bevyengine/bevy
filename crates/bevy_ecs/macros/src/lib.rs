@@ -141,8 +141,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
 
             fn get_component_ids(
-                components: &#ecs_path::component::Components,
-                ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
+                components: #ecs_path::component::ComponentsQueuedRegistrator,
+                ids: &mut impl FnMut(#ecs_path::component::ComponentId)
             ){
                 #(#field_get_component_ids)*
             }

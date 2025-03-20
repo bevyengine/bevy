@@ -1294,6 +1294,7 @@ impl ComponentIds {
 ///
 /// As a rule of thumb, if you have mutable access to [`ComponentsRegistrator`], prefer to use that instead.
 /// Use this only if you need to know the id of a component but do not need to modify the contents of the world based on that id.
+#[derive(Clone, Copy)]
 pub struct ComponentsQueuedRegistrator<'w> {
     components: &'w Components,
     ids: &'w ComponentIds,
@@ -1388,6 +1389,8 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// This will reserve an id and queue the registration.
     /// These registrations will be carried out at the next opportunity.
     ///
+    /// If this is already registered or queued to be registered, this will return its existing id.
+    ///
     /// # Note
     ///
     /// Technically speaking, the returned [`ComponentId`] is not valid, but it will become valid later.
@@ -1433,6 +1436,8 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// This will reserve an id and queue the registration.
     /// These registrations will be carried out at the next opportunity.
     ///
+    /// If this is already registered or queued to be registered, this will return its existing id.
+    ///
     /// # Note
     ///
     /// Technically speaking, the returned [`ComponentId`] is not valid, but it will become valid later.
@@ -1460,6 +1465,8 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// This is a queued version of [`ComponentsRegistrator::register_non_send`].
     /// This will reserve an id and queue the registration.
     /// These registrations will be carried out at the next opportunity.
+    ///
+    /// If this is already registered or queued to be registered, this will return its existing id.
     ///
     /// # Note
     ///
