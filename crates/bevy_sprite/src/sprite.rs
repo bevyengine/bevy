@@ -1,5 +1,6 @@
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
@@ -241,7 +242,7 @@ pub enum ScalingMode {
 }
 
 /// Normalized (relative to its size) offset of a 2d renderable entity from its [`Transform`].
-#[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Deref, DerefMut, Default, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[doc(alias = "pivot")]
 pub struct Anchor(pub Vec2);
