@@ -189,7 +189,7 @@ use thiserror::Error;
 /// assert_eq!(&C(20), world.entity(id).get::<C>().unwrap());
 /// ```
 ///
-/// for convenience sake, you can abbreviate enum labels or constant values
+/// For convenience sake, you can abbreviate enum labels or constant values, with the type inferred to match that of the component you are requiring:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
