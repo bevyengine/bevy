@@ -486,7 +486,11 @@ impl SparseSetIndex for Entity {
     }
 }
 
-/// An [`Iterator`] returning a sequence of [`Entity`] values from
+/// An [`Iterator`] returning a sequence of [`Entity`] values from [`Entities::reserve_entities`].
+///
+/// # Dropping
+///
+/// When dropped, the remaining entities are still reserved. This is effectively an entity leak.
 pub struct ReserveEntitiesIterator<'a> {
     // Metas, so we can recover the current generation for anything in the freelist.
     meta: &'a [EntityMeta],
@@ -522,7 +526,10 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 
-/// This is a portable version of [`Entities`], allowing use in [`RemoteEntitiesReserver`]
+/// This is a portable version of [`Entities`], allowing use in [`RemoteEntitiesReserver`].
+/// This can be attained via [`Entities::portable`].
+///
+/// See [`get_remote`](Self::get_remote) and [`remote_scope`](Self::get_remote) for examples.
 pub struct PortableEntities<'a> {
     entities: &'a Entities,
     security: Arc<EntitiesPtr>,
@@ -630,6 +637,7 @@ impl Drop for PortableEntities<'_> {
 }
 
 /// This handles reserving entities remotely.
+/// See also [`PortableEntities`].
 pub struct RemoteEntitiesReserver {
     source: Arc<RemoteEntitiesSource>,
     current: Vec<Entity>,
@@ -645,6 +653,8 @@ impl RemoteEntitiesReserver {
     pub const DEFAULT_BATCH_SIZE: NonZero<u32> = NonZero::new(16).unwrap();
 
     /// Reserves an entity remotely.
+    /// These entities may become invalid if this is closed before they are used.
+    /// See [`is_closed`](Self::is_closed) to determine if reserved entities are still valid.
     pub fn reserve_entity(&mut self) -> Result<Entity, RemoteReservationError> {
         if let Some(reserved) = self.current.pop() {
             return Ok(reserved);
@@ -662,6 +672,12 @@ impl RemoteEntitiesReserver {
             // SAFETY: the request is non-zero, so there must have been at least one item in it.
             unsafe { self.current.pop().debug_checked_unwrap() }
         })
+    }
+
+    /// Returns true if and only if this remote entities is closed.
+    /// For example, this can happen if the source [`Entities`] is cleared or dropped.
+    pub fn is_closed(&self) -> bool {
+        self.source.reserved.is_closed()
     }
 
     /// Creates a new [`RemoteEntitiesReserver`] based on this one. This returned reserver will not conflict with this one.
