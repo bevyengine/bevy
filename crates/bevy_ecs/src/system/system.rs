@@ -150,7 +150,7 @@ pub trait System: Send + Sync + 'static {
 
     /// Update the system's archetype component [`Access`].
     ///
-    /// ## Note for implementors
+    /// ## Note for implementers
     /// `world` may only be used to access metadata. This can be done in safe code
     /// via functions such as [`UnsafeWorldCell::archetypes`].
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell);

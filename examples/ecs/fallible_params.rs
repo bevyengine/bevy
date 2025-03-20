@@ -7,13 +7,21 @@
 //! - [`Option<Single<D, F>>`] - There must be zero or one matching entity.
 //! - [`Populated<D, F>`] - There must be at least one matching entity.
 //!
-//! To set the fallback behavior for when a parameter fails to be fetched,
+//! To learn more about setting the fallback behavior for when a parameter fails to be fetched,
 //! please see the `error_handling.rs` example.
 
 use bevy::prelude::*;
+use bevy_ecs::error::{warn, GLOBAL_ERROR_HANDLER};
 use rand::Rng;
 
 fn main() {
+    // By default, if a parameter fail to be fetched,
+    // the `GLOBAL_ERROR_HANDLER` will be used to handle the error,
+    // which by default is set to panic.
+    GLOBAL_ERROR_HANDLER
+        .set(warn)
+        .expect("The error handler can only be set once, globally.");
+
     println!();
     println!("Press 'A' to add enemy ships and 'R' to remove them.");
     println!("Player ship will wait for enemy ships and track one if it exists,");
@@ -23,9 +31,6 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        // By default, if a parameter fail to be fetched,
-        // the `GLOBAL_ERROR_HANDLER` will be used to handle the error,
-        // which by default is set to panic.
         //
         // However, we can overwrite that configuration, to either warn us once or never.
         // This is good for catching unexpected behavior without crashing the app,

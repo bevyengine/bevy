@@ -29,6 +29,7 @@ use core::{
     panic::Location,
 };
 use disqualified::ShortName;
+use thiserror::Error;
 
 use super::Populated;
 use variadics_please::{all_tuples, all_tuples_enumerated};
@@ -234,7 +235,8 @@ pub unsafe trait SystemParam: Sized {
     /// Validates that the param can be acquired by the [`get_param`](SystemParam::get_param).
     ///
     /// Built-in executors use this to prevent systems with invalid params from running,
-    /// and any failures here will be bubbled up to the default error handler defined in [`bevy_ecs::error`].
+    /// and any failures here will be bubbled up to the default error handler defined in [`bevy_ecs::error`],
+    /// with a value of type [`SystemParamValidationError`].
     ///
     /// For nested [`SystemParam`]s validation will fail if any
     /// delegated validation fails.
@@ -2575,6 +2577,20 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         // and the builder registers `access` in `build`.
         unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) }
     }
+}
+
+/// An error that occurs when a system parameter is not valid.
+///
+/// Generated when [`SystemParam::validate_param`] returns `false`,
+/// and handled using the unified error handling mechanisms defined in [`bevy_ecs::error`].
+#[derive(Debug, PartialEq, Eq, Clone, Error)]
+pub enum SystemParamValidationError {
+    /// A system failed to validate a parameter.
+    #[error("System failed to validate parameter")]
+    System,
+    /// A run condition failed to validate a parameter.
+    #[error("Run condition failed to validate parameter")]
+    RunCondition,
 }
 
 #[cfg(test)]
