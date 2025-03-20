@@ -47,7 +47,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Anchor::BOTTOM_LEFT,
                 Anchor::BOTTOM_CENTER,
                 Anchor::BOTTOM_RIGHT,
-                Anchor::Custom(Vec2::new(0.5, 0.5)),
             ]
             .iter()
             .enumerate()
