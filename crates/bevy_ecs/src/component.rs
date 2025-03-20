@@ -1461,8 +1461,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
                         // SAFETY: Id uniqueness handled by caller, and the type_id matches descriptor.
                         #[expect(unused_unsafe, reason = "More precise to specify.")]
                         unsafe {
-                            registrator
-                                .register_resource_unchecked_with(type_id, id, || descriptor);
+                            registrator.register_resource_unchecked(type_id, id, descriptor);
                         }
                     },
                 )
@@ -1492,8 +1491,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
                         // SAFETY: Id uniqueness handled by caller, and the type_id matches descriptor.
                         #[expect(unused_unsafe, reason = "More precise to specify.")]
                         unsafe {
-                            registrator
-                                .register_resource_unchecked_with(type_id, id, || descriptor);
+                            registrator.register_resource_unchecked(type_id, id, descriptor);
                         }
                     },
                 )
@@ -1849,7 +1847,7 @@ impl<'w> ComponentsRegistrator<'w> {
         let id = self.ids.next_mut();
         // SAFETY: The resource is not currently registered, the id is fresh, and the [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
-            self.register_resource_unchecked_with(type_id, id, descriptor);
+            self.register_resource_unchecked(type_id, id, descriptor());
         }
         id
     }
@@ -2404,15 +2402,15 @@ impl Components {
     /// The [`ComponentId`] must be unique.
     /// The [`TypeId`] and [`ComponentId`] must not be registered or queued.
     #[inline]
-    unsafe fn register_resource_unchecked_with(
+    unsafe fn register_resource_unchecked(
         &mut self,
         type_id: TypeId,
         component_id: ComponentId,
-        func: impl FnOnce() -> ComponentDescriptor,
+        descriptor: ComponentDescriptor,
     ) {
         // SAFETY: ensured by caller
         unsafe {
-            self.register_component_inner(component_id, func());
+            self.register_component_inner(component_id, descriptor);
         }
         let prev = self.resource_indices.insert(type_id, component_id);
         debug_assert!(prev.is_none());
