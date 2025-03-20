@@ -229,7 +229,7 @@ mod text {
             ));
             text.with_children(|parent| {
                 parent.spawn((
-                    TextSpan::new(format!("{anchor:?}\n")),
+                    TextSpan::new(format!("{}, {}\n", anchor.x, anchor.y)),
                     TextFont::from_font_size(14.0),
                     TextColor(palettes::tailwind::BLUE_400.into()),
                 ));
