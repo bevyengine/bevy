@@ -100,9 +100,9 @@ use bevy_math::curve::{
     iterable::IterableCurve,
     Curve, Interval,
 };
+use bevy_mesh::morph::MorphWeights;
 use bevy_platform_support::hash::Hashed;
 use bevy_reflect::{FromReflect, Reflect, Reflectable, TypeInfo, Typed};
-use bevy_render::mesh::morph::MorphWeights;
 use downcast_rs::{impl_downcast, Downcast};
 
 /// A value on a component that Bevy can animate.

@@ -373,7 +373,7 @@ impl<T> WideCubicKeyframeCurve<T> {
 /// recommended to use its implementation of the [`IterableCurve`] trait, which allows iterating
 /// directly over information derived from the curve without allocating.
 ///
-/// [`MorphWeights`]: bevy_render::prelude::MorphWeights
+/// [`MorphWeights`]: bevy_mesh::morph::MorphWeights
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Clone)]
 pub enum WeightsCurve {
