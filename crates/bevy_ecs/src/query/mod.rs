@@ -106,7 +106,7 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 mod tests {
     use crate::{
         archetype::Archetype,
-        component::{Component, ComponentId, Components, Tick},
+        component::{Component, ComponentId, Tick},
         prelude::{AnyOf, Changed, Entity, Or, QueryState, Res, ResMut, Resource, With, Without},
         query::{
             ArchetypeFilter, FilteredAccess, Has, QueryCombinationIter, QueryData,
@@ -516,7 +516,7 @@ mod tests {
             b: &'static mut A,
         }
 
-        let mut world = World::new();
+        let world = World::new();
         world.query::<SelfConflicting>();
     }
 
@@ -865,10 +865,6 @@ mod tests {
 
         fn init_state(world: &World) -> Self::State {
             world.components_queue().queue_register_resource::<R>()
-        }
-
-        fn get_state(components: &Components) -> Option<Self::State> {
-            components.resource_id::<R>()
         }
 
         fn matches_component_set(

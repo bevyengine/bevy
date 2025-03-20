@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{ComponentId, Components, Tick},
+    component::{ComponentId, Tick},
     query::FilteredAccess,
     storage::Table,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -117,10 +117,6 @@ pub unsafe trait WorldQuery {
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
     fn init_state(world: &World) -> Self::State;
 
-    /// Attempts to initialize a [`State`](WorldQuery::State) for this [`WorldQuery`] type using read-only
-    /// access to [`Components`].
-    fn get_state(components: &Components) -> Option<Self::State>;
-
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     ///
     /// Used to check which [`Archetype`]s can be skipped by the query
@@ -204,11 +200,9 @@ macro_rules! impl_tuple_world_query {
                 let ($($name,)*) = state;
                 $($name::update_component_access($name, access);)*
             }
+
             fn init_state(world: &World) -> Self::State {
                 ($($name::init_state(world),)*)
-            }
-            fn get_state(components: &Components) -> Option<Self::State> {
-                Some(($($name::get_state(components)?,)*))
             }
 
             fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {

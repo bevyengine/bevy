@@ -1503,7 +1503,7 @@ impl World {
     /// ]);
     /// ```
     #[inline]
-    pub fn query<D: QueryData>(&mut self) -> QueryState<D, ()> {
+    pub fn query<D: QueryData>(&self) -> QueryState<D, ()> {
         self.query_filtered::<D, ()>()
     }
 
@@ -1527,86 +1527,8 @@ impl World {
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
     #[inline]
-    pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> QueryState<D, F> {
+    pub fn query_filtered<D: QueryData, F: QueryFilter>(&self) -> QueryState<D, F> {
         QueryState::new(self)
-    }
-
-    /// Returns [`QueryState`] for the given [`QueryData`], which is used to efficiently
-    /// run queries on the [`World`] by storing and reusing the [`QueryState`].
-    /// ```
-    /// use bevy_ecs::{component::Component, entity::Entity, world::World};
-    ///
-    /// #[derive(Component, Debug, PartialEq)]
-    /// struct Position {
-    ///   x: f32,
-    ///   y: f32,
-    /// }
-    ///
-    /// let mut world = World::new();
-    /// world.spawn_batch(vec![
-    ///     Position { x: 0.0, y: 0.0 },
-    ///     Position { x: 1.0, y: 1.0 },
-    /// ]);
-    ///
-    /// fn get_positions(world: &World) -> Vec<(Entity, &Position)> {
-    ///     let mut query = world.try_query::<(Entity, &Position)>().unwrap();
-    ///     query.iter(world).collect()
-    /// }
-    ///
-    /// let positions = get_positions(&world);
-    ///
-    /// assert_eq!(world.get::<Position>(positions[0].0).unwrap(), positions[0].1);
-    /// assert_eq!(world.get::<Position>(positions[1].0).unwrap(), positions[1].1);
-    /// ```
-    ///
-    /// Requires only an immutable world reference, but may fail if, for example,
-    /// the components that make up this query have not been registered into the world.
-    /// ```
-    /// use bevy_ecs::{component::Component, entity::Entity, world::World};
-    ///
-    /// #[derive(Component)]
-    /// struct A;
-    ///
-    /// let mut world = World::new();
-    ///
-    /// let none_query = world.try_query::<&A>();
-    /// assert!(none_query.is_none());
-    ///
-    /// world.register_component::<A>();
-    ///
-    /// let some_query = world.try_query::<&A>();
-    /// assert!(some_query.is_some());
-    /// ```
-    #[inline]
-    pub fn try_query<D: QueryData>(&self) -> Option<QueryState<D, ()>> {
-        self.try_query_filtered::<D, ()>()
-    }
-
-    /// Returns [`QueryState`] for the given filtered [`QueryData`], which is used to efficiently
-    /// run queries on the [`World`] by storing and reusing the [`QueryState`].
-    /// ```
-    /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
-    ///
-    /// #[derive(Component)]
-    /// struct A;
-    /// #[derive(Component)]
-    /// struct B;
-    ///
-    /// let mut world = World::new();
-    /// let e1 = world.spawn(A).id();
-    /// let e2 = world.spawn((A, B)).id();
-    ///
-    /// let mut query = world.try_query_filtered::<Entity, With<B>>().unwrap();
-    /// let matching_entities = query.iter(&world).collect::<Vec<Entity>>();
-    ///
-    /// assert_eq!(matching_entities, vec![e2]);
-    /// ```
-    ///
-    /// Requires only an immutable world reference, but may fail if, for example,
-    /// the components that make up this query have not been registered into the world.
-    #[inline]
-    pub fn try_query_filtered<D: QueryData, F: QueryFilter>(&self) -> Option<QueryState<D, F>> {
-        QueryState::try_new(self)
     }
 
     /// Returns an iterator of entities that had components of type `T` removed

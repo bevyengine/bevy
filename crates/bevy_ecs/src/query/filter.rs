@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{Component, ComponentId, Components, StorageType, Tick},
+    component::{Component, ComponentId, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -184,10 +184,6 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         world.components_queue().queue_register_component::<T>()
     }
 
-    fn get_state(components: &Components) -> Option<Self::State> {
-        components.component_id::<T>()
-    }
-
     fn matches_component_set(
         &id: &ComponentId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -282,10 +278,6 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
     fn init_state(world: &World) -> ComponentId {
         world.components_queue().queue_register_component::<T>()
-    }
-
-    fn get_state(components: &Components) -> Option<Self::State> {
-        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -462,10 +454,6 @@ macro_rules! impl_or_query_filter {
 
             fn init_state(world: &World) -> Self::State {
                 ($($filter::init_state(world),)*)
-            }
-
-            fn get_state(components: &Components) -> Option<Self::State> {
-                Some(($($filter::get_state(components)?,)*))
             }
 
             fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -731,10 +719,6 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         world.components_queue().queue_register_component::<T>()
     }
 
-    fn get_state(components: &Components) -> Option<ComponentId> {
-        components.component_id::<T>()
-    }
-
     fn matches_component_set(
         &id: &ComponentId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -956,10 +940,6 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
     fn init_state(world: &World) -> ComponentId {
         world.components_queue().queue_register_component::<T>()
-    }
-
-    fn get_state(components: &Components) -> Option<ComponentId> {
-        components.component_id::<T>()
     }
 
     fn matches_component_set(

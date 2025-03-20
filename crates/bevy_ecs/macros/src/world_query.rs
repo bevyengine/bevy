@@ -162,12 +162,6 @@ pub(crate) fn world_query_impl(
                 }
             }
 
-            fn get_state(components: &#path::component::Components) -> Option<#state_struct_name #user_ty_generics> {
-                Some(#state_struct_name {
-                    #(#named_field_idents: <#field_types>::get_state(components)?,)*
-                })
-            }
-
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
                 true #(&& <#field_types>::matches_component_set(&state.#named_field_idents, _set_contains_id))*
             }

@@ -159,20 +159,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
-    pub fn new(world: &mut World) -> Self {
+    pub fn new(world: &World) -> Self {
         let mut state = Self::new_uninitialized(world);
         state.update_archetypes(world);
         state
-    }
-
-    /// Creates a new [`QueryState`] from an immutable [`World`] reference and inherits the result of `world.id()`.
-    ///
-    /// This function may fail if, for example,
-    /// the components that make up this query have not been registered into the world.
-    pub fn try_new(world: &World) -> Option<Self> {
-        let mut state = Self::try_new_uninitialized(world)?;
-        state.update_archetypes(world);
-        Some(state)
     }
 
     /// Identical to `new`, but it populates the provided `access` with the matched results.
@@ -213,24 +203,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// `new_archetype` and its variants must be called on all of the World's archetypes before the
     /// state can return valid query results.
-    fn new_uninitialized(world: &mut World) -> Self {
+    fn new_uninitialized(world: &World) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
         Self::from_states_uninitialized(world, fetch_state, filter_state)
-    }
-
-    /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
-    ///
-    /// `new_archetype` and its variants must be called on all of the World's archetypes before the
-    /// state can return valid query results.
-    fn try_new_uninitialized(world: &World) -> Option<Self> {
-        let fetch_state = D::get_state(world.components())?;
-        let filter_state = F::get_state(world.components())?;
-        Some(Self::from_states_uninitialized(
-            world,
-            fetch_state,
-            filter_state,
-        ))
     }
 
     /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
@@ -750,8 +726,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.validate_world(world.id());
 
         let mut component_access = FilteredAccess::default();
-        let mut fetch_state = NewD::get_state(world.components()).expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
-        let filter_state = NewF::get_state(world.components()).expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
+        let mut fetch_state;
+        let filter_state;
+        unsafe {
+            let world = world.world();
+            fetch_state = NewD::init_state(world);
+            filter_state = NewF::init_state(world);
+        }
 
         fn to_readonly(mut access: FilteredAccess<ComponentId>) -> FilteredAccess<ComponentId> {
             access.access_mut().clear_writes();
@@ -852,10 +833,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.validate_world(world.id());
 
         let mut component_access = FilteredAccess::default();
-        let mut new_fetch_state = NewD::get_state(world.components())
-            .expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
-        let new_filter_state = NewF::get_state(world.components())
-            .expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
+        let mut new_fetch_state;
+        let new_filter_state;
+        unsafe {
+            let world = world.world();
+            new_fetch_state = NewD::init_state(world);
+            new_filter_state = NewF::init_state(world);
+        }
 
         let mut joined_component_access = self.component_access.clone();
         joined_component_access.extend(&other.component_access);
@@ -1773,7 +1757,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// fn my_system(query: Query<&A>) -> Result {
     ///  let a = query.single()?;
-    ///  
+    ///
     ///  // Do something with `a`
     ///  Ok(())
     /// }

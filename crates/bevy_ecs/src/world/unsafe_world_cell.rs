@@ -975,7 +975,7 @@ impl<'w> UnsafeEntityCell<'w> {
         // SAFETY: World is only used to access query data and initialize query state
         let state = unsafe {
             let world = self.world().world();
-            Q::get_state(world.components())?
+            Q::init_state(world)
         };
         let location = self.location();
         // SAFETY: Location is guaranteed to exist
