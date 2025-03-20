@@ -13,7 +13,7 @@ use core::{
     option, result,
 };
 
-use super::{unique_slice::UniqueEntitySlice, Entity};
+use super::{Entity, UniqueEntitySlice};
 
 use bevy_platform_support::sync::Arc;
 

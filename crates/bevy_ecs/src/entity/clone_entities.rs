@@ -8,7 +8,7 @@ use core::any::TypeId;
 use alloc::boxed::Box;
 
 use crate::component::{ComponentCloneBehavior, ComponentCloneFn};
-use crate::entity::hash_map::EntityHashMap;
+use crate::entity::EntityHashMap;
 use crate::entity::{Entities, EntityMapper};
 use crate::relationship::RelationshipHookMode;
 use crate::system::Commands;
@@ -842,7 +842,7 @@ mod tests {
     use super::ComponentCloneCtx;
     use crate::{
         component::{Component, ComponentCloneBehavior, ComponentDescriptor, StorageType},
-        entity::{hash_map::EntityHashMap, Entity, EntityCloner, SourceComponent},
+        entity::{Entity, EntityCloner, EntityHashMap, SourceComponent},
         prelude::{ChildOf, Children, Resource},
         reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
         system::Commands,
