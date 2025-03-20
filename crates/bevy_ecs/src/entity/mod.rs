@@ -551,7 +551,7 @@ impl<'a> PortableEntities<'a> {
     ///
     /// let world = World::new();
     /// let entities = world.entities().portable();
-    /// let remote = unsafe { entities.get_remote() };
+    /// let mut remote = unsafe { entities.get_remote() };
     ///
     /// // drop(entities); // This would violate safety and cause a deadlock.
     ///
@@ -580,7 +580,7 @@ impl<'a> PortableEntities<'a> {
     /// let world = World::new();
     /// let entities = world.entities().portable();
     ///
-    /// let result = unsafe { entities.remote_scope(|remote| {
+    /// let result = unsafe { entities.remote_scope(|mut remote| {
     ///     remote.reserve_entity()
     ///     // remote // Returning `remote` would break safety since it escapes the scope.
     /// }) };
