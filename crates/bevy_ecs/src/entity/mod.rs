@@ -533,15 +533,107 @@ pub struct RemoteEntitiesReserver {
     source: Arc<RemoteEntitiesSource>,
     current: Vec<Entity>,
     entities: Weak<*const Entities>,
-    batch_size: u32,
+    /// This is the number of entities that will be requested at a time.
+    /// Smaller values prevent wasted entities.
+    /// Larger values reduce the average time it takes to reserve an entity.
+    pub batch_size: NonZero<u32>,
 }
 
-struct RemoteEntityRequest(u32);
+#[derive(Debug)]
+struct RemoteEntityRequest(NonZero<u32>);
 
+#[derive(Debug)]
 struct RemoteEntitiesSource {
     generation: AtomicU32,
     request_more: ConcurrentQueue<RemoteEntityRequest>,
     reserved: ConcurrentQueue<Vec<Entity>>,
+}
+
+pub enum RemoteReservationError {
+    Closed,
+}
+
+impl RemoteEntitiesSource {
+    /// Requests another chunk of entities.
+    ///
+    /// # Safety
+    ///
+    /// This is a blocking function, so caller must ensure this thread does not have a live reference to `&Entities`,
+    /// preventing the request from being fulfilled on a different thread.
+    unsafe fn request(
+        &self,
+        request: RemoteEntityRequest,
+    ) -> Result<Vec<Entity>, RemoteReservationError> {
+        match self.reserved.pop() {
+            Ok(reserved) => Ok(reserved),
+            Err(concurrent_queue::PopError::Closed) => Err(RemoteReservationError::Closed),
+            Err(concurrent_queue::PopError::Empty) => {
+                // make a request
+                self.generation.fetch_add(1, Ordering::Relaxed);
+                match self.request_more.push(request) {
+                    Ok(()) => {}
+                    Err(concurrent_queue::PushError::Closed(_)) => {
+                        return Err(RemoteReservationError::Closed);
+                    }
+                    Err(concurrent_queue::PushError::Full(_)) => {
+                        unreachable!("requests can't become full")
+                    }
+                }
+
+                // wait for it to be fulfilled
+                loop {
+                    match self.reserved.pop() {
+                        Ok(reserved) => break Ok(reserved),
+                        Err(concurrent_queue::PopError::Empty) => {
+                            core::hint::spin_loop();
+                        }
+                        Err(concurrent_queue::PopError::Closed) => {
+                            break Err(RemoteReservationError::Closed)
+                        }
+                    }
+
+                    #[cfg(feature = "std")]
+                    match self.reserved.pop() {
+                        Ok(reserved) => break Ok(reserved),
+                        Err(concurrent_queue::PopError::Empty) => {
+                            std::thread::yield_now();
+                        }
+                        Err(concurrent_queue::PopError::Closed) => {
+                            break Err(RemoteReservationError::Closed)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn fulfill(&self, entities: &Entities) {
+        self.generation.store(0, Ordering::Relaxed);
+
+        for request in self.request_more.try_iter() {
+            let reserved = entities.reserve_entities(request.0.get());
+            let mut vec = Vec::new();
+            vec.reserve_exact(request.0.get() as usize);
+            vec.extend(reserved);
+            self.reserved
+                .push(vec)
+                .expect("This never closes, and it can't run out of room.");
+        }
+    }
+
+    #[inline]
+    fn try_fulfill(&self, entities: &Entities) {
+        // we do this to hint to the compiler that the if branch is unlinkely to be taken.
+        #[cold]
+        fn do_fulfill(this: &RemoteEntitiesSource, entities: &Entities) {
+            this.fulfill(entities);
+        }
+
+        if self.generation.load(Ordering::Relaxed) > 0 {
+            // TODO: add core::intrinsics::unlikely once stable
+            do_fulfill(self, entities);
+        }
+    }
 }
 
 /// A [`World`]'s internal metadata store on all of its entities.
@@ -554,6 +646,7 @@ struct RemoteEntitiesSource {
 /// [`World`]: crate::world::World
 #[derive(Debug)]
 pub struct Entities {
+    remote: Arc<RemoteEntitiesSource>,
     meta: Vec<EntityMeta>,
 
     /// The `pending` and `free_cursor` fields describe three sets of Entity IDs
@@ -601,11 +694,16 @@ pub struct Entities {
 }
 
 impl Entities {
-    pub(crate) const fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Entities {
             meta: Vec::new(),
             pending: Vec::new(),
             free_cursor: AtomicIdCursor::new(0),
+            remote: Arc::new(RemoteEntitiesSource {
+                generation: AtomicU32::new(0),
+                request_more: ConcurrentQueue::unbounded(),
+                reserved: ConcurrentQueue::unbounded(),
+            }),
         }
     }
 
@@ -936,6 +1034,9 @@ impl Entities {
     /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
     /// to be initialized with the invalid archetype.
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
+        // this may do extra reservations, so we do it before flushing.
+        self.remote.try_fulfill(self);
+
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
 
