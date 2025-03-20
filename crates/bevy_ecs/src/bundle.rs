@@ -153,7 +153,7 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     #[doc(hidden)]
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId));
 
-    /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
+    /// Gets this [`Bundle`]'s component ids.
     fn get_component_ids(
         components: ComponentsQueuedRegistrator,
         ids: &mut impl FnMut(ComponentId),
