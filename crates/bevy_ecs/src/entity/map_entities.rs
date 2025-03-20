@@ -104,8 +104,7 @@ impl<A: smallvec::Array<Item = Entity>> MapEntities for SmallVec<A> {
 ///
 /// More generally, this can be used to map [`Entity`] references between any two [`Worlds`](World).
 ///
-/// This can be used in tandem with [`Component::visit_entities`](crate::component::Component::visit_entities)
-/// and [`Component::visit_entities_mut`](crate::component::Component::visit_entities_mut) to map a component's entities.
+/// This is used by [`MapEntities`] implementors.
 ///
 /// ## Example
 ///
