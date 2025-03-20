@@ -8,6 +8,7 @@ use crate::{
 
 use alloc::{collections::VecDeque, vec::Vec};
 use bevy_platform_support::collections::HashSet;
+use core::hash::BuildHasher;
 use smallvec::SmallVec;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
@@ -66,12 +67,9 @@ impl MapEntities for Option<Entity> {
     }
 }
 
-impl MapEntities for HashSet<Entity> {
+impl<S: BuildHasher + Default> MapEntities for HashSet<Entity, S> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
-        *self = self
-            .drain()
-            .map(|e| entity_mapper.get_mapped(e))
-            .collect::<HashSet<_>>();
+        *self = self.drain().map(|e| entity_mapper.get_mapped(e)).collect();
     }
 }
 impl MapEntities for Vec<Entity> {
