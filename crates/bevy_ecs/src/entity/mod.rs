@@ -72,6 +72,7 @@ use crate::{
         masks::{IdentifierMask, HIGH_MASK},
         Identifier,
     },
+    query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
@@ -521,22 +522,105 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 
-/// This trait allows reserving entitties.
-/// These entities will be made valid at the next [`Entities::flush`].
-pub trait RentityReserver {
-    /// Reserves one entity.
-    fn reserve_entity(&self) -> Entity;
+/// This is a portable version of [`Entities`], allowing use in [`RemoteEntitiesReserver`]
+pub struct PortableEntities<'a> {
+    entities: &'a Entities,
+    security: Arc<EntitiesPtr>,
+}
+
+impl core::ops::Deref for PortableEntities<'_> {
+    type Target = Entities;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.entities
+    }
+}
+
+struct EntitiesPtr(*const Entities);
+
+// SAFETY: This is only used via [`PortableEntities`] which ensures safety.
+unsafe impl Send for EntitiesPtr {}
+// SAFETY: This is only used via [`PortableEntities`] which ensures safety.
+unsafe impl Sync for EntitiesPtr {}
+
+impl Drop for PortableEntities<'_> {
+    fn drop(&mut self) {
+        // first we get rid of our current arc.
+        let downgraded = Arc::downgrade(&self.security);
+        drop(mem::replace(
+            &mut self.security,
+            Arc::new(EntitiesPtr(core::ptr::null())),
+        ));
+
+        loop {
+            // If we were the only one with the arc, we just break here.
+            // But if someone else is using it, we need to wait for them to drop it.
+            // This isn't another [`PortableEntities`] since we don't clone our arc.
+            // The only thing this could be is a [`RemoteEntitiesReserver::reserve_entity`].
+            // That must be being called on a separate thread if it is still working.
+            // We need to wait to drop until that is done, otherwise, someone could move the [`Entities`], invalidating the pointer.
+            if downgraded.strong_count() == 0 {
+                break;
+            }
+        }
+    }
 }
 
 /// This handles reserving entities remotely.
 pub struct RemoteEntitiesReserver {
     source: Arc<RemoteEntitiesSource>,
     current: Vec<Entity>,
-    entities: Weak<*const Entities>,
+    entities: Weak<EntitiesPtr>,
     /// This is the number of entities that will be requested at a time.
     /// Smaller values prevent wasted entities.
     /// Larger values reduce the average time it takes to reserve an entity.
     pub batch_size: NonZero<u32>,
+}
+
+impl RemoteEntitiesReserver {
+    /// Reserves an entity remotely.
+    pub fn reserve_entity(&mut self) -> Result<Entity, RemoteReservationError> {
+        if let Some(reserved) = self.current.pop() {
+            return Ok(reserved);
+        }
+
+        if let Some(entities) = self.entities.upgrade() {
+            // SAFETY: `PortableEntities` ensures it is the *only* arc before dropping.
+            return unsafe { Ok((*entities.0).reserve_entity()) };
+        }
+
+        // SAFETY: We just checked that our entities has gone out of scope,
+        // so if users of `PortableEntities` uphold their safety contract, safety is assured.
+        unsafe { self.source.request(RemoteEntityRequest(self.batch_size)) }.map(|fulfilled| {
+            self.current = fulfilled;
+            // SAFETY: the request is non-zero, so there must have been at least one item in it.
+            unsafe { self.current.pop().debug_checked_unwrap() }
+        })
+    }
+
+    /// Creates a new [`RemoteEntitiesReserver`] based on this one. This returned reserver will not conflict with this one.
+    ///
+    /// # Safety
+    ///
+    /// The returned reserver must not be used while a `&Entities` is on the thread. This can cause a deadlock.
+    pub unsafe fn new_reserver(&self) -> Self {
+        Self {
+            source: self.source.clone(),
+            current: Vec::new(),
+            entities: self.entities.clone(),
+            batch_size: self.batch_size,
+        }
+    }
+}
+
+impl Drop for RemoteEntitiesReserver {
+    fn drop(&mut self) {
+        if !self.current.is_empty() {
+            // It can't be full, and if it's closed, it doesn't matter.
+            _ = self.source.reserved.push(mem::take(&mut self.current));
+        }
+    }
 }
 
 #[derive(Debug)]
