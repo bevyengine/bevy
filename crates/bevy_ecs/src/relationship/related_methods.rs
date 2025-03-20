@@ -40,23 +40,58 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Relates the given entities to this entity with the relation `R`, starting at this particular index.
     /// Note that this first adds the relation and then rearanges it.
-    /// See [`OrderedRelationshipSourceCollection::place`] for details on behavior.
+    /// See [`OrderedRelationshipSourceCollection::place`] for details on behavior.# Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    /// let e0 = world.spawn_empty().id();
+    /// let e1 = world.spawn_empty().id();
+    /// let e2 = world.spawn_empty().id();
+    /// let e3 = world.spawn_empty().id();
+    /// let e4 = world.spawn_empty().id();
+    ///
+    /// let mut main_entity = world.spawn_empty();
+    /// main_entity.add_related::<ChildOf>(&[e0, e1, e2, e2]);
+    /// main_entity.insert_related::<ChildOf>(1, &[e0, e3, e4, e4]);
+    /// let main_id = main_entity.id();
+    ///
+    /// let relationship_source = main_entity.get::<Children>().unwrap().collection();
+    /// assert_eq!(relationship_source, &[e1, e0, e3, e2, e4]);
+    /// ```
     pub fn insert_related<R: Relationship>(&mut self, index: usize, related: &[Entity]) -> &mut Self
     where
         <R::RelationshipTarget as RelationshipTarget>::Collection:
             OrderedRelationshipSourceCollection,
     {
-        self.add_related::<R>(related);
-        if let Some(mut target) = self.get_mut::<R::RelationshipTarget>() {
-            // We aren't really changing this, just polishing up the first change.
-            let target = target.bypass_change_detection();
+        let id = self.id();
+        self.world_scope(|world| {
+            for (offset, related) in related.iter().enumerate() {
+                let index = index + offset;
+                if world
+                    .get::<R>(*related)
+                    .is_some_and(|relationship| relationship.get() == id)
+                {
+                    world
+                        .get_mut::<R::RelationshipTarget>(id)
+                        .expect("hooks should have added relationship target")
+                        .collection_mut_risky()
+                        .place(*related, index);
+                } else {
+                    world.entity_mut(*related).insert(R::from(id));
+                    world
+                        .get_mut::<R::RelationshipTarget>(id)
+                        .expect("hooks should have added relationship target")
+                        .collection_mut_risky()
+                        .place_most_recent(index);
+                }
+            }
+        });
 
-            let source = target.collection_mut_risky();
-            source.place(index, related);
-        }
-      self
-  }
-      
+        self
+    }
+
     /// Replaces all the related entities with a new set of entities.
     pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         type Collection<R> =

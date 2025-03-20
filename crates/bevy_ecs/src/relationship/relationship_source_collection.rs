@@ -78,32 +78,13 @@ pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
     /// Inserts the entity at the proper place to maintain sorting.
     fn insert_sorted(&mut self, entity: Entity);
 
-    /// Places the `contents` at the given `start` index.
-    /// This does not add these entities if they do not exist.
-    ///
-    /// If the entities contain duplicates, the indices will be respected,
-    /// with each entity landing at the index corresponding to its last entry in `contents`.
-    /// In the event that any indices extend beyond the length of the collection,
-    /// they will be "squezzed" into the proper size.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use bevy_ecs::relationship::OrderedRelationshipSourceCollection;
-    /// use bevy_ecs::prelude::Entity;
-    ///
-    /// let mut relationship_source = vec![Entity::from_raw(0), Entity::from_raw(1), Entity::from_raw(2), Entity::from_raw(3), Entity::from_raw(4)];
-    /// relationship_source.place(1, &[Entity::from_raw(2), Entity::from_raw(3), Entity::from_raw(4), Entity::from_raw(4), Entity::from_raw(4)]);
-    /// assert_eq!(&relationship_source, &[Entity::from_raw(0), Entity::from_raw(2), Entity::from_raw(3), Entity::from_raw(1), Entity::from_raw(4)]);
-    /// ```
-    fn place(&mut self, start: usize, contents: &[Entity]) {
-        for (offset, entity) in contents.iter().enumerate() {
-            let index = start + offset;
-            if self.remove(*entity) {
-                self.insert_stable(index, *entity);
-            }
-        }
-    }
+    /// This places the most recently added entity at the particular index.
+    fn place_most_recent(&mut self, index: usize);
+
+    /// This places the given entity at the particular index.
+    /// This will do nothing if the entity is not in the collection.
+    /// If the index is out of bounds, this will put the entity at the end.
+    fn place(&mut self, entity: Entity, index: usize);
 
     /// Adds the entity at index 0.
     fn push_front(&mut self, entity: Entity) {
@@ -182,15 +163,6 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
         (index < self.len()).then(|| self.swap_remove(index))
     }
 
-    fn sort(&mut self) {
-        self.sort_unstable();
-    }
-
-    fn insert_sorted(&mut self, entity: Entity) {
-        let index = self.partition_point(|e| e <= &entity);
-        self.insert_stable(index, entity);
-    }
-
     fn insert_stable(&mut self, index: usize, entity: Entity) {
         if index < self.len() {
             Vec::insert(self, index, entity);
@@ -201,6 +173,31 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
 
     fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
         (index < self.len()).then(|| self.remove(index))
+    }
+
+    fn sort(&mut self) {
+        self.sort_unstable();
+    }
+
+    fn insert_sorted(&mut self, entity: Entity) {
+        let index = self.partition_point(|e| e <= &entity);
+        self.insert_stable(index, entity);
+    }
+
+    fn place_most_recent(&mut self, index: usize) {
+        if let Some(entity) = self.pop() {
+            let index = index.min(self.len() - 1);
+            self.insert(index, entity);
+        }
+    }
+
+    fn place(&mut self, entity: Entity, index: usize) {
+        if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
+            // The len is at least 1, so the subtraction is safe.
+            let index = index.min(self.len() - 1);
+            Vec::remove(self, current);
+            self.insert(index, entity);
+        };
     }
 }
 
@@ -335,15 +332,6 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
         (index < self.len()).then(|| self.swap_remove(index))
     }
 
-    fn sort(&mut self) {
-        self.sort_unstable();
-    }
-
-    fn insert_sorted(&mut self, entity: Entity) {
-        let index = self.partition_point(|e| e <= &entity);
-        self.insert_stable(index, entity);
-    }
-
     fn insert_stable(&mut self, index: usize, entity: Entity) {
         if index < self.len() {
             SmallVec::<[Entity; N]>::insert(self, index, entity);
@@ -354,6 +342,31 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
 
     fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
         (index < self.len()).then(|| self.remove(index))
+    }
+
+    fn sort(&mut self) {
+        self.sort_unstable();
+    }
+
+    fn insert_sorted(&mut self, entity: Entity) {
+        let index = self.partition_point(|e| e <= &entity);
+        self.insert_stable(index, entity);
+    }
+
+    fn place_most_recent(&mut self, index: usize) {
+        if let Some(entity) = self.pop() {
+            let index = index.min(self.len() - 1);
+            self.insert(index, entity);
+        }
+    }
+
+    fn place(&mut self, entity: Entity, index: usize) {
+        if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
+            // The len is at least 1, so the subtraction is safe.
+            let index = index.min(self.len() - 1);
+            SmallVec::<[Entity; N]>::remove(self, current);
+            self.insert(index, entity);
+        };
     }
 }
 
