@@ -4,7 +4,6 @@
 //! and triggers whenever the handle or the underlying asset changes.
 
 use crate::{AsAssetId, Asset, AssetId};
-use bevy_ecs::component::Components;
 use bevy_ecs::{
     archetype::Archetype,
     component::{ComponentId, Tick},
@@ -174,8 +173,8 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
                 .map(|ptr| ptr.deref::<AssetChanges<A::Asset>>())
         }) else {
             error!(
-                "AssetChanges<{ty}> resource was removed, please do not remove \
-                AssetChanges<{ty}> when using the AssetChanged<{ty}> world query",
+                "AssetChanges<{ty}> is not present, please ensure \
+                AssetChanges<{ty}> is added and not removed when using the AssetChanged<{ty}> world query",
                 ty = ShortName::of::<A>()
             );
 
@@ -231,24 +230,16 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         access.add_resource_read(state.resource_id);
     }
 
-    fn init_state(world: &mut World) -> AssetChangedState<A> {
-        let resource_id = world.init_resource::<AssetChanges<A::Asset>>();
-        let asset_id = world.register_component::<A>();
+    fn init_state(world: &World) -> AssetChangedState<A> {
+        let resource_id = world
+            .components_queue()
+            .queue_register_resource::<AssetChanges<A::Asset>>();
+        let asset_id = world.components_queue().queue_register_component::<A>();
         AssetChangedState {
             asset_id,
             resource_id,
             _asset: PhantomData,
         }
-    }
-
-    fn get_state(components: &Components) -> Option<Self::State> {
-        let resource_id = components.resource_id::<AssetChanges<A::Asset>>()?;
-        let asset_id = components.component_id::<A>()?;
-        Some(AssetChangedState {
-            asset_id,
-            resource_id,
-            _asset: PhantomData,
-        })
     }
 
     fn matches_component_set(
