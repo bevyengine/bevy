@@ -391,7 +391,14 @@ pub(crate) fn changed_windows(
             }
         }
 
-        if window.physical_cursor_position() != cache.window.physical_cursor_position() {
+        if window.cursor_options.grab_mode != cache.window.cursor_options.grab_mode
+            && crate::winit_windows::attempt_grab(winit_window, window.cursor_options.grab_mode)
+                .is_err()
+        {
+            window.cursor_options.grab_mode = cache.window.cursor_options.grab_mode;
+        }
+
+        if window.physical_cursor_position() != cache.window.backend_cursor_position() {
             if let Some(physical_position) = window.physical_cursor_position() {
                 let position = PhysicalPosition::new(physical_position.x, physical_position.y);
 
@@ -399,13 +406,6 @@ pub(crate) fn changed_windows(
                     error!("could not set cursor position: {}", err);
                 }
             }
-        }
-
-        if window.cursor_options.grab_mode != cache.window.cursor_options.grab_mode
-            && crate::winit_windows::attempt_grab(winit_window, window.cursor_options.grab_mode)
-                .is_err()
-        {
-            window.cursor_options.grab_mode = cache.window.cursor_options.grab_mode;
         }
 
         if window.cursor_options.visible != cache.window.cursor_options.visible {

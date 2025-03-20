@@ -588,6 +588,18 @@ impl Window {
             .map(|position| (position.as_dvec2() / self.scale_factor() as f64).as_vec2())
     }
 
+    fn constrain_physical_position(&self, position: DVec2) -> Option<Vec2> {
+        if position.x >= 0.
+            && position.y >= 0.
+            && position.x < self.physical_width() as f64
+            && position.y < self.physical_height() as f64
+        {
+            Some(position.as_vec2())
+        } else {
+            None
+        }
+    }
+
     /// The cursor position in this window in physical pixels.
     ///
     /// Returns `None` if the cursor is outside the window area.
@@ -595,20 +607,19 @@ impl Window {
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
     pub fn physical_cursor_position(&self) -> Option<Vec2> {
-        match self.internal.physical_cursor_position {
-            Some(position) => {
-                if position.x >= 0.
-                    && position.y >= 0.
-                    && position.x < self.physical_width() as f64
-                    && position.y < self.physical_height() as f64
-                {
-                    Some(position.as_vec2())
-                } else {
-                    None
-                }
-            }
-            None => None,
-        }
+        self.internal
+            .physical_cursor_position
+            .and_then(|position| self.constrain_physical_position(position))
+    }
+
+    /// Retrieves the cursor position as reported by the back end.
+    ///
+    /// This can be different to the phyical cursor position on
+    /// the windows platform when `CursorGrabMode::Locked` is set.
+    pub fn backend_cursor_position(&self) -> Option<Vec2> {
+        self.internal
+            .backend_cursor_position
+            .and_then(|position| self.constrain_physical_position(position))
     }
 
     /// Set the cursor position in this window in logical pixels.
@@ -624,6 +635,24 @@ impl Window {
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     pub fn set_physical_cursor_position(&mut self, position: Option<DVec2>) {
         self.internal.physical_cursor_position = position;
+    }
+
+    /// Set the cursor position reported by the backend in physical pixels.
+    ///
+    /// This function is usually only called from the winit event loop.
+    /// If the cursor grab mode is currently `CursorGrabMode::Locked` this will
+    /// prompt the window change system to reapply the current physical position
+    /// to the backend.
+    /// If the cursor grab mode is anything else, this updates both the
+    /// backend position and the physical cursor position.
+    /// Returns true if the backend update is accepted.
+    pub fn set_backend_cursor_position(&mut self, position: Option<DVec2>) -> bool {
+        self.internal.backend_cursor_position = position;
+        let update = self.cursor_options.grab_mode != CursorGrabMode::Locked;
+        if update {
+            self.internal.physical_cursor_position = position;
+        }
+        update
     }
 }
 
@@ -1094,6 +1123,8 @@ pub struct InternalWindowState {
     drag_resize_request: Option<CompassOctant>,
     /// Unscaled cursor position.
     physical_cursor_position: Option<DVec2>,
+    /// Cursor position reported by the backend
+    backend_cursor_position: Option<DVec2>,
 }
 
 impl InternalWindowState {
