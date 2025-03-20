@@ -35,15 +35,15 @@ fn main() {
             (
                 user_input,
                 // This system uses `Populated`, and we want to silently skip it if there are no enemies.
-                move_targets.ignore_param_missing(),
+                move_targets,
                 // This system uses Single, and we want to silently skip it if the player doesn't exist.
-                track_targets.ignore_param_missing(),
+                track_targets,
             )
                 .chain(),
         )
         // This system will always fail validation, because we never create an entity with both `Player` and `Enemy` components.
         // We want to warn exactly once if this system fails.
-        .add_systems(Update, do_nothing_fail_validation.warn_param_missing())
+        .add_systems(Update, do_nothing_fail_validation)
         .run();
 }
 

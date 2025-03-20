@@ -74,7 +74,7 @@ pub mod prelude {
         children,
         component::Component,
         entity::{Entity, EntityBorrow, EntityMapper},
-        error::{BevyError, Result, WithParamWarnPolicy},
+        error::{BevyError, Result},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         name::{Name, NameOrEntity},
