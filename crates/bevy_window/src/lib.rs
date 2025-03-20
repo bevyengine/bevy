@@ -19,11 +19,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
-#[cfg(feature = "std")]
-use std::sync::Mutex;
-
-#[cfg(not(feature = "std"))]
-use spin::mutex::Mutex;
+use bevy_platform_support::sync::Mutex;
 
 mod event;
 mod monitor;
@@ -49,8 +45,9 @@ pub use window::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection, Window,
-        WindowMoved, WindowPlugin, WindowPosition, WindowResizeConstraints,
+        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
+        VideoModeSelection, Window, WindowMoved, WindowPlugin, WindowPosition,
+        WindowResizeConstraints,
     };
 }
 

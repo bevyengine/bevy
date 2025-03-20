@@ -1,6 +1,6 @@
 //! This example illustrates how to load and play an audio file, and control how it's played.
 
-use bevy::{math::ops, prelude::*};
+use bevy::{audio::Volume, math::ops, prelude::*};
 
 fn main() {
     App::new()
@@ -35,7 +35,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 struct MyMusic;
 
 fn update_speed(music_controller: Query<&AudioSink, With<MyMusic>>, time: Res<Time>) {
-    let Ok(sink) = music_controller.get_single() else {
+    let Ok(sink) = music_controller.single() else {
         return;
     };
 
@@ -46,7 +46,7 @@ fn pause(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     music_controller: Query<&AudioSink, With<MyMusic>>,
 ) {
-    let Ok(sink) = music_controller.get_single() else {
+    let Ok(sink) = music_controller.single() else {
         return;
     };
 
@@ -59,7 +59,7 @@ fn mute(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut music_controller: Query<&mut AudioSink, With<MyMusic>>,
 ) {
-    let Ok(mut sink) = music_controller.get_single_mut() else {
+    let Ok(mut sink) = music_controller.single_mut() else {
         return;
     };
 
@@ -72,15 +72,15 @@ fn volume(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut music_controller: Query<&mut AudioSink, With<MyMusic>>,
 ) {
-    let Ok(mut sink) = music_controller.get_single_mut() else {
+    let Ok(mut sink) = music_controller.single_mut() else {
         return;
     };
 
     if keyboard_input.just_pressed(KeyCode::Equal) {
         let current_volume = sink.volume();
-        sink.set_volume(current_volume + 0.1);
+        sink.set_volume(current_volume + Volume::Linear(0.1));
     } else if keyboard_input.just_pressed(KeyCode::Minus) {
         let current_volume = sink.volume();
-        sink.set_volume(current_volume - 0.1);
+        sink.set_volume(current_volume - Volume::Linear(0.1));
     }
 }

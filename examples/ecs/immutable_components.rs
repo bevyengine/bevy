@@ -2,12 +2,14 @@
 
 use bevy::{
     ecs::{
-        component::{ComponentDescriptor, ComponentId, StorageType},
+        component::{
+            ComponentCloneBehavior, ComponentDescriptor, ComponentId, HookContext, StorageType,
+        },
         world::DeferredWorld,
     },
+    platform_support::collections::HashMap,
     prelude::*,
     ptr::OwningPtr,
-    utils::HashMap,
 };
 use core::alloc::Layout;
 
@@ -73,7 +75,7 @@ impl NameIndex {
 ///
 /// Since all mutations to [`Name`] are captured by hooks, we know it is not currently
 /// inserted in the index, and its value will not change without triggering a hook.
-fn on_insert_name(mut world: DeferredWorld<'_>, entity: Entity, _component: ComponentId) {
+fn on_insert_name(mut world: DeferredWorld<'_>, HookContext { entity, .. }: HookContext) {
     let Some(&name) = world.entity(entity).get::<Name>() else {
         unreachable!("OnInsert hook guarantees `Name` is available on entity")
     };
@@ -88,7 +90,7 @@ fn on_insert_name(mut world: DeferredWorld<'_>, entity: Entity, _component: Comp
 ///
 /// Since all mutations to [`Name`] are captured by hooks, we know it is currently
 /// inserted in the index.
-fn on_replace_name(mut world: DeferredWorld<'_>, entity: Entity, _component: ComponentId) {
+fn on_replace_name(mut world: DeferredWorld<'_>, HookContext { entity, .. }: HookContext) {
     let Some(&name) = world.entity(entity).get::<Name>() else {
         unreachable!("OnReplace hook guarantees `Name` is available on entity")
     };
@@ -152,6 +154,7 @@ fn demo_3(world: &mut World) {
                     Layout::array::<u8>(size).unwrap(),
                     None,
                     false,
+                    ComponentCloneBehavior::Default,
                 )
             };
 

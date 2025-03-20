@@ -9,17 +9,19 @@ use core::{
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     query::{Changed, With},
     reflect::ReflectComponent,
     removal_detection::RemovedComponents,
-    schedule::IntoSystemConfigs as _,
-    system::{Query, Res, ResMut, Resource},
+    resource::Resource,
+    schedule::IntoScheduleConfigs as _,
+    system::{Query, Res, ResMut},
 };
 use bevy_math::{vec4, FloatOrd, Vec4};
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{prelude::default, HashMap};
+use bevy_utils::prelude::default;
 use nonmax::NonMaxU16;
 use wgpu::{BufferBindingType, BufferUsages};
 
@@ -112,7 +114,7 @@ impl Plugin for VisibilityRangePlugin {
 /// `start_margin` of the next lower LOD; this is important for the crossfade
 /// effect to function properly.
 #[derive(Component, Clone, PartialEq, Default, Reflect)]
-#[reflect(Component, PartialEq, Hash)]
+#[reflect(Component, PartialEq, Hash, Clone)]
 pub struct VisibilityRange {
     /// The range of distances, in world units, between which this entity will
     /// smoothly fade into view as the camera zooms out.

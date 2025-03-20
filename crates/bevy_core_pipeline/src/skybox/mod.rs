@@ -1,13 +1,16 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::{QueryItem, With},
-    schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    reflect::ReflectComponent,
+    resource::Resource,
+    schedule::IntoScheduleConfigs,
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::{BevyDefault, Image};
 use bevy_math::{Mat4, Quat};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Exposure,
     extract_component::{
@@ -29,7 +32,7 @@ use prepass::{SkyboxPrepassPipeline, SKYBOX_PREPASS_SHADER_HANDLE};
 
 use crate::{core_3d::CORE_3D_DEPTH_FORMAT, prepass::PreviousViewUniforms};
 
-const SKYBOX_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(55594763423201);
+const SKYBOX_SHADER_HANDLE: Handle<Shader> = weak_handle!("a66cf9cc-cab8-47f8-ac32-db82fdc4f29b");
 
 pub mod prepass;
 
@@ -45,7 +48,7 @@ impl Plugin for SkyboxPlugin {
             Shader::from_wgsl
         );
 
-        app.add_plugins((
+        app.register_type::<Skybox>().add_plugins((
             ExtractComponentPlugin::<Skybox>::default(),
             UniformComponentPlugin::<SkyboxUniforms>::default(),
         ));
@@ -86,7 +89,8 @@ impl Plugin for SkyboxPlugin {
 /// To do so, use `EnvironmentMapLight` alongside this component.
 ///
 /// See also <https://en.wikipedia.org/wiki/Skybox_(video_games)>.
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct Skybox {
     pub image: Handle<Image>,
     /// Scale factor applied to the skybox image.

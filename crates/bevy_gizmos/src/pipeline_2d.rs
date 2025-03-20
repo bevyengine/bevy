@@ -9,8 +9,9 @@ use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
 
 use bevy_ecs::{
     prelude::Entity,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
-    system::{Query, Res, ResMut, Resource},
+    resource::Resource,
+    schedule::IntoScheduleConfigs,
+    system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
@@ -340,6 +341,7 @@ fn queue_line_gizmos_2d(
                     sort_key: FloatOrd(f32::INFINITY),
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    extracted_index: usize::MAX,
                     indexed: false,
                 });
             }
@@ -361,6 +363,7 @@ fn queue_line_gizmos_2d(
                     sort_key: FloatOrd(f32::INFINITY),
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    extracted_index: usize::MAX,
                     indexed: false,
                 });
             }
@@ -420,6 +423,7 @@ fn queue_line_joint_gizmos_2d(
                 sort_key: FloatOrd(f32::INFINITY),
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
+                extracted_index: usize::MAX,
                 indexed: false,
             });
         }

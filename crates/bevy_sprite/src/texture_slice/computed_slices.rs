@@ -5,8 +5,9 @@ use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{Rect, Vec2};
+use bevy_platform_support::collections::HashSet;
+use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_transform::prelude::*;
-use bevy_utils::HashSet;
 
 /// Component storing texture slices for tiled or sliced sprite entities
 ///
@@ -24,12 +25,13 @@ impl ComputedTextureSlices {
     /// * `sprite` - The sprite component
     /// * `handle` - The sprite texture handle
     #[must_use]
-    pub(crate) fn extract_sprites<'a>(
+    pub(crate) fn extract_sprites<'a, 'w, 's>(
         &'a self,
+        commands: &'a mut Commands<'w, 's>,
         transform: &'a GlobalTransform,
         original_entity: Entity,
         sprite: &'a Sprite,
-    ) -> impl ExactSizeIterator<Item = ExtractedSprite> + 'a {
+    ) -> impl ExactSizeIterator<Item = ExtractedSprite> + 'a + use<'a, 'w, 's> {
         let mut flip = Vec2::ONE;
         let [mut flip_x, mut flip_y] = [false; 2];
         if sprite.flip_x {
@@ -44,7 +46,8 @@ impl ComputedTextureSlices {
             let offset = (slice.offset * flip).extend(0.0);
             let transform = transform.mul_transform(Transform::from_translation(offset));
             ExtractedSprite {
-                original_entity: Some(original_entity),
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                original_entity,
                 color: sprite.color.into(),
                 transform,
                 rect: Some(slice.texture_rect),
@@ -53,6 +56,7 @@ impl ComputedTextureSlices {
                 flip_y,
                 image_handle_id: sprite.image.id(),
                 anchor: Self::redepend_anchor_from_sprite_to_slice(sprite, slice),
+                scaling_mode: sprite.image_mode.scale(),
             }
         })
     }
@@ -122,6 +126,9 @@ fn compute_sprite_slices(
         }
         SpriteImageMode::Auto => {
             unreachable!("Slices should not be computed for SpriteImageMode::Stretch")
+        }
+        SpriteImageMode::Scale(_) => {
+            unreachable!("Slices should not be computed for SpriteImageMode::Scale")
         }
     };
     Some(ComputedTextureSlices(slices))

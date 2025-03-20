@@ -1,7 +1,7 @@
 use core::ops::DerefMut;
 
 use bevy_ecs::{
-    entity::{EntityHashMap, EntityHashSet},
+    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
     prelude::*,
 };
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
@@ -13,8 +13,8 @@ use bevy_render::{
     mesh::Mesh3d,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
-        InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityClass,
-        VisibilityRange, VisibleEntityRanges,
+        InheritedVisibility, NoFrustumCulling, PreviousVisibleEntities, RenderLayers,
+        ViewVisibility, VisibilityClass, VisibilityRange, VisibleEntityRanges,
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -86,11 +86,13 @@ pub mod light_consts {
         pub const FULL_DAYLIGHT: f32 = 20_000.;
         /// The amount of light (lux) in direct sunlight.
         pub const DIRECT_SUNLIGHT: f32 = 100_000.;
+        /// The amount of light (lux) of raw sunlight, not filtered by the atmosphere.
+        pub const RAW_SUNLIGHT: f32 = 130_000.;
     }
 }
 
 #[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource, Debug, Default)]
+#[reflect(Resource, Debug, Default, Clone)]
 pub struct PointLightShadowMap {
     pub size: usize,
 }
@@ -107,7 +109,7 @@ pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLigh
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
 #[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource, Debug, Default)]
+#[reflect(Resource, Debug, Default, Clone)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
 }
@@ -132,7 +134,7 @@ impl Default for DirectionalLightShadowMap {
 /// }.into();
 /// ```
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct CascadeShadowConfig {
     /// The (positive) distance to the far boundary of each cascade.
     pub bounds: Vec<f32>,
@@ -244,27 +246,25 @@ impl CascadeShadowConfigBuilder {
 
 impl Default for CascadeShadowConfigBuilder {
     fn default() -> Self {
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            // Currently only support one cascade in webgl.
-            Self {
-                num_cascades: 1,
-                minimum_distance: 0.1,
-                maximum_distance: 100.0,
-                first_cascade_far_bound: 5.0,
-                overlap_proportion: 0.2,
-            }
-        } else {
-            Self {
-                num_cascades: 4,
-                minimum_distance: 0.1,
-                maximum_distance: 1000.0,
-                first_cascade_far_bound: 5.0,
-                overlap_proportion: 0.2,
-            }
+        // The defaults are chosen to be similar to be Unity, Unreal, and Godot.
+        // Unity: first cascade far bound = 10.05, maximum distance = 150.0
+        // Unreal Engine 5: maximum distance = 200.0
+        // Godot: first cascade far bound = 10.0, maximum distance = 100.0
+        Self {
+            // Currently only support one cascade in WebGL 2.
+            num_cascades: if cfg!(all(
+                feature = "webgl",
+                target_arch = "wasm32",
+                not(feature = "webgpu")
+            )) {
+                1
+            } else {
+                4
+            },
+            minimum_distance: 0.1,
+            maximum_distance: 150.0,
+            first_cascade_far_bound: 10.0,
+            overlap_proportion: 0.2,
         }
     }
 }
@@ -276,13 +276,14 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Debug, Default)]
+#[reflect(Component, Debug, Default, Clone)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
     pub(crate) cascades: EntityHashMap<Vec<Cascade>>,
 }
 
 #[derive(Clone, Debug, Default, Reflect)]
+#[reflect(Clone, Default)]
 pub struct Cascade {
     /// The transform of the light, i.e. the view to world matrix.
     pub(crate) world_from_cascade: Mat4,
@@ -472,7 +473,7 @@ pub struct TransmittedShadowReceiver;
 /// The different modes use different approaches to
 /// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
 #[derive(Debug, Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub enum ShadowFilteringMethod {
     /// Hardware 2x2.
     ///
@@ -491,8 +492,7 @@ pub enum ShadowFilteringMethod {
     Gaussian,
     /// A randomized filter that varies over time, good when TAA is in use.
     ///
-    /// Good quality when used with
-    /// [`TemporalAntiAliasing`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasing)
+    /// Good quality when used with `TemporalAntiAliasing`
     /// and good performance.
     ///
     /// For directional and spot lights, this uses a [method by Jorge Jimenez for
@@ -814,13 +814,23 @@ pub fn check_dir_light_mesh_visibility(
     // TODO: use resource to avoid unnecessary memory alloc
     let mut defer_queue = core::mem::take(defer_visible_entities_queue.deref_mut());
     commands.queue(move |world: &mut World| {
-        let mut query = world.query::<&mut ViewVisibility>();
-        for entities in defer_queue.iter_mut() {
-            let mut iter = query.iter_many_mut(world, entities.iter());
-            while let Some(mut view_visibility) = iter.fetch_next() {
-                view_visibility.set();
-            }
-        }
+        world.resource_scope::<PreviousVisibleEntities, _>(
+            |world, mut previous_visible_entities| {
+                let mut query = world.query::<(Entity, &mut ViewVisibility)>();
+                for entities in defer_queue.iter_mut() {
+                    let mut iter = query.iter_many_mut(world, entities.iter());
+                    while let Some((entity, mut view_visibility)) = iter.fetch_next() {
+                        if !**view_visibility {
+                            view_visibility.set();
+                        }
+
+                        // Remove any entities that were discovered to be
+                        // visible from the `PreviousVisibleEntities` resource.
+                        previous_visible_entities.remove(&entity);
+                    }
+                }
+            },
+        );
     });
 }
 
@@ -858,6 +868,7 @@ pub fn check_point_light_mesh_visibility(
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
+    mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
     mut cubemap_visible_entities_queue: Local<Parallel<[Vec<Entity>; 6]>>,
     mut spot_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
     mut checked_lights: Local<EntityHashSet>,
@@ -940,12 +951,16 @@ pub fn check_point_light_mesh_visibility(
                                 if has_no_frustum_culling
                                     || frustum.intersects_obb(aabb, &model_to_world, true, true)
                                 {
-                                    view_visibility.set();
+                                    if !**view_visibility {
+                                        view_visibility.set();
+                                    }
                                     visible_entities.push(entity);
                                 }
                             }
                         } else {
-                            view_visibility.set();
+                            if !**view_visibility {
+                                view_visibility.set();
+                            }
                             for visible_entities in cubemap_visible_entities_local_queue.iter_mut()
                             {
                                 visible_entities.push(entity);
@@ -955,10 +970,17 @@ pub fn check_point_light_mesh_visibility(
                 );
 
                 for entities in cubemap_visible_entities_queue.iter_mut() {
-                    cubemap_visible_entities
-                        .iter_mut()
-                        .zip(entities.iter_mut())
-                        .for_each(|(dst, source)| dst.entities.append(source));
+                    for (dst, source) in
+                        cubemap_visible_entities.iter_mut().zip(entities.iter_mut())
+                    {
+                        // Remove any entities that were discovered to be
+                        // visible from the `PreviousVisibleEntities` resource.
+                        for entity in source.iter() {
+                            previous_visible_entities.remove(entity);
+                        }
+
+                        dst.entities.append(source);
+                    }
                 }
 
                 for visible_entities in cubemap_visible_entities.iter_mut() {
@@ -1025,11 +1047,15 @@ pub fn check_point_light_mesh_visibility(
                             if has_no_frustum_culling
                                 || frustum.intersects_obb(aabb, &model_to_world, true, true)
                             {
-                                view_visibility.set();
+                                if !**view_visibility {
+                                    view_visibility.set();
+                                }
                                 spot_visible_entities_local_queue.push(entity);
                             }
                         } else {
-                            view_visibility.set();
+                            if !**view_visibility {
+                                view_visibility.set();
+                            }
                             spot_visible_entities_local_queue.push(entity);
                         }
                     },
@@ -1037,6 +1063,12 @@ pub fn check_point_light_mesh_visibility(
 
                 for entities in spot_visible_entities_queue.iter_mut() {
                     visible_entities.append(entities);
+
+                    // Remove any entities that were discovered to be visible
+                    // from the `PreviousVisibleEntities` resource.
+                    for entity in entities {
+                        previous_visible_entities.remove(entity);
+                    }
                 }
 
                 shrink_entities(visible_entities.deref_mut());

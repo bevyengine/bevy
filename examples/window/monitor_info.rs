@@ -44,7 +44,10 @@ fn update(
             .spawn((
                 Window {
                     title: name.clone(),
-                    mode: WindowMode::Fullscreen(MonitorSelection::Entity(entity)),
+                    mode: WindowMode::Fullscreen(
+                        MonitorSelection::Entity(entity),
+                        VideoModeSelection::Current,
+                    ),
                     position: WindowPosition::Centered(MonitorSelection::Entity(entity)),
                     ..default()
                 },
@@ -73,7 +76,7 @@ fn update(
                 width: Val::Percent(100.0),
                 ..default()
             },
-            TargetCamera(camera),
+            UiTargetCamera(camera),
             MonitorRef(entity),
         ));
     }
@@ -82,7 +85,7 @@ fn update(
     for monitor_entity in monitors_removed.read() {
         for (ref_entity, monitor_ref) in monitor_refs.iter() {
             if monitor_ref.0 == monitor_entity {
-                commands.entity(ref_entity).despawn_recursive();
+                commands.entity(ref_entity).despawn();
             }
         }
     }

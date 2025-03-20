@@ -21,7 +21,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// Additionally, `auto` will be parsed as [`Val::Auto`].
 #[derive(Copy, Clone, Debug, Reflect)]
-#[reflect(Default, PartialEq, Debug)]
+#[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -250,15 +250,14 @@ impl Neg for Val {
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum ValArithmeticError {
-    #[error("the variants of the Vals don't match")]
-    NonIdenticalVariants,
-    #[error("the given variant of Val is not evaluateable (non-numeric)")]
-    NonEvaluateable,
+    #[error("the given variant of Val is not evaluable (non-numeric)")]
+    NonEvaluable,
 }
 
 impl Val {
-    /// Resolves a [`Val`] to its value in logical pixels and returns this as an [`f32`].
-    /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to resolve into a concrete value.
+    /// Resolves a [`Val`] from the given context values and returns this as an [`f32`].
+    /// The [`Val::Px`] value (if present), `parent_size` and `viewport_size` should all be in the same coordinate space.
+    /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
     ///
     /// **Note:** If a [`Val::Px`] is resolved, its inner value is returned unchanged.
     pub fn resolve(self, parent_size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
@@ -269,7 +268,7 @@ impl Val {
             Val::Vh(value) => Ok(viewport_size.y * value / 100.0),
             Val::VMin(value) => Ok(viewport_size.min_element() * value / 100.0),
             Val::VMax(value) => Ok(viewport_size.max_element() * value / 100.0),
-            Val::Auto => Err(ValArithmeticError::NonEvaluateable),
+            Val::Auto => Err(ValArithmeticError::NonEvaluable),
         }
     }
 }
@@ -318,7 +317,7 @@ impl Val {
 /// };
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Default, PartialEq, Debug)]
+#[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -336,19 +335,9 @@ pub struct UiRect {
 }
 
 impl UiRect {
-    pub const DEFAULT: Self = Self {
-        left: Val::ZERO,
-        right: Val::ZERO,
-        top: Val::ZERO,
-        bottom: Val::ZERO,
-    };
-
-    pub const ZERO: Self = Self {
-        left: Val::ZERO,
-        right: Val::ZERO,
-        top: Val::ZERO,
-        bottom: Val::ZERO,
-    };
+    pub const DEFAULT: Self = Self::all(Val::ZERO);
+    pub const ZERO: Self = Self::all(Val::ZERO);
+    pub const AUTO: Self = Self::all(Val::Auto);
 
     /// Creates a new [`UiRect`] from the values specified.
     ///
@@ -743,23 +732,19 @@ mod tests {
     }
 
     #[test]
-    fn val_auto_is_non_resolveable() {
+    fn val_auto_is_non_evaluable() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
         let resolve_auto = Val::Auto.resolve(size, viewport_size);
 
-        assert_eq!(resolve_auto, Err(ValArithmeticError::NonEvaluateable));
+        assert_eq!(resolve_auto, Err(ValArithmeticError::NonEvaluable));
     }
 
     #[test]
     fn val_arithmetic_error_messages() {
         assert_eq!(
-            format!("{}", ValArithmeticError::NonIdenticalVariants),
-            "the variants of the Vals don't match"
-        );
-        assert_eq!(
-            format!("{}", ValArithmeticError::NonEvaluateable),
-            "the given variant of Val is not evaluateable (non-numeric)"
+            format!("{}", ValArithmeticError::NonEvaluable),
+            "the given variant of Val is not evaluable (non-numeric)"
         );
     }
 
@@ -824,15 +809,7 @@ mod tests {
 
     #[test]
     fn uirect_default_equals_const_default() {
-        assert_eq!(
-            UiRect::default(),
-            UiRect {
-                left: Val::ZERO,
-                right: Val::ZERO,
-                top: Val::ZERO,
-                bottom: Val::ZERO
-            }
-        );
+        assert_eq!(UiRect::default(), UiRect::all(Val::ZERO));
         assert_eq!(UiRect::default(), UiRect::DEFAULT);
     }
 
