@@ -33,12 +33,16 @@ fn main() {
         .add_systems(
             Update,
             (
-                user_input.warn_param_missing(),
+                user_input,
+                // This system uses `Populated`, and we want to silently skip it if there are no enemies.
                 move_targets.ignore_param_missing(),
-                move_pointer.ignore_param_missing(),
+                // This system uses Single, and we want to silently skip it if the player doesn't exist.
+                track_targets.ignore_param_missing(),
             )
                 .chain(),
         )
+        // This system will always fail validation, because we never create an entity with both `Player` and `Enemy` components.
+        // We want to warn exactly once if this system fails.
         .add_systems(Update, do_nothing_fail_validation.warn_param_missing())
         .run();
 }
@@ -127,11 +131,11 @@ fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<
     }
 }
 
-/// System that moves the player.
+/// System that moves the player, causing them to track a single enemy.
 /// The player will search for enemies if there are none.
 /// If there is one, player will track it.
 /// If there are too many enemies, the player will cease all action (the system will not run).
-fn move_pointer(
+fn track_targets(
     // `Single` ensures the system runs ONLY when exactly one matching entity exists.
     mut player: Single<(&mut Transform, &Player)>,
     // `Option<Single>` ensures that the system runs ONLY when zero or one matching entity exists.
@@ -153,7 +157,7 @@ fn move_pointer(
             player_transform.translation += front * velocity;
         }
     } else {
-        // No enemy found, keep searching.
+        // 0 or multiple enemies found, keep searching.
         player_transform.rotate_axis(Dir3::Z, player.rotation_speed * time.delta_secs());
     }
 }
