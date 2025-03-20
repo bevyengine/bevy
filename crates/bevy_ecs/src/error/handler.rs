@@ -85,7 +85,7 @@ impl ErrorContext {
 /// To use this error handler in your app for custom error handling logic:
 ///
 /// ```rust
-/// use bevy_ecs::error::{GLOBAL_ERROR_HANDLER, BevyError, ErrorContext, panic};
+/// use bevy_ecs::error::{default_error_handler, GLOBAL_ERROR_HANDLER, BevyError, ErrorContext, panic};
 ///
 /// fn handle_errors(error: BevyError, ctx: ErrorContext) {
 ///    let error_handler = default_error_handler();
