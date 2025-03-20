@@ -279,7 +279,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     }
 
     /// Queues a deferred clone operation, which will run with exclusive [`World`] access immediately after calling the clone_handler for each component on an entity.
-    /// This exists, despite its similiarity to [`Commands`](crate::system::Commands), to provide access to the entity mapper in the current context.
+    /// This exists, despite its similarity to [`Commands`](crate::system::Commands), to provide access to the entity mapper in the current context.
     pub fn queue_deferred(
         &mut self,
         deferred: impl FnOnce(&mut World, &mut dyn EntityMapper) + 'static,
