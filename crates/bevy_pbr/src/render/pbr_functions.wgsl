@@ -278,6 +278,120 @@ fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) ->
 }
 
 #ifndef PREPASS_FRAGMENT
+fn compute_pbr_lighting(
+    in: pbr_types::PbrInput,
+) -> pbr_types::ComputedPbrLight {
+    let emissive = in.material.emissive;
+
+    var computed_light = pbr_types::computed_pbr_light_new();
+
+    return computed_light;
+}
+
+fn compute_direct_light(
+    in: pbr_types::PbrInput,
+    clusterable_object_index_ranges: clustering::ClusterableObjectIndexRanges,
+    lighting_input: ptr<function, lighting::LightingInput>,
+    view_z: f32,
+) -> vec3<f32> {
+    var direct_light: vec3<f32> = vec3(0.);
+
+    // Point lights (direct)
+    for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
+            i < clusterable_object_index_ranges.first_spot_light_index_offset;
+            i = i + 1u) {
+        let light_id = clustering::get_clusterable_object_id(i);
+
+        // If we're lightmapped, disable diffuse contribution from the light if
+        // requested, to avoid double-counting light.
+#ifdef LIGHTMAP
+        let enable_diffuse =
+            (view_bindings::clusterable_objects.data[light_id].flags &
+                mesh_view_types::POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT) != 0u;
+#else   // LIGHTMAP
+        let enable_diffuse = true;
+#endif  // LIGHTMAP
+
+        var shadow: f32 = 1.0;
+        if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+            shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal);
+        }
+
+        let light_contrib = lighting::point_light(light_id, lighting_input, enable_diffuse);
+        direct_light += light_contrib * shadow;
+    }
+
+    // Spot lights (direct)
+    for (var i: u32 = clusterable_object_index_ranges.first_spot_light_index_offset;
+            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
+            i = i + 1u) {
+        let light_id = clustering::get_clusterable_object_id(i);
+
+        // If we're lightmapped, disable diffuse contribution from the light if
+        // requested, to avoid double-counting light.
+#ifdef LIGHTMAP
+        let enable_diffuse =
+            (view_bindings::clusterable_objects.data[light_id].flags &
+                mesh_view_types::POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT) != 0u;
+#else   // LIGHTMAP
+        let enable_diffuse = true;
+#endif  // LIGHTMAP
+
+        var shadow: f32 = 1.0;
+        if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (view_bindings::clusterable_objects.data[light_id].flags &
+                    mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+            shadow = shadows::fetch_spot_shadow(
+                light_id,
+                in.world_position,
+                in.world_normal,
+                view_bindings::clusterable_objects.data[light_id].shadow_map_near_z,
+            );
+        }
+
+        let light_contrib = lighting::spot_light(light_id, lighting_input, enable_diffuse);
+        direct_light += light_contrib * shadow;
+    }
+
+    // directional lights (direct)
+    let n_directional_lights = view_bindings::lights.n_directional_lights;
+    for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
+        // check if this light should be skipped, which occurs if this light does not intersect with the view
+        // note point and spot lights aren't skippable, as the relevant lights are filtered in `assign_lights_to_clusters`
+        let light = &view_bindings::lights.directional_lights[i];
+        if (*light).skip != 0u {
+            continue;
+        }
+
+        // If we're lightmapped, disable diffuse contribution from the light if
+        // requested, to avoid double-counting light.
+#ifdef LIGHTMAP
+        let enable_diffuse =
+            ((*light).flags &
+                mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT) !=
+                0u;
+#else   // LIGHTMAP
+        let enable_diffuse = true;
+#endif  // LIGHTMAP
+
+        var shadow: f32 = 1.0;
+        if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+            shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
+        }
+
+        var light_contrib = lighting::directional_light(i, lighting_input, enable_diffuse);
+
+#ifdef DIRECTIONAL_LIGHT_SHADOW_MAP_DEBUG_CASCADES
+        light_contrib = shadows::cascade_debug_visualization(light_contrib, i, view_z);
+#endif
+        direct_light += light_contrib * shadow;
+    }
+
+    return direct_light;
+}
+
 fn apply_pbr_lighting(
     in: pbr_types::PbrInput,
 ) -> vec4<f32> {
@@ -330,8 +444,6 @@ fn apply_pbr_lighting(
 
     let F0 = calculate_F0(output_color.rgb, metallic, reflectance);
     let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
-
-    var direct_light: vec3<f32> = vec3<f32>(0.0);
 
     // Transmitted Light (Specular and Diffuse)
     var transmitted_light: vec3<f32> = vec3<f32>(0.0);
@@ -400,6 +512,8 @@ fn apply_pbr_lighting(
     var clusterable_object_index_ranges =
         clustering::unpack_clusterable_object_index_ranges(cluster_index);
 
+    let direct_light: vec3<f32> = compute_direct_light(in, clusterable_object_index_ranges, &lighting_input, view_z);
+
     // Point lights (direct)
     for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
             i < clusterable_object_index_ranges.first_spot_light_index_offset;
@@ -423,7 +537,7 @@ fn apply_pbr_lighting(
         }
 
         let light_contrib = lighting::point_light(light_id, &lighting_input, enable_diffuse);
-        direct_light += light_contrib * shadow;
+        // direct_light += light_contrib * shadow;
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
         // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
@@ -476,7 +590,7 @@ fn apply_pbr_lighting(
         }
 
         let light_contrib = lighting::spot_light(light_id, &lighting_input, enable_diffuse);
-        direct_light += light_contrib * shadow;
+        // direct_light += light_contrib * shadow;
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
         // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
@@ -537,7 +651,7 @@ fn apply_pbr_lighting(
 #ifdef DIRECTIONAL_LIGHT_SHADOW_MAP_DEBUG_CASCADES
         light_contrib = shadows::cascade_debug_visualization(light_contrib, i, view_z);
 #endif
-        direct_light += light_contrib * shadow;
+        // direct_light += light_contrib * shadow;
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
         // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated

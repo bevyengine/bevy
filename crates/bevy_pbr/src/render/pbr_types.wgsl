@@ -151,3 +151,14 @@ fn pbr_input_new() -> PbrInput {
 
     return pbr_input;
 }
+
+struct ComputedPbrLight {
+    emissive_light: vec4<f32>,
+    direct_light: vec4<f32>,
+    indirect_light: vec4<f32>,
+    transmitted_light: vec4<f32>,
+}
+
+fn computed_pbr_light_new() -> ComputedPbrLight {
+    return ComputedPbrLight(vec4(0.), vec4(0.), vec4(0.), vec4(0.));
+}
