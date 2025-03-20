@@ -355,7 +355,7 @@ unsafe impl WorldQuery for Entity {
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
 
-    fn init_state(_world: &mut World) {}
+    fn init_state(_world: &World) {}
 
     fn get_state(_components: &Components) -> Option<()> {
         Some(())
@@ -432,7 +432,7 @@ unsafe impl WorldQuery for EntityLocation {
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
 
-    fn init_state(_world: &mut World) {}
+    fn init_state(_world: &World) {}
 
     fn get_state(_components: &Components) -> Option<()> {
         Some(())
@@ -514,7 +514,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
         access.read_all_components();
     }
 
-    fn init_state(_world: &mut World) {}
+    fn init_state(_world: &World) {}
 
     fn get_state(_components: &Components) -> Option<()> {
         Some(())
@@ -595,7 +595,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
         access.write_all_components();
     }
 
-    fn init_state(_world: &mut World) {}
+    fn init_state(_world: &World) {}
 
     fn get_state(_components: &Components) -> Option<()> {
         Some(())
@@ -686,7 +686,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
         filtered_access.access.extend(&state.access);
     }
 
-    fn init_state(_world: &mut World) -> Self::State {
+    fn init_state(_world: &World) -> Self::State {
         FilteredAccess::default()
     }
 
@@ -781,7 +781,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
         filtered_access.access.extend(&state.access);
     }
 
-    fn init_state(_world: &mut World) -> Self::State {
+    fn init_state(_world: &World) -> Self::State {
         FilteredAccess::default()
     }
 
@@ -874,18 +874,16 @@ where
         access.extend(&my_access);
     }
 
-    fn init_state(world: &mut World) -> Self::State {
-        Self::get_state(world.components()).unwrap()
+    fn init_state(world: &World) -> Self::State {
+        let mut ids = SmallVec::new();
+        B::get_component_ids(world.components_queue(), &mut |id| {
+            ids.push(id);
+        });
+        ids
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
-        let mut ids = SmallVec::new();
-        B::get_component_ids(components, &mut |maybe_id| {
-            if let Some(id) = maybe_id {
-                ids.push(id);
-            }
-        });
-        Some(ids)
+        todo!()
     }
 
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
@@ -974,18 +972,16 @@ where
         access.extend(&my_access);
     }
 
-    fn init_state(world: &mut World) -> Self::State {
-        Self::get_state(world.components()).unwrap()
+    fn init_state(world: &World) -> Self::State {
+        let mut ids = SmallVec::new();
+        B::get_component_ids(world.components_queue(), &mut |id| {
+            ids.push(id);
+        });
+        ids
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
-        let mut ids = SmallVec::new();
-        B::get_component_ids(components, &mut |maybe_id| {
-            if let Some(id) = maybe_id {
-                ids.push(id);
-            }
-        });
-        Some(ids)
+        todo!()
     }
 
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
@@ -1056,7 +1052,7 @@ unsafe impl WorldQuery for &Archetype {
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
 
-    fn init_state(_world: &mut World) {}
+    fn init_state(_world: &World) {}
 
     fn get_state(_components: &Components) -> Option<()> {
         Some(())
@@ -1199,8 +1195,8 @@ unsafe impl<T: Component> WorldQuery for &T {
         access.add_component_read(component_id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
-        world.register_component::<T>()
+    fn init_state(world: &World) -> ComponentId {
+        world.components_queue().queue_register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -1371,8 +1367,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         access.add_component_read(component_id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
-        world.register_component::<T>()
+    fn init_state(world: &World) -> ComponentId {
+        world.components_queue().queue_register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -1566,8 +1562,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         access.add_component_write(component_id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
-        world.register_component::<T>()
+    fn init_state(world: &World) -> ComponentId {
+        world.components_queue().queue_register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -1707,7 +1703,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     }
 
     // Forwarded to `&mut T`
-    fn init_state(world: &mut World) -> ComponentId {
+    fn init_state(world: &World) -> ComponentId {
         <&mut T as WorldQuery>::init_state(world)
     }
 
@@ -1837,7 +1833,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         access.extend_access(&intermediate);
     }
 
-    fn init_state(world: &mut World) -> T::State {
+    fn init_state(world: &World) -> T::State {
         T::init_state(world)
     }
 
@@ -2000,8 +1996,8 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         access.access_mut().add_archetypal(component_id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
-        world.register_component::<T>()
+    fn init_state(world: &World) -> ComponentId {
+        world.components_queue().queue_register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -2199,7 +2195,7 @@ macro_rules! impl_anytuple_fetch {
                 <($(Option<$name>,)*)>::update_component_access(state, access);
 
             }
-            fn init_state(world: &mut World) -> Self::State {
+            fn init_state(world: &World) -> Self::State {
                 ($($name::init_state(world),)*)
             }
             fn get_state(components: &Components) -> Option<Self::State> {
@@ -2318,7 +2314,7 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
 
     fn update_component_access(_state: &D::State, _access: &mut FilteredAccess<ComponentId>) {}
 
-    fn init_state(world: &mut World) -> Self::State {
+    fn init_state(world: &World) -> Self::State {
         D::init_state(world)
     }
 
@@ -2390,7 +2386,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
 
-    fn init_state(_world: &mut World) -> Self::State {}
+    fn init_state(_world: &World) -> Self::State {}
 
     fn get_state(_components: &Components) -> Option<Self::State> {
         Some(())

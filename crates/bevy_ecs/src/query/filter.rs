@@ -93,7 +93,7 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
     /// ones that are compatible with the Filter's access.
     ///
-    /// Implementors of this method will generally either have a trivial `true` body (required for archetypal filters),
+    /// Implementers of this method will generally either have a trivial `true` body (required for archetypal filters),
     /// or access the necessary data within this function to make the final decision on filter inclusion.
     ///
     /// # Safety
@@ -180,8 +180,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         access.and_with(id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
-        world.register_component::<T>()
+    fn init_state(world: &World) -> ComponentId {
+        world.components_queue().queue_register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -280,8 +280,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         access.and_without(id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
-        world.register_component::<T>()
+    fn init_state(world: &World) -> ComponentId {
+        world.components_queue().queue_register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -460,7 +460,7 @@ macro_rules! impl_or_query_filter {
                 *access = new_access;
             }
 
-            fn init_state(world: &mut World) -> Self::State {
+            fn init_state(world: &World) -> Self::State {
                 ($($filter::init_state(world),)*)
             }
 
@@ -727,8 +727,8 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         access.add_component_read(id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
-        world.register_component::<T>()
+    fn init_state(world: &World) -> ComponentId {
+        world.components_queue().queue_register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<ComponentId> {
@@ -954,8 +954,8 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         access.add_component_read(id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
-        world.register_component::<T>()
+    fn init_state(world: &World) -> ComponentId {
+        world.components_queue().queue_register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<ComponentId> {
