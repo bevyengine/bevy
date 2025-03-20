@@ -1512,6 +1512,60 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
+    fn remote_reservation() {
+        let mut entities = Entities::new();
+
+        let portable = entities.portable();
+        // SAFETY: `remote` does not escape scope.
+        let thread_1 = unsafe {
+            portable.remote_scope(|mut remote| {
+                std::thread::spawn(move || {
+                    for _ in 0..100 {
+                        remote.reserve_entity().unwrap();
+                    }
+                })
+            })
+        };
+        // SAFETY: `remote` does not escape scope.
+        let thread_2 = unsafe {
+            portable.remote_scope(|mut remote| {
+                std::thread::spawn(move || {
+                    for _ in 0..100 {
+                        remote.reserve_entity().unwrap();
+                    }
+                })
+            })
+        };
+        // SAFETY: `remote` does not escape scope.
+        let thread_3 = unsafe {
+            portable.remote_scope(|mut remote| {
+                std::thread::spawn(move || {
+                    for _ in 0..100 {
+                        remote.reserve_entity().unwrap();
+                    }
+                })
+            })
+        };
+        drop(portable);
+        let mut threads = alloc::vec![thread_1, thread_2, thread_3];
+
+        let timeout = std::time::Instant::now();
+        loop {
+            threads.retain(|thread| !thread.is_finished());
+            entities.flush_as_invalid();
+            if threads.is_empty() {
+                break;
+            }
+            if timeout.elapsed().as_secs() > 10 {
+                panic!("remote entities timmed out.")
+            }
+        }
+
+        assert_eq!(entities.len(), 300);
+    }
+
+    #[test]
     fn reserve_generations() {
         let mut entities = Entities::new();
         let entity = entities.alloc();
