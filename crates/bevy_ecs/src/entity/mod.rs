@@ -541,7 +541,7 @@ impl<'a> PortableEntities<'a> {
     /// # Safety
     ///
     /// The caller must ensure that the returned value is only used when either `self` is in scope,
-    /// or the returned [`RemoteEntitiesReserver`] is on a thread which has no active reference to the source [`&Entities`].
+    /// or the returned [`RemoteEntitiesReserver`] is on a thread which has no active reference to the source &[`Entities`].
     /// If this safety is broken, a deadlock may occor.
     ///
     /// # Example
