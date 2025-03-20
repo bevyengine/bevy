@@ -11,7 +11,6 @@ use crate::component::{ComponentCloneBehavior, ComponentCloneFn};
 use crate::entity::hash_map::EntityHashMap;
 use crate::entity::{Entities, EntityMapper};
 use crate::relationship::RelationshipHookMode;
-use crate::system::Commands;
 use crate::{
     bundle::Bundle,
     component::{Component, ComponentId, ComponentInfo},
@@ -279,7 +278,8 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         self.entity_cloner.clone_queue.push_back(entity);
     }
 
-    /// Queues a deferred clone operation, which will run with exclusive [`World`] access immediately after normal clones for this entity finish.
+    /// Queues a deferred clone operation, which will run with exclusive [`World`] access immediately after calling the clone_handler for each component on an entity.
+    /// This exists, despite its similiarity to [`Commands`](crate::system::Commands), to provide access to the entity mapper in the current context.
     pub fn queue_deferred(
         &mut self,
         deferred: impl FnOnce(&mut World, &mut dyn EntityMapper) + 'static,
@@ -485,10 +485,6 @@ impl EntityCloner {
 
             let archetype = source_entity.archetype();
             bundle_scratch = BundleScratch::with_capacity(archetype.component_count());
-            // SAFETY: no other references to command queue exist
-            let mut commands = unsafe {
-                Commands::new_raw_from_entities(world.get_raw_command_queue(), world.entities())
-            };
 
             for component in archetype.components() {
                 if !self.is_cloning_allowed(&component) {
@@ -536,7 +532,7 @@ impl EntityCloner {
                     )
                 };
 
-                (handler)(&mut commands, &source_component, &mut ctx);
+                (handler)(&source_component, &mut ctx);
             }
         }
 
@@ -857,7 +853,6 @@ mod tests {
         entity::{hash_map::EntityHashMap, Entity, EntityCloner, SourceComponent},
         prelude::{ChildOf, Children, Resource},
         reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
-        system::Commands,
         world::{FromWorld, World},
     };
     use alloc::vec::Vec;
@@ -873,7 +868,6 @@ mod tests {
             component::{Component, ComponentCloneBehavior},
             entity::{EntityCloner, SourceComponent},
             reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
-            system::Commands,
         };
         use alloc::vec;
         use bevy_reflect::{std_traits::ReflectDefault, FromType, Reflect, ReflectFromPtr};
@@ -1003,11 +997,7 @@ mod tests {
             #[derive(Component, Reflect)]
             struct B;
 
-            fn test_handler(
-                _commands: &mut Commands,
-                source: &SourceComponent,
-                ctx: &mut ComponentCloneCtx,
-            ) {
+            fn test_handler(source: &SourceComponent, ctx: &mut ComponentCloneCtx) {
                 let registry = ctx.type_registry().unwrap();
                 assert!(source.read_reflect(&registry.read()).is_none());
             }
@@ -1299,11 +1289,7 @@ mod tests {
     #[test]
     fn clone_entity_with_dynamic_components() {
         const COMPONENT_SIZE: usize = 10;
-        fn test_handler(
-            _commands: &mut Commands,
-            source: &SourceComponent,
-            ctx: &mut ComponentCloneCtx,
-        ) {
+        fn test_handler(source: &SourceComponent, ctx: &mut ComponentCloneCtx) {
             // SAFETY: the passed in ptr corresponds to copy-able data that matches the type of the source / target component
             unsafe {
                 ctx.write_target_component_ptr(source.ptr());

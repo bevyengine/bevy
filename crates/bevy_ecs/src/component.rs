@@ -9,7 +9,7 @@ use crate::{
     relationship::RelationshipHookMode,
     resource::Resource,
     storage::{SparseSetIndex, SparseSets, Table, TableRow},
-    system::{Commands, Local, SystemParam},
+    system::{Local, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
 use alloc::boxed::Box;
@@ -1133,7 +1133,7 @@ impl ComponentDescriptor {
 }
 
 /// Function type that can be used to clone an entity.
-pub type ComponentCloneFn = fn(&mut Commands, &SourceComponent, &mut ComponentCloneCtx);
+pub type ComponentCloneFn = fn(&SourceComponent, &mut ComponentCloneCtx);
 
 /// The clone behavior to use when cloning a [`Component`].
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -2900,7 +2900,6 @@ pub fn enforce_no_required_components_recursion(
 /// It will panic if set as handler for any other component.
 ///
 pub fn component_clone_via_clone<C: Clone + Component>(
-    _commands: &mut Commands,
     source: &SourceComponent,
     ctx: &mut ComponentCloneCtx,
 ) {
@@ -2927,11 +2926,7 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 ///
 /// [`PartialReflect::reflect_clone`]: bevy_reflect::PartialReflect::reflect_clone
 #[cfg(feature = "bevy_reflect")]
-pub fn component_clone_via_reflect(
-    _commands: &mut Commands,
-    source: &SourceComponent,
-    ctx: &mut ComponentCloneCtx,
-) {
+pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut ComponentCloneCtx) {
     let Some(app_registry) = ctx.type_registry().cloned() else {
         return;
     };
@@ -3026,12 +3021,7 @@ pub fn component_clone_via_reflect(
 /// Noop implementation of component clone handler function.
 ///
 /// See [`EntityClonerBuilder`](crate::entity::EntityClonerBuilder) for details.
-pub fn component_clone_ignore(
-    _commands: &mut Commands,
-    _source: &SourceComponent,
-    _ctx: &mut ComponentCloneCtx,
-) {
-}
+pub fn component_clone_ignore(_source: &SourceComponent, _ctx: &mut ComponentCloneCtx) {}
 
 /// Wrapper for components clone specialization using autoderef.
 #[doc(hidden)]
