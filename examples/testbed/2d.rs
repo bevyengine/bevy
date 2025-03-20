@@ -15,7 +15,9 @@ fn main() {
         .add_systems(OnEnter(Scene::Bloom), bloom::setup)
         .add_systems(OnEnter(Scene::Text), text::setup)
         .add_systems(OnEnter(Scene::Sprite), sprite::setup)
-        .add_systems(Update, switch_scene);
+        .add_systems(OnEnter(Scene::Gizmos), gizmos::setup)
+        .add_systems(Update, switch_scene)
+        .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)));
 
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
@@ -31,6 +33,7 @@ enum Scene {
     Bloom,
     Text,
     Sprite,
+    Gizmos,
 }
 
 impl Next for Scene {
@@ -39,7 +42,8 @@ impl Next for Scene {
             Scene::Shapes => Scene::Bloom,
             Scene::Bloom => Scene::Text,
             Scene::Text => Scene::Sprite,
-            Scene::Sprite => Scene::Shapes,
+            Scene::Sprite => Scene::Gizmos,
+            Scene::Gizmos => Scene::Shapes,
         }
     }
 }
@@ -263,5 +267,20 @@ mod sprite {
             Sprite::from_image(asset_server.load("branding/bevy_bird_dark.png")),
             StateScoped(super::Scene::Sprite),
         ));
+    }
+}
+
+mod gizmos {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, StateScoped(super::Scene::Gizmos)));
+    }
+
+    pub fn draw_gizmos(mut gizmos: Gizmos) {
+        gizmos.rect_2d(Isometry2d::IDENTITY, Vec2::new(200.0, 200.0), RED);
+        gizmos
+            .circle_2d(Isometry2d::IDENTITY, 200.0, GREEN)
+            .resolution(64);
     }
 }

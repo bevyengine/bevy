@@ -81,7 +81,7 @@ pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
 ///
 /// See [`crate::environment_map`] for detailed information.
 #[derive(Clone, Component, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct EnvironmentMapLight {
     /// The blurry image that represents diffuse radiance surrounding a region.
     pub diffuse_map: Handle<Image>,

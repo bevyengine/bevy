@@ -60,7 +60,7 @@ impl Plugin for WireframePlugin {
 ///
 /// This requires the [`WireframePlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct Wireframe;
 
 /// Sets the color of the [`Wireframe`] of the entity it is attached to.
@@ -73,7 +73,7 @@ pub struct Wireframe;
 // This could blow up in size if people use random colored wireframes for each mesh.
 // It will also be important to remove unused materials from the cache.
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct WireframeColor {
     pub color: Color,
 }
@@ -83,11 +83,11 @@ pub struct WireframeColor {
 ///
 /// This requires the [`WireframePlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct NoWireframe;
 
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
-#[reflect(Resource, Debug, Default)]
+#[reflect(Resource, Debug, Default, Clone)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes.
     /// Can be overridden for individual meshes by adding a [`Wireframe`] or [`NoWireframe`] component.
@@ -222,6 +222,7 @@ fn get_wireframe_material(
 }
 
 #[derive(Default, AsBindGroup, Debug, Clone, Asset, Reflect)]
+#[reflect(Default, Clone)]
 pub struct WireframeMaterial {
     #[uniform(0)]
     pub color: LinearRgba,

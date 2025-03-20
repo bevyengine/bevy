@@ -1,10 +1,11 @@
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Defines the extents of the border of a rectangle.
 ///
 /// This struct is used to represent thickness or offsets from the edges
 /// of a rectangle (left, right, top, and bottom), with values increasing inwards.
 #[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq, Default)]
 pub struct BorderRect {
     /// Extent of the border along the left edge
     pub left: f32,
