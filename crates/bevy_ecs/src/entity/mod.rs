@@ -533,7 +533,7 @@ impl<'a> PortableEntities<'a> {
     ///
     /// # Safety
     ///
-    /// The caller must ensure that the returned value is only use when either `self` is in scope,
+    /// The caller must ensure that the returned value is only used when either `self` is in scope,
     /// or the returned [`RemoteEntitiesReserver`] is on a thread which has no active reference to the source [`&Entities`].
     /// If this safety is broken, a deadlock may occor.
     ///
@@ -544,9 +544,9 @@ impl<'a> PortableEntities<'a> {
     ///
     /// let world = World::new();
     /// let entities = world.entities().portable();
-    /// let remote = entities.get_remote();
+    /// let remote = unsafe { entities.get_remote() };
     ///
-    /// // drop(entities); This would violate safety and cause a deadlock.
+    /// // drop(entities); // This would violate safety and cause a deadlock.
     ///
     /// let reserved = remote.reserve_entity();
     /// ```
@@ -557,6 +557,31 @@ impl<'a> PortableEntities<'a> {
             entities: Arc::downgrade(&self.security),
             batch_size: RemoteEntitiesReserver::DEFAULT_BATCH_SIZE,
         }
+    }
+
+    /// This is an alternative to [`RemoteEntitiesReserver`].
+    ///
+    /// # Safety
+    ///
+    /// The passed [`RemoteEntitiesReserver`] must be used outside of `scope`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let world = World::new();
+    /// let entities = world.entities().portable();
+    ///
+    /// let result = unsafe { entities.remote_scope(|remote| {
+    ///     remote.reserve_entity()
+    ///     // remote // Returning `remote` would break safety since it escapes the scope.
+    /// }) };
+    ///
+    /// ```
+    pub unsafe fn remote_scope<T>(&self, scope: impl FnOnce(RemoteEntitiesReserver) -> T) -> T {
+        // SAFETY: ensured by caller
+        unsafe { scope(self.get_remote()) }
     }
 
     /// Drops this value for the inner [`Entities`].
