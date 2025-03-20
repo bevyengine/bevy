@@ -813,7 +813,7 @@ impl ComponentHooks {
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
     id: ComponentId,
-    descriptor: ComponentDescriptor,
+    descriptor: Arc<ComponentDescriptor>,
     hooks: ComponentHooks,
     required_components: RequiredComponents,
     required_by: HashSet<ComponentId>,
@@ -883,7 +883,7 @@ impl ComponentInfo {
     }
 
     /// Create a new [`ComponentInfo`].
-    pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
+    pub(crate) fn new(id: ComponentId, descriptor: Arc<ComponentDescriptor>) -> Self {
         ComponentInfo {
             id,
             descriptor,
@@ -1175,9 +1175,9 @@ impl ComponentCloneBehavior {
 
 /// A queued component registration.
 struct QueuedRegistration {
-    registrator: Box<dyn FnOnce(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor)>,
+    registrator: Box<dyn FnOnce(&mut ComponentsRegistrator, ComponentId, Arc<ComponentDescriptor>)>,
     id: ComponentId,
-    descriptor: ComponentDescriptor,
+    descriptor: Arc<ComponentDescriptor>,
 }
 
 impl QueuedRegistration {
@@ -1188,8 +1188,8 @@ impl QueuedRegistration {
     /// [`ComponentId`] must be unique.
     unsafe fn new(
         id: ComponentId,
-        descriptor: ComponentDescriptor,
-        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor) + 'static,
+        descriptor: Arc<ComponentDescriptor>,
+        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId, Arc<ComponentDescriptor>) + 'static,
     ) -> Self {
         Self {
             registrator: Box::new(func),
@@ -1329,8 +1329,8 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     unsafe fn force_register_arbitrary_component(
         &self,
         type_id: TypeId,
-        descriptor: ComponentDescriptor,
-        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor) + 'static,
+        descriptor: Arc<ComponentDescriptor>,
+        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId, Arc<ComponentDescriptor>) + 'static,
     ) -> ComponentId {
         let id = self.ids.next();
         self.components
@@ -1354,8 +1354,8 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     unsafe fn force_register_arbitrary_resource(
         &self,
         type_id: TypeId,
-        descriptor: ComponentDescriptor,
-        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor) + 'static,
+        descriptor: Arc<ComponentDescriptor>,
+        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId, Arc<ComponentDescriptor>) + 'static,
     ) -> ComponentId {
         let id = self.ids.next();
         self.components
@@ -1374,8 +1374,8 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// Queues this function to run as a dynamic registrator.
     fn force_register_arbitrary_dynamic(
         &self,
-        descriptor: ComponentDescriptor,
-        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor) + 'static,
+        descriptor: Arc<ComponentDescriptor>,
+        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId, Arc<ComponentDescriptor>) + 'static,
     ) -> ComponentId {
         let id = self.ids.next();
         self.components
@@ -1405,7 +1405,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
             unsafe {
                 self.force_register_arbitrary_component(
                     TypeId::of::<T>(),
-                    ComponentDescriptor::new::<T>(),
+                    Arc::new(ComponentDescriptor::new::<T>()),
                     |registrator, id, _descriptor| {
                         // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
                         #[expect(unused_unsafe, reason = "More precise to specify.")]
@@ -1431,12 +1431,15 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         &self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        self.force_register_arbitrary_dynamic(descriptor, |registrator, id, descriptor| {
-            // SAFETY: Id uniqueness handled by caller.
-            unsafe {
-                registrator.register_component_inner(id, descriptor);
-            }
-        })
+        self.force_register_arbitrary_dynamic(
+            Arc::new(descriptor),
+            |registrator, id, descriptor| {
+                // SAFETY: Id uniqueness handled by caller.
+                unsafe {
+                    registrator.register_component_inner(id, descriptor);
+                }
+            },
+        )
     }
 
     /// This is a queued version of [`ComponentsRegistrator::register_resource`].
@@ -1455,7 +1458,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
             unsafe {
                 self.force_register_arbitrary_resource(
                     type_id,
-                    ComponentDescriptor::new_resource::<T>(),
+                    Arc::new(ComponentDescriptor::new_resource::<T>()),
                     move |registrator, id, descriptor| {
                         // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
                         // SAFETY: Id uniqueness handled by caller, and the type_id matches descriptor.
@@ -1485,7 +1488,9 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
             unsafe {
                 self.force_register_arbitrary_resource(
                     type_id,
-                    ComponentDescriptor::new_non_send::<T>(StorageType::default()),
+                    Arc::new(ComponentDescriptor::new_non_send::<T>(
+                        StorageType::default(),
+                    )),
                     move |registrator, id, descriptor| {
                         // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
                         // SAFETY: Id uniqueness handled by caller, and the type_id matches descriptor.
@@ -1512,12 +1517,15 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         &self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        self.force_register_arbitrary_dynamic(descriptor, |registrator, id, descriptor| {
-            // SAFETY: Id uniqueness handled by caller.
-            unsafe {
-                registrator.register_component_inner(id, descriptor);
-            }
-        })
+        self.force_register_arbitrary_dynamic(
+            Arc::new(descriptor),
+            |registrator, id, descriptor| {
+                // SAFETY: Id uniqueness handled by caller.
+                unsafe {
+                    registrator.register_component_inner(id, descriptor);
+                }
+            },
+        )
     }
 }
 
@@ -1684,7 +1692,7 @@ impl<'w> ComponentsRegistrator<'w> {
     ) {
         // SAFETY: ensured by caller.
         unsafe {
-            self.register_component_inner(id, ComponentDescriptor::new::<T>());
+            self.register_component_inner(id, Arc::new(ComponentDescriptor::new::<T>()));
         }
         let type_id = TypeId::of::<T>();
         let prev = self.indices.insert(type_id, id);
@@ -1738,7 +1746,7 @@ impl<'w> ComponentsRegistrator<'w> {
         let id = self.ids.next_mut();
         // SAFETY: The id is fresh.
         unsafe {
-            self.register_component_inner(id, descriptor);
+            self.register_component_inner(id, Arc::new(descriptor));
         }
         id
     }
@@ -1798,7 +1806,7 @@ impl<'w> ComponentsRegistrator<'w> {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.register_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_resource::<T>()
+                Arc::new(ComponentDescriptor::new_resource::<T>())
             })
         }
     }
@@ -1811,7 +1819,9 @@ impl<'w> ComponentsRegistrator<'w> {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.register_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_non_send::<T>(StorageType::default())
+                Arc::new(ComponentDescriptor::new_non_send::<T>(
+                    StorageType::default(),
+                ))
             })
         }
     }
@@ -1825,7 +1835,7 @@ impl<'w> ComponentsRegistrator<'w> {
     unsafe fn register_resource_with(
         &mut self,
         type_id: TypeId,
-        descriptor: impl FnOnce() -> ComponentDescriptor,
+        descriptor: impl FnOnce() -> Arc<ComponentDescriptor>,
     ) -> ComponentId {
         if let Some(id) = self.resource_indices.get(&type_id) {
             return *id;
@@ -1871,7 +1881,7 @@ impl<'w> ComponentsRegistrator<'w> {
         let id = self.ids.next_mut();
         // SAFETY: The id is fresh.
         unsafe {
-            self.register_component_inner(id, descriptor);
+            self.register_component_inner(id, Arc::new(descriptor));
         }
         id
     }
@@ -1897,7 +1907,7 @@ impl Components {
     unsafe fn register_component_inner(
         &mut self,
         id: ComponentId,
-        descriptor: ComponentDescriptor,
+        descriptor: Arc<ComponentDescriptor>,
     ) {
         let info = ComponentInfo::new(id, descriptor);
         let least_len = id.0 + 1;
@@ -2406,7 +2416,7 @@ impl Components {
         &mut self,
         type_id: TypeId,
         component_id: ComponentId,
-        descriptor: ComponentDescriptor,
+        descriptor: Arc<ComponentDescriptor>,
     ) {
         // SAFETY: ensured by caller
         unsafe {
