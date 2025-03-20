@@ -154,8 +154,7 @@ fn setup(mut commands: Commands) {
                             BorderRadius::all(Val::Px(20.)),
                             BackgroundGradient::from(ConicGradient {
                                 stops: stops
-                                    .clone()
-                                    .into_iter()
+                                    .iter()
                                     .map(|stop| AngularColorStop::auto(stop.color))
                                     .collect(),
                                 position: Position::CENTER,
