@@ -348,7 +348,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             ..Default::default()
         };
 
@@ -392,7 +392,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             flip_x: true,
             ..Default::default()
         };
@@ -439,7 +439,7 @@ mod tests {
         let sprite = Sprite {
             image,
             rect: Some(Rect::new(1.5, 3.0, 3.0, 9.5)),
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             ..Default::default()
         };
 
@@ -463,7 +463,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             texture_atlas: Some(TextureAtlas {
                 layout: texture_atlas,
                 index: 0,
@@ -491,7 +491,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             texture_atlas: Some(TextureAtlas {
                 layout: texture_atlas,
                 index: 0,
