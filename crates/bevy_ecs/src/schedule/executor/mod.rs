@@ -312,9 +312,10 @@ mod __rust_begin_short_backtrace {
 #[cfg(test)]
 mod tests {
     use crate::{
+        error::WithParamWarnPolicy,
         prelude::{IntoScheduleConfigs, Resource, Schedule, SystemSet},
         schedule::ExecutorKind,
-        system::{Commands, Res, WithParamWarnPolicy},
+        system::{Commands, Res},
         world::World,
     };
 

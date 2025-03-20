@@ -74,7 +74,7 @@ pub mod prelude {
         children,
         component::Component,
         entity::{Entity, EntityBorrow, EntityMapper},
-        error::{BevyError, Result},
+        error::{BevyError, Result, WithParamWarnPolicy},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         name::{Name, NameOrEntity},
@@ -93,7 +93,7 @@ pub mod prelude {
             Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
             Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction, WithParamWarnPolicy,
+            SystemParamFunction,
         },
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
