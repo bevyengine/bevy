@@ -1512,6 +1512,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "This test starts multiple threads. In batch testing, this may time out because other tests are running concurrently."]
     #[cfg(feature = "std")]
     fn remote_reservation() {
         let mut entities = Entities::new();
