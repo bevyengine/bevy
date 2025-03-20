@@ -698,7 +698,12 @@ struct RemoteEntitiesSource {
     reserved: ConcurrentQueue<Vec<Entity>>,
 }
 
+/// An error that occurs when an [`Entity`] can not be reserved remotely.
+/// See also [`RemoteEntitiesReserver`].
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RemoteReservationError {
+    /// This happens when [`Entities`] are closed, dropped, etc while a [`RemoteEntitiesReserver`] is trying to reserve from it.
+    #[error("A remote entity reserver tried to reserve an entity from a closed `Entities`.")]
     Closed,
 }
 
