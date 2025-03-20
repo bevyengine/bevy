@@ -503,8 +503,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
             )
         };
         let result = query.single_inner();
-        let is_valid = !matches!(result, Err(QuerySingleError::MultipleEntities(_)));
-        is_valid
+        !matches!(result, Err(QuerySingleError::MultipleEntities(_)))
     }
 }
 

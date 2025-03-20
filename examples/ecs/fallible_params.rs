@@ -10,8 +10,8 @@
 //! To learn more about setting the fallback behavior for when a parameter fails to be fetched,
 //! please see the `error_handling.rs` example.
 
+use bevy::ecs::error::{warn, GLOBAL_ERROR_HANDLER};
 use bevy::prelude::*;
-use bevy_ecs::error::{warn, GLOBAL_ERROR_HANDLER};
 use rand::Rng;
 
 fn main() {

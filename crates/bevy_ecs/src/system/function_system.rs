@@ -754,8 +754,7 @@ where
         //   if the world does not match.
         // - All world accesses used by `F::Param` have been registered, so the caller
         //   will ensure that there are no data access conflicts.
-        let is_valid = unsafe { F::Param::validate_param(param_state, &self.system_meta, world) };
-        is_valid
+        unsafe { F::Param::validate_param(param_state, &self.system_meta, world) }
     }
 
     #[inline]
