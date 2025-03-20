@@ -24,7 +24,6 @@ use alloc::{
     string::{String, ToString},
     sync::Arc,
 };
-use alloc::sync::Arc;
 use async_lock::Semaphore;
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
