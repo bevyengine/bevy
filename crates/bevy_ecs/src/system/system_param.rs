@@ -232,7 +232,10 @@ pub unsafe trait SystemParam: Sized {
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
 
     /// Validates that the param can be acquired by the [`get_param`](SystemParam::get_param).
-    /// Built-in executors use this to prevent systems with invalid params from running.
+    ///
+    /// Built-in executors use this to prevent systems with invalid params from running,
+    /// and any failures here will be bubbled up to the default error handler defined in [`bevy_ecs::error`].
+    ///
     /// For nested [`SystemParam`]s validation will fail if any
     /// delegated validation fails.
     ///
