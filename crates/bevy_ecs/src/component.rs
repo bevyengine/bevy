@@ -1007,6 +1007,12 @@ impl core::fmt::Display for ComponentName {
     }
 }
 
+impl From<ComponentName> for alloc::string::String {
+    fn from(value: ComponentName) -> Self {
+        value.0.name().into()
+    }
+}
+
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
 #[derive(Clone)]
 pub struct ComponentDescriptor {
