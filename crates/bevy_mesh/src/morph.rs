@@ -155,32 +155,9 @@ impl MorphWeights {
 /// to control individual weights of each morph target.
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-#[derive(Reflect, Default, Debug, Clone, Component)]
-#[reflect(Debug, Component, Default, Clone)]
-pub struct MeshMorphWeights {
-    weights: Vec<f32>,
-}
-impl MeshMorphWeights {
-    pub fn new(weights: Vec<f32>) -> Result<Self, MorphBuildError> {
-        if weights.len() > MAX_MORPH_WEIGHTS {
-            let target_count = weights.len();
-            return Err(MorphBuildError::TooManyTargets { target_count });
-        }
-        Ok(MeshMorphWeights { weights })
-    }
-    pub fn weights(&self) -> &[f32] {
-        &self.weights
-    }
-    pub fn weights_mut(&mut self) -> &mut [f32] {
-        &mut self.weights
-    }
-    pub fn clear_weights(&mut self) {
-        self.weights.clear();
-    }
-    pub fn extend_weights(&mut self, weights: &[f32]) {
-        self.weights.extend(weights);
-    }
-}
+#[derive(Reflect, Debug, Clone, Component)]
+#[reflect(Debug, Component, Clone)]
+pub struct MeshMorphWeights(#[entities] pub Entity);
 
 /// Attributes **differences** used for morph targets.
 ///

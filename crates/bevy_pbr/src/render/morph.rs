@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
-    mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
+    mesh::morph::{MeshMorphWeights, MorphWeights, MAX_MORPH_WEIGHTS},
     render_resource::{BufferUsages, RawBufferVec},
     renderer::{RenderDevice, RenderQueue},
     view::ViewVisibility,
@@ -110,6 +110,7 @@ pub fn extract_morphs(
     morph_indices: ResMut<MorphIndices>,
     uniform: ResMut<MorphUniforms>,
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMorphWeights)>>,
+    weights_query: Extract<Query<&MorphWeights>>,
 ) {
     // Borrow check workaround.
     let (morph_indices, uniform) = (morph_indices.into_inner(), uniform.into_inner());
@@ -125,9 +126,11 @@ pub fn extract_morphs(
         if !view_visibility.get() {
             continue;
         }
+        let Ok(weights) = weights_query.get(morph_weights.0) else {
+            continue;
+        };
         let start = uniform.current_buffer.len();
-        let weights = morph_weights.weights();
-        let legal_weights = weights.iter().take(MAX_MORPH_WEIGHTS).copied();
+        let legal_weights = weights.weights().iter().take(MAX_MORPH_WEIGHTS).copied();
         uniform.current_buffer.extend(legal_weights);
         add_to_alignment::<f32>(&mut uniform.current_buffer);
 
