@@ -75,7 +75,11 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::atomic::Ordering;
+use bevy_platform_support::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc, Weak,
+};
+use concurrent_queue::ConcurrentQueue;
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
@@ -516,6 +520,29 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
+
+/// This trait allows reserving entitties.
+/// These entities will be made valid at the next [`Entities::flush`].
+pub trait RentityReserver {
+    /// Reserves one entity.
+    fn reserve_entity(&self) -> Entity;
+}
+
+/// This handles reserving entities remotely.
+pub struct RemoteEntitiesReserver {
+    source: Arc<RemoteEntitiesSource>,
+    current: Vec<Entity>,
+    entities: Weak<*const Entities>,
+    batch_size: u32,
+}
+
+struct RemoteEntityRequest(u32);
+
+struct RemoteEntitiesSource {
+    generation: AtomicU32,
+    request_more: ConcurrentQueue<RemoteEntityRequest>,
+    reserved: ConcurrentQueue<Vec<Entity>>,
+}
 
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
