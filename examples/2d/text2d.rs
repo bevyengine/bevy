@@ -129,10 +129,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_children(|commands| {
             for (text_anchor, color) in [
-                (Anchor::TopLeft, Color::Srgba(LIGHT_SALMON)),
-                (Anchor::TopRight, Color::Srgba(LIGHT_GREEN)),
-                (Anchor::BottomRight, Color::Srgba(LIGHT_BLUE)),
-                (Anchor::BottomLeft, Color::Srgba(LIGHT_YELLOW)),
+                (Anchor::TOP_LEFT, Color::Srgba(LIGHT_SALMON)),
+                (Anchor::TOP_RIGHT, Color::Srgba(LIGHT_GREEN)),
+                (Anchor::BOTTOM_RIGHT, Color::Srgba(LIGHT_BLUE)),
+                (Anchor::BOTTOM_LEFT, Color::Srgba(LIGHT_YELLOW)),
             ] {
                 commands
                     .spawn((

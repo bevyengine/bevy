@@ -247,15 +247,15 @@ pub enum ScalingMode {
 #[doc(alias = "pivot")]
 pub enum Anchor {
     #[default]
-    Center,
-    BottomLeft,
-    BottomCenter,
-    BottomRight,
-    CenterLeft,
-    CenterRight,
-    TopLeft,
-    TopCenter,
-    TopRight,
+    CENTER,
+    BOTTOM_LEFT,
+    BOTTOM_CENTER,
+    BOTTOM_RIGHT,
+    CENTER_LEFT,
+    CENTER_RIGHT,
+    TOP_LEFT,
+    TOP_CENTER,
+    TOP_RIGHT,
     /// Custom anchor point. Top left is `(-0.5, 0.5)`, center is `(0.0, 0.0)`. The value will
     /// be scaled with the sprite size.
     Custom(Vec2),
@@ -264,15 +264,15 @@ pub enum Anchor {
 impl Anchor {
     pub fn as_vec(&self) -> Vec2 {
         match self {
-            Anchor::Center => Vec2::ZERO,
-            Anchor::BottomLeft => Vec2::new(-0.5, -0.5),
-            Anchor::BottomCenter => Vec2::new(0.0, -0.5),
-            Anchor::BottomRight => Vec2::new(0.5, -0.5),
-            Anchor::CenterLeft => Vec2::new(-0.5, 0.0),
-            Anchor::CenterRight => Vec2::new(0.5, 0.0),
-            Anchor::TopLeft => Vec2::new(-0.5, 0.5),
-            Anchor::TopCenter => Vec2::new(0.0, 0.5),
-            Anchor::TopRight => Vec2::new(0.5, 0.5),
+            Anchor::CENTER => Vec2::ZERO,
+            Anchor::BOTTOM_LEFT => Vec2::new(-0.5, -0.5),
+            Anchor::BOTTOM_CENTER => Vec2::new(0.0, -0.5),
+            Anchor::BOTTOM_RIGHT => Vec2::new(0.5, -0.5),
+            Anchor::CENTER_LEFT => Vec2::new(-0.5, 0.0),
+            Anchor::CENTER_RIGHT => Vec2::new(0.5, 0.0),
+            Anchor::TOP_LEFT => Vec2::new(-0.5, 0.5),
+            Anchor::TOP_CENTER => Vec2::new(0.0, 0.5),
+            Anchor::TOP_RIGHT => Vec2::new(0.5, 0.5),
             Anchor::Custom(point) => *point,
         }
     }
@@ -358,7 +358,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             ..Default::default()
         };
 
@@ -380,7 +380,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::TopRight,
+            anchor: Anchor::TOP_RIGHT,
             ..Default::default()
         };
 
@@ -402,7 +402,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             flip_x: true,
             ..Default::default()
         };
@@ -425,7 +425,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::TopRight,
+            anchor: Anchor::TOP_RIGHT,
             flip_y: true,
             ..Default::default()
         };
@@ -449,7 +449,7 @@ mod tests {
         let sprite = Sprite {
             image,
             rect: Some(Rect::new(1.5, 3.0, 3.0, 9.5)),
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             ..Default::default()
         };
 
@@ -473,7 +473,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             texture_atlas: Some(TextureAtlas {
                 layout: texture_atlas,
                 index: 0,
@@ -501,7 +501,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             texture_atlas: Some(TextureAtlas {
                 layout: texture_atlas,
                 index: 0,

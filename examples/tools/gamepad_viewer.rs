@@ -287,7 +287,7 @@ fn setup_sticks(
                 (
                     Text2d::default(),
                     Transform::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
-                    Anchor::BottomCenter,
+                    Anchor::BOTTOM_CENTER,
                     TextWithAxes { x_axis, y_axis },
                     children![
                         (TextSpan(format!("{:.3}", 0.)), style.clone()),

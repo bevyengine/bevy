@@ -213,7 +213,7 @@ pub fn extract_text2d_sprite(
                 image_handle_id: atlas_info.texture.id(),
                 flip_x: false,
                 flip_y: false,
-                anchor: Anchor::Center.as_vec(),
+                anchor: Anchor::CENTER.as_vec(),
                 original_entity,
                 scaling_mode: None,
             });
