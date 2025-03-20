@@ -24,13 +24,6 @@ Editing is easy; we just want to have an expert's view on the questions above.
 When writing migration guides, prefer terse, technical language, and be sure to include terms that users might search for.
 Migration guides are not read end-to-end: instead, they are navigated via Ctrl+F as the reader follows the compiler errors and bugs.
 
-## Note on the `#[deprecated]` attribute
-
-Rust provides a very helpful [`#[deprecated]` attribute](https://doc.rust-lang.org/reference/attributes/diagnostics.html#the-deprecated-attribute), which is a compiler-aware way to mark a piece of Rust code as obsolete and slated for removal.
-This can be a nice a tool to ease migrations, because it downgrades errors to warnings and makes the migration information available right in the user's IDE.
-
-However, it's not always possible to use this attribute, and Bevy does not consider it to be a substitute to a migration guide entry.
-
 ## Where to put your migration guides
 
 Each major Bevy version (e.g. 0.12, or 2.0) will get its own migration guide.
@@ -49,3 +42,10 @@ While some brave users live on Bevy's `main` branch, we can trust them to use th
 
 As a result, each draft migration should be given a clear name matching the section title.
 These titles should reflect the name of the old feature that was broken or changed.
+
+## Note on the `#[deprecated]` attribute
+
+Rust provides a very helpful [`#[deprecated]` attribute](https://doc.rust-lang.org/reference/attributes/diagnostics.html#the-deprecated-attribute), which is a compiler-aware way to mark a piece of Rust code as obsolete and slated for removal.
+This can be a nice a tool to ease migrations, because it downgrades errors to warnings and makes the migration information available right in the user's IDE.
+
+However, it's not always possible to use this attribute, and Bevy does not consider it to be a substitute to a migration guide entry.
