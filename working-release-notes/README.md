@@ -23,7 +23,7 @@ Editing is easy: as someone with the expertise needed to implement an awesome fe
 
 Images and videos are lovely: shiny screenshots of rendering features, diagrams, performance metrics, and cool examples are all a great choice.
 However, **do not put multimedia content in this folder**.
-We want to avoid bloating the git repo for `bevyengine/bevy`, which can cause problems for contributors (and Github).
+We want to avoid bloating the git repo for `bevyengine/bevy`, which can cause problems for contributors (and GitHub).
 Instead, drop them in your PR description and we'll collect them as we're finalizing the release notes.
 
 ## Where to put your release notes
@@ -31,7 +31,7 @@ Instead, drop them in your PR description and we'll collect them as we're finali
 Each major Bevy version (e.g. 0.12, or 2.0) will get its own set of release notes.
 The draft release notes are organized into a folder of the same name inside of `bevyengine/bevy/working-release-notes`.
 
-When we release our first release candidate for a cycle, these notes are moved from `bevyengine/bevy`, and into `bevyengine/bevy-website`,
+When we publish our first release candidate for a cycle, these notes are moved from `bevyengine/bevy`, and into `bevyengine/bevy-website`,
 where they will receive a final editing pass and any multimedia.
 
 ## Grouping content into release notes

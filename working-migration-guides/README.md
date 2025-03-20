@@ -14,7 +14,7 @@ A `template.md` file is provided in `bevyengine/bevy/working-migration-guides`: 
 
 Migration guides are intended to briefly communicate:
 
-- what has been changed?
+- what has been changed since the last release?
 - why did we make this breaking change?
 - how can users migrate their existing code?
 
@@ -29,7 +29,7 @@ Migration guides are not read end-to-end: instead, they are navigated via Ctrl+F
 Each major Bevy version (e.g. 0.12, or 2.0) will get its own migration guide.
 The draft migration guides are organized into a folder of the same name inside of `bevyengine/bevy/working-migration-guides`.
 
-When we release our first release candidate for a cycle, these notes are moved from `bevyengine/bevy`, and into `bevyengine/bevy-website`,
+When we publish our first release candidate for a cycle, these notes are moved from `bevyengine/bevy`, and into `bevyengine/bevy-website`,
 where they will receive a final editing pass.
 
 ## Grouping changes into migration guides
