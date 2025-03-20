@@ -305,7 +305,7 @@ pub struct AccessKitPlugin;
 
 impl Plugin for AccessKitPlugin {
     fn build(&self, app: &mut App) {
-        ACCESS_KIT_ADAPTERS.set(Some(AccessKitAdapters::from_world(app.world_mut())));
+        ACCESS_KIT_ADAPTERS.set(Some(AccessKitAdapters::default()));
         app.init_resource::<WinitActionRequestHandlers>()
             .add_event::<ActionRequestWrapper>()
             .add_systems(
