@@ -46,8 +46,7 @@ use super::{Material2d, MeshMaterial2d};
 pub use pipeline::Material2dKey;
 use specialization::{EntitiesNeedingSpecialization, EntitySpecializationTicks};
 
-/// Sets up the rendering logic for a [`Material2d`]
-pub struct Material2dRenderingPlugin<M: Material2d>(PhantomData<M>);
+pub(super) struct Material2dRenderingPlugin<M: Material2d>(PhantomData<M>);
 
 impl<M: Material2d> Default for Material2dRenderingPlugin<M> {
     fn default() -> Self {
@@ -105,7 +104,7 @@ where
     }
 }
 
-pub fn extract_entities_needs_specialization<M>(
+fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
     ticks: SystemChangeTick,
@@ -118,7 +117,7 @@ pub fn extract_entities_needs_specialization<M>(
     }
 }
 
-pub fn check_entities_needing_specialization<M>(
+fn check_entities_needing_specialization<M>(
     needs_specialization: Query<
         Entity,
         Or<(
@@ -138,7 +137,7 @@ pub fn check_entities_needing_specialization<M>(
     }
 }
 
-pub fn specialize_material2d_meshes<M: Material2d>(
+fn specialize_material2d_meshes<M: Material2d>(
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -233,7 +232,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
     }
 }
 
-pub fn queue_material2d_meshes<M: Material2d>(
+fn queue_material2d_meshes<M: Material2d>(
     (render_meshes, render_materials): (
         Res<RenderAssets<RenderMesh>>,
         Res<RenderAssets<PreparedMaterial2d<M>>>,
@@ -376,7 +375,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
 pub struct Material2dBindGroupId(pub Option<BindGroupId>);
 
 /// Common [`Material2d`] properties, calculated for a specific material instance.
-pub struct Material2dProperties {
+struct Material2dProperties {
     /// The [`AlphaMode2d`] of this material.
     pub alpha_mode: AlphaMode2d,
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order
