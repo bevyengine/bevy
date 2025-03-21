@@ -968,11 +968,10 @@ impl AccessConflicts {
                     format!(
                         "{}",
                         ShortName(
-                            world
+                            &world
                                 .components
-                                .get_info(ComponentId::get_sparse_set_index(index))
+                                .get_name(ComponentId::get_sparse_set_index(index))
                                 .unwrap()
-                                .name()
                         )
                     )
                 })

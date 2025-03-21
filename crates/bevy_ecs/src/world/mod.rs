@@ -2847,6 +2847,7 @@ impl World {
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<true> {
+        self.flush_components();
         let archetypes = &mut self.archetypes;
         self.storages
             .resources
@@ -2862,6 +2863,7 @@ impl World {
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<false> {
+        self.flush_components();
         let archetypes = &mut self.archetypes;
         self.storages
             .non_send_resources
