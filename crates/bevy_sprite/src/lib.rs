@@ -41,7 +41,6 @@ pub use texture_slice::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, weak_handle, AssetEvents, Assets, Handle};
-use bevy_color_material::prelude::ColorMaterial;
 use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
@@ -54,7 +53,6 @@ use bevy_render::{
     view::{NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_render_2d::material::rendering::queue_material2d_meshes;
 
 /// Adds support for 2D sprite rendering.
 #[derive(Default)]
@@ -130,8 +128,8 @@ impl Plugin for SpritePlugin {
                     Render,
                     (
                         queue_sprites
-                            .in_set(RenderSet::Queue)
-                            .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
+                            .before(RenderSet::QueueMeshes)
+                            .in_set(RenderSet::Queue),
                         prepare_sprite_image_bind_groups.in_set(RenderSet::PrepareBindGroups),
                         prepare_sprite_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                         sort_binned_render_phase::<Opaque2d>.in_set(RenderSet::PhaseSort),
