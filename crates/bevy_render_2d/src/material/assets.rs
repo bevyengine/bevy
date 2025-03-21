@@ -6,7 +6,7 @@ use bevy_render::{
     },
 };
 
-use super::{rendering::Material2dKey, AlphaMode2d};
+use super::rendering::{AlphaMode2d, Material2dKey};
 
 /// Materials are used alongside [`Material2dPlugin`](super::Material2dPlugin), [`Mesh2d`], and [`MeshMaterial2d`](super::MeshMaterial2d)
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level

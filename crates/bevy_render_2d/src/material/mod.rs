@@ -7,7 +7,7 @@ use core::{hash::Hash, marker::PhantomData};
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetApp;
 
-pub use {assets::Material2d, components::MeshMaterial2d, rendering::AlphaMode2d};
+pub use {assets::Material2d, components::MeshMaterial2d};
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material2d`]
 /// asset type (which includes [`Material2d`] types).

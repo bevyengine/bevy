@@ -4,7 +4,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
-    render_2d::{material::AlphaMode2d, Material2dPlugin},
+    render_2d::Material2dPlugin,
 };
 
 /// This example uses a shader source file from the assets subdirectory

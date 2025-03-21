@@ -4,7 +4,6 @@
 use bevy::{
     color::palettes::css::{BLUE, GREEN, WHITE},
     prelude::*,
-    render_2d::material::AlphaMode2d,
 };
 
 fn main() {

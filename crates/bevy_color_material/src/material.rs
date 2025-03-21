@@ -8,7 +8,7 @@ use bevy_render::{
     render_resource::{AsBindGroup, AsBindGroupShaderType, ShaderRef, ShaderType},
     texture::GpuImage,
 };
-use bevy_render_2d::{material::AlphaMode2d, prelude::Material2d};
+use bevy_render_2d::prelude::{AlphaMode2d, Material2d};
 
 use crate::COLOR_MATERIAL_SHADER_HANDLE;
 

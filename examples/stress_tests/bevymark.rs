@@ -14,7 +14,6 @@ use bevy::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
-    render_2d::material::AlphaMode2d,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };

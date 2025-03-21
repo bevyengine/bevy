@@ -11,5 +11,5 @@ pub use {material::Material2dPlugin, mesh::Mesh2dRenderPlugin};
 
 #[doc(hidden)]
 pub mod prelude {
-    pub use super::material::{Material2d, MeshMaterial2d};
+    pub use super::material::{rendering::AlphaMode2d, Material2d, MeshMaterial2d};
 }
