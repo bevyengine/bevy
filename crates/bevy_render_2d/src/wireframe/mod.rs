@@ -18,11 +18,10 @@ use bevy_render::{mesh::Mesh2d, render_resource::Shader};
 
 use crate::{prelude::MeshMaterial2d, Material2dPlugin};
 
-use material::WIREFRAME_2D_SHADER_HANDLE;
+use material::{Wireframe2dMaterial, WIREFRAME_2D_SHADER_HANDLE};
 use resources::GlobalWireframe2dMaterial;
 pub use {
     components::{NoWireframe2d, Wireframe2d, Wireframe2dColor},
-    material::Wireframe2dMaterial,
     resources::Wireframe2dConfig,
 };
 
