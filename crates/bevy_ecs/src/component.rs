@@ -180,10 +180,42 @@ use thiserror::Error;
 /// }
 ///
 /// # let mut world = World::default();
+/// // This will implicitly also insert C with the init_c() constructor
+/// let id = world.spawn(A).id();
+/// assert_eq!(&C(10), world.entity(id).get::<C>().unwrap());
+///
 /// // This will implicitly also insert C with the `|| C(20)` constructor closure
 /// let id = world.spawn(B).id();
 /// assert_eq!(&C(20), world.entity(id).get::<C>().unwrap());
 /// ```
+///
+/// For convenience sake, you can abbreviate enum labels or constant values, with the type inferred to match that of the component you are requiring:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// #[require(B = One, C = ONE)]
+/// struct A;
+///
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// enum B {
+///    Zero,
+///    One,
+///    Two
+/// }
+///
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// struct C(u8);
+///
+/// impl C {
+///     pub const ONE: Self = Self(1);
+/// }
+///
+/// # let mut world = World::default();
+/// let id = world.spawn(A).id();
+/// assert_eq!(&B::One, world.entity(id).get::<B>().unwrap());
+/// assert_eq!(&C(1), world.entity(id).get::<C>().unwrap());
+/// ````
 ///
 /// Required components are _recursive_. This means, if a Required Component has required components,
 /// those components will _also_ be inserted if they are missing:
