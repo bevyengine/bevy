@@ -2,7 +2,7 @@ use alloc::{borrow::ToOwned, string::String};
 use core::num::NonZero;
 
 use bevy_ecs::{
-    entity::{Entity, EntityBorrow, VisitEntities, VisitEntitiesMut},
+    entity::{Entity, EntityBorrow},
     prelude::Component,
 };
 use bevy_math::{CompassOctant, DVec2, IVec2, UVec2, Vec2};
@@ -71,24 +71,6 @@ impl WindowRef {
         };
 
         entity.map(NormalizedWindowRef)
-    }
-}
-
-impl VisitEntities for WindowRef {
-    fn visit_entities<F: FnMut(Entity)>(&self, mut f: F) {
-        match self {
-            Self::Entity(entity) => f(*entity),
-            Self::Primary => {}
-        }
-    }
-}
-
-impl VisitEntitiesMut for WindowRef {
-    fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
-        match self {
-            Self::Entity(entity) => f(entity),
-            Self::Primary => {}
-        }
     }
 }
 
