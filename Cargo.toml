@@ -1854,6 +1854,31 @@ description = "How to configure the texture to repeat instead of the default cla
 category = "Assets"
 wasm = true
 
+[[example]]
+name = "texture_support"
+path = "examples/asset/texture_support.rs"
+doc-scrape-examples = true
+required-features = [
+  "ktx2",
+  "basis-universal",
+  "bmp",
+  "gif",
+  "exr",
+  "ico",
+  "jpeg",
+  "pnm",
+  "qoi",
+  "tga",
+  "tiff",
+  "webp",
+]
+
+[package.metadata.example.texture_support]
+name = "Texture Support"
+description = "Demonstrates supported texture formats (KTX2 ASTC, KTX2 ETC1S, Basis, DDS, etc)"
+category = "Assets"
+wasm = false
+
 # Assets
 [[example]]
 name = "multi_asset_sync"
