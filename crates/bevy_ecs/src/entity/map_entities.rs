@@ -6,9 +6,12 @@ use crate::{
     world::World,
 };
 
-use alloc::{collections::VecDeque, vec::Vec};
+use alloc::{
+    collections::{BTreeSet, VecDeque},
+    vec::Vec,
+};
 use bevy_platform_support::collections::HashSet;
-use core::hash::BuildHasher;
+use core::{hash::BuildHasher, mem};
 use smallvec::SmallVec;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
@@ -72,6 +75,17 @@ impl<S: BuildHasher + Default> MapEntities for HashSet<Entity, S> {
         *self = self.drain().map(|e| entity_mapper.get_mapped(e)).collect();
     }
 }
+
+impl MapEntities for BTreeSet<Entity> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        let temp = mem::take(self);
+        *self = temp
+            .into_iter()
+            .map(|e| entity_mapper.get_mapped(e))
+            .collect();
+    }
+}
+
 impl MapEntities for Vec<Entity> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
         for entity in self.iter_mut() {
@@ -95,6 +109,7 @@ impl<A: smallvec::Array<Item = Entity>> MapEntities for SmallVec<A> {
         }
     }
 }
+
 /// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
 ///
 /// Usually this is done by using an [`EntityHashMap<Entity>`] to map source entities
