@@ -31,7 +31,7 @@ use bevy_render::{
         Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
         ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureDataOrder, TextureDimension, TextureFormat, TextureSampleType,
+        TextureDimension, TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::GpuImage,
@@ -214,7 +214,6 @@ impl Plugin for PostProcessingPlugin {
                 TextureDimension::D2,
                 DEFAULT_CHROMATIC_ABERRATION_LUT_DATA.to_vec(),
                 TextureFormat::Rgba8UnormSrgb,
-                TextureDataOrder::default(),
                 RenderAssetUsages::RENDER_WORLD,
             ),
         );

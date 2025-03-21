@@ -92,7 +92,6 @@ fn setup(
         size,
         TextureDimension::D2,
         TextureFormat::R32Uint,
-        TextureDataOrder::default(),
         RenderAssetUsages::RENDER_WORLD,
     );
     // We also need to enable the COPY_SRC, as well as STORAGE_BINDING so we can use it in the
