@@ -16,13 +16,13 @@ use bevy::{
         bloom::{Bloom, BloomCompositeMode, BloomPrefilter},
         tonemapping::Tonemapping,
     },
+    image::{ImageLoaderSettings, ImageSampler},
     input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
     prelude::*,
+    render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage},
     sprite::{AlphaMode2d, Material2d, Material2dPlugin},
     text::TextBounds,
 };
-use bevy_image::{ImageLoaderSettings, ImageSampler};
-use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
 
 const MIN_CAMERA_SCALE: f32 = 0.05;
 const MAX_CAMERA_SCALE: f32 = 5.0;
