@@ -656,7 +656,6 @@ mod tests {
         storage::SparseSet,
     };
     use alloc::{vec, vec::Vec};
-    use bevy_platform_support::sync::Arc;
 
     #[derive(Debug, Eq, PartialEq)]
     struct Foo(usize);
@@ -743,7 +742,7 @@ mod tests {
         fn register_component<T: Component>(sets: &mut SparseSets, id: usize) {
             let descriptor = ComponentDescriptor::new::<T>();
             let id = ComponentId::new(id);
-            let info = ComponentInfo::new(id, Arc::new(descriptor));
+            let info = ComponentInfo::new(id, descriptor);
             sets.get_or_insert(&info);
         }
     }
