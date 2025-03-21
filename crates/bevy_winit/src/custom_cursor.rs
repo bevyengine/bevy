@@ -227,7 +227,7 @@ mod tests {
     use bevy_image::Image;
     use bevy_math::Rect;
     use bevy_math::Vec2;
-    use wgpu_types::{Extent3d, TextureDataOrder, TextureDimension};
+    use wgpu_types::{Extent3d, TextureDimension};
 
     use super::*;
 
@@ -241,7 +241,6 @@ mod tests {
             TextureDimension::D2,
             data.to_vec(),
             TextureFormat::Rgba8UnormSrgb,
-            TextureDataOrder::default(),
             RenderAssetUsages::default(),
         )
     }
@@ -369,7 +368,6 @@ mod tests {
             TextureDimension::D2,
             bytemuck::cast_slice(&float_data).to_vec(),
             TextureFormat::Rgba32Float,
-            TextureDataOrder::default(),
             RenderAssetUsages::default(),
         )
     }
