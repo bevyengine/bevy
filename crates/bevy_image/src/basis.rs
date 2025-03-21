@@ -1,6 +1,6 @@
 use basis_universal::{
-    BasisTextureType, BasisUniversalTranscodeParameters, BasisUniversalTranscoder, DecodeFlags,
-    TranscoderTextureFormat,
+    BasisTextureFormat, BasisTextureType, BasisUniversalTranscodeParameters,
+    BasisUniversalTranscoder, DecodeFlags, TranscoderTextureFormat,
 };
 use wgpu_types::{AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat};
 
@@ -27,11 +27,13 @@ pub fn basis_buffer_to_image(
         ));
     };
 
+    let basis_texture_format = transcoder.basis_texture_format(buffer);
+
     // First deal with transcoding to the desired format
     // FIXME: Use external metadata to transcode to more appropriate formats for 1- or 2-component sources
     let (transcode_format, texture_format) =
-        get_transcoded_formats(supported_compressed_formats, is_srgb);
-    let basis_texture_format = transcoder.basis_texture_format(buffer);
+        get_transcoded_formats(basis_texture_format, supported_compressed_formats, is_srgb);
+
     if !basis_texture_format.can_transcode_to_format(transcode_format) {
         return Err(TextureError::UnsupportedTextureFormat(format!(
             "{basis_texture_format:?} cannot be transcoded to {transcode_format:?}",
@@ -122,50 +124,89 @@ pub fn basis_buffer_to_image(
 }
 
 pub fn get_transcoded_formats(
+    basis_format: BasisTextureFormat,
     supported_compressed_formats: CompressedImageFormats,
     is_srgb: bool,
 ) -> (TranscoderTextureFormat, TextureFormat) {
-    // NOTE: UASTC can be losslessly transcoded to ASTC4x4 and ASTC uses the same
-    // space as BC7 (128-bits per 4x4 texel block) so prefer ASTC over BC for
-    // transcoding speed and quality.
-    if supported_compressed_formats.contains(CompressedImageFormats::ASTC_LDR) {
-        (
-            TranscoderTextureFormat::ASTC_4x4_RGBA,
-            TextureFormat::Astc {
-                block: AstcBlock::B4x4,
-                channel: if is_srgb {
-                    AstcChannel::UnormSrgb
-                } else {
-                    AstcChannel::Unorm
-                },
-            },
-        )
-    } else if supported_compressed_formats.contains(CompressedImageFormats::BC) {
-        (
-            TranscoderTextureFormat::BC7_RGBA,
-            if is_srgb {
-                TextureFormat::Bc7RgbaUnormSrgb
+    match basis_format {
+        BasisTextureFormat::ASTC_HDR_6x6 | BasisTextureFormat::ASTC_HDR_6x6_INTERMEDIATE => {
+            if supported_compressed_formats.contains(CompressedImageFormats::ASTC_HDR) {
+                (
+                    TranscoderTextureFormat::ASTC_HDR_6x6_RGBA,
+                    TextureFormat::Astc {
+                        block: AstcBlock::B6x6,
+                        channel: AstcChannel::Hdr,
+                    },
+                )
             } else {
-                TextureFormat::Bc7RgbaUnorm
-            },
-        )
-    } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
-        (
-            TranscoderTextureFormat::ETC2_RGBA,
-            if is_srgb {
-                TextureFormat::Etc2Rgba8UnormSrgb
+                (
+                    TranscoderTextureFormat::RGBA_HALF,
+                    TextureFormat::Rgba16Float,
+                )
+            }
+        }
+        BasisTextureFormat::UASTC_HDR_4x4 => {
+            if supported_compressed_formats.contains(CompressedImageFormats::ASTC_HDR) {
+                (
+                    TranscoderTextureFormat::ASTC_HDR_4x4_RGBA,
+                    TextureFormat::Astc {
+                        block: AstcBlock::B4x4,
+                        channel: AstcChannel::Hdr,
+                    },
+                )
+            } else if supported_compressed_formats.contains(CompressedImageFormats::BC) {
+                (TranscoderTextureFormat::BC6H, TextureFormat::Bc6hRgbUfloat)
             } else {
-                TextureFormat::Etc2Rgba8Unorm
-            },
-        )
-    } else {
-        (
-            TranscoderTextureFormat::RGBA32,
-            if is_srgb {
-                TextureFormat::Rgba8UnormSrgb
+                (
+                    TranscoderTextureFormat::RGBA_HALF,
+                    TextureFormat::Rgba16Float,
+                )
+            }
+        }
+        _ => {
+            // NOTE: UASTC can be losslessly transcoded to ASTC4x4 and ASTC uses the same
+            // space as BC7 (128-bits per 4x4 texel block) so prefer ASTC over BC for
+            // transcoding speed and quality.
+            if supported_compressed_formats.contains(CompressedImageFormats::ASTC_LDR) {
+                (
+                    TranscoderTextureFormat::ASTC_4x4_RGBA,
+                    TextureFormat::Astc {
+                        block: AstcBlock::B4x4,
+                        channel: if is_srgb {
+                            AstcChannel::UnormSrgb
+                        } else {
+                            AstcChannel::Unorm
+                        },
+                    },
+                )
+            } else if supported_compressed_formats.contains(CompressedImageFormats::BC) {
+                (
+                    TranscoderTextureFormat::BC7_RGBA,
+                    if is_srgb {
+                        TextureFormat::Bc7RgbaUnormSrgb
+                    } else {
+                        TextureFormat::Bc7RgbaUnorm
+                    },
+                )
+            } else if supported_compressed_formats.contains(CompressedImageFormats::ETC2) {
+                (
+                    TranscoderTextureFormat::ETC2_RGBA,
+                    if is_srgb {
+                        TextureFormat::Etc2Rgba8UnormSrgb
+                    } else {
+                        TextureFormat::Etc2Rgba8Unorm
+                    },
+                )
             } else {
-                TextureFormat::Rgba8Unorm
-            },
-        )
+                (
+                    TranscoderTextureFormat::RGBA32,
+                    if is_srgb {
+                        TextureFormat::Rgba8UnormSrgb
+                    } else {
+                        TextureFormat::Rgba8Unorm
+                    },
+                )
+            }
+        }
     }
 }
