@@ -47,12 +47,15 @@ for ext, fmt in formats.items():
                 f.write(qoi.encode(img_data))
         elif fmt == "dds":
             # Convert to BGR
-            img_rgba = img.convert("RGB")
-            img_array_rgba = np.array(img_rgba)
-            img_bgra = img_array_rgba[..., [2, 1, 0]] # Swap R and B
-            iio.imwrite(output_filename, img_bgra, extension=".dds")
+            img_rgb = img.convert("RGB")
+            img_array_rgb = np.array(img_rgb)
+            img_bgr = img_array_rgb[..., [2, 1, 0]] # Swap R and B
+            iio.imwrite(output_filename, img_bgr, extension=".dds")
         elif fmt == "pam":
-            iio.imwrite(output_filename, img_array)
+            img_rgb = img.convert("RGB")
+            img_array_rgb = np.array(img_rgb)
+            img_bgr = img_array_rgb[..., [2, 1, 0]] # Swap R and B
+            iio.imwrite(output_filename, img_bgr)
         elif fmt == "ico":
             # Convert to RGBA explicitly
             img_rgba = img.convert("RGBA")
