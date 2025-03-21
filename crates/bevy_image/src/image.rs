@@ -16,8 +16,8 @@ use thiserror::Error;
 use tracing::warn;
 use wgpu_types::{
     AddressMode, AstcChannel, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
-    SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    TextureViewDescriptor,
+    SamplerDescriptor, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
+    TextureUsages, TextureViewDescriptor,
 };
 
 pub trait BevyDefault {
@@ -344,6 +344,10 @@ pub struct Image {
     /// CPU, then this should be `None`
     /// Otherwise, it should always be `Some`
     pub data: Option<Vec<u8>>,
+    /// For texture data with layers and mips, this field controls how wgpu interprets the buffer layout.
+    ///
+    /// Use [`TextureDataOrder::default()`] for all other cases.
+    pub data_order: TextureDataOrder,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
@@ -713,6 +717,7 @@ impl Image {
         dimension: TextureDimension,
         data: Vec<u8>,
         format: TextureFormat,
+        data_order: TextureDataOrder,
         asset_usage: RenderAssetUsages,
     ) -> Self {
         debug_assert_eq!(
@@ -720,7 +725,7 @@ impl Image {
             data.len(),
             "Pixel data, size and format have to match",
         );
-        let mut image = Image::new_uninit(size, dimension, format, asset_usage);
+        let mut image = Image::new_uninit(size, dimension, format, data_order, asset_usage);
         image.data = Some(data);
         image
     }
@@ -730,10 +735,12 @@ impl Image {
         size: Extent3d,
         dimension: TextureDimension,
         format: TextureFormat,
+        data_order: TextureDataOrder,
         asset_usage: RenderAssetUsages,
     ) -> Self {
         Image {
             data: None,
+            data_order,
             texture_descriptor: TextureDescriptor {
                 size,
                 format,
@@ -769,6 +776,7 @@ impl Image {
             TextureDimension::D2,
             data,
             format,
+            TextureDataOrder::default(),
             RenderAssetUsages::default(),
         )
     }
@@ -782,6 +790,7 @@ impl Image {
             },
             TextureDimension::D2,
             TextureFormat::bevy_default(),
+            TextureDataOrder::default(),
             RenderAssetUsages::default(),
         )
     }
@@ -811,7 +820,14 @@ impl Image {
             byte_len,
         );
         let data = pixel.iter().copied().cycle().take(byte_len).collect();
-        Image::new(size, dimension, data, format, asset_usage)
+        Image::new(
+            size,
+            dimension,
+            data,
+            format,
+            TextureDataOrder::default(),
+            asset_usage,
+        )
     }
 
     /// Returns the width of a 2D image.

@@ -466,6 +466,7 @@ pub fn lut_placeholder() -> Image {
     let data = vec![255, 0, 255, 255];
     Image {
         data: Some(data),
+        data_order: TextureDataOrder::default(),
         texture_descriptor: TextureDescriptor {
             size: Extent3d {
                 width: 1,

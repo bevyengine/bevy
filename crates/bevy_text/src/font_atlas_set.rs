@@ -6,7 +6,7 @@ use bevy_platform_support::collections::HashMap;
 use bevy_reflect::TypePath;
 use bevy_render::{
     render_asset::RenderAssetUsages,
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
+    render_resource::{Extent3d, TextureDataOrder, TextureDimension, TextureFormat},
 };
 
 use crate::{error::TextError, Font, FontAtlas, FontSmoothing, GlyphAtlasInfo};
@@ -257,6 +257,7 @@ impl FontAtlasSet {
                 TextureDimension::D2,
                 data,
                 TextureFormat::Rgba8UnormSrgb,
+                TextureDataOrder::default(),
                 RenderAssetUsages::MAIN_WORLD,
             ),
             IVec2::new(left, top),

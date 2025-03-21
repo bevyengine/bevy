@@ -37,7 +37,7 @@ use std::{
     },
 };
 use tracing::{error, info, warn};
-use wgpu::{CommandEncoder, Extent3d, TextureFormat};
+use wgpu::{util::TextureDataOrder, CommandEncoder, Extent3d, TextureFormat};
 
 #[derive(Event, Deref, DerefMut, Reflect, Debug)]
 #[reflect(Debug)]
@@ -683,6 +683,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     wgpu::TextureDimension::D2,
                     result,
                     texture_format,
+                    TextureDataOrder::default(),
                     RenderAssetUsages::RENDER_WORLD,
                 ),
             )) {
