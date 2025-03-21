@@ -9,9 +9,7 @@ use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
     alpha::AlphaMode,
-    mesh::{
-        Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable, TangentCalculationStrategy,
-    },
+    mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable, TangentAlgorithm},
     render_resource::{
         AsBindGroup, CompareFunction, RenderPipelineDescriptor, Shader,
         SpecializedMeshPipelineError,
@@ -44,7 +42,7 @@ impl Plugin for ForwardDecalPlugin {
                 .mesh()
                 .build()
                 .rotated_by(Quat::from_rotation_arc(Vec3::Z, Vec3::Y))
-                .with_computed_tangents(TangentCalculationStrategy::HighQuality)
+                .with_computed_tangents(TangentAlgorithm::Mikktspace)
                 .unwrap(),
         );
 

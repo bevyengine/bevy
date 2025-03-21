@@ -777,7 +777,7 @@ impl Mesh {
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
     #[deprecated(since = "0.16.0", note = "use compute_tangents")]
     pub fn generate_tangents(&mut self) -> Result<(), GenerateTangentsError> {
-        self.compute_tangents(TangentCalculationStrategy::HighQuality)?;
+        self.compute_tangents(TangentAlgorithm::Mikktspace)?;
         Ok(())
     }
 
@@ -785,18 +785,14 @@ impl Mesh {
     ///
     /// Sets the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
     ///
-    /// See [`TangentCalculationStrategy`] for mesh topology and attribute requirements.
+    /// See [`TangentAlgorithm`] for mesh topology and attribute requirements.
     pub fn compute_tangents(
         &mut self,
-        strategy: TangentCalculationStrategy,
+        algorithm: TangentAlgorithm,
     ) -> Result<(), GenerateTangentsError> {
-        let tangents = match strategy {
-            TangentCalculationStrategy::HighQuality => {
-                mikktspace::generate_tangents_for_mesh(self)?
-            }
-            TangentCalculationStrategy::FastApproximation => {
-                gramschmidt::generate_tangents_for_mesh(self)?
-            }
+        let tangents = match algorithm {
+            TangentAlgorithm::Mikktspace => mikktspace::generate_tangents_for_mesh(self)?,
+            TangentAlgorithm::GramSchmidt => gramschmidt::generate_tangents_for_mesh(self)?,
         };
         self.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
         Ok(())
@@ -822,12 +818,12 @@ impl Mesh {
     ///
     /// (Alternatively, you can use [`Mesh::compute_tangents`] to mutate an existing mesh in-place)
     ///
-    /// See [`TangentCalculationStrategy`] for mesh topology and attribute requirements.
+    /// See [`TangentAlgorithm`] for mesh topology and attribute requirements.
     pub fn with_computed_tangents(
         mut self,
-        strategy: TangentCalculationStrategy,
+        algorithm: TangentAlgorithm,
     ) -> Result<Mesh, GenerateTangentsError> {
-        self.compute_tangents(strategy)?;
+        self.compute_tangents(algorithm)?;
         Ok(self)
     }
 
@@ -1275,18 +1271,18 @@ impl core::ops::Mul<Mesh> for Transform {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
-/// The strategy to use when computing mesh tangents. Defaults to `HighQuality`.
-pub enum TangentCalculationStrategy {
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
+/// The algorithm to use when computing mesh tangents. Defaults to `Mikktspace`.
+pub enum TangentAlgorithm {
     /// Uses the Morten S. Mikkelsen "mikktspace" algorithm. Produces potentially higher quality tangents, but much slower.
     ///
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
     #[default]
-    HighQuality,
+    Mikktspace,
     /// Uses the Gram-Schmidt fast approximation algorithm. Produces potentially lower quality tangents, but very fast.
     ///
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
-    FastApproximation,
+    GramSchmidt,
 }
 
 #[derive(Error, Debug)]

@@ -136,14 +136,14 @@ pub(crate) fn generate_tangents_for_mesh(
 mod tests {
     use bevy_math::{primitives::*, Vec2, Vec3, Vec3A};
 
-    use crate::{Mesh, TangentCalculationStrategy};
+    use crate::{Mesh, TangentAlgorithm};
 
     // The tangents should be very close for simple shapes
     fn compare_tangents(mut mesh: Mesh) {
         let hq_tangents: Vec<[f32; 4]> = {
             mesh.remove_attribute(Mesh::ATTRIBUTE_TANGENT);
-            mesh.compute_tangents(TangentCalculationStrategy::HighQuality)
-                .expect("compute_tangents(HighQuality)");
+            mesh.compute_tangents(TangentAlgorithm::Mikktspace)
+                .expect("compute_tangents(Mikktspace)");
             mesh.attribute(Mesh::ATTRIBUTE_TANGENT)
                 .expect("hq_tangents.attribute(tangent)")
                 .as_float4()
@@ -153,8 +153,8 @@ mod tests {
 
         let fa_tangents: Vec<[f32; 4]> = {
             mesh.remove_attribute(Mesh::ATTRIBUTE_TANGENT);
-            mesh.compute_tangents(TangentCalculationStrategy::FastApproximation)
-                .expect("compute_tangents(FastApproximation)");
+            mesh.compute_tangents(TangentAlgorithm::GramSchmidt)
+                .expect("compute_tangents(GramSchmidt)");
             mesh.attribute(Mesh::ATTRIBUTE_TANGENT)
                 .expect("fa_tangents.attribute(tangent)")
                 .as_float4()

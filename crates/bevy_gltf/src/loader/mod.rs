@@ -28,8 +28,7 @@ use bevy_math::{Mat4, Vec3};
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    Indices, Mesh, MeshVertexAttribute, PrimitiveTopology, TangentCalculationStrategy,
-    VertexAttributeValues,
+    Indices, Mesh, MeshVertexAttribute, PrimitiveTopology, TangentAlgorithm, VertexAttributeValues,
 };
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_pbr::UvChannel;
@@ -147,8 +146,8 @@ pub struct GltfLoader {
     /// See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
     /// for additional details on custom attributes.
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
-    /// The strategy to use when computing mesh tangents.
-    pub tangent_calculation_strategy: TangentCalculationStrategy,
+    /// The algorithm to use when computing mesh tangents.
+    pub tangent_calculation_algorithm: TangentAlgorithm,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -685,17 +684,17 @@ async fn load_gltf<'a, 'b, 'c>(
                 && needs_tangents(&primitive.material())
             {
                 tracing::debug!(
-                    "Missing vertex tangents for {}, computing them using the {:?} strategy. Consider using a tool such as Blender to pre-compute the tangents.",
-                    file_name, loader.tangent_calculation_strategy
+                    "Missing vertex tangents for {}, computing them using the {:?} algorithm. Consider using a tool such as Blender to pre-compute the tangents.",
+                    file_name, loader.tangent_calculation_algorithm
                 );
 
                 let generate_tangents_span = info_span!("compute_tangents", name = file_name);
 
                 generate_tangents_span.in_scope(|| {
-                    if let Err(err) = mesh.compute_tangents(loader.tangent_calculation_strategy) {
+                    if let Err(err) = mesh.compute_tangents(loader.tangent_calculation_algorithm) {
                         warn!(
                             "Failed to generate vertex tangents using {:?}: {}",
-                            loader.tangent_calculation_strategy, err
+                            loader.tangent_calculation_algorithm, err
                         );
                     }
                 });
