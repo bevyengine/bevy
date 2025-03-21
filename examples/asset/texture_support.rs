@@ -132,6 +132,11 @@ fn setup_scene_textures(
             TextureCell::single(),
         ),
         (
+            "Radiance HDR",
+            "textures/texture_support/hdr.hdr",
+            TextureCell::single(),
+        ),
+        (
             "EXR (HDR)",
             "textures/texture_support/exr-hdr.exr",
             TextureCell::single(),

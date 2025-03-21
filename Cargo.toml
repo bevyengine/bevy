@@ -1859,13 +1859,16 @@ name = "texture_support"
 path = "examples/asset/texture_support.rs"
 doc-scrape-examples = true
 required-features = [
-  "ktx2",
   "basis-universal",
   "bmp",
+  "dds",
   "gif",
   "exr",
+  "hdr",
   "ico",
   "jpeg",
+  "ktx2",
+  "png",
   "pnm",
   "qoi",
   "tga",

@@ -5,13 +5,21 @@
 - [**toktx**](https://github.khronos.org/KTX-Software/ktxtools/toktx.html)
 - [**basisu**](https://github.com/BinomialLLC/basis_universal)
 
-### Other Tools
-
-- [astcenc](https://github.com/ARM-software/astc-encoder/releases)
-
 ## Instructions
 
 The files in this directory are generated from [png-srgb-rgb.png]('./png-srgb-rgb.png) using the following commands:
+
+### Misc LDR Formats
+
+```sh
+python ./scripts/export-ldr-formats.py
+```
+
+### EXR / HDR
+
+```sh
+python ./scripts/export-hdr-formats.py
+```
 
 ### KTX2
 
@@ -89,7 +97,7 @@ toktx --t2 --layers 6 --genmipmap --assign_oetf srgb --encode astc --astc_blk_d 
     png-layer-4.png \
     png-layer-5.png
 
-# KTX2: Multi-layer 
+# KTX2: Multi-layer
 # toktx --t2 --layers 6 --assign_oetf srgb --encode astc --astc_blk_d 4x4 ktx2-astc-4x4-srgb-multilayer.ktx2 \
 #     png-layer-0.png \
 #     png-layer-1.png \

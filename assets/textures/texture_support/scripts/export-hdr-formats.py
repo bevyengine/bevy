@@ -1,4 +1,4 @@
-# python ./scripts/export-exr-hdr.py
+# python ./scripts/export-hdr-formats.py
 
 import numpy as np
 import OpenEXR
@@ -38,3 +38,8 @@ pixel_type = Imath.PixelType(Imath.PixelType.FLOAT)
 exr_file = OpenEXR.OutputFile(output_exr_filename, header)
 exr_file.writePixels({ch: img_exr[i].astype(np.float32).tobytes() for i, ch in enumerate(channels)})
 print(f"Saved linear HDR image to {output_exr_filename}")
+
+# Export HDR file (Radiance HDR)
+output_hdr_filename = "hdr.hdr"
+iio.imwrite(output_hdr_filename, img_linear.astype(np.float32))
+print(f"Saved HDR image to {output_hdr_filename}")

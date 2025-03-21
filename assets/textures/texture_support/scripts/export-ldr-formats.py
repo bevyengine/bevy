@@ -1,4 +1,4 @@
-# python ./scripts/export-misc-formats.py
+# python ./scripts/export-ldr-formats.py
 
 from PIL import Image
 import imageio.v3 as iio
@@ -20,7 +20,7 @@ formats = {
     "gif": "gif",
     "ico": "ico",
     "jpg": "jpeg",
-    "qoi": "qoi", 
+    "qoi": "qoi",
     "tga": "tga",
     "tif": "tiff",
     "webp": "webp",
