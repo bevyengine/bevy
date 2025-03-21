@@ -5,7 +5,7 @@
 use super::{ClearColorConfig, Projection};
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
+    camera::{ManualTextureViewHandle, ManualTextureViews},
     primitives::Frustum,
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
@@ -609,7 +609,7 @@ impl Camera {
     /// To get the coordinates in the render target's viewport dimensions, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
-    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
+    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`Projection`] contain `NAN`.
     ///
     /// # Panics
     ///
