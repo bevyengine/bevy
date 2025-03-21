@@ -985,9 +985,9 @@ impl SparseSetIndex for ComponentId {
 
 /// Represents the name of a component.
 #[derive(Clone)]
-pub struct ComponentName(Arc<ComponentDescriptor>);
+pub struct ComponentName<'a>(Cow<'a, Arc<ComponentDescriptor>>);
 
-impl Deref for ComponentName {
+impl Deref for ComponentName<'_> {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
@@ -995,19 +995,19 @@ impl Deref for ComponentName {
     }
 }
 
-impl Debug for ComponentName {
+impl Debug for ComponentName<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.0.name())
     }
 }
 
-impl core::fmt::Display for ComponentName {
+impl core::fmt::Display for ComponentName<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.0.name())
     }
 }
 
-impl From<ComponentName> for alloc::string::String {
+impl From<ComponentName<'_>> for alloc::string::String {
     fn from(value: ComponentName) -> Self {
         value.0.name().into()
     }
@@ -2025,10 +2025,13 @@ impl Components {
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
-    pub fn get_descriptor(&self, id: ComponentId) -> Option<Arc<ComponentDescriptor>> {
+    pub fn get_descriptor<'a>(
+        &'a self,
+        id: ComponentId,
+    ) -> Option<Cow<'a, Arc<ComponentDescriptor>>> {
         self.components
             .get(id.0)
-            .and_then(|info| info.as_ref().map(|info| info.descriptor.clone()))
+            .and_then(|info| info.as_ref().map(|info| Cow::Borrowed(&info.descriptor)))
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
                 // first check components
@@ -2036,14 +2039,14 @@ impl Components {
                     .components
                     .values()
                     .find(|queued| queued.id == id)
-                    .map(|queued| queued.descriptor.clone())
+                    .map(|queued| Cow::Owned(queued.descriptor.clone()))
                     .or_else(|| {
                         // otherwise check resources
                         queued
                             .resources
                             .values()
                             .find(|queued| queued.id == id)
-                            .map(|queued| queued.descriptor.clone())
+                            .map(|queued| Cow::Owned(queued.descriptor.clone()))
                     })
                     .or_else(|| {
                         // otherwise check dynamic
@@ -2051,7 +2054,7 @@ impl Components {
                             .dynamic_registrations
                             .iter()
                             .find(|queued| queued.id == id)
-                            .map(|queued| queued.descriptor.clone())
+                            .map(|queued| Cow::Owned(queued.descriptor.clone()))
                     })
             })
     }

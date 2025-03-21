@@ -1898,11 +1898,11 @@ impl ScheduleGraph {
     }
 
     /// convert conflicts to human readable format
-    pub fn conflicts_to_string(
-        &self,
-        ambiguities: &[(NodeId, NodeId, Vec<ComponentId>)],
-        components: &Components,
-    ) -> impl Iterator<Item = (String, String, Vec<ComponentName>)> {
+    pub fn conflicts_to_string<'a>(
+        &'a self,
+        ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
+        components: &'a Components,
+    ) -> impl Iterator<Item = (String, String, Vec<ComponentName<'a>>)> + 'a {
         ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {
