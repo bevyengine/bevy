@@ -570,7 +570,7 @@ impl<'a> PortableEntities<'a> {
     ///
     /// # Safety
     ///
-    /// The passed [`RemoteEntitiesReserver`] must be used outside of `scope`.
+    /// The passed [`RemoteEntitiesReserver`] must never be used outside of `scope` on the calling thread.
     ///
     /// # Example
     ///
@@ -1522,7 +1522,7 @@ mod tests {
         let mut entities = Entities::new();
 
         let portable = entities.portable();
-        // SAFETY: `remote` does not escape scope.
+        // SAFETY: `remote` does not escape scope on this thread.
         let thread_1 = unsafe {
             portable.remote_scope(|mut remote| {
                 std::thread::spawn(move || {
@@ -1532,7 +1532,7 @@ mod tests {
                 })
             })
         };
-        // SAFETY: `remote` does not escape scope.
+        // SAFETY: `remote` does not escape scope on this thread.
         let thread_2 = unsafe {
             portable.remote_scope(|mut remote| {
                 std::thread::spawn(move || {
@@ -1542,7 +1542,7 @@ mod tests {
                 })
             })
         };
-        // SAFETY: `remote` does not escape scope.
+        // SAFETY: `remote` does not escape scope on this thread.
         let thread_3 = unsafe {
             portable.remote_scope(|mut remote| {
                 std::thread::spawn(move || {
