@@ -985,7 +985,7 @@ impl SparseSetIndex for ComponentId {
 
 /// Represents the name of a component.
 #[derive(Clone)]
-pub struct ComponentName<'a>(Cow<'a, Arc<ComponentDescriptor>>);
+pub struct ComponentName<'a>(pub Cow<'a, Arc<ComponentDescriptor>>);
 
 impl Deref for ComponentName<'_> {
     type Target = str;
@@ -2022,6 +2022,8 @@ impl Components {
 
     /// Gets the [`ComponentDescriptor`] of the component with this [`ComponentId`] if it is present.
     /// This will return `None` only if the id is neither regisered nor queued to be registered.
+    ///
+    /// Currently, the [`Cow`] will be [`Cow::Owned`] if and only if the component is queued. It will be [`Cow::Borrowed`] otherwise.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
