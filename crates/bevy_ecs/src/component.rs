@@ -1863,7 +1863,7 @@ impl<'w> ComponentsRegistrator<'w> {
         }
     }
 
-    /// Same as [`Components::register_resource_unchecked_with`] but handles safety.
+    /// Same as [`Components::register_resource_unchecked`] but handles safety.
     ///
     /// # Safety
     ///
