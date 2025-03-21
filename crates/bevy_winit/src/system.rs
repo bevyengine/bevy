@@ -398,6 +398,10 @@ pub(crate) fn changed_windows(
             window.cursor_options.grab_mode = cache.window.cursor_options.grab_mode;
         }
 
+        if window.cursor_options.visible != cache.window.cursor_options.visible {
+            winit_window.set_cursor_visible(window.cursor_options.visible);
+        }
+
         if window.physical_cursor_position() != cache.window.backend_cursor_position() {
             if let Some(physical_position) = window.physical_cursor_position() {
                 let position = PhysicalPosition::new(physical_position.x, physical_position.y);
@@ -406,10 +410,6 @@ pub(crate) fn changed_windows(
                     error!("could not set cursor position: {}", err);
                 }
             }
-        }
-
-        if window.cursor_options.visible != cache.window.cursor_options.visible {
-            winit_window.set_cursor_visible(window.cursor_options.visible);
         }
 
         if window.cursor_options.hit_test != cache.window.cursor_options.hit_test {
