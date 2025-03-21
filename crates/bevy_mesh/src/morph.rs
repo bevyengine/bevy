@@ -97,6 +97,8 @@ impl MorphTargetImage {
     }
 }
 
+/// TODO: Update this documentation.
+///
 /// Controls the [morph targets] for all child `Mesh3d` entities. In most cases, [`MorphWeights`] should be considered
 /// the "source of truth" when writing morph targets for meshes. However you can choose to write child [`MeshMorphWeights`]
 /// if your situation requires more granularity. Just note that if you set [`MorphWeights`], it will overwrite child
@@ -150,6 +152,8 @@ impl MorphWeights {
     }
 }
 
+/// TODO: Update this documentation.
+///
 /// Control a specific [`Mesh`] instance's [morph targets]. These control the weights of
 /// specific "mesh primitives" in scene formats like GLTF. They can be set manually, but
 /// in most cases they should "automatically" synced by setting the [`MorphWeights`] component
