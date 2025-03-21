@@ -336,7 +336,7 @@ impl ImageFormat {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(opaque, Default, Debug)
+    reflect(opaque, Default, Debug, Clone)
 )]
 pub struct Image {
     /// Raw pixel data.

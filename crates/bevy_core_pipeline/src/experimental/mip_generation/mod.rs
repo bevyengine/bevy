@@ -16,7 +16,7 @@ use bevy_ecs::{
     prelude::{resource_exists, Without},
     query::{Or, QueryState, With},
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -325,6 +325,18 @@ pub struct DownsampleDepthPipelines {
     sampler: Sampler,
 }
 
+fn supports_compute_shaders(device: &RenderDevice, adapter: &RenderAdapter) -> bool {
+    adapter
+        .get_downlevel_capabilities()
+        .flags
+        .contains(DownlevelFlags::COMPUTE_SHADERS)
+    // Even if the adapter supports compute, we might be simulating a lack of
+    // compute via device limits (see `WgpuSettingsPriority::WebGL2` and
+    // `wgpu::Limits::downlevel_webgl2_defaults()`). This will have set all the
+    // `max_compute_*` limits to zero, so we arbitrarily pick one as a canary.
+    && (device.limits().max_compute_workgroup_storage_size != 0)
+}
+
 /// Creates the [`DownsampleDepthPipelines`] if downsampling is supported on the
 /// current platform.
 fn create_downsample_depth_pipelines(
@@ -346,11 +358,7 @@ fn create_downsample_depth_pipelines(
 
     // If we don't have compute shaders, we can't invoke the downsample depth
     // compute shader.
-    if !render_adapter
-        .get_downlevel_capabilities()
-        .flags
-        .contains(DownlevelFlags::COMPUTE_SHADERS)
-    {
+    if !supports_compute_shaders(&render_device, &render_adapter) {
         return;
     }
 

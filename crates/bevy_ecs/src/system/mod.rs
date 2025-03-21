@@ -82,7 +82,7 @@
 //! # System return type
 //!
 //! Systems added to a schedule through [`add_systems`](crate::schedule::Schedule) may either return
-//! empty `()` or a [`Result`](crate::result::Result). Other contexts (like one shot systems) allow
+//! empty `()` or a [`Result`](crate::error::Result). Other contexts (like one shot systems) allow
 //! systems to return arbitrary values.
 //!
 //! # System parameter list
@@ -323,6 +323,7 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use alloc::{vec, vec::Vec};
     use bevy_utils::default;
@@ -335,13 +336,13 @@ mod tests {
         change_detection::DetectChanges,
         component::{Component, Components},
         entity::{Entities, Entity},
+        error::Result,
         prelude::{AnyOf, EntityRef},
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
         resource::Resource,
-        result::Result,
         schedule::{
-            common_conditions::resource_exists, ApplyDeferred, Condition, IntoSystemConfigs,
+            common_conditions::resource_exists, ApplyDeferred, Condition, IntoScheduleConfigs,
             Schedule,
         },
         system::{
@@ -350,6 +351,8 @@ mod tests {
         },
         world::{DeferredWorld, EntityMut, FromWorld, World},
     };
+
+    use super::ScheduleSystem;
 
     #[derive(Resource, PartialEq, Debug)]
     enum SystemRan {
@@ -389,7 +392,10 @@ mod tests {
         system.run((), &mut world);
     }
 
-    fn run_system<Marker, S: IntoSystemConfigs<Marker>>(world: &mut World, system: S) {
+    fn run_system<Marker, S: IntoScheduleConfigs<ScheduleSystem, Marker>>(
+        world: &mut World,
+        system: S,
+    ) {
         let mut schedule = Schedule::default();
         schedule.add_systems(system);
         schedule.run(world);

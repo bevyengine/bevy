@@ -23,7 +23,7 @@ use bevy_ecs::{
     query::{QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -79,7 +79,7 @@ pub struct DepthOfFieldPlugin;
 ///
 /// [depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 #[derive(Component, Clone, Copy, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Clone, Default)]
 pub struct DepthOfField {
     /// The appearance of the effect.
     pub mode: DepthOfFieldMode,
@@ -123,7 +123,7 @@ pub struct DepthOfField {
 
 /// Controls the appearance of the effect.
 #[derive(Clone, Copy, Default, PartialEq, Debug, Reflect)]
-#[reflect(Default, PartialEq)]
+#[reflect(Default, Clone, PartialEq)]
 pub enum DepthOfFieldMode {
     /// A more accurate simulation, in which circles of confusion generate
     /// "spots" of light.

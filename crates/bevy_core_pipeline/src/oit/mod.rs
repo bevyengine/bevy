@@ -6,7 +6,7 @@ use bevy_ecs::{component::*, prelude::*};
 use bevy_math::UVec2;
 use bevy_platform_support::collections::HashSet;
 use bevy_platform_support::time::Instant;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -44,6 +44,7 @@ pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> =
 // This should probably be done by adding an enum to this component.
 // We use the same struct to pass on the settings to the drawing shader.
 #[derive(Clone, Copy, ExtractComponent, Reflect, ShaderType)]
+#[reflect(Clone, Default)]
 pub struct OrderIndependentTransparencySettings {
     /// Controls how many layers will be used to compute the blending.
     /// The more layers you use the more memory it will use but it will also give better results.
@@ -162,7 +163,7 @@ fn configure_depth_texture_usages(
     }
 
     // Find all the render target that potentially uses OIT
-    let primary_window = p.get_single().ok();
+    let primary_window = p.single().ok();
     let mut render_target_has_oit = <HashSet<_>>::default();
     for (camera, has_oit) in &cameras {
         if has_oit {

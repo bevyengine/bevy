@@ -25,10 +25,10 @@ cargo bench -p benches -- name_fragment
 cargo bench -p benches -- --list
 
 # Save a baseline to be compared against later.
-cargo bench -p benches --save-baseline before
+cargo bench -p benches -- --save-baseline before
 
 # Compare the current benchmarks against a baseline to find performance gains and regressions.
-cargo bench -p benches --baseline before
+cargo bench -p benches -- --baseline before
 ```
 
 ## Criterion
