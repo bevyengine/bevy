@@ -142,6 +142,12 @@ impl MorphWeights {
     pub fn weights_mut(&mut self) -> &mut [f32] {
         &mut self.weights
     }
+    pub fn clear_weights(&mut self) {
+        self.weights.clear();
+    }
+    pub fn extend_weights(&mut self, weights: &[f32]) {
+        self.weights.extend(weights);
+    }
 }
 
 /// Control a specific [`Mesh`] instance's [morph targets]. These control the weights of
