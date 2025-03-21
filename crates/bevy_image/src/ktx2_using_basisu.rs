@@ -11,10 +11,10 @@ pub fn ktx2_buffer_to_image_using_basisu(
     buffer: &[u8],
     supported_compressed_formats: CompressedImageFormats,
 ) -> Result<Image, TextureError> {
-    let mut transcoder = Ktx2Transcoder::new(buffer).map_err(|_| {
-        TextureError::TranscodeError(
-            "Failed to open KTX2 using basis-universal. Check that it is a valid ETC1S or UASTC LDR/HDR texture (non-UASTC ASTC textures are not supported).".to_string()
-        )
+    let mut transcoder = Ktx2Transcoder::new(buffer).map_err(|err| {
+        TextureError::TranscodeError(format!(
+            "Failed to open KTX2 using basis-universal. Check that it is a valid ETC1S or UASTC LDR/HDR texture (non-UASTC ASTC textures are not supported). {:?}", err
+        ))
     })?;
 
     let Some(image0_info) = transcoder.image_level_info(0, 0, 0) else {

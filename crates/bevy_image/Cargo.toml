@@ -83,7 +83,7 @@ zstd = { version = "0.13.3", optional = true }
 ruzstd = { version = "0.8.0", optional = true }
 # For transcoding of UASTC/ETC1S universal formats and for .basis file support.
 # Does not currently support wasm: https://github.com/aclysma/basis-universal-rs/pull/11, https://github.com/aclysma/basis-universal-rs/issues/10
-basis-universal = { git = "https://github.com/naturalatlas/basis-universal-rs", rev = "ce385a45a06644c254e17a0faffd186d1de98ea7", optional = true, default-features = false }
+basis-universal = { git = "https://github.com/naturalatlas/basis-universal-rs", rev = "36cdb8d4cfba8ff2ada431acb84f62e8224a5856", optional = true, default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 half = { version = "2.4.1" }
 
