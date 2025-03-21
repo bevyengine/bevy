@@ -31,8 +31,12 @@ impl ComputedTextureSlices {
         if sprite.flip_y {
             flip.y *= -1.0;
         }
+        let anchor = sprite.anchor.as_vec()
+            * sprite
+                .custom_size
+                .unwrap_or(sprite.rect.unwrap_or_default().size());
         self.0.iter().map(move |slice| ExtractedSlice {
-            offset: slice.offset * flip,
+            offset: slice.offset * flip - anchor,
             rect: slice.texture_rect,
             size: slice.draw_size,
         })
