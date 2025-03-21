@@ -611,6 +611,12 @@ impl Parse for Require {
                 let func = content.parse::<Path>()?;
                 Some(RequireFunc::Path(func))
             }
+        } else if input.peek(Token![=]) {
+            let _t: syn::Token![=] = input.parse()?;
+            let label: Ident = input.parse()?;
+            let tokens: TokenStream = quote::quote! (|| #path::#label).into();
+            let func = syn::parse(tokens).unwrap();
+            Some(RequireFunc::Closure(func))
         } else {
             None
         };
