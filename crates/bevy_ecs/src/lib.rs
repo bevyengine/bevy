@@ -73,7 +73,7 @@ pub mod prelude {
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         children,
         component::Component,
-        entity::{Entity, EntityBorrow, EntityMapper},
+        entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},

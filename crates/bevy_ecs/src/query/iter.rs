@@ -3,7 +3,7 @@ use crate::{
     archetype::{Archetype, ArchetypeEntity, Archetypes},
     bundle::Bundle,
     component::Tick,
-    entity::{Entities, Entity, EntityBorrow, EntitySet, EntitySetIterator},
+    entity::{ContainsEntity, Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
     storage::{Table, TableRow, Tables},
     world::{
@@ -1117,7 +1117,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> Debug
 /// Entities that don't match the query are skipped.
 ///
 /// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
-pub struct QueryManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>> {
+pub struct QueryManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
+{
     world: UnsafeWorldCell<'w>,
     entity_iter: I,
     entities: &'w Entities,
@@ -1128,7 +1129,7 @@ pub struct QueryManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item:
     query_state: &'s QueryState<D, F>,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     QueryManyIter<'w, 's, D, F, I>
 {
     /// # Safety
@@ -1167,7 +1168,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// It is always safe for shared access.
     #[inline(always)]
     unsafe fn fetch_next_aliased_unchecked(
-        entity_iter: impl Iterator<Item: EntityBorrow>,
+        entity_iter: impl Iterator<Item: EntityEquivalent>,
         entities: &'w Entities,
         tables: &'w Tables,
         archetypes: &'w Archetypes,
@@ -1720,7 +1721,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: EntityBorrow>>
+impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: EntityEquivalent>>
     QueryManyIter<'w, 's, D, F, I>
 {
     /// Get next result from the back of the query
@@ -1746,7 +1747,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: EntityBo
     }
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>> Iterator
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>> Iterator
     for QueryManyIter<'w, 's, D, F, I>
 {
     type Item = D::Item<'w>;
@@ -1775,8 +1776,13 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: EntityBorro
     }
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: DoubleEndedIterator<Item: EntityBorrow>>
-    DoubleEndedIterator for QueryManyIter<'w, 's, D, F, I>
+impl<
+        'w,
+        's,
+        D: ReadOnlyQueryData,
+        F: QueryFilter,
+        I: DoubleEndedIterator<Item: EntityEquivalent>,
+    > DoubleEndedIterator for QueryManyIter<'w, 's, D, F, I>
 {
     #[inline(always)]
     fn next_back(&mut self) -> Option<Self::Item> {
@@ -1798,8 +1804,8 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: DoubleEndedIterator<Item: 
 }
 
 // This is correct as [`QueryManyIter`] always returns `None` once exhausted.
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>> FusedIterator
-    for QueryManyIter<'w, 's, D, F, I>
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
+    FusedIterator for QueryManyIter<'w, 's, D, F, I>
 {
 }
 
@@ -1809,7 +1815,7 @@ unsafe impl<'w, 's, F: QueryFilter, I: EntitySetIterator> EntitySetIterator
 {
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>> Debug
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>> Debug
     for QueryManyIter<'w, 's, D, F, I>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

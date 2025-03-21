@@ -2,7 +2,7 @@ use alloc::{borrow::ToOwned, string::String};
 use core::num::NonZero;
 
 use bevy_ecs::{
-    entity::{Entity, EntityBorrow},
+    entity::{ContainsEntity, Entity},
     prelude::Component,
 };
 use bevy_math::{CompassOctant, DVec2, IVec2, UVec2, Vec2};
@@ -91,7 +91,7 @@ impl WindowRef {
 )]
 pub struct NormalizedWindowRef(Entity);
 
-impl EntityBorrow for NormalizedWindowRef {
+impl ContainsEntity for NormalizedWindowRef {
     fn entity(&self) -> Entity {
         self.0
     }
