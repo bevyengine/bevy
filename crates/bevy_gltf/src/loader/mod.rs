@@ -1,7 +1,6 @@
 mod extensions;
 mod gltf_ext;
 
-use core::iter::repeat_n;
 use std::{
     io::Error,
     path::{Path, PathBuf},
@@ -1576,7 +1575,10 @@ fn load_node(
                     weights = mesh_weights.to_vec();
                 }
                 if max_morph_target_count > weights.len() {
-                    weights.extend(repeat_n(0.0, max_morph_target_count - weights.len()));
+                    weights.extend(core::iter::repeat_n(
+                        0.0,
+                        max_morph_target_count - weights.len(),
+                    ));
                 }
 
                 let primitive_label = mesh.primitives().next().map(|p| GltfAssetLabel::Primitive {
