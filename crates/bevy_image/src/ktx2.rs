@@ -58,12 +58,18 @@ pub enum Ktx2TranscodingHint {
         is_srgb: bool,
         data_format: DataFormat,
     },
-    /// Conversion from srgb to linear is needed (to end up as a [`TextureFormat::R8Unorm`])
+    /// Conversion from srgb to linear is needed (to end up as [`TextureFormat::R8Unorm`])
     R8UnormSrgb,
-    /// Conversion from srgb to linear is needed (to end up as a [`TextureFormat::Rg8Unorm`])
+    /// Conversion from srgb to linear is needed (to end up as [`TextureFormat::Rg8Unorm`])
     Rg8UnormSrgb,
-    /// This needs an alpha channel added (to end up as a [`TextureFormat::Rgba8Unorm`] or [`TextureFormat::Rgba8UnormSrgb`])
-    Rgb8 { is_srgb: bool },
+    /// This needs an alpha channel added (to end up as [`TextureFormat::Rgba8Unorm`] or [`TextureFormat::Rgba8UnormSrgb`])
+    Rgb8 {
+        is_srgb: bool,
+    },
+    /// This needs an alpha channel added (to end up as [`TextureFormat::Rgba32Float`])
+    Rgb32Float,
+    Rgb32Sint,
+    Rgb32Uint,
 }
 
 /// Decodes/transcodes a KTX2 image rust (if possible), falling back to using basis-universal-sys for special cases (like ETC1S/BasisLZ).
@@ -234,6 +240,37 @@ pub fn ktx2_buffer_to_image(
                         TextureFormat::Rgba8UnormSrgb
                     } else {
                         TextureFormat::Rgba8Unorm
+                    }
+                }
+                Ktx2TranscodingHint::Rgb32Float => {
+                    // Add an alpha channel
+                    let alpha = [0u8, 0u8, 128u8, 63u8]; // 1.0f32
+                    for level_data in scratch_levels.iter_mut() {
+                        let mut rgba = Vec::with_capacity(level_data.len() / 3 * 4);
+                        for rgb in level_data.chunks_exact(3 * 4) {
+                            rgba.extend_from_slice(rgb);
+                            rgba.extend_from_slice(&alpha); 
+                        }
+                        *level_data = rgba;
+                    }
+
+                    TextureFormat::Rgba32Float
+                }
+                Ktx2TranscodingHint::Rgb32Sint | Ktx2TranscodingHint::Rgb32Uint => {
+                    // Add an alpha channel
+                    let zero = [0u8, 0u8, 0u8, 0u8]; // 0
+                    for level_data in scratch_levels.iter_mut() {
+                        let mut rgba = Vec::with_capacity(level_data.len() / 3 * 4);
+                        for rgb in level_data.chunks_exact(3 * 4) {
+                            rgba.extend_from_slice(rgb);
+                            rgba.extend_from_slice(&zero);
+                        }
+                        *level_data = rgba;
+                    }
+                    if matches!(transcoding_hint, Ktx2TranscodingHint::Rgb32Sint) {
+                        TextureFormat::Rgba32Sint
+                    } else {
+                        TextureFormat::Rgba32Uint
                     }
                 }
                 #[cfg(not(feature = "basis-universal"))]
@@ -1397,12 +1434,21 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::R32G32_SINT => TextureFormat::Rg32Sint,
         ktx2::Format::R32G32_SFLOAT => TextureFormat::Rg32Float,
 
-        // TODO: Write a transcoder (add an alpha channel to make a TextureFormat::Rgba32Uint)
-        ktx2::Format::R32G32B32_UINT => no_wgpu_format("R32G32B32_UINT")?,
-        // TODO: Write a transcoder (add an alpha channel to make a TextureFormat::Rgba32Sint)
-        ktx2::Format::R32G32B32_SINT => no_wgpu_format("R32G32B32_SINT")?,
-        // TODO: Write a transcoder (add an alpha channel to make a TextureFormat::Rgba32Float)
-        ktx2::Format::R32G32B32_SFLOAT => no_wgpu_format("R32G32B32_SFLOAT")?,
+        ktx2::Format::R32G32B32_UINT => {
+            return Err(Ktx2TextureError::RequiresTranscoding(
+                Ktx2TranscodingHint::Rgb32Uint,
+            ));
+        }
+        ktx2::Format::R32G32B32_SINT => {
+            return Err(Ktx2TextureError::RequiresTranscoding(
+                Ktx2TranscodingHint::Rgb32Sint,
+            ));
+        }
+        ktx2::Format::R32G32B32_SFLOAT => {
+            return Err(Ktx2TextureError::RequiresTranscoding(
+                Ktx2TranscodingHint::Rgb32Float,
+            ));
+        }
 
         ktx2::Format::R32G32B32A32_UINT => TextureFormat::Rgba32Uint,
         ktx2::Format::R32G32B32A32_SINT => TextureFormat::Rgba32Sint,
