@@ -614,7 +614,7 @@ impl Window {
 
     /// Retrieves the cursor position as reported by the back end.
     ///
-    /// This can be different to the phyical cursor position on
+    /// This can be different to the physical cursor position on
     /// the windows platform when `CursorGrabMode::Locked` is set.
     pub fn backend_cursor_position(&self) -> Option<Vec2> {
         self.internal
