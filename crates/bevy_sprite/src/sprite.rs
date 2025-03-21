@@ -248,11 +248,11 @@ pub enum ScalingMode {
 pub struct Anchor(pub Vec2);
 
 impl Anchor {
-    pub const CENTER: Self = Self(Vec2::ZERO);
     pub const BOTTOM_LEFT: Self = Self(Vec2::new(-0.5, -0.5));
     pub const BOTTOM_CENTER: Self = Self(Vec2::new(0.0, -0.5));
     pub const BOTTOM_RIGHT: Self = Self(Vec2::new(0.5, -0.5));
     pub const CENTER_LEFT: Self = Self(Vec2::new(-0.5, 0.0));
+    pub const CENTER: Self = Self(Vec2::ZERO);
     pub const CENTER_RIGHT: Self = Self(Vec2::new(0.5, 0.0));
     pub const TOP_LEFT: Self = Self(Vec2::new(-0.5, 0.5));
     pub const TOP_CENTER: Self = Self(Vec2::new(0.0, 0.5));
