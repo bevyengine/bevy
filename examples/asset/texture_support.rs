@@ -46,7 +46,7 @@ fn main() {
                 | WgpuFeatures::TEXTURE_COMPRESSION_BC
                 | WgpuFeatures::TEXTURE_COMPRESSION_BC_SLICED_3D
                 | WgpuFeatures::TEXTURE_COMPRESSION_ETC2,
-        )
+        );
     }
 
     App::new()
@@ -57,7 +57,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins(TextureSupportMaterialsPlugin::default())
+        .add_plugins(TextureSupportMaterialsPlugin)
         .add_systems(Startup, (setup_scene_textures, setup_camera))
         .add_systems(
             Update,
@@ -920,7 +920,6 @@ fn handle_keyboard(
 }
 
 /// Registers materials used for this example.
-#[derive(Default)]
 struct TextureSupportMaterialsPlugin;
 
 impl Plugin for TextureSupportMaterialsPlugin {
