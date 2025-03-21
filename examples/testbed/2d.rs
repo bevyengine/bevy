@@ -215,10 +215,10 @@ mod text {
         ));
 
         for anchor in [
-            Anchor::TopLeft,
-            Anchor::TopRight,
-            Anchor::BottomRight,
-            Anchor::BottomLeft,
+            Anchor::TOP_LEFT,
+            Anchor::TOP_RIGHT,
+            Anchor::BOTTOM_RIGHT,
+            Anchor::BOTTOM_LEFT,
         ] {
             let mut text = commands.spawn((
                 Text2d::new("L R\n"),
@@ -229,7 +229,7 @@ mod text {
             ));
             text.with_children(|parent| {
                 parent.spawn((
-                    TextSpan::new(format!("{anchor:?}\n")),
+                    TextSpan::new(format!("{}, {}\n", anchor.x, anchor.y)),
                     TextFont::from_font_size(14.0),
                     TextColor(palettes::tailwind::BLUE_400.into()),
                 ));
