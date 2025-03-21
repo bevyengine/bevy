@@ -7,7 +7,7 @@ use bevy::{
     core_pipeline::Skybox,
     math::vec3,
     prelude::*,
-    render::mesh::TangentCalculationStrategy,
+    render::mesh::TangentAlgorithm,
     time::Stopwatch,
 };
 
@@ -116,7 +116,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
         Mesh3d(
             asset_server.add(
                 Mesh::from(Sphere::new(0.1))
-                    .with_computed_tangents(TangentCalculationStrategy::HighQuality)
+                    .with_computed_tangents(TangentAlgorithm::Mikktspace)
                     .unwrap(),
             ),
         ),
