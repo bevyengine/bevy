@@ -1014,6 +1014,9 @@ impl Image {
             || format_description
                 .required_features()
                 .contains(Features::TEXTURE_COMPRESSION_ETC2)
+            || format_description
+                .required_features()
+                .contains(Features::TEXTURE_COMPRESSION_ASTC_HDR)
     }
 
     /// Compute the byte offset where the data of a specific pixel is stored
