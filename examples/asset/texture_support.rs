@@ -19,7 +19,13 @@ use bevy::{
     image::{ImageLoaderSettings, ImageSampler},
     input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
     prelude::*,
-    render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage},
+    render::{
+        render_asset::RenderAssets,
+        render_resource::*,
+        settings::{RenderCreation, WgpuSettings},
+        texture::GpuImage,
+        RenderPlugin,
+    },
     sprite::{AlphaMode2d, Material2d, Material2dPlugin},
     text::TextBounds,
 };
@@ -27,9 +33,30 @@ use bevy::{
 const MIN_CAMERA_SCALE: f32 = 0.05;
 const MAX_CAMERA_SCALE: f32 = 5.0;
 
+const SIMULATE_NO_COMPRESSED_TEXTURE_SUPPORT: bool = false;
+
 fn main() {
+    let mut disabled_features = None;
+
+    // If set, this demonstrates which compressed formats can be transcoded to uncompressed formats.
+    if SIMULATE_NO_COMPRESSED_TEXTURE_SUPPORT {
+        disabled_features = Some(
+            WgpuFeatures::TEXTURE_COMPRESSION_ASTC
+                | WgpuFeatures::TEXTURE_COMPRESSION_ASTC_HDR
+                | WgpuFeatures::TEXTURE_COMPRESSION_BC
+                | WgpuFeatures::TEXTURE_COMPRESSION_BC_SLICED_3D
+                | WgpuFeatures::TEXTURE_COMPRESSION_ETC2,
+        )
+    }
+
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(RenderPlugin {
+            render_creation: RenderCreation::Automatic(WgpuSettings {
+                disabled_features,
+                ..default()
+            }),
+            ..default()
+        }))
         .add_plugins(TextureSupportMaterialsPlugin::default())
         .add_systems(Startup, (setup_scene_textures, setup_camera))
         .add_systems(
@@ -447,7 +474,7 @@ fn setup_scene_textures(
 
     let misc_formats = vec![
         (
-            "KTX2 w/Layers & Mips",
+            "KTX2 ASTC w/Layers & Mips",
             "textures/texture_support/ktx2-astc-4x4-srgb-multilayer-mips.ktx2",
             TextureCell::default().with_layers(6).with_mips(8),
         ),

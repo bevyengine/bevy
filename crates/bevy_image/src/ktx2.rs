@@ -109,7 +109,7 @@ pub fn ktx2_buffer_to_image(
     }
 
     // If the system doesn't support the compressed format, try to decompress the data using basis-universal
-    // if it is not UTASC. UASTC is handled using `LowLevelUastcLdr4x4Transcoder` further below, so there's
+    // if it is not UASTC. UASTC is handled using `LowLevelUastcLdr4x4Transcoder` further below, so there's
     // no need to handle it here. Currently, basis-universal only supports ETC and UASTC decompression.
     if let Ok(texture_format) = texture_format {
         if texture_format.is_compressed() && !supported_compressed_formats.supports(texture_format)
@@ -282,13 +282,14 @@ pub fn ktx2_buffer_to_image(
                     let (transcode_block_format, texture_format) =
                         get_uastc_ldr4x4_transcoded_formats(supported_compressed_formats, data_format, is_srgb);
 
-                    let (block_width_pixels, block_height_pixels) = texture_format.block_dimensions();
-                    assert_eq!(block_width_pixels, 4);
-                    assert_eq!(block_height_pixels, 4);
-
                     let input_bpbp = TranscoderBlockFormat::ASTC_4x4.bytes_per_block_or_pixel() as usize;
                     let output_bpbp = transcode_block_format.bytes_per_block_or_pixel() as usize;
-                    let output_is_same_shape = input_bpbp == output_bpbp;
+
+                    // Ensure wgpu and basis-universal are reporting the same output block size for the target format
+                    debug_assert_eq!(output_bpbp, texture_format.block_copy_size(None).unwrap() as usize);
+
+                    // Determine if the transcoded size of the output occupies the same amount of memory
+                    let output_is_same_shape = texture_format.is_compressed() && input_bpbp == output_bpbp;
 
                     let transcoder = LowLevelUastcLdr4x4Transcoder::new();
                     for (level, level_data) in scratch_levels.iter_mut().enumerate() {
@@ -296,10 +297,13 @@ pub fn ktx2_buffer_to_image(
                             (width >> level as u32).max(1),
                             (height >> level as u32).max(1),
                         );
+
+                        // Number of blocks in each dimension (of the input, not the output)
                         let (num_blocks_x, num_blocks_y) = (
-                            level_width.div_ceil(block_width_pixels).max(1),
-                            level_height.div_ceil(block_height_pixels).max(1),
+                            level_width.div_ceil(4).max(1),
+                            level_height.div_ceil(4).max(1),
                         );
+
                         let level_bytes = (num_blocks_x * num_blocks_y) as usize * input_bpbp;
                         let slice_parameters = SliceParametersUastc {
                             num_blocks_x,
@@ -334,7 +338,7 @@ pub fn ktx2_buffer_to_image(
                                     buffered_slices.push(transcoded_slice);
                                 }
 
-                                offset += input_bpbp;
+                                offset += level_bytes;
                             }
                         }
 
