@@ -4,7 +4,7 @@ use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
+use wgpu_types::{Extent3d, TextureDataOrder, TextureDimension, TextureFormat};
 
 /// Loads HDR textures as Texture assets
 #[derive(Clone, Default)]
@@ -69,6 +69,7 @@ impl AssetLoader for HdrTextureLoader {
             TextureDimension::D2,
             rgba_data,
             format,
+            TextureDataOrder::default(),
             settings.asset_usage,
         ))
     }

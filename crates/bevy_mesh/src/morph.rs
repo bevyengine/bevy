@@ -6,7 +6,7 @@ use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use thiserror::Error;
-use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
+use wgpu_types::{Extent3d, TextureDataOrder, TextureDimension, TextureFormat};
 
 const MAX_TEXTURE_WIDTH: u32 = 2048;
 // NOTE: "component" refers to the element count of math objects,
@@ -91,6 +91,7 @@ impl MorphTargetImage {
             TextureDimension::D3,
             data,
             TextureFormat::R32Float,
+            TextureDataOrder::default(),
             asset_usage,
         );
         Ok(MorphTargetImage(image))

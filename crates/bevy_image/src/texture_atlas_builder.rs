@@ -7,7 +7,7 @@ use rectangle_pack::{
 };
 use thiserror::Error;
 use tracing::{debug, error, warn};
-use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
+use wgpu_types::{Extent3d, TextureDataOrder, TextureDimension, TextureFormat};
 
 use crate::{Image, TextureFormatPixelInfo};
 use crate::{TextureAtlasLayout, TextureAtlasSources};
@@ -246,6 +246,7 @@ impl<'a> TextureAtlasBuilder<'a> {
                             self.format.pixel_size() * (current_width * current_height) as usize
                         ],
                         self.format,
+                        TextureDataOrder::default(),
                         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
                     );
                     Some(rect_placements)
