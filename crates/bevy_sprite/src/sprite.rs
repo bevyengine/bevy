@@ -242,7 +242,7 @@ pub enum ScalingMode {
 }
 
 /// Normalized (relative to its size) offset of a 2d renderable entity from its [`Transform`].
-#[derive(Component, Debug, Clone, Copy, PartialEq, Deref, DerefMut, Default, Reflect)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[doc(alias = "pivot")]
 pub struct Anchor(pub Vec2);
@@ -260,6 +260,12 @@ impl Anchor {
 
     pub fn as_vec(&self) -> Vec2 {
         self.0
+    }
+}
+
+impl Default for Anchor {
+    fn default() -> Self {
+        Self::CENTER
     }
 }
 
