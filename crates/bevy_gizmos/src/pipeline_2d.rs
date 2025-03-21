@@ -6,6 +6,10 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
+use bevy_render_2d::{
+    material::rendering::queue_material2d_meshes,
+    mesh::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup},
+};
 
 use bevy_ecs::{
     prelude::Entity,
@@ -27,7 +31,6 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSet,
 };
-use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 use tracing::error;
 
 pub struct LineGizmo2dPlugin;
@@ -49,9 +52,7 @@ impl Plugin for LineGizmo2dPlugin {
                 GizmoRenderSystem::QueueLineGizmos2d
                     .in_set(RenderSet::Queue)
                     .ambiguous_with(bevy_sprite::queue_sprites)
-                    .ambiguous_with(
-                        bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
-                    ),
+                    .ambiguous_with(queue_material2d_meshes::<bevy_color_material::ColorMaterial>),
             )
             .add_systems(
                 Render,

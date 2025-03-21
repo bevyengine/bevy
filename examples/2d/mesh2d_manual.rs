@@ -30,10 +30,12 @@ use bevy::{
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderSet,
     },
-    sprite::{
-        extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline, Mesh2dPipelineKey,
-        Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
-        SetMesh2dViewBindGroup,
+    render_2d::{
+        material::rendering::Material2dBindGroupId,
+        mesh::{
+            extract_mesh2d, DrawMesh2d, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dTransforms,
+            MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+        },
     },
 };
 use std::f32::consts::PI;

@@ -1,44 +1,18 @@
-use crate::{AlphaMode2d, Material2d, Material2dPlugin};
-use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, Assets, Handle};
+use bevy_asset::{Asset, Handle};
 use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
 use bevy_image::Image;
 use bevy_math::{Affine2, Mat3, Vec4};
 use bevy_reflect::prelude::*;
-use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
+use bevy_render::{
+    render_asset::RenderAssets,
+    render_resource::{AsBindGroup, AsBindGroupShaderType, ShaderRef, ShaderType},
+    texture::GpuImage,
+};
+use bevy_render_2d::{material::AlphaMode2d, prelude::Material2d};
 
-pub const COLOR_MATERIAL_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("92e0e6e9-ed0b-4db3-89ab-5f65d3678250");
+use crate::COLOR_MATERIAL_SHADER_HANDLE;
 
-#[derive(Default)]
-pub struct ColorMaterialPlugin;
-
-impl Plugin for ColorMaterialPlugin {
-    fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            COLOR_MATERIAL_SHADER_HANDLE,
-            "color_material.wgsl",
-            Shader::from_wgsl
-        );
-
-        app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
-            .register_asset_reflect::<ColorMaterial>();
-
-        // Initialize the default material handle.
-        app.world_mut()
-            .resource_mut::<Assets<ColorMaterial>>()
-            .insert(
-                &Handle::<ColorMaterial>::default(),
-                ColorMaterial {
-                    color: Color::srgb(1.0, 0.0, 1.0),
-                    ..Default::default()
-                },
-            );
-    }
-}
-
-/// A [2d material](Material2d) that renders [2d meshes](crate::Mesh2d) with a texture tinted by a uniform color
+/// A [2d material](Material2d) that renders [2d meshes](bevy_render_2d::Mesh2d) with a texture tinted by a uniform color
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[reflect(Default, Debug, Clone)]
 #[uniform(0, ColorMaterialUniform)]

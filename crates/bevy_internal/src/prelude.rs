@@ -23,6 +23,10 @@ pub use crate::image::prelude::*;
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_render_2d")]
+pub use crate::render_2d::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_asset")]
 pub use crate::asset::prelude::*;
 
@@ -37,6 +41,10 @@ pub use crate::animation::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_color")]
 pub use crate::color::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_color_material")]
+pub use crate::color_material::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_core_pipeline")]

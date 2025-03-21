@@ -10,7 +10,6 @@
 
 extern crate alloc;
 
-mod mesh2d;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 mod picking_backend;
 mod render;
@@ -30,11 +29,10 @@ pub mod prelude {
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, MeshMaterial2d, ScalingMode,
+        ScalingMode,
     };
 }
 
-pub use mesh2d::*;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
 pub use render::*;
@@ -43,6 +41,7 @@ pub use texture_slice::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, weak_handle, AssetEvents, Assets, Handle};
+use bevy_color_material::prelude::ColorMaterial;
 use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
@@ -55,6 +54,7 @@ use bevy_render::{
     view::{NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
+use bevy_render_2d::material::rendering::queue_material2d_meshes;
 
 /// Adds support for 2D sprite rendering.
 #[derive(Default)]
@@ -96,7 +96,6 @@ impl Plugin for SpritePlugin {
             .register_type::<TextureSlicer>()
             .register_type::<Anchor>()
             .register_type::<Mesh2d>()
-            .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
             .add_systems(
                 PostUpdate,
                 (
