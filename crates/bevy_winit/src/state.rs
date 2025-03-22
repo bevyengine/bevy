@@ -541,12 +541,6 @@ impl<T: Event> WinitAppRunnerState<T> {
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
             SystemState::new(self.world_mut());
 
-        if let Some(app_redraw_events) = self.world().get_resource::<Events<RequestRedraw>>() {
-            if redraw_event_reader.read(app_redraw_events).last().is_some() {
-                self.redraw_requested = true;
-            }
-        }
-
         let (config, windows) = focused_windows_state.get(self.world());
         let focused = windows.iter().any(|(_, window)| window.focused);
 
