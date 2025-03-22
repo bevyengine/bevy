@@ -57,7 +57,12 @@ impl DiagnosticsRecorder {
         DiagnosticsRecorder(WgpuWrapper::new(DiagnosticsRecorderInternal {
             timestamp_period_ns: queue.get_timestamp_period(),
             features,
-            current_frame: Mutex::new(FrameData::new(device, features, tracy_gpu_context.clone())),
+            current_frame: Mutex::new(FrameData::new(
+                device,
+                features,
+                #[cfg(feature = "tracing-tracy")]
+                tracy_gpu_context.clone(),
+            )),
             submitted_frames: Vec::new(),
             finished_frames: Vec::new(),
             #[cfg(feature = "tracing-tracy")]
@@ -356,6 +361,7 @@ impl FrameData {
             begin_instant: None,
             end_instant: None,
             pipeline_statistics_index: None,
+            #[cfg(feature = "tracing-tracy")]
             tracy_gpu_span,
         });
 
@@ -372,6 +378,7 @@ impl FrameData {
             .next_back()
             .unwrap();
 
+        #[allow(unused_mut)]
         let mut span = self.open_spans.swap_remove(index);
 
         #[cfg(feature = "tracing-tracy")]
