@@ -989,7 +989,7 @@ pub fn queue_uinodes(
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
-            entity: (entity, extracted_uinode.main_entity),
+            entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
             sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::NODE),
             index,
             // batch_range will be calculated in prepare_uinodes
