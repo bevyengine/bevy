@@ -579,7 +579,7 @@ impl Schedule {
 #[derive(Default)]
 pub struct Dag {
     /// A directed graph.
-    graph: DiGraph,
+    graph: DiGraph<NodeId>,
     /// A cached topological ordering of the graph.
     topsort: Vec<NodeId>,
 }
@@ -593,7 +593,7 @@ impl Dag {
     }
 
     /// The directed graph of the stored systems, connected by their ordering dependencies.
-    pub fn graph(&self) -> &DiGraph {
+    pub fn graph(&self) -> &DiGraph<NodeId> {
         &self.graph
     }
 
@@ -675,7 +675,7 @@ pub struct ScheduleGraph {
     hierarchy: Dag,
     /// Directed acyclic graph of the dependency (which systems/sets have to run before which other systems/sets)
     dependency: Dag,
-    ambiguous_with: UnGraph,
+    ambiguous_with: UnGraph<NodeId>,
     /// Nodes that are allowed to have ambiguous ordering relationship with any other systems.
     pub ambiguous_with_all: HashSet<NodeId>,
     conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
@@ -1245,7 +1245,7 @@ impl ScheduleGraph {
     fn map_sets_to_systems(
         &self,
         hierarchy_topsort: &[NodeId],
-        hierarchy_graph: &DiGraph,
+        hierarchy_graph: &DiGraph<NodeId>,
     ) -> (HashMap<NodeId, Vec<NodeId>>, HashMap<NodeId, FixedBitSet>) {
         let mut set_systems: HashMap<NodeId, Vec<NodeId>> =
             HashMap::with_capacity_and_hasher(self.system_sets.len(), Default::default());
@@ -1280,7 +1280,10 @@ impl ScheduleGraph {
         (set_systems, set_system_bitsets)
     }
 
-    fn get_dependency_flattened(&mut self, set_systems: &HashMap<NodeId, Vec<NodeId>>) -> DiGraph {
+    fn get_dependency_flattened(
+        &mut self,
+        set_systems: &HashMap<NodeId, Vec<NodeId>>,
+    ) -> DiGraph<NodeId> {
         // flatten: combine `in_set` with `before` and `after` information
         // have to do it like this to preserve transitivity
         let mut dependency_flattened = self.dependency.graph.clone();
@@ -1319,7 +1322,10 @@ impl ScheduleGraph {
         dependency_flattened
     }
 
-    fn get_ambiguous_with_flattened(&self, set_systems: &HashMap<NodeId, Vec<NodeId>>) -> UnGraph {
+    fn get_ambiguous_with_flattened(
+        &self,
+        set_systems: &HashMap<NodeId, Vec<NodeId>>,
+    ) -> UnGraph<NodeId> {
         let mut ambiguous_with_flattened = UnGraph::default();
         for (lhs, rhs) in self.ambiguous_with.all_edges() {
             match (lhs, rhs) {
@@ -1352,7 +1358,7 @@ impl ScheduleGraph {
     fn get_conflicting_systems(
         &self,
         flat_results_disconnected: &Vec<(NodeId, NodeId)>,
-        ambiguous_with_flattened: &UnGraph,
+        ambiguous_with_flattened: &UnGraph<NodeId>,
         ignored_ambiguities: &BTreeSet<ComponentId>,
     ) -> Vec<(NodeId, NodeId, Vec<ComponentId>)> {
         let mut conflicting_systems = Vec::new();
@@ -1698,7 +1704,7 @@ impl ScheduleGraph {
     /// If the graph contain cycles, then an error is returned.
     pub fn topsort_graph(
         &self,
-        graph: &DiGraph,
+        graph: &DiGraph<NodeId>,
         report: ReportCycles,
     ) -> Result<Vec<NodeId>, ScheduleBuildError> {
         // Tarjan's SCC algorithm returns elements in *reverse* topological order.
@@ -1786,7 +1792,7 @@ impl ScheduleGraph {
 
     fn check_for_cross_dependencies(
         &self,
-        dep_results: &CheckGraphResults,
+        dep_results: &CheckGraphResults<NodeId>,
         hier_results_connected: &HashSet<(NodeId, NodeId)>,
     ) -> Result<(), ScheduleBuildError> {
         for &(a, b) in &dep_results.connected {
