@@ -20,6 +20,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
 |bevy_color|Provides shared color types and operations|
+|bevy_color_material|Provides a simple color material for 2d meshes|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for rendering gizmos|
@@ -30,6 +31,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
 |bevy_render|Provides rendering functionality|
+|bevy_render_2d|Provides infrastructure for creating 2d materials and using 2d meshes|
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
 |bevy_sprite_picking_backend|Provides an implementation for picking sprites|
