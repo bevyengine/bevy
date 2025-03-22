@@ -533,71 +533,11 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 
-/// This is a portable version of [`Entities`], allowing use in [`RemoteEntitiesReserver`].
-/// This can be attained via [`Entities::portable`].
-///
-/// See [`RemoteEntitiesReserver::new`] and [`RemoteEntitiesReserver::scope`] for examples.
-pub struct PortableEntities<'a> {
-    entities: &'a Entities,
-    security: Arc<EntitiesPtr>,
-}
-
-impl<'a> PortableEntities<'a> {
-    /// Drops this value for the inner [`Entities`].
-    pub fn into_inner(self) -> &'a Entities {
-        self.entities
-    }
-}
-
-impl core::ops::Deref for PortableEntities<'_> {
-    type Target = Entities;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        self.entities
-    }
-}
-
-struct EntitiesPtr(*const Entities);
-
-// SAFETY: This is only used via [`PortableEntities`] which ensures safety.
-unsafe impl Send for EntitiesPtr {}
-// SAFETY: This is only used via [`PortableEntities`] which ensures safety.
-unsafe impl Sync for EntitiesPtr {}
-
-impl Drop for PortableEntities<'_> {
-    fn drop(&mut self) {
-        // first we get rid of our current arc.
-        let downgraded = Arc::downgrade(&self.security);
-        drop(mem::replace(
-            &mut self.security,
-            Arc::new(EntitiesPtr(core::ptr::null())),
-        ));
-
-        loop {
-            // If we were the only one with the arc, we just break here.
-            // But if someone else is using it, we need to wait for them to drop it.
-            // This isn't another [`PortableEntities`] since we don't clone our arc.
-            // The only thing this could be is a [`RemoteEntitiesReserver::reserve_entity`].
-            // That must be being called on a separate thread if it is still working.
-            // We need to wait to drop until that is done, otherwise, someone could move the [`Entities`], invalidating the pointer.
-            if downgraded.strong_count() == 0 {
-                break;
-            }
-
-            // We should be able to break *really* soon, so we don't yield.
-            // But this should be more friendly to the cpu.
-            core::hint::spin_loop();
-        }
-    }
-}
-
 /// This handles reserving entities remotely.
 /// See also [`PortableEntities`].
 pub struct RemoteEntitiesReserver {
     source: Arc<RemoteEntitiesSource>,
     current: Vec<Entity>,
-    entities: Weak<EntitiesPtr>,
     /// This is the number of entities that will be requested at a time.
     /// Smaller values prevent wasted entities.
     /// Larger values reduce the average time it takes to reserve an entity.
@@ -609,12 +549,6 @@ impl RemoteEntitiesReserver {
     pub const DEFAULT_BATCH_SIZE: NonZero<u32> = NonZero::new(16).unwrap();
 
     /// Constructs a [`RemoteEntitiesReserver`] that can be shared between threads.
-    ///
-    /// # Safety
-    ///
-    /// The caller must ensure that the returned value is only used when either `self` is in scope,
-    /// or the returned [`RemoteEntitiesReserver`] is on a thread which has no active reference to the source &[`Entities`].
-    /// If this safety is broken, a deadlock may occor.
     ///
     /// # Example
     ///
@@ -630,42 +564,24 @@ impl RemoteEntitiesReserver {
     ///
     /// let reserved = remote.reserve_entity();
     /// ```
-    pub unsafe fn new(entities: &PortableEntities) -> RemoteEntitiesReserver {
+    pub fn new(entities: Arc<RemoteEntitiesSource>) -> RemoteEntitiesReserver {
         Self {
-            source: entities.entities.remote.clone(),
+            source: entities,
             current: Vec::new(),
-            entities: Arc::downgrade(&entities.security),
             batch_size: Self::DEFAULT_BATCH_SIZE,
         }
     }
 
-    /// This is an alternative to [`RemoteEntitiesReserver::new`].
-    ///
-    /// # Safety
-    ///
-    /// The passed [`RemoteEntitiesReserver`] must never be used outside of `scope` on the calling thread.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    /// use bevy_ecs::entity::RemoteEntitiesReserver;
-    ///
-    /// let world = World::new();
-    /// let entities = world.entities().portable();
-    ///
-    /// let result = unsafe { RemoteEntitiesReserver::scope(&entities, |mut remote| {
-    ///     remote.reserve_entity()
-    ///     // remote // Returning `remote` would break safety since it escapes the scope.
-    /// }) };
-    ///
-    /// ```
-    pub unsafe fn scope<T>(
-        entities: &PortableEntities,
-        scope: impl FnOnce(RemoteEntitiesReserver) -> T,
-    ) -> T {
-        // SAFETY: ensured by caller
-        unsafe { scope(Self::new(entities)) }
+    /// Same as [`Self::new`] but also sets [`batch_size`](Self::batch_size).
+    pub fn new_with(
+        entities: Arc<RemoteEntitiesSource>,
+        batch_size: NonZero<u32>,
+    ) -> RemoteEntitiesReserver {
+        Self {
+            source: entities,
+            current: Vec::new(),
+            batch_size,
+        }
     }
 
     /// Reserves an entity remotely.
@@ -674,11 +590,6 @@ impl RemoteEntitiesReserver {
     pub async fn reserve_entity(&mut self) -> Result<Entity, RemoteReservationError> {
         if let Some(reserved) = self.current.pop() {
             return Ok(reserved);
-        }
-
-        if let Some(entities) = self.entities.upgrade() {
-            // SAFETY: `PortableEntities` ensures it is the *only* arc before dropping.
-            return unsafe { Ok((*entities.0).reserve_entity()) };
         }
 
         self.source.request(self.batch_size).await.map(|fulfilled| {
@@ -695,15 +606,10 @@ impl RemoteEntitiesReserver {
     }
 
     /// Creates a new [`RemoteEntitiesReserver`] based on this one. This returned reserver will not conflict with this one.
-    ///
-    /// # Safety
-    ///
-    /// The returned reserver must not be used while a `&Entities` is on the thread. This can cause a deadlock.
-    pub unsafe fn new_reserver(&self) -> Self {
+    pub fn new_reserver(&self) -> Self {
         Self {
             source: self.source.clone(),
             current: Vec::new(),
-            entities: self.entities.clone(),
             batch_size: self.batch_size,
         }
     }
@@ -786,6 +692,9 @@ impl Future for RemoteReservedEntities {
 
 impl RemoteEntitiesSource {
     /// Requests another chunk of entities.
+    /// Note that `request` is just a request.
+    /// Even if the result is `Ok`, the length of the `Vec` may be different than requested.
+    /// However, it will always have at least one element.
     async fn request(
         self: &Arc<Self>,
         request: NonZero<u32>,
@@ -838,6 +747,23 @@ impl RemoteEntitiesSource {
     fn close(&self) {
         self.reserved.close();
         self.request_more.close();
+    }
+}
+
+/// Manages access to [`Entities`] from any thread.
+pub struct RemoteEntities {
+    source: Arc<RemoteEntitiesSource>,
+}
+
+impl RemoteEntities {
+    /// Gets the underlying source for this instance.
+    pub fn get_source(&self) -> &Arc<RemoteEntitiesSource> {
+        &self.source
+    }
+
+    /// Returns true only if the [`Entities`] has discontinued this remote access.
+    pub fn is_closed(&self) -> bool {
+        self.source.reserved.is_closed()
     }
 }
 
@@ -908,11 +834,10 @@ impl Entities {
         }
     }
 
-    /// Constructs a new [`PortableEntities`] for this instance.
-    pub fn portable(&self) -> PortableEntities {
-        PortableEntities {
-            entities: self,
-            security: Arc::new(EntitiesPtr(self)),
+    /// Constructs a new [`RemoteEntities`] for this instance.
+    pub fn get_remote(&self) -> RemoteEntities {
+        RemoteEntities {
+            source: self.remote.clone(),
         }
     }
 
@@ -1537,41 +1462,21 @@ mod tests {
     #[ignore = "This test starts multiple threads. In batch testing, this may time out because other tests are running concurrently."]
     #[cfg(feature = "std")]
     fn remote_reservation() {
-        let mut entities = Entities::new();
+        use std::thread;
 
-        let portable = entities.portable();
-        // SAFETY: `remote` does not escape scope on this thread.
-        let thread_1 = unsafe {
-            RemoteEntitiesReserver::scope(&portable, |mut remote| {
-                std::thread::spawn(move || {
+        let mut entities = Entities::new();
+        let remote = entities.get_remote();
+
+        let mut threads = (0..3)
+            .map(|_| {
+                let mut reserver = RemoteEntitiesReserver::new(remote.get_source().clone());
+                thread::spawn(async move || {
                     for _ in 0..100 {
-                        remote.reserve_entity().unwrap();
+                        reserver.reserve_entity().await.unwrap();
                     }
                 })
             })
-        };
-        // SAFETY: `remote` does not escape scope on this thread.
-        let thread_2 = unsafe {
-            RemoteEntitiesReserver::scope(&portable, |mut remote| {
-                std::thread::spawn(move || {
-                    for _ in 0..100 {
-                        remote.reserve_entity().unwrap();
-                    }
-                })
-            })
-        };
-        // SAFETY: `remote` does not escape scope on this thread.
-        let thread_3 = unsafe {
-            RemoteEntitiesReserver::scope(&portable, |mut remote| {
-                std::thread::spawn(move || {
-                    for _ in 0..100 {
-                        remote.reserve_entity().unwrap();
-                    }
-                })
-            })
-        };
-        drop(portable);
-        let mut threads = alloc::vec![thread_1, thread_2, thread_3];
+            .collect::<Vec<_>>();
 
         let timeout = std::time::Instant::now();
         loop {
