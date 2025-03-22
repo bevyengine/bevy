@@ -346,7 +346,7 @@ impl FrameData {
 
         #[cfg(feature = "tracing-tracy")]
         let tracy_gpu_span = {
-            let location = std::panic::Location::caller();
+            let location = core::panic::Location::caller();
             self.tracy_gpu_context
                 .span_alloc(&name, "", location.file(), location.line())
                 .unwrap()
