@@ -1,6 +1,5 @@
 pub mod commands;
 pub mod instances;
-pub mod key;
 pub mod prepared_asset;
 pub mod properties;
 pub mod specialization;
