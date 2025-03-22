@@ -1,6 +1,6 @@
 use bevy_math::{bounding::Aabb3d, Dir3, Mat4, Ray3d, Vec3, Vec3A};
+use bevy_mesh::{Indices, Mesh, PrimitiveTopology};
 use bevy_reflect::Reflect;
-use bevy_render::mesh::{Indices, Mesh, PrimitiveTopology};
 
 use super::Backfaces;
 
