@@ -71,11 +71,6 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub padding: BorderRect,
-    /// Inverse scale factor for this Node.
-    /// Multiply physical coordinates by the inverse scale factor to give logical coordinates.
-    ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub inverse_scale_factor: f32,
 }
 
 impl ComputedNode {
@@ -223,13 +218,6 @@ impl ComputedNode {
             bottom: self.border.bottom + self.padding.bottom,
         }
     }
-
-    /// Returns the inverse of the scale factor for this node.
-    /// To convert from physical coordinates to logical coordinates multiply by this value.
-    #[inline]
-    pub const fn inverse_scale_factor(&self) -> f32 {
-        self.inverse_scale_factor
-    }
 }
 
 impl ComputedNode {
@@ -243,7 +231,6 @@ impl ComputedNode {
         border_radius: ResolvedBorderRadius::ZERO,
         border: BorderRect::ZERO,
         padding: BorderRect::ZERO,
-        inverse_scale_factor: 1.,
     };
 }
 
@@ -2772,19 +2759,38 @@ impl Default for BoxShadowSamples {
     }
 }
 
-/// Derived information about the camera target for this UI node.
+/// Derived information about the camera and render target for this UI node.
+///     
+/// Automatically updated by [`super::update::compute_node_targets_system`].
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, PartialEq, Clone)]
 pub struct ComputedNodeTarget {
-    pub(crate) camera: Entity,
+    /// The derived camera for this UI node.
+    /// If `None` no camera was found to render this node through.
+    ///
+    /// Automatically updated by [`super::update::compute_node_targets_system`].
+    pub(crate) camera: Option<Entity>,
+
+    /// The local scale factor for this UI node derived from `UiScale` and the render target's scale factor.
+    /// Set to `1.` if no camera target found.
+    ///
+    /// To transform coordinates from logical to physical space you multiply them by the scale factor,
+    /// and to transform coordinates from physical to logical space you divide them by the scale factor.
+    ///
+    /// Automatically updated by [`super::update::compute_node_targets_system`].
     pub(crate) scale_factor: f32,
+
+    /// The size of this UI node's render target in physical pixels.
+    /// Set to `UVec2::ZERO` if no camera target found.
+    ///
+    /// Automatically updated by [`super::update::compute_node_targets_system`].
     pub(crate) physical_size: UVec2,
 }
 
 impl Default for ComputedNodeTarget {
     fn default() -> Self {
         Self {
-            camera: Entity::PLACEHOLDER,
+            camera: None,
             scale_factor: 1.,
             physical_size: UVec2::ZERO,
         }
@@ -2792,18 +2798,37 @@ impl Default for ComputedNodeTarget {
 }
 
 impl ComputedNodeTarget {
+    /// The derived camera for this UI node.
+    /// Returns `None` if there is no camera set to render this node through.
+    ///
+    /// Automatically updated by [`super::update::compute_node_targets_system`].
     pub fn camera(&self) -> Option<Entity> {
-        Some(self.camera).filter(|&entity| entity != Entity::PLACEHOLDER)
+        self.camera
     }
 
+    /// The local scale factor for this UI node derived from `UiScale` and the render target's scale factor.
+    /// Returns `1.` if no camera target found.
+    ///
+    /// To transform coordinates from logical to physical space you multiply them by the scale factor,
+    /// and to transform coordinates from physical to logical space you divide them by the scale factor.
+    ///
+    /// Automatically updated by [`super::update::compute_node_targets_system`].
     pub const fn scale_factor(&self) -> f32 {
         self.scale_factor
     }
 
+    /// The size of this UI node's render target in physical pixels.
+    /// Returns `UVec2::ZERO` if no camera target found.
+    ///
+    /// Automatically updated by [`super::update::compute_node_targets_system`].
     pub const fn physical_size(&self) -> UVec2 {
         self.physical_size
     }
 
+    /// The size of this UI node's render target in logical pixels.
+    /// Returns `Vec2::ZERO` if no camera target found.
+    ///
+    /// Automatically updated by [`super::update::compute_node_targets_system`].
     pub fn logical_size(&self) -> Vec2 {
         self.physical_size.as_vec2() / self.scale_factor
     }
