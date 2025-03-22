@@ -79,13 +79,12 @@ where
     #[inline]
     unsafe fn validate_param(
         state: &Self::State,
-        system_meta: &SystemMeta,
+        _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
         // SAFETY: Read-only access to world data registered in `init_state`.
         let result = unsafe { world.get_resource_by_id(state.main_world_state) };
         let Some(main_world) = result else {
-            system_meta.try_warn_param::<&World>();
             return false;
         };
         // SAFETY: Type is guaranteed by `SystemState`.
