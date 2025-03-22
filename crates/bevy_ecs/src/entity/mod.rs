@@ -617,7 +617,7 @@ impl RemoteEntitiesReserver {
     ///
     /// let world = World::new();
     /// let entities = world.entities().portable();
-    /// let mut remote = unsafe { RemoteEntitiesReserver.new(&entities) };
+    /// let mut remote = unsafe { RemoteEntitiesReserver::new(&entities) };
     ///
     /// // drop(entities); // This would violate safety and cause a deadlock.
     ///
