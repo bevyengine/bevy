@@ -16,7 +16,7 @@ use bevy_ecs::{
     schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
 };
-use bevy_platform_support::collections::HashMap;
+
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
 
@@ -140,19 +140,25 @@ impl App {
         Self {
             sub_apps: SubApps {
                 main: SubApp::new(),
-                sub_apps: HashMap::default(),
+                ..Default::default()
             },
             runner: Box::new(run_once),
         }
     }
 
-    /// Runs the default schedules of all sub-apps (starting with the "main" app) once.
+    /// Runs the app update function, by default this runs the default schedules of all sub-apps (starting with the "main" app) once.
+    /// See [`SubApps::update`].
     pub fn update(&mut self) {
         if self.is_building_plugins() {
             panic!("App::update() was called while a plugin was building.");
         }
 
         self.sub_apps.update();
+    }
+
+    /// Sets the update function to use for [`update`](Self::update) on the [`SubApps`] collection to the provided function.
+    pub fn set_update_fn(&mut self, func: impl Fn(&mut SubApps) + 'static) {
+        self.sub_apps.update_fn = Some(Box::new(func));
     }
 
     /// Runs the [`App`] by calling its [runner](Self::set_runner).
@@ -1422,7 +1428,8 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use core::marker::PhantomData;
+    use alloc::boxed::Box;
+    use core::{marker::PhantomData, sync::atomic::AtomicBool};
     use std::sync::Mutex;
 
     use bevy_ecs::{
@@ -1828,5 +1835,23 @@ mod tests {
         let test_events = app.world().resource::<Events<TestEvent>>();
         assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
         assert_eq!(test_events.iter_current_update_events().count(), 0);
+    }
+
+    #[test]
+    fn custom_update_fn_invoked() {
+        let invocation_check = &*Box::leak(Box::new(AtomicBool::new(false)));
+
+        let mut app = App::new();
+
+        app.set_update_fn(|_sub_apps| {
+            invocation_check.fetch_or(true, core::sync::atomic::Ordering::SeqCst);
+        });
+
+        app.update();
+
+        assert!(
+            invocation_check.load(core::sync::atomic::Ordering::SeqCst),
+            "Failed to run the app's custom update function."
+        );
     }
 }

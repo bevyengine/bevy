@@ -13,6 +13,7 @@ use core::fmt::Debug;
 use tracing::info_span;
 
 type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
+type UpdateFn = Box<dyn Fn(&mut SubApps)>;
 
 /// A secondary application with its own [`World`]. These can run independently of each other.
 ///
@@ -472,33 +473,25 @@ impl SubApp {
 }
 
 /// The collection of sub-apps that belong to an [`App`].
-#[derive(Default)]
 pub struct SubApps {
     /// The primary sub-app that contains the "main" world.
     pub main: SubApp,
     /// Other, labeled sub-apps.
     pub sub_apps: HashMap<InternedAppLabel, SubApp>,
+    /// The function called by [`update`](SubApps::update) to update all subapps in the collection.
+    /// Replacing the update function can be used to customize how and when [`SubApp::update`] and [`SubApp::extract`] are called.
+    pub update_fn: Option<UpdateFn>,
 }
 
 impl SubApps {
-    /// Calls [`update`](SubApp::update) for the main sub-app, and then calls
-    /// [`extract`](SubApp::extract) and [`update`](SubApp::update) for the rest.
+    /// Updates this subapp collection. See [`update_subapps`] for the default behavior.
     pub fn update(&mut self) {
-        #[cfg(feature = "trace")]
-        let _bevy_update_span = info_span!("update").entered();
-        {
-            #[cfg(feature = "trace")]
-            let _bevy_frame_update_span = info_span!("main app").entered();
-            self.main.run_default_schedule();
-        }
-        for (_label, sub_app) in self.sub_apps.iter_mut() {
-            #[cfg(feature = "trace")]
-            let _sub_app_span = info_span!("sub app", name = ?_label).entered();
-            sub_app.extract(&mut self.main.world);
-            sub_app.update();
-        }
+        let update = core::mem::take(&mut self.update_fn)
+            .expect("App update function shouldn't be None when update() is called.");
 
-        self.main.world.clear_trackers();
+        update(self);
+
+        self.update_fn = Some(update);
     }
 
     /// Returns an iterator over the sub-apps (starting with the main one).
@@ -518,4 +511,36 @@ impl SubApps {
             sub_app.update();
         }
     }
+}
+
+impl Default for SubApps {
+    fn default() -> Self {
+        Self {
+            main: Default::default(),
+            sub_apps: Default::default(),
+            update_fn: Some(Box::new(update_subapps)),
+        }
+    }
+}
+
+/// Calls [`update`](SubApp::update) for the main sub-app, and then calls
+/// [`extract`](SubApp::extract) and [`update`](SubApp::update) for the rest.
+///
+/// This serves as the default for [`SubApps::update`] if none is provided.
+pub fn update_subapps(sub_apps: &mut SubApps) {
+    #[cfg(feature = "trace")]
+    let _bevy_update_span = info_span!("update").entered();
+    {
+        #[cfg(feature = "trace")]
+        let _bevy_frame_update_span = info_span!("main app").entered();
+        sub_apps.main.run_default_schedule();
+    }
+    for (_label, sub_app) in sub_apps.sub_apps.iter_mut() {
+        #[cfg(feature = "trace")]
+        let _sub_app_span = info_span!("sub app", name = ?_label).entered();
+        sub_app.extract(&mut sub_apps.main.world);
+        sub_app.update();
+    }
+
+    sub_apps.main.world.clear_trackers();
 }
