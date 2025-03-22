@@ -1,12 +1,12 @@
 //! Provides `Once`, `OnceState`, `OnceLock`
 
-pub use once::{Once, OnceLock, OnceState};
+pub use implementation::{Once, OnceLock, OnceState};
 
 #[cfg(feature = "std")]
-use std::sync as once;
+use std::sync as implementation;
 
 #[cfg(not(feature = "std"))]
-mod once {
+mod implementation {
     use core::{
         fmt,
         panic::{RefUnwindSafe, UnwindSafe},
@@ -145,6 +145,7 @@ mod once {
         /// Creates a new `Once` value.
         ///
         /// See the standard library for further details.
+        #[expect(clippy::new_without_default, reason = "matching std::sync::Once")]
         pub const fn new() -> Self {
             Self {
                 inner: OnceLock::new(),
