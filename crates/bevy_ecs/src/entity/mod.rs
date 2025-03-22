@@ -76,9 +76,12 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::{
-    atomic::{AtomicU32, Ordering},
-    Arc, Weak,
+use bevy_platform_support::{
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc, Weak,
+    },
+    task::Waker,
 };
 use concurrent_queue::ConcurrentQueue;
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
@@ -529,7 +532,7 @@ unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 /// This is a portable version of [`Entities`], allowing use in [`RemoteEntitiesReserver`].
 /// This can be attained via [`Entities::portable`].
 ///
-/// See [`get_remote`](Self::get_remote) and [`remote_scope`](Self::get_remote) for examples.
+/// See [`RemoteEntitiesReserver::new`] and [`RemoteEntitiesReserver::scope`] for examples.
 pub struct PortableEntities<'a> {
     entities: &'a Entities,
     security: Arc<EntitiesPtr>,
