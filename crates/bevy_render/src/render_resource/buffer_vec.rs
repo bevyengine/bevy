@@ -1,15 +1,15 @@
-use core::{iter, marker::PhantomData};
+use core::{iter, marker::PhantomData, num::NonZero};
 
 use crate::{
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
-use bytemuck::{must_cast_slice, NoUninit};
+use bytemuck::{must_cast_slice, NoUninit, Pod};
 use encase::{
-    internal::{WriteInto, Writer},
+    internal::{AlignmentValue, BufferMut, WriteInto, Writer},
     ShaderType,
 };
-use wgpu::{BindingResource, BufferAddress, BufferUsages};
+use wgpu::{BindingResource, BufferAddress, BufferBinding, BufferUsages, QueueWriteBufferView};
 
 use super::GpuArrayBufferable;
 
@@ -509,5 +509,292 @@ where
         if !self.is_empty() {
             self.reserve(self.len, device);
         }
+    }
+}
+
+/// A structure for storing raw bytes that have already been properly formatted
+/// for use by the GPU.
+///
+/// "Properly formatted" means that item data already meets the alignment and padding
+/// requirements for how it will be used on the GPU. The item type must implement [`NoUninit`]
+/// for its data representation to be directly copyable.
+///
+/// The contained data is stored in system RAM. Calling [`reserve`](RawBufferVec::reserve)
+/// allocates VRAM from the [`RenderDevice`].
+/// [`write_buffer`](RawBufferVec::write_buffer) queues copying of the data
+/// from system RAM to VRAM.
+///
+/// Unlike [`RawBufferVec`] this will add padding to respect alignment rules if necessary when
+/// adding data to it. This is useful when working with buffers that have alignment rules
+/// like uniform buffers.
+pub struct AlignedRawBufferVec<T: NoUninit> {
+    values: Vec<u8>,
+    buffer: Option<Buffer>,
+    capacity: usize,
+    buffer_usage: BufferUsages,
+    label: Option<String>,
+    changed: bool,
+    item_size: usize,
+    aligned_size: u64,
+    required_padding: u64,
+    _marker: PhantomData<T>,
+}
+
+impl<T: NoUninit> AlignedRawBufferVec<T> {
+    /// Creates a new [`AlignedRawBufferVec`] with the given [`BufferUsages`].
+    ///
+    /// It will automatically determine the alignment based on the [`RenderDevice`] limits and the
+    /// size of `T`
+    pub fn new(buffer_usage: BufferUsages, render_device: &RenderDevice) -> Self {
+        let item_size = size_of::<T>();
+
+        let alignment = if cfg!(target_abi = "sim") {
+            // On iOS simulator on silicon macs, metal validation check that the host OS alignment
+            // is respected, but the device reports the correct value for iOS, which is smaller.
+            // Use the larger value.
+            // See https://github.com/gfx-rs/wgpu/issues/7057 - remove if it's not needed anymore.
+            AlignmentValue::new(256)
+        } else if buffer_usage.contains(BufferUsages::UNIFORM) {
+            AlignmentValue::new(render_device.limits().min_uniform_buffer_offset_alignment as u64)
+        } else if buffer_usage.contains(BufferUsages::STORAGE) {
+            AlignmentValue::new(render_device.limits().min_storage_buffer_offset_alignment as u64)
+        } else {
+            unimplemented!(
+                "buffer_usage does not have offset alignment limits. Use RawBufferVec instead."
+            )
+        };
+
+        let aligned_size = alignment.round_up(item_size as u64);
+        let required_padding = aligned_size - item_size as u64;
+        Self {
+            values: Vec::new(),
+            buffer: None,
+            capacity: 0,
+            buffer_usage,
+            label: None,
+            changed: false,
+            item_size,
+            aligned_size,
+            required_padding,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Returns a handle to the buffer, if the data has been uploaded.
+    #[inline]
+    pub fn buffer(&self) -> Option<&Buffer> {
+        self.buffer.as_ref()
+    }
+
+    /// Returns the binding for the buffer if the data has been uploaded.
+    #[inline]
+    pub fn binding(&self) -> Option<BindingResource> {
+        Some(BindingResource::Buffer(BufferBinding {
+            buffer: self.buffer.as_ref()?,
+            offset: 0,
+            size: Some(NonZero::new(self.aligned_size)?),
+        }))
+    }
+
+    /// Returns the amount of space that the GPU will use before reallocating.
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// Returns the number of items that have been pushed to this buffer.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.values.len() / self.aligned_size as usize
+    }
+
+    /// Returns the length of the buffer in bytes including padding.
+    pub fn len_bytes(&self) -> usize {
+        self.values.len()
+    }
+
+    /// Returns true if the buffer is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
+    /// Adds a new value and returns its offset in bytes.
+    ///
+    /// This will convert the value to bytes and add any padding it needs to respect alignment
+    pub fn push(&mut self, value: T) -> usize {
+        let index = self.values.len();
+        let bytes: &[u8] = bytemuck::bytes_of(&value);
+        self.values.extend(bytes);
+        if self.required_padding > 0 {
+            self.values
+                .resize(self.values.len() + self.required_padding as usize, 0);
+        }
+        index
+    }
+
+    pub fn append(&mut self, other: &mut AlignedRawBufferVec<T>) {
+        self.values.append(&mut other.values);
+    }
+
+    /// Returns the value at the given index.
+    pub fn get(&self, index: usize) -> Option<&T>
+    where
+        T: Pod,
+    {
+        let bytes: &[u8] = &self.values[index..self.item_size];
+        bytemuck::try_from_bytes(bytes).ok()
+    }
+
+    /// Sets the value at the given index.
+    ///
+    /// The index must be less than [`RawBufferVec::len`].
+    pub fn set(&mut self, index: usize, value: T) {
+        self.values.splice(
+            index..self.item_size,
+            bytemuck::bytes_of(&value).iter().cloned(),
+        );
+    }
+
+    /// Preallocates space for `count` elements in the internal CPU-side buffer.
+    ///
+    /// Unlike [`AlignedRawBufferVec::reserve`], this doesn't have any effect on the GPU buffer.
+    pub fn reserve_internal(&mut self, count: usize) {
+        self.values.reserve(count * self.aligned_size as usize);
+    }
+
+    /// Changes the debugging label of the buffer.
+    ///
+    /// The next time the buffer is updated (via [`reserve`](Self::reserve)), Bevy will inform
+    /// the driver of the new label.
+    pub fn set_label(&mut self, label: Option<&str>) {
+        let label = label.map(str::to_string);
+        if label != self.label {
+            self.changed = true;
+        }
+        self.label = label;
+    }
+
+    /// Returns the label
+    pub fn get_label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+
+    /// Creates a [`Buffer`] on the [`RenderDevice`] with size
+    /// at least `alignment * capacity`, unless such a buffer already exists.
+    ///
+    /// If a [`Buffer`] exists, but is too small, references to it will be discarded,
+    /// and a new [`Buffer`] will be created. Any previously created [`Buffer`]s
+    /// that are no longer referenced will be deleted by the [`RenderDevice`]
+    /// once it is done using them (typically 1-2 frames).
+    ///
+    /// In addition to any [`BufferUsages`] provided when
+    /// the `RawBufferVec` was created, the buffer on the [`RenderDevice`]
+    /// is marked as [`BufferUsages::COPY_DST`](BufferUsages).
+    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
+        let size = self.aligned_size as usize * capacity;
+        if capacity > self.capacity || (self.changed && size > 0) {
+            self.capacity = capacity;
+            self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
+                label: self.label.as_deref(),
+                size: size as BufferAddress,
+                usage: BufferUsages::COPY_DST | self.buffer_usage,
+                mapped_at_creation: false,
+            }));
+            self.changed = false;
+        }
+    }
+
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
+    /// and the provided [`RenderQueue`].
+    ///
+    /// Before queuing the write, a [`reserve`](RawBufferVec::reserve) operation
+    /// is executed.
+    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+        if self.values.is_empty() {
+            return;
+        }
+        self.reserve(self.len(), device);
+        if let Some(buffer) = &self.buffer {
+            queue.write_buffer(buffer, 0, &self.values);
+        }
+    }
+
+    /// Reduces the length of the buffer.
+    pub fn truncate(&mut self, len: usize) {
+        self.values.truncate(len * self.aligned_size as usize);
+    }
+
+    /// Removes all elements from the buffer.
+    pub fn clear(&mut self) {
+        self.values.clear();
+    }
+
+    pub fn values(&self) -> Vec<T>
+    where
+        T: Pod,
+    {
+        self.values
+            .chunks(self.aligned_size as usize)
+            .map(|aligned_bytes| {
+                let item_bytes = &aligned_bytes[0..self.item_size];
+                *bytemuck::from_bytes::<T>(item_bytes)
+            })
+            .collect()
+    }
+
+    /// Creates a writer that can be used to directly write elements into the target buffer.
+    ///
+    /// This method uses less memory and performs fewer memory copies using over [`push`] and [`write_buffer`].
+    ///
+    /// `max_count` *must* be greater than or equal to the number of elements that are to be written to the buffer, or
+    /// the writer will panic while writing.  Dropping the writer will schedule the buffer write into the provided
+    /// [`RenderQueue`].
+    ///
+    /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
+    /// allocated does not have enough capacity to hold `max_count` elements, a new GPU-side buffer is created.
+    ///
+    /// Returns `None` if there is no allocated GPU-side buffer, and `max_count` is 0.
+    ///
+    /// [`push`]: Self::push
+    /// [`write_buffer`]: Self::write_buffer
+    pub fn get_writer<'a>(
+        &'a mut self,
+        max_count: usize,
+        device: &RenderDevice,
+        queue: &'a RenderQueue,
+    ) -> Option<AlignedRawBufferVecWriter<'a, T>> {
+        self.reserve(max_count, device);
+
+        if let Some(buffer) = self.buffer.as_deref() {
+            let buffer_view = queue
+                .write_buffer_with(buffer, 0, NonZero::<u64>::new(buffer.size())?)
+                .unwrap();
+            Some(AlignedRawBufferVecWriter {
+                buffer_view,
+                aligned_size: self.aligned_size as usize,
+                offset: 0,
+                _marker: PhantomData,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+pub struct AlignedRawBufferVecWriter<'a, T: NoUninit> {
+    buffer_view: QueueWriteBufferView<'a>,
+    offset: usize,
+    aligned_size: usize,
+    _marker: PhantomData<T>,
+}
+
+impl<'a, T: NoUninit> AlignedRawBufferVecWriter<'a, T> {
+    pub fn write(&mut self, value: T) -> usize {
+        let offset = self.offset;
+        let bytes: &[u8] = bytemuck::bytes_of(&value);
+        self.buffer_view.write_slice(offset, bytes);
+        self.offset += self.aligned_size;
+        offset
     }
 }
