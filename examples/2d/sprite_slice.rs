@@ -96,7 +96,7 @@ fn spawn_sprites(
                 text_style,
                 TextLayout::new_with_justify(JustifyText::Center),
                 Transform::from_xyz(0., -0.5 * size.y - 10., 0.0),
-                bevy::sprite::Anchor::TopCenter,
+                bevy::sprite::Anchor::TOP_CENTER,
             )],
         ));
         position.x += 0.5 * size.x + gap;
