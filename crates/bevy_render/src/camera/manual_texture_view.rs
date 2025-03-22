@@ -8,7 +8,7 @@ use wgpu::TextureFormat;
 
 /// A unique id that corresponds to a specific [`ManualTextureView`] in the [`ManualTextureViews`] collection.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
-#[reflect(Component, Default, Debug, PartialEq, Hash)]
+#[reflect(Component, Default, Debug, PartialEq, Hash, Clone)]
 pub struct ManualTextureViewHandle(pub u32);
 
 /// A manually managed [`TextureView`] for use as a [`crate::camera::RenderTarget`].

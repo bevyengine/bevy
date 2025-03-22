@@ -3,10 +3,8 @@
 use std::f32::consts::*;
 
 use bevy::{
-    core_pipeline::{
-        fxaa::Fxaa,
-        prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    },
+    anti_aliasing::fxaa::Fxaa,
+    core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     image::ImageLoaderSettings,
     math::ops,
     pbr::{

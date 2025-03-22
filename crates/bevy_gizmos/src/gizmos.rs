@@ -15,7 +15,7 @@ use bevy_ecs::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
@@ -274,6 +274,7 @@ where
 
 /// Buffer for gizmo vertex data.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Default)]
 pub struct GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -284,7 +285,7 @@ where
     pub(crate) list_colors: Vec<LinearRgba>,
     pub(crate) strip_positions: Vec<Vec3>,
     pub(crate) strip_colors: Vec<LinearRgba>,
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub(crate) marker: PhantomData<(Config, Clear)>,
 }
 

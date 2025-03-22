@@ -320,7 +320,7 @@ impl<E: Event> Extend<E> for Events<E> {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
 pub(crate) struct EventSequence<E: Event> {
     pub(crate) events: Vec<EventInstance<E>>,
     pub(crate) start_event_count: usize,

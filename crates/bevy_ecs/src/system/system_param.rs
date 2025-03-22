@@ -817,7 +817,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.components.register_resource::<T>();
+        let component_id = world.components_registrator().register_resource::<T>();
         let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
@@ -926,7 +926,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.components.register_resource::<T>();
+        let component_id = world.components_registrator().register_resource::<T>();
         let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
@@ -1499,7 +1499,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
 
-        let component_id = world.components.register_non_send::<T>();
+        let component_id = world.components_registrator().register_non_send::<T>();
         let archetype_component_id = world.initialize_non_send_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
@@ -1605,7 +1605,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
 
-        let component_id = world.components.register_non_send::<T>();
+        let component_id = world.components_registrator().register_non_send::<T>();
         let archetype_component_id = world.initialize_non_send_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();

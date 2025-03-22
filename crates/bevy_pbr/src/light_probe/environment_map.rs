@@ -44,8 +44,7 @@
 //!
 //! [several pre-filtered environment maps]: https://github.com/KhronosGroup/glTF-Sample-Environments
 
-use bevy_asset::{weak_handle, AssetId, Assets, Handle, RenderAssetUsages};
-use bevy_color::{Color, ColorToPacked, Srgba};
+use bevy_asset::{weak_handle, AssetId, Handle};
 use bevy_ecs::{
     component::Component, query::QueryItem, reflect::ReflectComponent, system::lifetimeless::Read,
 };
@@ -57,9 +56,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{self, uniform_buffer},
-        BindGroupLayoutEntryBuilder, Extent3d, Sampler, SamplerBindingType, Shader, ShaderStages,
-        TextureDimension, TextureFormat, TextureSampleType, TextureView, TextureViewDescriptor,
-        TextureViewDimension,
+        BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, ShaderStages,
+        TextureSampleType, TextureView,
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
@@ -83,7 +81,7 @@ pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
 ///
 /// See [`crate::environment_map`] for detailed information.
 #[derive(Clone, Component, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct EnvironmentMapLight {
     /// The blurry image that represents diffuse radiance surrounding a region.
     pub diffuse_map: Handle<Image>,
@@ -114,83 +112,6 @@ pub struct EnvironmentMapLight {
     ///
     /// By default, this is set to true.
     pub affects_lightmapped_mesh_diffuse: bool,
-}
-
-impl EnvironmentMapLight {
-    /// An environment map with a uniform color, useful for uniform ambient lighting.
-    pub fn solid_color(assets: &mut Assets<Image>, color: Color) -> Self {
-        let color: Srgba = color.into();
-        let image = Image {
-            texture_view_descriptor: Some(TextureViewDescriptor {
-                dimension: Some(TextureViewDimension::Cube),
-                ..Default::default()
-            }),
-            ..Image::new_fill(
-                Extent3d {
-                    width: 1,
-                    height: 1,
-                    depth_or_array_layers: 6,
-                },
-                TextureDimension::D2,
-                &color.to_u8_array(),
-                TextureFormat::Rgba8UnormSrgb,
-                RenderAssetUsages::RENDER_WORLD,
-            )
-        };
-        let handle = assets.add(image);
-
-        Self {
-            diffuse_map: handle.clone(),
-            specular_map: handle,
-            ..Default::default()
-        }
-    }
-
-    /// An environment map with a hemispherical gradient, fading between the sky and ground colors
-    /// at the horizon. Useful as a very simple 'sky'.
-    pub fn hemispherical_gradient(
-        assets: &mut Assets<Image>,
-        top_color: Color,
-        bottom_color: Color,
-    ) -> Self {
-        let top_color: Srgba = top_color.into();
-        let bottom_color: Srgba = bottom_color.into();
-        let mid_color = (top_color + bottom_color) / 2.0;
-        let image = Image {
-            texture_view_descriptor: Some(TextureViewDescriptor {
-                dimension: Some(TextureViewDimension::Cube),
-                ..Default::default()
-            }),
-            ..Image::new(
-                Extent3d {
-                    width: 1,
-                    height: 1,
-                    depth_or_array_layers: 6,
-                },
-                TextureDimension::D2,
-                [
-                    mid_color,
-                    mid_color,
-                    top_color,
-                    bottom_color,
-                    mid_color,
-                    mid_color,
-                ]
-                .into_iter()
-                .flat_map(Srgba::to_u8_array)
-                .collect(),
-                TextureFormat::Rgba8UnormSrgb,
-                RenderAssetUsages::RENDER_WORLD,
-            )
-        };
-        let handle = assets.add(image);
-
-        Self {
-            diffuse_map: handle.clone(),
-            specular_map: handle,
-            ..Default::default()
-        }
-    }
 }
 
 impl Default for EnvironmentMapLight {

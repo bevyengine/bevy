@@ -66,6 +66,8 @@ use crate::{
     GltfMaterialName, GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
+#[cfg(feature = "bevy_animation")]
+use self::gltf_ext::scene::collect_path;
 use self::{
     extensions::{AnisotropyExtension, ClearcoatExtension, SpecularExtension},
     gltf_ext::{
@@ -75,7 +77,7 @@ use self::{
             warn_on_differing_texture_transforms,
         },
         mesh::{primitive_name, primitive_topology},
-        scene::{collect_path, node_name, node_transform},
+        scene::{node_name, node_transform},
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
 };
@@ -738,9 +740,10 @@ async fn load_gltf<'a, 'b, 'c>(
             let reader = gltf_skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
             let local_to_bone_bind_matrices: Vec<Mat4> = reader
                 .read_inverse_bind_matrices()
-                .unwrap()
-                .map(|mat| Mat4::from_cols_array_2d(&mat))
-                .collect();
+                .map(|mats| mats.map(|mat| Mat4::from_cols_array_2d(&mat)).collect())
+                .unwrap_or_else(|| {
+                    core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
+                });
 
             load_context
                 .add_labeled_asset(

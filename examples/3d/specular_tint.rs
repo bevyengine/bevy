@@ -49,10 +49,6 @@ enum TintType {
 
 /// The entry point.
 fn main() {
-    #[expect(
-        deprecated,
-        reason = "Once AmbientLight is removed, the resource can be removed"
-    )]
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -63,7 +59,11 @@ fn main() {
         }))
         .init_resource::<AppAssets>()
         .init_resource::<AppStatus>()
-        .insert_resource(AmbientLight::NONE)
+        .insert_resource(AmbientLight {
+            color: Color::BLACK,
+            brightness: 0.0,
+            ..default()
+        })
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_camera)
         .add_systems(Update, (toggle_specular_map, update_text).chain())

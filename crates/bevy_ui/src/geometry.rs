@@ -21,7 +21,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// Additionally, `auto` will be parsed as [`Val::Auto`].
 #[derive(Copy, Clone, Debug, Reflect)]
-#[reflect(Default, PartialEq, Debug)]
+#[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -321,7 +321,7 @@ impl Val {
 /// };
 /// ```
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Default, PartialEq, Debug)]
+#[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -339,19 +339,9 @@ pub struct UiRect {
 }
 
 impl UiRect {
-    pub const DEFAULT: Self = Self {
-        left: Val::ZERO,
-        right: Val::ZERO,
-        top: Val::ZERO,
-        bottom: Val::ZERO,
-    };
-
-    pub const ZERO: Self = Self {
-        left: Val::ZERO,
-        right: Val::ZERO,
-        top: Val::ZERO,
-        bottom: Val::ZERO,
-    };
+    pub const DEFAULT: Self = Self::all(Val::ZERO);
+    pub const ZERO: Self = Self::all(Val::ZERO);
+    pub const AUTO: Self = Self::all(Val::Auto);
 
     /// Creates a new [`UiRect`] from the values specified.
     ///
@@ -835,15 +825,7 @@ mod tests {
 
     #[test]
     fn uirect_default_equals_const_default() {
-        assert_eq!(
-            UiRect::default(),
-            UiRect {
-                left: Val::ZERO,
-                right: Val::ZERO,
-                top: Val::ZERO,
-                bottom: Val::ZERO
-            }
-        );
+        assert_eq!(UiRect::default(), UiRect::all(Val::ZERO));
         assert_eq!(UiRect::default(), UiRect::DEFAULT);
     }
 

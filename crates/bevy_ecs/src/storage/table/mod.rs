@@ -822,7 +822,7 @@ impl Drop for Table {
 mod tests {
     use crate::{
         change_detection::MaybeLocation,
-        component::{Component, Components, Tick},
+        component::{Component, ComponentIds, Components, ComponentsRegistrator, Tick},
         entity::Entity,
         ptr::OwningPtr,
         storage::{TableBuilder, TableId, TableRow, Tables},
@@ -847,7 +847,11 @@ mod tests {
     #[test]
     fn table() {
         let mut components = Components::default();
-        let component_id = components.register_component::<W<TableRow>>();
+        let mut componentids = ComponentIds::default();
+        // SAFETY: They are both new.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut components, &mut componentids) };
+        let component_id = registrator.register_component::<W<TableRow>>();
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())
             .add_column(components.get_info(component_id).unwrap())

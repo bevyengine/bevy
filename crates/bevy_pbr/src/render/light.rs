@@ -139,6 +139,7 @@ bitflags::bitflags! {
 #[derive(Copy, Clone, Debug, ShaderType)]
 pub struct GpuLights {
     directional_lights: [GpuDirectionalLight; MAX_DIRECTIONAL_LIGHTS],
+    ambient_color: Vec4,
     // xyz are x/y/z cluster dimensions and w is the number of clusters
     cluster_dimensions: UVec4,
     // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
@@ -148,6 +149,7 @@ pub struct GpuLights {
     n_directional_lights: u32,
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
+    ambient_light_affects_lightmapped_meshes: u32,
 }
 
 // NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
@@ -345,7 +347,7 @@ pub fn extract_lights(
         ));
     }
     *previous_point_lights_len = point_lights_values.len();
-    commands.insert_or_spawn_batch(point_lights_values);
+    commands.try_insert_batch(point_lights_values);
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
@@ -408,7 +410,7 @@ pub fn extract_lights(
         }
     }
     *previous_spot_lights_len = spot_lights_values.len();
-    commands.insert_or_spawn_batch(spot_lights_values);
+    commands.try_insert_batch(spot_lights_values);
 
     for (
         main_entity,
@@ -727,9 +729,11 @@ pub fn prepare_lights(
             &ExtractedClusterConfig,
             Option<&RenderLayers>,
             Has<NoIndirectDrawing>,
+            Option<&AmbientLight>,
         ),
         With<Camera3d>,
     >,
+    ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
@@ -1138,11 +1142,18 @@ pub fn prepare_lights(
     let mut live_views = EntityHashSet::with_capacity(views_count);
 
     // set up light data for each view
-    for (entity, camera_main_entity, extracted_view, clusters, maybe_layers, no_indirect_drawing) in
-        sorted_cameras
-            .0
-            .iter()
-            .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
+    for (
+        entity,
+        camera_main_entity,
+        extracted_view,
+        clusters,
+        maybe_layers,
+        no_indirect_drawing,
+        maybe_ambient_override,
+    ) in sorted_cameras
+        .0
+        .iter()
+        .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
     {
         live_views.insert(entity);
 
@@ -1164,8 +1175,11 @@ pub fn prepare_lights(
         );
 
         let n_clusters = clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z;
+        let ambient_light = maybe_ambient_override.unwrap_or(&ambient_light);
         let mut gpu_lights = GpuLights {
             directional_lights: gpu_directional_lights,
+            ambient_color: Vec4::from_slice(&LinearRgba::from(ambient_light.color).to_f32_array())
+                * ambient_light.brightness,
             cluster_factors: Vec4::new(
                 clusters.dimensions.x as f32 / extracted_view.viewport.z as f32,
                 clusters.dimensions.y as f32 / extracted_view.viewport.w as f32,
@@ -1180,6 +1194,8 @@ pub fn prepare_lights(
             // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
             spot_light_shadowmap_offset: num_directional_cascades_enabled as i32
                 - point_light_count as i32,
+            ambient_light_affects_lightmapped_meshes: ambient_light.affects_lightmapped_meshes
+                as u32,
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
@@ -1793,6 +1809,9 @@ pub fn specialize_shadows<M: Material>(
                 .or_default();
 
             for (_, visible_entity) in visible_entities.iter().copied() {
+                let Some(material_asset_id) = render_material_instances.get(&visible_entity) else {
+                    continue;
+                };
                 let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
                 let last_specialized_tick = view_specialized_material_pipeline_cache
                     .get(&visible_entity)
@@ -1804,7 +1823,9 @@ pub fn specialize_shadows<M: Material>(
                 if !needs_specialization {
                     continue;
                 }
-
+                let Some(material) = render_materials.get(*material_asset_id) else {
+                    continue;
+                };
                 let Some(mesh_instance) =
                     render_mesh_instances.render_mesh_queue_data(visible_entity)
                 else {
@@ -1816,12 +1837,6 @@ pub fn specialize_shadows<M: Material>(
                 {
                     continue;
                 }
-                let Some(material_asset_id) = render_material_instances.get(&visible_entity) else {
-                    continue;
-                };
-                let Some(material) = render_materials.get(*material_asset_id) else {
-                    continue;
-                };
                 let Some(material_bind_group) =
                     material_bind_group_allocator.get(material.binding.group)
                 else {
