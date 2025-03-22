@@ -129,9 +129,11 @@ default = [
   "android-game-activity",
   "android_shared_stdcxx",
   "animation",
+  "bevy_render_2d",
   "bevy_asset",
   "bevy_audio",
   "bevy_color",
+  "bevy_color_material",
   "bevy_core_pipeline",
   "bevy_anti_aliasing",
   "bevy_gilrs",
@@ -167,6 +169,12 @@ default = [
 
 # Recommended defaults for no_std applications
 default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
+
+# Provides infrastructure for creating 2d materials and using 2d meshes
+bevy_render_2d = ["bevy_internal/bevy_render_2d"]
+
+# Provides a simple color material for 2d meshes
+bevy_color_material = ["bevy_internal/bevy_color_material"]
 
 # Provides an implementation for picking meshes
 bevy_mesh_picking_backend = [

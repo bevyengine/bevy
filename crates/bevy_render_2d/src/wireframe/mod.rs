@@ -1,18 +1,31 @@
-use crate::{Material2d, Material2dKey, Material2dPlugin, Mesh2d};
+//! Wireframe for 2d meshes
+
+mod components;
+mod material;
+mod resources;
+
 use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, Assets, Handle};
-use bevy_color::{Color, LinearRgba};
-use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{
-    extract_resource::ExtractResource, mesh::MeshVertexBufferLayoutRef, prelude::*,
-    render_resource::*,
+use bevy_asset::{load_internal_asset, AssetApp, Assets};
+use bevy_ecs::{
+    entity::Entity,
+    prelude::resource_changed,
+    query::{Changed, With, Without},
+    removal_detection::RemovedComponents,
+    schedule::IntoScheduleConfigs,
+    system::{Commands, Query, Res, ResMut},
+};
+use bevy_render::{mesh::Mesh2d, render_resource::Shader};
+
+use crate::{prelude::MeshMaterial2d, Material2dPlugin};
+
+use material::{Wireframe2dMaterial, WIREFRAME_2D_SHADER_HANDLE};
+use resources::GlobalWireframe2dMaterial;
+pub use {
+    components::{NoWireframe2d, Wireframe2d, Wireframe2dColor},
+    resources::Wireframe2dConfig,
 };
 
-use super::MeshMaterial2d;
-
-pub const WIREFRAME_2D_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("3d8a3853-2927-4de2-9dc7-3971e7e40970");
+type Wireframe2dFilter = (With<Mesh2d>, Without<Wireframe2d>, Without<NoWireframe2d>);
 
 /// A [`Plugin`] that draws wireframes for 2D meshes.
 ///
@@ -36,12 +49,13 @@ impl Plugin for Wireframe2dPlugin {
 
         app.register_type::<Wireframe2d>()
             .register_type::<NoWireframe2d>()
-            .register_type::<Wireframe2dConfig>()
             .register_type::<Wireframe2dColor>()
             .init_resource::<Wireframe2dConfig>()
+            .register_type::<Wireframe2dConfig>()
             .add_plugins(Material2dPlugin::<Wireframe2dMaterial>::default())
-            .register_asset_reflect::<Wireframe2dMaterial>()
-            .add_systems(Startup, setup_global_wireframe_material)
+            .register_asset_reflect::<Wireframe2dMaterial>();
+
+        app.add_systems(Startup, setup_global_wireframe_material)
             .add_systems(
                 Update,
                 (
@@ -53,52 +67,6 @@ impl Plugin for Wireframe2dPlugin {
                 ),
             );
     }
-}
-
-/// Enables wireframe rendering for any entity it is attached to.
-/// It will ignore the [`Wireframe2dConfig`] global setting.
-///
-/// This requires the [`Wireframe2dPlugin`] to be enabled.
-#[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq, Clone)]
-pub struct Wireframe2d;
-
-/// Sets the color of the [`Wireframe2d`] of the entity it is attached to.
-///
-/// If this component is present but there's no [`Wireframe2d`] component,
-/// it will still affect the color of the wireframe when [`Wireframe2dConfig::global`] is set to true.
-///
-/// This overrides the [`Wireframe2dConfig::default_color`].
-#[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
-pub struct Wireframe2dColor {
-    pub color: Color,
-}
-
-/// Disables wireframe rendering for any entity it is attached to.
-/// It will ignore the [`Wireframe2dConfig`] global setting.
-///
-/// This requires the [`Wireframe2dPlugin`] to be enabled.
-#[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq, Clone)]
-pub struct NoWireframe2d;
-
-#[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
-#[reflect(Resource, Debug, Default, Clone)]
-pub struct Wireframe2dConfig {
-    /// Whether to show wireframes for all 2D meshes.
-    /// Can be overridden for individual meshes by adding a [`Wireframe2d`] or [`NoWireframe2d`] component.
-    pub global: bool,
-    /// If [`Self::global`] is set, any [`Entity`] that does not have a [`Wireframe2d`] component attached to it will have
-    /// wireframes using this color. Otherwise, this will be the fallback color for any entity that has a [`Wireframe2d`],
-    /// but no [`Wireframe2dColor`].
-    pub default_color: Color,
-}
-
-#[derive(Resource)]
-struct GlobalWireframe2dMaterial {
-    // This handle will be reused when the global config is enabled
-    handle: Handle<Wireframe2dMaterial>,
 }
 
 fn setup_global_wireframe_material(
@@ -120,7 +88,7 @@ fn global_color_changed(
     mut materials: ResMut<Assets<Wireframe2dMaterial>>,
     global_material: Res<GlobalWireframe2dMaterial>,
 ) {
-    if let Some(global_material) = materials.get_mut(&global_material.handle) {
+    if let Some(global_material) = materials.get_mut(&*global_material) {
         global_material.color = config.default_color.into();
     }
 }
@@ -176,14 +144,12 @@ fn apply_wireframe_material(
             })
         } else {
             // If there's no color specified we can use the global material since it's already set to use the default_color
-            global_material.handle.clone()
+            global_material.handle()
         };
         wireframes_to_spawn.push((e, MeshMaterial2d(material)));
     }
     commands.try_insert_batch(wireframes_to_spawn);
 }
-
-type Wireframe2dFilter = (With<Mesh2d>, Without<Wireframe2d>, Without<NoWireframe2d>);
 
 /// Applies or removes a wireframe material on any mesh without a [`Wireframe2d`] or [`NoWireframe2d`] component.
 fn apply_global_wireframe_material(
@@ -207,7 +173,7 @@ fn apply_global_wireframe_material(
         for e in &meshes_without_material {
             // We only add the material handle but not the Wireframe component
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
-            material_to_spawn.push((e, MeshMaterial2d(global_material.handle.clone())));
+            material_to_spawn.push((e, MeshMaterial2d(global_material.handle())));
         }
         commands.try_insert_batch(material_to_spawn);
     } else {
@@ -216,31 +182,5 @@ fn apply_global_wireframe_material(
                 .entity(e)
                 .remove::<MeshMaterial2d<Wireframe2dMaterial>>();
         }
-    }
-}
-
-#[derive(Default, AsBindGroup, Debug, Clone, Asset, Reflect)]
-#[reflect(Clone, Default)]
-pub struct Wireframe2dMaterial {
-    #[uniform(0)]
-    pub color: LinearRgba,
-}
-
-impl Material2d for Wireframe2dMaterial {
-    fn fragment_shader() -> ShaderRef {
-        WIREFRAME_2D_SHADER_HANDLE.into()
-    }
-
-    fn depth_bias(&self) -> f32 {
-        1.0
-    }
-
-    fn specialize(
-        descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayoutRef,
-        _key: Material2dKey<Self>,
-    ) -> Result<(), SpecializedMeshPipelineError> {
-        descriptor.primitive.polygon_mode = PolygonMode::Line;
-        Ok(())
     }
 }

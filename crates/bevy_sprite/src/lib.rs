@@ -10,7 +10,6 @@
 
 extern crate alloc;
 
-mod mesh2d;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 mod picking_backend;
 mod render;
@@ -30,11 +29,10 @@ pub mod prelude {
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, MeshMaterial2d, ScalingMode,
+        ScalingMode,
     };
 }
 
-pub use mesh2d::*;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
 pub use render::*;
@@ -96,7 +94,6 @@ impl Plugin for SpritePlugin {
             .register_type::<TextureSlicer>()
             .register_type::<Anchor>()
             .register_type::<Mesh2d>()
-            .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
             .add_systems(
                 PostUpdate,
                 (
@@ -131,8 +128,8 @@ impl Plugin for SpritePlugin {
                     Render,
                     (
                         queue_sprites
-                            .in_set(RenderSet::Queue)
-                            .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
+                            .before(RenderSet::QueueMeshes)
+                            .in_set(RenderSet::Queue),
                         prepare_sprite_image_bind_groups.in_set(RenderSet::PrepareBindGroups),
                         prepare_sprite_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                         sort_binned_render_phase::<Opaque2d>.in_set(RenderSet::PhaseSort),

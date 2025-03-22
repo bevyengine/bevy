@@ -1,12 +1,5 @@
-use crate::{
-    config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
-    line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmoUniformBindgroupLayout,
-    SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
-};
 use bevy_app::{App, Plugin};
 use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
-
 use bevy_ecs::{
     prelude::Entity,
     resource::Resource,
@@ -16,7 +9,6 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::FloatOrd;
-use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -24,11 +16,20 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
+    sync_world::MainEntity,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSet,
 };
-use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
+use bevy_render_2d::mesh::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
+
 use tracing::error;
+
+use crate::{
+    config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
+    line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
+    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmoUniformBindgroupLayout,
+    SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
+};
 
 pub struct LineGizmo2dPlugin;
 
@@ -47,11 +48,8 @@ impl Plugin for LineGizmo2dPlugin {
             .configure_sets(
                 Render,
                 GizmoRenderSystem::QueueLineGizmos2d
-                    .in_set(RenderSet::Queue)
-                    .ambiguous_with(bevy_sprite::queue_sprites)
-                    .ambiguous_with(
-                        bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
-                    ),
+                    .before(RenderSet::QueueMeshes)
+                    .in_set(RenderSet::Queue),
             )
             .add_systems(
                 Render,

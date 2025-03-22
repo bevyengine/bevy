@@ -27,6 +27,8 @@ pub use bevy_asset as asset;
 pub use bevy_audio as audio;
 #[cfg(feature = "bevy_color")]
 pub use bevy_color as color;
+#[cfg(feature = "bevy_color_material")]
+pub use bevy_color_material as color_material;
 #[cfg(feature = "bevy_core_pipeline")]
 pub use bevy_core_pipeline as core_pipeline;
 #[cfg(feature = "bevy_dev_tools")]
@@ -60,6 +62,8 @@ pub use bevy_reflect as reflect;
 pub use bevy_remote as remote;
 #[cfg(feature = "bevy_render")]
 pub use bevy_render as render;
+#[cfg(feature = "bevy_render_2d")]
+pub use bevy_render_2d as render_2d;
 #[cfg(feature = "bevy_scene")]
 pub use bevy_scene as scene;
 #[cfg(feature = "bevy_sprite")]

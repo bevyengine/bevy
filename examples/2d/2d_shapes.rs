@@ -5,7 +5,7 @@
 
 use bevy::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
-use bevy::sprite::{Wireframe2dConfig, Wireframe2dPlugin};
+use bevy::render_2d::{wireframe::Wireframe2dConfig, Wireframe2dPlugin};
 
 fn main() {
     let mut app = App::new();
