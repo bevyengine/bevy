@@ -111,17 +111,12 @@ where
     #[inline]
     unsafe fn run_unsafe(
         &mut self,
-        _input: SystemIn<'_, Self>,
-        _world: UnsafeWorldCell,
-    ) -> Self::Out {
-        panic!("Cannot run exclusive systems with a shared World reference");
-    }
-
-    fn run_without_applying_deferred(
-        &mut self,
         input: SystemIn<'_, Self>,
-        world: &mut World,
+        world: UnsafeWorldCell,
     ) -> Self::Out {
+        // SAFETY: `Self::is_exclusive` returns true, so the caller is
+        // required to ensure that the it's valid to call `world_mut()`
+        let world = unsafe { world.world_mut() };
         world.last_change_tick_scope(self.system_meta.last_run, |world| {
             #[cfg(feature = "trace")]
             let _span_guard = self.system_meta.system_span.enter();

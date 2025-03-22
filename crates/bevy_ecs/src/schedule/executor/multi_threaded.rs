@@ -609,6 +609,7 @@ impl ExecutorState {
                 // SAFETY:
                 // - The caller ensures that we have permission to
                 // access the world data used by the system.
+                // - `is_exclusive` returned false
                 // - `update_archetype_component_access` has been called.
                 unsafe {
                     if let Err(err) = __rust_begin_short_backtrace::run_unsafe(
