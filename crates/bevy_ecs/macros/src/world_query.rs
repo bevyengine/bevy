@@ -156,16 +156,10 @@ pub(crate) fn world_query_impl(
                 #( <#field_types>::update_component_access(&state.#named_field_idents, _access); )*
             }
 
-            fn init_state(world: &mut #path::world::World) -> #state_struct_name #user_ty_generics {
+            fn init_state(world: &#path::world::World) -> #state_struct_name #user_ty_generics {
                 #state_struct_name {
                     #(#named_field_idents: <#field_types>::init_state(world),)*
                 }
-            }
-
-            fn get_state(components: &#path::component::Components) -> Option<#state_struct_name #user_ty_generics> {
-                Some(#state_struct_name {
-                    #(#named_field_idents: <#field_types>::get_state(components)?,)*
-                })
             }
 
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {

@@ -1,4 +1,4 @@
-use crate::component::ComponentId;
+use crate::component::{ComponentId, ComponentInfo};
 use crate::storage::SparseSetIndex;
 use crate::world::World;
 use alloc::{format, string::String, vec, vec::Vec};
@@ -971,8 +971,8 @@ impl AccessConflicts {
                             world
                                 .components
                                 .get_info(ComponentId::get_sparse_set_index(index))
-                                .unwrap()
-                                .name()
+                                .map(ComponentInfo::name)
+                                .unwrap_or("unknown component")
                         )
                     )
                 })
