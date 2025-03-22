@@ -101,11 +101,11 @@ fn setup(
         }
     }
 
-    commands.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 0.0,
-        ..default()
-    });
+    #[expect(
+        deprecated,
+        reason = "Once AmbientLight is removed, the resource can be removed"
+    )]
+    commands.insert_resource(AmbientLight::NONE);
 
     commands.spawn((
         PointLight {
