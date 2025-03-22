@@ -2228,8 +2228,8 @@ doc-scrape-examples = true
 required-features = ["bevy_mesh_picking_backend", "configurable_error_handler"]
 
 [package.metadata.example.error_handling]
-name = "Fallible Systems"
-description = "Systems that return results to handle errors"
+name = "Error handling"
+description = "How to return and handle errors across the ECS"
 category = "ECS (Entity Component System)"
 wasm = false
 

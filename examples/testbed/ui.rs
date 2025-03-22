@@ -105,26 +105,24 @@ mod grid {
     pub fn setup(mut commands: Commands) {
         commands.spawn((Camera2d, StateScoped(super::Scene::Grid)));
         // Top-level grid (app frame)
-        commands
-            .spawn((
-                Node {
-                    display: Display::Grid,
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    grid_template_columns: vec![GridTrack::min_content(), GridTrack::flex(1.0)],
-                    grid_template_rows: vec![
-                        GridTrack::auto(),
-                        GridTrack::flex(1.0),
-                        GridTrack::px(40.),
-                    ],
-                    ..default()
-                },
-                BackgroundColor(Color::WHITE),
-                StateScoped(super::Scene::Grid),
-            ))
-            .with_children(|builder| {
+        commands.spawn((
+            Node {
+                display: Display::Grid,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                grid_template_columns: vec![GridTrack::min_content(), GridTrack::flex(1.0)],
+                grid_template_rows: vec![
+                    GridTrack::auto(),
+                    GridTrack::flex(1.0),
+                    GridTrack::px(40.),
+                ],
+                ..default()
+            },
+            BackgroundColor(Color::WHITE),
+            StateScoped(super::Scene::Grid),
+            children![
                 // Header
-                builder.spawn((
+                (
                     Node {
                         display: Display::Grid,
                         grid_column: GridPlacement::span(2),
@@ -132,34 +130,32 @@ mod grid {
                         ..default()
                     },
                     BackgroundColor(RED.into()),
-                ));
-
+                ),
                 // Main content grid (auto placed in row 2, column 1)
-                builder
-                    .spawn((
-                        Node {
-                            height: Val::Percent(100.0),
-                            aspect_ratio: Some(1.0),
-                            display: Display::Grid,
-                            grid_template_columns: RepeatedGridTrack::flex(3, 1.0),
-                            grid_template_rows: RepeatedGridTrack::flex(2, 1.0),
-                            row_gap: Val::Px(12.0),
-                            column_gap: Val::Px(12.0),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-                    ))
-                    .with_children(|builder| {
-                        builder.spawn((Node::default(), BackgroundColor(ORANGE.into())));
-                        builder.spawn((Node::default(), BackgroundColor(BISQUE.into())));
-                        builder.spawn((Node::default(), BackgroundColor(BLUE.into())));
-                        builder.spawn((Node::default(), BackgroundColor(CRIMSON.into())));
-                        builder.spawn((Node::default(), BackgroundColor(AQUA.into())));
-                    });
-
+                (
+                    Node {
+                        height: Val::Percent(100.0),
+                        aspect_ratio: Some(1.0),
+                        display: Display::Grid,
+                        grid_template_columns: RepeatedGridTrack::flex(3, 1.0),
+                        grid_template_rows: RepeatedGridTrack::flex(2, 1.0),
+                        row_gap: Val::Px(12.0),
+                        column_gap: Val::Px(12.0),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+                    children![
+                        (Node::default(), BackgroundColor(ORANGE.into())),
+                        (Node::default(), BackgroundColor(BISQUE.into())),
+                        (Node::default(), BackgroundColor(BLUE.into())),
+                        (Node::default(), BackgroundColor(CRIMSON.into())),
+                        (Node::default(), BackgroundColor(AQUA.into())),
+                    ]
+                ),
                 // Right side bar (auto placed in row 2, column 2)
-                builder.spawn((Node::DEFAULT, BackgroundColor(BLACK.into())));
-            });
+                (Node::DEFAULT, BackgroundColor(BLACK.into())),
+            ],
+        ));
     }
 }
 

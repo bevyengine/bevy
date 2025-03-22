@@ -4,12 +4,12 @@ use crate::{
     archetype::ArchetypeFlags,
     bundle::BundleInfo,
     change_detection::{MaybeLocation, MAX_CHANGE_AGE},
-    entity::{ComponentCloneCtx, Entity, SourceComponent},
+    entity::{ComponentCloneCtx, Entity, EntityMapper, SourceComponent},
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     resource::Resource,
     storage::{SparseSetIndex, SparseSets, Table, TableRow},
-    system::{Commands, Local, SystemParam},
+    system::{Local, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
 use alloc::boxed::Box;
@@ -180,10 +180,42 @@ use thiserror::Error;
 /// }
 ///
 /// # let mut world = World::default();
+/// // This will implicitly also insert C with the init_c() constructor
+/// let id = world.spawn(A).id();
+/// assert_eq!(&C(10), world.entity(id).get::<C>().unwrap());
+///
 /// // This will implicitly also insert C with the `|| C(20)` constructor closure
 /// let id = world.spawn(B).id();
 /// assert_eq!(&C(20), world.entity(id).get::<C>().unwrap());
 /// ```
+///
+/// For convenience sake, you can abbreviate enum labels or constant values, with the type inferred to match that of the component you are requiring:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// #[require(B = One, C = ONE)]
+/// struct A;
+///
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// enum B {
+///    Zero,
+///    One,
+///    Two
+/// }
+///
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// struct C(u8);
+///
+/// impl C {
+///     pub const ONE: Self = Self(1);
+/// }
+///
+/// # let mut world = World::default();
+/// let id = world.spawn(A).id();
+/// assert_eq!(&B::One, world.entity(id).get::<B>().unwrap());
+/// assert_eq!(&C(1), world.entity(id).get::<C>().unwrap());
+/// ````
 ///
 /// Required components are _recursive_. This means, if a Required Component has required components,
 /// those components will _also_ be inserted if they are missing:
@@ -485,14 +517,21 @@ pub trait Component: Send + Sync + 'static {
         ComponentCloneBehavior::Default
     }
 
-    /// Visits entities stored on the component.
+    /// Maps the entities on this component using the given [`EntityMapper`]. This is used to remap entities in contexts like scenes and entity cloning.
+    /// When deriving [`Component`], this is populated by annotating fields containing entities with `#[entities]`
+    ///
+    /// ```
+    /// # use bevy_ecs::{component::Component, entity::Entity};
+    /// #[derive(Component)]
+    /// struct Inventory {
+    ///     #[entities]
+    ///     items: Vec<Entity>
+    /// }
+    /// ```
+    ///
+    /// Fields with `#[entities]` must implement [`MapEntities`](crate::entity::MapEntities).
     #[inline]
-    fn visit_entities(_this: &Self, _f: impl FnMut(Entity)) {}
-
-    /// Returns pointers to every entity stored on the component. This will be used to remap entity references when this entity
-    /// is cloned.
-    #[inline]
-    fn visit_entities_mut(_this: &mut Self, _f: impl FnMut(&mut Entity)) {}
+    fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
 }
 
 mod private {
@@ -1126,7 +1165,7 @@ impl ComponentDescriptor {
 }
 
 /// Function type that can be used to clone an entity.
-pub type ComponentCloneFn = fn(&mut Commands, &SourceComponent, &mut ComponentCloneCtx);
+pub type ComponentCloneFn = fn(&SourceComponent, &mut ComponentCloneCtx);
 
 /// The clone behavior to use when cloning a [`Component`].
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -2893,7 +2932,6 @@ pub fn enforce_no_required_components_recursion(
 /// It will panic if set as handler for any other component.
 ///
 pub fn component_clone_via_clone<C: Clone + Component>(
-    _commands: &mut Commands,
     source: &SourceComponent,
     ctx: &mut ComponentCloneCtx,
 ) {
@@ -2920,11 +2958,7 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 ///
 /// [`PartialReflect::reflect_clone`]: bevy_reflect::PartialReflect::reflect_clone
 #[cfg(feature = "bevy_reflect")]
-pub fn component_clone_via_reflect(
-    commands: &mut Commands,
-    source: &SourceComponent,
-    ctx: &mut ComponentCloneCtx,
-) {
+pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut ComponentCloneCtx) {
     let Some(app_registry) = ctx.type_registry().cloned() else {
         return;
     };
@@ -2941,9 +2975,7 @@ pub fn component_clone_via_reflect(
         if let Some(reflect_component) =
             registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
         {
-            reflect_component.visit_entities_mut(&mut *component, &mut |entity| {
-                *entity = ctx.entity_mapper().get_mapped(*entity);
-            });
+            reflect_component.map_entities(&mut *component, ctx.entity_mapper());
         }
         drop(registry);
 
@@ -2961,9 +2993,7 @@ pub fn component_clone_via_reflect(
             if let Some(reflect_component) =
                 registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
             {
-                reflect_component.visit_entities_mut(&mut *component, &mut |entity| {
-                    *entity = ctx.entity_mapper().get_mapped(*entity);
-                });
+                reflect_component.map_entities(&mut *component, ctx.entity_mapper());
             }
             drop(registry);
 
@@ -2986,23 +3016,12 @@ pub fn component_clone_via_reflect(
         registry.get_type_data::<crate::reflect::ReflectFromWorld>(type_id)
     {
         let reflect_from_world = reflect_from_world.clone();
-        let mut mapped_entities = Vec::new();
-        if let Some(reflect_component) =
-            registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
-        {
-            reflect_component.visit_entities(source_component_reflect, &mut |entity| {
-                mapped_entities.push(entity);
-            });
-        }
         let source_component_cloned = source_component_reflect.to_dynamic();
         let component_layout = component_info.layout();
         let target = ctx.target();
         let component_id = ctx.component_id();
-        for entity in mapped_entities.iter_mut() {
-            *entity = ctx.entity_mapper().get_mapped(*entity);
-        }
         drop(registry);
-        commands.queue(move |world: &mut World| {
+        ctx.queue_deferred(move |world: &mut World, mapper: &mut dyn EntityMapper| {
             let mut component = reflect_from_world.from_world(world);
             assert_eq!(type_id, (*component).type_id());
             component.apply(source_component_cloned.as_partial_reflect());
@@ -3010,11 +3029,7 @@ pub fn component_clone_via_reflect(
                 .read()
                 .get_type_data::<crate::reflect::ReflectComponent>(type_id)
             {
-                let mut i = 0;
-                reflect_component.visit_entities_mut(&mut *component, &mut |entity| {
-                    *entity = mapped_entities[i];
-                    i += 1;
-                });
+                reflect_component.map_entities(&mut *component, mapper);
             }
             // SAFETY:
             // - component_id is from the same world as target entity
@@ -3038,12 +3053,7 @@ pub fn component_clone_via_reflect(
 /// Noop implementation of component clone handler function.
 ///
 /// See [`EntityClonerBuilder`](crate::entity::EntityClonerBuilder) for details.
-pub fn component_clone_ignore(
-    _commands: &mut Commands,
-    _source: &SourceComponent,
-    _ctx: &mut ComponentCloneCtx,
-) {
-}
+pub fn component_clone_ignore(_source: &SourceComponent, _ctx: &mut ComponentCloneCtx) {}
 
 /// Wrapper for components clone specialization using autoderef.
 #[doc(hidden)]

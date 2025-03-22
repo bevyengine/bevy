@@ -931,13 +931,9 @@ impl Image {
         #[cfg(all(debug_assertions, feature = "dds"))] name: String,
         buffer: &[u8],
         image_type: ImageType,
-        #[expect(
-            clippy::allow_attributes,
-            reason = "`unused_variables` may not always lint"
-        )]
-        #[allow(
-            unused_variables,
-            reason = "`supported_compressed_formats` is needed where the image format is `Basis`, `Dds`, or `Ktx2`; if these are disabled, then `supported_compressed_formats` is unused."
+        #[cfg_attr(
+            not(any(feature = "basis-universal", feature = "dds", feature = "ktx2")),
+            expect(unused_variables, reason = "only used with certain features")
         )]
         supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
