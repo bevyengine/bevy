@@ -36,9 +36,9 @@ pub trait ContainsEntity {
 /// and remains even after [`Clone`] and/or [`Borrow`] calls.
 ///
 /// # Safety
-/// Any [`PartialEq`], [`Eq`], [`PartialOrd`], [`Ord`], and [`Hash`] impls must form a total order 
-/// that matches that of `Entity`. 
-/// How an instance of `Self` compares to other instances of `Self` must 
+/// Any [`PartialEq`], [`Eq`], [`PartialOrd`], [`Ord`], and [`Hash`] impls must form a total order
+/// that matches that of `Entity`.
+/// How an instance of `Self` compares to other instances of `Self` must
 /// be equivalent to how the result of [`entity()`] compares to other `Entity` instances:
 /// `x.entity() == y.entity()` should give the same result as `x == y`.
 ///
@@ -47,8 +47,8 @@ pub trait ContainsEntity {
 ///
 /// The result of [`entity()`] must be unaffected by any interior mutability.
 ///
-/// The aforementioned properties imply determinism in both [`entity()`] calls 
-/// and comparison trait behavior. 
+/// The aforementioned properties imply determinism in both [`entity()`] calls
+/// and comparison trait behavior.
 ///
 /// [`Hash`]: core::hash::Hash
 /// [`Borrow`]: core::borrow::Borrow

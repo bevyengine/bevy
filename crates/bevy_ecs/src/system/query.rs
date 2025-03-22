@@ -2,7 +2,8 @@ use crate::{
     batching::BatchingStrategy,
     component::Tick,
     entity::{
-        unique_array::UniqueEntityArray, Entity, EntityDoesNotExistError, EntityEquivalent, EntitySet,
+        unique_array::UniqueEntityArray, Entity, EntityDoesNotExistError, EntityEquivalent,
+        EntitySet,
     },
     query::{
         DebugCheckedUnwrap, NopWorldQuery, QueryCombinationIter, QueryData, QueryEntityError,
