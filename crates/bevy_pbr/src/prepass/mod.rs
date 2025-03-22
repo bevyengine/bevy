@@ -844,7 +844,7 @@ impl<M> Default for SpecializedPrepassMaterialPipelineCache<M> {
 impl<M> Default for SpecializedPrepassMaterialViewPipelineCache<M> {
     fn default() -> Self {
         Self {
-            map: HashMap::default(),
+            map: MainEntityHashMap::default(),
             marker: PhantomData,
         }
     }
