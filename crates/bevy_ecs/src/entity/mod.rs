@@ -78,7 +78,7 @@ use crate::{
 use alloc::vec::Vec;
 use bevy_platform_support::sync::{
     atomic::{AtomicU32, Ordering},
-    Arc, Weak,
+    Arc,
 };
 use concurrent_queue::ConcurrentQueue;
 use core::{
@@ -548,23 +548,7 @@ impl RemoteEntitiesReserver {
     /// Corresponds to the default value of [`batch_size`](Self::batch_size)
     pub const DEFAULT_BATCH_SIZE: NonZero<u32> = NonZero::new(16).unwrap();
 
-    /// Constructs a [`RemoteEntitiesReserver`] that can be shared between threads.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    /// use bevy_ecs::entity::RemoteEntitiesReserver;
-    ///
-    /// let world = World::new();
-    /// let entities = world.entities().portable();
-    /// let mut remote = unsafe { RemoteEntitiesReserver::new(&entities) };
-    ///
-    /// // drop(entities); // This would violate safety and cause a deadlock.
-    ///
-    /// let reserved = remote.reserve_entity();
-    /// ```
-    pub fn new(entities: Arc<RemoteEntitiesSource>) -> RemoteEntitiesReserver {
+    fn new(entities: Arc<RemoteEntitiesSource>) -> RemoteEntitiesReserver {
         Self {
             source: entities,
             current: Vec::new(),
@@ -572,16 +556,10 @@ impl RemoteEntitiesReserver {
         }
     }
 
-    /// Same as [`Self::new`] but also sets [`batch_size`](Self::batch_size).
-    pub fn new_with(
-        entities: Arc<RemoteEntitiesSource>,
-        batch_size: NonZero<u32>,
-    ) -> RemoteEntitiesReserver {
-        Self {
-            source: entities,
-            current: Vec::new(),
-            batch_size,
-        }
+    /// Sets [`batch_size`](Self::batch_size).
+    pub fn with(mut self, batch_size: NonZero<u32>) -> Self {
+        self.batch_size = batch_size;
+        self
     }
 
     /// Reserves an entity remotely.
@@ -756,9 +734,34 @@ pub struct RemoteEntities {
 }
 
 impl RemoteEntities {
-    /// Gets the underlying source for this instance.
-    pub fn get_source(&self) -> &Arc<RemoteEntitiesSource> {
-        &self.source
+    /// Constructs a [`RemoteEntitiesReserver`] that can be shared between threads.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    /// let remote = world.entities().get_remote();
+    /// let mut reserver = remote.make_reserver();
+    ///
+    /// // The reserve is async so we need it to be on a separate thread.
+    /// let thread = std::thread::spawn(move || {
+    ///     let future = async {
+    ///         for _ in 0..100 {
+    ///             reserver.reserve_entity().await.unwrap();
+    ///         }
+    ///     };
+    ///     bevy_tasks::block_on(future);
+    /// });
+    ///
+    /// // We need to flush the entities as needed or the remote entities will get stuck.
+    /// while !thread.is_finished() {
+    ///     world.flush();
+    /// }
+    /// ```
+    pub fn make_reserver(&self) -> RemoteEntitiesReserver {
+        RemoteEntitiesReserver::new(self.source.clone())
     }
 
     /// Returns true only if the [`Entities`] has discontinued this remote access.
@@ -1459,21 +1462,26 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "This test starts multiple threads. In batch testing, this may time out because other tests are running concurrently."]
+    // #[ignore = "This test starts multiple threads. In batch testing, this may time out because other tests are running concurrently."]
     #[cfg(feature = "std")]
     fn remote_reservation() {
         use std::thread;
+
+        use bevy_tasks::block_on;
 
         let mut entities = Entities::new();
         let remote = entities.get_remote();
 
         let mut threads = (0..3)
             .map(|_| {
-                let mut reserver = RemoteEntitiesReserver::new(remote.get_source().clone());
-                thread::spawn(async move || {
-                    for _ in 0..100 {
-                        reserver.reserve_entity().await.unwrap();
-                    }
+                let mut reserver = remote.make_reserver();
+                thread::spawn(move || {
+                    let future = async {
+                        for _ in 0..100 {
+                            reserver.reserve_entity().await.unwrap();
+                        }
+                    };
+                    block_on(future);
                 })
             })
             .collect::<Vec<_>>();
