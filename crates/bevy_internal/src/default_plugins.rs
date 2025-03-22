@@ -9,10 +9,8 @@ plugin_group! {
         bevy_app:::TaskPoolPlugin,
         bevy_diagnostic:::FrameCountPlugin,
         bevy_time:::TimePlugin,
-        #[custom(cfg(any(feature = "libm", feature = "std")))]
         bevy_transform:::TransformPlugin,
         bevy_diagnostic:::DiagnosticsPlugin,
-        #[custom(cfg(any(feature = "libm", feature = "std")))]
         bevy_input:::InputPlugin,
         #[custom(cfg(not(feature = "bevy_window")))]
         bevy_app:::ScheduleRunnerPlugin,
