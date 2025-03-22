@@ -1,5 +1,17 @@
 //! This example demonstrates a selection of supported texture formats.
 //!
+//! ## Running This Example
+//!
+//! ```sh
+//! cargo run --example texture_support --features="ktx2 basis-universal bmp gif exr ico jpeg pnm qoi tga tiff webp dds"
+//! ```
+//!
+//! To test behavior when a user has a GPU that does not support compressed textures, run with the `--no-compressed-textures` argument:
+//!
+//! ```
+//! cargo run --example texture_support --features="ktx2 basis-universal bmp gif exr ico jpeg pnm qoi tga tiff webp dds" -- --no-compressed-textures
+//! ```
+//!
 //! ## Controls
 //!
 //! | Key Binding          | Action        |
@@ -33,13 +45,14 @@ use bevy::{
 const MIN_CAMERA_SCALE: f32 = 0.05;
 const MAX_CAMERA_SCALE: f32 = 5.0;
 
-const SIMULATE_NO_COMPRESSED_TEXTURE_SUPPORT: bool = false;
-
 fn main() {
     let mut disabled_features = None;
 
     // If set, this demonstrates which compressed formats can be transcoded to uncompressed formats.
-    if SIMULATE_NO_COMPRESSED_TEXTURE_SUPPORT {
+    let simulate_no_compressed_texture_support =
+        std::env::args().nth(1).unwrap_or_default() == "--no-compressed-textures";
+
+    if simulate_no_compressed_texture_support {
         disabled_features = Some(
             WgpuFeatures::TEXTURE_COMPRESSION_ASTC
                 | WgpuFeatures::TEXTURE_COMPRESSION_ASTC_HDR
@@ -97,7 +110,7 @@ fn setup_camera(mut commands: Commands) {
     ));
 }
 
-/// Information about the texture laying out in the scene.
+/// Information about the texture to be placed into the world.
 struct TextureCell {
     mip_count: u32,
     layer_count: u32,
@@ -110,19 +123,19 @@ impl Default for TextureCell {
 }
 
 impl TextureCell {
-    // A single texture (no layers, no mips)
+    /// A single texture (no layers, no mips)
     fn single() -> Self {
         Self {
             mip_count: 1,
             layer_count: 1,
         }
     }
-    // Sets the number of mip levels.
+    /// Sets the number of mip levels.
     fn with_mips(mut self, mip_count: u32) -> Self {
         self.mip_count = mip_count;
         self
     }
-    // Sets the number of layers.
+    /// Sets the number of layers.
     fn with_layers(mut self, layer_count: u32) -> Self {
         self.layer_count = layer_count;
         self
@@ -466,7 +479,7 @@ fn setup_scene_textures(
             TextureCell::single(),
         ),
         (
-            "Basis ASTC 6x6 Intermediate HDR",
+            "Basis ASTC 6x6i HDR",
             "textures/texture_support/basis-astc-6x6i-hdr.basis",
             TextureCell::single(),
         ),
