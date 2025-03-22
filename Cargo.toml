@@ -3636,6 +3636,14 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
+name = "desktop_request_redraw"
+path = "tests/window/desktop_request_redraw.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.desktop_request_redraw]
+hidden = true
+
+[[example]]
 name = "window_resizing"
 path = "examples/window/window_resizing.rs"
 doc-scrape-examples = true
