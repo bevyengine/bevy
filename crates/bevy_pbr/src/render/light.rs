@@ -2238,18 +2238,12 @@ impl ShadowPassNode {
         world: &'w World,
         is_late: bool,
     ) -> Result<(), NodeRunError> {
-        let diagnostics = render_context.diagnostic_recorder();
-
-        let view_entity = graph.view_entity();
-
         let Some(shadow_render_phases) = world.get_resource::<ViewBinnedRenderPhases<Shadow>>()
         else {
             return Ok(());
         };
 
-        let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
-
-        if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
+        if let Ok(view_lights) = self.main_view_query.get_manual(world, graph.view_entity()) {
             for view_light_entity in view_lights.lights.iter().copied() {
                 let Ok((view_light, extracted_light_view, occlusion_culling)) =
                     self.view_light_query.get_manual(world, view_light_entity)
@@ -2305,8 +2299,6 @@ impl ShadowPassNode {
                 });
             }
         }
-
-        time_span.end(render_context.command_encoder());
 
         Ok(())
     }
