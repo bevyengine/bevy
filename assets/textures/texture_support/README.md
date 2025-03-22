@@ -7,17 +7,19 @@
 
 ## Instructions
 
-The files in this directory are generated from [png-srgb-rgb.png]('./png-srgb-rgb.png) using the following commands:
+The files in this directory are generated from [png-srgb-rgb.png](./png-srgb-rgb.png) using the following commands:
 
 ### Misc LDR Formats
 
 ```sh
+pip install pillow imageio qoi numpy
 python ./scripts/export-ldr-formats.py
 ```
 
 ### EXR / HDR
 
 ```sh
+pip install imageio numpy OpenEXR
 python ./scripts/export-hdr-formats.py
 ```
 
@@ -97,15 +99,6 @@ toktx --t2 --layers 6 --genmipmap --assign_oetf srgb --encode astc --astc_blk_d 
     png-layer-4.png \
     png-layer-5.png
 
-# KTX2: Multi-layer
-# toktx --t2 --layers 6 --assign_oetf srgb --encode astc --astc_blk_d 4x4 ktx2-astc-4x4-srgb-multilayer.ktx2 \
-#     png-layer-0.png \
-#     png-layer-1.png \
-#     png-layer-2.png \
-#     png-layer-3.png \
-#     png-layer-4.png \
-#     png-layer-5.png
-
 # KTX2: Cubemap
 # toktx --t2 --cubemap --assign_oetf srgb --encode astc --astc_blk_d 4x4 ktx2-astc-4x4-srgb-cubemap.ktx2 \
 #     png-layer-0.png \
@@ -123,15 +116,6 @@ toktx --t2 --layers 6 --genmipmap --assign_oetf srgb --encode astc --astc_blk_d 
 #     png-layer-3.png \
 #     png-layer-4.png \
 #     png-layer-5.png
-
-# KTX2: Compressed HDR
-# https://github.com/ARM-software/astc-encoder/blob/3e096baf014badc1b839ce8cb77e16e62377b8f9/Source/astcenccli_toplevel_help.cpp#L74
-# astcenc -cH exr-hdr.exr astc-4x4-hdr.astc 4x4 -thorough -yflip
-# ktx create --format ASTC_4x4_SFLOAT_BLOCK --input-swizzle rgba --swizzle rgba --width 154 --height 154 --raw astc-4x4-hdr.astc ktx2-astc-4x4-hdr.ktx2
-# astcenc -ch exr-hdr.exr astc-6x6-hdr.astc 6x6 -thorough -yflip
-# astcenc -ch exr-hdr.exr ktx-astc-4x4-hdr.ktx 4x4 -thorough -yflip
-# astcenc -ch exr-hdr.exr ktx-astc-6x6-hdr.ktx 6x6 -thorough -yflip
-# ktx2ktx2 -f -o ktx2-astc-4x4-hdr.ktx2 ktx-astc-4x4-hdr.ktx
 ```
 
 ### Basis
