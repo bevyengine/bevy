@@ -534,7 +534,7 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 
 /// This handles reserving entities remotely.
-/// See also [`PortableEntities`].
+/// See also [`RemoteEntities`].
 pub struct RemoteEntitiesReserver {
     source: Arc<RemoteEntitiesSource>,
     current: Vec<Entity>,
@@ -1469,7 +1469,6 @@ mod tests {
     }
 
     #[test]
-    // #[ignore = "This test starts multiple threads. In batch testing, this may time out because other tests are running concurrently."]
     #[cfg(feature = "std")]
     fn remote_reservation() {
         use std::thread;
