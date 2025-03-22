@@ -260,23 +260,6 @@ fn calculate_view(
     return V;
 }
 
-// Diffuse strength is inversely related to metallicity, specular and diffuse transmission
-fn calculate_diffuse_color(
-    base_color: vec3<f32>,
-    metallic: f32,
-    specular_transmission: f32,
-    diffuse_transmission: f32
-) -> vec3<f32> {
-    return base_color * (1.0 - metallic) * (1.0 - specular_transmission) *
-        (1.0 - diffuse_transmission);
-}
-
-// Remapping [0,1] reflectance to F0
-// See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
-fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) -> vec3<f32> {
-    return 0.16 * reflectance * reflectance * (1.0 - metallic) + base_color * metallic;
-}
-
 #ifndef PREPASS_FRAGMENT
 fn apply_pbr_lighting(
     in: pbr_types::PbrInput,
