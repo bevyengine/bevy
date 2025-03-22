@@ -32,6 +32,7 @@ bevy_reflect = ["dep:bevy_reflect"]
 
 ## Extends reflection support to functions.
 reflect_functions = ["bevy_reflect", "bevy_reflect/functions"]
+reflect_auto_register = ["bevy_reflect", "bevy_reflect/auto_register"]
 
 ## Use the configurable global error handler as the default error handler.
 ## 
