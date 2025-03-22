@@ -4,7 +4,7 @@ use alloc::string::ToString;
 use bevy_platform_support::sync::Arc;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
 use core::{fmt::Debug, marker::PhantomData};
-use log::trace;
+use log::{trace, warn};
 
 cfg_if::cfg_if! {
     if #[cfg(not(all(target_arch = "wasm32", feature = "web")))] {
@@ -149,7 +149,14 @@ impl Default for TaskPoolOptions {
 
 impl TaskPoolOptions {
     /// Create a configuration that forces using the given number of threads.
+    ///
+    /// Warns for values below 3 as three minimum are needed for the default pool assignments (IO, Async and Compute pools each need at least one thread).
     pub fn with_num_threads(thread_count: usize) -> Self {
+        if thread_count < 3 {
+            warn!(
+                "The default TaskPoolOptions thread assignment policies require a minimum of one thread each for the IO, Async, and Compute pools. Three threads will be assigned."
+            );
+        }
         TaskPoolOptions {
             min_total_threads: thread_count,
             max_total_threads: thread_count,
