@@ -9,10 +9,13 @@ mod query_filter;
 mod states;
 mod world_query;
 
-use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
+use crate::{
+    component::map_entities, query_data::derive_query_data_impl,
+    query_filter::derive_query_filter_impl,
+};
 use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as TokenStream2};
+use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
@@ -100,7 +103,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                             self.#field.get_components(&mut *func);
                         });
                         field_from_components.push(quote! {
-                            #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
+                            #field: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
                         });
                     }
                     None => {
@@ -109,7 +112,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                             self.#index.get_components(&mut *func);
                         });
                         field_from_components.push(quote! {
-                            #index: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
+                            #index: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
                         });
                     }
                 }
@@ -128,12 +131,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         // SAFETY:
-        // - ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        // - ComponentId is returned in field-definition-order. [get_components] uses field-definition-order
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
         //   the correct `StorageType` into the callback.
+        #[allow(deprecated)]
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
-                components: &mut #ecs_path::component::Components,
+                components: &mut #ecs_path::component::ComponentsRegistrator,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
             ){
                 #(#field_component_ids)*
@@ -146,6 +150,18 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #(#field_get_component_ids)*
             }
 
+            fn register_required_components(
+                components: &mut #ecs_path::component::ComponentsRegistrator,
+                required_components: &mut #ecs_path::component::RequiredComponents
+            ){
+                #(#field_required_components)*
+            }
+        }
+
+        // SAFETY:
+        // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
+        #[allow(deprecated)]
+        unsafe impl #impl_generics #ecs_path::bundle::BundleFromComponents for #struct_name #ty_generics #where_clause {
             #[allow(unused_variables, non_snake_case)]
             unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
             where
@@ -155,16 +171,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                     #(#field_from_components)*
                 }
             }
-
-            fn register_required_components(
-                components: &mut #ecs_path::component::Components,
-                required_components: &mut #ecs_path::component::RequiredComponents
-            ){
-                #(#field_required_components)*
-            }
         }
 
+        #[allow(deprecated)]
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
+            type Effect = ();
             #[allow(unused_variables)]
             #[inline]
             fn get_components(
@@ -177,105 +188,22 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     })
 }
 
-fn derive_visit_entities_base(
-    input: TokenStream,
-    trait_name: TokenStream2,
-    gen_methods: impl FnOnce(Vec<TokenStream2>) -> TokenStream2,
-) -> TokenStream {
+#[proc_macro_derive(MapEntities, attributes(entities))]
+pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
-
-    let named_fields = match get_struct_fields(&ast.data) {
-        Ok(fields) => fields,
-        Err(e) => return e.into_compile_error().into(),
-    };
-
-    let field = named_fields
-        .iter()
-        .filter_map(|field| {
-            if let Some(attr) = field
-                .attrs
-                .iter()
-                .find(|a| a.path().is_ident("visit_entities"))
-            {
-                let ignore = attr.parse_nested_meta(|meta| {
-                    if meta.path.is_ident("ignore") {
-                        Ok(())
-                    } else {
-                        Err(meta.error("Invalid visit_entities attribute. Use `ignore`"))
-                    }
-                });
-                return match ignore {
-                    Ok(()) => None,
-                    Err(e) => Some(Err(e)),
-                };
-            }
-            Some(Ok(field))
-        })
-        .map(|res| res.map(|field| field.ident.as_ref()))
-        .collect::<Result<Vec<_>, _>>();
-
-    let field = match field {
-        Ok(field) => field,
-        Err(e) => return e.into_compile_error().into(),
-    };
-
-    if field.is_empty() {
-        return syn::Error::new(
-            ast.span(),
-            format!("Invalid `{}` type: at least one field", trait_name),
-        )
-        .into_compile_error()
-        .into();
-    }
-
-    let field_access = field
-        .iter()
-        .enumerate()
-        .map(|(n, f)| {
-            if let Some(ident) = f {
-                quote! {
-                    self.#ident
-                }
-            } else {
-                let idx = Index::from(n);
-                quote! {
-                    self.#idx
-                }
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let methods = gen_methods(field_access);
-
-    let generics = ast.generics;
-    let (impl_generics, ty_generics, _) = generics.split_for_impl();
+    let map_entities_impl = map_entities(
+        &ast.data,
+        Ident::new("self", Span::call_site()),
+        false,
+        false,
+    );
     let struct_name = &ast.ident;
-
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     TokenStream::from(quote! {
-        impl #impl_generics #ecs_path::entity:: #trait_name for #struct_name #ty_generics {
-            #methods
-        }
-    })
-}
-
-#[proc_macro_derive(VisitEntitiesMut, attributes(visit_entities))]
-pub fn derive_visit_entities_mut(input: TokenStream) -> TokenStream {
-    derive_visit_entities_base(input, quote! { VisitEntitiesMut }, |field| {
-        quote! {
-            fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
-                #(#field.visit_entities_mut(&mut f);)*
-            }
-        }
-    })
-}
-
-#[proc_macro_derive(VisitEntities, attributes(visit_entities))]
-pub fn derive_visit_entities(input: TokenStream) -> TokenStream {
-    derive_visit_entities_base(input, quote! { VisitEntities }, |field| {
-        quote! {
-            fn visit_entities<F: FnMut(Entity)>(&self, mut f: F) {
-                #(#field.visit_entities(&mut f);)*
+        impl #impl_generics #ecs_path::entity::MapEntities for #struct_name #type_generics #where_clause {
+            fn map_entities<M: #ecs_path::entity::EntityMapper>(&mut self, mapper: &mut M) {
+                #map_entities_impl
             }
         }
     })
@@ -577,7 +505,7 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::shared().get_path("bevy_ecs")
 }
 
-#[proc_macro_derive(Event)]
+#[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     component::derive_event(input)
 }
@@ -589,18 +517,10 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(
     Component,
-    attributes(component, relationship, relationship_target, entities)
+    attributes(component, require, relationship, relationship_target, entities)
 )]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
-}
-
-/// Allows specifying a component's required components.
-///
-/// See `Component` docs for usage.
-#[proc_macro_attribute]
-pub fn require(attr: TokenStream, item: TokenStream) -> TokenStream {
-    component::document_required_components(attr, item)
 }
 
 #[proc_macro_derive(States)]

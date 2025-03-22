@@ -3,13 +3,13 @@
 use std::{f32::consts::PI, fmt::Write};
 
 use bevy::{
-    core_pipeline::{
+    anti_aliasing::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
         experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
         fxaa::{Fxaa, Sensitivity},
-        prepass::{DepthPrepass, MotionVectorPrepass},
         smaa::{Smaa, SmaaPreset},
     },
+    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
     image::{ImageSampler, ImageSamplerDescriptor},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,

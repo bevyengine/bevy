@@ -12,13 +12,12 @@ fn main() {
     app.add_plugins((DefaultPlugins,))
         .init_state::<Scene>()
         .add_systems(OnEnter(Scene::Light), light::setup)
+        .add_systems(OnEnter(Scene::Bloom), bloom::setup)
+        .add_systems(OnEnter(Scene::Gltf), gltf::setup)
         .add_systems(OnEnter(Scene::Animation), animation::setup)
-        .add_systems(Update, switch_scene);
-
-    // Those scenes don't work in CI on Windows runners
-    #[cfg(not(all(feature = "bevy_ci_testing", target_os = "windows")))]
-    app.add_systems(OnEnter(Scene::Bloom), bloom::setup)
-        .add_systems(OnEnter(Scene::Gltf), gltf::setup);
+        .add_systems(OnEnter(Scene::Gizmos), gizmos::setup)
+        .add_systems(Update, switch_scene)
+        .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)));
 
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
@@ -34,6 +33,7 @@ enum Scene {
     Bloom,
     Gltf,
     Animation,
+    Gizmos,
 }
 
 impl Next for Scene {
@@ -42,7 +42,8 @@ impl Next for Scene {
             Scene::Light => Scene::Bloom,
             Scene::Bloom => Scene::Gltf,
             Scene::Gltf => Scene::Animation,
-            Scene::Animation => Scene::Light,
+            Scene::Animation => Scene::Gizmos,
+            Scene::Gizmos => Scene::Light,
         }
     }
 }
@@ -139,7 +140,6 @@ mod light {
     }
 }
 
-#[cfg(not(all(feature = "bevy_ci_testing", target_os = "windows")))]
 mod bloom {
     use bevy::{
         core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
@@ -193,7 +193,6 @@ mod bloom {
     }
 }
 
-#[cfg(not(all(feature = "bevy_ci_testing", target_os = "windows")))]
 mod gltf {
     use bevy::prelude::*;
 
@@ -287,19 +286,41 @@ mod animation {
         animation: Res<Animation>,
         mut players: Query<(Entity, &mut AnimationPlayer)>,
     ) {
-        let entity = children.get(trigger.target()).unwrap()[0];
-        let entity = children.get(entity).unwrap()[0];
+        for child in children.iter_descendants(trigger.target()) {
+            if let Ok((entity, mut player)) = players.get_mut(child) {
+                let mut transitions = AnimationTransitions::new();
+                transitions
+                    .play(&mut player, animation.animation, Duration::ZERO)
+                    .seek_to(0.5)
+                    .pause();
 
-        let (entity, mut player) = players.get_mut(entity).unwrap();
-        let mut transitions = AnimationTransitions::new();
-        transitions
-            .play(&mut player, animation.animation, Duration::ZERO)
-            .seek_to(0.5)
-            .pause();
+                commands
+                    .entity(entity)
+                    .insert(AnimationGraphHandle(animation.graph.clone()))
+                    .insert(transitions);
+            }
+        }
+    }
+}
 
-        commands
-            .entity(entity)
-            .insert(AnimationGraphHandle(animation.graph.clone()))
-            .insert(transitions);
+mod gizmos {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((
+            Camera3d::default(),
+            Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            StateScoped(super::Scene::Gizmos),
+        ));
+    }
+
+    pub fn draw_gizmos(mut gizmos: Gizmos) {
+        gizmos.cuboid(
+            Transform::from_translation(Vec3::X * 2.0).with_scale(Vec3::splat(2.0)),
+            RED,
+        );
+        gizmos
+            .sphere(Isometry3d::from_translation(Vec3::X * -2.0), 1.0, GREEN)
+            .resolution(30_000 / 3);
     }
 }

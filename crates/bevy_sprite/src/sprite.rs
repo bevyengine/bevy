@@ -1,9 +1,7 @@
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
-use bevy_ecs::{
-    component::{require, Component},
-    reflect::ReflectComponent,
-};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -18,7 +16,7 @@ use crate::TextureSlicer;
 /// Describes a sprite to be rendered to a 2D camera
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[require(Transform, Visibility, SyncToRenderWorld, VisibilityClass)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct Sprite {
     /// The image used to render the sprite
@@ -157,7 +155,7 @@ impl From<Handle<Image>> for Sprite {
 
 /// Controls how the image is altered when scaled.
 #[derive(Default, Debug, Clone, Reflect, PartialEq)]
-#[reflect(Debug)]
+#[reflect(Debug, Default, Clone)]
 pub enum SpriteImageMode {
     /// The sprite will take on the size of the image by default, and will be stretched or shrunk if [`Sprite::custom_size`] is set.
     #[default]
@@ -205,7 +203,7 @@ impl SpriteImageMode {
 ///
 /// Can be used in [`SpriteImageMode::Scale`].
 #[derive(Debug, Clone, Copy, PartialEq, Default, Reflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Default, Clone)]
 pub enum ScalingMode {
     /// Scale the texture uniformly (maintain the texture's aspect ratio)
     /// so that both dimensions (width and height) of the texture will be equal
@@ -243,41 +241,37 @@ pub enum ScalingMode {
     FitEnd,
 }
 
-/// How a sprite is positioned relative to its [`Transform`].
-/// It defaults to `Anchor::Center`.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
-#[reflect(Component, Default, Debug, PartialEq)]
+/// Normalized (relative to its size) offset of a 2d renderable entity from its [`Transform`].
+#[derive(Component, Debug, Clone, Copy, PartialEq, Deref, DerefMut, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[doc(alias = "pivot")]
-pub enum Anchor {
-    #[default]
-    Center,
-    BottomLeft,
-    BottomCenter,
-    BottomRight,
-    CenterLeft,
-    CenterRight,
-    TopLeft,
-    TopCenter,
-    TopRight,
-    /// Custom anchor point. Top left is `(-0.5, 0.5)`, center is `(0.0, 0.0)`. The value will
-    /// be scaled with the sprite size.
-    Custom(Vec2),
-}
+pub struct Anchor(pub Vec2);
 
 impl Anchor {
+    pub const BOTTOM_LEFT: Self = Self(Vec2::new(-0.5, -0.5));
+    pub const BOTTOM_CENTER: Self = Self(Vec2::new(0.0, -0.5));
+    pub const BOTTOM_RIGHT: Self = Self(Vec2::new(0.5, -0.5));
+    pub const CENTER_LEFT: Self = Self(Vec2::new(-0.5, 0.0));
+    pub const CENTER: Self = Self(Vec2::ZERO);
+    pub const CENTER_RIGHT: Self = Self(Vec2::new(0.5, 0.0));
+    pub const TOP_LEFT: Self = Self(Vec2::new(-0.5, 0.5));
+    pub const TOP_CENTER: Self = Self(Vec2::new(0.0, 0.5));
+    pub const TOP_RIGHT: Self = Self(Vec2::new(0.5, 0.5));
+
     pub fn as_vec(&self) -> Vec2 {
-        match self {
-            Anchor::Center => Vec2::ZERO,
-            Anchor::BottomLeft => Vec2::new(-0.5, -0.5),
-            Anchor::BottomCenter => Vec2::new(0.0, -0.5),
-            Anchor::BottomRight => Vec2::new(0.5, -0.5),
-            Anchor::CenterLeft => Vec2::new(-0.5, 0.0),
-            Anchor::CenterRight => Vec2::new(0.5, 0.0),
-            Anchor::TopLeft => Vec2::new(-0.5, 0.5),
-            Anchor::TopCenter => Vec2::new(0.0, 0.5),
-            Anchor::TopRight => Vec2::new(0.5, 0.5),
-            Anchor::Custom(point) => *point,
-        }
+        self.0
+    }
+}
+
+impl Default for Anchor {
+    fn default() -> Self {
+        Self::CENTER
+    }
+}
+
+impl From<Vec2> for Anchor {
+    fn from(value: Vec2) -> Self {
+        Self(value)
     }
 }
 
@@ -361,7 +355,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             ..Default::default()
         };
 
@@ -383,7 +377,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::TopRight,
+            anchor: Anchor::TOP_RIGHT,
             ..Default::default()
         };
 
@@ -405,7 +399,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             flip_x: true,
             ..Default::default()
         };
@@ -428,7 +422,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::TopRight,
+            anchor: Anchor::TOP_RIGHT,
             flip_y: true,
             ..Default::default()
         };
@@ -452,7 +446,7 @@ mod tests {
         let sprite = Sprite {
             image,
             rect: Some(Rect::new(1.5, 3.0, 3.0, 9.5)),
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             ..Default::default()
         };
 
@@ -476,7 +470,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             texture_atlas: Some(TextureAtlas {
                 layout: texture_atlas,
                 index: 0,
@@ -504,7 +498,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             texture_atlas: Some(TextureAtlas {
                 layout: texture_atlas,
                 index: 0,

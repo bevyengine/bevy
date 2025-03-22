@@ -1,12 +1,14 @@
 use crate::{
     bundle::Bundle,
-    entity::Entity,
-    relationship::{Relationship, RelationshipTarget},
+    entity::{hash_set::EntityHashSet, Entity},
+    relationship::{
+        Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
+    },
     system::{Commands, EntityCommands},
     world::{EntityWorldMut, World},
 };
-use alloc::vec::Vec;
-use core::marker::PhantomData;
+use bevy_platform_support::prelude::{Box, Vec};
+use core::{marker::PhantomData, mem};
 
 impl<'w> EntityWorldMut<'w> {
     /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
@@ -21,7 +23,9 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Relates the given entities to this entity with the relation `R`
+    /// Relates the given entities to this entity with the relation `R`.
+    ///
+    /// See [`add_one_related`](Self::add_one_related) if you want relate only one entity.
     pub fn add_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         let id = self.id();
         self.world_scope(|world| {
@@ -30,6 +34,166 @@ impl<'w> EntityWorldMut<'w> {
             }
         });
         self
+    }
+
+    /// Replaces all the related entities with a new set of entities.
+    pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
+        type Collection<R> =
+            <<R as Relationship>::RelationshipTarget as RelationshipTarget>::Collection;
+
+        if related.is_empty() {
+            self.remove::<R::RelationshipTarget>();
+
+            return self;
+        }
+
+        let Some(mut existing_relations) = self.get_mut::<R::RelationshipTarget>() else {
+            return self.add_related::<R>(related);
+        };
+
+        // We take the collection here so we can modify it without taking the component itself (this would create archetype move).
+        // SAFETY: We eventually return the correctly initialized collection into the target.
+        let mut existing_relations = mem::replace(
+            existing_relations.collection_mut_risky(),
+            Collection::<R>::with_capacity(0),
+        );
+
+        let mut potential_relations = EntityHashSet::from_iter(related.iter().copied());
+
+        let id = self.id();
+        self.world_scope(|world| {
+            for related in existing_relations.iter() {
+                if !potential_relations.remove(related) {
+                    world.entity_mut(related).remove::<R>();
+                }
+            }
+
+            for related in potential_relations {
+                // SAFETY: We'll manually be adjusting the contents of the parent to fit the final state.
+                world
+                    .entity_mut(related)
+                    .insert_with_relationship_hook_mode(R::from(id), RelationshipHookMode::Skip);
+            }
+        });
+
+        // SAFETY: The entities we're inserting will be the entities that were either already there or entities that we've just inserted.
+        existing_relations.clear();
+        existing_relations.extend_from_iter(related.iter().copied());
+        self.insert(R::RelationshipTarget::from_collection_risky(
+            existing_relations,
+        ));
+
+        self
+    }
+
+    /// Replaces all the related entities with a new set of entities.
+    ///
+    /// This is a more efficient of [`Self::replace_related`] which doesn't allocate.
+    /// The passed in arguments must adhere to these invariants:
+    /// - `entities_to_unrelate`: A slice of entities to remove from the relationship source.
+    ///   Entities need not be related to this entity, but must not appear in `entities_to_relate`
+    /// - `entities_to_relate`: A slice of entities to relate to this entity.
+    ///   This must contain all entities that will remain related (i.e. not those in `entities_to_unrelate`) plus the newly related entities.
+    /// - `newly_related_entities`: A subset of `entities_to_relate` containing only entities not already related to this entity.
+    /// - Slices **must not** contain any duplicates
+    ///
+    /// # Warning
+    ///
+    /// Violating these invariants may lead to panics, crashes or unpredictable engine behavior.
+    ///
+    /// # Panics
+    ///
+    /// Panics when debug assertions are enabled and any invariants are broken.
+    ///
+    // TODO: Consider making these iterators so users aren't required to allocate a separate buffers for the different slices.
+    pub fn replace_related_with_difference<R: Relationship>(
+        &mut self,
+        entities_to_unrelate: &[Entity],
+        entities_to_relate: &[Entity],
+        newly_related_entities: &[Entity],
+    ) -> &mut Self {
+        #[cfg(debug_assertions)]
+        {
+            let entities_to_relate = EntityHashSet::from_iter(entities_to_relate.iter().copied());
+            let entities_to_unrelate =
+                EntityHashSet::from_iter(entities_to_unrelate.iter().copied());
+            let mut newly_related_entities =
+                EntityHashSet::from_iter(newly_related_entities.iter().copied());
+            assert!(
+                entities_to_relate.is_disjoint(&entities_to_unrelate),
+                "`entities_to_relate` ({entities_to_relate:?}) shared entities with `entities_to_unrelate` ({entities_to_unrelate:?})"
+            );
+            assert!(
+                newly_related_entities.is_disjoint(&entities_to_unrelate),
+                "`newly_related_entities` ({newly_related_entities:?}) shared entities with `entities_to_unrelate ({entities_to_unrelate:?})`"
+            );
+            assert!(
+                newly_related_entities.is_subset(&entities_to_relate),
+                "`newly_related_entities` ({newly_related_entities:?}) wasn't a subset of `entities_to_relate` ({entities_to_relate:?})"
+            );
+
+            if let Some(target) = self.get::<R::RelationshipTarget>() {
+                let existing_relationships: EntityHashSet = target.collection().iter().collect();
+
+                assert!(
+                    existing_relationships.is_disjoint(&newly_related_entities),
+                    "`newly_related_entities` contains an entity that wouldn't be newly related"
+                );
+
+                newly_related_entities.extend(existing_relationships);
+                newly_related_entities -= &entities_to_unrelate;
+            }
+
+            assert_eq!(newly_related_entities, entities_to_relate, "`entities_to_relate` ({entities_to_relate:?}) didn't contain all entities that would end up related");
+        };
+
+        if !self.contains::<R::RelationshipTarget>() {
+            self.add_related::<R>(entities_to_relate);
+
+            return self;
+        };
+
+        let this = self.id();
+        self.world_scope(|world| {
+            for unrelate in entities_to_unrelate {
+                world.entity_mut(*unrelate).remove::<R>();
+            }
+
+            for new_relation in newly_related_entities {
+                // We're changing the target collection manually so don't run the insert hook
+                world
+                    .entity_mut(*new_relation)
+                    .insert_with_relationship_hook_mode(R::from(this), RelationshipHookMode::Skip);
+            }
+        });
+
+        if !entities_to_relate.is_empty() {
+            if let Some(mut target) = self.get_mut::<R::RelationshipTarget>() {
+                // SAFETY: The invariants expected by this function mean we'll only be inserting entities that are already related.
+                let collection = target.collection_mut_risky();
+                collection.clear();
+
+                collection.extend_from_iter(entities_to_relate.iter().copied());
+            } else {
+                let mut empty =
+                    <R::RelationshipTarget as RelationshipTarget>::Collection::with_capacity(
+                        entities_to_relate.len(),
+                    );
+                empty.extend_from_iter(entities_to_relate.iter().copied());
+
+                // SAFETY: We've just initialized this collection and we know there's no `RelationshipTarget` on `self`
+                self.insert(R::RelationshipTarget::from_collection_risky(empty));
+            }
+        }
+
+        self
+    }
+
+    /// Relates the given entity to this with the relation `R`.
+    ///
+    /// See [`add_related`](Self::add_related) if you want to relate more than one entity.
+    pub fn add_one_related<R: Relationship>(&mut self, entity: Entity) -> &mut Self {
+        self.add_related::<R>(&[entity])
     }
 
     /// Despawns entities that relate to this one via the given [`RelationshipTarget`].
@@ -108,7 +272,9 @@ impl<'a> EntityCommands<'a> {
         self
     }
 
-    /// Relates the given entities to this entity with the relation `R`
+    /// Relates the given entities to this entity with the relation `R`.
+    ///
+    /// See [`add_one_related`](Self::add_one_related) if you want relate only one entity.
     pub fn add_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         let id = self.id();
         let related = related.to_vec();
@@ -117,6 +283,57 @@ impl<'a> EntityCommands<'a> {
                 world.entity_mut(related).insert(R::from(id));
             }
         });
+        self
+    }
+
+    /// Relates the given entity to this with the relation `R`.
+    ///
+    /// See [`add_related`](Self::add_related) if you want to relate more than one entity.
+    pub fn add_one_related<R: Relationship>(&mut self, entity: Entity) -> &mut Self {
+        self.add_related::<R>(&[entity])
+    }
+
+    /// Replaces all the related entities with the given set of new related entities.
+    pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
+        let id = self.id();
+        let related: Box<[Entity]> = related.into();
+
+        self.commands().queue(move |world: &mut World| {
+            world.entity_mut(id).replace_related::<R>(&related);
+        });
+
+        self
+    }
+
+    /// Replaces all the related entities with a new set of entities.
+    ///
+    /// # Warning
+    ///
+    /// Failing to maintain the functions invariants may lead to erratic engine behavior including random crashes.
+    /// Refer to [`EntityWorldMut::replace_related_with_difference`] for a list of these invariants.
+    ///
+    /// # Panics
+    ///
+    /// Panics when debug assertions are enable, an invariant is are broken and the command is executed.
+    pub fn replace_related_with_difference<R: Relationship>(
+        &mut self,
+        entities_to_unrelate: &[Entity],
+        entities_to_relate: &[Entity],
+        newly_related_entities: &[Entity],
+    ) -> &mut Self {
+        let id = self.id();
+        let entities_to_unrelate: Box<[Entity]> = entities_to_unrelate.into();
+        let entities_to_relate: Box<[Entity]> = entities_to_relate.into();
+        let newly_related_entities: Box<[Entity]> = newly_related_entities.into();
+
+        self.commands().queue(move |world: &mut World| {
+            world.entity_mut(id).replace_children_with_difference(
+                &entities_to_unrelate,
+                &entities_to_relate,
+                &newly_related_entities,
+            );
+        });
+
         self
     }
 
@@ -259,9 +476,9 @@ mod tests {
         let mut world = World::new();
 
         let a = world.spawn_empty().id();
-        let b = world.spawn(ChildOf(a)).id();
-        let c = world.spawn(ChildOf(a)).id();
-        let d = world.spawn(ChildOf(b)).id();
+        let b = world.spawn(ChildOf { parent: a }).id();
+        let c = world.spawn(ChildOf { parent: a }).id();
+        let d = world.spawn(ChildOf { parent: b }).id();
 
         world
             .entity_mut(a)

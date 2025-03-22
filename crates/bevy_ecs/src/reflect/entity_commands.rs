@@ -20,7 +20,7 @@ pub trait ReflectCommandExt {
     ///
     /// - If the entity doesn't exist.
     /// - If [`AppTypeRegistry`] does not have the reflection data for the given
-    ///     [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
+    ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
     /// - If [`AppTypeRegistry`] is not present in the [`World`].
     ///
@@ -82,7 +82,7 @@ pub trait ReflectCommandExt {
     ///     // use the insert_reflect entity command to insert that component/bundle into an entity.
     ///     commands
     ///         .spawn_empty()
-    ///         .insert_reflect(prefab.data.clone_value());
+    ///         .insert_reflect(prefab.data.reflect_clone().unwrap().into_partial_reflect());
     /// }
     /// ```
     fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self;
@@ -212,7 +212,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If [`AppTypeRegistry`] does not have the reflection data for the given
-    ///     [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
+    ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
     /// - If [`AppTypeRegistry`] is not present in the [`World`].
     ///
@@ -243,7 +243,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If the given [`Resource`] does not have the reflection data for the given
-    ///     [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
+    ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
     /// - If the given [`Resource`] is not present in the [`World`].
     pub fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
@@ -442,21 +442,30 @@ mod tests {
 
         let entity = commands.spawn_empty().id();
         let entity2 = commands.spawn_empty().id();
+        let entity3 = commands.spawn_empty().id();
 
         let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn PartialReflect>;
-        let boxed_reflect_component_a_clone = boxed_reflect_component_a.clone_value();
+        let boxed_reflect_component_a_clone = boxed_reflect_component_a.reflect_clone().unwrap();
+        let boxed_reflect_component_a_dynamic = boxed_reflect_component_a.to_dynamic();
 
         commands
             .entity(entity)
             .insert_reflect(boxed_reflect_component_a);
         commands
             .entity(entity2)
-            .insert_reflect(boxed_reflect_component_a_clone);
+            .insert_reflect(boxed_reflect_component_a_clone.into_partial_reflect());
+        commands
+            .entity(entity3)
+            .insert_reflect(boxed_reflect_component_a_dynamic);
         system_state.apply(&mut world);
 
         assert_eq!(
             world.entity(entity).get::<ComponentA>(),
-            world.entity(entity2).get::<ComponentA>()
+            world.entity(entity2).get::<ComponentA>(),
+        );
+        assert_eq!(
+            world.entity(entity).get::<ComponentA>(),
+            world.entity(entity3).get::<ComponentA>(),
         );
     }
 

@@ -65,11 +65,11 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     query::Has,
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -106,9 +106,9 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// * Requires preprocessing meshes. See [`MeshletMesh`] for details.
 /// * Limitations on the kinds of materials you can use. See [`MeshletMesh`] for details.
 ///
-/// This plugin requires a fairly recent GPU that supports [`WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX`].
+/// This plugin requires a fairly recent GPU that supports [`WgpuFeatures::TEXTURE_INT64_ATOMIC`].
 ///
-/// This plugin currently works only on the Vulkan backend.
+/// This plugin currently works only on the Vulkan and Metal backends.
 ///
 /// This plugin is not compatible with [`Msaa`]. Any camera rendering a [`MeshletMesh`] must have
 /// [`Msaa`] set to [`Msaa::Off`].
@@ -133,7 +133,8 @@ pub struct MeshletPlugin {
 impl MeshletPlugin {
     /// [`WgpuFeatures`] required for this plugin to function.
     pub fn required_wgpu_features() -> WgpuFeatures {
-        WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX
+        WgpuFeatures::TEXTURE_INT64_ATOMIC
+            | WgpuFeatures::TEXTURE_ATOMIC
             | WgpuFeatures::SHADER_INT64
             | WgpuFeatures::SUBGROUP
             | WgpuFeatures::DEPTH_CLIP_CONTROL
@@ -151,6 +152,12 @@ impl Plugin for MeshletPlugin {
             std::process::exit(1);
         }
 
+        load_internal_asset!(
+            app,
+            MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE,
+            "clear_visibility_buffer.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(
             app,
             MESHLET_BINDINGS_SHADER_HANDLE,
@@ -246,13 +253,11 @@ impl Plugin for MeshletPlugin {
                 Core3d,
                 (
                     NodeMeshlet::VisibilityBufferRasterPass,
-                    NodePbr::ShadowPass,
+                    NodePbr::EarlyShadowPass,
                     //
                     NodeMeshlet::Prepass,
                     //
                     NodeMeshlet::DeferredPrepass,
-                    Node3d::DeferredPrepass,
-                    Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
                     //
                     Node3d::StartMainPass,
@@ -285,7 +290,7 @@ impl Plugin for MeshletPlugin {
 
 /// The meshlet mesh equivalent of [`bevy_render::mesh::Mesh3d`].
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform, PreviousGlobalTransform, Visibility, VisibilityClass)]
 #[component(on_add = view::add_visibility_class::<MeshletMesh3d>)]
 pub struct MeshletMesh3d(pub Handle<MeshletMesh>);

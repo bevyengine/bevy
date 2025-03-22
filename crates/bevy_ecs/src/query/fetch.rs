@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
-    change_detection::{MaybeThinSlicePtrLocation, Ticks, TicksMut},
+    change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
@@ -12,7 +12,7 @@ use crate::{
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
-use core::{cell::UnsafeCell, marker::PhantomData};
+use core::{cell::UnsafeCell, marker::PhantomData, panic::Location};
 use smallvec::SmallVec;
 use variadics_please::all_tuples;
 
@@ -265,8 +265,9 @@ use variadics_please::all_tuples;
 ///
 /// # Safety
 ///
-/// Component access of `Self::ReadOnly` must be a subset of `Self`
-/// and `Self::ReadOnly` must match exactly the same archetypes/tables as `Self`
+/// - Component access of `Self::ReadOnly` must be a subset of `Self`
+///   and `Self::ReadOnly` must match exactly the same archetypes/tables as `Self`
+/// - `IS_READ_ONLY` must be `true` if and only if `Self: ReadOnlyQueryData`
 ///
 /// [`Query`]: crate::system::Query
 /// [`ReadOnly`]: Self::ReadOnly
@@ -276,6 +277,9 @@ use variadics_please::all_tuples;
     note = "if `{Self}` is a component type, try using `&{Self}` or `&mut {Self}`"
 )]
 pub unsafe trait QueryData: WorldQuery {
+    /// True if this query is read-only and may not perform mutable access.
+    const IS_READ_ONLY: bool;
+
     /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.
     type ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;
 
@@ -367,6 +371,7 @@ unsafe impl WorldQuery for Entity {
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for Entity {
+    const IS_READ_ONLY: bool = true;
     type ReadOnly = Self;
 
     type Item<'w> = Entity;
@@ -443,6 +448,7 @@ unsafe impl WorldQuery for EntityLocation {
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for EntityLocation {
+    const IS_READ_ONLY: bool = true;
     type ReadOnly = Self;
     type Item<'w> = EntityLocation;
 
@@ -524,6 +530,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'a> QueryData for EntityRef<'a> {
+    const IS_READ_ONLY: bool = true;
     type ReadOnly = Self;
     type Item<'w> = EntityRef<'w>;
 
@@ -604,6 +611,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 
 /// SAFETY: access of `EntityRef` is a subset of `EntityMut`
 unsafe impl<'a> QueryData for EntityMut<'a> {
+    const IS_READ_ONLY: bool = false;
     type ReadOnly = EntityRef<'a>;
     type Item<'w> = EntityMut<'w>;
 
@@ -696,6 +704,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'a> QueryData for FilteredEntityRef<'a> {
+    const IS_READ_ONLY: bool = true;
     type ReadOnly = Self;
     type Item<'w> = FilteredEntityRef<'w>;
 
@@ -790,6 +799,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
 
 /// SAFETY: access of `FilteredEntityRef` is a subset of `FilteredEntityMut`
 unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
+    const IS_READ_ONLY: bool = false;
     type ReadOnly = FilteredEntityRef<'a>;
     type Item<'w> = FilteredEntityMut<'w>;
 
@@ -888,6 +898,7 @@ unsafe impl<'a, B> QueryData for EntityRefExcept<'a, B>
 where
     B: Bundle,
 {
+    const IS_READ_ONLY: bool = true;
     type ReadOnly = Self;
     type Item<'w> = EntityRefExcept<'w, B>;
 
@@ -988,6 +999,7 @@ unsafe impl<'a, B> QueryData for EntityMutExcept<'a, B>
 where
     B: Bundle,
 {
+    const IS_READ_ONLY: bool = false;
     type ReadOnly = EntityRefExcept<'a, B>;
     type Item<'w> = EntityMutExcept<'w, B>;
 
@@ -1060,6 +1072,7 @@ unsafe impl WorldQuery for &Archetype {
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for &Archetype {
+    const IS_READ_ONLY: bool = true;
     type ReadOnly = Self;
     type Item<'w> = &'w Archetype;
 
@@ -1204,6 +1217,7 @@ unsafe impl<T: Component> WorldQuery for &T {
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> QueryData for &T {
+    const IS_READ_ONLY: bool = true;
     type ReadOnly = Self;
     type Item<'w> = &'w T;
 
@@ -1251,7 +1265,7 @@ pub struct RefFetch<'w, T: Component> {
             ThinSlicePtr<'w, UnsafeCell<T>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
-            MaybeThinSlicePtrLocation<'w>,
+            MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted
@@ -1337,10 +1351,9 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             column.get_data_slice(table.entity_count()).into(),
             column.get_added_ticks_slice(table.entity_count()).into(),
             column.get_changed_ticks_slice(table.entity_count()).into(),
-            #[cfg(feature = "track_location")]
-            column.get_changed_by_slice(table.entity_count()).into(),
-            #[cfg(not(feature = "track_location"))]
-            (),
+            column
+                .get_changed_by_slice(table.entity_count())
+                .map(Into::into),
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
         unsafe { fetch.components.set_table(table_data) };
@@ -1376,6 +1389,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
+    const IS_READ_ONLY: bool = true;
     type ReadOnly = Self;
     type Item<'w> = Ref<'w, T>;
 
@@ -1392,7 +1406,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let (table_components, added_ticks, changed_ticks, _callers) =
+                let (table_components, added_ticks, changed_ticks, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
@@ -1402,8 +1416,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                 // SAFETY: The caller ensures `table_row` is in range.
                 let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                #[cfg(feature = "track_location")]
-                let caller = unsafe { _callers.get(table_row.as_usize()) };
+                let caller = callers.map(|callers| unsafe { callers.get(table_row.as_usize()) });
 
                 Ref {
                     value: component.deref(),
@@ -1413,13 +1426,12 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
                     },
-                    #[cfg(feature = "track_location")]
-                    changed_by: caller.deref(),
+                    changed_by: caller.map(|caller| caller.deref()),
                 }
             },
             |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range and has the component.
-                let (component, ticks, _caller) = unsafe {
+                let (component, ticks, caller) = unsafe {
                     sparse_set
                         .debug_checked_unwrap()
                         .get_with_ticks(entity)
@@ -1429,8 +1441,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                 Ref {
                     value: component.deref(),
                     ticks: Ticks::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
-                    #[cfg(feature = "track_location")]
-                    changed_by: _caller.deref(),
+                    changed_by: caller.map(|caller| caller.deref()),
                 }
             },
         )
@@ -1449,7 +1460,7 @@ pub struct WriteFetch<'w, T: Component> {
             ThinSlicePtr<'w, UnsafeCell<T>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
-            MaybeThinSlicePtrLocation<'w>,
+            MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted
@@ -1535,10 +1546,9 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             column.get_data_slice(table.entity_count()).into(),
             column.get_added_ticks_slice(table.entity_count()).into(),
             column.get_changed_ticks_slice(table.entity_count()).into(),
-            #[cfg(feature = "track_location")]
-            column.get_changed_by_slice(table.entity_count()).into(),
-            #[cfg(not(feature = "track_location"))]
-            (),
+            column
+                .get_changed_by_slice(table.entity_count())
+                .map(Into::into),
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
         unsafe { fetch.components.set_table(table_data) };
@@ -1574,6 +1584,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T {
+    const IS_READ_ONLY: bool = false;
     type ReadOnly = &'__w T;
     type Item<'w> = Mut<'w, T>;
 
@@ -1590,7 +1601,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let (table_components, added_ticks, changed_ticks, _callers) =
+                let (table_components, added_ticks, changed_ticks, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
@@ -1600,8 +1611,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                 // SAFETY: The caller ensures `table_row` is in range.
                 let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                #[cfg(feature = "track_location")]
-                let caller = unsafe { _callers.get(table_row.as_usize()) };
+                let caller = callers.map(|callers| unsafe { callers.get(table_row.as_usize()) });
 
                 Mut {
                     value: component.deref_mut(),
@@ -1611,13 +1621,12 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
                     },
-                    #[cfg(feature = "track_location")]
-                    changed_by: caller.deref_mut(),
+                    changed_by: caller.map(|caller| caller.deref_mut()),
                 }
             },
             |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range and has the component.
-                let (component, ticks, _caller) = unsafe {
+                let (component, ticks, caller) = unsafe {
                     sparse_set
                         .debug_checked_unwrap()
                         .get_with_ticks(entity)
@@ -1627,8 +1636,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                 Mut {
                     value: component.assert_unique().deref_mut(),
                     ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
-                    #[cfg(feature = "track_location")]
-                    changed_by: _caller.deref_mut(),
+                    changed_by: caller.map(|caller| caller.deref_mut()),
                 }
             },
         )
@@ -1719,6 +1727,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 
 // SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T> {
+    const IS_READ_ONLY: bool = false;
     type ReadOnly = Ref<'__w, T>;
     type Item<'w> = Mut<'w, T>;
 
@@ -1846,6 +1855,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 
 // SAFETY: defers to soundness of `T: WorldQuery` impl
 unsafe impl<T: QueryData> QueryData for Option<T> {
+    const IS_READ_ONLY: bool = T::IS_READ_ONLY;
     type ReadOnly = Option<T::ReadOnly>;
     type Item<'w> = Option<T::Item<'w>>;
 
@@ -2009,6 +2019,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> QueryData for Has<T> {
+    const IS_READ_ONLY: bool = true;
     type ReadOnly = Self;
     type Item<'w> = bool;
 
@@ -2057,6 +2068,7 @@ macro_rules! impl_tuple_query_data {
         $(#[$meta])*
         // SAFETY: defers to soundness `$name: WorldQuery` impl
         unsafe impl<$($name: QueryData),*> QueryData for ($($name,)*) {
+            const IS_READ_ONLY: bool = true $(&& $name::IS_READ_ONLY)*;
             type ReadOnly = ($($name::ReadOnly,)*);
             type Item<'w> = ($($name::Item<'w>,)*);
 
@@ -2219,6 +2231,7 @@ macro_rules! impl_anytuple_fetch {
         $(#[$meta])*
         // SAFETY: defers to soundness of `$name: WorldQuery` impl
         unsafe impl<$($name: QueryData),*> QueryData for AnyOf<($($name,)*)> {
+            const IS_READ_ONLY: bool = true $(&& $name::IS_READ_ONLY)*;
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
             type Item<'w> = ($(Option<$name::Item<'w>>,)*);
 
@@ -2323,6 +2336,7 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
 
 /// SAFETY: `Self::ReadOnly` is `Self`
 unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
+    const IS_READ_ONLY: bool = true;
     type ReadOnly = Self;
     type Item<'w> = ();
 
@@ -2392,6 +2406,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 
 /// SAFETY: `Self::ReadOnly` is `Self`
 unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
+    const IS_READ_ONLY: bool = true;
     type ReadOnly = Self;
     type Item<'a> = ();
 

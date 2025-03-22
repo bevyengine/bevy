@@ -9,9 +9,11 @@ use bevy::{
     winit::WinitSettings,
 };
 
-// the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
+// the `bevy_main` proc_macro generates the required boilerplate for Android
 #[bevy_main]
-fn main() {
+/// The entry point for the application. Is `pub` so that it can be used from
+/// `main.rs`.
+pub fn main() {
     let mut app = App::new();
     app.add_plugins(
         DefaultPlugins
@@ -61,7 +63,7 @@ fn touch_camera(
     mut last_position: Local<Option<Vec2>>,
     mut rotations: EventReader<RotationGesture>,
 ) {
-    let Ok(window) = window.get_single() else {
+    let Ok(window) = window.single() else {
         return;
     };
 

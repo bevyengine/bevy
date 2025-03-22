@@ -15,6 +15,7 @@ extern crate alloc;
 mod components;
 mod dynamic_scene;
 mod dynamic_scene_builder;
+mod reflect_utils;
 mod scene;
 mod scene_filter;
 mod scene_loader;
@@ -26,7 +27,6 @@ pub mod serde;
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy scenes.
 pub use bevy_asset::ron;
 
-use bevy_ecs::schedule::IntoSystemConfigs;
 pub use components::*;
 pub use dynamic_scene::*;
 pub use dynamic_scene_builder::*;
@@ -47,7 +47,9 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::AssetApp;
+
+#[cfg(feature = "serialize")]
+use {bevy_asset::AssetApp, bevy_ecs::schedule::IntoScheduleConfigs};
 
 /// Plugin that provides scene functionality to an [`App`].
 #[derive(Default)]
@@ -81,7 +83,7 @@ impl Plugin for ScenePlugin {
                     if let Some(instance_ids) = scene_spawner.spawned_dynamic_scenes.get_mut(&id) {
                         instance_ids.remove(&scene_instance);
                     }
-                    scene_spawner.despawn_instance(scene_instance);
+                    scene_spawner.unregister_instance(scene_instance);
                 }
             });
 
@@ -95,7 +97,7 @@ impl Plugin for ScenePlugin {
                     let Some(mut scene_spawner) = world.get_resource_mut::<SceneSpawner>() else {
                         return;
                     };
-                    scene_spawner.despawn_instance(scene_instance);
+                    scene_spawner.unregister_instance(scene_instance);
                 }
             });
     }

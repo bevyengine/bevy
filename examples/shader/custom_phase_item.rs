@@ -19,8 +19,9 @@ use bevy::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         primitives::Aabb,
         render_phase::{
-            AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, PhaseItem, RenderCommand,
-            RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
+            AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, InputUniformIndex, PhaseItem,
+            RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
+            ViewBinnedRenderPhases,
         },
         render_resource::{
             BufferUsages, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
@@ -277,6 +278,7 @@ fn queue_custom_phase_item(
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
                 },
                 entity,
+                InputUniformIndex::default(),
                 BinnedRenderPhaseType::NonMesh,
                 *next_tick,
             );

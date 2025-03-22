@@ -13,7 +13,7 @@ use core::{
     option, result,
 };
 
-use super::{Entity, UniqueEntitySlice};
+use super::{unique_slice::UniqueEntitySlice, Entity};
 
 use bevy_platform_support::sync::Arc;
 
@@ -310,7 +310,7 @@ unsafe impl<I: EntitySetIterator> EntitySetIterator for iter::StepBy<I> {}
 /// Conversion from an `EntitySetIterator`.
 ///
 /// Some collections, while they can be constructed from plain iterators,
-/// benefit strongly from the additional uniqeness guarantee [`EntitySetIterator`] offers.
+/// benefit strongly from the additional uniqueness guarantee [`EntitySetIterator`] offers.
 /// Mirroring [`Iterator::collect`]/[`FromIterator::from_iter`], [`EntitySetIterator::collect_set`] and
 /// `FromEntitySetIterator::from_entity_set_iter` can be used for construction.
 ///

@@ -1,6 +1,6 @@
 [package]
 name = "benches"
-edition = "2021"
+edition = "2024"
 description = "Benchmarks that test Bevy's performance"
 publish = false
 license = "MIT OR Apache-2.0"
@@ -50,6 +50,7 @@ undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 needless_lifetimes = "allow"
 too_many_arguments = "allow"
+nonstandard_macro_braces = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"

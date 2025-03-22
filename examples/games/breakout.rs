@@ -213,30 +213,29 @@ fn setup(
     ));
 
     // Scoreboard
-    commands
-        .spawn((
-            Text::new("Score: "),
-            TextFont {
-                font_size: SCOREBOARD_FONT_SIZE,
-                ..default()
-            },
-            TextColor(TEXT_COLOR),
-            ScoreboardUi,
-            Node {
-                position_type: PositionType::Absolute,
-                top: SCOREBOARD_TEXT_PADDING,
-                left: SCOREBOARD_TEXT_PADDING,
-                ..default()
-            },
-        ))
-        .with_child((
+    commands.spawn((
+        Text::new("Score: "),
+        TextFont {
+            font_size: SCOREBOARD_FONT_SIZE,
+            ..default()
+        },
+        TextColor(TEXT_COLOR),
+        ScoreboardUi,
+        Node {
+            position_type: PositionType::Absolute,
+            top: SCOREBOARD_TEXT_PADDING,
+            left: SCOREBOARD_TEXT_PADDING,
+            ..default()
+        },
+        children![(
             TextSpan::default(),
             TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
                 ..default()
             },
             TextColor(SCORE_COLOR),
-        ));
+        )],
+    ));
 
     // Walls
     commands.spawn(Wall::new(WallLocation::Left));
@@ -357,8 +356,8 @@ fn check_for_collisions(
         );
 
         if let Some(collision) = collision {
-            // Sends a collision event so that other systems can react to the collision
-            collision_events.send_default();
+            // Writes a collision event so that other systems can react to the collision
+            collision_events.write_default();
 
             // Bricks should be despawned and increment the scoreboard on collision
             if maybe_brick.is_some() {

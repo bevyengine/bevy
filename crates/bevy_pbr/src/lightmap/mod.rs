@@ -41,7 +41,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     removal_detection::RemovedComponents,
     resource::Resource,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -88,7 +88,7 @@ pub struct LightmapPlugin;
 /// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_render::mesh::Mesh::ATTRIBUTE_UV_1)),
 /// then the lightmap will render using those UVs.
 #[derive(Component, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct Lightmap {
     /// The lightmap texture.
     pub image: Handle<Image>,
@@ -116,9 +116,6 @@ pub struct Lightmap {
 /// There is one of these per visible lightmapped mesh instance.
 #[derive(Debug)]
 pub(crate) struct RenderLightmap {
-    /// The ID of the lightmap texture.
-    pub(crate) image: AssetId<Image>,
-
     /// The rectangle within the lightmap texture that the UVs are relative to.
     ///
     /// The top left coordinate is the `min` part of the rect, and the bottom
@@ -245,7 +242,6 @@ fn extract_lightmaps(
         render_lightmaps.render_lightmaps.insert(
             entity.into(),
             RenderLightmap::new(
-                lightmap.image.id(),
                 lightmap.uv_rect,
                 slab_index,
                 slot_index,
@@ -305,14 +301,12 @@ impl RenderLightmap {
     /// Creates a new lightmap from a texture, a UV rect, and a slab and slot
     /// index pair.
     fn new(
-        image: AssetId<Image>,
         uv_rect: Rect,
         slab_index: LightmapSlabIndex,
         slot_index: LightmapSlotIndex,
         bicubic_sampling: bool,
     ) -> Self {
         Self {
-            image,
             uv_rect,
             slab_index,
             slot_index,

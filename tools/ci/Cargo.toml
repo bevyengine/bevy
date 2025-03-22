@@ -1,6 +1,6 @@
 [package]
 name = "ci"
-edition = "2021"
+edition = "2024"
 description = "Tool that enables running CI checks locally."
 publish = false
 license = "MIT OR Apache-2.0"
