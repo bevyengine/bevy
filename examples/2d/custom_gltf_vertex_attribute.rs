@@ -8,7 +8,7 @@ use bevy::{
         mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
         render_resource::*,
     },
-    sprite::{Material2d, Material2dKey, Material2dPlugin},
+    render_2d::material::{Material2dKey, Material2dPlugin},
 };
 
 /// This example uses a shader source file from the assets subdirectory
