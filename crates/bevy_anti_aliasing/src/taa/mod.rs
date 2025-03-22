@@ -1,17 +1,17 @@
-use crate::{
+use bevy_app::{App, Plugin};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
-use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     prelude::{Component, Entity, ReflectComponent},
     query::{QueryItem, With},
     resource::Resource,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -131,7 +131,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// If no [`MipBias`] component is attached to the camera, TAA will add a `MipBias(-1.0)` component.
 #[derive(Component, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 #[require(TemporalJitter, DepthPrepass, MotionVectorPrepass)]
 #[doc(alias = "Taa")]
 pub struct TemporalAntiAliasing {

@@ -1,10 +1,10 @@
-use crate::{
+use bevy_app::prelude::*;
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_core_pipeline::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
-use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -36,7 +36,7 @@ pub use node::CasNode;
 ///
 /// To use this, add the [`ContrastAdaptiveSharpening`] component to a 2D or 3D camera.
 #[derive(Component, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct ContrastAdaptiveSharpening {
     /// Enable or disable sharpening.
     pub enabled: bool,
@@ -65,7 +65,7 @@ impl Default for ContrastAdaptiveSharpening {
 }
 
 #[derive(Component, Default, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct DenoiseCas(bool);
 
 /// The uniform struct extracted from [`ContrastAdaptiveSharpening`] attached to a [`Camera`].

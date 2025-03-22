@@ -92,7 +92,7 @@ pub mod light_consts {
 }
 
 #[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource, Debug, Default)]
+#[reflect(Resource, Debug, Default, Clone)]
 pub struct PointLightShadowMap {
     pub size: usize,
 }
@@ -109,7 +109,7 @@ pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLigh
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
 #[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource, Debug, Default)]
+#[reflect(Resource, Debug, Default, Clone)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
 }
@@ -134,7 +134,7 @@ impl Default for DirectionalLightShadowMap {
 /// }.into();
 /// ```
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct CascadeShadowConfig {
     /// The (positive) distance to the far boundary of each cascade.
     pub bounds: Vec<f32>,
@@ -276,13 +276,14 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Debug, Default)]
+#[reflect(Component, Debug, Default, Clone)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
     pub(crate) cascades: EntityHashMap<Vec<Cascade>>,
 }
 
 #[derive(Clone, Debug, Default, Reflect)]
+#[reflect(Clone, Default)]
 pub struct Cascade {
     /// The transform of the light, i.e. the view to world matrix.
     pub(crate) world_from_cascade: Mat4,
@@ -472,7 +473,7 @@ pub struct TransmittedShadowReceiver;
 /// The different modes use different approaches to
 /// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
 #[derive(Debug, Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub enum ShadowFilteringMethod {
     /// Hardware 2x2.
     ///
@@ -491,8 +492,7 @@ pub enum ShadowFilteringMethod {
     Gaussian,
     /// A randomized filter that varies over time, good when TAA is in use.
     ///
-    /// Good quality when used with
-    /// [`TemporalAntiAliasing`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasing)
+    /// Good quality when used with `TemporalAntiAliasing`
     /// and good performance.
     ///
     /// For directional and spot lights, this uses a [method by Jorge Jimenez for

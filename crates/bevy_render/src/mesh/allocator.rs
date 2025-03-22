@@ -12,7 +12,7 @@ use bevy_asset::AssetId;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{Res, ResMut},
     world::{FromWorld, World},
 };

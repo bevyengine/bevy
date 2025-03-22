@@ -196,15 +196,19 @@ impl Deref for BindGroup {
 ///
 /// ## `storage(BINDING_INDEX, arguments)`
 ///
-/// * The field's [`Handle<Storage>`](bevy_asset::Handle) will be used to look up the matching [`Buffer`] GPU resource, which
-///   will be bound as a storage buffer in shaders. If the `storage` attribute is used, the field is expected a raw
-///   buffer, and the buffer will be bound as a storage buffer in shaders.
+/// * The field's [`Handle<Storage>`](bevy_asset::Handle) will be used to look
+///   up the matching [`Buffer`] GPU resource, which will be bound as a storage
+///   buffer in shaders. If the `storage` attribute is used, the field is expected
+///   a raw buffer, and the buffer will be bound as a storage buffer in shaders.
+///   In bindless mode, `binding_array()` argument that specifies the binding
+///   number of the resulting storage buffer binding array must be present.
 ///
-/// | Arguments              | Values                                                                  | Default              |
-/// |------------------------|-------------------------------------------------------------------------|----------------------|
-/// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` | `vertex`, `fragment` |
-/// | `read_only`            | if present then value is true, otherwise false                          | `false`              |
-/// | `buffer`               | if present then the field will be assumed to be a raw wgpu buffer       |                      |
+/// | Arguments              | Values                                                                  | Default                |
+/// |------------------------|-------------------------------------------------------------------------|------------------------|
+/// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` | `vertex`, `fragment`   |
+/// | `read_only`            | if present then value is true, otherwise false                          | `false`                |
+/// | `buffer`               | if present then the field will be assumed to be a raw wgpu buffer       |                        |
+/// | `binding_array(...)`   | the binding number of the binding array, for bindless mode              | bindless mode disabled |
 ///
 /// Note that fields without field-level binding attributes will be ignored.
 /// ```

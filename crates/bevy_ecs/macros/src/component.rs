@@ -92,12 +92,17 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(err) => err.into_compile_error().into(),
     };
 
-    let visit_entities = visit_entities(
+    let map_entities = map_entities(
         &ast.data,
-        &bevy_ecs_path,
+        Ident::new("this", Span::call_site()),
         relationship.is_some(),
         relationship_target.is_some(),
-    );
+    ).map(|map_entities_impl| quote! {
+        fn map_entities<M: #bevy_ecs_path::entity::EntityMapper>(this: &mut Self, mapper: &mut M) {
+            use #bevy_ecs_path::entity::MapEntities;
+            #map_entities_impl
+        }
+    });
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
@@ -272,7 +277,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             type Mutability = #mutable_type;
             fn register_required_components(
                 requiree: #bevy_ecs_path::component::ComponentId,
-                components: &mut #bevy_ecs_path::component::Components,
+                components: &mut #bevy_ecs_path::component::ComponentsRegistrator,
                 required_components: &mut #bevy_ecs_path::component::RequiredComponents,
                 inheritance_depth: u16,
                 recursion_check_stack: &mut #bevy_ecs_path::__macro_exports::Vec<#bevy_ecs_path::component::ComponentId>
@@ -295,7 +300,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 #clone_behavior
             }
 
-            #visit_entities
+            #map_entities
         }
 
         #relationship
@@ -306,19 +311,18 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
 const ENTITIES: &str = "entities";
 
-fn visit_entities(
+pub(crate) fn map_entities(
     data: &Data,
-    bevy_ecs_path: &Path,
+    self_ident: Ident,
     is_relationship: bool,
     is_relationship_target: bool,
-) -> TokenStream2 {
+) -> Option<TokenStream2> {
     match data {
         Data::Struct(DataStruct { fields, .. }) => {
-            let mut visit = Vec::with_capacity(fields.len());
-            let mut visit_mut = Vec::with_capacity(fields.len());
+            let mut map = Vec::with_capacity(fields.len());
 
             let relationship = if is_relationship || is_relationship_target {
-                relationship_field(fields, "VisitEntities", fields.span()).ok()
+                relationship_field(fields, "MapEntities", fields.span()).ok()
             } else {
                 None
             };
@@ -335,27 +339,17 @@ fn visit_entities(
                         .clone()
                         .map_or(Member::from(index), Member::Named);
 
-                    visit.push(quote!(this.#field_member.visit_entities(&mut func);));
-                    visit_mut.push(quote!(this.#field_member.visit_entities_mut(&mut func);));
+                    map.push(quote!(#self_ident.#field_member.map_entities(mapper);));
                 });
-            if visit.is_empty() {
-                return quote!();
+            if map.is_empty() {
+                return None;
             };
-            quote!(
-                fn visit_entities(this: &Self, mut func: impl FnMut(#bevy_ecs_path::entity::Entity)) {
-                    use #bevy_ecs_path::entity::VisitEntities;
-                    #(#visit)*
-                }
-
-                fn visit_entities_mut(this: &mut Self, mut func: impl FnMut(&mut #bevy_ecs_path::entity::Entity)) {
-                    use #bevy_ecs_path::entity::VisitEntitiesMut;
-                    #(#visit_mut)*
-                }
-            )
+            Some(quote!(
+                #(#map)*
+            ))
         }
         Data::Enum(DataEnum { variants, .. }) => {
-            let mut visit = Vec::with_capacity(variants.len());
-            let mut visit_mut = Vec::with_capacity(variants.len());
+            let mut map = Vec::with_capacity(variants.len());
 
             for variant in variants.iter() {
                 let field_members = variant
@@ -377,40 +371,25 @@ fn visit_entities(
                     .map(|member| format_ident!("__self_{}", member))
                     .collect::<Vec<_>>();
 
-                visit.push(
+                map.push(
                     quote!(Self::#ident {#(#field_members: #field_idents,)* ..} => {
-                        #(#field_idents.visit_entities(&mut func);)*
-                    }),
-                );
-                visit_mut.push(
-                    quote!(Self::#ident {#(#field_members: #field_idents,)* ..} => {
-                        #(#field_idents.visit_entities_mut(&mut func);)*
+                        #(#field_idents.map_entities(mapper);)*
                     }),
                 );
             }
 
-            if visit.is_empty() {
-                return quote!();
+            if map.is_empty() {
+                return None;
             };
-            quote!(
-                fn visit_entities(this: &Self, mut func: impl FnMut(#bevy_ecs_path::entity::Entity)) {
-                    use #bevy_ecs_path::entity::VisitEntities;
-                    match this {
-                        #(#visit,)*
-                        _ => {}
-                    }
-                }
 
-                fn visit_entities_mut(this: &mut Self, mut func: impl FnMut(&mut #bevy_ecs_path::entity::Entity)) {
-                    use #bevy_ecs_path::entity::VisitEntitiesMut;
-                    match this {
-                        #(#visit_mut,)*
-                        _ => {}
-                    }
+            Some(quote!(
+                match #self_ident {
+                    #(#map,)*
+                    _ => {}
                 }
-            )
+            ))
         }
-        Data::Union(_) => quote!(),
+        Data::Union(_) => None,
     }
 }
 
@@ -611,6 +590,12 @@ impl Parse for Require {
                 let func = content.parse::<Path>()?;
                 Some(RequireFunc::Path(func))
             }
+        } else if input.peek(Token![=]) {
+            let _t: syn::Token![=] = input.parse()?;
+            let label: Ident = input.parse()?;
+            let tokens: TokenStream = quote::quote! (|| #path::#label).into();
+            let func = syn::parse(tokens).unwrap();
+            Some(RequireFunc::Closure(func))
         } else {
             None
         };

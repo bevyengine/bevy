@@ -1,10 +1,10 @@
-use crate::{
+use bevy_app::prelude::*;
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_core_pipeline::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
-use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -27,7 +27,7 @@ mod node;
 pub use node::FxaaNode;
 
 #[derive(Debug, Reflect, Eq, PartialEq, Hash, Clone, Copy)]
-#[reflect(PartialEq, Hash)]
+#[reflect(PartialEq, Hash, Clone)]
 pub enum Sensitivity {
     Low,
     Medium,
@@ -51,7 +51,7 @@ impl Sensitivity {
 /// A component for enabling Fast Approximate Anti-Aliasing (FXAA)
 /// for a [`bevy_render::camera::Camera`].
 #[derive(Reflect, Component, Clone, ExtractComponent)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 #[extract_component_filter(With<Camera>)]
 #[doc(alias = "FastApproximateAntiAliasing")]
 pub struct Fxaa {

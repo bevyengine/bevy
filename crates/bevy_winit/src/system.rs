@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
@@ -6,10 +8,11 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
-use bevy_input::keyboard::KeyboardFocusLost;
+use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use bevy_window::{
     ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
-    WindowClosing, WindowCreated, WindowFocused, WindowMode, WindowResized, WindowWrapper,
+    WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode, WindowResized,
+    WindowWrapper,
 };
 use tracing::{error, info, warn};
 
@@ -31,7 +34,7 @@ use crate::{
         convert_enabled_buttons, convert_resize_direction, convert_window_level,
         convert_window_theme, convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, select_monitor,
+    get_selected_videomode, select_monitor,
     state::react_to_resize,
     winit_monitors::WinitMonitors,
     CreateMonitorParams, CreateWindowParams, WinitWindows,
@@ -80,9 +83,12 @@ pub fn create_windows<F: QueryFilter + 'static>(
             .resolution
             .set_scale_factor_and_apply_to_physical_size(winit_window.scale_factor() as f32);
 
-        commands.entity(entity).insert(CachedWindow {
-            window: window.clone(),
-        });
+        commands.entity(entity).insert((
+            CachedWindow {
+                window: window.clone(),
+            },
+            WinitWindowPressedKeys::default(),
+        ));
 
         if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
             commands.entity(entity).insert(handle_wrapper.clone());
@@ -124,18 +130,43 @@ pub fn create_windows<F: QueryFilter + 'static>(
 pub(crate) fn check_keyboard_focus_lost(
     mut focus_events: EventReader<WindowFocused>,
     mut keyboard_focus: EventWriter<KeyboardFocusLost>,
+    mut keyboard_input: EventWriter<KeyboardInput>,
+    mut window_events: EventWriter<WindowEvent>,
+    mut q_windows: Query<&mut WinitWindowPressedKeys>,
 ) {
-    let mut focus_lost = false;
+    let mut focus_lost = vec![];
     let mut focus_gained = false;
     for e in focus_events.read() {
         if e.focused {
             focus_gained = true;
         } else {
-            focus_lost = true;
+            focus_lost.push(e.window);
         }
     }
-    if focus_lost & !focus_gained {
-        keyboard_focus.write(KeyboardFocusLost);
+
+    if !focus_gained {
+        if !focus_lost.is_empty() {
+            window_events.write(WindowEvent::KeyboardFocusLost(KeyboardFocusLost));
+            keyboard_focus.write(KeyboardFocusLost);
+        }
+
+        for window in focus_lost {
+            let Ok(mut pressed_keys) = q_windows.get_mut(window) else {
+                continue;
+            };
+            for (key_code, logical_key) in pressed_keys.0.drain() {
+                let event = KeyboardInput {
+                    key_code,
+                    logical_key,
+                    state: bevy_input::ButtonState::Released,
+                    repeat: false,
+                    window,
+                    text: None,
+                };
+                window_events.write(WindowEvent::KeyboardInput(event.clone()));
+                keyboard_input.write(event);
+            }
+        }
     }
 }
 
@@ -283,36 +314,27 @@ pub(crate) fn changed_windows(
                         &monitor_selection,
                     ))))
                 }
-                mode @ (WindowMode::Fullscreen(_) | WindowMode::SizedFullscreen(_)) => {
-                    let videomode = match mode {
-                        WindowMode::Fullscreen(monitor_selection) => get_best_videomode(
-                            &select_monitor(
-                                &monitors,
-                                winit_window.primary_monitor(),
-                                winit_window.current_monitor(),
-                                &monitor_selection,
-                            )
-                            .unwrap_or_else(|| {
-                                panic!("Could not find monitor for {:?}", monitor_selection)
-                            }),
-                        ),
-                        WindowMode::SizedFullscreen(monitor_selection) => get_fitting_videomode(
-                            &select_monitor(
-                                &monitors,
-                                winit_window.primary_monitor(),
-                                winit_window.current_monitor(),
-                                &monitor_selection,
-                            )
-                            .unwrap_or_else(|| {
-                                panic!("Could not find monitor for {:?}", monitor_selection)
-                            }),
-                            window.width() as u32,
-                            window.height() as u32,
-                        ),
-                        _ => unreachable!(),
-                    };
+                WindowMode::Fullscreen(monitor_selection, video_mode_selection) => {
+                    let monitor = &select_monitor(
+                        &monitors,
+                        winit_window.primary_monitor(),
+                        winit_window.current_monitor(),
+                        &monitor_selection,
+                    )
+                    .unwrap_or_else(|| {
+                        panic!("Could not find monitor for {:?}", monitor_selection)
+                    });
 
-                    Some(Some(winit::window::Fullscreen::Exclusive(videomode)))
+                    if let Some(video_mode) = get_selected_videomode(monitor, &video_mode_selection)
+                    {
+                        Some(Some(winit::window::Fullscreen::Exclusive(video_mode)))
+                    } else {
+                        warn!(
+                            "Could not find valid fullscreen video mode for {:?} {:?}",
+                            monitor_selection, video_mode_selection
+                        );
+                        None
+                    }
                 }
                 WindowMode::Windowed => Some(None),
             };
@@ -550,3 +572,8 @@ pub(crate) fn changed_windows(
         cache.window = window.clone();
     }
 }
+
+/// This keeps track of which keys are pressed on each window.
+/// When a window is unfocused, this is used to send key release events for all the currently held keys.
+#[derive(Default, Component)]
+pub struct WinitWindowPressedKeys(pub(crate) HashMap<KeyCode, Key>);

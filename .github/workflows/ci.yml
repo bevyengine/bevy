@@ -177,6 +177,31 @@ jobs:
       - name: Check Compile
         run: cargo check -p bevy --no-default-features --features default_no_std --target thumbv6m-none-eabi
 
+  check-compiles-no-std-examples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            crates/bevy_ecs_compile_fail_tests/target/
+            crates/bevy_reflect_compile_fail_tests/target/
+          key: ${{ runner.os }}-cargo-check-compiles-no-std-examples-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-none
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Check Compile
+        run: cd examples/no_std/library && cargo check --no-default-features --features libm,critical-section --target x86_64-unknown-none
+
   build-wasm:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -234,7 +259,7 @@ jobs:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
       - name: Run Markdown Lint
-        uses: docker://ghcr.io/github/super-linter:slim-v4
+        uses: super-linter/super-linter/slim@v7.3.0
         env:
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
@@ -267,7 +292,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.30.0
+        uses: crate-ci/typos@v1.30.2
       - name: Typos info
         if: failure()
         run: |
@@ -428,7 +453,7 @@ jobs:
         shell: bash
         run: |
           errors=""
-          for file in $(find examples tests -name '*.rs'); do
+          for file in $(find examples tests -name '*.rs' -not -path 'examples/mobile/*'); do
               if grep -q "use bevy_" "$file"; then
                   errors+="ERROR: Detected internal Bevy import in $file\n"
               fi

@@ -6,6 +6,8 @@
 //!
 //! These scenarios can readily be achieved by using `bevy_reflect` with the `documentation` feature.
 
+#![expect(clippy::print_stdout, reason = "Allowed in examples.")]
+
 use bevy_reflect::{Reflect, TypeInfo, Typed};
 
 fn main() {

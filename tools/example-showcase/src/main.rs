@@ -1,5 +1,7 @@
 //! Tool to run all examples or generate a showcase page for the Bevy website.
 
+#![expect(clippy::print_stdout, reason = "Allowed in tools.")]
+
 use core::{
     fmt::Display,
     hash::{Hash, Hasher},
@@ -273,6 +275,7 @@ fn main() {
                 examples_to_run
                     .iter()
                     .filter(|example| example.category != "Stress Tests" || !ignore_stress_tests)
+                    .filter(|example| example.example_type == ExampleType::Bin)
                     .filter(|example| {
                         example_list.is_none() || example_filter.contains(&example.technical_name)
                     })
@@ -501,6 +504,10 @@ header_message = \"Examples (WebGL2)\"
 
             let mut categories = HashMap::new();
             for to_show in examples_to_run {
+                if to_show.example_type != ExampleType::Bin {
+                    continue;
+                }
+
                 if !to_show.wasm {
                     continue;
                 }
@@ -541,7 +548,9 @@ weight = {}
                 let _ = fs::create_dir_all(&example_path);
 
                 let code_path = example_path.join(Path::new(&to_show.path).file_name().unwrap());
-                let _ = fs::copy(&to_show.path, &code_path);
+                let code = fs::read_to_string(&to_show.path).unwrap();
+                let (docblock, code) = split_docblock_and_code(&code);
+                let _ = fs::write(&code_path, code);
 
                 let mut example_index = File::create(example_path.join("index.md")).unwrap();
                 example_index
@@ -565,7 +574,10 @@ code_path = \"content/examples{}/{}\"
 shader_code_paths = {:?}
 github_code_path = \"{}\"
 header_message = \"Examples ({})\"
-+++",
++++
+
+{}
+",
                             to_show.name,
                             match api {
                                 WebApi::Webgpu => "-webgpu",
@@ -603,6 +615,7 @@ header_message = \"Examples ({})\"
                                 WebApi::Webgpu => "WebGPU",
                                 WebApi::Webgl2 => "WebGL2",
                             },
+                            docblock,
                         )
                         .as_bytes(),
                     )
@@ -657,6 +670,7 @@ header_message = \"Examples ({})\"
                 examples_to_build
                     .iter()
                     .filter(|to_build| to_build.wasm)
+                    .filter(|to_build| to_build.example_type == ExampleType::Bin)
                     .skip(cli.page.unwrap_or(0) * cli.per_page.unwrap_or(0))
                     .take(cli.per_page.unwrap_or(usize::MAX))
             };
@@ -721,6 +735,23 @@ header_message = \"Examples ({})\"
             pb.finish_print("done");
         }
     }
+}
+
+fn split_docblock_and_code(code: &str) -> (String, &str) {
+    let mut docblock_lines = Vec::new();
+    let mut code_byte_start = 0;
+
+    for line in code.lines() {
+        if line.starts_with("//!") {
+            docblock_lines.push(line.trim_start_matches("//!").trim());
+        } else if !line.trim().is_empty() {
+            break;
+        }
+
+        code_byte_start += line.len() + 1;
+    }
+
+    (docblock_lines.join("\n"), &code[code_byte_start..])
 }
 
 fn parse_examples() -> Vec<Example> {
@@ -802,6 +833,22 @@ fn parse_examples() -> Vec<Example> {
                             .collect()
                     })
                     .unwrap_or_default(),
+                example_type: match val.get("crate-type") {
+                    Some(crate_type) => {
+                        match crate_type
+                            .as_array()
+                            .unwrap()
+                            .get(0)
+                            .unwrap()
+                            .as_str()
+                            .unwrap()
+                        {
+                            "lib" => ExampleType::Lib,
+                            _ => ExampleType::Bin,
+                        }
+                    }
+                    None => ExampleType::Bin,
+                },
             })
         })
         .collect()
@@ -831,4 +878,12 @@ struct Example {
     wasm: bool,
     /// List of commands to run before the example. Can be used for example to specify data to download
     setup: Vec<Vec<String>>,
+    /// Type of example
+    example_type: ExampleType,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+enum ExampleType {
+    Lib,
+    Bin,
 }
