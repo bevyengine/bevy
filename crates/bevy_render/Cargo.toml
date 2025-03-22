@@ -23,6 +23,7 @@ decoupled_naga = []
 
 # Texture formats (require more than just image support)
 basis-universal = ["bevy_image/basis-universal"]
+basis-universal-compressor = ["bevy_image/basis-universal-compressor"]
 dds = ["bevy_image/dds"]
 exr = ["bevy_image/exr"]
 hdr = ["bevy_image/hdr"]

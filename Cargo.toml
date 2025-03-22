@@ -160,6 +160,7 @@ default = [
   "smaa_luts",
   "sysinfo_plugin",
   "tonemapping_luts",
+  "zstd_rust",
   "vorbis",
   "webgl2",
   "x11",
@@ -319,6 +320,9 @@ trace = ["bevy_internal/trace", "dep:tracing"]
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
 
+# Basis Universal compression support for the asset processor
+basis-universal-compressor = ["bevy_internal/basis-universal-compressor"]
+
 # BMP image format support
 bmp = ["bevy_internal/bmp"]
 
@@ -367,8 +371,11 @@ webp = ["bevy_internal/webp"]
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
 
-# For KTX2 supercompression
-zstd = ["bevy_internal/zstd"]
+# For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd) (safer)
+zstd_rust = ["bevy_internal/zstd_rust"]
+
+# For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd) (faster)
+zstd_native = ["bevy_internal/zstd_native"]
 
 # FLAC audio format support
 flac = ["bevy_internal/flac"]
@@ -437,7 +444,7 @@ android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 detailed_trace = ["bevy_internal/detailed_trace"]
 
 # Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.
-tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "zstd"]
+tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2"]
 
 # Include SMAA Look Up Tables KTX2 Files
 smaa_luts = ["bevy_internal/smaa_luts"]
@@ -1845,6 +1852,34 @@ name = "Repeated texture configuration"
 description = "How to configure the texture to repeat instead of the default clamp to edges"
 category = "Assets"
 wasm = true
+
+[[example]]
+name = "texture_support"
+path = "examples/asset/texture_support.rs"
+doc-scrape-examples = true
+required-features = [
+  "basis-universal",
+  "bmp",
+  "dds",
+  "gif",
+  "exr",
+  "hdr",
+  "ico",
+  "jpeg",
+  "ktx2",
+  "png",
+  "pnm",
+  "qoi",
+  "tga",
+  "tiff",
+  "webp",
+]
+
+[package.metadata.example.texture_support]
+name = "Texture Support"
+description = "Demonstrates supported texture formats (KTX2 ASTC, KTX2 ETC1S, Basis, DDS, etc)"
+category = "Assets"
+wasm = false
 
 # Assets
 [[example]]
