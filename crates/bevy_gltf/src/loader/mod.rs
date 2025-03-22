@@ -1569,16 +1569,10 @@ fn load_node(
             // number if present. We're more forgiving and take whichever is
             // biggest, leaving any unspecified weights at zero.
             if (max_morph_target_count > 0) || mesh.weights().is_some() {
-                let mut weights = Vec::new();
+                let mut weights = Vec::from(mesh.weights().unwrap_or(&[]));
 
-                if let Some(mesh_weights) = mesh.weights() {
-                    weights = mesh_weights.to_vec();
-                }
                 if max_morph_target_count > weights.len() {
-                    weights.extend(core::iter::repeat_n(
-                        0.0,
-                        max_morph_target_count - weights.len(),
-                    ));
+                    weights.resize(max_morph_target_count, 0.0);
                 }
 
                 let primitive_label = mesh.primitives().next().map(|p| GltfAssetLabel::Primitive {
