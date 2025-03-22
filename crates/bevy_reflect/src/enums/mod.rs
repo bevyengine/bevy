@@ -31,6 +31,10 @@ mod tests {
             assert_eq!(MyEnum::module_path(), info.type_path_table().module_path());
             assert_eq!(MyEnum::crate_name(), info.type_path_table().crate_name());
             assert_eq!(
+                MyEnum::crate_version(),
+                info.type_path_table().crate_version()
+            );
+            assert_eq!(
                 MyEnum::short_type_path(),
                 info.type_path_table().short_path()
             );
