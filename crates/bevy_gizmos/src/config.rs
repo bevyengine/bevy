@@ -250,9 +250,10 @@ impl Default for GizmoLineConfig {
 ))]
 #[derive(Component)]
 pub(crate) struct GizmoMeshConfig {
-    pub line_perspective: bool,
     pub line_style: GizmoLineStyle,
     pub line_joints: GizmoLineJoint,
     pub render_layers: bevy_render::view::RenderLayers,
     pub handle: Handle<GizmoAsset>,
+    #[cfg(feature = "bevy_pbr")]
+    pub _line_perspective: bool,
 }

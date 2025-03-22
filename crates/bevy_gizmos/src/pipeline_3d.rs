@@ -365,7 +365,7 @@ fn queue_line_gizmos_3d(
                     LineGizmoPipelineKey {
                         view_key,
                         strip: false,
-                        perspective: config.line_perspective,
+                        perspective: config._line_perspective,
                         line_style: config.line_style,
                     },
                 );
@@ -387,7 +387,7 @@ fn queue_line_gizmos_3d(
                     LineGizmoPipelineKey {
                         view_key,
                         strip: true,
-                        perspective: config.line_perspective,
+                        perspective: config._line_perspective,
                         line_style: config.line_style,
                     },
                 );
@@ -481,7 +481,7 @@ fn queue_line_joint_gizmos_3d(
                 &pipeline,
                 LineJointGizmoPipelineKey {
                     view_key,
-                    perspective: config.line_perspective,
+                    perspective: config._line_perspective,
                     joints: config.line_joints,
                 },
             );
