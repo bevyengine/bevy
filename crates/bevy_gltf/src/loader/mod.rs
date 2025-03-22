@@ -1793,6 +1793,7 @@ mod test {
 
         app.finish();
         app.cleanup();
+        app.build_async();
 
         app
     }

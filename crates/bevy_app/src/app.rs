@@ -1,6 +1,6 @@
 use crate::{
-    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
-    SubApps,
+    ErasedPlugin, First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, PluginContext,
+    PluginContextInner, Plugins, PluginsState, SubApp, SubApps, TickProgress,
 };
 use alloc::{
     boxed::Box,
@@ -16,8 +16,8 @@ use bevy_ecs::{
     schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
 };
-use bevy_platform_support::collections::HashMap;
-use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
+use bevy_platform_support::collections::{HashMap, HashSet};
+use core::{cell::RefCell, fmt::Debug, num::NonZero, panic::AssertUnwindSafe, task::Poll};
 use log::debug;
 
 #[cfg(feature = "trace")]
@@ -248,6 +248,78 @@ impl App {
         overall_plugins_state
     }
 
+    /// Runs [`build_async`] for each plugin,
+    /// including any new plugins added during that process.
+    ///
+    /// ['build_async']: Plugin::build_async
+    pub fn build_async(&mut self) -> &mut Self {
+        {
+            let ctx = RefCell::new(PluginContextInner {
+                app: self,
+                progress: TickProgress::NoProgress,
+            });
+            let mut futures = Vec::new();
+            loop {
+                let mut progress_made = false;
+
+                // Consume any newly added plugins.
+                //
+                futures.extend(
+                    ctx.borrow_mut()
+                        .app
+                        .main_mut()
+                        .plugin_registry
+                        .drain(..)
+                        .map(|erased| {
+                            // The first time the future runs, it can make progress before waiting
+                            progress_made = true;
+                            // Turn the plugin into a future
+                            erased.build_async(PluginContext { inner: &ctx })
+                        }),
+                );
+
+                // Tick all futures.
+                futures.retain_mut(|plugin| {
+                    if ctx.borrow_mut().progress != TickProgress::Stuck {
+                        ctx.borrow_mut().progress = TickProgress::Unknown;
+                    }
+                    // Run the future.
+                    // This sets progress to `NoProgress` only if it's still unsuccessfully waiting
+                    // on the app to have the desired state.
+                    // Waiting for an external resource is fine.
+                    if let Poll::Ready(name) = Future::poll(
+                        plugin.as_mut(),
+                        &mut core::task::Context::from_waker(core::task::Waker::noop()),
+                    ) {
+                        progress_made = true;
+                        ctx.borrow_mut()
+                            .app
+                            .main_mut()
+                            .completed_plugins
+                            .insert(name);
+                        // Drop the finished plugin
+                        false
+                    } else {
+                        if ctx.borrow_mut().progress != TickProgress::NoProgress {
+                            progress_made = true;
+                        }
+                        true
+                    }
+                });
+                // If every future is waiting on some fact to change about the world, we're stuck.
+                // Signal this to the context, which will return `StuckError`.
+                if !progress_made {
+                    ctx.borrow_mut().progress = TickProgress::Stuck;
+                }
+
+                if futures.is_empty() {
+                    break;
+                }
+            }
+        }
+        self
+    }
+
     /// Runs [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
     /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
@@ -265,6 +337,7 @@ impl App {
     /// Runs [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
     /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
     pub fn cleanup(&mut self) {
+        self.main_mut().plugins_state = PluginsState::Cleaning;
         // plugins installed to main should see all sub-apps
         let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
         for plugin in &plugins {
@@ -457,10 +530,10 @@ impl App {
 
     pub(crate) fn add_boxed_plugin(
         &mut self,
-        plugin: Box<dyn Plugin>,
+        plugin: Box<dyn ErasedPlugin>,
     ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
-        if plugin.is_unique() && self.main_mut().plugin_names.contains(plugin.name()) {
+        if plugin.is_unique() && self.main_mut().added_plugins.contains(plugin.name()) {
             Err(AppError::DuplicatePlugin {
                 plugin_name: plugin.name().to_string(),
             })?;
@@ -484,7 +557,7 @@ impl App {
         f();
 
         self.main_mut()
-            .plugin_names
+            .added_plugins
             .insert(plugin.name().to_string());
         self.main_mut().plugin_build_depth -= 1;
 
@@ -529,6 +602,11 @@ impl App {
         T: Plugin,
     {
         self.main().get_added_plugins::<T>()
+    }
+
+    /// Returns the names of all plugins for which `build_async` has finished running.
+    pub fn completed_plugins(&self) -> &HashSet<String> {
+        &self.main().completed_plugins
     }
 
     /// Installs a [`Plugin`] collection.
@@ -1345,6 +1423,7 @@ fn run_once(mut app: App) -> AppExit {
     }
     app.finish();
     app.cleanup();
+    app.build_async();
 
     app.update();
 
