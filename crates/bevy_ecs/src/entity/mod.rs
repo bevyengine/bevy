@@ -76,12 +76,9 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::{
-    sync::{
-        atomic::{AtomicU32, Ordering},
-        Arc, Weak,
-    },
-    task::Waker,
+use bevy_platform_support::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc, Weak,
 };
 use concurrent_queue::ConcurrentQueue;
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
