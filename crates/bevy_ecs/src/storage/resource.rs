@@ -67,6 +67,13 @@ impl<const SEND: bool> ResourceData<SEND> {
     #[inline]
     fn validate_access(&self) {
         if SEND {
+            #[cfg_attr(
+                not(feature = "std"),
+                expect(
+                    clippy::needless_return,
+                    reason = "needless until no_std is addressed (see below)",
+                )
+            )]
             return;
         }
 
@@ -84,6 +91,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         // TODO: Handle no_std non-send.
         // Currently, no_std is single-threaded only, so this is safe to ignore.
         // To support no_std multithreading, an alternative will be required.
+        // Remove the #[expect] attribute above when this is addressed.
     }
 
     /// Returns true if the resource is populated.
