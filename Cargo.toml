@@ -546,7 +546,7 @@ tracing = { version = "0.1", default-features = false, optional = true }
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.16.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
-rand = "0.8.0"
+rand = "0.9.0"
 rand_chacha = "0.3.1"
 ron = "0.8.0"
 flate2 = "1.0"

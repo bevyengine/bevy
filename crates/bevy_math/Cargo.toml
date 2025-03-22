@@ -22,7 +22,7 @@ serde = { version = "1", default-features = false, features = [
 ], optional = true }
 libm = { version = "0.2", optional = true }
 approx = { version = "0.5", default-features = false, optional = true }
-rand = { version = "0.8", default-features = false, optional = true }
+rand = { version = "0.9", default-features = false, optional = true }
 rand_distr = { version = "0.4.3", optional = true }
 smallvec = { version = "1.11" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [
@@ -33,7 +33,7 @@ variadics_please = "1.1"
 [dev-dependencies]
 approx = "0.5"
 # Supply rngs for examples and tests
-rand = "0.8"
+rand = "0.9"
 rand_chacha = "0.3"
 # Enable the approx feature when testing.
 bevy_math = { path = ".", default-features = false, features = ["approx"] }
