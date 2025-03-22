@@ -81,7 +81,14 @@ use bevy_platform_support::sync::{
     Arc, Weak,
 };
 use concurrent_queue::ConcurrentQueue;
-use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
+use core::{
+    fmt,
+    hash::Hash,
+    mem,
+    num::NonZero,
+    panic::Location,
+    task::{Poll, Waker},
+};
 use log::warn;
 
 #[cfg(feature = "serialize")]
@@ -664,7 +671,7 @@ impl RemoteEntitiesReserver {
     /// Reserves an entity remotely.
     /// These entities may become invalid if this is closed before they are used.
     /// See [`is_closed`](Self::is_closed) to determine if reserved entities are still valid.
-    pub fn reserve_entity(&mut self) -> Result<Entity, RemoteReservationError> {
+    pub async fn reserve_entity(&mut self) -> Result<Entity, RemoteReservationError> {
         if let Some(reserved) = self.current.pop() {
             return Ok(reserved);
         }
@@ -674,11 +681,9 @@ impl RemoteEntitiesReserver {
             return unsafe { Ok((*entities.0).reserve_entity()) };
         }
 
-        // SAFETY: We just checked that our entities has gone out of scope,
-        // so if users of `PortableEntities` uphold their safety contract, safety is assured.
-        unsafe { self.source.request(RemoteEntityRequest(self.batch_size)) }.map(|fulfilled| {
+        self.source.request(self.batch_size).await.map(|fulfilled| {
             self.current = fulfilled;
-            // SAFETY: the request is non-zero, so there must have been at least one item in it.
+            // SAFETY: the request is always non-zero, so there must have been at least one item in it.
             unsafe { self.current.pop().debug_checked_unwrap() }
         })
     }
@@ -714,7 +719,7 @@ impl Drop for RemoteEntitiesReserver {
 }
 
 #[derive(Debug)]
-struct RemoteEntityRequest(NonZero<u32>);
+struct RemoteEntityRequest(NonZero<u32>, Waker);
 
 #[derive(Debug)]
 struct RemoteEntitiesSource {
@@ -732,58 +737,65 @@ pub enum RemoteReservationError {
     Closed,
 }
 
-impl RemoteEntitiesSource {
-    /// Requests another chunk of entities.
-    ///
-    /// # Safety
-    ///
-    /// This is a blocking function, so caller must ensure this thread does not have a live reference to `&Entities`,
-    /// preventing the request from being fulfilled on a different thread.
-    unsafe fn request(
-        &self,
-        request: RemoteEntityRequest,
-    ) -> Result<Vec<Entity>, RemoteReservationError> {
-        match self.reserved.pop() {
-            Ok(reserved) => Ok(reserved),
-            Err(concurrent_queue::PopError::Closed) => Err(RemoteReservationError::Closed),
-            Err(concurrent_queue::PopError::Empty) => {
-                // make a request
-                self.generation.fetch_add(1, Ordering::Relaxed);
-                match self.request_more.push(request) {
-                    Ok(()) => {}
-                    Err(concurrent_queue::PushError::Closed(_)) => {
-                        return Err(RemoteReservationError::Closed);
-                    }
-                    Err(concurrent_queue::PushError::Full(_)) => {
-                        unreachable!("requests can't become full")
-                    }
+struct RemoteReservedEntities {
+    source: Arc<RemoteEntitiesSource>,
+    request_to_make: NonZero<u32>,
+    request_made: bool,
+}
+
+impl Future for RemoteReservedEntities {
+    type Output = Result<Vec<Entity>, RemoteReservationError>;
+
+    fn poll(
+        mut self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> Poll<Self::Output> {
+        if !self.request_made {
+            match self.source.request_more.push(RemoteEntityRequest(
+                self.request_to_make,
+                cx.waker().clone(),
+            )) {
+                Ok(()) => {
+                    self.request_made = true;
+                    self.source.generation.fetch_add(1, Ordering::Relaxed);
+                    // It's astronomically unlikely that a flush will start and finish between now and checking via `pop`.
+                    return Poll::Pending;
                 }
-
-                // wait for it to be fulfilled
-                loop {
-                    match self.reserved.pop() {
-                        Ok(reserved) => break Ok(reserved),
-                        Err(concurrent_queue::PopError::Empty) => {
-                            core::hint::spin_loop();
-                        }
-                        Err(concurrent_queue::PopError::Closed) => {
-                            break Err(RemoteReservationError::Closed)
-                        }
-                    }
-
-                    #[cfg(feature = "std")]
-                    match self.reserved.pop() {
-                        Ok(reserved) => break Ok(reserved),
-                        Err(concurrent_queue::PopError::Empty) => {
-                            std::thread::yield_now();
-                        }
-                        Err(concurrent_queue::PopError::Closed) => {
-                            break Err(RemoteReservationError::Closed)
-                        }
-                    }
+                Err(concurrent_queue::PushError::Full(_)) => {
+                    // We'll try this again later
+                }
+                Err(concurrent_queue::PushError::Closed(_)) => {
+                    return Poll::Ready(Err(RemoteReservationError::Closed));
                 }
             }
         }
+
+        match self.source.reserved.pop() {
+            Ok(found) => Poll::Ready(Ok(found)),
+            Err(concurrent_queue::PopError::Closed) => {
+                Poll::Ready(Err(RemoteReservationError::Closed))
+            }
+            Err(concurrent_queue::PopError::Empty) => {
+                // Someone must have stonlen what we requested. We'll just ask again.
+                self.request_made = false;
+                Poll::Pending
+            }
+        }
+    }
+}
+
+impl RemoteEntitiesSource {
+    /// Requests another chunk of entities.
+    async fn request(
+        self: &Arc<Self>,
+        request: NonZero<u32>,
+    ) -> Result<Vec<Entity>, RemoteReservationError> {
+        RemoteReservedEntities {
+            source: self.clone(),
+            request_to_make: request,
+            request_made: false,
+        }
+        .await
     }
 
     fn fulfill(&self, entities: &Entities) {
@@ -797,6 +809,7 @@ impl RemoteEntitiesSource {
             self.reserved
                 .push(vec)
                 .expect("This never closes, and it can't run out of room.");
+            request.1.wake();
         }
     }
 
