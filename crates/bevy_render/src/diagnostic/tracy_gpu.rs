@@ -28,6 +28,7 @@ pub fn new_tracy_gpu_context(
         .unwrap()
 }
 
+// Code copied from https://github.com/Wumpf/wgpu-profiler/blob/f9de342a62cb75f50904a98d11dd2bbeb40ceab8/src/tracy.rs
 fn initial_timestamp(device: &RenderDevice, queue: &RenderQueue) -> i64 {
     let query_set = device.wgpu_device().create_query_set(&QuerySetDescriptor {
         label: None,
