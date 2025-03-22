@@ -109,7 +109,7 @@ pub(crate) fn extract_linegizmos(
     use crate::config::GizmoLineStyle;
 
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, gizmo, transform, render_layers) in &query {
+    for (entity, gizmo, transform, _render_layers) in &query {
         let joints_resolution = if let GizmoLineJoint::Round(resolution) = gizmo.line_config.joints
         {
             resolution
@@ -145,11 +145,12 @@ pub(crate) fn extract_linegizmos(
             },
             #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
             crate::config::GizmoMeshConfig {
-                line_perspective: gizmo.line_config.perspective,
                 line_style: gizmo.line_config.style,
                 line_joints: gizmo.line_config.joints,
-                render_layers: render_layers.cloned().unwrap_or_default(),
+                render_layers: _render_layers.cloned().unwrap_or_default(),
                 handle: gizmo.handle.clone_weak(),
+                #[cfg(feature = "bevy_pbr")]
+                _line_perspective: gizmo.line_config.perspective,
             },
             MainEntity::from(entity),
             TemporaryRenderEntity,
