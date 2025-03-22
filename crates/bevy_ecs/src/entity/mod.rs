@@ -662,8 +662,7 @@ impl Future for RemoteReservedEntities {
                 Poll::Ready(Err(RemoteReservationError::Closed))
             }
             Err(concurrent_queue::PopError::Empty) => {
-                // Someone must have stonlen what we requested. We'll just ask again.
-                self.request_made = false;
+                // We must still be waiting on a flush
                 Poll::Pending
             }
         }
