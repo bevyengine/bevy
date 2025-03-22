@@ -201,7 +201,7 @@ impl VisitAssetDependencies for () {
 impl AssetLoader for () {
     type Asset = ();
     type Settings = ();
-    type Error = std::io::Error;
+    type Error = bevy_platform_support::io::Error;
     async fn load(
         &self,
         _reader: &mut dyn crate::io::Reader,
