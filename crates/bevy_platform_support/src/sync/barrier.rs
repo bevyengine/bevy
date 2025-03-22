@@ -1,12 +1,12 @@
 //! Provides `Barrier` and `BarrierWaitResult`
 
-pub use barrier::{Barrier, BarrierWaitResult};
+pub use implementation::{Barrier, BarrierWaitResult};
 
 #[cfg(feature = "std")]
-use std::sync as barrier;
+use std::sync as implementation;
 
 #[cfg(not(feature = "std"))]
-mod barrier {
+mod implementation {
     use core::fmt;
 
     /// Fallback implementation of `Barrier` from the standard library.
