@@ -8,6 +8,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins((
+            // When using RenderDiagnosticsPlugin, DefaultPlugins must be initialized first in order to prevent panic.
             DefaultPlugins,
             // Adds frame time diagnostics
             FrameTimeDiagnosticsPlugin::default(),
