@@ -33,8 +33,8 @@ use bevy::{
     render_2d::{
         material::rendering::Material2dBindGroupId,
         mesh::{
-            extract_mesh2d, DrawMesh2d, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dTransforms,
-            MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+            DrawMesh2d, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags,
+            RenderMesh2dInstance, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
         },
     },
 };
@@ -313,7 +313,10 @@ impl Plugin for ColoredMesh2dPlugin {
             .init_resource::<RenderColoredMesh2dInstances>()
             .add_systems(
                 ExtractSchedule,
-                extract_colored_mesh2d.after(extract_mesh2d),
+                extract_colored_mesh2d
+                    .after(RenderSet::QueueMeshes)
+                    .before(RenderSet::QueueSweep)
+                    .in_set(RenderSet::Queue),
             )
             .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::QueueMeshes));
     }
