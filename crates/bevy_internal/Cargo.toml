@@ -429,7 +429,7 @@ bevy_ui = { path = "../bevy_ui", optional = true, version = "0.16.0-dev" }
 bevy_window = { path = "../bevy_window", optional = true, version = "0.16.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }
-bevy_winit = { path = "../bevy_winit", optional = true, version = "0.16.0-dev" }
+bevy_winit = { path = "../bevy_winit", optional = true, version = "0.16.0-dev", default-features = false }
 
 [lints]
 workspace = true
