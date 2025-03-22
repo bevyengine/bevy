@@ -29,21 +29,20 @@ pub trait ContainsEntity {
     fn entity(&self) -> Entity;
 }
 
-/// A trait for [`Entity`] borrows with trustworthy comparison behavior.
+/// A trait for types that represent an [`Entity`].
 ///
 /// Comparison trait behavior between an [`EntityEquivalent`] type and its underlying entity will match.
 /// This property includes [`PartialEq`], [`Eq`], [`PartialOrd`], [`Ord`] and [`Hash`],
 /// and remains even after [`Clone`] and/or [`Borrow`] calls.
 ///
 /// # Safety
-/// Any [`PartialEq`], [`Eq`], [`PartialOrd`], [`Ord`], and [`Hash`] impls must form a total order
-/// that matches that of `Entity`.
-/// How an instance of `Self` compares to other instances of `Self` must
-/// be equivalent to how the result of [`entity()`] compares to other `Entity` instances:
+/// Any [`PartialEq`], [`Eq`], [`PartialOrd`], and [`Ord`] impls must form a total order
+/// matching that of the underlying `Entity`:
 /// `x.entity() == y.entity()` should give the same result as `x == y`.
 ///
-/// The above equivalence must also hold through and between calls to any [`Clone`]
-/// and [`Borrow`]/[`BorrowMut`] impls in place of [`entity()`].
+/// The above equivalence must also hold through and between calls to any [`Clone`] and
+/// [`Borrow`]/[`BorrowMut`] impls in place of [`entity()`]. This is also required of any [`Hash`] impl,
+/// but only when [`Hash::hash`] is called with a deterministic [`Hasher`].
 ///
 /// The result of [`entity()`] must be unaffected by any interior mutability.
 ///
@@ -51,6 +50,7 @@ pub trait ContainsEntity {
 /// and comparison trait behavior.
 ///
 /// [`Hash`]: core::hash::Hash
+/// [`Hasher`]: core::Hash::Hasher
 /// [`Borrow`]: core::borrow::Borrow
 /// [`BorrowMut`]: core::borrow::BorrowMut
 /// [`entity()`]: ContainsEntity::entity
