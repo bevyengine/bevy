@@ -1304,6 +1304,13 @@ impl Entities {
     }
 }
 
+impl Drop for Entities {
+    fn drop(&mut self) {
+        // Make sure remote entities are informed.
+        self.remote.close();
+    }
+}
+
 /// An error that occurs when a specified [`Entity`] does not exist.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 #[error("The entity with ID {entity} {details}")]
