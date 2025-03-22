@@ -61,7 +61,7 @@ use bevy_utils::{default, once};
 use smallvec::SmallVec;
 use tracing::{info, warn};
 
-use crate::{
+use bevy_core_pipeline::{
     core_3d::{
         graph::{Core3d, Node3d},
         Camera3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED,
@@ -219,6 +219,7 @@ impl Plugin for DepthOfFieldPlugin {
         };
 
         render_app
+            .add_render_graph_node::<ViewNodeRunner<DepthOfFieldNode>>(Core3d, Node3d::DepthOfField)
             .init_resource::<SpecializedRenderPipelines<DepthOfFieldPipeline>>()
             .init_resource::<DepthOfFieldGlobalBindGroup>()
             .add_systems(ExtractSchedule, extract_depth_of_field_settings)
