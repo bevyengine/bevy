@@ -3,13 +3,15 @@
 //! For more info, see [`RenderDiagnosticsPlugin`].
 
 pub(crate) mod internal;
+#[cfg(feature = "tracing-tracy")]
+mod tracy_gpu;
 
 use alloc::{borrow::Cow, sync::Arc};
 use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin, PreUpdate};
 
-use crate::RenderApp;
+use crate::{renderer::RenderAdapterInfo, RenderApp};
 
 use self::internal::{
     sync_diagnostics, DiagnosticsRecorder, Pass, RenderDiagnosticsMutex, WriteTimestamp,
@@ -62,9 +64,10 @@ impl Plugin for RenderDiagnosticsPlugin {
             return;
         };
 
+        let adapter_info = render_app.world().resource::<RenderAdapterInfo>();
         let device = render_app.world().resource::<RenderDevice>();
         let queue = render_app.world().resource::<RenderQueue>();
-        render_app.insert_resource(DiagnosticsRecorder::new(device, queue));
+        render_app.insert_resource(DiagnosticsRecorder::new(adapter_info, device, queue));
     }
 }
 

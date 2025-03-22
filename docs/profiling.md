@@ -124,6 +124,8 @@ After closing your app, an interactive `svg` file will be produced:
 
 ## GPU runtime
 
+TODO: Talk about tracy RenderQueue
+
 If CPU profiling has shown that GPU work is the bottleneck, it's time to profile the GPU.
 
 For profiling GPU work, you should use the tool corresponding to your GPU's vendor:
