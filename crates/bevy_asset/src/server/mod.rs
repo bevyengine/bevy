@@ -26,10 +26,11 @@ use alloc::{
 };
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
-use bevy_platform_support::collections::HashSet;
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_tasks::IoTaskPool;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
+use derive_more::derive::{Deref, DerefMut};
 use either::Either;
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
@@ -649,7 +650,8 @@ impl AssetServer {
             (handle.clone().unwrap(), path.clone())
         };
 
-        match self
+        let nested_direct_loaded_assets = RwLock::new(NestedAssets::default());
+        let result = match self
             .load_with_meta_loader_and_reader(
                 &base_path,
                 meta.as_ref(),
@@ -657,6 +659,7 @@ impl AssetServer {
                 &mut *reader,
                 true,
                 false,
+                &nested_direct_loaded_assets,
             )
             .await
         {
@@ -683,7 +686,7 @@ impl AssetServer {
                     handle.unwrap()
                 };
 
-                self.send_loaded_asset(base_handle.id(), loaded_asset);
+                self.send_loaded_asset(Some(base_handle.id()), loaded_asset);
                 Ok(final_handle)
             }
             Err(err) => {
@@ -694,12 +697,31 @@ impl AssetServer {
                 });
                 Err(err)
             }
+        };
+
+        // Even if the asset failed to load, the nested assets still loaded correctly, so we might
+        // as well send those assets to "refresh" them.
+        for (path, asset) in nested_direct_loaded_assets.into_inner().0 {
+            // Even if the handle is None, one of its subassets may be loaded, so we should send the
+            // whole complete asset.
+            let handle = self
+                .data
+                .infos
+                .read()
+                .get_path_and_type_id_handle(&path, asset.asset.asset_type_id());
+            self.send_loaded_asset(handle.map(|handle| handle.id()), asset);
         }
+
+        result
     }
 
     /// Sends a load event for the given `loaded_asset` and does the same recursively for all
     /// labeled assets.
-    fn send_loaded_asset(&self, id: UntypedAssetId, mut complete_asset: CompleteErasedLoadedAsset) {
+    fn send_loaded_asset(
+        &self,
+        id: Option<UntypedAssetId>,
+        mut complete_asset: CompleteErasedLoadedAsset,
+    ) {
         for (_, labeled_asset) in complete_asset.labeled_assets.drain() {
             self.send_asset_event(InternalAssetEvent::Loaded {
                 id: labeled_asset.handle.id(),
@@ -707,10 +729,12 @@ impl AssetServer {
             });
         }
 
-        self.send_asset_event(InternalAssetEvent::Loaded {
-            id,
-            loaded_asset: complete_asset.asset,
-        });
+        if let Some(id) = id {
+            self.send_asset_event(InternalAssetEvent::Loaded {
+                id,
+                loaded_asset: complete_asset.asset,
+            });
+        }
     }
 
     /// Kicks off a reload of the asset stored at the given path. This will only reload the asset if it currently loaded.
@@ -1334,11 +1358,17 @@ impl AssetServer {
         reader: &mut dyn Reader,
         load_dependencies: bool,
         populate_hashes: bool,
+        nested_direct_loaded_assets: &RwLock<NestedAssets>,
     ) -> Result<CompleteErasedLoadedAsset, AssetLoadError> {
         // TODO: experiment with this
         let asset_path = asset_path.clone_owned();
-        let load_context =
-            LoadContext::new(self, asset_path.clone(), load_dependencies, populate_hashes);
+        let load_context = LoadContext::new(
+            self,
+            nested_direct_loaded_assets,
+            asset_path.clone(),
+            load_dependencies,
+            populate_hashes,
+        );
         AssertUnwindSafe(loader.load(reader, meta, load_context))
             .catch_unwind()
             .await
@@ -1780,6 +1810,10 @@ impl RecursiveDependencyLoadState {
         matches!(self, Self::Failed(_))
     }
 }
+
+/// A wrapper for storing nested directly-loaded assets.
+#[derive(Deref, DerefMut, Default)]
+pub(crate) struct NestedAssets(HashMap<AssetPath<'static>, CompleteErasedLoadedAsset>);
 
 /// An error that occurs during an [`Asset`] load.
 #[derive(Error, Debug, Clone)]

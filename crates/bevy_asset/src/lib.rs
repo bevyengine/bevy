@@ -719,7 +719,7 @@ mod tests {
             let mut ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
             let mut embedded = String::new();
             for dep in ron.embedded_dependencies {
-                let loaded = load_context
+                let (_, loaded) = load_context
                     .loader()
                     .immediate()
                     .load::<CoolText>(&dep)
@@ -727,7 +727,7 @@ mod tests {
                     .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
                     })?;
-                let cool = loaded.get_asset().get();
+                let cool = loaded.get_asset();
                 embedded.push_str(&cool.text);
             }
             Ok(CoolText {
@@ -1007,6 +1007,20 @@ mod tests {
         // Re-open a and b gates to allow c to load embedded deps (gates are closed after each load)
         gate_opener.open(a_path);
         gate_opener.open(b_path);
+
+        // Wait for the C-load task to finish. If we don't do this, it's possible for nested asset A
+        // to be sent in one frame and for the nested asset B to be sent in the next frame. This
+        // causes an alternative order of events (but one that is just as valid), which would make
+        // this test flaky.
+        while !asset_server
+            .data
+            .infos
+            .read()
+            .pending_tasks
+            .iter()
+            .any(|(_, task)| task.is_finished())
+        {}
+
         run_app_until(&mut app, |world| {
             let a_text = get::<CoolText>(world, a_id)?;
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
@@ -1131,8 +1145,18 @@ mod tests {
             AssetEvent::Added {
                 id: id_results.b_id,
             },
+            // This extra LoadedWithDependencies happens because asset B got replaced when C was
+            // loaded (and we only see the modify after since events on `Assets` only merge in a
+            // system, so they look like they happen at the wrong time).
+            AssetEvent::LoadedWithDependencies {
+                id: id_results.b_id,
+            },
             AssetEvent::Added {
                 id: id_results.c_id,
+            },
+            AssetEvent::Modified { id: a_id },
+            AssetEvent::Modified {
+                id: id_results.b_id,
             },
             AssetEvent::LoadedWithDependencies {
                 id: id_results.d_id,
