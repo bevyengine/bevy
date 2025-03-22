@@ -19,10 +19,13 @@ use super::{
     instancing::{RenderMesh2dInstance, RenderMesh2dInstances},
 };
 
+/// Sets the view bind group of the mesh
 pub struct SetMesh2dViewBindGroup<const I: usize>;
 
+/// Sets the bind group of the mesh
 pub struct SetMesh2dBindGroup<const I: usize>;
 
+/// Draws the mesh
 pub struct DrawMesh2d;
 
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I> {

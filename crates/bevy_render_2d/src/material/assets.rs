@@ -8,9 +8,11 @@ use bevy_render::{
 
 use super::rendering::{AlphaMode2d, Material2dKey};
 
-/// Materials are used alongside [`Material2dPlugin`](super::Material2dPlugin), [`Mesh2d`], and [`MeshMaterial2d`](super::MeshMaterial2d)
-/// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
-/// way to render [`Mesh2d`] entities with custom shader logic.
+/// Materials are used alongside [`Material2dPlugin`](super::Material2dPlugin),
+/// [`Mesh2d`](bevy_render::mesh::Mesh2d), and [`MeshMaterial2d`](super::MeshMaterial2d)
+/// to spawn entities that are rendered with a specific [`Material2d`] type.
+/// They serve as an easy to use high level way to render [`Mesh2d`](bevy_render::mesh::Mesh2d)
+/// entities with custom shader logic.
 ///
 /// Materials must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
 /// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
@@ -21,7 +23,7 @@ use super::rendering::{AlphaMode2d, Material2dKey};
 /// check out the [`AsBindGroup`] documentation.
 ///
 /// ```
-/// # use bevy_sprite::{Material2d, MeshMaterial2d};
+/// # use bevy_render_2d::{material::{Material2d, MeshMaterial2d}};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_image::Image;
 /// # use bevy_reflect::TypePath;
@@ -99,6 +101,11 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
         0.0
     }
 
+    /// Alpha mode of a [`Material2d`]
+    ///
+    /// Materials that are [`Opaque`](AlphaMode2d::Opaque) or [`Mask`](AlphaMode2d::Mask) are rendered
+    /// in a binned phase, while [`Blend`](AlphaMode2d::Blend) are rendered in a sorted phase, for proper
+    /// alpha blending
     fn alpha_mode(&self) -> AlphaMode2d {
         AlphaMode2d::Opaque
     }

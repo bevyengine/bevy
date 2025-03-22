@@ -6,20 +6,20 @@ use derive_more::derive::From;
 
 use super::Material2d;
 
-/// A [material](Material2d) used for rendering a [`Mesh2d`].
+/// A [material](Material2d) used for rendering a [`Mesh2d`](bevy_render::mesh::Mesh2d).
 ///
 /// See [`Material2d`] for general information about 2D materials and how to implement your own materials.
 ///
 /// # Example
 ///
 /// ```
-/// # use bevy_sprite::{ColorMaterial, MeshMaterial2d};
+/// # use bevy_render_2d::material::MeshMaterial2d;
+/// # use bevy_color_material::ColorMaterial;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::{Mesh, Mesh2d};
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::Assets;
 /// # use bevy_math::primitives::Circle;
-/// #
 /// // Spawn an entity with a mesh using `ColorMaterial`.
 /// fn setup(
 ///     mut commands: Commands,

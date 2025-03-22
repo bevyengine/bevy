@@ -1,3 +1,5 @@
+//! Set up of rendering for [`Material2d`]
+
 mod command;
 mod instancing;
 mod pipeline;
@@ -33,9 +35,6 @@ use bevy_render::{
     view::{ExtractedView, RenderVisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use instancing::{extract_mesh_materials_2d, RenderMaterial2dInstances};
-use pipeline::{cache::SpecializedMaterial2dPipelineCache, DrawMaterial2d, Material2dPipeline};
-use prepare_material::PreparedMaterial2d;
 
 use crate::mesh::{
     Mesh2dPipelineKey, RenderMesh2dInstances, ViewKeyCache, ViewSpecializationTicks,
@@ -43,7 +42,10 @@ use crate::mesh::{
 
 use super::{Material2d, MeshMaterial2d};
 
+use instancing::{extract_mesh_materials_2d, RenderMaterial2dInstances};
 pub use pipeline::Material2dKey;
+use pipeline::{cache::SpecializedMaterial2dPipelineCache, DrawMaterial2d, Material2dPipeline};
+use prepare_material::PreparedMaterial2d;
 use specialization::{EntitiesNeedingSpecialization, EntitySpecializationTicks};
 
 pub(super) struct Material2dRenderingPlugin<M: Material2d>(PhantomData<M>);
@@ -371,6 +373,7 @@ fn queue_material2d_meshes<M: Material2d>(
     }
 }
 
+/// Bind group id for a [`Material2d`]
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
 pub struct Material2dBindGroupId(pub Option<BindGroupId>);
 

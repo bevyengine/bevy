@@ -1,3 +1,5 @@
+//! Set up of pipeline for rendering 2d meshes
+
 mod bind_group;
 mod commands;
 mod components;
@@ -61,6 +63,7 @@ const MESH2D_FUNCTIONS_HANDLE: Handle<Shader> =
     weak_handle!("0d08ff71-68c1-4017-83e2-bfc34d285c51");
 const MESH2D_SHADER_HANDLE: Handle<Shader> = weak_handle!("91a7602b-df95-4ea3-9d97-076abcb69d91");
 
+/// Plugin that sets up rendering of 2d meshes
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
 
@@ -178,13 +181,16 @@ impl Plugin for Mesh2dRenderPlugin {
 // NOTE: These must match the bit flags in bevy_render_2d/src/mesh/shaders/mesh2d.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
+    /// Flags used by the pipeline to modify shader execution
     pub struct MeshFlags: u32 {
+        /// No flags set
         const NONE                       = 0;
+        /// Uninitialized flags
         const UNINITIALIZED              = 0xFFFF;
     }
 }
 
-pub fn extract_mesh2d(
+fn extract_mesh2d(
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     query: Extract<
         Query<(
@@ -219,7 +225,7 @@ pub fn extract_mesh2d(
     }
 }
 
-pub fn check_views_need_specialization(
+fn check_views_need_specialization(
     mut view_key_cache: ResMut<ViewKeyCache>,
     mut view_specialization_ticks: ResMut<ViewSpecializationTicks>,
     views: Query<(
@@ -255,7 +261,7 @@ pub fn check_views_need_specialization(
     }
 }
 
-pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
+const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
     match tonemapping {
         Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
         Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,

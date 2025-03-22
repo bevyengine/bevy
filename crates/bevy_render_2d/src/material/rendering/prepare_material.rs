@@ -17,6 +17,7 @@ use super::{
 
 /// Data prepared for a [`Material2d`] instance.
 pub struct PreparedMaterial2d<T: Material2d> {
+    #[expect(dead_code, reason = "No longer used?")]
     pub bindings: BindingResources,
     pub bind_group: BindGroup,
     pub key: T::Data,

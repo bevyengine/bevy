@@ -26,12 +26,16 @@ use crate::material::rendering::Material2dBindGroupId;
 
 use super::{instancing::RenderMesh2dInstances, shader_types::Mesh2dUniform};
 
+/// Pipeline for rendering 2d meshes
 #[derive(Resource, Clone)]
 pub struct Mesh2dPipeline {
+    /// [`BindGroupLayout`] of the view
     pub view_layout: BindGroupLayout,
+    /// [`BindGroupLayout`] of the mesh
     pub mesh_layout: BindGroupLayout,
-    // This dummy white texture is to be used in place of optional textures
+    /// Fallback image used for optional textures
     pub dummy_white_gpu_image: GpuImage,
+    /// Size of the batch
     pub per_object_buffer_batch_size: Option<u32>,
 }
 
@@ -116,6 +120,9 @@ impl FromWorld for Mesh2dPipeline {
 }
 
 impl Mesh2dPipeline {
+    /// Gets [`TextureView`] and [`Sampler`] of an [`Image`] if it exists on the GPU.
+    ///
+    /// Optional textures will use the [`TextureView`] and [`Sampler`] of the fallback image.
     pub fn get_image_texture<'a>(
         &'a self,
         gpu_images: &'a RenderAssets<GpuImage>,
@@ -229,23 +236,41 @@ bitflags::bitflags! {
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     // FIXME: make normals optional?
+    /// Pipeline key for the [`Mesh2dPipeline`].
     pub struct Mesh2dPipelineKey: u32 {
+        /// No optional feature is used by pipeline
         const NONE                              = 0;
+        /// Pipeline uses HDR
         const HDR                               = 1 << 0;
+        /// Pipeline performs tonemapping in shader
         const TONEMAP_IN_SHADER                 = 1 << 1;
+        /// Pipeline performs debanding dither
         const DEBAND_DITHER                     = 1 << 2;
+        /// Pipeline allows alpha blend
         const BLEND_ALPHA                       = 1 << 3;
+        /// Pipeline allows discarding of fragments
         const MAY_DISCARD                       = 1 << 4;
+        /// Mask for MSAA samples of pipeline
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        /// Mask for primitive topology of pipeline
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        /// Mask for tonemapping method of pipeline
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
+        /// Tonemapping is disable on pipeline
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        /// Pipeline uses Reinhard tonemapping
         const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        /// Pipeline uses Reinhard Luminace tonemapping
         const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        /// Pipeline uses AcesFitted tonemapping
         const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        /// Pipeline uses Agx tonemapping
         const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        /// Pipeline uses Somewhat Boring Display Transform tonemapping
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        /// Pipeline uses Tony McMapface tonemapping
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        /// Pipeline uses Blender Filmic tonemapping
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
     }
 }
@@ -259,12 +284,19 @@ impl Mesh2dPipelineKey {
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
 
+    /// Creates a [`Mesh2dPipelineKey`] from the number of MSAA samples
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
         Self::from_bits_retain(msaa_bits)
     }
 
+    /// Gets the number of MSAA samples of [`Mesh2dPipelineKey`]
+    pub fn msaa_samples(&self) -> u32 {
+        1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
+    }
+
+    /// Creates a [`Mesh2dPipelineKey`] with HDR enabled or not
     pub fn from_hdr(hdr: bool) -> Self {
         if hdr {
             Mesh2dPipelineKey::HDR
@@ -273,10 +305,7 @@ impl Mesh2dPipelineKey {
         }
     }
 
-    pub fn msaa_samples(&self) -> u32 {
-        1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
-    }
-
+    /// Creates a [`Mesh2dPipelineKey`] from type of [`PrimitiveTopology`]
     pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
@@ -284,6 +313,7 @@ impl Mesh2dPipelineKey {
         Self::from_bits_retain(primitive_topology_bits)
     }
 
+    /// Gets [`PrimitiveTopology`] of [`Mesh2dPipelineKey`]
     pub fn primitive_topology(&self) -> PrimitiveTopology {
         let primitive_topology_bits = (self.bits() >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;

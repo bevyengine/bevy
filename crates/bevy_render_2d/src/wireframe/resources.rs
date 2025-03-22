@@ -11,11 +11,14 @@ use super::Wireframe2dMaterial;
 #[reflect(Resource, Debug, Default, Clone)]
 pub struct Wireframe2dConfig {
     /// Whether to show wireframes for all 2D meshes.
-    /// Can be overridden for individual meshes by adding a [`Wireframe2d`] or [`NoWireframe2d`] component.
+    /// Can be overridden for individual meshes by adding a [`Wireframe2d`](super::Wireframe2d)
+    /// or [`NoWireframe2d`](super::NoWireframe2d) component.
     pub global: bool,
-    /// If [`Self::global`] is set, any [`Entity`] that does not have a [`Wireframe2d`] component attached to it will have
-    /// wireframes using this color. Otherwise, this will be the fallback color for any entity that has a [`Wireframe2d`],
-    /// but no [`Wireframe2dColor`].
+    /// If [`Self::global`] is set, any [`Entity`](bevy_ecs::prelude::Entity) that does not
+    /// have a [`Wireframe2d`](super::Wireframe2d) component attached to it will have
+    /// wireframes using this color. Otherwise, this will be the fallback color for any
+    /// entity that has a [`Wireframe2d`](super::Wireframe2d),
+    /// but no [`Wireframe2dColor`](super::Wireframe2dColor).
     pub default_color: Color,
 }
 

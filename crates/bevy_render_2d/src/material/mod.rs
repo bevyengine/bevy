@@ -1,3 +1,5 @@
+//! Plugin and traits for creating materials used with 2d meshes
+
 mod assets;
 mod components;
 pub mod rendering;

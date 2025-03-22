@@ -36,8 +36,11 @@ pub struct Material2dPipeline<M: Material2d> {
     marker: PhantomData<M>,
 }
 
+/// Key for a [`Material2d`]
 pub struct Material2dKey<M: Material2d> {
+    /// Key for the [`Mesh2dPipeline`]
     pub mesh_key: Mesh2dPipelineKey,
+    /// Bind group data of the [`Material2d`]
     pub bind_group_data: M::Data,
 }
 

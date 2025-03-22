@@ -32,6 +32,10 @@ derive_more = { version = "1", default-features = false, features = ["from"] }
 nonmax = "0.5"
 tracing = { version = "0.1", default-features = false }
 
+[dev-dependencies]
+# needed for doc tests
+bevy_color_material = { path = "../bevy_color_material", version = "0.16.0-dev" }
+
 [lints]
 workspace = true
 

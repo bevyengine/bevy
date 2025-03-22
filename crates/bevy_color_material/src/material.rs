@@ -12,14 +12,20 @@ use bevy_render_2d::prelude::{AlphaMode2d, Material2d};
 
 use crate::COLOR_MATERIAL_SHADER_HANDLE;
 
-/// A [2d material](Material2d) that renders [2d meshes](bevy_render_2d::Mesh2d) with a texture tinted by a uniform color
+/// A [2d material](Material2d) that renders [2d meshes](bevy_render::mesh::Mesh2d) with a texture tinted by a uniform color
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[reflect(Default, Debug, Clone)]
 #[uniform(0, ColorMaterialUniform)]
 pub struct ColorMaterial {
+    /// Tint of the texture
     pub color: Color,
+    /// Alpha mode of the material
     pub alpha_mode: AlphaMode2d,
+    /// Transforms the uvs of the mesh
     pub uv_transform: Affine2,
+    /// Texture to render with the mesh.
+    ///
+    /// If None, uses a fallback image.
     #[texture(1)]
     #[sampler(2)]
     pub texture: Option<Handle<Image>>,
