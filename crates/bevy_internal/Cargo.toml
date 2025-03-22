@@ -329,7 +329,6 @@ critical-section = [
 
 # Uses the `libm` maths library instead of the one provided in `std` and `core`.
 libm = [
-  "bevy_a11y?/libm",
   "bevy_color?/libm",
   "bevy_input/libm",
   "bevy_input_focus?/libm",
