@@ -570,11 +570,13 @@ impl RemoteEntitiesReserver {
             return Ok(reserved);
         }
 
-        self.source.request(self.batch_size).await.map(|fulfilled| {
-            self.current = fulfilled;
-            // SAFETY: the request is always non-zero, so there must have been at least one item in it.
-            unsafe { self.current.pop().debug_checked_unwrap() }
-        })
+        RemoteEntitiesSource::request(self.source.clone(), self.batch_size)
+            .await
+            .map(|fulfilled| {
+                self.current = fulfilled;
+                // SAFETY: the request is always non-zero, so there must have been at least one item in it.
+                unsafe { self.current.pop().debug_checked_unwrap() }
+            })
     }
 
     /// Returns true if and only if this remote entities is closed.
@@ -674,11 +676,11 @@ impl RemoteEntitiesSource {
     /// Even if the result is `Ok`, the length of the `Vec` may be different than requested.
     /// However, it will always have at least one element.
     async fn request(
-        self: &Arc<Self>,
+        source: Arc<Self>,
         request: NonZero<u32>,
     ) -> Result<Vec<Entity>, RemoteReservationError> {
         RemoteReservedEntities {
-            source: self.clone(),
+            source,
             request_to_make: request,
             request_made: false,
         }
