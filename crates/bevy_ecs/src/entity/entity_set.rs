@@ -50,7 +50,7 @@ pub trait ContainsEntity {
 /// and comparison trait behavior.
 ///
 /// [`Hash`]: core::hash::Hash
-/// [`Hasher`]: core::Hash::Hasher
+/// [`Hasher`]: core::hash::Hasher
 /// [`Borrow`]: core::borrow::Borrow
 /// [`BorrowMut`]: core::borrow::BorrowMut
 /// [`entity()`]: ContainsEntity::entity
