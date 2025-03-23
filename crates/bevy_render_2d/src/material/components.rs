@@ -6,20 +6,32 @@ use derive_more::derive::From;
 
 use super::Material2d;
 
-/// A [material](Material2d) used for rendering a [`Mesh2d`].
+/// A [material](Material2d) used for rendering a [`Mesh2d`](bevy_render::mesh::Mesh2d).
 ///
 /// See [`Material2d`] for general information about 2D materials and how to implement your own materials.
 ///
 /// # Example
 ///
 /// ```
-/// # use bevy_sprite::{ColorMaterial, MeshMaterial2d};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_render::mesh::{Mesh, Mesh2d};
-/// # use bevy_color::palettes::basic::RED;
-/// # use bevy_asset::Assets;
+/// # use bevy_render::{mesh::{Mesh, Mesh2d}, render_resource::AsBindGroup};
+/// # use bevy_render_2d::material::{MeshMaterial2d, Material2d, AlphaMode2d};
+/// # use bevy_color::{Color, palettes::basic::RED};
+/// # use bevy_asset::{Asset, Assets};
 /// # use bevy_math::primitives::Circle;
+/// # use bevy_reflect::Reflect;
 /// #
+/// # // Defining locally so that there is no need to depend on `bevy_sprite`
+/// # #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
+/// # struct ColorMaterial {}
+/// # impl ColorMaterial {
+/// #   pub fn from_color(_color: impl Into<Color>) -> Self { Self {} }
+/// # }
+/// # impl Material2d for ColorMaterial {
+/// #     fn alpha_mode(&self) -> AlphaMode2d {
+/// #         AlphaMode2d::Opaque
+/// #     }
+/// # }
 /// // Spawn an entity with a mesh using `ColorMaterial`.
 /// fn setup(
 ///     mut commands: Commands,

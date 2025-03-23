@@ -8,9 +8,10 @@ use bevy_render::{
 
 use super::{AlphaMode2d, Material2dKey};
 
-/// Materials are used alongside [`Material2dPlugin`], [`Mesh2d`], and [`MeshMaterial2d`]
+/// Materials are used alongside [`Material2dPlugin`](super::Material2dPlugin),
+/// [`Mesh2d`](bevy_render::mesh::Mesh2d), and [`MeshMaterial2d`](super::MeshMaterial2d)
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
-/// way to render [`Mesh2d`] entities with custom shader logic.
+/// way to render [`Mesh2d`](bevy_render::mesh::Mesh2d) entities with custom shader logic.
 ///
 /// Materials must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
 /// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
@@ -21,13 +22,12 @@ use super::{AlphaMode2d, Material2dKey};
 /// check out the [`AsBindGroup`] documentation.
 ///
 /// ```
-/// # use bevy_sprite::{Material2d, MeshMaterial2d};
+/// # use bevy_render_2d::material::{Material2d, MeshMaterial2d};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_image::Image;
 /// # use bevy_reflect::TypePath;
 /// # use bevy_render::{mesh::{Mesh, Mesh2d}, render_resource::{AsBindGroup, ShaderRef}};
-/// # use bevy_color::LinearRgba;
-/// # use bevy_color::palettes::basic::RED;
+/// # use bevy_color::{LinearRgba, palettes::basic::RED};
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 /// # use bevy_math::primitives::Circle;
 /// #

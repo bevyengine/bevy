@@ -148,7 +148,7 @@ const LINE_JOINT_SHADER_HANDLE: Handle<Shader> =
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 ///
-/// Requires to be loaded after [`PbrPlugin`](bevy_pbr::PbrPlugin) or [`SpritePlugin`](bevy_render_2d::SpritePlugin).
+/// Requires to be loaded after [`PbrPlugin`](bevy_pbr::PbrPlugin) or [`Mesh2dRenderPlugin`](bevy_render_2d::mesh_pipeline::Mesh2dRenderPlugin).
 #[derive(Default)]
 pub struct GizmoPlugin;
 

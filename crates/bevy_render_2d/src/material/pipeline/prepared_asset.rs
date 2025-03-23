@@ -17,6 +17,7 @@ use super::{properties::Material2dProperties, DrawMaterial2d, Material2dPipeline
 
 /// Data prepared for a [`Material2d`] instance.
 pub struct PreparedMaterial2d<T: Material2d> {
+    #[expect(dead_code, reason = "`dead_code` under investigation")]
     pub bindings: BindingResources,
     pub bind_group: BindGroup,
     pub key: T::Data,
