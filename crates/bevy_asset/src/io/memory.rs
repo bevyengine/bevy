@@ -60,8 +60,7 @@ impl Dir {
             dir = self.get_or_insert_dir(parent);
         }
         let key: Box<str> = path.file_name().unwrap().to_string_lossy().into();
-        let data = dir.0.write().assets.remove(&key);
-        data
+        dir.0.write().assets.remove(&key)
     }
 
     pub fn insert_meta(&self, path: &Path, value: impl Into<Value>) {
