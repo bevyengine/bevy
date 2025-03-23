@@ -4,6 +4,8 @@ use super::basis::*;
 use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
+#[cfg(not(feature = "bevy_reflect"))]
+use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
@@ -338,6 +340,7 @@ impl ImageFormat {
     derive(Reflect),
     reflect(opaque, Default, Debug, Clone)
 )]
+#[cfg_attr(not(feature = "bevy_reflect"), derive(TypePath))]
 pub struct Image {
     /// Raw pixel data.
     /// If the image is being used as a storage texture which doesn't need to be initialized by the
