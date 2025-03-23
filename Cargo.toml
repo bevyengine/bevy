@@ -1592,6 +1592,7 @@ wasm = true
 name = "headless"
 path = "examples/app/headless.rs"
 doc-scrape-examples = true
+required-features = ["bevy_log"]
 
 [package.metadata.example.headless]
 name = "Headless"
