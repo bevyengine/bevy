@@ -1281,9 +1281,12 @@ fn load_material(
 }
 
 /// Loads a glTF node.
-#[expect(
-    clippy::result_large_err,
-    reason = "`GltfError` is only barely past the threshold for large errors."
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    expect(
+        clippy::result_large_err,
+        reason = "`GltfError` is only barely past the threshold for large errors."
+    )
 )]
 fn load_node(
     gltf_node: &Node,
