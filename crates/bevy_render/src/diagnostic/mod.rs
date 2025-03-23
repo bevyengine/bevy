@@ -22,8 +22,8 @@ use super::{RenderDevice, RenderQueue};
 /// Enables collecting render diagnostics, such as CPU/GPU elapsed time per render pass,
 /// as well as pipeline statistics (number of primitives, number of shader invocations, etc).
 ///
-/// To access the diagnostics, you can use [`DiagnosticsStore`](bevy_diagnostic::DiagnosticsStore) resource,
-/// or add [`LogDiagnosticsPlugin`](bevy_diagnostic::LogDiagnosticsPlugin).
+/// To access the diagnostics, you can use the [`DiagnosticsStore`](bevy_diagnostic::DiagnosticsStore) resource,
+/// add [`LogDiagnosticsPlugin`](bevy_diagnostic::LogDiagnosticsPlugin), or use [Tracy](https://github.com/bevyengine/bevy/blob/main/docs/profiling.md#tracy-renderqueue).
 ///
 /// To record diagnostics in your own passes:
 ///  1. First, obtain the diagnostic recorder using [`RenderContext::diagnostic_recorder`](crate::renderer::RenderContext::diagnostic_recorder).
