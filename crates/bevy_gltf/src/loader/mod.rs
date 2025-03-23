@@ -986,8 +986,6 @@ async fn load_image<'a, 'b>(
             let end = view.offset() + view.length();
             let buffer = &buffer_data[view.buffer().index()][start..end];
             let image = Image::from_buffer(
-                #[cfg(all(debug_assertions, feature = "dds"))]
-                name,
                 buffer,
                 ImageType::MimeType(mime_type),
                 supported_compressed_formats,
@@ -1010,8 +1008,6 @@ async fn load_image<'a, 'b>(
                 let image_type = ImageType::MimeType(data_uri.mime_type);
                 Ok(ImageOrPath::Image {
                     image: Image::from_buffer(
-                        #[cfg(all(debug_assertions, feature = "dds"))]
-                        name,
                         &bytes,
                         mime_type.map(ImageType::MimeType).unwrap_or(image_type),
                         supported_compressed_formats,
