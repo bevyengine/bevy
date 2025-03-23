@@ -584,7 +584,7 @@ impl ExecutorState {
             let valid_params = unsafe { system.validate_param_unsafe(world) };
             if !valid_params {
                 error_handler(
-                    SystemParamValidationError::System.into(),
+                    SystemParamValidationError.into(),
                     ErrorContext::System {
                         name: system.name(),
                         last_run: system.get_last_run(),
@@ -791,7 +791,7 @@ unsafe fn evaluate_and_fold_conditions(
             // - `update_archetype_component_access` has been called for condition.
             if !unsafe { condition.validate_param_unsafe(world) } {
                 error_handler(
-                    SystemParamValidationError::RunCondition.into(),
+                    SystemParamValidationError.into(),
                     ErrorContext::System {
                         name: condition.name(),
                         last_run: condition.get_last_run(),

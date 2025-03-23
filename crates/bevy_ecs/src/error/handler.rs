@@ -15,6 +15,13 @@ pub enum ErrorContext {
         /// The last tick that the system was run.
         last_run: Tick,
     },
+    /// The error occurred in a run condition.
+    RunCondition {
+        /// The name of the run condition that failed.
+        name: Cow<'static, str>,
+        /// The last tick that the run condition was evaluated.
+        last_run: Tick,
+    },
     /// The error occurred in a command.
     Command {
         /// The name of the command that failed.
@@ -39,6 +46,9 @@ impl Display for ErrorContext {
             Self::Observer { name, .. } => {
                 write!(f, "Observer `{}` failed", name)
             }
+            Self::RunCondition { name, .. } => {
+                write!(f, "Run condition `{}` failed", name)
+            }
         }
     }
 }
@@ -49,7 +59,8 @@ impl ErrorContext {
         match self {
             Self::System { name, .. }
             | Self::Command { name, .. }
-            | Self::Observer { name, .. } => name,
+            | Self::Observer { name, .. }
+            | Self::RunCondition { name, .. } => name,
         }
     }
 
@@ -61,6 +72,7 @@ impl ErrorContext {
             Self::System { .. } => "system",
             Self::Command { .. } => "command",
             Self::Observer { .. } => "observer",
+            Self::RunCondition { .. } => "run condition",
         }
     }
 }

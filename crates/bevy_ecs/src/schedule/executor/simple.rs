@@ -91,7 +91,7 @@ impl SystemExecutor for SimpleExecutor {
                 let valid_params = system.validate_param(world);
                 if !valid_params {
                     error_handler(
-                        SystemParamValidationError::System.into(),
+                        SystemParamValidationError.into(),
                         ErrorContext::System {
                             name: system.name(),
                             last_run: system.get_last_run(),
@@ -175,8 +175,8 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
         .map(|condition| {
             if !condition.validate_param(world) {
                 error_handler(
-                    SystemParamValidationError::RunCondition.into(),
-                    ErrorContext::System {
+                    SystemParamValidationError.into(),
+                    ErrorContext::RunCondition {
                         name: condition.name(),
                         last_run: condition.get_last_run(),
                     },

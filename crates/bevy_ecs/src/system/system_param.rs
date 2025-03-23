@@ -28,6 +28,7 @@ use core::{
     ops::{Deref, DerefMut},
     panic::Location,
 };
+use derive_more::derive::Display;
 use disqualified::ShortName;
 use thiserror::Error;
 
@@ -2582,18 +2583,8 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
 ///
 /// Generated when [`SystemParam::validate_param`] returns `false`,
 /// and handled using the unified error handling mechanisms defined in [`bevy_ecs::error`].
-#[derive(Debug, PartialEq, Eq, Clone, Error)]
-pub enum SystemParamValidationError {
-    /// A system failed to validate a parameter.
-    #[error("System failed to validate parameter")]
-    System,
-    /// A run condition failed to validate a parameter.
-    #[error("Run condition failed to validate parameter")]
-    RunCondition,
-    /// An observer failed to validate a parameter.
-    #[error("Observer failed to validate parameter")]
-    Observer,
-}
+#[derive(Debug, PartialEq, Eq, Clone, Display, Error)]
+pub struct SystemParamValidationError;
 
 #[cfg(test)]
 mod tests {
