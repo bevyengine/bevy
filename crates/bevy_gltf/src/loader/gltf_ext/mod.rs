@@ -14,9 +14,12 @@ use super::GltfError;
 
 use self::{material::extension_texture_index, scene::check_is_part_of_cycle};
 
-#[expect(
-    clippy::result_large_err,
-    reason = "need to be signature compatible with `load_gltf`"
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    expect(
+        clippy::result_large_err,
+        reason = "need to be signature compatible with `load_gltf`"
+    )
 )]
 /// Checks all glTF nodes for cycles, starting at the scene root.
 pub(crate) fn check_for_cycles(gltf: &Gltf) -> Result<(), GltfError> {
