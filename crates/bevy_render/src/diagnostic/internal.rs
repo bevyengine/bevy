@@ -341,7 +341,7 @@ impl FrameData {
             None => self.path_components.len()..self.path_components.len() + 1,
         };
 
-        self.path_components.push(name.clone());
+        self.path_components.push(name);
 
         self.open_spans.push(SpanRecord {
             thread_id,
