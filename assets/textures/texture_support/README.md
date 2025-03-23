@@ -154,3 +154,13 @@ basisu -basis -hdr_4x4 exr-hdr.exr -output_file ./basis-astc-4x4-hdr.basis
 basisu -basis -hdr_6x6 exr-hdr.exr -output_file ./basis-astc-6x6-hdr.basis
 basisu -basis -hdr_6x6i exr-hdr.exr -output_file ./basis-astc-6x6i-hdr.basis
 ```
+
+## For Benches
+
+```sh
+ktx create --generate-mipmap --format R32G32B32A32_SFLOAT exr-hdr.exr ../../../benches/benches/bevy_image/assets/ktx2-rgba32-mips.ktx2
+
+toktx --t2 -resize 555x555 --genmipmap --assign_oetf srgb --encode uastc ../../../benches/benches/bevy_image/assets/ktx2-uastc-srgb-mips.ktx2 png-srgb-rgb.png
+
+toktx --t2 --zcmp 10 -resize 555x555 --genmipmap --assign_oetf srgb --encode uastc ../../../benches/benches/bevy_image/assets/ktx2-zstd-uastc-srgb-mips.ktx2 png-srgb-rgb.png
+```

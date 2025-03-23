@@ -16,6 +16,11 @@ criterion = { version = "0.5.1", features = ["html_reports"] }
 # Bevy crates
 bevy_app = { path = "../crates/bevy_app" }
 bevy_ecs = { path = "../crates/bevy_ecs", features = ["multi_threaded"] }
+bevy_image = { path = "../crates/bevy_image", features = [
+  "ktx2",
+  "basis-universal",
+  "zstd_native",
+] }
 bevy_math = { path = "../crates/bevy_math" }
 bevy_picking = { path = "../crates/bevy_picking", features = [
   "bevy_mesh_picking_backend",
@@ -102,4 +107,9 @@ harness = false
 [[bench]]
 name = "tasks"
 path = "benches/bevy_tasks/main.rs"
+harness = false
+
+[[bench]]
+name = "image"
+path = "benches/bevy_image/main.rs"
 harness = false
