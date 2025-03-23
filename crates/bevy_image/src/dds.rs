@@ -48,7 +48,6 @@ pub enum DdsTranscodingHint {
 
 #[cfg(feature = "dds")]
 pub fn dds_buffer_to_image(
-    #[cfg(debug_assertions)] name: String,
     buffer: &[u8],
     supported_compressed_formats: CompressedImageFormats,
     is_srgb: bool,
@@ -108,10 +107,7 @@ pub fn dds_buffer_to_image(
     let mip_map_level = match dds.get_num_mipmap_levels() {
         0 => {
             #[cfg(debug_assertions)]
-            once!(warn!(
-                "Mipmap levels for texture {} are 0, bumping them to 1",
-                name
-            ));
+            once!(warn!("Mipmap levels for texture are 0, bumping them to 1",));
             1
         }
         t => t,
@@ -443,7 +439,7 @@ mod test {
             0x49, 0x92, 0x24, 0x16, 0x95, 0xae, 0x42, 0xfc, 0, 0xaa, 0x55, 0xff, 0xff, 0x49, 0x92,
             0x24, 0x49, 0x92, 0x24, 0xd8, 0xad, 0xae, 0x42, 0xaf, 0x0a, 0xaa, 0x55,
         ];
-        let r = dds_buffer_to_image("".into(), &buffer, CompressedImageFormats::BC, true);
+        let r = dds_buffer_to_image(&buffer, CompressedImageFormats::BC, true);
         assert!(r.is_ok());
         if let Ok(r) = r {
             fake_wgpu_create_texture_with_data(&r.texture_descriptor, r.data.as_ref().unwrap());
