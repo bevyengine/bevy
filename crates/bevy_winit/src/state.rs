@@ -16,7 +16,7 @@ use bevy_input::{
     gestures::*,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(not(target_arch = "wasm32"), feature = "custom_cursor"))]
 use bevy_log::error;
 use bevy_log::{trace, warn};
 #[cfg(feature = "custom_cursor")]
