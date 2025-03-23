@@ -343,12 +343,12 @@ pub fn ktx2_buffer_to_image(
 
                         if !output_is_same_shape {
                             // Here we resize the existing scratch level buffer to the new size and write into it.
-                            let new_size = buffered_slices.iter().map(|slice| slice.len()).sum();
+                            let new_size = buffered_slices.iter().map(Vec::len).sum();
                             let old_size = level_data.len();
                             if new_size > old_size {
                                 level_data.reserve_exact(new_size - old_size);
                                 // SAFETY: New length is equal to the capacity reserved in the line above. All new elements are initialized below.
-                                #[allow(unsafe_code)]
+                                #[expect(unsafe_code, reason = "We could call resize(), but that performs element-by-element initialization, which is redundant with the copy_from_slice initialization below (thereby less performant)")]
                                 unsafe { level_data.set_len(new_size); }
                             } else {
                                 level_data.resize(new_size, 0);
@@ -378,7 +378,7 @@ pub fn ktx2_buffer_to_image(
 
     // Collect all level data into a contiguous buffer
     let contiguous_level_data = if !scratch_levels.is_empty() {
-        let final_buffer_size = scratch_levels.iter().map(|level| level.len()).sum();
+        let final_buffer_size = scratch_levels.iter().map(Vec::len).sum();
         let mut contiguous_level_data = Vec::with_capacity(final_buffer_size);
         for mut level in scratch_levels.into_iter() {
             contiguous_level_data.append(&mut level);
