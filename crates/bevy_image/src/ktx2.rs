@@ -6,7 +6,7 @@ use ktx2::{
 };
 use thiserror::Error;
 use wgpu_types::{
-    AstcBlock, AstcChannel, Extent3d, TextureDataOrder, TextureDimension, TextureFormat,
+    AstcBlock, AstcChannel, Extent3d, Features, TextureDataOrder, TextureDimension, TextureFormat,
     TextureViewDescriptor, TextureViewDimension,
 };
 
@@ -50,7 +50,7 @@ impl From<Ktx2TextureError> for TextureError {
 
 /// Bevy-specific information on what the underlying KTX2 data format is that needs transcoded for wgpu.
 ///
-/// This enum is non-exhaustive – it is only meant meant to hold formats that Bevy actually knows how to natively transcode.
+/// This enum is non-exhaustive – it is only meant meant to hold formats that Bevy actually knows how to transcode itself.
 #[derive(Clone, Copy, Debug)]
 pub enum Ktx2TranscodingHint {
     /// Use basis-universal's low-level UASTC LDR 4x4 transcoder to decode the data to a supported format
@@ -58,31 +58,30 @@ pub enum Ktx2TranscodingHint {
         is_srgb: bool,
         data_format: DataFormat,
     },
-    /// Conversion from srgb to linear is needed (to end up as [`TextureFormat::R8Unorm`])
+    /// Conversion from sRGB to Linear is needed (to end up as [`TextureFormat::R8Unorm`])
     R8UnormSrgb,
-    /// Conversion from srgb to linear is needed (to end up as [`TextureFormat::Rg8Unorm`])
+    /// Conversion from sRGB to Linear is needed (to end up as [`TextureFormat::Rg8Unorm`])
     Rg8UnormSrgb,
     /// This needs an alpha channel added (to end up as [`TextureFormat::Rgba8Unorm`] or [`TextureFormat::Rgba8UnormSrgb`])
-    Rgb8 {
-        is_srgb: bool,
-    },
+    Rgb8 { is_srgb: bool },
     /// This needs an alpha channel added (to end up as [`TextureFormat::Rgba32Float`])
     Rgb32Float,
+    /// This needs an alpha channel added (to end up as [`TextureFormat::Rgba32Sint`])
     Rgb32Sint,
+    /// This needs an alpha channel added (to end up as [`TextureFormat::Rgba32Uint`])
     Rgb32Uint,
 }
 
-/// Decodes/transcodes a KTX2 image rust (if possible), falling back to using basis-universal-sys for special cases (like ETC1S/BasisLZ).
+/// Decodes/transcodes a KTX2 image.
 ///
-/// If you have an image with special needs that Bevy's rust frontend doesn't handle well (or
-/// you know will always be kicked out to `basis-universal-sys`, like a ETC1S/BasisLZ image),
-/// feel free to use [`crate::ktx2_buffer_to_image_using_basisu`] directly.
+/// If the `"basis-universal"` feature is enabled, it will fall back to using [basis-universal](https://crates.io/crates/basis-universal)
+/// for special cases (like ETC1S/BasisLZ). If you have an image with special needs that Bevy's Rust
+/// frontend doesn't handle well (or you know will always be kicked out to `basis-universal`, like
+/// a ETC1S/BasisLZ image), feel free to use [`crate::ktx2_buffer_to_image_using_basisu`] directly.
 pub fn ktx2_buffer_to_image(
     buffer: &[u8],
     supported_compressed_formats: CompressedImageFormats,
 ) -> Result<Image, TextureError> {
-    use wgpu_types::Features;
-
     let ktx2 = ktx2::Reader::new(buffer)
         .map_err(|err| TextureError::InvalidData(format!("Failed to parse ktx2 file: {err:?}")))?;
     let Header {

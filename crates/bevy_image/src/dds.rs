@@ -39,7 +39,7 @@ impl From<DdsTextureError> for TextureError {
 
 /// Bevy-specific information on what the underlying DDS data format is that needs transcoded for wgpu.
 ///
-/// This enum is non-exhaustive – it is only meant meant to hold formats that Bevy actually knows how to natively transcode.
+/// This enum is non-exhaustive – it is only meant meant to hold formats that Bevy actually knows how to transcode itself.
 #[derive(Clone, Copy, Debug)]
 pub enum DdsTranscodingHint {
     /// This needs an alpha channel added (to end up as a [`TextureFormat::Rgba8Unorm`] or [`TextureFormat::Rgba8UnormSrgb`])
