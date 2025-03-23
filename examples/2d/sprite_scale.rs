@@ -132,7 +132,7 @@ fn setup_sprites(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextLayout::new_with_justify(JustifyText::Center),
                 TextFont::from_font_size(15.),
                 Transform::from_xyz(0., -0.5 * rect.size.y - 10., 0.),
-                bevy::sprite::Anchor::TopCenter,
+                bevy::sprite::Anchor::TOP_CENTER,
             ));
         });
     }
@@ -278,7 +278,7 @@ fn setup_texture_atlas(
                 TextLayout::new_with_justify(JustifyText::Center),
                 TextFont::from_font_size(15.),
                 Transform::from_xyz(0., -0.5 * sprite_sheet.size.y - 10., 0.),
-                bevy::sprite::Anchor::TopCenter,
+                bevy::sprite::Anchor::TOP_CENTER,
             ));
         });
     }

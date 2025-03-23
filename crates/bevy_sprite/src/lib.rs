@@ -331,7 +331,7 @@ mod test {
             .world_mut()
             .spawn(Sprite {
                 rect: Some(Rect::new(0., 0., 0.5, 1.)),
-                anchor: Anchor::TopRight,
+                anchor: Anchor::TOP_RIGHT,
                 image: image_handle,
                 ..default()
             })
