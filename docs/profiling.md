@@ -148,7 +148,7 @@ Note that while RenderDoc is a great debugging tool, it is _not_ a profiler, and
 
 ### Tracy RenderQueue
 
-While it dosen't provide as much detail as vendor-specific tooling, Tracy can also be used to coarsely measure GPU performance.
+While it doesn't provide as much detail as vendor-specific tooling, Tracy can also be used to coarsely measure GPU performance.
 
 Add the `RenderDiagnosticsPlugin` to your app, and then compile with Bevy's `trace_tracy` feature. GPU spans will show up in a separate row at the top of Tracy, labeled as `RenderQueue`.
 
