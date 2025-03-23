@@ -135,6 +135,7 @@ In terms of where your app is spending time doing graphics work, it might manife
 Graphics related work is not all CPU work or all GPU work, but a mix of both, and you should find the bottleneck and profile using the appropriate tool for each case.
 
 ### Vendor tools
+
 If CPU profiling has shown that GPU work is the bottleneck, it's time to profile the GPU.
 
 For profiling GPU work, you should use the tool corresponding to your GPU's vendor:
