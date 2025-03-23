@@ -35,19 +35,8 @@ fn main() {
         // However, we can overwrite that configuration, to either warn us once or never.
         // This is good for catching unexpected behavior without crashing the app,
         // but can lead to spam.
-        .add_systems(
-            Update,
-            (
-                user_input,
-                // This system uses `Populated`, and we want to silently skip it if there are no enemies.
-                move_targets,
-                // This system uses Single, and we want to silently skip it if the player doesn't exist.
-                track_targets,
-            )
-                .chain(),
-        )
+        .add_systems(Update, (user_input, move_targets, track_targets).chain())
         // This system will always fail validation, because we never create an entity with both `Player` and `Enemy` components.
-        // We want to warn exactly once if this system fails.
         .add_systems(Update, do_nothing_fail_validation)
         .run();
 }
