@@ -38,16 +38,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((Transform::default(), Visibility::default()))
         .with_children(|commands| {
             for (anchor_index, anchor) in [
-                Anchor::TopLeft,
-                Anchor::TopCenter,
-                Anchor::TopRight,
-                Anchor::CenterLeft,
-                Anchor::Center,
-                Anchor::CenterRight,
-                Anchor::BottomLeft,
-                Anchor::BottomCenter,
-                Anchor::BottomRight,
-                Anchor::Custom(Vec2::new(0.5, 0.5)),
+                Anchor::TOP_LEFT,
+                Anchor::TOP_CENTER,
+                Anchor::TOP_RIGHT,
+                Anchor::CENTER_LEFT,
+                Anchor::CENTER,
+                Anchor::CENTER_RIGHT,
+                Anchor::BOTTOM_LEFT,
+                Anchor::BOTTOM_CENTER,
+                Anchor::BOTTOM_RIGHT,
             ]
             .iter()
             .enumerate()

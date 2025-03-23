@@ -740,9 +740,10 @@ async fn load_gltf<'a, 'b, 'c>(
             let reader = gltf_skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
             let local_to_bone_bind_matrices: Vec<Mat4> = reader
                 .read_inverse_bind_matrices()
-                .unwrap()
-                .map(|mat| Mat4::from_cols_array_2d(&mat))
-                .collect();
+                .map(|mats| mats.map(|mat| Mat4::from_cols_array_2d(&mat)).collect())
+                .unwrap_or_else(|| {
+                    core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
+                });
 
             load_context
                 .add_labeled_asset(

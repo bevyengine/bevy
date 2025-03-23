@@ -1,5 +1,6 @@
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
@@ -239,41 +240,37 @@ pub enum ScalingMode {
     FitEnd,
 }
 
-/// How a sprite is positioned relative to its [`Transform`].
-/// It defaults to `Anchor::Center`.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
+/// Normalized (relative to its size) offset of a 2d renderable entity from its [`Transform`].
+#[derive(Component, Debug, Clone, Copy, PartialEq, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[doc(alias = "pivot")]
-pub enum Anchor {
-    #[default]
-    Center,
-    BottomLeft,
-    BottomCenter,
-    BottomRight,
-    CenterLeft,
-    CenterRight,
-    TopLeft,
-    TopCenter,
-    TopRight,
-    /// Custom anchor point. Top left is `(-0.5, 0.5)`, center is `(0.0, 0.0)`. The value will
-    /// be scaled with the sprite size.
-    Custom(Vec2),
-}
+pub struct Anchor(pub Vec2);
 
 impl Anchor {
+    pub const BOTTOM_LEFT: Self = Self(Vec2::new(-0.5, -0.5));
+    pub const BOTTOM_CENTER: Self = Self(Vec2::new(0.0, -0.5));
+    pub const BOTTOM_RIGHT: Self = Self(Vec2::new(0.5, -0.5));
+    pub const CENTER_LEFT: Self = Self(Vec2::new(-0.5, 0.0));
+    pub const CENTER: Self = Self(Vec2::ZERO);
+    pub const CENTER_RIGHT: Self = Self(Vec2::new(0.5, 0.0));
+    pub const TOP_LEFT: Self = Self(Vec2::new(-0.5, 0.5));
+    pub const TOP_CENTER: Self = Self(Vec2::new(0.0, 0.5));
+    pub const TOP_RIGHT: Self = Self(Vec2::new(0.5, 0.5));
+
     pub fn as_vec(&self) -> Vec2 {
-        match self {
-            Anchor::Center => Vec2::ZERO,
-            Anchor::BottomLeft => Vec2::new(-0.5, -0.5),
-            Anchor::BottomCenter => Vec2::new(0.0, -0.5),
-            Anchor::BottomRight => Vec2::new(0.5, -0.5),
-            Anchor::CenterLeft => Vec2::new(-0.5, 0.0),
-            Anchor::CenterRight => Vec2::new(0.5, 0.0),
-            Anchor::TopLeft => Vec2::new(-0.5, 0.5),
-            Anchor::TopCenter => Vec2::new(0.0, 0.5),
-            Anchor::TopRight => Vec2::new(0.5, 0.5),
-            Anchor::Custom(point) => *point,
-        }
+        self.0
+    }
+}
+
+impl Default for Anchor {
+    fn default() -> Self {
+        Self::CENTER
+    }
+}
+
+impl From<Vec2> for Anchor {
+    fn from(value: Vec2) -> Self {
+        Self(value)
     }
 }
 
@@ -370,7 +367,7 @@ mod tests {
             image,
             ..Default::default()
         };
-        let anchor = Anchor::BottomLeft;
+        let anchor = Anchor::BOTTOM_LEFT;
 
         let compute = |point| {
             sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
@@ -393,7 +390,7 @@ mod tests {
             image,
             ..Default::default()
         };
-        let anchor = Anchor::TopRight;
+        let anchor = Anchor::TOP_RIGHT;
 
         let compute = |point| {
             sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
@@ -417,7 +414,7 @@ mod tests {
             flip_x: true,
             ..Default::default()
         };
-        let anchor = Anchor::BottomLeft;
+        let anchor = Anchor::BOTTOM_LEFT;
 
         let compute = |point| {
             sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
@@ -441,7 +438,7 @@ mod tests {
             flip_y: true,
             ..Default::default()
         };
-        let anchor = Anchor::TopRight;
+        let anchor = Anchor::TOP_RIGHT;
 
         let compute = |point| {
             sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
@@ -465,7 +462,7 @@ mod tests {
             rect: Some(Rect::new(1.5, 3.0, 3.0, 9.5)),
             ..Default::default()
         };
-        let anchor = Anchor::BottomLeft;
+        let anchor = Anchor::BOTTOM_LEFT;
 
         let compute = |point| {
             sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
@@ -494,7 +491,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        let anchor = Anchor::BottomLeft;
+        let anchor = Anchor::BOTTOM_LEFT;
 
         let compute = |point| {
             sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
@@ -525,7 +522,7 @@ mod tests {
             rect: Some(Rect::new(1.5, 1.5, 3.0, 3.0)),
             ..Default::default()
         };
-        let anchor = Anchor::BottomLeft;
+        let anchor = Anchor::BOTTOM_LEFT;
 
         let compute = |point| {
             sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)

@@ -335,7 +335,7 @@ mod test {
                     image: image_handle,
                     ..default()
                 },
-                Anchor::TopRight,
+                Anchor::TOP_RIGHT,
             ))
             .id();
 
