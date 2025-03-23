@@ -33,6 +33,13 @@ use bevy_render::{
     view::{ExtractedView, RenderVisibleEntities, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
+
+use crate::mesh_pipeline::{
+    instancing::RenderMesh2dInstances,
+    pipeline::Mesh2dPipelineKey,
+    view::{ViewKeyCache, ViewSpecializationTicks},
+};
+
 use pipeline::{
     instances::RenderMaterial2dInstances,
     prepared_asset::PreparedMaterial2d,
@@ -41,12 +48,6 @@ use pipeline::{
         SpecializedMaterial2dPipelineCache,
     },
     DrawMaterial2d, Material2dPipeline,
-};
-
-use crate::mesh_pipeline::{
-    instancing::RenderMesh2dInstances,
-    pipeline::Mesh2dPipelineKey,
-    view::{ViewKeyCache, ViewSpecializationTicks},
 };
 
 pub use {
