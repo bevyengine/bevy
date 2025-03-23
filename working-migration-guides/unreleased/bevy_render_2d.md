@@ -1,4 +1,4 @@
-# Create `bevy_render_2d` and `bevy_color_material` crates
+# Create `bevy_render_2d` crates
 
 prs = [18467]
 
