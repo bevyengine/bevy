@@ -342,7 +342,24 @@ pub fn ktx2_buffer_to_image(
                         }
 
                         if !output_is_same_shape {
-                            *level_data = buffered_slices.into_iter().flatten().collect::<_>();
+                            // Here we resize the existing scratch level buffer to the new size and write into it.
+                            let new_size = buffered_slices.iter().map(|slice| slice.len()).sum();
+                            let old_size = level_data.len();
+                            if new_size > old_size {
+                                level_data.reserve_exact(new_size - old_size);
+                                // SAFETY: New length is equal to the capacity reserved in the line above. All new elements are initialized below.
+                                #[allow(unsafe_code)]
+                                unsafe { level_data.set_len(new_size); }
+                            } else {
+                                level_data.resize(new_size, 0);
+                            }
+
+                            let mut offset = 0;
+                            for slice in buffered_slices.into_iter() {
+                                let slice_length = slice.len();
+                                level_data[offset..slice_length].copy_from_slice(slice.as_slice());
+                                offset += slice_length;
+                            }
                         }
                     }
                     texture_format
@@ -359,19 +376,22 @@ pub fn ktx2_buffer_to_image(
         )));
     }
 
-    // Point levels data to decompressed/transcoded data (if any)
-    if !scratch_levels.is_empty() {
-        for i in 0..scratch_levels.len() {
-            levels[i] = &scratch_levels[i];
-        }
-    }
-
     // Collect all level data into a contiguous buffer
-    let final_buffer_size = levels.iter().fold(0usize, |acc, level| acc + level.len());
-    let mut contiguous_level_data = Vec::with_capacity(final_buffer_size);
-    for level in levels.into_iter() {
-        contiguous_level_data.extend_from_slice(level);
-    }
+    let contiguous_level_data = if !scratch_levels.is_empty() {
+        let final_buffer_size = scratch_levels.iter().map(|level| level.len()).sum();
+        let mut contiguous_level_data = Vec::with_capacity(final_buffer_size);
+        for mut level in scratch_levels.into_iter() {
+            contiguous_level_data.append(&mut level);
+        }
+        contiguous_level_data
+    } else {
+        let final_buffer_size = levels.iter().map(|level| level.len()).sum();
+        let mut contiguous_level_data = Vec::with_capacity(final_buffer_size);
+        for level in levels.into_iter() {
+            contiguous_level_data.extend_from_slice(level);
+        }
+        contiguous_level_data
+    };
 
     // Assign the data and fill in the rest of the metadata now the possible
     // error cases have been handled
