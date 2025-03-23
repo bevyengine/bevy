@@ -16,7 +16,9 @@ use bevy_input::{
     gestures::*,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
-use bevy_log::{error, trace, warn};
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_log::error;
+use bevy_log::{trace, warn};
 #[cfg(feature = "custom_cursor")]
 use bevy_math::URect;
 use bevy_math::{ivec2, DVec2, Vec2};
