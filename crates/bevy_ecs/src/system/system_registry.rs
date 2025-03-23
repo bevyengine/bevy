@@ -13,6 +13,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use core::marker::PhantomData;
 use thiserror::Error;
 
+use super::ValidationOutcome;
+
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
 #[require(SystemIdMarker)]
@@ -351,13 +353,15 @@ impl World {
             initialized = true;
         }
 
-        let result = if system.validate_param(self) {
+        let result = if let ValidationOutcome::Valid = system.validate_param(self) {
             // Wait to run the commands until the system is available again.
             // This is needed so the systems can recursively run themselves.
             let ret = system.run_without_applying_deferred(input, self);
             system.queue_deferred(self.into());
             Ok(ret)
         } else {
+            // TODO: do we want to differentiate between failed validation and skipped systems?
+            // Do we want to better unify this with system error handling?
             Err(RegisteredSystemError::InvalidParams(id))
         };
 

@@ -18,7 +18,7 @@ use crate::{
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use core::any::TypeId;
 
-use super::IntoSystem;
+use super::{IntoSystem, ValidationOutcome};
 
 /// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
 ///
@@ -132,11 +132,11 @@ pub trait System: Send + Sync + 'static {
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool;
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> ValidationOutcome;
 
     /// Safe version of [`System::validate_param_unsafe`].
     /// that runs on exclusive, single-threaded `world` pointer.
-    fn validate_param(&mut self, world: &World) -> bool {
+    fn validate_param(&mut self, world: &World) -> ValidationOutcome {
         let world_cell = world.as_unsafe_world_cell_readonly();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
@@ -363,10 +363,13 @@ impl RunSystemOnce for &mut World {
     {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        if system.validate_param(self) {
-            Ok(system.run(input, self))
-        } else {
-            Err(RunSystemError::InvalidParams(system.name()))
+        match system.validate_param(self) {
+            ValidationOutcome::Valid => Ok(system.run(input, self)),
+            // TODO: should we expse the fact that the system was skipped to the user?
+            // Should we somehow unify this better with system error handling?
+            ValidationOutcome::Invalid | ValidationOutcome::Skipped => {
+                Err(RunSystemError::InvalidParams(system.name()))
+            }
         }
     }
 }
