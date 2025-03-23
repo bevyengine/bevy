@@ -536,8 +536,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
             )
         };
         match query.single_inner() {
-            Ok(_) => ValidationOutcome::Valid,
-            Err(QuerySingleError::NoEntities(_)) => ValidationOutcome::Valid,
+            Ok(_) | Err(QuerySingleError::NoEntities(_)) => ValidationOutcome::Valid,
             Err(QuerySingleError::MultipleEntities(_)) => ValidationOutcome::Skipped,
         }
     }
