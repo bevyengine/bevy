@@ -44,7 +44,7 @@ pub struct DiagnosticsRecorder(WgpuWrapper<DiagnosticsRecorderInternal>);
 impl DiagnosticsRecorder {
     /// Creates the new `DiagnosticsRecorder`.
     pub fn new(
-        #[allow(unused_variables)] adapter_info: &RenderAdapterInfo,
+        adapter_info: &RenderAdapterInfo,
         device: &RenderDevice,
         queue: &RenderQueue,
     ) -> DiagnosticsRecorder {
@@ -53,6 +53,7 @@ impl DiagnosticsRecorder {
         #[cfg(feature = "tracing-tracy")]
         let tracy_gpu_context =
             super::tracy_gpu::new_tracy_gpu_context(adapter_info, device, queue);
+        let _ = adapter_info;
 
         DiagnosticsRecorder(WgpuWrapper::new(DiagnosticsRecorderInternal {
             timestamp_period_ns: queue.get_timestamp_period(),
@@ -170,8 +171,6 @@ struct SpanRecord {
     begin_instant: Option<Instant>,
     end_instant: Option<Instant>,
     pipeline_statistics_index: Option<u32>,
-    #[cfg(feature = "tracing-tracy")]
-    tracy_gpu_span: tracy_client::GpuSpan,
 }
 
 struct FrameData {
@@ -344,14 +343,6 @@ impl FrameData {
 
         self.path_components.push(name.clone());
 
-        #[cfg(feature = "tracing-tracy")]
-        let tracy_gpu_span = {
-            let location = core::panic::Location::caller();
-            self.tracy_gpu_context
-                .span_alloc(&name, "", location.file(), location.line())
-                .unwrap()
-        };
-
         self.open_spans.push(SpanRecord {
             thread_id,
             path_range,
@@ -361,8 +352,6 @@ impl FrameData {
             begin_instant: None,
             end_instant: None,
             pipeline_statistics_index: None,
-            #[cfg(feature = "tracing-tracy")]
-            tracy_gpu_span,
         });
 
         self.open_spans.last_mut().unwrap()
@@ -378,12 +367,7 @@ impl FrameData {
             .next_back()
             .unwrap();
 
-        #[allow(unused_mut)]
-        let mut span = self.open_spans.swap_remove(index);
-
-        #[cfg(feature = "tracing-tracy")]
-        span.tracy_gpu_span.end_zone();
-
+        let span = self.open_spans.swap_remove(index);
         self.closed_spans.push(span);
         self.closed_spans.last_mut().unwrap()
     }
@@ -548,8 +532,15 @@ impl FrameData {
 
                 #[cfg(feature = "tracing-tracy")]
                 {
-                    span.tracy_gpu_span.upload_timestamp_start(begin as i64);
-                    span.tracy_gpu_span.upload_timestamp_end(end as i64);
+                    // Calling span_alloc() and end_zone() here instead of in open_span() and close_span() means that tracy does not know where each GPU command was recorded on the CPU timeline.
+                    // Unfortunately we must do it this way, because tracy does not play nicely with multithreaded command recording. The start/end pairs would get all mixed up.
+                    // The GPU spans themselves are still accurate though, and it's probably safe to assume that each GPU span in frame N belongs to the corresponding CPU render node span from frame N-1.
+                    let name = &self.path_components[span.path_range.clone()].join("/");
+                    let mut tracy_gpu_span =
+                        self.tracy_gpu_context.span_alloc(name, "", "", 0).unwrap();
+                    tracy_gpu_span.end_zone();
+                    tracy_gpu_span.upload_timestamp_start(begin as i64);
+                    tracy_gpu_span.upload_timestamp_end(end as i64);
                 }
 
                 diagnostics.push(RenderDiagnostic {
