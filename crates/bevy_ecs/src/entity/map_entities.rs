@@ -78,8 +78,7 @@ impl<S: BuildHasher + Default> MapEntities for HashSet<Entity, S> {
 
 impl MapEntities for BTreeSet<Entity> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
-        let temp = mem::take(self);
-        *self = temp
+        *self = mem::take(self)
             .into_iter()
             .map(|e| entity_mapper.get_mapped(e))
             .collect();
