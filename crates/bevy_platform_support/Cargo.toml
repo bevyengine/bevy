@@ -24,32 +24,26 @@ serialize = ["hashbrown/serde"]
 std = [
   "alloc",
   "critical-section?/std",
-  "portable-atomic?/std",
-  "portable-atomic-util?/std",
+  "portable-atomic/std",
+  "portable-atomic-util/std",
   "spin/std",
   "foldhash/std",
 ]
 
-alloc = ["portable-atomic-util?/alloc", "dep:hashbrown"]
+## Allows access to the `alloc` crate.
+alloc = ["portable-atomic-util/alloc", "dep:hashbrown"]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
-critical-section = ["dep:critical-section", "portable-atomic?/critical-section"]
+critical-section = ["dep:critical-section", "portable-atomic/critical-section"]
 
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support.
-portable-atomic = [
-  "dep:portable-atomic",
-  "dep:portable-atomic-util",
-  "spin/portable_atomic",
-]
+## Enables use of browser APIs.
+## Note this is currently only applicable on `wasm32` architectures.
+web = ["dep:web-time", "dep:getrandom"]
 
 [dependencies]
+cfg-if = "1.0.0"
 critical-section = { version = "1.2.0", default-features = false, optional = true }
-portable-atomic = { version = "1", default-features = false, features = [
-  "fallback",
-], optional = true }
-portable-atomic-util = { version = "0.2.4", default-features = false, optional = true }
 spin = { version = "0.9.8", default-features = false, features = [
   "mutex",
   "spin_mutex",
@@ -65,8 +59,21 @@ hashbrown = { version = "0.15.1", features = [
 ], optional = true, default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-time = { version = "1.1", default-features = false }
-getrandom = { version = "0.2.0", default-features = false, features = ["js"] }
+web-time = { version = "1.1", default-features = false, optional = true }
+getrandom = { version = "0.2.0", default-features = false, optional = true, features = [
+  "js",
+] }
+
+[target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
+portable-atomic = { version = "1", default-features = false, features = [
+  "fallback",
+] }
+spin = { version = "0.9.8", default-features = false, features = [
+  "portable_atomic",
+] }
+
+[target.'cfg(not(target_has_atomic = "ptr"))'.dependencies]
+portable-atomic-util = { version = "0.2.4", default-features = false }
 
 [lints]
 workspace = true

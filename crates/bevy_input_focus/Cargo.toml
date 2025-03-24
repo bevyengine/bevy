@@ -55,15 +55,6 @@ critical-section = [
   "bevy_input/critical-section",
 ]
 
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support. 
-portable-atomic = [
-  "bevy_app/portable-atomic",
-  "bevy_ecs/portable-atomic",
-  "bevy_reflect?/portable-atomic",
-  "bevy_input/portable-atomic",
-]
-
 ## Uses the `libm` maths library instead of the one provided in `std` and `core`.
 libm = ["bevy_math/libm", "bevy_window/libm"]
 

@@ -49,8 +49,10 @@ git checkout v0.4.0
   - [Dev tools](#dev-tools)
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
+  - [Embedded](#embedded)
   - [Games](#games)
   - [Gizmos](#gizmos)
+  - [Helpers](#helpers)
   - [Input](#input)
   - [Math](#math)
   - [Movement](#movement)
@@ -105,7 +107,7 @@ Example | Description
 [2D Bloom](../examples/2d/bloom_2d.rs) | Illustrates bloom post-processing in 2d
 [2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 [2D Shapes](../examples/2d/2d_shapes.rs) | Renders simple 2D primitive shapes like circles and polygons
-[2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method
+[2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera.
 [2D Wireframe](../examples/2d/wireframe_2d.rs) | Showcases wireframes for 2d meshes
 [Arc 2D Meshes](../examples/2d/mesh2d_arcs.rs) | Demonstrates UV-mapping of the circular segment and sector primitives
 [CPU Drawing](../examples/2d/cpu_draw.rs) | Manually read/write the pixels of a texture
@@ -114,6 +116,7 @@ Example | Description
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
 [Mesh2d Alpha Mode](../examples/2d/mesh2d_alpha_mode.rs) | Used to test alpha modes with mesh2d
+[Mesh2d Repeated Texture](../examples/2d/mesh2d_repeated_texture.rs) | Showcase of using `uv_transform` on the `ColorMaterial` of a `Mesh2d`
 [Move Sprite](../examples/2d/move_sprite.rs) | Changes the transform of a sprite
 [Pixel Grid Snapping](../examples/2d/pixel_grid_snap.rs) | Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
@@ -250,7 +253,7 @@ Example | Description
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
-[Mult-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
+[Multi-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
 [Repeated texture configuration](../examples/asset/repeated_texture.rs) | How to configure the texture to repeat instead of the default clamp to edges
 
 ## Async Tasks
@@ -308,9 +311,9 @@ Example | Description
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Entity disabling](../examples/ecs/entity_disabling.rs) | Demonstrates how to hide entities from the ECS without deleting them
+[Error handling](../examples/ecs/error_handling.rs) | How to return and handle errors across the ECS
 [Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception
 [Fallible System Parameters](../examples/ecs/fallible_params.rs) | Systems are skipped if their parameters cannot be acquired
-[Fallible Systems](../examples/ecs/fallible_systems.rs) | Systems that return results to handle errors
 [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
@@ -331,6 +334,12 @@ Example | Description
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
 [System Stepping](../examples/ecs/system_stepping.rs) | Demonstrate stepping through systems in order of execution.
 
+## Embedded
+
+Example | Description
+--- | ---
+[`no_std` Compatible Library](../examples/no_std/library/src/lib.rs) | Example library compatible with `std` and `no_std` targets
+
 ## Games
 
 Example | Description
@@ -350,6 +359,13 @@ Example | Description
 [3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos
 [Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
 [Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
+
+## Helpers
+
+Example | Description
+--- | ---
+[Camera Controller](../examples/helpers/camera_controller.rs) | Example Free-Cam Styled Camera Controller
+[Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
 
 ## Input
 
@@ -446,6 +462,7 @@ Example | Description
 [Material - Bindless](../examples/shader/shader_material_bindless.rs) | Demonstrates how to make materials that use bindless textures
 [Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
 [Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates
+[Material - WESL](../examples/shader/shader_material_wesl.rs) | A shader that uses WESL
 [Material Prepass](../examples/shader/shader_prepass.rs) | A shader that uses the various textures generated by the prepass
 [Post Processing - Custom Render Pass](../examples/shader/custom_post_processing.rs) | A custom post processing effect, using a custom render pass that runs after the main pass
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
@@ -793,14 +810,14 @@ may not be worth keeping due to compilation time increases.
 For a small project with a basic 3d model and two lights,
 the generated file sizes are, as of July 2022, as follows:
 
-|profile                           | wasm-opt | no wasm-opt |
-|----------------------------------|----------|-------------|
-|Default                           | 8.5M     | 13.0M       |
-|opt-level = "z"                   | 6.1M     | 12.7M       |
-|"z" + lto = "thin"                | 5.9M     | 12M         |
-|"z" + lto = "fat"                 | 5.1M     | 9.4M        |
-|"z" + "thin" + codegen-units = 1  | 5.3M     | 11M         |
-|"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M        |
+profile                           | wasm-opt | no wasm-opt
+----------------------------------|----------|-------------
+Default                           | 8.5M     | 13.0M
+opt-level = "z"                   | 6.1M     | 12.7M
+"z" + lto = "thin"                | 5.9M     | 12M
+"z" + lto = "fat"                 | 5.1M     | 9.4M
+"z" + "thin" + codegen-units = 1  | 5.3M     | 11M
+"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M
 
 ### Loading Assets
 

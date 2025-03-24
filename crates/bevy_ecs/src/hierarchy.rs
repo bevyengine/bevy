@@ -12,11 +12,13 @@ use crate::{
     bundle::Bundle,
     component::{Component, HookContext},
     entity::Entity,
-    relationship::{RelatedSpawner, RelatedSpawnerCommands},
+    relationship::{RelatedSpawner, RelatedSpawnerCommands, Relationship},
     system::EntityCommands,
     world::{DeferredWorld, EntityWorldMut, FromWorld, World},
 };
 use alloc::{format, string::String, vec::Vec};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::std_traits::ReflectDefault;
 use core::ops::Deref;
 use core::slice;
 use disqualified::ShortName;
@@ -24,7 +26,7 @@ use log::warn;
 
 /// Stores the parent entity of this child entity with this component.
 ///
-/// This is a [`Relationship`](crate::relationship::Relationship) component, and creates the canonical
+/// This is a [`Relationship`] component, and creates the canonical
 /// "parent / child" hierarchy. This is the "source of truth" component, and it pairs with
 /// the [`Children`] [`RelationshipTarget`](crate::relationship::RelationshipTarget).
 ///
@@ -52,9 +54,9 @@ use log::warn;
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::new();
 /// let root = world.spawn_empty().id();
-/// let child1 = world.spawn(ChildOf(root)).id();
-/// let child2 = world.spawn(ChildOf(root)).id();
-/// let grandchild = world.spawn(ChildOf(child1)).id();
+/// let child1 = world.spawn(ChildOf { parent: root }).id();
+/// let child2 = world.spawn(ChildOf { parent: root }).id();
+/// let grandchild = world.spawn(ChildOf { parent: child1 }).id();
 ///
 /// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
 /// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
@@ -90,26 +92,13 @@ use log::warn;
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    reflect(Component, PartialEq, Debug, FromWorld)
+    reflect(Component, PartialEq, Debug, FromWorld, Clone)
 )]
 #[relationship(relationship_target = Children)]
 #[doc(alias = "IsChild", alias = "Parent")]
-pub struct ChildOf(pub Entity);
-
-impl ChildOf {
-    /// Returns the parent entity, which is the "target" of this relationship.
-    pub fn get(&self) -> Entity {
-        self.0
-    }
-}
-
-impl Deref for ChildOf {
-    type Target = Entity;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+pub struct ChildOf {
+    /// The parent entity of this child entity.
+    pub parent: Entity,
 }
 
 // TODO: We need to impl either FromWorld or Default so ChildOf can be registered as Reflect.
@@ -119,14 +108,16 @@ impl Deref for ChildOf {
 impl FromWorld for ChildOf {
     #[inline(always)]
     fn from_world(_world: &mut World) -> Self {
-        ChildOf(Entity::PLACEHOLDER)
+        ChildOf {
+            parent: Entity::PLACEHOLDER,
+        }
     }
 }
 
 /// Tracks which entities are children of this parent entity.
 ///
 /// A [`RelationshipTarget`] collection component that is populated
-/// with entities that "target" this entity with the [`ChildOf`] [`Relationship`](crate::relationship::Relationship) component.
+/// with entities that "target" this entity with the [`ChildOf`] [`Relationship`] component.
 ///
 /// Together, these components form the "canonical parent-child hierarchy". See the [`ChildOf`] component for the full
 /// description of this relationship and instructions on how to use it.
@@ -144,9 +135,99 @@ impl FromWorld for ChildOf {
 #[derive(Component, Default, Debug, PartialEq, Eq)]
 #[relationship_target(relationship = ChildOf, linked_spawn)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld, Default))]
 #[doc(alias = "IsParent")]
 pub struct Children(Vec<Entity>);
+
+impl Children {
+    /// Swaps the child at `a_index` with the child at `b_index`.
+    #[inline]
+    pub fn swap(&mut self, a_index: usize, b_index: usize) {
+        self.0.swap(a_index, b_index);
+    }
+
+    /// Sorts children [stably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
+    /// in place using the provided comparator function.
+    ///
+    /// For the underlying implementation, see [`slice::sort_by`].
+    ///
+    /// For the unstable version, see [`sort_unstable_by`](Children::sort_unstable_by).
+    ///
+    /// See also [`sort_by_key`](Children::sort_by_key), [`sort_by_cached_key`](Children::sort_by_cached_key).
+    #[inline]
+    pub fn sort_by<F>(&mut self, compare: F)
+    where
+        F: FnMut(&Entity, &Entity) -> core::cmp::Ordering,
+    {
+        self.0.sort_by(compare);
+    }
+
+    /// Sorts children [stably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
+    /// in place using the provided key extraction function.
+    ///
+    /// For the underlying implementation, see [`slice::sort_by_key`].
+    ///
+    /// For the unstable version, see [`sort_unstable_by_key`](Children::sort_unstable_by_key).
+    ///
+    /// See also [`sort_by`](Children::sort_by), [`sort_by_cached_key`](Children::sort_by_cached_key).
+    #[inline]
+    pub fn sort_by_key<K, F>(&mut self, compare: F)
+    where
+        F: FnMut(&Entity) -> K,
+        K: Ord,
+    {
+        self.0.sort_by_key(compare);
+    }
+
+    /// Sorts children [stably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
+    /// in place using the provided key extraction function. Only evaluates each key at most
+    /// once per sort, caching the intermediate results in memory.
+    ///
+    /// For the underlying implementation, see [`slice::sort_by_cached_key`].
+    ///
+    /// See also [`sort_by`](Children::sort_by), [`sort_by_key`](Children::sort_by_key).
+    #[inline]
+    pub fn sort_by_cached_key<K, F>(&mut self, compare: F)
+    where
+        F: FnMut(&Entity) -> K,
+        K: Ord,
+    {
+        self.0.sort_by_cached_key(compare);
+    }
+
+    /// Sorts children [unstably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
+    /// in place using the provided comparator function.
+    ///
+    /// For the underlying implementation, see [`slice::sort_unstable_by`].
+    ///
+    /// For the stable version, see [`sort_by`](Children::sort_by).
+    ///
+    /// See also [`sort_unstable_by_key`](Children::sort_unstable_by_key).
+    #[inline]
+    pub fn sort_unstable_by<F>(&mut self, compare: F)
+    where
+        F: FnMut(&Entity, &Entity) -> core::cmp::Ordering,
+    {
+        self.0.sort_unstable_by(compare);
+    }
+
+    /// Sorts children [unstably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
+    /// in place using the provided key extraction function.
+    ///
+    /// For the underlying implementation, see [`slice::sort_unstable_by_key`].
+    ///
+    /// For the stable version, see [`sort_by_key`](Children::sort_by_key).
+    ///
+    /// See also [`sort_unstable_by`](Children::sort_unstable_by).
+    #[inline]
+    pub fn sort_unstable_by_key<K, F>(&mut self, compare: F)
+    where
+        F: FnMut(&Entity) -> K,
+        K: Ord,
+    {
+        self.0.sort_unstable_by_key(compare);
+    }
+}
 
 impl<'a> IntoIterator for &'a Children {
     type Item = <Self::IntoIter as Iterator>::Item;
@@ -190,15 +271,43 @@ impl<'w> EntityWorldMut<'w> {
         self.add_related::<ChildOf>(&[child])
     }
 
+    /// Replaces all the related children with a new set of children.
+    pub fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
+        self.replace_related::<ChildOf>(children)
+    }
+
+    /// Replaces all the related children with a new set of children.
+    ///
+    /// # Warning
+    ///
+    /// Failing to maintain the functions invariants may lead to erratic engine behavior including random crashes.
+    /// Refer to [`Self::replace_related_with_difference`] for a list of these invariants.
+    ///
+    /// # Panics
+    ///
+    /// Panics when debug assertions are enabled if an invariant is is broken and the command is executed.
+    pub fn replace_children_with_difference(
+        &mut self,
+        entities_to_unrelate: &[Entity],
+        entities_to_relate: &[Entity],
+        newly_related_entities: &[Entity],
+    ) -> &mut Self {
+        self.replace_related_with_difference::<ChildOf>(
+            entities_to_unrelate,
+            entities_to_relate,
+            newly_related_entities,
+        )
+    }
+
     /// Spawns the passed bundle and adds it to this entity as a child.
     ///
     /// For efficient spawning of multiple children, use [`with_children`].
     ///
     /// [`with_children`]: EntityWorldMut::with_children
     pub fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
-        let id = self.id();
+        let parent = self.id();
         self.world_scope(|world| {
-            world.spawn((bundle, ChildOf(id)));
+            world.spawn((bundle, ChildOf { parent }));
         });
         self
     }
@@ -211,9 +320,12 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_mut.insert(ChildOf(entity))")]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use entity_mut.insert(ChildOf { parent: entity })"
+    )]
     pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
-        self.insert(ChildOf(parent));
+        self.insert(ChildOf { parent });
         self
     }
 }
@@ -238,14 +350,42 @@ impl<'a> EntityCommands<'a> {
         self.add_related::<ChildOf>(&[child])
     }
 
+    /// Replaces the children on this entity with a new list of children.
+    pub fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
+        self.replace_related::<ChildOf>(children)
+    }
+
+    /// Replaces all the related entities with a new set of entities.
+    ///
+    /// # Warning
+    ///
+    /// Failing to maintain the functions invariants may lead to erratic engine behavior including random crashes.
+    /// Refer to [`EntityWorldMut::replace_related_with_difference`] for a list of these invariants.
+    ///
+    /// # Panics
+    ///
+    /// Panics when debug assertions are enabled if an invariant is is broken and the command is executed.
+    pub fn replace_children_with_difference<R: Relationship>(
+        &mut self,
+        entities_to_unrelate: &[Entity],
+        entities_to_relate: &[Entity],
+        newly_related_entities: &[Entity],
+    ) -> &mut Self {
+        self.replace_related_with_difference::<R>(
+            entities_to_unrelate,
+            entities_to_relate,
+            newly_related_entities,
+        )
+    }
+
     /// Spawns the passed bundle and adds it to this entity as a child.
     ///
     /// For efficient spawning of multiple children, use [`with_children`].
     ///
     /// [`with_children`]: EntityCommands::with_children
     pub fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
-        let id = self.id();
-        self.commands.spawn((bundle, ChildOf(id)));
+        let parent = self.id();
+        self.commands.spawn((bundle, ChildOf { parent }));
         self
     }
 
@@ -257,9 +397,12 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_commands.insert(ChildOf(entity))")]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use entity_commands.insert(ChildOf { parent: entity })"
+    )]
     pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
-        self.insert(ChildOf(parent));
+        self.insert(ChildOf { parent });
         self
     }
 }
@@ -275,7 +418,7 @@ pub fn validate_parent_has_component<C: Component>(
         return;
     };
     if !world
-        .get_entity(child_of.get())
+        .get_entity(child_of.parent)
         .is_ok_and(|e| e.contains::<C>())
     {
         // TODO: print name here once Name lives in bevy_ecs
@@ -334,7 +477,7 @@ mod tests {
     use crate::{
         entity::Entity,
         hierarchy::{ChildOf, Children},
-        relationship::RelationshipTarget,
+        relationship::{RelationshipHookMode, RelationshipTarget},
         spawn::{Spawn, SpawnRelated},
         world::World,
     };
@@ -375,9 +518,9 @@ mod tests {
     fn hierarchy() {
         let mut world = World::new();
         let root = world.spawn_empty().id();
-        let child1 = world.spawn(ChildOf(root)).id();
-        let grandchild = world.spawn(ChildOf(child1)).id();
-        let child2 = world.spawn(ChildOf(root)).id();
+        let child1 = world.spawn(ChildOf { parent: root }).id();
+        let grandchild = world.spawn(ChildOf { parent: child1 }).id();
+        let child2 = world.spawn(ChildOf { parent: root }).id();
 
         // Spawn
         let hierarchy = get_hierarchy(&world, root);
@@ -398,7 +541,7 @@ mod tests {
         assert_eq!(hierarchy, Node::new_with(root, vec![Node::new(child2)]));
 
         // Insert
-        world.entity_mut(child1).insert(ChildOf(root));
+        world.entity_mut(child1).insert(ChildOf { parent: root });
         let hierarchy = get_hierarchy(&world, root);
         assert_eq!(
             hierarchy,
@@ -457,7 +600,7 @@ mod tests {
     fn self_parenting_invalid() {
         let mut world = World::new();
         let id = world.spawn_empty().id();
-        world.entity_mut(id).insert(ChildOf(id));
+        world.entity_mut(id).insert(ChildOf { parent: id });
         assert!(
             world.entity(id).get::<ChildOf>().is_none(),
             "invalid ChildOf relationships should self-remove"
@@ -469,7 +612,7 @@ mod tests {
         let mut world = World::new();
         let parent = world.spawn_empty().id();
         world.entity_mut(parent).despawn();
-        let id = world.spawn(ChildOf(parent)).id();
+        let id = world.spawn(ChildOf { parent }).id();
         assert!(
             world.entity(id).get::<ChildOf>().is_none(),
             "invalid ChildOf relationships should self-remove"
@@ -480,10 +623,10 @@ mod tests {
     fn reinsert_same_parent() {
         let mut world = World::new();
         let parent = world.spawn_empty().id();
-        let id = world.spawn(ChildOf(parent)).id();
-        world.entity_mut(id).insert(ChildOf(parent));
+        let id = world.spawn(ChildOf { parent }).id();
+        world.entity_mut(id).insert(ChildOf { parent });
         assert_eq!(
-            Some(&ChildOf(parent)),
+            Some(&ChildOf { parent }),
             world.entity(id).get::<ChildOf>(),
             "ChildOf should still be there"
         );
@@ -494,5 +637,314 @@ mod tests {
         let mut world = World::new();
         let id = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
         assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 2,);
+    }
+
+    #[test]
+    fn replace_children() {
+        let mut world = World::new();
+        let parent = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
+        let &[child_a, child_b] = &world.entity(parent).get::<Children>().unwrap().0[..] else {
+            panic!("Tried to spawn 2 children on an entity and didn't get 2 children");
+        };
+
+        let child_c = world.spawn_empty().id();
+
+        world
+            .entity_mut(parent)
+            .replace_children(&[child_a, child_c]);
+
+        let children = world.entity(parent).get::<Children>().unwrap();
+
+        assert!(children.contains(&child_a));
+        assert!(children.contains(&child_c));
+        assert!(!children.contains(&child_b));
+
+        assert_eq!(
+            world.entity(child_a).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(child_c).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert!(world.entity(child_b).get::<ChildOf>().is_none());
+    }
+
+    #[test]
+    fn replace_children_with_nothing() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().id();
+        let child_a = world.spawn_empty().id();
+        let child_b = world.spawn_empty().id();
+
+        world.entity_mut(parent).add_children(&[child_a, child_b]);
+
+        assert_eq!(world.entity(parent).get::<Children>().unwrap().len(), 2);
+
+        world.entity_mut(parent).replace_children(&[]);
+
+        assert!(world.entity(child_a).get::<ChildOf>().is_none());
+        assert!(world.entity(child_b).get::<ChildOf>().is_none());
+    }
+
+    #[test]
+    fn insert_same_child_twice() {
+        let mut world = World::new();
+
+        let parent = world.spawn_empty().id();
+        let child = world.spawn_empty().id();
+
+        world.entity_mut(parent).add_child(child);
+        world.entity_mut(parent).add_child(child);
+
+        let children = world.get::<Children>(parent).unwrap();
+        assert_eq!(children.0, [child]);
+        assert_eq!(
+            world.entity(child).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+    }
+
+    #[test]
+    fn replace_with_difference() {
+        let mut world = World::new();
+
+        let parent = world.spawn_empty().id();
+        let child_a = world.spawn_empty().id();
+        let child_b = world.spawn_empty().id();
+        let child_c = world.spawn_empty().id();
+        let child_d = world.spawn_empty().id();
+
+        // Test inserting new relations
+        world.entity_mut(parent).replace_children_with_difference(
+            &[],
+            &[child_a, child_b],
+            &[child_a, child_b],
+        );
+
+        assert_eq!(
+            world.entity(child_a).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(child_b).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(parent).get::<Children>().unwrap().0,
+            [child_a, child_b]
+        );
+
+        // Test replacing relations and changing order
+        world.entity_mut(parent).replace_children_with_difference(
+            &[child_b],
+            &[child_d, child_c, child_a],
+            &[child_c, child_d],
+        );
+        assert_eq!(
+            world.entity(child_a).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(child_c).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(child_d).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(parent).get::<Children>().unwrap().0,
+            [child_d, child_c, child_a]
+        );
+        assert!(!world.entity(child_b).contains::<ChildOf>());
+
+        // Test removing relationships
+        world.entity_mut(parent).replace_children_with_difference(
+            &[child_a, child_d, child_c],
+            &[],
+            &[],
+        );
+        assert!(!world.entity(parent).contains::<Children>());
+        assert!(!world.entity(child_a).contains::<ChildOf>());
+        assert!(!world.entity(child_b).contains::<ChildOf>());
+        assert!(!world.entity(child_c).contains::<ChildOf>());
+        assert!(!world.entity(child_d).contains::<ChildOf>());
+    }
+
+    #[test]
+    fn replace_with_difference_on_empty() {
+        let mut world = World::new();
+
+        let parent = world.spawn_empty().id();
+        let child_a = world.spawn_empty().id();
+
+        world
+            .entity_mut(parent)
+            .replace_children_with_difference(&[child_a], &[], &[]);
+
+        assert!(!world.entity(parent).contains::<Children>());
+        assert!(!world.entity(child_a).contains::<ChildOf>());
+    }
+
+    #[test]
+    fn replace_with_difference_totally_new_children() {
+        let mut world = World::new();
+
+        let parent = world.spawn_empty().id();
+        let child_a = world.spawn_empty().id();
+        let child_b = world.spawn_empty().id();
+        let child_c = world.spawn_empty().id();
+        let child_d = world.spawn_empty().id();
+
+        // Test inserting new relations
+        world.entity_mut(parent).replace_children_with_difference(
+            &[],
+            &[child_a, child_b],
+            &[child_a, child_b],
+        );
+
+        assert_eq!(
+            world.entity(child_a).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(child_b).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(parent).get::<Children>().unwrap().0,
+            [child_a, child_b]
+        );
+
+        // Test replacing relations and changing order
+        world.entity_mut(parent).replace_children_with_difference(
+            &[child_b, child_a],
+            &[child_d, child_c],
+            &[child_c, child_d],
+        );
+        assert_eq!(
+            world.entity(child_c).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(child_d).get::<ChildOf>().unwrap(),
+            &ChildOf { parent }
+        );
+        assert_eq!(
+            world.entity(parent).get::<Children>().unwrap().0,
+            [child_d, child_c]
+        );
+        assert!(!world.entity(child_a).contains::<ChildOf>());
+        assert!(!world.entity(child_b).contains::<ChildOf>());
+    }
+
+    #[test]
+    fn replace_children_order() {
+        let mut world = World::new();
+
+        let parent = world.spawn_empty().id();
+        let child_a = world.spawn_empty().id();
+        let child_b = world.spawn_empty().id();
+        let child_c = world.spawn_empty().id();
+        let child_d = world.spawn_empty().id();
+
+        let initial_order = [child_a, child_b, child_c, child_d];
+        world.entity_mut(parent).add_children(&initial_order);
+
+        assert_eq!(
+            world.entity_mut(parent).get::<Children>().unwrap().0,
+            initial_order
+        );
+
+        let new_order = [child_d, child_b, child_a, child_c];
+        world.entity_mut(parent).replace_children(&new_order);
+
+        assert_eq!(world.entity(parent).get::<Children>().unwrap().0, new_order);
+    }
+
+    #[test]
+    #[should_panic]
+    #[cfg_attr(
+        not(debug_assertions),
+        ignore = "we don't check invariants if debug assertions are off"
+    )]
+    fn replace_diff_invariant_overlapping_unrelate_with_relate() {
+        let mut world = World::new();
+
+        let parent = world.spawn_empty().id();
+        let child_a = world.spawn_empty().id();
+
+        world
+            .entity_mut(parent)
+            .replace_children_with_difference(&[], &[child_a], &[child_a]);
+
+        // This should panic
+        world
+            .entity_mut(parent)
+            .replace_children_with_difference(&[child_a], &[child_a], &[]);
+    }
+
+    #[test]
+    #[should_panic]
+    #[cfg_attr(
+        not(debug_assertions),
+        ignore = "we don't check invariants if debug assertions are off"
+    )]
+    fn replace_diff_invariant_overlapping_unrelate_with_newly() {
+        let mut world = World::new();
+
+        let parent = world.spawn_empty().id();
+        let child_a = world.spawn_empty().id();
+        let child_b = world.spawn_empty().id();
+
+        world
+            .entity_mut(parent)
+            .replace_children_with_difference(&[], &[child_a], &[child_a]);
+
+        // This should panic
+        world.entity_mut(parent).replace_children_with_difference(
+            &[child_b],
+            &[child_a, child_b],
+            &[child_b],
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    #[cfg_attr(
+        not(debug_assertions),
+        ignore = "we don't check invariants if debug assertions are off"
+    )]
+    fn replace_diff_invariant_newly_not_subset() {
+        let mut world = World::new();
+
+        let parent = world.spawn_empty().id();
+        let child_a = world.spawn_empty().id();
+        let child_b = world.spawn_empty().id();
+
+        // This should panic
+        world.entity_mut(parent).replace_children_with_difference(
+            &[],
+            &[child_a, child_b],
+            &[child_a],
+        );
+    }
+
+    #[test]
+    fn child_replace_hook_skip() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().id();
+        let other = world.spawn_empty().id();
+        let child = world.spawn(ChildOf { parent }).id();
+        world.entity_mut(child).insert_with_relationship_hook_mode(
+            ChildOf { parent: other },
+            RelationshipHookMode::Skip,
+        );
+        assert_eq!(
+            &**world.entity(parent).get::<Children>().unwrap(),
+            &[child],
+            "Children should still have the old value, as on_insert/on_replace didn't run"
+        );
     }
 }

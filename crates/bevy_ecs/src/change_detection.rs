@@ -1197,7 +1197,7 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct MaybeLocation<T: ?Sized = &'static Location<'static>> {
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     marker: PhantomData<T>,
     #[cfg(feature = "track_location")]
     value: T,
@@ -1557,7 +1557,7 @@ mod tests {
         // Since the world is always ahead, as long as changes can't get older than `u32::MAX` (which we ensure),
         // the wrapping difference will always be positive, so wraparound doesn't matter.
         let mut query = world.query::<Ref<C>>();
-        assert!(query.single(&world).is_changed());
+        assert!(query.single(&world).unwrap().is_changed());
     }
 
     #[test]

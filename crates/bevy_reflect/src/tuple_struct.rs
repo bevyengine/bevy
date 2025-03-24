@@ -56,7 +56,18 @@ pub trait TupleStruct: PartialReflect {
     fn iter_fields(&self) -> TupleStructFieldIter;
 
     /// Clones the struct into a [`DynamicTupleStruct`].
-    fn clone_dynamic(&self) -> DynamicTupleStruct;
+    #[deprecated(since = "0.16.0", note = "use `to_dynamic_tuple_struct` instead")]
+    fn clone_dynamic(&self) -> DynamicTupleStruct {
+        self.to_dynamic_tuple_struct()
+    }
+
+    /// Creates a new [`DynamicTupleStruct`] from this tuple struct.
+    fn to_dynamic_tuple_struct(&self) -> DynamicTupleStruct {
+        DynamicTupleStruct {
+            represented_type: self.get_represented_type_info(),
+            fields: self.iter_fields().map(PartialReflect::to_dynamic).collect(),
+        }
+    }
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_tuple_struct_info(&self) -> Option<&'static TupleStructInfo> {
@@ -279,17 +290,6 @@ impl TupleStruct for DynamicTupleStruct {
             index: 0,
         }
     }
-
-    fn clone_dynamic(&self) -> DynamicTupleStruct {
-        DynamicTupleStruct {
-            represented_type: self.represented_type,
-            fields: self
-                .fields
-                .iter()
-                .map(|value| value.clone_value())
-                .collect(),
-        }
-    }
 }
 
 impl PartialReflect for DynamicTupleStruct {
@@ -355,11 +355,6 @@ impl PartialReflect for DynamicTupleStruct {
     #[inline]
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::TupleStruct(self)
-    }
-
-    #[inline]
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
     }
 
     #[inline]

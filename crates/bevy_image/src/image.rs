@@ -336,7 +336,7 @@ impl ImageFormat {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(opaque, Default, Debug)
+    reflect(opaque, Default, Debug, Clone)
 )]
 pub struct Image {
     /// Raw pixel data.
@@ -931,13 +931,9 @@ impl Image {
         #[cfg(all(debug_assertions, feature = "dds"))] name: String,
         buffer: &[u8],
         image_type: ImageType,
-        #[expect(
-            clippy::allow_attributes,
-            reason = "`unused_variables` may not always lint"
-        )]
-        #[allow(
-            unused_variables,
-            reason = "`supported_compressed_formats` is needed where the image format is `Basis`, `Dds`, or `Ktx2`; if these are disabled, then `supported_compressed_formats` is unused."
+        #[cfg_attr(
+            not(any(feature = "basis-universal", feature = "dds", feature = "ktx2")),
+            expect(unused_variables, reason = "only used with certain features")
         )]
         supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
@@ -1491,19 +1487,20 @@ pub enum DataFormat {
     Rg,
 }
 
+/// Texture data need to be transcoded from this format for use with `wgpu`.
 #[derive(Clone, Copy, Debug)]
 pub enum TranscodeFormat {
     Etc1s,
     Uastc(DataFormat),
-    // Has to be transcoded to R8Unorm for use with `wgpu`
+    // Has to be transcoded to R8Unorm for use with `wgpu`.
     R8UnormSrgb,
-    // Has to be transcoded to R8G8Unorm for use with `wgpu`
+    // Has to be transcoded to R8G8Unorm for use with `wgpu`.
     Rg8UnormSrgb,
-    // Has to be transcoded to Rgba8 for use with `wgpu`
+    // Has to be transcoded to Rgba8 for use with `wgpu`.
     Rgb8,
 }
 
-/// An error that occurs when accessing specific pixels in a texture
+/// An error that occurs when accessing specific pixels in a texture.
 #[derive(Error, Debug)]
 pub enum TextureAccessError {
     #[error("out of bounds (x: {x}, y: {y}, z: {z})")]
@@ -1514,25 +1511,34 @@ pub enum TextureAccessError {
     WrongDimension,
 }
 
-/// An error that occurs when loading a texture
+/// An error that occurs when loading a texture.
 #[derive(Error, Debug)]
 pub enum TextureError {
+    /// Image MIME type is invalid.
     #[error("invalid image mime type: {0}")]
     InvalidImageMimeType(String),
+    /// Image extension is invalid.
     #[error("invalid image extension: {0}")]
     InvalidImageExtension(String),
+    /// Failed to load an image.
     #[error("failed to load an image: {0}")]
     ImageError(#[from] image::ImageError),
+    /// Texture format isn't supported.
     #[error("unsupported texture format: {0}")]
     UnsupportedTextureFormat(String),
+    /// Supercompression isn't supported.
     #[error("supercompression not supported: {0}")]
     SuperCompressionNotSupported(String),
-    #[error("failed to load an image: {0}")]
+    /// Failed to decompress an image.
+    #[error("failed to decompress an image: {0}")]
     SuperDecompressionError(String),
+    /// Invalid data.
     #[error("invalid data: {0}")]
     InvalidData(String),
+    /// Transcode error.
     #[error("transcode error: {0}")]
     TranscodeError(String),
+    /// Format requires transcoding.
     #[error("format requires transcoding: {0:?}")]
     FormatRequiresTranscodingError(TranscodeFormat),
     /// Only cubemaps with six faces are supported.

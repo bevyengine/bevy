@@ -333,7 +333,7 @@ fn mouse_handler(
     mut rng: Local<Option<ChaCha8Rng>>,
     mut wave: Local<usize>,
 ) {
-    let Ok(window) = window.get_single() else {
+    let Ok(window) = window.single() else {
         return;
     };
 
@@ -534,7 +534,7 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
     }
 }
 fn collision_system(window: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
-    let Ok(window) = window.get_single() else {
+    let Ok(window) = window.single() else {
         return;
     };
 
@@ -613,6 +613,7 @@ fn init_materials(
         color: Color::WHITE,
         texture: textures.first().cloned(),
         alpha_mode,
+        ..default()
     }));
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
@@ -625,6 +626,7 @@ fn init_materials(
                 color: Color::srgb_u8(color_rng.r#gen(), color_rng.r#gen(), color_rng.r#gen()),
                 texture: textures.choose(&mut texture_rng).cloned(),
                 alpha_mode,
+                ..default()
             })
         })
         .take(capacity - materials.len()),

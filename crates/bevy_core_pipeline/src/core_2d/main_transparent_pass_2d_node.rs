@@ -44,6 +44,15 @@ impl ViewNode for MainTransparentPass2dNode {
 
         let diagnostics = render_context.diagnostic_recorder();
 
+        let color_attachments = [Some(target.get_color_attachment())];
+        // NOTE: For the transparent pass we load the depth buffer. There should be no
+        // need to write to it, but store is set to `true` as a workaround for issue #3776,
+        // https://github.com/bevyengine/bevy/issues/3776
+        // so that wgpu does not clear the depth buffer.
+        // As the opaque and alpha mask passes run first, opaque meshes can occlude
+        // transparent ones.
+        let depth_stencil_attachment = Some(depth.get_attachment(StoreOp::Store));
+
         render_context.add_command_buffer_generation_task(move |render_device| {
             // Command encoder setup
             let mut command_encoder =
@@ -58,14 +67,8 @@ impl ViewNode for MainTransparentPass2dNode {
 
                 let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
                     label: Some("main_transparent_pass_2d"),
-                    color_attachments: &[Some(target.get_color_attachment())],
-                    // NOTE: For the transparent pass we load the depth buffer. There should be no
-                    // need to write to it, but store is set to `true` as a workaround for issue #3776,
-                    // https://github.com/bevyengine/bevy/issues/3776
-                    // so that wgpu does not clear the depth buffer.
-                    // As the opaque and alpha mask passes run first, opaque meshes can occlude
-                    // transparent ones.
-                    depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
+                    color_attachments: &color_attachments,
+                    depth_stencil_attachment,
                     timestamp_writes: None,
                     occlusion_query_set: None,
                 });

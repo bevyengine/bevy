@@ -12,7 +12,6 @@ use bevy_ecs::{
     entity::Entity,
     event::{Event, EventReader, EventWriter},
     name::Name,
-    prelude::require,
     system::{Commands, Query},
 };
 use bevy_math::ops;
@@ -34,7 +33,11 @@ use thiserror::Error;
 ///
 /// This event is produced by `bevy_input`.
 #[derive(Event, Debug, Clone, PartialEq, From)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -57,7 +60,11 @@ pub enum GamepadEvent {
 ///
 /// This event type is used by `bevy_input` to feed its components.
 #[derive(Event, Debug, Clone, PartialEq, From)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -74,7 +81,11 @@ pub enum RawGamepadEvent {
 
 /// [`GamepadButton`] changed event unfiltered by [`GamepadSettings`].
 #[derive(Event, Debug, Copy, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -102,7 +113,11 @@ impl RawGamepadButtonChangedEvent {
 
 /// [`GamepadAxis`] changed event unfiltered by [`GamepadSettings`].
 #[derive(Event, Debug, Copy, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -131,7 +146,11 @@ impl RawGamepadAxisChangedEvent {
 /// A Gamepad connection event. Created when a connection to a gamepad
 /// is established and when a gamepad is disconnected.
 #[derive(Event, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -166,7 +185,11 @@ impl GamepadConnectionEvent {
 
 /// [`GamepadButton`] event triggered by a digital state change.
 #[derive(Event, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -194,7 +217,11 @@ impl GamepadButtonStateChangedEvent {
 
 /// [`GamepadButton`] event triggered by an analog state change.
 #[derive(Event, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -226,7 +253,11 @@ impl GamepadButtonChangedEvent {
 /// [`GamepadAxis`] event triggered by an analog state change.
 #[derive(Event, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
     reflect(Serialize, Deserialize)
@@ -335,7 +366,11 @@ pub enum ButtonSettingsError {
 /// }
 /// ```
 #[derive(Component, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Component))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Component, Default)
+)]
 #[require(GamepadSettings)]
 pub struct Gamepad {
     /// The USB vendor ID as assigned by the USB-IF, if available.
@@ -535,7 +570,7 @@ impl Default for Gamepad {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -624,7 +659,11 @@ impl GamepadButton {
 /// This is used to determine which axis has changed its value when receiving a
 /// gamepad axis event. It is also used in the [`Gamepad`] component.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Hash, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -635,16 +674,16 @@ pub enum GamepadAxis {
     LeftStickX,
     /// The vertical value of the left stick.
     LeftStickY,
-    /// The value of the left `Z` button.
+    /// Generally the throttle axis of a HOTAS setup.
+    /// Refer to [`GamepadButton::LeftTrigger2`] for the analog trigger on a gamepad controller.
     LeftZ,
-
     /// The horizontal value of the right stick.
     RightStickX,
     /// The vertical value of the right stick.
     RightStickY,
-    /// The value of the right `Z` button.
+    /// The yaw of the main joystick, not supported on common gamepads.
+    /// Refer to [`GamepadButton::RightTrigger2`] for the analog trigger on a gamepad controller.
     RightZ,
-
     /// Non-standard support for other axis types (i.e. HOTAS sliders, potentiometers, etc).
     Other(u8),
 }
@@ -666,7 +705,11 @@ impl GamepadAxis {
 /// Encapsulation over [`GamepadAxis`] and [`GamepadButton`].
 // This is done so Gamepad can share a single Axis<T> and simplifies the API by having only one get/get_unclamped method
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq, From)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq, Clone)
+)]
 pub enum GamepadInput {
     /// A [`GamepadAxis`].
     Axis(GamepadAxis),
@@ -691,7 +734,7 @@ pub enum GamepadInput {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Component)
+    reflect(Debug, Default, Component, Clone)
 )]
 pub struct GamepadSettings {
     /// The default button settings.
@@ -772,7 +815,11 @@ impl GamepadSettings {
 ///
 /// Allowed values: `0.0 <= ``release_threshold`` <= ``press_threshold`` <= 1.0`
 #[derive(Debug, PartialEq, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Clone)
+)]
 pub struct ButtonSettings {
     press_threshold: f32,
     release_threshold: f32,
@@ -932,7 +979,11 @@ impl ButtonSettings {
 ///
 /// The valid range is `[-1.0, 1.0]`.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default, Clone)
+)]
 pub struct AxisSettings {
     /// Values that are higher than `livezone_upperbound` will be rounded up to 1.0.
     livezone_upperbound: f32,
@@ -1356,7 +1407,11 @@ impl ScaledAxisPosition {
 ///
 /// The valid range is from 0.0 to 1.0, inclusive.
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Clone)
+)]
 pub struct ButtonAxisSettings {
     /// The high value at which to apply rounding.
     pub high: f32,
@@ -1460,7 +1515,7 @@ pub fn gamepad_connection_system(
                 vendor_id,
                 product_id,
             } => {
-                let Some(mut gamepad) = commands.get_entity(id) else {
+                let Ok(mut gamepad) = commands.get_entity(id) else {
                     warn!("Gamepad {} removed before handling connection event.", id);
                     continue;
                 };
@@ -1475,7 +1530,7 @@ pub fn gamepad_connection_system(
                 info!("Gamepad {} connected.", id);
             }
             GamepadConnection::Disconnected => {
-                let Some(mut gamepad) = commands.get_entity(id) else {
+                let Ok(mut gamepad) = commands.get_entity(id) else {
                     warn!("Gamepad {} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
                     continue;
                 };
@@ -1494,7 +1549,11 @@ pub fn gamepad_connection_system(
 //
 /// The connection status of a gamepad.
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1624,7 +1683,11 @@ pub fn gamepad_event_processing_system(
 
 /// The intensity at which a gamepad's force-feedback motors may rumble.
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 pub struct GamepadRumbleIntensity {
     /// The rumble intensity of the strong gamepad motor.
     ///
@@ -1712,7 +1775,7 @@ impl GamepadRumbleIntensity {
 #[doc(alias = "vibration")]
 #[doc(alias = "vibrate")]
 #[derive(Event, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone))]
 pub enum GamepadRumbleRequest {
     /// Add a rumble to the given gamepad.
     ///
@@ -1764,7 +1827,7 @@ mod tests {
     use bevy_app::{App, PreUpdate};
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
 
     fn test_button_axis_settings_filter(
         settings: ButtonAxisSettings,

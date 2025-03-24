@@ -281,6 +281,7 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use crate::{AssetEvents, AssetPlugin, Handle};
     use alloc::{vec, vec::Vec};
@@ -289,7 +290,7 @@ mod tests {
 
     use crate::{AssetApp, Assets};
     use bevy_app::{App, AppExit, PostUpdate, Startup, TaskPoolPlugin, Update};
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_ecs::{
         component::Component,
         event::EventWriter,

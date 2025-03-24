@@ -82,7 +82,7 @@ use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
 use bevy_asset::{weak_handle, Asset, AssetApp, AssetId, Assets, Handle};
 use bevy_ecs::{
     resource::Resource,
-    schedule::{IntoSystemConfigs, SystemSet},
+    schedule::{IntoScheduleConfigs, SystemSet},
     system::{Res, ResMut},
 };
 use bevy_math::{Vec3, Vec4};

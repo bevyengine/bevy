@@ -8,7 +8,10 @@ use criterion::{
 criterion_group!(benches, segment_ease, curve_position, curve_iter_positions);
 
 fn segment_ease(c: &mut Criterion) {
-    let segment = black_box(CubicSegment::new_bezier(vec2(0.25, 0.1), vec2(0.25, 1.0)));
+    let segment = black_box(CubicSegment::new_bezier_easing(
+        vec2(0.25, 0.1),
+        vec2(0.25, 1.0),
+    ));
 
     c.bench_function(bench!("segment_ease"), |b| {
         let mut t = 0;

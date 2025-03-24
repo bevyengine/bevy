@@ -365,10 +365,8 @@ pub fn queue_shadows(
             draw_function,
             pipeline,
             entity: (entity, extracted_shadow.main_entity),
-            sort_key: (
-                FloatOrd(extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW),
-                entity.index(),
-            ),
+            sort_key: FloatOrd(extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW),
+
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
             index,
@@ -526,7 +524,7 @@ pub fn prepare_shadows(
         ui_meta.vertices.write_buffer(&render_device, &render_queue);
         ui_meta.indices.write_buffer(&render_device, &render_queue);
         *previous_len = batches.len();
-        commands.insert_or_spawn_batch(batches);
+        commands.try_insert_batch(batches);
     }
     extracted_shadows.box_shadows.clear();
 }

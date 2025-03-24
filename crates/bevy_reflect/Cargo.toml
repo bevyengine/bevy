@@ -20,16 +20,13 @@ documentation = ["bevy_reflect_derive/documentation"]
 ## Enables function reflection
 functions = ["bevy_reflect_derive/functions"]
 
-# When enabled, provides Bevy-related reflection implementations
-bevy = ["smallvec", "smol_str"]
-
 # Debugging Features
 
 ## Enables features useful for debugging reflection
 debug = ["debug_stack"]
 
 ## When enabled, keeps track of the current serialization/deserialization context for better error messages
-debug_stack = []
+debug_stack = ["std"]
 
 # Integrations
 
@@ -46,7 +43,7 @@ smallvec = ["dep:smallvec"]
 uuid = ["dep:uuid"]
 
 ## Adds reflection support to `wgpu-types` types.
-wgpu-types = ["dep:wgpu-types", "std"]
+wgpu-types = ["dep:wgpu-types"]
 
 # Platform Compatibility
 
@@ -62,6 +59,7 @@ std = [
   "smol_str?/std",
   "uuid?/std",
   "bevy_platform_support/std",
+  "wgpu-types?/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -71,12 +69,9 @@ critical-section = [
   "bevy_utils/critical-section",
 ]
 
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support.
-portable-atomic = [
-  "bevy_platform_support/portable-atomic",
-  "bevy_utils/portable-atomic",
-]
+## Enables use of browser APIs.
+## Note this is currently only applicable on `wasm32` architectures.
+web = ["bevy_platform_support/web", "uuid?/js"]
 
 [dependencies]
 # bevy
@@ -107,7 +102,7 @@ smallvec = { version = "1.11", default-features = false, optional = true }
 glam = { version = "0.29", default-features = false, features = [
   "serde",
 ], optional = true }
-petgraph = { version = "0.6", features = ["serde-1"], optional = true }
+petgraph = { version = "0.7", features = ["serde-1"], optional = true }
 smol_str = { version = "0.2.0", default-features = false, features = [
   "serde",
 ], optional = true }
@@ -116,10 +111,9 @@ uuid = { version = "1.13.1", default-features = false, optional = true, features
   "serde",
 ] }
 variadics_please = "1.1"
-wgpu-types = { version = "24", features = ["serde"], optional = true }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-uuid = { version = "1.13.1", default-features = false, features = ["js"] }
+wgpu-types = { version = "24", features = [
+  "serde",
+], optional = true, default-features = false }
 
 [dev-dependencies]
 ron = "0.8.0"

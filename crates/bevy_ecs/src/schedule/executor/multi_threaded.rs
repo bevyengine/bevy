@@ -5,21 +5,20 @@ use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
-use std::{
-    eprintln,
-    sync::{Mutex, MutexGuard},
-};
+#[cfg(feature = "std")]
+use std::eprintln;
+use std::sync::{Mutex, MutexGuard};
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
 
 use crate::{
     archetype::ArchetypeComponentId,
+    error::{default_error_handler, BevyError, ErrorContext, Result},
     prelude::Resource,
     query::Access,
-    result::{Error, Result, SystemErrorContext},
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
-    system::ScheduleSystem,
+    system::{ScheduleSystem, SystemParamValidationError},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -132,7 +131,7 @@ pub struct ExecutorState {
 struct Context<'scope, 'env, 'sys> {
     environment: &'env Environment<'env, 'sys>,
     scope: &'scope Scope<'scope, 'env, ()>,
-    error_handler: fn(Error, SystemErrorContext),
+    error_handler: fn(BevyError, ErrorContext),
 }
 
 impl Default for MultiThreadedExecutor {
@@ -183,7 +182,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(Error, SystemErrorContext),
+        error_handler: fn(BevyError, ErrorContext),
     ) {
         let state = self.state.get_mut().unwrap();
         // reset counts
@@ -283,7 +282,11 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
             .push(SystemResult { system_index })
             .unwrap_or_else(|error| unreachable!("{}", error));
         if let Err(payload) = res {
-            eprintln!("Encountered a panic in system `{}`!", &*system.name());
+            #[cfg(feature = "std")]
+            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
+            {
+                eprintln!("Encountered a panic in system `{}`!", &*system.name());
+            }
             // set the payload to propagate the error
             {
                 let mut panic_payload = self.environment.executor.panic_payload.lock().unwrap();
@@ -533,6 +536,7 @@ impl ExecutorState {
         world: UnsafeWorldCell,
     ) -> bool {
         let mut should_run = !self.skipped_systems.contains(system_index);
+        let error_handler = default_error_handler();
 
         for set_idx in conditions.sets_with_conditions_of_systems[system_index].ones() {
             if self.evaluated_sets.contains(set_idx) {
@@ -579,6 +583,14 @@ impl ExecutorState {
             // - `update_archetype_component_access` has been called for system.
             let valid_params = unsafe { system.validate_param_unsafe(world) };
             if !valid_params {
+                error_handler(
+                    SystemParamValidationError.into(),
+                    ErrorContext::System {
+                        name: system.name(),
+                        last_run: system.get_last_run(),
+                    },
+                );
+
                 self.skipped_systems.insert(system_index);
             }
             should_run &= valid_params;
@@ -614,7 +626,7 @@ impl ExecutorState {
                     ) {
                         (context.error_handler)(
                             err,
-                            SystemErrorContext {
+                            ErrorContext::System {
                                 name: system.name(),
                                 last_run: system.get_last_run(),
                             },
@@ -666,7 +678,7 @@ impl ExecutorState {
                     if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
                         (context.error_handler)(
                             err,
-                            SystemErrorContext {
+                            ErrorContext::System {
                                 name: system.name(),
                                 last_run: system.get_last_run(),
                             },
@@ -741,10 +753,14 @@ fn apply_deferred(
             system.apply_deferred(world);
         }));
         if let Err(payload) = res {
-            eprintln!(
-                "Encountered a panic when applying buffers for system `{}`!",
-                &*system.name()
-            );
+            #[cfg(feature = "std")]
+            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
+            {
+                eprintln!(
+                    "Encountered a panic when applying buffers for system `{}`!",
+                    &*system.name()
+                );
+            }
             return Err(payload);
         }
     }
@@ -760,6 +776,8 @@ unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [BoxedCondition],
     world: UnsafeWorldCell,
 ) -> bool {
+    let error_handler = default_error_handler();
+
     #[expect(
         clippy::unnecessary_fold,
         reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
@@ -772,6 +790,14 @@ unsafe fn evaluate_and_fold_conditions(
             //   required by the condition.
             // - `update_archetype_component_access` has been called for condition.
             if !unsafe { condition.validate_param_unsafe(world) } {
+                error_handler(
+                    SystemParamValidationError.into(),
+                    ErrorContext::System {
+                        name: condition.name(),
+                        last_run: condition.get_last_run(),
+                    },
+                );
+
                 return false;
             }
             // SAFETY:
@@ -804,7 +830,7 @@ impl MainThreadExecutor {
 mod tests {
     use crate::{
         prelude::Resource,
-        schedule::{ExecutorKind, IntoSystemConfigs, Schedule},
+        schedule::{ExecutorKind, IntoScheduleConfigs, Schedule},
         system::Commands,
         world::World,
     };

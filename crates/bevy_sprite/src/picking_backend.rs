@@ -20,14 +20,17 @@ use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
-/// A component that marks cameras that should be used in the [`SpritePickingPlugin`].
+/// An optional component that marks cameras that should be used in the [`SpritePickingPlugin`].
+///
+/// Only needed if [`SpritePickingSettings::require_markers`] is set to `true`, and ignored
+/// otherwise.
 #[derive(Debug, Clone, Default, Component, Reflect)]
-#[reflect(Debug, Default, Component)]
+#[reflect(Debug, Default, Component, Clone)]
 pub struct SpritePickingCamera;
 
 /// How should the [`SpritePickingPlugin`] handle picking and how should it handle transparent pixels
 #[derive(Debug, Clone, Copy, Reflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Clone)]
 pub enum SpritePickingMode {
     /// Even if a sprite is picked on a transparent pixel, it should still count within the backend.
     /// Only consider the rect of a given sprite.
@@ -42,7 +45,7 @@ pub enum SpritePickingMode {
 #[reflect(Resource, Default)]
 pub struct SpritePickingSettings {
     /// When set to `true` sprite picking will only consider cameras marked with
-    /// [`SpritePickingCamera`] and entities marked with [`Pickable`]. `false` by default.
+    /// [`SpritePickingCamera`].
     ///
     /// This setting is provided to give you fine-grained control over which cameras and entities
     /// should be used by the sprite picking backend at runtime.
@@ -62,17 +65,16 @@ impl Default for SpritePickingSettings {
     }
 }
 
+/// Enables the sprite picking backend, allowing you to click on, hover over and drag sprites.
 #[derive(Clone)]
 pub struct SpritePickingPlugin;
 
 impl Plugin for SpritePickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SpritePickingSettings>()
-            .register_type::<(
-                SpritePickingCamera,
-                SpritePickingMode,
-                SpritePickingSettings,
-            )>()
+            .register_type::<SpritePickingCamera>()
+            .register_type::<SpritePickingMode>()
+            .register_type::<SpritePickingSettings>()
             .add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
     }
 }
@@ -94,7 +96,7 @@ fn sprite_picking(
         Entity,
         &Sprite,
         &GlobalTransform,
-        Option<&Pickable>,
+        &Pickable,
         &ViewVisibility,
     )>,
     mut output: EventWriter<PointerHits>,
@@ -102,8 +104,7 @@ fn sprite_picking(
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
         .filter_map(|(entity, sprite, transform, pickable, vis)| {
-            let marker_requirement = !settings.require_markers || pickable.is_some();
-            if !transform.affine().is_nan() && vis.get() && marker_requirement {
+            if !transform.affine().is_nan() && vis.get() {
                 Some((entity, sprite, transform, pickable))
             } else {
                 None
@@ -116,7 +117,7 @@ fn sprite_picking(
         -transform.translation().z
     });
 
-    let primary_window = primary_window.get_single().ok();
+    let primary_window = primary_window.single().ok();
 
     for (pointer, location) in pointers.iter().filter_map(|(pointer, pointer_location)| {
         pointer_location.location().map(|loc| (pointer, loc))
@@ -219,8 +220,7 @@ fn sprite_picking(
                     }
                 };
 
-                blocked = cursor_in_valid_pixels_of_sprite
-                    && pickable.is_none_or(|p| p.should_block_lower);
+                blocked = cursor_in_valid_pixels_of_sprite && pickable.should_block_lower;
 
                 cursor_in_valid_pixels_of_sprite.then(|| {
                     let hit_pos_world =

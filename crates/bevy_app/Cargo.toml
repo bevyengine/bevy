@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "bevy_reflect", "bevy_tasks", "bevy_ecs/default"]
+default = ["std", "bevy_reflect", "bevy_ecs/default", "error_panic_hook"]
 
 # Functionality
 
@@ -23,9 +23,6 @@ reflect_functions = [
   "bevy_ecs/reflect_functions",
 ]
 
-## Adds support for running async background tasks
-bevy_tasks = ["dep:bevy_tasks"]
-
 # Debugging Features
 
 ## Enables `tracing` integration, allowing spans and other metrics to be reported
@@ -35,6 +32,10 @@ trace = ["dep:tracing"]
 ## Provides system stepping support, allowing them to be paused, stepped, and
 ## other debug operations which can help with diagnosing certain behaviors.
 bevy_debug_stepping = []
+
+## Will set the BevyError panic hook, which gives cleaner filtered backtraces when
+## a BevyError is hit.
+error_panic_hook = []
 
 # Platform Compatibility
 
@@ -47,26 +48,28 @@ std = [
   "dep:ctrlc",
   "downcast-rs/std",
   "bevy_utils/std",
-  "bevy_tasks?/std",
+  "bevy_tasks/std",
   "bevy_platform_support/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
 critical-section = [
-  "bevy_tasks?/critical-section",
+  "bevy_tasks/critical-section",
   "bevy_ecs/critical-section",
   "bevy_platform_support/critical-section",
   "bevy_reflect?/critical-section",
 ]
 
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support. 
-portable-atomic = [
-  "bevy_tasks?/portable-atomic",
-  "bevy_ecs/portable-atomic",
-  "bevy_platform_support/portable-atomic",
-  "bevy_reflect?/portable-atomic",
+## Enables use of browser APIs.
+## Note this is currently only applicable on `wasm32` architectures.
+web = [
+  "bevy_platform_support/web",
+  "bevy_tasks/web",
+  "bevy_reflect?/web",
+  "dep:wasm-bindgen",
+  "dep:web-sys",
+  "dep:console_error_panic_hook",
 ]
 
 [dependencies]
@@ -77,7 +80,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-featu
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
 
 # other
@@ -86,14 +89,15 @@ thiserror = { version = "2", default-features = false }
 variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
+cfg-if = "1.0.0"
 
 [target.'cfg(any(unix, windows))'.dependencies]
 ctrlc = { version = "3.4.4", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = { version = "0.2" }
-web-sys = { version = "0.3", features = ["Window"] }
-console_error_panic_hook = "0.1.6"
+wasm-bindgen = { version = "0.2", optional = true }
+web-sys = { version = "0.3", features = ["Window"], optional = true }
+console_error_panic_hook = { version = "0.1.6", optional = true }
 
 [dev-dependencies]
 crossbeam-channel = "0.5.0"

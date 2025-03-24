@@ -26,7 +26,7 @@ use bevy_ecs::{
 ///
 /// [`Trigger`]: bevy_ecs::observer::Trigger
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Event, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, PartialEq, Clone)]
 pub struct SceneInstanceReady {
     /// Instance which has been spawned.
     pub instance_id: InstanceId,
@@ -41,7 +41,7 @@ pub struct InstanceInfo {
 
 /// Unique id identifying a scene instance.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Reflect)]
-#[reflect(Debug, PartialEq, Hash)]
+#[reflect(Debug, PartialEq, Hash, Clone)]
 pub struct InstanceId(Uuid);
 
 impl InstanceId {
@@ -588,7 +588,8 @@ mod tests {
         let (scene_entity, scene_component_a) = app
             .world_mut()
             .query::<(Entity, &ComponentA)>()
-            .single(app.world());
+            .single(app.world())
+            .unwrap();
         assert_eq!(scene_component_a.x, 3.0);
         assert_eq!(scene_component_a.y, 4.0);
         assert_eq!(
@@ -631,7 +632,10 @@ mod tests {
 
         // clone only existing entity
         let mut scene_spawner = SceneSpawner::default();
-        let entity = world.query_filtered::<Entity, With<A>>().single(&world);
+        let entity = world
+            .query_filtered::<Entity, With<A>>()
+            .single(&world)
+            .unwrap();
         let scene = DynamicSceneBuilder::from_world(&world)
             .extract_entity(entity)
             .build();
@@ -869,5 +873,74 @@ mod tests {
 
         app.update();
         check(app.world_mut(), 0);
+    }
+
+    #[test]
+    fn scene_child_order_preserved_when_archetype_order_mismatched() {
+        let mut app = App::new();
+
+        app.add_plugins(ScheduleRunnerPlugin::default())
+            .add_plugins(AssetPlugin::default())
+            .add_plugins(ScenePlugin)
+            .register_type::<ComponentA>()
+            .register_type::<ComponentF>();
+        app.update();
+
+        let mut scene_world = World::new();
+        let root = scene_world.spawn_empty().id();
+        let temporary_root = scene_world.spawn_empty().id();
+        // Spawn entities with different parent first before parenting them to the actual root, allowing us
+        // to decouple child order from archetype-creation-order
+        let child1 = scene_world
+            .spawn((
+                ChildOf {
+                    parent: temporary_root,
+                },
+                ComponentA { x: 1.0, y: 1.0 },
+            ))
+            .id();
+        let child2 = scene_world
+            .spawn((
+                ChildOf {
+                    parent: temporary_root,
+                },
+                ComponentA { x: 2.0, y: 2.0 },
+            ))
+            .id();
+        // the "first" child is intentionally spawned with a different component to force it into a "newer" archetype,
+        // meaning it will be iterated later in the spawn code.
+        let child0 = scene_world
+            .spawn((
+                ChildOf {
+                    parent: temporary_root,
+                },
+                ComponentF,
+            ))
+            .id();
+
+        scene_world
+            .entity_mut(root)
+            .add_children(&[child0, child1, child2]);
+
+        let scene = Scene::new(scene_world);
+        let scene_handle = app.world_mut().resource_mut::<Assets<Scene>>().add(scene);
+
+        let spawned = app.world_mut().spawn(SceneRoot(scene_handle.clone())).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let spawned_root = world.entity(spawned).get::<Children>().unwrap()[0];
+        let children = world.entity(spawned_root).get::<Children>().unwrap();
+        assert_eq!(children.len(), 3);
+        assert!(world.entity(children[0]).get::<ComponentF>().is_some());
+        assert_eq!(
+            world.entity(children[1]).get::<ComponentA>().unwrap().x,
+            1.0
+        );
+        assert_eq!(
+            world.entity(children[2]).get::<ComponentA>().unwrap().x,
+            2.0
+        );
     }
 }

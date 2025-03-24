@@ -139,6 +139,12 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Gets a mutable reference to the [`World`] this [`UnsafeWorldCell`] belongs to.
     /// This is an incredibly error-prone operation and is only valid in a small number of circumstances.
     ///
+    /// Calling this method implies mutable access to the *whole* world (see first point on safety section
+    /// below), which includes all entities, components, and resources. Notably, calling this on
+    /// [`WorldQuery::init_fetch`](crate::query::WorldQuery::init_fetch) and
+    /// [`SystemParam::get_param`](crate::system::SystemParam::get_param) are most likely *unsound* unless
+    /// you can prove that the underlying [`World`] is exclusive, which in normal circumstances is not.
+    ///
     /// # Safety
     /// - `self` must have been obtained from a call to [`World::as_unsafe_world_cell`]
     ///   (*not* `as_unsafe_world_cell_readonly` or any other method of construction that
@@ -671,7 +677,9 @@ impl<'w> UnsafeWorldCell<'w> {
     pub(crate) unsafe fn increment_trigger_id(self) {
         self.assert_allows_mutable_access();
         // SAFETY: Caller ensure there are no outstanding references
-        unsafe { (*self.ptr).last_trigger_id += 1 }
+        unsafe {
+            (*self.ptr).last_trigger_id = (*self.ptr).last_trigger_id.wrapping_add(1);
+        }
     }
 }
 

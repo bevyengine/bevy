@@ -138,6 +138,15 @@ pub enum BindlessResourceType {
     /// Note that this differs from a binding array. Cubemap texture arrays must
     /// all have the same size and format.
     TextureCubeArray,
+    /// Multiple instances of plain old data concatenated into a single buffer.
+    ///
+    /// This corresponds to the `#[data]` declaration in
+    /// [`crate::render_resource::AsBindGroup`].
+    ///
+    /// Note that this resource doesn't itself map to a GPU-level binding
+    /// resource and instead depends on the `MaterialBindGroupAllocator` to
+    /// create a binding resource for it.
+    DataBuffer,
 }
 
 /// Describes a bindless buffer.
@@ -172,8 +181,8 @@ pub struct BindlessBufferDescriptor {
     /// `BINDLESS_INDEX` in `#[uniform(BINDLESS_INDEX, StandardMaterialUniform,
     /// bindless(BINDING_NUMBER)]`.
     pub bindless_index: BindlessIndex,
-    /// The size of the buffer in bytes.
-    pub size: usize,
+    /// The size of the buffer in bytes, if known.
+    pub size: Option<usize>,
 }
 
 /// The index of the actual binding in the bind group.

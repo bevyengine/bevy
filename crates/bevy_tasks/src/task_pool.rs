@@ -74,15 +74,19 @@ impl TaskPoolBuilder {
     /// This is called on the thread itself and has access to all thread-local storage.
     /// This will block running async tasks on the thread until the callback completes.
     pub fn on_thread_spawn(mut self, f: impl Fn() + Send + Sync + 'static) -> Self {
-        #[cfg(feature = "portable-atomic")]
-        let arc = {
-            let boxed = Box::new(f);
-            let boxed: Box<dyn Fn() + Send + Sync + 'static> = boxed;
-            Arc::from(boxed)
-        };
-
-        #[cfg(not(feature = "portable-atomic"))]
         let arc = Arc::new(f);
+
+        #[cfg(not(target_has_atomic = "ptr"))]
+        #[expect(
+            unsafe_code,
+            reason = "unsized coercion is an unstable feature for non-std types"
+        )]
+        // SAFETY:
+        // - Coercion from `impl Fn` to `dyn Fn` is valid
+        // - `Arc::from_raw` receives a valid pointer from a previous call to `Arc::into_raw`
+        let arc = unsafe {
+            Arc::from_raw(Arc::into_raw(arc) as *const (dyn Fn() + Send + Sync + 'static))
+        };
 
         self.on_thread_spawn = Some(arc);
         self
@@ -93,15 +97,19 @@ impl TaskPoolBuilder {
     /// This is called on the thread itself and has access to all thread-local storage.
     /// This will block thread termination until the callback completes.
     pub fn on_thread_destroy(mut self, f: impl Fn() + Send + Sync + 'static) -> Self {
-        #[cfg(feature = "portable-atomic")]
-        let arc = {
-            let boxed = Box::new(f);
-            let boxed: Box<dyn Fn() + Send + Sync + 'static> = boxed;
-            Arc::from(boxed)
-        };
-
-        #[cfg(not(feature = "portable-atomic"))]
         let arc = Arc::new(f);
+
+        #[cfg(not(target_has_atomic = "ptr"))]
+        #[expect(
+            unsafe_code,
+            reason = "unsized coercion is an unstable feature for non-std types"
+        )]
+        // SAFETY:
+        // - Coercion from `impl Fn` to `dyn Fn` is valid
+        // - `Arc::from_raw` receives a valid pointer from a previous call to `Arc::into_raw`
+        let arc = unsafe {
+            Arc::from_raw(Arc::into_raw(arc) as *const (dyn Fn() + Send + Sync + 'static))
+        };
 
         self.on_thread_destroy = Some(arc);
         self
@@ -478,7 +486,7 @@ impl TaskPool {
                     .is_ok();
             }
         };
-        execute_forever.or(get_results).await
+        get_results.or(execute_forever).await
     }
 
     #[inline]
@@ -497,7 +505,7 @@ impl TaskPool {
                 let _result = AssertUnwindSafe(tick_forever).catch_unwind().await.is_ok();
             }
         };
-        execute_forever.or(get_results).await
+        get_results.or(execute_forever).await
     }
 
     #[inline]
@@ -519,7 +527,7 @@ impl TaskPool {
                     .is_ok();
             }
         };
-        execute_forever.or(get_results).await
+        get_results.or(execute_forever).await
     }
 
     #[inline]
@@ -537,7 +545,7 @@ impl TaskPool {
                 let _result = AssertUnwindSafe(tick_forever).catch_unwind().await.is_ok();
             }
         };
-        execute_forever.or(get_results).await
+        get_results.or(execute_forever).await
     }
 
     /// Spawns a static future onto the thread pool. The returned [`Task`] is a

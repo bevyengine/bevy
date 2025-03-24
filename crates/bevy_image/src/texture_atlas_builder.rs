@@ -18,7 +18,7 @@ pub enum TextureAtlasBuilderError {
     NotEnoughSpace,
     #[error("added a texture with the wrong format in an atlas")]
     WrongFormat,
-    /// Attempted to add a texture to an uninitialzied atlas
+    /// Attempted to add a texture to an uninitialized atlas
     #[error("cannot add texture to uninitialized atlas texture")]
     UninitializedAtlas,
     /// Attempted to add an uninitialized texture to an atlas
@@ -173,12 +173,11 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// # Usage
     ///
     /// ```rust
-    /// # use bevy_sprite::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::*;
     /// # use bevy_image::prelude::*;
     ///
-    /// fn my_system(mut commands: Commands, mut textures: ResMut<Assets<Image>>, mut layouts: ResMut<Assets<TextureAtlasLayout>>) {
+    /// fn my_system(mut textures: ResMut<Assets<Image>>, mut layouts: ResMut<Assets<TextureAtlasLayout>>) {
     ///     // Declare your builder
     ///     let mut builder = TextureAtlasBuilder::default();
     ///     // Customize it
@@ -187,8 +186,6 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///     let (atlas_layout, atlas_sources, texture) = builder.build().unwrap();
     ///     let texture = textures.add(texture);
     ///     let layout = layouts.add(atlas_layout);
-    ///     // Spawn your sprite
-    ///     commands.spawn(Sprite::from_atlas_image(texture, TextureAtlas::from(layout)));
     /// }
     /// ```
     ///

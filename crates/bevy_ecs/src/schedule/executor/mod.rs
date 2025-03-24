@@ -16,9 +16,9 @@ use fixedbitset::FixedBitSet;
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
+    error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
     query::Access,
-    result::{Error, Result, SystemErrorContext},
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
     system::{ScheduleSystem, System, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -33,7 +33,7 @@ pub(super) trait SystemExecutor: Send + Sync {
         schedule: &mut SystemSchedule,
         world: &mut World,
         skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(Error, SystemErrorContext),
+        error_handler: fn(BevyError, ErrorContext),
     );
     fn set_apply_final_deferred(&mut self, value: bool);
 }
@@ -265,7 +265,7 @@ mod __rust_begin_short_backtrace {
     use core::hint::black_box;
 
     use crate::{
-        result::Result,
+        error::Result,
         system::{ReadOnlySystem, ScheduleSystem},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
@@ -312,9 +312,9 @@ mod __rust_begin_short_backtrace {
 #[cfg(test)]
 mod tests {
     use crate::{
-        prelude::{IntoSystemConfigs, IntoSystemSetConfigs, Resource, Schedule, SystemSet},
+        prelude::{IntoScheduleConfigs, Resource, Schedule, SystemSet},
         schedule::ExecutorKind,
-        system::{Commands, Res, WithParamWarnPolicy},
+        system::Commands,
         world::World,
     };
 
@@ -346,8 +346,7 @@ mod tests {
                 // This system depends on a system that is always skipped.
                 (|mut commands: Commands| {
                     commands.insert_resource(R2);
-                })
-                .warn_param_missing(),
+                }),
             )
                 .chain(),
         );
@@ -358,35 +357,4 @@ mod tests {
 
     #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
     struct S1;
-
-    #[test]
-    fn invalid_condition_param_skips_system() {
-        for executor in EXECUTORS {
-            invalid_condition_param_skips_system_core(executor);
-        }
-    }
-
-    fn invalid_condition_param_skips_system_core(executor: ExecutorKind) {
-        let mut world = World::new();
-        let mut schedule = Schedule::default();
-        schedule.set_executor_kind(executor);
-        schedule.configure_sets(S1.run_if((|_: Res<R1>| true).warn_param_missing()));
-        schedule.add_systems((
-            // System gets skipped if system set run conditions fail validation.
-            (|mut commands: Commands| {
-                commands.insert_resource(R1);
-            })
-            .warn_param_missing()
-            .in_set(S1),
-            // System gets skipped if run conditions fail validation.
-            (|mut commands: Commands| {
-                commands.insert_resource(R2);
-            })
-            .warn_param_missing()
-            .run_if((|_: Res<R2>| true).warn_param_missing()),
-        ));
-        schedule.run(&mut world);
-        assert!(world.get_resource::<R1>().is_none());
-        assert!(world.get_resource::<R2>().is_none());
-    }
 }
