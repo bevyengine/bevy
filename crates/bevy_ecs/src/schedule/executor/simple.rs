@@ -176,7 +176,7 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     conditions
         .iter_mut()
         .map(|condition| {
-            match unsafe { condition.validate_param_unsafe(world.into()) } {
+            match condition.validate_param(world) {
                 ValidationOutcome::Valid => (),
                 ValidationOutcome::Invalid => {
                     error_handler(
