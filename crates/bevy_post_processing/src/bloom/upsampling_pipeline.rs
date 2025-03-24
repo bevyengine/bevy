@@ -2,7 +2,7 @@ use super::{
     downsampling_pipeline::BloomUniforms, Bloom, BloomCompositeMode, BLOOM_SHADER_HANDLE,
     BLOOM_TEXTURE_FORMAT,
 };
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+use bevy_core_pipeline::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
     prelude::{Component, Entity},
     resource::Resource,

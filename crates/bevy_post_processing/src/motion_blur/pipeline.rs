@@ -24,7 +24,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget},
 };
 
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+use bevy_core_pipeline::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 
 use super::{MotionBlur, MOTION_BLUR_SHADER_HANDLE};
 
