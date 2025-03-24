@@ -2,14 +2,15 @@
 //! render world to the main world
 
 use bevy::{
+    diagnostic::FrameCount,
     ecs::system::{LocalBuilder, ParamBuilder},
     prelude::*,
-    render::render_event::{MainEventWriter, RenderEventApp},
     render::{
-        extract_resource::{ExtractResource, ExtractResourcePlugin},
+        render_event::{MainEventWriter, RenderEventApp},
         Render, RenderApp,
     },
 };
+use bevy_render::Extract;
 
 fn main() -> AppExit {
     App::new()
@@ -21,10 +22,8 @@ fn main() -> AppExit {
 struct RenderEventDemoPlugin;
 impl Plugin for RenderEventDemoPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ExtractResourcePlugin::<FrameIndex>::default())
-            .init_resource::<FrameIndex>()
-            .add_render_event::<FrameRenderedEvent>()
-            .add_systems(Update, (increment_frame_index, read_render_event));
+        app.add_render_event::<FrameRenderedEvent>()
+            .add_systems(Update, read_render_event);
     }
 
     fn finish(&self, app: &mut App) {
@@ -32,7 +31,10 @@ impl Plugin for RenderEventDemoPlugin {
             return;
         };
 
-        render_app.init_resource::<FrameIndex>();
+        // Since `FrameCount` is not present in the render world by default,
+        // we need to initialize it here. This is specific to this example,
+        // and should be unnecessary for most users.
+        render_app.init_resource::<FrameCount>();
 
         let send_render_event = (
             ParamBuilder,
@@ -43,40 +45,47 @@ impl Plugin for RenderEventDemoPlugin {
             .build_state(render_app.world_mut())
             .build_system(send_render_event);
 
-        render_app.add_systems(Render, send_render_event);
+        render_app
+            .add_systems(ExtractSchedule, extract_frame_count)
+            .add_systems(Render, send_render_event);
     }
 }
 
-#[derive(Resource, Default, Clone, Copy, ExtractResource)]
-struct FrameIndex(u32);
+// Since `FrameCount` is not present in the render world by default,
+// we need to extract it here. This is specific to this example, and should
+// be unnecessary for most users.
+fn extract_frame_count(
+    main_frame_count: Extract<Res<FrameCount>>,
+    mut render_frame_count: ResMut<FrameCount>,
+) {
+    //since the frame count gets updated before extraction, it'll appear
+    //as one greater than it should be.
+    render_frame_count.0 = main_frame_count.0 - 1;
+}
 
 #[derive(Event)]
 struct FrameRenderedEvent(u32);
 
-fn increment_frame_index(mut frame_index: ResMut<FrameIndex>) {
-    frame_index.0 += 1;
-}
-
 fn send_render_event(
-    frame_index: Res<FrameIndex>,
+    frame_count: Res<FrameCount>,
     mut render_events: MainEventWriter<FrameRenderedEvent>,
     time: Res<Time>,
     mut timer: Local<Timer>,
 ) {
     timer.tick(time.delta());
     if timer.finished() {
-        render_events.write(FrameRenderedEvent(frame_index.0));
+        render_events.write(FrameRenderedEvent(frame_count.0));
     }
 }
 
 fn read_render_event(
     mut render_events: EventReader<FrameRenderedEvent>,
-    frame_index: Res<FrameIndex>,
+    frame_count: Res<FrameCount>,
 ) {
     for render_event in render_events.read() {
         println!(
             "Render event from frame {} received in frame {}",
-            render_event.0, frame_index.0
+            render_event.0, frame_count.0
         );
     }
 }
