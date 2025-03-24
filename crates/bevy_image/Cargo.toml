@@ -48,7 +48,7 @@ zstd_rust = ["zstd", "dep:ruzstd"]
 zstd_native = ["zstd", "dep:zstd"]
 
 # Enables compressed KTX2 UASTC texture output on the asset processor
-compressed_image_saver = ["basis-universal", "basis-universal/encoding", "basis-universal/zstd"]
+compressed_image_saver = ["basis-universal", "basis-universal/encoding"]
 
 [dependencies]
 # bevy
