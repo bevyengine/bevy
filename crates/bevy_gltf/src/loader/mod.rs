@@ -975,10 +975,7 @@ async fn load_image<'a, 'b>(
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
     let sampler_descriptor = texture_sampler(&gltf_texture);
-    #[cfg(all(debug_assertions, feature = "dds"))]
-    let name = gltf_texture
-        .name()
-        .map_or("Unknown GLTF Texture".to_string(), ToString::to_string);
+
     match gltf_texture.source().source() {
         Source::View { view, mime_type } => {
             let start = view.offset();
