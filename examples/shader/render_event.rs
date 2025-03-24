@@ -7,10 +7,9 @@ use bevy::{
     prelude::*,
     render::{
         render_event::{MainEventWriter, RenderEventApp},
-        Render, RenderApp,
+        Extract, Render, RenderApp,
     },
 };
-use bevy_render::Extract;
 
 fn main() -> AppExit {
     App::new()
