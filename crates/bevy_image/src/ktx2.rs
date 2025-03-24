@@ -1,8 +1,8 @@
 use bevy_color::Srgba;
 use bevy_utils::default;
 use ktx2::{
-    BasicDataFormatDescriptor, ChannelTypeQualifiers, ColorModel, DataFormatDescriptorHeader,
-    Header, SampleInformation, SupercompressionScheme,
+    ChannelTypeQualifiers, ColorModel, DfdBlockBasic, DfdHeader, Header, SampleInformation,
+    SupercompressionScheme,
 };
 use thiserror::Error;
 use wgpu_types::{
@@ -535,15 +535,14 @@ pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
         return ktx2_format_to_texture_format(format);
     }
 
-    for data_format_descriptor in ktx2.data_format_descriptors() {
-        if data_format_descriptor.header == DataFormatDescriptorHeader::BASIC {
-            let basic_data_format_descriptor =
-                BasicDataFormatDescriptor::parse(data_format_descriptor.data)
-                    .map_err(|err| Ktx2TextureError::Invalid(format!("KTX2: {err:?}")))?;
-            let sample_information = basic_data_format_descriptor
-                .sample_information()
-                .collect::<Vec<_>>();
-            return ktx2_dfd_to_texture_format(&basic_data_format_descriptor, &sample_information);
+    for dfd_block in ktx2.dfd_blocks() {
+        if dfd_block.header == DfdHeader::BASIC {
+            let basic_block = DfdBlockBasic::parse(dfd_block.data).map_err(|err| {
+                Ktx2TextureError::Invalid(format!("Unable to parse Basic DFD Block Header {err:?}"))
+            })?;
+
+            let sample_information = basic_block.sample_information().collect::<Vec<_>>();
+            return ktx2_dfd_to_texture_format(&basic_block, &sample_information);
         }
     }
 
@@ -610,7 +609,7 @@ fn sample_information_to_data_type(
 }
 
 pub fn ktx2_dfd_to_texture_format(
-    data_format_descriptor: &BasicDataFormatDescriptor,
+    data_format_descriptor: &DfdBlockBasic,
     sample_information: &[SampleInformation],
 ) -> Result<TextureFormat, Ktx2TextureError> {
     let is_srgb =

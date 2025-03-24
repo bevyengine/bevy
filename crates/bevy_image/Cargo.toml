@@ -78,7 +78,7 @@ futures-lite = "2.0.1"
 guillotiere = "0.6.0"
 rectangle-pack = "0.4"
 ddsfile = { version = "0.5.2", optional = true }
-ktx2 = { git = "https://github.com/BVE-Reborn/ktx2", rev = "d081d3aa3ca6c7a20dd20479c7f5f1cd72375714", optional = true } # Unreleased 0.4.x
+ktx2 = { version = "0.4.0", optional = true }
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
 zstd = { version = "0.13.3", optional = true }
