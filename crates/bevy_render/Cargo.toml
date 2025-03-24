@@ -79,7 +79,7 @@ bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-d
 image = { version = "0.25.2", default-features = false }
 
 # misc
-codespan-reporting = "0.11.0"
+codespan-reporting = "0.12.0"
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use Wasm threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
