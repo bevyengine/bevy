@@ -91,9 +91,9 @@ pub mod prelude {
         spawn::{Spawn, SpawnRelated},
         system::{
             Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
-            IntoSystem, Local, NonSend, NonSendMarker, NonSendMut, ParamSet, Populated, Query,
-            ReadOnlySystem, Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction, WithParamWarnPolicy,
+            IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
+            Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            SystemParamFunction,
         },
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,

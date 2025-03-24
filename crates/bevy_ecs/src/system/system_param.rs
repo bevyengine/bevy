@@ -28,7 +28,9 @@ use core::{
     ops::{Deref, DerefMut},
     panic::Location,
 };
+use derive_more::derive::Display;
 use disqualified::ShortName;
+use thiserror::Error;
 
 use super::Populated;
 use variadics_please::{all_tuples, all_tuples_enumerated};
@@ -232,7 +234,11 @@ pub unsafe trait SystemParam: Sized {
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
 
     /// Validates that the param can be acquired by the [`get_param`](SystemParam::get_param).
-    /// Built-in executors use this to prevent systems with invalid params from running.
+    ///
+    /// Built-in executors use this to prevent systems with invalid params from running,
+    /// and any failures here will be bubbled up to the default error handler defined in [`bevy_ecs::error`],
+    /// with a value of type [`SystemParamValidationError`].
+    ///
     /// For nested [`SystemParam`]s validation will fail if any
     /// delegated validation fails.
     ///
@@ -433,9 +439,6 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
             )
         };
         let is_valid = query.single_inner().is_ok();
-        if !is_valid {
-            system_meta.try_warn_param::<Self>();
-        }
         is_valid
     }
 }
@@ -501,11 +504,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
             )
         };
         let result = query.single_inner();
-        let is_valid = !matches!(result, Err(QuerySingleError::MultipleEntities(_)));
-        if !is_valid {
-            system_meta.try_warn_param::<Self>();
-        }
-        is_valid
+        !matches!(result, Err(QuerySingleError::MultipleEntities(_)))
     }
 }
 
@@ -841,7 +840,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        system_meta: &SystemMeta,
+        _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
@@ -849,9 +848,6 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             .resources
             .get(component_id)
             .is_some_and(ResourceData::is_present);
-        if !is_valid {
-            system_meta.try_warn_param::<Self>();
-        }
         is_valid
     }
 
@@ -953,7 +949,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        system_meta: &SystemMeta,
+        _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
@@ -961,9 +957,6 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             .resources
             .get(component_id)
             .is_some_and(ResourceData::is_present);
-        if !is_valid {
-            system_meta.try_warn_param::<Self>();
-        }
         is_valid
     }
 
@@ -1550,7 +1543,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        system_meta: &SystemMeta,
+        _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
@@ -1558,9 +1551,6 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             .non_send_resources
             .get(component_id)
             .is_some_and(ResourceData::is_present);
-        if !is_valid {
-            system_meta.try_warn_param::<Self>();
-        }
         is_valid
     }
 
@@ -1659,7 +1649,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        system_meta: &SystemMeta,
+        _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
@@ -1667,9 +1657,6 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
             .non_send_resources
             .get(component_id)
             .is_some_and(ResourceData::is_present);
-        if !is_valid {
-            system_meta.try_warn_param::<Self>();
-        }
         is_valid
     }
 
@@ -2026,7 +2013,7 @@ macro_rules! impl_system_param_tuple {
             reason = "Zero-length tuples won't use some of the parameters."
         )]
         $(#[$meta])*
-        // SAFETY: implementors of each `SystemParam` in the tuple have validated their impls
+        // SAFETY: implementers of each `SystemParam` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
@@ -2618,6 +2605,13 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) }
     }
 }
+
+/// An error that occurs when a system parameter is not valid.
+///
+/// Generated when [`SystemParam::validate_param`] returns `false`,
+/// and handled using the unified error handling mechanisms defined in [`bevy_ecs::error`].
+#[derive(Debug, PartialEq, Eq, Clone, Display, Error)]
+pub struct SystemParamValidationError;
 
 #[cfg(test)]
 mod tests {

@@ -2215,6 +2215,7 @@ wasm = false
 name = "fallible_params"
 path = "examples/ecs/fallible_params.rs"
 doc-scrape-examples = true
+required-features = ["configurable_error_handler"]
 
 [package.metadata.example.fallible_params]
 name = "Fallible System Parameters"
