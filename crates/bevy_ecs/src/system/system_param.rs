@@ -2108,8 +2108,9 @@ macro_rules! impl_system_param_tuple {
                 world: UnsafeWorldCell,
             ) -> ValidationOutcome {
                 let ($($param,)*) = state;
-                //$($param::validate_param($param, system_meta, world)&&)* true
-                todo!("How do I translate this to use ValidationOutcome::combine?");
+                // Run validation on each parameter in the tuple,
+                // combining the results into a single `ValidationOutcome`.
+                ValidationOutcome::Valid$(.combine($param::validate_param($param, system_meta, world)))*
             }
 
             #[inline]
