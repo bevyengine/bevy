@@ -1766,10 +1766,8 @@ impl<'w> EntityWorldMut<'w> {
         self.assert_not_despawned();
         let entity = self.entity;
         let location = self.location;
-        let tick = self.world.change_tick();
 
-        let mut remover =
-            BundleRemover::new::<T>(self.world, self.location.archetype_id, true, tick)?;
+        let mut remover = BundleRemover::new::<T>(self.world, self.location.archetype_id, true)?;
         // SAFETY: The passed location has the sane archetype as the remover, since they came from the same location.
         let (new_location, result) = unsafe {
             remover.remove(
@@ -1825,10 +1823,9 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub(crate) fn remove_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
         self.assert_not_despawned();
-        let tick = self.world.change_tick();
 
         let Some(mut remover) =
-            BundleRemover::new::<T>(self.world, self.location.archetype_id, false, tick)
+            BundleRemover::new::<T>(self.world, self.location.archetype_id, false)
         else {
             return self;
         };
@@ -1869,17 +1866,9 @@ impl<'w> EntityWorldMut<'w> {
         };
         let bundle_id = bundles.register_contributed_bundle_info::<T>(&mut registrator, storages);
 
-        let tick = self.world.change_tick();
-
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
-            BundleRemover::new_with_id(
-                self.world,
-                self.location.archetype_id,
-                bundle_id,
-                false,
-                tick,
-            )
+            BundleRemover::new_with_id(self.world, self.location.archetype_id, bundle_id, false)
         }) else {
             return self;
         };
@@ -1938,17 +1927,9 @@ impl<'w> EntityWorldMut<'w> {
                 .bundles
                 .init_dynamic_info(&mut self.world.storages, &registrator, to_remove);
 
-        let tick = self.world.change_tick();
-
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
-            BundleRemover::new_with_id(
-                self.world,
-                self.location.archetype_id,
-                remove_bundle,
-                false,
-                tick,
-            )
+            BundleRemover::new_with_id(self.world, self.location.archetype_id, remove_bundle, false)
         }) else {
             return self;
         };
@@ -1994,16 +1975,9 @@ impl<'w> EntityWorldMut<'w> {
             component_id,
         );
 
-        let tick = self.world.change_tick();
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
-            BundleRemover::new_with_id(
-                self.world,
-                self.location.archetype_id,
-                bundle_id,
-                false,
-                tick,
-            )
+            BundleRemover::new_with_id(self.world, self.location.archetype_id, bundle_id, false)
         }) else {
             return self;
         };
@@ -2040,16 +2014,9 @@ impl<'w> EntityWorldMut<'w> {
             component_ids,
         );
 
-        let tick = self.world.change_tick();
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
-            BundleRemover::new_with_id(
-                self.world,
-                self.location.archetype_id,
-                bundle_id,
-                false,
-                tick,
-            )
+            BundleRemover::new_with_id(self.world, self.location.archetype_id, bundle_id, false)
         }) else {
             return self;
         };
@@ -2094,16 +2061,9 @@ impl<'w> EntityWorldMut<'w> {
             component_ids.as_slice(),
         );
 
-        let tick = self.world.change_tick();
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
-            BundleRemover::new_with_id(
-                self.world,
-                self.location.archetype_id,
-                bundle_id,
-                false,
-                tick,
-            )
+            BundleRemover::new_with_id(self.world, self.location.archetype_id, bundle_id, false)
         }) else {
             return self;
         };

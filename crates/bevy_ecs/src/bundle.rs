@@ -1371,11 +1371,6 @@ pub(crate) struct BundleRemover<'w> {
     old_and_new_table: Option<(NonNull<Table>, NonNull<Table>)>,
     old_archetype: NonNull<Archetype>,
     new_archetype: NonNull<Archetype>,
-    #[expect(
-        unused,
-        reason = "It makes sense to know the tick the bundle is removed on. This could be useful."
-    )]
-    change_tick: Tick,
 }
 
 impl<'w> BundleRemover<'w> {
@@ -1387,7 +1382,6 @@ impl<'w> BundleRemover<'w> {
         world: &'w mut World,
         archetype_id: ArchetypeId,
         require_all: bool,
-        change_tick: Tick,
     ) -> Option<Self> {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
@@ -1396,7 +1390,7 @@ impl<'w> BundleRemover<'w> {
             .bundles
             .register_info::<T>(&mut registrator, &mut world.storages);
         // SAFETY: we initialized this bundle_id in `init_info`
-        unsafe { Self::new_with_id(world, archetype_id, bundle_id, require_all, change_tick) }
+        unsafe { Self::new_with_id(world, archetype_id, bundle_id, require_all) }
     }
 
     /// Creates a new [`BundleRemover`], if such a remover would do anything.
@@ -1411,7 +1405,6 @@ impl<'w> BundleRemover<'w> {
         archetype_id: ArchetypeId,
         bundle_id: BundleId,
         require_all: bool,
-        change_tick: Tick,
     ) -> Option<Self> {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         // SAFETY: Ensured by caller and that intersections are never `None`.
@@ -1446,7 +1439,6 @@ impl<'w> BundleRemover<'w> {
             new_archetype: new_archetype.into(),
             old_archetype: old_archetype.into(),
             old_and_new_table: tables,
-            change_tick,
             world: world.as_unsafe_world_cell(),
         })
     }
