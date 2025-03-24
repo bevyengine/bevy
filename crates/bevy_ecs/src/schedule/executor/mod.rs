@@ -312,17 +312,14 @@ mod __rust_begin_short_backtrace {
 #[cfg(test)]
 mod tests {
     use crate::{
-        prelude::{IntoScheduleConfigs, Resource, Schedule, SystemSet},
+        prelude::{Component, Resource, Schedule},
         schedule::ExecutorKind,
-        system::Commands,
+        system::{Populated, Res, ResMut, Single},
         world::World,
     };
 
-    #[derive(Resource)]
-    struct R1;
-
-    #[derive(Resource)]
-    struct R2;
+    #[derive(Component)]
+    struct TestComponent;
 
     const EXECUTORS: [ExecutorKind; 3] = [
         ExecutorKind::Simple,
@@ -330,31 +327,81 @@ mod tests {
         ExecutorKind::MultiThreaded,
     ];
 
+    #[derive(Resource, Default)]
+    struct TestState {
+        populated_ran: bool,
+        single_ran: bool,
+    }
+
+    fn set_single_state(mut _single: Single<&TestComponent>, mut state: ResMut<TestState>) {
+        state.single_ran = true;
+    }
+
+    fn set_populated_state(
+        mut _populated: Populated<&TestComponent>,
+        mut state: ResMut<TestState>,
+    ) {
+        state.populated_ran = true;
+    }
+
     #[test]
-    fn invalid_system_param_skips() {
+    fn single_and_populated_skipped_and_run() {
         for executor in EXECUTORS {
-            invalid_system_param_skips_core(executor);
+            std::println!("Testing executor: {:?}", executor);
+
+            let mut world = World::new();
+            world.init_resource::<TestState>();
+
+            let mut schedule = Schedule::default();
+            schedule.set_executor_kind(executor);
+            schedule.add_systems((set_single_state, set_populated_state));
+            schedule.run(&mut world);
+
+            let state = world.get_resource::<TestState>().unwrap();
+            assert!(!state.single_ran);
+            assert!(!state.populated_ran);
+
+            world.spawn(TestComponent);
+
+            schedule.run(&mut world);
+            let state = world.get_resource::<TestState>().unwrap();
+            assert!(state.single_ran);
+            assert!(state.populated_ran);
         }
     }
 
-    fn invalid_system_param_skips_core(executor: ExecutorKind) {
+    fn look_for_missing_resource(_res: Res<TestState>) {}
+
+    #[test]
+    #[should_panic]
+    fn missing_resource_panics_simple() {
         let mut world = World::new();
         let mut schedule = Schedule::default();
-        schedule.set_executor_kind(executor);
-        schedule.add_systems(
-            (
-                // This system depends on a system that is always skipped.
-                (|mut commands: Commands| {
-                    commands.insert_resource(R2);
-                }),
-            )
-                .chain(),
-        );
+
+        schedule.set_executor_kind(ExecutorKind::Simple);
+        schedule.add_systems(look_for_missing_resource);
         schedule.run(&mut world);
-        assert!(world.get_resource::<R1>().is_none());
-        assert!(world.get_resource::<R2>().is_some());
     }
 
-    #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
-    struct S1;
+    #[test]
+    #[should_panic]
+    fn missing_resource_panics_single_threaded() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        schedule.add_systems(look_for_missing_resource);
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn missing_resource_panics_multi_threaded() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+        schedule.add_systems(look_for_missing_resource);
+        schedule.run(&mut world);
+    }
 }
