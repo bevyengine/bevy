@@ -133,14 +133,6 @@ pub fn ktx2_buffer_to_image(
         ));
     }
 
-    // Decompressed/transcoded levels. This starts out as the raw data from the KTX, but if we decompress
-    // supercompression or transcode a level, we update the reference to point to the new level data.
-    #[allow(unused_mut, reason = "Needs to be mut for zstd_native, but not others")]
-    let mut levels = ktx2.levels().map(|level| level.data).collect::<Vec<_>>();
-
-    // Level data that has been decompressed and/or decoded (if necessary).
-    let mut scratch_levels = Vec::new();
-
     // Handle supercompression
     #[cfg(not(any(feature = "flate2", feature = "zstd_native", feature = "zstd_rust")))]
     if let Some(supercompression_scheme) = supercompression_scheme {
@@ -148,6 +140,13 @@ pub fn ktx2_buffer_to_image(
             "Unsupported supercompression scheme: {supercompression_scheme:?}",
         )));
     }
+
+    // Decompressed/transcoded levels. This starts out as the raw data from the KTX, but if we decompress
+    // supercompression or transcode a level, we update the reference to point to the new level data.
+    let mut levels = ktx2.levels().map(|level| level.data).collect::<Vec<_>>();
+
+    // Level data that has been decompressed and/or decoded (if necessary).
+    let mut scratch_levels = Vec::new();
 
     #[cfg(any(feature = "flate2", feature = "zstd_native", feature = "zstd_rust"))]
     if let Some(supercompression_scheme) = supercompression_scheme {
