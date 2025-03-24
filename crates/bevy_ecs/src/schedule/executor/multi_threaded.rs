@@ -14,11 +14,11 @@ use tracing::{info_span, Span};
 
 use crate::{
     archetype::ArchetypeComponentId,
-    error::{BevyError, ErrorContext, Result},
+    error::{default_error_handler, BevyError, ErrorContext, Result},
     prelude::Resource,
     query::Access,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
-    system::ScheduleSystem,
+    system::{ScheduleSystem, SystemParamValidationError},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -536,6 +536,7 @@ impl ExecutorState {
         world: UnsafeWorldCell,
     ) -> bool {
         let mut should_run = !self.skipped_systems.contains(system_index);
+        let error_handler = default_error_handler();
 
         for set_idx in conditions.sets_with_conditions_of_systems[system_index].ones() {
             if self.evaluated_sets.contains(set_idx) {
@@ -582,6 +583,14 @@ impl ExecutorState {
             // - `update_archetype_component_access` has been called for system.
             let valid_params = unsafe { system.validate_param_unsafe(world) };
             if !valid_params {
+                error_handler(
+                    SystemParamValidationError.into(),
+                    ErrorContext::System {
+                        name: system.name(),
+                        last_run: system.get_last_run(),
+                    },
+                );
+
                 self.skipped_systems.insert(system_index);
             }
             should_run &= valid_params;
@@ -767,6 +776,8 @@ unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [BoxedCondition],
     world: UnsafeWorldCell,
 ) -> bool {
+    let error_handler = default_error_handler();
+
     #[expect(
         clippy::unnecessary_fold,
         reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
@@ -779,6 +790,14 @@ unsafe fn evaluate_and_fold_conditions(
             //   required by the condition.
             // - `update_archetype_component_access` has been called for condition.
             if !unsafe { condition.validate_param_unsafe(world) } {
+                error_handler(
+                    SystemParamValidationError.into(),
+                    ErrorContext::System {
+                        name: condition.name(),
+                        last_run: condition.get_last_run(),
+                    },
+                );
+
                 return false;
             }
             // SAFETY:

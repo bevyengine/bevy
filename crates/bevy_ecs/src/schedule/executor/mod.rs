@@ -314,7 +314,7 @@ mod tests {
     use crate::{
         prelude::{IntoScheduleConfigs, Resource, Schedule, SystemSet},
         schedule::ExecutorKind,
-        system::{Commands, Res, WithParamWarnPolicy},
+        system::Commands,
         world::World,
     };
 
@@ -346,8 +346,7 @@ mod tests {
                 // This system depends on a system that is always skipped.
                 (|mut commands: Commands| {
                     commands.insert_resource(R2);
-                })
-                .warn_param_missing(),
+                }),
             )
                 .chain(),
         );
@@ -358,35 +357,4 @@ mod tests {
 
     #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
     struct S1;
-
-    #[test]
-    fn invalid_condition_param_skips_system() {
-        for executor in EXECUTORS {
-            invalid_condition_param_skips_system_core(executor);
-        }
-    }
-
-    fn invalid_condition_param_skips_system_core(executor: ExecutorKind) {
-        let mut world = World::new();
-        let mut schedule = Schedule::default();
-        schedule.set_executor_kind(executor);
-        schedule.configure_sets(S1.run_if((|_: Res<R1>| true).warn_param_missing()));
-        schedule.add_systems((
-            // System gets skipped if system set run conditions fail validation.
-            (|mut commands: Commands| {
-                commands.insert_resource(R1);
-            })
-            .warn_param_missing()
-            .in_set(S1),
-            // System gets skipped if run conditions fail validation.
-            (|mut commands: Commands| {
-                commands.insert_resource(R2);
-            })
-            .warn_param_missing()
-            .run_if((|_: Res<R2>| true).warn_param_missing()),
-        ));
-        schedule.run(&mut world);
-        assert!(world.get_resource::<R1>().is_none());
-        assert!(world.get_resource::<R2>().is_none());
-    }
 }

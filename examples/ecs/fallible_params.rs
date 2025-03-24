@@ -6,11 +6,22 @@
 //! - [`Single<D, F>`] - There must be exactly one matching entity.
 //! - [`Option<Single<D, F>>`] - There must be zero or one matching entity.
 //! - [`Populated<D, F>`] - There must be at least one matching entity.
+//!
+//! To learn more about setting the fallback behavior for when a parameter fails to be fetched,
+//! please see the `error_handling.rs` example.
 
+use bevy::ecs::error::{warn, GLOBAL_ERROR_HANDLER};
 use bevy::prelude::*;
 use rand::Rng;
 
 fn main() {
+    // By default, if a parameter fail to be fetched,
+    // the `GLOBAL_ERROR_HANDLER` will be used to handle the error,
+    // which by default is set to panic.
+    GLOBAL_ERROR_HANDLER
+        .set(warn)
+        .expect("The error handler can only be set once, globally.");
+
     println!();
     println!("Press 'A' to add enemy ships and 'R' to remove them.");
     println!("Player ship will wait for enemy ships and track one if it exists,");
@@ -20,20 +31,9 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        // Default system policy is to panic if parameters fail to be fetched.
-        // We overwrite that configuration, to either warn us once or never.
-        // This is good for catching unexpected behavior without crashing the app,
-        // but can lead to spam.
-        .add_systems(
-            Update,
-            (
-                user_input.warn_param_missing(),
-                move_targets.ignore_param_missing(),
-                move_pointer.ignore_param_missing(),
-            )
-                .chain(),
-        )
-        .add_systems(Update, do_nothing_fail_validation.warn_param_missing())
+        .add_systems(Update, (user_input, move_targets, track_targets).chain())
+        // This system will always fail validation, because we never create an entity with both `Player` and `Enemy` components.
+        .add_systems(Update, do_nothing_fail_validation)
         .run();
 }
 
@@ -121,11 +121,11 @@ fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<
     }
 }
 
-/// System that moves the player.
+/// System that moves the player, causing them to track a single enemy.
 /// The player will search for enemies if there are none.
 /// If there is one, player will track it.
 /// If there are too many enemies, the player will cease all action (the system will not run).
-fn move_pointer(
+fn track_targets(
     // `Single` ensures the system runs ONLY when exactly one matching entity exists.
     mut player: Single<(&mut Transform, &Player)>,
     // `Option<Single>` ensures that the system runs ONLY when zero or one matching entity exists.
@@ -147,7 +147,7 @@ fn move_pointer(
             player_transform.translation += front * velocity;
         }
     } else {
-        // No enemy found, keep searching.
+        // 0 or multiple enemies found, keep searching.
         player_transform.rotate_axis(Dir3::Z, player.rotation_speed * time.delta_secs());
     }
 }
