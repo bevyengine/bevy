@@ -335,6 +335,9 @@ impl ValidationOutcome {
     /// If either outcome is [`ValidationOutcome::Invalid`], the result will be [`ValidationOutcome::Invalid`].
     /// Otherwise, if either outcome is [`ValidationOutcome::Skipped`], the result will be [`ValidationOutcome::Skipped`].
     /// Finally, if both outcomes are [`ValidationOutcome::Valid`], the result will be [`ValidationOutcome::Valid`].
+    ///
+    /// When called, you should typically return early if the result is [`ValidationOutcome::Invalid`] or [`ValidationOutcome::Skipped`],
+    /// to avoid unnecessary work validating irrelevant system parameters.
     pub const fn combine(self, other: Self) -> Self {
         match (self, other) {
             (Self::Invalid, _) | (_, Self::Invalid) => Self::Invalid,
@@ -1925,9 +1928,22 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> ValidationOutcome {
-        state.iter().fold(ValidationOutcome::Valid, |acc, state| {
-            acc.combine(T::validate_param(state, system_meta, world))
-        })
+        let mut validation_state = ValidationOutcome::Valid;
+
+        for state in state {
+            validation_state =
+                validation_state.combine(T::validate_param(state, system_meta, world));
+
+            // Short-circuit to avoid wasted validation work
+            if matches!(
+                validation_state,
+                ValidationOutcome::Invalid | ValidationOutcome::Skipped
+            ) {
+                return validation_state;
+            }
+        }
+
+        validation_state
     }
 
     #[inline]
@@ -2112,6 +2128,7 @@ macro_rules! impl_system_param_tuple {
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell,
             ) -> ValidationOutcome {
+                // PERF: short-circuit to avoid wasted validation work
                 let ($($param,)*) = state;
                 // Run validation on each parameter in the tuple,
                 // combining the results into a single `ValidationOutcome`.

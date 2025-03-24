@@ -437,9 +437,12 @@ where
     }
 
     fn validate_param(&mut self, world: &World) -> ValidationOutcome {
-        self.a
-            .validate_param(world)
-            .combine(self.b.validate_param(world))
+        // This follows the logic of `ValidationOutcome::combine`, but short-circuits
+        let validate_a = self.a.validate_param(world);
+        match validate_a {
+            ValidationOutcome::Valid => self.b.validate_param(world),
+            ValidationOutcome::Invalid | ValidationOutcome::Skipped => validate_a,
+        }
     }
 
     fn initialize(&mut self, world: &mut World) {
