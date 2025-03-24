@@ -135,12 +135,21 @@ pub fn ktx2_buffer_to_image(
 
     // Decompressed/transcoded levels. This starts out as the raw data from the KTX, but if we decompress
     // supercompression or transcode a level, we update the reference to point to the new level data.
+    #[allow(unused_mut, reason = "Needs to be mut for zstd_native, but not others")]
     let mut levels = ktx2.levels().map(|level| level.data).collect::<Vec<_>>();
 
     // Level data that has been decompressed and/or decoded (if necessary).
     let mut scratch_levels = Vec::new();
 
     // Handle supercompression
+    #[cfg(not(any(feature = "flate2", feature = "zstd_native", feature = "zstd_rust")))]
+    if let Some(supercompression_scheme) = supercompression_scheme {
+        return Err(TextureError::SuperDecompressionError(format!(
+            "Unsupported supercompression scheme: {supercompression_scheme:?}",
+        )));
+    }
+
+    #[cfg(any(feature = "flate2", feature = "zstd_native", feature = "zstd_rust"))]
     if let Some(supercompression_scheme) = supercompression_scheme {
         scratch_levels.reserve_exact(levels.len());
         for (_level, _level_data) in levels.iter_mut().enumerate() {
@@ -1700,6 +1709,8 @@ pub fn ktx2_format_to_texture_format(
 
 #[cfg(test)]
 mod tests {
+    use wgpu_types::TextureFormat;
+
     use crate::CompressedImageFormats;
 
     use super::ktx2_buffer_to_image;
@@ -1727,6 +1738,9 @@ mod tests {
         ];
         let supported_compressed_formats = CompressedImageFormats::empty();
         let result = ktx2_buffer_to_image(&buffer, supported_compressed_formats);
-        result.unwrap();
+        let image = result.unwrap();
+
+        assert_eq!(image.texture_descriptor.format, TextureFormat::R8Unorm);
+        assert_eq!(image.texture_descriptor.mip_level_count, 3);
     }
 }
