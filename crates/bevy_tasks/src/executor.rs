@@ -19,8 +19,8 @@ cfg_if::cfg_if! {
         type ExecutorInner<'a> = async_executor::Executor<'a>;
         type LocalExecutorInner<'a> = async_executor::LocalExecutor<'a>;
     } else {
-        type ExecutorInner<'a> = crate::edge_executor::Executor<'a, 128>;
-        type LocalExecutorInner<'a> = crate::edge_executor::LocalExecutor<'a, 128>;
+        type ExecutorInner<'a> = crate::edge_executor::Executor<'a, 64>;
+        type LocalExecutorInner<'a> = crate::edge_executor::LocalExecutor<'a, 64>;
     }
 }
 
