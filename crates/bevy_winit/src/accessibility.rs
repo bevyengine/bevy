@@ -16,7 +16,7 @@ use bevy_a11y::{
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{entity::hash_map::EntityHashMap, prelude::*};
+use bevy_ecs::{entity::hash_map::EntityHashMap, prelude::*, system::NonSendMarker};
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
 thread_local! {
