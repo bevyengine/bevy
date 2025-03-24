@@ -318,7 +318,7 @@ pub enum ValidationOutcome {
     /// All system parameters were validated successfully and the system can be run.
     Valid,
     /// At least one system parameter failed validation, and an error must be handled.
-    /// By default, this will result in a panic. See [crate::error] for more information.
+    /// By default, this will result in a panic. See [`crate::error`] for more information.
     ///
     /// This is the default behavior, and is suitable for system params that should *always* be valid,
     /// either because sensible fallback behavior exists (like [`Query`] or because

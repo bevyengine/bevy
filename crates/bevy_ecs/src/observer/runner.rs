@@ -425,7 +425,7 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
                     last_run: (*system).get_last_run(),
                 },
             ),
-            ValidationOutcome::Skipped => return,
+            ValidationOutcome::Skipped => (),
         }
     }
 }
