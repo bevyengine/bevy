@@ -595,7 +595,9 @@ impl ExecutorState {
                 }
                 ValidationOutcome::Skipped => false,
             };
-            self.skipped_systems.insert(system_index);
+            if !valid_params {
+                self.skipped_systems.insert(system_index);
+            }
 
             should_run &= valid_params;
         }
