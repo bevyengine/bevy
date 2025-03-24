@@ -564,7 +564,7 @@ pub fn update_directional_light_frusta(
 pub fn update_point_light_frusta(
     global_lights: Res<GlobalVisibleClusterableObjects>,
     mut views: Query<(Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta)>,
-    mut changed_lights: Query<
+    changed_lights: Query<
         Entity,
         (
             With<PointLight>,
