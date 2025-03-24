@@ -15,7 +15,6 @@ bevy_reflect = ["dep:bevy_reflect", "bevy_math/bevy_reflect"]
 
 # Image formats
 basis-universal = ["dep:basis-universal", "basis-universal/transcoding"]
-basis-universal-compressor = ["basis-universal", "basis-universal/encoding"]
 bmp = ["image/bmp"]
 dds = ["ddsfile"]
 exr = ["image/exr"]
@@ -47,6 +46,9 @@ zstd = []
 zstd_rust = ["zstd", "dep:ruzstd"]
 # Binding to zstd C implementation (faster)
 zstd_native = ["zstd", "dep:zstd"]
+
+# Enables compressed KTX2 UASTC texture output on the asset processor
+compressed_image_saver = ["basis-universal", "basis-universal/encoding", "basis-universal/zstd"]
 
 [dependencies]
 # bevy
@@ -83,7 +85,7 @@ zstd = { version = "0.13.3", optional = true }
 ruzstd = { version = "0.8.0", optional = true }
 # For transcoding of UASTC/ETC1S universal formats and for .basis file support.
 # Does not currently support wasm: https://github.com/aclysma/basis-universal-rs/pull/11, https://github.com/aclysma/basis-universal-rs/issues/10
-basis-universal = { git = "https://github.com/naturalatlas/basis-universal-rs", rev = "609c45179cc8678fb689a3cfd61cd53245ffea6a", optional = true, default-features = false }
+basis-universal = { git = "https://github.com/naturalatlas/basis-universal-rs", rev = "abf29f080f18c0f4dbcc6a2f40d42699f60e1084", optional = true, default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 half = { version = "2.4.1" }
 

@@ -23,7 +23,7 @@ mod image;
 pub use self::image::*;
 #[cfg(feature = "basis-universal")]
 mod basis;
-#[cfg(feature = "basis-universal-compressor")]
+#[cfg(feature = "compressed_image_saver")]
 mod compressed_image_saver;
 #[cfg(feature = "dds")]
 mod dds;
@@ -40,7 +40,7 @@ mod ktx2_using_basisu;
 mod texture_atlas;
 mod texture_atlas_builder;
 
-#[cfg(feature = "basis-universal-compressor")]
+#[cfg(feature = "compressed_image_saver")]
 pub use compressed_image_saver::*;
 #[cfg(feature = "dds")]
 pub use dds::*;

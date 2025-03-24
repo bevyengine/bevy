@@ -320,8 +320,8 @@ trace = ["bevy_internal/trace", "dep:tracing"]
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
 
-# Basis Universal compression support for the asset processor
-basis-universal-compressor = ["bevy_internal/basis-universal-compressor"]
+# Enables compressed KTX2 UASTC texture output on the asset processor
+compressed_image_saver = ["bevy_internal/compressed_image_saver"]
 
 # BMP image format support
 bmp = ["bevy_internal/bmp"]
@@ -371,10 +371,10 @@ webp = ["bevy_internal/webp"]
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
 
-# For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd) (safer)
+# For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd)
 zstd_rust = ["bevy_internal/zstd_rust"]
 
-# For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd) (faster)
+# For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd)
 zstd_native = ["bevy_internal/zstd_native"]
 
 # FLAC audio format support

@@ -63,7 +63,6 @@ The default feature set enables most of the expected features of a game engine, 
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |basis-universal|Basis Universal compressed texture support|
-|basis-universal-compressor|Basis Universal compression support for the asset processor|
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
@@ -71,6 +70,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bmp|BMP image format support|
+|compressed_image_saver|Enables compressed KTX2 UASTC texture output on the asset processor|
 |configurable_error_handler|Use the configurable global error handler as the default error handler.|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
 |dds|DDS compressed texture support|
@@ -127,4 +127,4 @@ The default feature set enables most of the expected features of a game engine, 
 |webgpu|Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.|
 |webp|WebP image format support|
 |zlib|For KTX2 supercompression|
-|zstd_rust|For KTX2 Zstandard decompression using pure-Rust [ruzstd](https://crates.io/crates/ruzstd)|
+|zstd_rust|For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd)|

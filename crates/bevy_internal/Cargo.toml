@@ -28,12 +28,14 @@ detailed_trace = ["bevy_ecs/detailed_trace", "bevy_render?/detailed_trace"]
 
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
 
+# Enables compressed KTX2 UASTC texture output on the asset processor
+compressed_image_saver = [
+  "bevy_image/compressed_image_saver",
+  "bevy_render/compressed_image_saver",
+]
+
 # Texture formats that have specific rendering support (HDR enabled by default)
 basis-universal = ["bevy_image/basis-universal", "bevy_render/basis-universal"]
-basis-universal-compressor = [
-  "bevy_image/basis-universal-compressor",
-  "bevy_render/basis-universal-compressor",
-]
 dds = [
   "bevy_image/dds",
   "bevy_render/dds",
