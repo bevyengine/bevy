@@ -125,7 +125,10 @@ impl<E: Event> Events<E> {
         self.send_with_caller(event, MaybeLocation::caller())
     }
 
-    pub(crate) fn send_with_caller(&mut self, event: E, caller: MaybeLocation) -> EventId<E> {
+    /// "Sends" an `event` with a user-specified calling location
+    ///
+    /// [`Events::send`] should be strongly preferred over this method
+    pub fn send_with_caller(&mut self, event: E, caller: MaybeLocation) -> EventId<E> {
         let event_id = EventId {
             id: self.event_count,
             caller,
