@@ -7,7 +7,7 @@ use crate::{
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
-    system::{IntoObserverSystem, ObserverSystem},
+    system::{IntoObserverSystem, ObserverSystem, SystemParamValidationError},
     world::DeferredWorld,
 };
 use bevy_ptr::PtrMut;
@@ -416,6 +416,14 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
                 );
             };
             (*system).queue_deferred(world.into_deferred());
+        } else {
+            error_handler(
+                SystemParamValidationError.into(),
+                ErrorContext::Observer {
+                    name: (*system).name(),
+                    last_run: (*system).get_last_run(),
+                },
+            );
         }
     }
 }
