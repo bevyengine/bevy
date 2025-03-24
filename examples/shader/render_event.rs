@@ -2,13 +2,13 @@
 //! render world to the main world
 
 use bevy::{
+    ecs::system::{LocalBuilder, ParamBuilder},
     prelude::*,
+    render::render_event::{MainEventWriter, RenderEventApp},
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         Render, RenderApp,
     },
-    ecs::system::{LocalBuilder, ParamBuilder},
-    render::render_event::{MainEventWriter, RenderEventApp},
 };
 
 fn main() -> AppExit {
