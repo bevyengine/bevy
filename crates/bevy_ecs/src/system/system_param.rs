@@ -312,6 +312,8 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 
 /// The outcome of system / system param validation,
 /// used by system executors to determine what to do with a system.
+///
+/// The behavior of each system parameter can be controlled by returning a different outcome from [`SystemParam::validate_param`].
 pub enum ValidationOutcome {
     /// All system parameters were validated successfully and the system can be run.
     Valid,
@@ -322,7 +324,7 @@ pub enum ValidationOutcome {
     /// either because sensible fallback behavior exists (like [`Query`] or because
     /// failures in validation should be considered a bug in the user's logic that must be immediately addressed (like [`Res`]).
     Invalid,
-    /// At least one system parameter failed validation, but the system should be skipped due to [`ValidationBehavior::Skip`].
+    /// At least one system parameter failed validation, but the system should be skipped.
     /// This is suitable for system params that are intended to only operate in certain application states, such as [`Single`].
     Skipped,
 }
