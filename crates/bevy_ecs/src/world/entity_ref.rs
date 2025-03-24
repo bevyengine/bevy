@@ -1,7 +1,7 @@
 use crate::{
-    archetype::{Archetype, ArchetypeId, Archetypes},
+    archetype::{Archetype, ArchetypeId},
     bundle::{
-        Bundle, BundleEffect, BundleFromComponents, BundleId, BundleInfo, BundleInserter,
+        Bundle, BundleEffect, BundleFromComponents, BundleInfo, BundleInserter, BundleRemover,
         DynamicBundle, InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
@@ -10,12 +10,12 @@ use crate::{
         StorageType,
     },
     entity::{
-        Entities, Entity, EntityBorrow, EntityCloner, EntityClonerBuilder, EntityLocation,
+        Entity, EntityBorrow, EntityCloner, EntityClonerBuilder, EntityLocation,
         TrustedEntityBorrow,
     },
     event::Event,
     observer::Observer,
-    query::{Access, ReadOnlyQueryData},
+    query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData},
     relationship::RelationshipHookMode,
     removal_detection::RemovedComponentEvents,
     resource::Resource,
@@ -1766,274 +1766,49 @@ impl<'w> EntityWorldMut<'w> {
     #[track_caller]
     pub fn take<T: Bundle + BundleFromComponents>(&mut self) -> Option<T> {
         self.assert_not_despawned();
-        let world = &mut self.world;
-        let storages = &mut world.storages;
-        // SAFETY: These come from the same world.
-        let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
-        let bundle_id = world.bundles.register_info::<T>(&mut registrator, storages);
-        // SAFETY: We just ensured this bundle exists
-        let bundle_info = unsafe { world.bundles.get_unchecked(bundle_id) };
-        let old_location = self.location;
-        // SAFETY: `archetype_id` exists because it is referenced in the old `EntityLocation` which is valid,
-        // components exist in `bundle_info` because `Bundles::init_info` initializes a `BundleInfo` containing all components of the bundle type `T`
-        let new_archetype_id = unsafe {
-            bundle_info.remove_bundle_from_archetype(
-                &mut world.archetypes,
-                storages,
-                &registrator,
-                &world.observers,
-                old_location.archetype_id,
-                false,
+        let entity = self.entity;
+        let location = self.location;
+        let tick = self.world.change_tick();
+
+        let mut remover =
+            BundleRemover::new::<T>(self.world, self.location.archetype_id, true, tick)?;
+        // SAFETY: The passed location has the sane archetype as the remover, since they came from the same location.
+        let (new_location, result) = unsafe {
+            remover.remove(
+                entity,
+                location,
+                MaybeLocation::caller(),
+                |storages, components, bundle_components| {
+                    let mut bundle_components = bundle_components.iter().copied();
+                    (
+                        false,
+                        T::from_components(storages, &mut |storages| {
+                            let component_id = bundle_components.next().unwrap();
+                            // SAFETY: the component existed to be removed, so its id must be valid.
+                            let component_info = components.get_info_unchecked(component_id);
+                            match component_info.storage_type() {
+                                StorageType::Table => {
+                                    let table = &mut storages.tables[location.table_id];
+                                    // SAFETY: The remover is cleaning this up.
+                                    table.take_component(component_id, location.table_row)
+                                }
+                                StorageType::SparseSet => storages
+                                    .sparse_sets
+                                    .get_mut(component_id)
+                                    .unwrap()
+                                    .remove_and_forget(entity)
+                                    .unwrap(),
+                            }
+                        }),
+                    )
+                },
             )?
         };
+        self.location = new_location;
 
-        if new_archetype_id == old_location.archetype_id {
-            return None;
-        }
-
-        let entity = self.entity;
-        // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
-        let (old_archetype, bundle_info, mut deferred_world) = unsafe {
-            let bundle_info: *const BundleInfo = bundle_info;
-            let world = world.as_unsafe_world_cell();
-            (
-                &world.archetypes()[old_location.archetype_id],
-                &*bundle_info,
-                world.into_deferred(),
-            )
-        };
-
-        // SAFETY: all bundle components exist in World
-        unsafe {
-            trigger_on_replace_and_on_remove_hooks_and_observers(
-                &mut deferred_world,
-                old_archetype,
-                entity,
-                bundle_info,
-                MaybeLocation::caller(),
-            );
-        }
-
-        let archetypes = &mut world.archetypes;
-        let storages = &mut world.storages;
-        let components = &mut world.components;
-        let entities = &mut world.entities;
-        let removed_components = &mut world.removed_components;
-
-        let entity = self.entity;
-        let mut bundle_components = bundle_info.iter_explicit_components();
-        // SAFETY: bundle components are iterated in order, which guarantees that the component type
-        // matches
-        let result = unsafe {
-            T::from_components(storages, &mut |storages| {
-                let component_id = bundle_components.next().unwrap();
-                // SAFETY:
-                // - entity location is valid
-                // - table row is removed below, without dropping the contents
-                // - `components` comes from the same world as `storages`
-                // - the component exists on the entity
-                take_component(
-                    storages,
-                    components,
-                    removed_components,
-                    component_id,
-                    entity,
-                    old_location,
-                )
-            })
-        };
-
-        #[expect(
-            clippy::undocumented_unsafe_blocks,
-            reason = "Needs to be documented; see #17345."
-        )]
-        unsafe {
-            Self::move_entity_from_remove::<false>(
-                entity,
-                &mut self.location,
-                old_location.archetype_id,
-                old_location,
-                entities,
-                archetypes,
-                storages,
-                new_archetype_id,
-            );
-        }
         self.world.flush();
         self.update_location();
         Some(result)
-    }
-
-    /// # Safety
-    ///
-    /// `new_archetype_id` must have the same or a subset of the components
-    /// in `old_archetype_id`. Probably more safety stuff too, audit a call to
-    /// this fn as if the code here was written inline
-    ///
-    /// when DROP is true removed components will be dropped otherwise they will be forgotten
-    // We use a const generic here so that we are less reliant on
-    // inlining for rustc to optimize out the `match DROP`
-    unsafe fn move_entity_from_remove<const DROP: bool>(
-        entity: Entity,
-        self_location: &mut EntityLocation,
-        old_archetype_id: ArchetypeId,
-        old_location: EntityLocation,
-        entities: &mut Entities,
-        archetypes: &mut Archetypes,
-        storages: &mut Storages,
-        new_archetype_id: ArchetypeId,
-    ) {
-        let old_archetype = &mut archetypes[old_archetype_id];
-        let remove_result = old_archetype.swap_remove(old_location.archetype_row);
-        // if an entity was moved into this entity's archetype row, update its archetype row
-        if let Some(swapped_entity) = remove_result.swapped_entity {
-            let swapped_location = entities.get(swapped_entity).unwrap();
-
-            entities.set(
-                swapped_entity.index(),
-                EntityLocation {
-                    archetype_id: swapped_location.archetype_id,
-                    archetype_row: old_location.archetype_row,
-                    table_id: swapped_location.table_id,
-                    table_row: swapped_location.table_row,
-                },
-            );
-        }
-        let old_table_row = remove_result.table_row;
-        let old_table_id = old_archetype.table_id();
-        let new_archetype = &mut archetypes[new_archetype_id];
-
-        let new_location = if old_table_id == new_archetype.table_id() {
-            new_archetype.allocate(entity, old_table_row)
-        } else {
-            let (old_table, new_table) = storages
-                .tables
-                .get_2_mut(old_table_id, new_archetype.table_id());
-
-            let move_result = if DROP {
-                // SAFETY: old_table_row exists
-                unsafe { old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table) }
-            } else {
-                // SAFETY: old_table_row exists
-                unsafe { old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table) }
-            };
-
-            // SAFETY: move_result.new_row is a valid position in new_archetype's table
-            let new_location = unsafe { new_archetype.allocate(entity, move_result.new_row) };
-
-            // if an entity was moved into this entity's table row, update its table row
-            if let Some(swapped_entity) = move_result.swapped_entity {
-                let swapped_location = entities.get(swapped_entity).unwrap();
-
-                entities.set(
-                    swapped_entity.index(),
-                    EntityLocation {
-                        archetype_id: swapped_location.archetype_id,
-                        archetype_row: swapped_location.archetype_row,
-                        table_id: swapped_location.table_id,
-                        table_row: old_location.table_row,
-                    },
-                );
-                archetypes[swapped_location.archetype_id]
-                    .set_entity_table_row(swapped_location.archetype_row, old_table_row);
-            }
-
-            new_location
-        };
-
-        *self_location = new_location;
-        // SAFETY: The entity is valid and has been moved to the new location already.
-        unsafe {
-            entities.set(entity.index(), new_location);
-        }
-    }
-
-    /// Remove the components of `bundle` from `entity`.
-    ///
-    /// # Safety
-    /// - A `BundleInfo` with the corresponding `BundleId` must have been initialized.
-    unsafe fn remove_bundle(&mut self, bundle: BundleId, caller: MaybeLocation) -> EntityLocation {
-        let entity = self.entity;
-        let world = &mut self.world;
-        let location = self.location;
-        // SAFETY: the caller guarantees that the BundleInfo for this id has been initialized.
-        let bundle_info = world.bundles.get_unchecked(bundle);
-
-        // SAFETY: `archetype_id` exists because it is referenced in `location` which is valid
-        // and components in `bundle_info` must exist due to this function's safety invariants.
-        let new_archetype_id = bundle_info
-            .remove_bundle_from_archetype(
-                &mut world.archetypes,
-                &mut world.storages,
-                &world.components,
-                &world.observers,
-                location.archetype_id,
-                // components from the bundle that are not present on the entity are ignored
-                true,
-            )
-            .expect("intersections should always return a result");
-
-        if new_archetype_id == location.archetype_id {
-            return location;
-        }
-
-        // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
-        let (old_archetype, bundle_info, mut deferred_world) = unsafe {
-            let bundle_info: *const BundleInfo = bundle_info;
-            let world = world.as_unsafe_world_cell();
-            (
-                &world.archetypes()[location.archetype_id],
-                &*bundle_info,
-                world.into_deferred(),
-            )
-        };
-
-        // SAFETY: all bundle components exist in World
-        unsafe {
-            trigger_on_replace_and_on_remove_hooks_and_observers(
-                &mut deferred_world,
-                old_archetype,
-                entity,
-                bundle_info,
-                caller,
-            );
-        }
-
-        let old_archetype = &world.archetypes[location.archetype_id];
-        for component_id in bundle_info.iter_explicit_components() {
-            if old_archetype.contains(component_id) {
-                world.removed_components.send(component_id, entity);
-
-                // Make sure to drop components stored in sparse sets.
-                // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
-                if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
-                    world
-                        .storages
-                        .sparse_sets
-                        .get_mut(component_id)
-                        // Set exists because the component existed on the entity
-                        .unwrap()
-                        .remove(entity);
-                }
-            }
-        }
-
-        // SAFETY: `new_archetype_id` is a subset of the components in `old_location.archetype_id`
-        // because it is created by removing a bundle from these components.
-        let mut new_location = location;
-        Self::move_entity_from_remove::<true>(
-            entity,
-            &mut new_location,
-            location.archetype_id,
-            location,
-            &mut world.entities,
-            &mut world.archetypes,
-            &mut world.storages,
-            new_archetype_id,
-        );
-
-        new_location
     }
 
     /// Removes any components in the [`Bundle`] from the entity.
@@ -2052,18 +1827,22 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub(crate) fn remove_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
         self.assert_not_despawned();
-        let storages = &mut self.world.storages;
-        // SAFETY: These come from the same world.
-        let mut registrator = unsafe {
-            ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
-        };
-        let bundle_info = self
-            .world
-            .bundles
-            .register_info::<T>(&mut registrator, storages);
+        let tick = self.world.change_tick();
 
-        // SAFETY: the `BundleInfo` is initialized above
-        self.location = unsafe { self.remove_bundle(bundle_info, caller) };
+        let Some(mut remover) =
+            BundleRemover::new::<T>(self.world, self.location.archetype_id, false, tick)
+        else {
+            return self;
+        };
+        // SAFETY: The remover archetype came from the passed location and the removal can not fail.
+        let new_location = unsafe {
+            remover
+                .remove(self.entity, self.location, caller, |_, _, _| (true, ()))
+                .debug_checked_unwrap()
+        }
+        .0;
+
+        self.location = new_location;
         self.world.flush();
         self.update_location();
         self
@@ -2085,16 +1864,36 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         self.assert_not_despawned();
         let storages = &mut self.world.storages;
+        let bundles = &mut self.world.bundles;
         // SAFETY: These come from the same world.
         let mut registrator = unsafe {
             ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
         };
-        let bundles = &mut self.world.bundles;
-
         let bundle_id = bundles.register_contributed_bundle_info::<T>(&mut registrator, storages);
 
-        // SAFETY: the dynamic `BundleInfo` is initialized above
-        self.location = unsafe { self.remove_bundle(bundle_id, caller) };
+        let tick = self.world.change_tick();
+
+        // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
+        let Some(mut remover) = (unsafe {
+            BundleRemover::new_with_id(
+                self.world,
+                self.location.archetype_id,
+                bundle_id,
+                false,
+                tick,
+            )
+        }) else {
+            return self;
+        };
+        // SAFETY: The remover archetype came from the passed location and the removal can not fail.
+        let new_location = unsafe {
+            remover
+                .remove(self.entity, self.location, caller, |_, _, _| (true, ()))
+                .debug_checked_unwrap()
+        }
+        .0;
+
+        self.location = new_location;
         self.world.flush();
         self.update_location();
         self
@@ -2141,8 +1940,29 @@ impl<'w> EntityWorldMut<'w> {
                 .bundles
                 .init_dynamic_info(&mut self.world.storages, &registrator, to_remove);
 
-        // SAFETY: the `BundleInfo` for the components to remove is initialized above
-        self.location = unsafe { self.remove_bundle(remove_bundle, caller) };
+        let tick = self.world.change_tick();
+
+        // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
+        let Some(mut remover) = (unsafe {
+            BundleRemover::new_with_id(
+                self.world,
+                self.location.archetype_id,
+                remove_bundle,
+                false,
+                tick,
+            )
+        }) else {
+            return self;
+        };
+        // SAFETY: The remover archetype came from the passed location and the removal can not fail.
+        let new_location = unsafe {
+            remover
+                .remove(self.entity, self.location, caller, |_, _, _| (true, ()))
+                .debug_checked_unwrap()
+        }
+        .0;
+
+        self.location = new_location;
         self.world.flush();
         self.update_location();
         self
@@ -2176,8 +1996,28 @@ impl<'w> EntityWorldMut<'w> {
             component_id,
         );
 
-        // SAFETY: the `BundleInfo` for this `component_id` is initialized above
-        self.location = unsafe { self.remove_bundle(bundle_id, caller) };
+        let tick = self.world.change_tick();
+        // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
+        let Some(mut remover) = (unsafe {
+            BundleRemover::new_with_id(
+                self.world,
+                self.location.archetype_id,
+                bundle_id,
+                false,
+                tick,
+            )
+        }) else {
+            return self;
+        };
+        // SAFETY: The remover archetype came from the passed location and the removal can not fail.
+        let new_location = unsafe {
+            remover
+                .remove(self.entity, self.location, caller, |_, _, _| (true, ()))
+                .debug_checked_unwrap()
+        }
+        .0;
+
+        self.location = new_location;
         self.world.flush();
         self.update_location();
         self
@@ -2202,9 +2042,33 @@ impl<'w> EntityWorldMut<'w> {
             component_ids,
         );
 
-        // SAFETY: the `BundleInfo` for this `bundle_id` is initialized above
-        unsafe { self.remove_bundle(bundle_id, MaybeLocation::caller()) };
+        let tick = self.world.change_tick();
+        // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
+        let Some(mut remover) = (unsafe {
+            BundleRemover::new_with_id(
+                self.world,
+                self.location.archetype_id,
+                bundle_id,
+                false,
+                tick,
+            )
+        }) else {
+            return self;
+        };
+        // SAFETY: The remover archetype came from the passed location and the removal can not fail.
+        let new_location = unsafe {
+            remover
+                .remove(
+                    self.entity,
+                    self.location,
+                    MaybeLocation::caller(),
+                    |_, _, _| (true, ()),
+                )
+                .debug_checked_unwrap()
+        }
+        .0;
 
+        self.location = new_location;
         self.world.flush();
         self.update_location();
         self
@@ -2232,8 +2096,28 @@ impl<'w> EntityWorldMut<'w> {
             component_ids.as_slice(),
         );
 
-        // SAFETY: the `BundleInfo` for this `component_id` is initialized above
-        self.location = unsafe { self.remove_bundle(bundle_id, caller) };
+        let tick = self.world.change_tick();
+        // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
+        let Some(mut remover) = (unsafe {
+            BundleRemover::new_with_id(
+                self.world,
+                self.location.archetype_id,
+                bundle_id,
+                false,
+                tick,
+            )
+        }) else {
+            return self;
+        };
+        // SAFETY: The remover archetype came from the passed location and the removal can not fail.
+        let new_location = unsafe {
+            remover
+                .remove(self.entity, self.location, caller, |_, _, _| (true, ()))
+                .debug_checked_unwrap()
+        }
+        .0;
+
+        self.location = new_location;
         self.world.flush();
         self.update_location();
         self

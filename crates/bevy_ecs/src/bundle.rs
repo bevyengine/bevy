@@ -1457,13 +1457,13 @@ impl<'w> BundleRemover<'w> {
     /// # Safety
     /// The `location` must have the same archetype as the remover.
     #[inline]
-    pub(crate) unsafe fn remove(
+    pub(crate) unsafe fn remove<T: 'static>(
         &mut self,
         entity: Entity,
         location: EntityLocation,
         caller: MaybeLocation,
-        pre_remove: impl FnOnce(&mut Storages, &[ComponentId]) -> bool,
-    ) -> Option<EntityLocation> {
+        pre_remove: impl FnOnce(&mut Storages, &Components, &[ComponentId]) -> (bool, T),
+    ) -> Option<(EntityLocation, T)> {
         // Hooks
         // SAFETY: all bundle components exist in World
         unsafe {
@@ -1509,8 +1509,9 @@ impl<'w> BundleRemover<'w> {
         // SAFETY: We still have the cell, so this is unique, it doesn't conflict with other references, and we drop it shortly.
         let world = unsafe { self.world.world_mut() };
 
-        let needs_drop = pre_remove(
+        let (needs_drop, pre_remove_result) = pre_remove(
             &mut world.storages,
+            world.components(),
             self.bundle_info.as_ref().explicit_components(),
         );
 
@@ -1612,7 +1613,7 @@ impl<'w> BundleRemover<'w> {
             world.entities.set(entity.index(), new_location);
         }
 
-        Some(new_location)
+        Some((new_location, pre_remove_result))
     }
 }
 
