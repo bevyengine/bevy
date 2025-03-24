@@ -160,7 +160,7 @@ default = [
   "smaa_luts",
   "sysinfo_plugin",
   "tonemapping_luts",
-  "zstd_rust",
+  "zstd_native",
   "vorbis",
   "webgl2",
   "x11",
