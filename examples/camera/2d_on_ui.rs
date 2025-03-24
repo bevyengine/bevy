@@ -1,7 +1,6 @@
 //! This example shows how to draw 2d objects on top of bevy ui, using two cameras and their order.
 
-use bevy::{color::palettes::tailwind, prelude::*};
-use bevy_render::view::RenderLayers;
+use bevy::{color::palettes::tailwind, prelude::*, render::view::RenderLayers};
 
 fn main() {
     let mut app = App::new();
