@@ -1371,6 +1371,10 @@ pub(crate) struct BundleRemover<'w> {
     old_and_new_table: Option<(NonNull<Table>, NonNull<Table>)>,
     old_archetype: NonNull<Archetype>,
     new_archetype: NonNull<Archetype>,
+    #[expect(
+        unused,
+        reason = "It makes sense to know the tick the bundle is removed on. This could be useful."
+    )]
     change_tick: Tick,
 }
 
@@ -1511,7 +1515,7 @@ impl<'w> BundleRemover<'w> {
 
         let (needs_drop, pre_remove_result) = pre_remove(
             &mut world.storages,
-            world.components(),
+            &world.components,
             self.bundle_info.as_ref().explicit_components(),
         );
 

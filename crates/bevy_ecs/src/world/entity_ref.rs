@@ -1,8 +1,8 @@
 use crate::{
     archetype::{Archetype, ArchetypeId},
     bundle::{
-        Bundle, BundleEffect, BundleFromComponents, BundleInfo, BundleInserter, BundleRemover,
-        DynamicBundle, InsertMode,
+        Bundle, BundleEffect, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle,
+        InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
     component::{
@@ -17,13 +17,11 @@ use crate::{
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData},
     relationship::RelationshipHookMode,
-    removal_detection::RemovedComponentEvents,
     resource::Resource,
-    storage::Storages,
     system::IntoObserverSystem,
     world::{
-        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DeferredWorld, Mut, Ref,
-        World, ON_DESPAWN, ON_REMOVE, ON_REPLACE,
+        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, Mut, Ref, World,
+        ON_DESPAWN, ON_REMOVE, ON_REPLACE,
     },
 };
 use alloc::vec::Vec;
@@ -2621,46 +2619,6 @@ impl<'w> EntityWorldMut<'w> {
     }
 }
 
-/// # Safety
-/// All components in the archetype must exist in world
-unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
-    deferred_world: &mut DeferredWorld,
-    archetype: &Archetype,
-    entity: Entity,
-    bundle_info: &BundleInfo,
-    caller: MaybeLocation,
-) {
-    let bundle_components_in_archetype = || {
-        bundle_info
-            .iter_explicit_components()
-            .filter(|component_id| archetype.contains(*component_id))
-    };
-    if archetype.has_replace_observer() {
-        deferred_world.trigger_observers(
-            ON_REPLACE,
-            entity,
-            bundle_components_in_archetype(),
-            caller,
-        );
-    }
-    deferred_world.trigger_on_replace(
-        archetype,
-        entity,
-        bundle_components_in_archetype(),
-        caller,
-        RelationshipHookMode::Run,
-    );
-    if archetype.has_remove_observer() {
-        deferred_world.trigger_observers(
-            ON_REMOVE,
-            entity,
-            bundle_components_in_archetype(),
-            caller,
-        );
-    }
-    deferred_world.trigger_on_remove(archetype, entity, bundle_components_in_archetype(), caller);
-}
-
 /// A view into a single entity and component in a world, which may either be vacant or occupied.
 ///
 /// This `enum` can only be constructed from the [`entry`] method on [`EntityWorldMut`].
@@ -4169,50 +4127,6 @@ unsafe fn insert_dynamic_bundle<
                 relationship_hook_insert_mode,
             )
             .0
-    }
-}
-
-/// Moves component data out of storage.
-///
-/// This function leaves the underlying memory unchanged, but the component behind
-/// returned pointer is semantically owned by the caller and will not be dropped in its original location.
-/// Caller is responsible to drop component data behind returned pointer.
-///
-/// # Safety
-/// - `location.table_row` must be in bounds of column of component id `component_id`
-/// - `component_id` must be valid
-/// - `components` must come from the same world as `self`
-/// - The relevant table row **must be removed** by the caller once all components are taken, without dropping the value
-///
-/// # Panics
-/// Panics if the entity did not have the component.
-#[inline]
-pub(crate) unsafe fn take_component<'a>(
-    storages: &'a mut Storages,
-    components: &Components,
-    removed_components: &mut RemovedComponentEvents,
-    component_id: ComponentId,
-    entity: Entity,
-    location: EntityLocation,
-) -> OwningPtr<'a> {
-    // SAFETY: caller promises component_id to be valid
-    let component_info = unsafe { components.get_info_unchecked(component_id) };
-    removed_components.send(component_id, entity);
-    match component_info.storage_type() {
-        StorageType::Table => {
-            let table = &mut storages.tables[location.table_id];
-            // SAFETY:
-            // - archetypes only store valid table_rows
-            // - index is in bounds as promised by caller
-            // - promote is safe because the caller promises to remove the table row without dropping it immediately afterwards
-            unsafe { table.take_component(component_id, location.table_row) }
-        }
-        StorageType::SparseSet => storages
-            .sparse_sets
-            .get_mut(component_id)
-            .unwrap()
-            .remove_and_forget(entity)
-            .unwrap(),
     }
 }
 
