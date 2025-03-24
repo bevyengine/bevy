@@ -2865,6 +2865,17 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "render_event"
+path = "examples/shader/render_event.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_event]
+name = "Render Event"
+description = "A simple demonstration of sending events from the render world to the main world."
+category = "Shaders"
+wasm = false
+
+[[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
 doc-scrape-examples = true
