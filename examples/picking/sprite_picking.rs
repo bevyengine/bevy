@@ -72,9 +72,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             image: asset_server.load("branding/bevy_bird_dark.png"),
                             custom_size: Some(sprite_size),
                             color: Color::srgb(1.0, 0.0, 0.0),
-                            anchor: anchor.to_owned(),
                             ..default()
                         },
+                        anchor.to_owned(),
                         // 3x3 grid of anchor examples by changing transform
                         Transform::from_xyz(i * len - len, j * len - len, 0.0)
                             .with_scale(Vec3::splat(1.0 + (i - 1.0) * 0.2))
