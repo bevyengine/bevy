@@ -7,9 +7,9 @@ use bevy::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         Render, RenderApp,
     },
+    ecs::system::{LocalBuilder, ParamBuilder},
+    render::render_event::{MainEventWriter, RenderEventApp},
 };
-use bevy_ecs::system::{LocalBuilder, ParamBuilder};
-use bevy_render::render_event::{MainEventWriter, RenderEventApp};
 
 fn main() -> AppExit {
     App::new()
