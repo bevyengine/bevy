@@ -1759,7 +1759,6 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
-    // TODO: BundleRemover?
     #[must_use]
     #[track_caller]
     pub fn take<T: Bundle + BundleFromComponents>(&mut self) -> Option<T> {
@@ -1814,7 +1813,6 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
-    // TODO: BundleRemover?
     #[track_caller]
     pub fn remove<T: Bundle>(&mut self) -> &mut Self {
         self.remove_with_caller::<T>(MaybeLocation::caller())
