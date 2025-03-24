@@ -279,13 +279,13 @@ Example | Description
 
 Example | Description
 --- | ---
+[2D on Bevy UI](../examples/camera/2d_on_ui.rs) | Shows how to draw 2d on top on bevy ui
 [2D top-down camera](../examples/camera/2d_top_down_camera.rs) | A 2D top-down camera smoothly following player movements
 [Camera Orbit](../examples/camera/camera_orbit.rs) | Shows how to orbit a static scene using pitch, yaw, and roll.
 [Custom Projection](../examples/camera/custom_projection.rs) | Shows how to create custom camera projections.
 [First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
 [Projection Zoom](../examples/camera/projection_zoom.rs) | Shows how to zoom orthographic and perspective projection cameras.
 [Screen Shake](../examples/camera/2d_screen_shake.rs) | A simple 2D screen shake effect
-[2D on UI](../examples/camera/2d_on_ui.rs) | Shows on to draw 2D on top of Bevy UI
 
 ## Dev tools
 
