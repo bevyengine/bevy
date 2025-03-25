@@ -258,6 +258,9 @@ pub unsafe trait SystemParam: Sized {
     /// world mutations inbetween. Otherwise, while it won't lead to any undefined behavior,
     /// the validity of the param may change.
     ///
+    /// [`System::validate_param`](super::system::System::validate_param),
+    /// calls this method for each supplied system param.
+    ///
     /// # Safety
     ///
     /// - The passed [`UnsafeWorldCell`] must have read-only access to world data
@@ -272,10 +275,8 @@ pub unsafe trait SystemParam: Sized {
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
-        // By default we allow panics in [`SystemParam::get_param`] and return `true`.
-        // Preventing panics is an optional feature.
-        true
+    ) -> ValidationOutcome {
+        ValidationOutcome::Valid
     }
 
     /// Creates a parameter to be passed into a [`SystemParamFunction`](super::SystemParamFunction).
@@ -307,6 +308,43 @@ pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
     for Query<'w, 's, D, F>
 {
+}
+
+/// The outcome of system / system param validation,
+/// used by system executors to determine what to do with a system.
+///
+/// The behavior of each system parameter can be controlled by returning a different outcome from [`SystemParam::validate_param`].
+pub enum ValidationOutcome {
+    /// All system parameters were validated successfully and the system can be run.
+    Valid,
+    /// At least one system parameter failed validation, and an error must be handled.
+    /// By default, this will result in a panic. See [`crate::error`] for more information.
+    ///
+    /// This is the default behavior, and is suitable for system params that should *always* be valid,
+    /// either because sensible fallback behavior exists (like [`Query`] or because
+    /// failures in validation should be considered a bug in the user's logic that must be immediately addressed (like [`Res`]).
+    Invalid,
+    /// At least one system parameter failed validation, but the system should be skipped.
+    /// This is suitable for system params that are intended to only operate in certain application states, such as [`Single`].
+    Skipped,
+}
+
+impl ValidationOutcome {
+    /// Combines two [`ValidationOutcome`]s, returning the most severe one.
+    ///
+    /// If either outcome is [`ValidationOutcome::Invalid`], the result will be [`ValidationOutcome::Invalid`].
+    /// Otherwise, if either outcome is [`ValidationOutcome::Skipped`], the result will be [`ValidationOutcome::Skipped`].
+    /// Finally, if both outcomes are [`ValidationOutcome::Valid`], the result will be [`ValidationOutcome::Valid`].
+    ///
+    /// When called, you should typically return early if the result is [`ValidationOutcome::Invalid`] or [`ValidationOutcome::Skipped`],
+    /// to avoid unnecessary work validating irrelevant system parameters.
+    pub const fn combine(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Invalid, _) | (_, Self::Invalid) => Self::Invalid,
+            (Self::Skipped, _) | (_, Self::Skipped) => Self::Skipped,
+            (Self::Valid, Self::Valid) => Self::Valid,
+        }
+    }
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
@@ -427,7 +465,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> ValidationOutcome {
         // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
         // The caller ensures the world matches the one used in init_state.
@@ -438,8 +476,10 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
                 world.change_tick(),
             )
         };
-        let is_valid = query.single_inner().is_ok();
-        is_valid
+        match query.single_inner() {
+            Ok(_) => ValidationOutcome::Valid,
+            Err(_) => ValidationOutcome::Skipped,
+        }
     }
 }
 
@@ -492,7 +532,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> ValidationOutcome {
         // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
         // The caller ensures the world matches the one used in init_state.
@@ -503,8 +543,10 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
                 world.change_tick(),
             )
         };
-        let result = query.single_inner();
-        !matches!(result, Err(QuerySingleError::MultipleEntities(_)))
+        match query.single_inner() {
+            Ok(_) | Err(QuerySingleError::NoEntities(_)) => ValidationOutcome::Valid,
+            Err(QuerySingleError::MultipleEntities(_)) => ValidationOutcome::Skipped,
+        }
     }
 }
 
@@ -558,7 +600,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> ValidationOutcome {
         // SAFETY:
         // - We have read-only access to the components accessed by query.
         // - The caller ensures the world matches the one used in init_state.
@@ -569,7 +611,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
                 world.change_tick(),
             )
         };
-        !query.is_empty()
+        if query.is_empty() {
+            ValidationOutcome::Skipped
+        } else {
+            ValidationOutcome::Valid
+        }
     }
 }
 
@@ -764,7 +810,7 @@ macro_rules! impl_param_set {
                 state: &'s Self::State,
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell<'w>,
-            ) -> bool {
+            ) -> ValidationOutcome {
                 <($($param,)*) as SystemParam>::validate_param(state, system_meta, world)
             }
 
@@ -842,13 +888,17 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         &component_id: &Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> ValidationOutcome {
         // SAFETY: Read-only access to resource metadata.
-        let is_valid = unsafe { world.storages() }
+        if unsafe { world.storages() }
             .resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present);
-        is_valid
+            .is_some_and(ResourceData::is_present)
+        {
+            ValidationOutcome::Valid
+        } else {
+            ValidationOutcome::Invalid
+        }
     }
 
     #[inline]
@@ -951,13 +1001,17 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         &component_id: &Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> ValidationOutcome {
         // SAFETY: Read-only access to resource metadata.
-        let is_valid = unsafe { world.storages() }
+        if unsafe { world.storages() }
             .resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present);
-        is_valid
+            .is_some_and(ResourceData::is_present)
+        {
+            ValidationOutcome::Valid
+        } else {
+            ValidationOutcome::Invalid
+        }
     }
 
     #[inline]
@@ -1545,13 +1599,17 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         &component_id: &Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> ValidationOutcome {
         // SAFETY: Read-only access to resource metadata.
-        let is_valid = unsafe { world.storages() }
+        if unsafe { world.storages() }
             .non_send_resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present);
-        is_valid
+            .is_some_and(ResourceData::is_present)
+        {
+            ValidationOutcome::Valid
+        } else {
+            ValidationOutcome::Invalid
+        }
     }
 
     #[inline]
@@ -1651,13 +1709,17 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         &component_id: &Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> ValidationOutcome {
         // SAFETY: Read-only access to resource metadata.
-        let is_valid = unsafe { world.storages() }
+        if unsafe { world.storages() }
             .non_send_resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present);
-        is_valid
+            .is_some_and(ResourceData::is_present)
+        {
+            ValidationOutcome::Valid
+        } else {
+            ValidationOutcome::Invalid
+        }
     }
 
     #[inline]
@@ -1865,10 +1927,23 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
-        state
-            .iter()
-            .all(|state| T::validate_param(state, system_meta, world))
+    ) -> ValidationOutcome {
+        let mut validation_state = ValidationOutcome::Valid;
+
+        for state in state {
+            validation_state =
+                validation_state.combine(T::validate_param(state, system_meta, world));
+
+            // Short-circuit to avoid wasted validation work
+            if matches!(
+                validation_state,
+                ValidationOutcome::Invalid | ValidationOutcome::Skipped
+            ) {
+                return validation_state;
+            }
+        }
+
+        validation_state
     }
 
     #[inline]
@@ -2052,9 +2127,12 @@ macro_rules! impl_system_param_tuple {
                 state: &Self::State,
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell,
-            ) -> bool {
+            ) -> ValidationOutcome {
+                // PERF: short-circuit to avoid wasted validation work
                 let ($($param,)*) = state;
-                $($param::validate_param($param, system_meta, world)&&)* true
+                // Run validation on each parameter in the tuple,
+                // combining the results into a single `ValidationOutcome`.
+                ValidationOutcome::Valid$(.combine($param::validate_param($param, system_meta, world)))*
             }
 
             #[inline]
@@ -2221,7 +2299,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> ValidationOutcome {
         P::validate_param(state, system_meta, world)
     }
 
@@ -2467,7 +2545,11 @@ trait DynParamState: Sync + Send {
     ///
     /// # Safety
     /// Refer to [`SystemParam::validate_param`].
-    unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell) -> bool;
+    unsafe fn validate_param(
+        &self,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> ValidationOutcome;
 }
 
 /// A wrapper around a [`SystemParam::State`] that can be used as a trait object in a [`DynSystemParam`].
@@ -2491,7 +2573,11 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
         T::queue(&mut self.0, system_meta, world);
     }
 
-    unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param(
+        &self,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> ValidationOutcome {
         T::validate_param(&self.0, system_meta, world)
     }
 }
@@ -2511,7 +2597,7 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> ValidationOutcome {
         state.0.validate_param(system_meta, world)
     }
 
