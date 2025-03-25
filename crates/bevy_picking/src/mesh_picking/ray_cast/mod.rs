@@ -7,8 +7,8 @@ mod intersections;
 use bevy_derive::{Deref, DerefMut};
 
 use bevy_math::{bounding::Aabb3d, Ray3d};
+use bevy_mesh::Mesh;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::mesh::Mesh;
 
 use intersections::*;
 pub use intersections::{ray_aabb_intersection_3d, ray_mesh_intersection, RayMeshHit};
@@ -22,6 +22,7 @@ use tracing::*;
 
 /// How a ray cast should handle [`Visibility`].
 #[derive(Clone, Copy, Reflect)]
+#[reflect(Clone)]
 pub enum RayCastVisibility {
     /// Completely ignore visibility checks. Hidden items can still be ray casted against.
     Any,
@@ -89,7 +90,7 @@ impl<'a> Default for MeshRayCastSettings<'a> {
 ///
 /// By default, backfaces are culled.
 #[derive(Copy, Clone, Default, Reflect)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub enum Backfaces {
     /// Cull backfaces.
     #[default]
@@ -100,14 +101,14 @@ pub enum Backfaces {
 
 /// Disables backface culling for [ray casts](MeshRayCast) on this entity.
 #[derive(Component, Copy, Clone, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct RayCastBackfaces;
 
 /// A simplified mesh component that can be used for [ray casting](super::MeshRayCast).
 ///
 /// Consider using this component for complex meshes that don't need perfectly accurate ray casting.
 #[derive(Component, Clone, Debug, Deref, DerefMut, Reflect)]
-#[reflect(Component, Debug)]
+#[reflect(Component, Debug, Clone)]
 pub struct SimplifiedMesh(pub Handle<Mesh>);
 
 type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;

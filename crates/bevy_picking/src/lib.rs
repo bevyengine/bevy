@@ -179,7 +179,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
-        MeshPickingPlugin, MeshPickingSettings, RayCastPickable,
+        MeshPickingCamera, MeshPickingPlugin, MeshPickingSettings,
     };
     #[doc(hidden)]
     pub use crate::{
@@ -195,7 +195,7 @@ pub mod prelude {
 ///
 /// See the documentation on the fields for more details.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct Pickable {
     /// Should this entity block entities below it from being picked?
     ///
@@ -300,7 +300,7 @@ impl PluginGroup for DefaultPickingPlugins {
 /// This plugin contains several settings, and is added to the world as a resource after initialization. You
 /// can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
-#[reflect(Resource, Default, Debug)]
+#[reflect(Resource, Default, Debug, Clone)]
 pub struct PickingPlugin {
     /// Enables and disables all picking features.
     pub is_enabled: bool,

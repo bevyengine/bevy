@@ -3,11 +3,11 @@ use core::any::Any;
 
 use crate::{
     component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
-    error::{DefaultSystemErrorHandler, SystemErrorContext},
+    error::{default_error_handler, ErrorContext},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
-    system::{IntoObserverSystem, ObserverSystem},
+    system::{IntoObserverSystem, ObserverSystem, SystemParamValidationError, ValidationOutcome},
     world::DeferredWorld,
 };
 use bevy_ptr::PtrMut;
@@ -273,7 +273,7 @@ pub struct Observer {
     system: Box<dyn Any + Send + Sync + 'static>,
     descriptor: ObserverDescriptor,
     hook_on_add: ComponentHook,
-    error_handler: Option<fn(BevyError, SystemErrorContext)>,
+    error_handler: Option<fn(BevyError, ErrorContext)>,
 }
 
 impl Observer {
@@ -322,7 +322,7 @@ impl Observer {
     /// Set the error handler to use for this observer.
     ///
     /// See the [`error` module-level documentation](crate::error) for more information.
-    pub fn with_error_handler(mut self, error_handler: fn(BevyError, SystemErrorContext)) -> Self {
+    pub fn with_error_handler(mut self, error_handler: fn(BevyError, ErrorContext)) -> Self {
         self.error_handler = Some(error_handler);
         self
     }
@@ -405,17 +405,27 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     // - system is the same type erased system from above
     unsafe {
         (*system).update_archetype_component_access(world);
-        if (*system).validate_param_unsafe(world) {
-            if let Err(err) = (*system).run_unsafe(trigger, world) {
-                error_handler(
-                    err,
-                    SystemErrorContext {
-                        name: (*system).name(),
-                        last_run: (*system).get_last_run(),
-                    },
-                );
-            };
-            (*system).queue_deferred(world.into_deferred());
+        match (*system).validate_param_unsafe(world) {
+            ValidationOutcome::Valid => {
+                if let Err(err) = (*system).run_unsafe(trigger, world) {
+                    error_handler(
+                        err,
+                        ErrorContext::Observer {
+                            name: (*system).name(),
+                            last_run: (*system).get_last_run(),
+                        },
+                    );
+                };
+                (*system).queue_deferred(world.into_deferred());
+            }
+            ValidationOutcome::Invalid => error_handler(
+                SystemParamValidationError.into(),
+                ErrorContext::Observer {
+                    name: (*system).name(),
+                    last_run: (*system).get_last_run(),
+                },
+            ),
+            ValidationOutcome::Skipped => (),
         }
     }
 }
@@ -444,7 +454,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             ..Default::default()
         };
 
-        let error_handler = world.get_resource_or_init::<DefaultSystemErrorHandler>().0;
+        let error_handler = default_error_handler();
 
         // Initialize System
         let system: *mut dyn ObserverSystem<E, B> =

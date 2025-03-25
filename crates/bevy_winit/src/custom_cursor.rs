@@ -9,7 +9,7 @@ use crate::{cursor::CursorIcon, state::CustomCursorCache};
 
 /// A custom cursor created from an image.
 #[derive(Debug, Clone, Default, Reflect, PartialEq, Eq, Hash)]
-#[reflect(Debug, Default, Hash, PartialEq)]
+#[reflect(Debug, Default, Hash, PartialEq, Clone)]
 pub struct CustomCursorImage {
     /// Handle to the image to use as the cursor. The image must be in 8 bit int
     /// or 32 bit float rgba. PNG images work well for this.
@@ -45,7 +45,7 @@ pub struct CustomCursorImage {
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]
 /// A custom cursor created from a URL.
 #[derive(Debug, Clone, Default, Reflect, PartialEq, Eq, Hash)]
-#[reflect(Debug, Default, Hash, PartialEq)]
+#[reflect(Debug, Default, Hash, PartialEq, Clone)]
 pub struct CustomCursorUrl {
     /// Web URL to an image to use as the cursor. PNGs are preferred. Cursor
     /// creation can fail if the image is invalid or not reachable.
@@ -57,6 +57,7 @@ pub struct CustomCursorUrl {
 
 /// Custom cursor image data.
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
+#[reflect(Clone, PartialEq, Hash)]
 pub enum CustomCursor {
     /// Use an image as the cursor.
     Image(CustomCursorImage),

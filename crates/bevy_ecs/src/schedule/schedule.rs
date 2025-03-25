@@ -26,7 +26,7 @@ use tracing::info_span;
 
 use crate::{
     component::{ComponentId, Components, Tick},
-    error::{BevyError, DefaultSystemErrorHandler, SystemErrorContext},
+    error::default_error_handler,
     prelude::Component,
     resource::Resource,
     schedule::*,
@@ -296,7 +296,6 @@ pub struct Schedule {
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
     executor_initialized: bool,
-    error_handler: Option<fn(BevyError, SystemErrorContext)>,
 }
 
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
@@ -321,7 +320,6 @@ impl Schedule {
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
-            error_handler: None,
         };
         // Call `set_build_settings` to add any default build passes
         this.set_build_settings(Default::default());
@@ -405,13 +403,6 @@ impl Schedule {
         self
     }
 
-    /// Set the error handler to use for systems that return a [`Result`](crate::error::Result).
-    ///
-    /// See the [`error` module-level documentation](crate::error) for more information.
-    pub fn set_error_handler(&mut self, error_handler: fn(BevyError, SystemErrorContext)) {
-        self.error_handler = Some(error_handler);
-    }
-
     /// Returns the schedule's current `ScheduleBuildSettings`.
     pub fn get_build_settings(&self) -> ScheduleBuildSettings {
         self.graph.settings.clone()
@@ -449,7 +440,7 @@ impl Schedule {
         self.initialize(world)
             .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
 
-        let error_handler = self.error_handler.expect("schedule initialized");
+        let error_handler = default_error_handler();
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor
@@ -490,10 +481,6 @@ impl Schedule {
             )?;
             self.graph.changed = false;
             self.executor_initialized = false;
-        }
-
-        if self.error_handler.is_none() {
-            self.error_handler = Some(world.get_resource_or_init::<DefaultSystemErrorHandler>().0);
         }
 
         if !self.executor_initialized {

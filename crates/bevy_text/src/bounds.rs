@@ -11,7 +11,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// reliable limit if it is necessary to contain the text strictly in the bounds. Currently this
 /// component is mainly useful for text wrapping only.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct TextBounds {
     /// The maximum width of text in logical pixels.
     /// If `None`, the width is unbounded.

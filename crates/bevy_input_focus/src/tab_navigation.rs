@@ -58,7 +58,7 @@ use {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Component, PartialEq)
+    reflect(Debug, Default, Component, PartialEq, Clone)
 )]
 pub struct TabIndex(pub i32);
 
@@ -67,7 +67,7 @@ pub struct TabIndex(pub i32);
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Component)
+    reflect(Debug, Default, Component, Clone)
 )]
 pub struct TabGroup {
     /// The order of the tab group relative to other tab groups.

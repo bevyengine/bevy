@@ -20,7 +20,7 @@ pub type Layer = usize;
 ///
 /// Entities without this component belong to layer `0`.
 #[derive(Component, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
-#[reflect(Component, Default, PartialEq, Debug)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
 pub struct RenderLayers(SmallVec<[u64; INLINE_BLOCKS]>);
 
 /// The number of memory blocks stored inline

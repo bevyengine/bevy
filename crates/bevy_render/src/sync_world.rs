@@ -12,7 +12,7 @@ use bevy_ecs::{
     world::{Mut, OnAdd, OnRemove, World},
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
 ///
@@ -119,7 +119,7 @@ impl Plugin for SyncWorldPlugin {
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
-#[reflect[Component]]
+#[reflect[Component, Default, Clone]]
 #[component(storage = "SparseSet")]
 pub struct SyncToRenderWorld;
 
@@ -185,7 +185,7 @@ pub type MainEntityHashSet = HashSet<MainEntity, EntityHash>;
 
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default, Clone)]
 pub struct TemporaryRenderEntity;
 
 /// A record enum to what entities with [`SyncToRenderWorld`] have been added or removed.

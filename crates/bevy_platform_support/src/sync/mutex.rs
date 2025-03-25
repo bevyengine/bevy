@@ -1,12 +1,12 @@
 //! Provides `Mutex` and `MutexGuard`
 
-pub use mutex::{Mutex, MutexGuard};
+pub use implementation::{Mutex, MutexGuard};
 
 #[cfg(feature = "std")]
-use std::sync as mutex;
+use std::sync as implementation;
 
 #[cfg(not(feature = "std"))]
-mod mutex {
+mod implementation {
     use crate::sync::{LockResult, TryLockError, TryLockResult};
     use core::fmt;
 
@@ -81,7 +81,7 @@ mod mutex {
         }
     }
 
-    impl<T: ?Sized + Default> Default for Mutex<T> {
+    impl<T: Default> Default for Mutex<T> {
         fn default() -> Mutex<T> {
             Mutex::new(Default::default())
         }

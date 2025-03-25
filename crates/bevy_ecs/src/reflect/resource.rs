@@ -8,7 +8,10 @@ use crate::{
     change_detection::Mut,
     component::ComponentId,
     resource::Resource,
-    world::{unsafe_world_cell::UnsafeWorldCell, FilteredResources, FilteredResourcesMut, World},
+    world::{
+        error::ResourceFetchError, unsafe_world_cell::UnsafeWorldCell, FilteredResources,
+        FilteredResourcesMut, World,
+    },
 };
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
 
@@ -52,9 +55,12 @@ pub struct ReflectResourceFns {
     /// Function pointer implementing [`ReflectResource::remove()`].
     pub remove: fn(&mut World),
     /// Function pointer implementing [`ReflectResource::reflect()`].
-    pub reflect: for<'w> fn(FilteredResources<'w, '_>) -> Option<&'w dyn Reflect>,
+    pub reflect:
+        for<'w> fn(FilteredResources<'w, '_>) -> Result<&'w dyn Reflect, ResourceFetchError>,
     /// Function pointer implementing [`ReflectResource::reflect_mut()`].
-    pub reflect_mut: for<'w> fn(FilteredResourcesMut<'w, '_>) -> Option<Mut<'w, dyn Reflect>>,
+    pub reflect_mut: for<'w> fn(
+        FilteredResourcesMut<'w, '_>,
+    ) -> Result<Mut<'w, dyn Reflect>, ResourceFetchError>,
     /// Function pointer implementing [`ReflectResource::reflect_unchecked_mut()`].
     ///
     /// # Safety
@@ -118,7 +124,7 @@ impl ReflectResource {
     pub fn reflect<'w, 's>(
         &self,
         resources: impl Into<FilteredResources<'w, 's>>,
-    ) -> Option<&'w dyn Reflect> {
+    ) -> Result<&'w dyn Reflect, ResourceFetchError> {
         (self.0.reflect)(resources.into())
     }
 
@@ -128,7 +134,7 @@ impl ReflectResource {
     pub fn reflect_mut<'w, 's>(
         &self,
         resources: impl Into<FilteredResourcesMut<'w, 's>>,
-    ) -> Option<Mut<'w, dyn Reflect>> {
+    ) -> Result<Mut<'w, dyn Reflect>, ResourceFetchError> {
         (self.0.reflect_mut)(resources.into())
     }
 

@@ -15,7 +15,9 @@ fn main() {
         .add_systems(OnEnter(Scene::Bloom), bloom::setup)
         .add_systems(OnEnter(Scene::Text), text::setup)
         .add_systems(OnEnter(Scene::Sprite), sprite::setup)
-        .add_systems(Update, switch_scene);
+        .add_systems(OnEnter(Scene::Gizmos), gizmos::setup)
+        .add_systems(Update, switch_scene)
+        .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)));
 
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
@@ -31,6 +33,7 @@ enum Scene {
     Bloom,
     Text,
     Sprite,
+    Gizmos,
 }
 
 impl Next for Scene {
@@ -39,7 +42,8 @@ impl Next for Scene {
             Scene::Shapes => Scene::Bloom,
             Scene::Bloom => Scene::Text,
             Scene::Text => Scene::Sprite,
-            Scene::Sprite => Scene::Shapes,
+            Scene::Sprite => Scene::Gizmos,
+            Scene::Gizmos => Scene::Shapes,
         }
     }
 }
@@ -211,10 +215,10 @@ mod text {
         ));
 
         for anchor in [
-            Anchor::TopLeft,
-            Anchor::TopRight,
-            Anchor::BottomRight,
-            Anchor::BottomLeft,
+            Anchor::TOP_LEFT,
+            Anchor::TOP_RIGHT,
+            Anchor::BOTTOM_RIGHT,
+            Anchor::BOTTOM_LEFT,
         ] {
             let mut text = commands.spawn((
                 Text2d::new("L R\n"),
@@ -222,20 +226,19 @@ mod text {
                 Transform::from_translation(dest + Vec3::Z),
                 anchor,
                 StateScoped(super::Scene::Text),
+                children![
+                    (
+                        TextSpan::new(format!("{}, {}\n", anchor.x, anchor.y)),
+                        TextFont::from_font_size(14.0),
+                        TextColor(palettes::tailwind::BLUE_400.into()),
+                    ),
+                    (
+                        TextSpan::new(format!("{justify:?}")),
+                        TextFont::from_font_size(14.0),
+                        TextColor(palettes::tailwind::GREEN_400.into()),
+                    ),
+                ],
             ));
-            text.with_children(|parent| {
-                parent.spawn((
-                    TextSpan::new(format!("{anchor:?}\n")),
-                    TextFont::from_font_size(14.0),
-                    TextColor(palettes::tailwind::BLUE_400.into()),
-                ));
-                parent.spawn((
-                    TextSpan::new(format!("{justify:?}")),
-                    TextFont::from_font_size(14.0),
-                    TextColor(palettes::tailwind::GREEN_400.into()),
-                ));
-            });
-
             if let Some(bounds) = bounds {
                 text.insert(bounds);
 
@@ -255,13 +258,44 @@ mod text {
 }
 
 mod sprite {
+    use bevy::color::palettes::css::{BLUE, LIME, RED};
     use bevy::prelude::*;
+    use bevy::sprite::Anchor;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, StateScoped(super::Scene::Sprite)));
-        commands.spawn((
-            Sprite::from_image(asset_server.load("branding/bevy_bird_dark.png")),
-            StateScoped(super::Scene::Sprite),
-        ));
+        for (anchor, flip_x, flip_y, color) in [
+            (Anchor::BOTTOM_LEFT, false, false, Color::WHITE),
+            (Anchor::BOTTOM_RIGHT, true, false, RED.into()),
+            (Anchor::TOP_LEFT, false, true, LIME.into()),
+            (Anchor::TOP_RIGHT, true, true, BLUE.into()),
+        ] {
+            commands.spawn((
+                Sprite {
+                    image: asset_server.load("branding/bevy_logo_dark.png"),
+                    anchor,
+                    flip_x,
+                    flip_y,
+                    color,
+                    ..default()
+                },
+                StateScoped(super::Scene::Sprite),
+            ));
+        }
+    }
+}
+
+mod gizmos {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, StateScoped(super::Scene::Gizmos)));
+    }
+
+    pub fn draw_gizmos(mut gizmos: Gizmos) {
+        gizmos.rect_2d(Isometry2d::IDENTITY, Vec2::new(200.0, 200.0), RED);
+        gizmos
+            .circle_2d(Isometry2d::IDENTITY, 200.0, GREEN)
+            .resolution(64);
     }
 }

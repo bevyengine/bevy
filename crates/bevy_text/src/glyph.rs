@@ -11,6 +11,7 @@ use bevy_reflect::Reflect;
 ///
 /// Used in [`TextPipeline::queue_text`](crate::TextPipeline::queue_text) and [`crate::TextLayoutInfo`] for rendering glyphs.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub struct PositionedGlyph {
     /// The position of the glyph in the text block's bounding box.
     pub position: Vec2,
@@ -35,6 +36,7 @@ pub struct PositionedGlyph {
 ///
 /// Used in [`PositionedGlyph`] and [`FontAtlasSet`](crate::FontAtlasSet).
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub struct GlyphAtlasInfo {
     /// A handle to the [`Image`] data for the texture atlas this glyph was placed in.
     ///
@@ -53,6 +55,7 @@ pub struct GlyphAtlasInfo {
 ///
 /// Used in [`GlyphAtlasInfo`] and [`FontAtlas`](crate::FontAtlas).
 #[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Clone)]
 pub struct GlyphAtlasLocation {
     /// The index of the glyph in the atlas
     pub glyph_index: usize,

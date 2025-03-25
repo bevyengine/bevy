@@ -10,7 +10,6 @@ use alloc::{
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
-    error::{BevyError, SystemErrorContext},
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
@@ -1271,18 +1270,6 @@ impl App {
         S2: IntoSystemSet<M2>,
     {
         self.main_mut().ignore_ambiguity(schedule, a, b);
-        self
-    }
-
-    /// Set the global system error handler to use for systems that return a [`Result`].
-    ///
-    /// See the [`bevy_ecs::error` module-level documentation](bevy_ecs::error)
-    /// for more information.
-    pub fn set_system_error_handler(
-        &mut self,
-        error_handler: fn(BevyError, SystemErrorContext),
-    ) -> &mut Self {
-        self.main_mut().set_system_error_handler(error_handler);
         self
     }
 

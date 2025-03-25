@@ -1,11 +1,11 @@
 //! Provides `LazyLock`
 
-pub use lazy_lock::LazyLock;
+pub use implementation::LazyLock;
 
 #[cfg(feature = "std")]
-use std::sync as lazy_lock;
+use std::sync as implementation;
 
 #[cfg(not(feature = "std"))]
-mod lazy_lock {
+mod implementation {
     pub use spin::Lazy as LazyLock;
 }

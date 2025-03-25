@@ -98,7 +98,7 @@ pub struct PostProcessingPlugin;
 ///
 /// [Gjøl & Svendsen 2016]: https://github.com/playdeadgames/publications/blob/master/INSIDE/rendering_inside_gdc2016.pdf
 #[derive(Reflect, Component, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct ChromaticAberration {
     /// The lookup texture that determines the color gradient.
     ///

@@ -5,7 +5,7 @@ use bevy_reflect::prelude::*;
 
 /// Manner in which UV coordinates are distributed vertically.
 #[derive(Clone, Copy, Debug, Default, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub enum CapsuleUvProfile {
     /// UV space is distributed by how much of the capsule consists of the hemispheres.
     #[default]
@@ -19,7 +19,7 @@ pub enum CapsuleUvProfile {
 
 /// A builder used for creating a [`Mesh`] with a [`Capsule3d`] shape.
 #[derive(Clone, Copy, Debug, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct Capsule3dMeshBuilder {
     /// The [`Capsule3d`] shape.
     pub capsule: Capsule3d,

@@ -52,7 +52,7 @@ fn js_value_to_err(context: &str) -> impl FnOnce(JsValue) -> std::io::Error + '_
 }
 
 impl HttpWasmAssetReader {
-    async fn fetch_bytes<'a>(&self, path: PathBuf) -> Result<impl Reader, AssetReaderError> {
+    async fn fetch_bytes(&self, path: PathBuf) -> Result<impl Reader, AssetReaderError> {
         // The JS global scope includes a self-reference via a specializing name, which can be used to determine the type of global context available.
         let global: Global = js_sys::global().unchecked_into();
         let promise = if !global.window().is_undefined() {

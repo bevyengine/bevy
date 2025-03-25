@@ -39,7 +39,6 @@
 mod clone_entities;
 mod entity_set;
 mod map_entities;
-mod visit_entities;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
@@ -48,7 +47,6 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 pub use clone_entities::*;
 pub use entity_set::*;
 pub use map_entities::*;
-pub use visit_entities::*;
 
 mod hash;
 pub use hash::*;
@@ -166,7 +164,7 @@ type IdCursor = isize;
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug, Clone))]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
     reflect(Serialize, Deserialize)

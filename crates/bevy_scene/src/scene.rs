@@ -8,7 +8,7 @@ use bevy_ecs::{
     entity::{hash_map::EntityHashMap, Entity, SceneEntityMapper},
     entity_disabling::DefaultQueryFilters,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
-    relationship::RelationshipInsertHookMode,
+    relationship::RelationshipHookMode,
     world::World,
 };
 use bevy_reflect::TypePath;
@@ -159,7 +159,7 @@ impl Scene {
                             component.as_partial_reflect(),
                             &type_registry,
                             mapper,
-                            RelationshipInsertHookMode::Skip,
+                            RelationshipHookMode::Skip,
                         );
                     });
                 }

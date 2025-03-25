@@ -76,7 +76,10 @@ use bevy_ecs_macros::{Component, Resource};
 use smallvec::SmallVec;
 
 #[cfg(feature = "bevy_reflect")]
-use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
+use {
+    crate::reflect::ReflectComponent, bevy_reflect::std_traits::ReflectDefault,
+    bevy_reflect::Reflect,
+};
 
 /// A marker component for disabled entities.
 ///
@@ -97,7 +100,7 @@ use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
     feature = "bevy_reflect",
     derive(Reflect),
     reflect(Component),
-    reflect(Debug)
+    reflect(Debug, Clone, Default)
 )]
 // This component is registered as a disabling component during World::bootstrap
 pub struct Disabled;

@@ -70,15 +70,19 @@ fn setup(
 
 fn update(
     time: Res<Time>,
-    mut query: Query<&MeshMaterial3d<CustomMaterial>>,
+    mut query: Query<(&MeshMaterial3d<CustomMaterial>, &mut Transform)>,
     mut materials: ResMut<Assets<CustomMaterial>>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    for material in query.iter_mut() {
+    for (material, mut transform) in query.iter_mut() {
         let material = materials.get_mut(material).unwrap();
         material.time = time.elapsed_secs();
         if keys.just_pressed(KeyCode::Space) {
             material.party_mode = !material.party_mode;
+        }
+
+        if material.party_mode {
+            transform.rotate(Quat::from_rotation_y(0.005));
         }
     }
 }

@@ -39,14 +39,14 @@ enum D {
     C { value: f32 },
 }
 
-/// Reflect has "built in" support for some common traits like `PartialEq`, `Hash`, and `Serialize`.
+/// Reflect has "built in" support for some common traits like `PartialEq`, `Hash`, and `Clone`.
 ///
 /// These are exposed via methods like `PartialReflect::reflect_hash()`,
-/// `PartialReflect::reflect_partial_eq()`, and `PartialReflect::serializable()`.
+/// `PartialReflect::reflect_partial_eq()`, and `PartialReflect::reflect_clone()`.
 /// You can force these implementations to use the actual trait
 /// implementations (instead of their defaults) like this:
-#[derive(Reflect, Hash, Serialize, PartialEq, Eq)]
-#[reflect(Hash, Serialize, PartialEq)]
+#[derive(Reflect, Hash, PartialEq, Clone)]
+#[reflect(Hash, PartialEq, Clone)]
 pub struct E {
     x: usize,
 }
@@ -54,11 +54,11 @@ pub struct E {
 /// By default, deriving with Reflect assumes the type is either a "struct" or an "enum".
 ///
 /// You can tell reflect to treat your type instead as an "opaque type" by using the `#[reflect(opaque)]`.
-/// It is generally a good idea to implement (and reflect) the `PartialEq`, `Serialize`, and `Deserialize`
+/// It is generally a good idea to implement (and reflect) the `PartialEq` and `Clone` (optionally also `Serialize` and `Deserialize`)
 /// traits on opaque types to ensure that these values behave as expected when nested in other reflected types.
 #[derive(Reflect, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect(opaque)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Clone, Serialize, Deserialize)]
 enum F {
     X,
     Y,

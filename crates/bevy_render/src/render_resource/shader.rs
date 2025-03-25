@@ -164,23 +164,34 @@ impl Shader {
         match import_path {
             ShaderImport::AssetPath(asset_path) => {
                 let asset_path = std::path::PathBuf::from(&asset_path);
-                // Resolve and normalize the path
-                let asset_path = asset_path.canonicalize().unwrap_or(asset_path);
-                // Strip the asset root
+
+                // Get the base path and canonicalize it to match the format of the asset path
                 let mut base_path = bevy_asset::io::file::FileAssetReader::get_base_path();
-                // TODO: integrate better with the asset system rather than hard coding this
                 base_path.push("assets");
-                let asset_path = asset_path
-                    .strip_prefix(&base_path)
-                    .unwrap_or_else(|_| &asset_path);
-                // Wesl paths are provided as absolute relative to the asset root
-                let asset_path = std::path::Path::new("/").join(asset_path);
-                // And with a striped file name
-                let asset_path = asset_path.with_extension("");
-                let asset_path = asset_path.to_str().unwrap_or_else(|| {
-                    panic!("Failed to convert path to string: {:?}", asset_path)
-                });
-                let import_path = ShaderImport::AssetPath(asset_path.to_string());
+                let base_path = base_path.canonicalize().unwrap_or(base_path);
+
+                // Try to make the path relative to the base path
+                let relative_path = match asset_path.canonicalize() {
+                    Ok(canonical_asset_path) => {
+                        match canonical_asset_path.strip_prefix(&base_path) {
+                            Ok(rel_path) => rel_path.to_path_buf(),
+                            Err(_) => canonical_asset_path,
+                        }
+                    }
+                    Err(_) => asset_path,
+                };
+
+                // Create the shader import path - always starting with "/"
+                let shader_path = std::path::Path::new("/").join(&relative_path);
+
+                // Convert to a string with forward slashes and without extension
+                let import_path_str = shader_path
+                    .with_extension("")
+                    .to_string_lossy()
+                    .replace('\\', "/");
+
+                let import_path = ShaderImport::AssetPath(import_path_str.to_string());
+
                 Shader {
                     path,
                     imports,

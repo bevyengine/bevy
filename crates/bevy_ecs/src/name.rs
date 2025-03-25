@@ -41,7 +41,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Component, Default, Debug)
+    reflect(Component, Default, Debug, Clone, Hash, PartialEq)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),

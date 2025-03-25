@@ -9,12 +9,15 @@ mod query_filter;
 mod states;
 mod world_query;
 
-use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
+use crate::{
+    component::map_entities, query_data::derive_query_data_impl,
+    query_filter::derive_query_filter_impl,
+};
 use bevy_macro_utils::{
     as_member, derive_label, ensure_no_collision, get_struct_fields, BevyManifest,
 };
 use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as TokenStream2};
+use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
@@ -171,86 +174,22 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     })
 }
 
-fn derive_visit_entities_base(
-    input: TokenStream,
-    trait_name: TokenStream2,
-    gen_methods: impl FnOnce(Vec<Member>) -> TokenStream2,
-) -> TokenStream {
+#[proc_macro_derive(MapEntities, attributes(entities))]
+pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
-
-    let fields = match get_struct_fields(&ast.data) {
-        Ok(fields) => fields,
-        Err(e) => return e.into_compile_error().into(),
-    };
-
-    let fields = fields
-        .iter()
-        .enumerate()
-        .filter_map(|(index, field)| {
-            if let Some(attr) = field
-                .attrs
-                .iter()
-                .find(|a| a.path().is_ident("visit_entities"))
-            {
-                let has_ignore = attr.parse_nested_meta(|meta| {
-                    if meta.path.is_ident("ignore") {
-                        Ok(())
-                    } else {
-                        Err(meta.error("Invalid visit_entities attribute. Use `ignore`"))
-                    }
-                });
-                return match has_ignore {
-                    Ok(()) => None,
-                    Err(e) => Some(Err(e)),
-                };
-            }
-            Some(Ok(as_member(field.ident.as_ref(), index)))
-        })
-        .collect::<Result<Vec<_>, _>>();
-
-    let fields = match fields {
-        Ok(f) => f,
-        Err(e) => return e.into_compile_error().into(),
-    };
-
-    if fields.is_empty() {
-        return syn::Error::new(
-            ast.span(),
-            format!("Invalid `{}` type: at least one field", trait_name),
-        )
-        .into_compile_error()
-        .into();
-    }
-    let methods = gen_methods(fields);
-    let generics = ast.generics;
-    let (impl_generics, ty_generics, _) = generics.split_for_impl();
+    let map_entities_impl = map_entities(
+        &ast.data,
+        Ident::new("self", Span::call_site()),
+        false,
+        false,
+    );
     let struct_name = &ast.ident;
-
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     TokenStream::from(quote! {
-        impl #impl_generics #ecs_path::entity:: #trait_name for #struct_name #ty_generics {
-            #methods
-        }
-    })
-}
-
-#[proc_macro_derive(VisitEntitiesMut, attributes(visit_entities))]
-pub fn derive_visit_entities_mut(input: TokenStream) -> TokenStream {
-    derive_visit_entities_base(input, quote! { VisitEntitiesMut }, |fields| {
-        quote! {
-            fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
-                #(self.#fields.visit_entities_mut(&mut f);)*
-            }
-        }
-    })
-}
-
-#[proc_macro_derive(VisitEntities, attributes(visit_entities))]
-pub fn derive_visit_entities(input: TokenStream) -> TokenStream {
-    derive_visit_entities_base(input, quote! { VisitEntities }, |fields| {
-        quote! {
-            fn visit_entities<F: FnMut(Entity)>(&self, mut f: F) {
-                #(self.#fields.visit_entities(&mut f);)*
+        impl #impl_generics #ecs_path::entity::MapEntities for #struct_name #type_generics #where_clause {
+            fn map_entities<M: #ecs_path::entity::EntityMapper>(&mut self, mapper: &mut M) {
+                #map_entities_impl
             }
         }
     })
@@ -463,7 +402,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     state: &'s Self::State,
                     system_meta: &#path::system::SystemMeta,
                     world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
-                ) -> bool {
+                ) -> #path::system::ValidationOutcome {
                     <(#(#tuple_types,)*) as #path::system::SystemParam>::validate_param(&state.state, system_meta, world)
                 }
 

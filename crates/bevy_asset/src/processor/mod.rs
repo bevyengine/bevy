@@ -54,7 +54,7 @@ use crate::{
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
     AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
-    MissingAssetLoaderForExtensionError, WriteDefaultMetaError,
+    MissingAssetLoaderForExtensionError, UnapprovedPathMode, WriteDefaultMetaError,
 };
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, sync::Arc, vec, vec::Vec};
 use bevy_ecs::prelude::*;
@@ -122,6 +122,7 @@ impl AssetProcessor {
             AssetServerMode::Processed,
             AssetMetaCheck::Always,
             false,
+            UnapprovedPathMode::default(),
         );
         Self { server, data }
     }

@@ -259,6 +259,7 @@ enum BindingResourceArray<'a> {
 /// The location of a material (either bindless or non-bindless) within the
 /// slabs.
 #[derive(Clone, Copy, Debug, Default, Reflect)]
+#[reflect(Clone, Default)]
 pub struct MaterialBindingId {
     /// The index of the bind group (slab) where the GPU data is located.
     pub group: MaterialBindGroupIndex,
@@ -273,7 +274,7 @@ pub struct MaterialBindingId {
 /// In bindless mode, each bind group contains multiple materials. In
 /// non-bindless mode, each bind group contains only one material.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Reflect, Deref, DerefMut)]
-#[reflect(Default)]
+#[reflect(Default, Clone, PartialEq, Hash)]
 pub struct MaterialBindGroupIndex(pub u32);
 
 impl From<u32> for MaterialBindGroupIndex {
@@ -289,7 +290,7 @@ impl From<u32> for MaterialBindGroupIndex {
 /// bind group, since multiple materials are packed into a single slab. In
 /// non-bindless mode, this slot is always 0.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Reflect, Deref, DerefMut)]
-#[reflect(Default)]
+#[reflect(Default, Clone, PartialEq)]
 pub struct MaterialBindGroupSlot(pub u32);
 
 /// The CPU/GPU synchronization state of a buffer that we maintain.
@@ -1372,10 +1373,10 @@ where
             }
 
             if let Some(required_binding_array_size) = required_binding_array_size {
-                sampler_bindings.extend(
-                    iter::repeat(&**fallback_sampler)
-                        .take(required_binding_array_size as usize - sampler_bindings.len()),
-                );
+                sampler_bindings.extend(iter::repeat_n(
+                    &**fallback_sampler,
+                    required_binding_array_size as usize - sampler_bindings.len(),
+                ));
             }
 
             let binding_number = bindless_resource_type
@@ -1436,10 +1437,10 @@ where
             }
 
             if let Some(required_binding_array_size) = required_binding_array_size {
-                texture_bindings.extend(
-                    iter::repeat(&*fallback_image.texture_view)
-                        .take(required_binding_array_size as usize - texture_bindings.len()),
-                );
+                texture_bindings.extend(iter::repeat_n(
+                    &*fallback_image.texture_view,
+                    required_binding_array_size as usize - texture_bindings.len(),
+                ));
             }
 
             binding_resource_arrays.push((
@@ -1489,14 +1490,14 @@ where
                 .collect();
 
             if let Some(required_binding_array_size) = required_binding_array_size {
-                buffer_bindings.extend(
-                    iter::repeat(BufferBinding {
+                buffer_bindings.extend(iter::repeat_n(
+                    BufferBinding {
                         buffer: fallback_buffer,
                         offset: 0,
                         size: None,
-                    })
-                    .take(required_binding_array_size as usize - buffer_bindings.len()),
-                );
+                    },
+                    required_binding_array_size as usize - buffer_bindings.len(),
+                ));
             }
 
             binding_resource_arrays.push((

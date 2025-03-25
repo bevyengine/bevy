@@ -258,6 +258,33 @@ pub struct AssetPlugin {
     pub mode: AssetMode,
     /// How/If asset meta files should be checked.
     pub meta_check: AssetMetaCheck,
+    /// How to handle load requests of files that are outside the approved directories.
+    ///
+    /// Approved folders are [`AssetPlugin::file_path`] and the folder of each
+    /// [`AssetSource`](io::AssetSource). Subfolders within these folders are also valid.
+    pub unapproved_path_mode: UnapprovedPathMode,
+}
+
+/// Determines how to react to attempts to load assets not inside the approved folders.
+///
+/// Approved folders are [`AssetPlugin::file_path`] and the folder of each
+/// [`AssetSource`](io::AssetSource). Subfolders within these folders are also valid.
+///
+/// It is strongly discouraged to use [`Allow`](UnapprovedPathMode::Allow) if your
+/// app will include scripts or modding support, as it could allow allow arbitrary file
+/// access for malicious code.
+///
+/// See [`AssetPath::is_unapproved`](crate::AssetPath::is_unapproved)
+#[derive(Clone, Default)]
+pub enum UnapprovedPathMode {
+    /// Unapproved asset loading is allowed. This is strongly discouraged.
+    Allow,
+    /// Fails to load any asset that is is unapproved, unless an override method is used, like
+    /// [`AssetServer::load_override`].
+    Deny,
+    /// Fails to load any asset that is is unapproved.
+    #[default]
+    Forbid,
 }
 
 /// Controls whether or not assets are pre-processed before being loaded.
@@ -311,6 +338,7 @@ impl Default for AssetPlugin {
             processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
             watch_for_changes_override: None,
             meta_check: AssetMetaCheck::default(),
+            unapproved_path_mode: UnapprovedPathMode::default(),
         }
     }
 }
@@ -351,6 +379,7 @@ impl Plugin for AssetPlugin {
                         AssetServerMode::Unprocessed,
                         self.meta_check.clone(),
                         watch,
+                        self.unapproved_path_mode.clone(),
                     ));
                 }
                 AssetMode::Processed => {
@@ -367,6 +396,7 @@ impl Plugin for AssetPlugin {
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
+                            self.unapproved_path_mode.clone(),
                         ))
                         .insert_resource(processor)
                         .add_systems(bevy_app::Startup, AssetProcessor::start);
@@ -380,6 +410,7 @@ impl Plugin for AssetPlugin {
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
+                            self.unapproved_path_mode.clone(),
                         ));
                     }
                 }
@@ -639,7 +670,7 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, DuplicateLabelAssetError, LoadState,
+        AssetPlugin, AssetServer, Assets, DuplicateLabelAssetError, LoadState, UnapprovedPathMode,
     };
     use alloc::{
         boxed::Box,
@@ -1933,4 +1964,92 @@ mod tests {
 
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
+
+    fn unapproved_path_setup(mode: UnapprovedPathMode) -> App {
+        let dir = Dir::default();
+        let a_path = "../a.cool.ron";
+        let a_ron = r#"
+(
+    text: "a",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
+
+        dir.insert_asset_text(Path::new(a_path), a_ron);
+
+        let mut app = App::new();
+        let memory_reader = MemoryAssetReader { root: dir };
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build().with_reader(move || Box::new(memory_reader.clone())),
+        )
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            LogPlugin::default(),
+            AssetPlugin {
+                unapproved_path_mode: mode,
+                ..Default::default()
+            },
+        ));
+        app.init_asset::<CoolText>();
+
+        app
+    }
+
+    fn load_a_asset(assets: Res<AssetServer>) {
+        let a = assets.load::<CoolText>("../a.cool.ron");
+        if a == Handle::default() {
+            panic!()
+        }
+    }
+
+    fn load_a_asset_override(assets: Res<AssetServer>) {
+        let a = assets.load_override::<CoolText>("../a.cool.ron");
+        if a == Handle::default() {
+            panic!()
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn unapproved_path_forbid_should_panic() {
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Forbid);
+
+        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        app.add_systems(Update, (uses_assets, load_a_asset_override));
+
+        app.world_mut().run_schedule(Update);
+    }
+
+    #[test]
+    #[should_panic]
+    fn unapproved_path_deny_should_panic() {
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
+
+        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        app.add_systems(Update, (uses_assets, load_a_asset));
+
+        app.world_mut().run_schedule(Update);
+    }
+
+    #[test]
+    fn unapproved_path_deny_should_finish() {
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
+
+        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        app.add_systems(Update, (uses_assets, load_a_asset_override));
+
+        app.world_mut().run_schedule(Update);
+    }
+
+    #[test]
+    fn unapproved_path_allow_should_finish() {
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Allow);
+
+        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        app.add_systems(Update, (uses_assets, load_a_asset));
+
+        app.world_mut().run_schedule(Update);
+    }
 }
