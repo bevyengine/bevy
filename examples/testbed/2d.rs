@@ -259,13 +259,27 @@ mod text {
 
 mod sprite {
     use bevy::prelude::*;
+    use bevy::sprite::Anchor;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, StateScoped(super::Scene::Sprite)));
-        commands.spawn((
-            Sprite::from_image(asset_server.load("branding/bevy_bird_dark.png")),
-            StateScoped(super::Scene::Sprite),
-        ));
+        for (anchor, flip_x, flip_y) in [
+            (Anchor::BOTTOM_LEFT, false, false),
+            (Anchor::BOTTOM_RIGHT, true, false),
+            (Anchor::TOP_LEFT, false, true),
+            (Anchor::TOP_RIGHT, true, true),
+        ] {
+            commands.spawn((
+                Sprite {
+                    image: asset_server.load("branding/bevy_bird_dark.png"),
+                    anchor,
+                    flip_x,
+                    flip_y,
+                    ..default()
+                },
+                StateScoped(super::Scene::Sprite),
+            ));
+        }
     }
 }
 
