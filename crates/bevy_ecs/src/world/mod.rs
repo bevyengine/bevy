@@ -2761,6 +2761,7 @@ impl World {
     ///  /// # Example
     /// ```
     /// use bevy_ecs::prelude::*;
+    /// use std::any::TypeId;
     /// #[derive(Resource)]
     /// struct A(u32);
     /// #[derive(Component)]
@@ -2768,7 +2769,10 @@ impl World {
     /// let mut world = World::new();
     /// world.insert_resource(A(1));
     /// let entity = world.spawn(B(1)).id();
-    /// let component_id = A.id();
+    /// let component_id = world
+    /// .components()
+    /// .get_resource_id(TypeId::of::<A>())
+    /// .expect("Failed to get component ID for MyResource");
     /// world.resource_scope_by_id(component_id, |world: &mut World, mut a: Mut<A>| {
     ///     let b = world.get_mut::<B>(entity).unwrap();
     ///     a.0 += b.0;
