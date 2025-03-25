@@ -543,7 +543,7 @@ struct RemoteEntitiesInner {
 /// See also [`RemoteEntities`].
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RemoteReservationError {
-    /// This happens when [`Entities`] are closed, dropped, etc while a [`RemoteEntitiesReserver`] is trying to reserve from it.
+    /// This happens when [`Entities`] are closed, dropped, etc while a [`RemoteEntities`] is trying to reserve from it.
     #[error("A remote entity reserver tried to reserve an entity from a closed `Entities`.")]
     Closed,
 }
@@ -639,7 +639,7 @@ pub struct RemoteEntities {
 }
 
 impl RemoteEntities {
-    /// Constructs a [`RemoteEntitiesReserver`] that can be shared between threads.
+    /// Reserves an [`Entity`] from async.
     ///
     /// # Example
     ///
