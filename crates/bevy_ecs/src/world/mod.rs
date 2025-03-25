@@ -2780,9 +2780,13 @@ impl World {
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
     ///
-    /// See also [`try_resource_scopy_by_id`](Self::try_resource_scopy_by_id).
+    /// See also [`try_resource_scope_by_id`](Self::try_resource_scope_by_id).
     #[track_caller]
-    pub fn resource_scope_by_id<R: Resource, U>(&mut self, id: ComponentId, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+    pub fn resource_scope_by_id<R: Resource, U>(
+        &mut self,
+        id: ComponentId,
+        f: impl FnOnce(&mut World, Mut<R>) -> U,
+    ) -> U {
         self.try_resource_scope_by_id(id, f)
             .unwrap_or_else(|| panic!("resource with ComponentId {} does not exist.", id.index()))
     }
@@ -2792,10 +2796,16 @@ impl World {
     ///
     /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
     /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
-    pub fn try_resource_scope_by_id<R: Resource, U>(&mut self, id: ComponentId, f: impl FnOnce(&mut World, Mut<R>) -> U) -> Option<U> {
+    ///
+    /// See also [`resource_scope_by_id`](Self::resource_scope_by_id).
+    pub fn try_resource_scope_by_id<R: Resource, U>(
+        &mut self,
+        id: ComponentId,
+        f: impl FnOnce(&mut World, Mut<R>) -> U,
+    ) -> Option<U> {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
-    
+
         let (ptr, mut ticks, mut caller) = self
             .storages
             .resources
@@ -2819,7 +2829,7 @@ impl World {
             "Resource; ComponentId  = `{}`, was inserted during a call to World::resource_scope_by_id.\n\
             This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
             id.index());
-    
+
         OwningPtr::make(value, |ptr| {
             // SAFETY: pointer is of type R
             unsafe {
@@ -2828,7 +2838,7 @@ impl World {
                 })
             }
         })?;
-    
+
         Some(result)
     }
 
