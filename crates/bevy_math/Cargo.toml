@@ -10,7 +10,7 @@ keywords = ["bevy"]
 rust-version = "1.85.0"
 
 [dependencies]
-glam = { version = "0.29", default-features = false, features = ["bytemuck"] }
+glam = { version = "0.29.1", default-features = false, features = ["bytemuck"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = [
   "from",

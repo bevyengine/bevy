@@ -69,7 +69,7 @@ bitvec = { version = "1", optional = true }
 bytemuck = { version = "1", features = ["derive", "must_cast"] }
 radsort = "0.1"
 smallvec = "1.6"
-nonmax = "0.5"
+nonmax = "0.5.1"
 static_assertions = "1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 offset-allocator = "0.2"
