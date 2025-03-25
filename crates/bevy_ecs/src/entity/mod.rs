@@ -534,8 +534,6 @@ struct RemoteEntitiesInner {
     /// This is purely an optimization.
     /// When this is greater than 0, we are waiting on request fulfillment.
     is_waiting: AtomicU32,
-    /// The number of times requests have been fulfilled.
-    generation: AtomicU32,
     /// Since anyone can make requests at any time, this must be unbounded.
     requests: ConcurrentQueue<RemoteEntityRequest>,
     reserved: ConcurrentQueue<Entity>,
@@ -552,14 +550,13 @@ pub enum RemoteReservationError {
 
 struct RemoteReservedEntities {
     source: Arc<RemoteEntitiesInner>,
-    requested_on_generation: Option<u32>,
 }
 
 impl Future for RemoteReservedEntities {
     type Output = Result<Entity, RemoteReservationError>;
 
     fn poll(
-        mut self: core::pin::Pin<&mut Self>,
+        self: core::pin::Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
     ) -> Poll<Self::Output> {
         match self.source.reserved.pop() {
@@ -568,23 +565,24 @@ impl Future for RemoteReservedEntities {
                 Poll::Ready(Err(RemoteReservationError::Closed))
             }
             Err(concurrent_queue::PopError::Empty) => {
-                let current_generation = self.source.generation.load(Ordering::Acquire);
-                if self
-                    .requested_on_generation
-                    .is_none_or(|generation| generation != current_generation)
+                match self
+                    .source
+                    .requests
+                    .push(RemoteEntityRequest(cx.waker().clone()))
                 {
-                    self.requested_on_generation = self
-                        .source
-                        .requests
-                        .push(RemoteEntityRequest(cx.waker().clone()))
-                        .is_ok()
-                        .then_some(current_generation);
+                    Ok(_) => {
+                        // We can use relaxed ordering here. Even though it might result in extra waiting, who cares?
+                        self.source.is_waiting.fetch_add(1, Ordering::Relaxed);
+                        // Now we are waiting for a flush
+                        Poll::Pending
+                    }
+                    Err(concurrent_queue::PushError::Closed(_)) => {
+                        Poll::Ready(Err(RemoteReservationError::Closed))
+                    }
+                    Err(concurrent_queue::PushError::Full(_)) => {
+                        unreachable!("Requests can't be full")
+                    }
                 }
-
-                // We can use relaxed ordering here. Even though it might result in extra waiting, who cares?
-                self.source.is_waiting.fetch_add(1, Ordering::Relaxed);
-                // Now we are waiting for a flush
-                Poll::Pending
             }
         }
     }
@@ -593,13 +591,14 @@ impl Future for RemoteReservedEntities {
 impl RemoteEntitiesInner {
     fn fulfill(&self, entities: &Entities, batch_size: NonZero<u32>) {
         self.is_waiting.store(0, Ordering::Relaxed);
-        for reserved in entities.reserve_entities(batch_size.get()) {
-            self.reserved
-                .push(reserved)
-                .expect("This never closes, and it can't run out of room.");
+        if self.reserved.is_empty() {
+            for reserved in entities.reserve_entities(batch_size.get()) {
+                self.reserved
+                    .push(reserved)
+                    .expect("This never closes, and it can't run out of room.");
+            }
         }
 
-        self.generation.fetch_add(1, Ordering::AcqRel);
         for request in self.requests.try_iter() {
             request.0.wake();
         }
@@ -622,7 +621,6 @@ impl RemoteEntitiesInner {
     fn new() -> Self {
         Self {
             is_waiting: AtomicU32::new(0),
-            generation: AtomicU32::new(0),
             requests: ConcurrentQueue::unbounded(),
             reserved: ConcurrentQueue::unbounded(),
         }
@@ -669,7 +667,6 @@ impl RemoteEntities {
     pub async fn reserve_entity(&self) -> Result<Entity, RemoteReservationError> {
         RemoteReservedEntities {
             source: self.inner.clone(),
-            requested_on_generation: None,
         }
         .await
     }
@@ -1418,6 +1415,8 @@ mod tests {
         use bevy_tasks::block_on;
 
         let mut entities = Entities::new();
+        // Lower batch size so more waiting is tested.
+        entities.remote_batch_size = NonZero::new(16).unwrap();
 
         let mut threads = (0..3)
             .map(|_| {
