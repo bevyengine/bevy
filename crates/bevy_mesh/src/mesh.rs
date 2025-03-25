@@ -680,7 +680,7 @@ impl Mesh {
     /// vertices.
     ///
     /// This method weights normals by the angles of the corners of connected triangles, thus
-    /// eliminating triangle area and count as factors in the final normal. If you would rather
+    /// eliminating triangle area and count as factors in the final normal. If you would rather the
     /// normals be weighted by triangle area, see [`Mesh::compute_face_weighted_normals`] instead.
     ///
     /// # Panics
@@ -692,7 +692,6 @@ impl Mesh {
             let pa = Vec3::from(positions[a]);
             let pb = Vec3::from(positions[b]);
             let pc = Vec3::from(positions[c]);
-
             let weight_a = (pb - pa).angle_between(pc - pa);
             let weight_b = (pa - pb).angle_between(pc - pb);
             let weight_c = (pa - pc).angle_between(pb - pc);
@@ -702,15 +701,15 @@ impl Mesh {
             normals[a] += normal * weight_a;
             normals[b] += normal * weight_b;
             normals[c] += normal * weight_c;
-        })
+        });
     }
 
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
     /// vertices.
     ///
-    /// This method weights normals by the area of each triangle containing the vertex. Thus
-    /// larger triangles will skew the normals of their vertices more towards their own normal more
-    /// than smaller triangles will. If you would rather normals be influenced only by the angles
+    /// This method weights normals by the area of each triangle containing the vertex. Thus,
+    /// larger triangles will skew the normals of their vertices towards their own normal more
+    /// than smaller triangles will. If you would rather the normals be influenced only by the angles
     /// of connected edges, see [`Mesh::compute_smooth_normals`] instead.
     ///
     /// # Panics
@@ -723,7 +722,7 @@ impl Mesh {
             [a, b, c].into_iter().for_each(|pos| {
                 normals[pos] += normal;
             });
-        })
+        });
     }
 
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
@@ -743,9 +742,9 @@ impl Mesh {
     /// towards the planes divided into the most triangles:
     /// ```
     /// # use bevy_asset::RenderAssetUsages;
-    /// # use bevy_mesh::{Mesh, PrimitiveTopology};
-    /// # use bevy_math::Vec3;
-    /// # let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default());
+    /// # use bevy_mesh::{Mesh, PrimitiveTopology, Meshable, MeshBuilder};
+    /// # use bevy_math::{Vec3, primitives::Cuboid};
+    /// # let mut mesh = Cuboid::default().mesh().build();
     /// mesh.compute_custom_smooth_normals(|[a, b, c], positions, normals| {
     ///     let normal = Vec3::from(bevy_mesh::face_normal(positions[a], positions[b], positions[c]));
     ///     for idx in [a, b, c] {
@@ -850,9 +849,9 @@ impl Mesh {
     ///
     /// (Alternatively, you can use [`Mesh::compute_smooth_normals`] to mutate an existing mesh in-place)
     ///
-    /// This method weights normals by the area of each triangle containing the vertex. Thus
-    /// larger triangles will skew the normals of their vertices more towards their own normal more
-    /// than smaller triangles will. If you would rather normals be influenced only by the angles
+    /// This method weights normals by the area of each triangle containing the vertex. Thus,
+    /// larger triangles will skew the normals of their vertices towards their own normal more
+    /// than smaller triangles will. If you would rather the normals be influenced only by the angles
     /// of connected edges, see [`Mesh::compute_smooth_normals`] instead.
     ///
     /// # Panics
@@ -1501,7 +1500,7 @@ mod tests {
     }
 
     #[test]
-    fn compute_smooth_normals() {
+    fn compute_face_weighted_normals() {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
@@ -1518,7 +1517,7 @@ mod tests {
             vec![[0., 0., 0.], [1., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
         );
         mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
-        mesh.compute_smooth_normals();
+        mesh.compute_face_weighted_normals();
         let normals = mesh
             .attribute(Mesh::ATTRIBUTE_NORMAL)
             .unwrap()
@@ -1536,7 +1535,7 @@ mod tests {
     }
 
     #[test]
-    fn compute_smooth_normals_proportionate() {
+    fn compute_face_weighted_normals_proportionate() {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
@@ -1553,7 +1552,7 @@ mod tests {
             vec![[0., 0., 0.], [2., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
         );
         mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
-        mesh.compute_smooth_normals();
+        mesh.compute_face_weighted_normals();
         let normals = mesh
             .attribute(Mesh::ATTRIBUTE_NORMAL)
             .unwrap()
@@ -1568,6 +1567,59 @@ mod tests {
         assert_eq!(Vec3::new(1., 0., 2.).normalize().to_array(), normals[2]);
         // 3
         assert_eq!([1., 0., 0.], normals[3]);
+    }
+
+    #[test]
+    fn compute_angle_weighted_normals() {
+        // CuboidMeshBuilder duplicates vertices (even though it is indexed)
+
+        //   5---------4
+        //  /|        /|
+        // 1-+-------0 |
+        // | 6-------|-7
+        // |/        |/
+        // 2---------3
+        let verts = vec![
+            [1.0, 1.0, 1.0],
+            [-1.0, 1.0, 1.0],
+            [-1.0, -1.0, 1.0],
+            [1.0, -1.0, 1.0],
+            [1.0, 1.0, -1.0],
+            [-1.0, 1.0, -1.0],
+            [-1.0, -1.0, -1.0],
+            [1.0, -1.0, -1.0],
+        ];
+
+        let indices = Indices::U16(vec![
+            0, 1, 2, 2, 3, 0, // front
+            5, 4, 7, 7, 6, 5, // back
+            1, 5, 6, 6, 2, 1, // left
+            4, 0, 3, 3, 7, 4, // right
+            4, 5, 1, 1, 0, 4, // top
+            3, 2, 6, 6, 7, 3, // bottom
+        ]);
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, verts);
+        mesh.insert_indices(indices);
+        mesh.compute_smooth_normals();
+
+        let normals = mesh
+            .attribute(Mesh::ATTRIBUTE_NORMAL)
+            .unwrap()
+            .as_float3()
+            .unwrap();
+
+        for new in normals.iter().copied().flatten() {
+            // std impl is unstable
+            const FRAC_1_SQRT_3: f32 = 0.577350269189625764509148780501957456;
+            const MIN: f32 = FRAC_1_SQRT_3 - f32::EPSILON;
+            const MAX: f32 = FRAC_1_SQRT_3 + f32::EPSILON;
+            assert!(new.abs() >= MIN, "{new} < {MIN}");
+            assert!(new.abs() <= MAX, "{new} > {MAX}");
+        }
     }
 
     #[test]
