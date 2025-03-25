@@ -1,4 +1,4 @@
-//! TODO
+//! Simple benchmark to test rendering many meshes with animated morph targets.
 
 use argh::FromArgs;
 use bevy::{
@@ -10,10 +10,10 @@ use bevy::{
 };
 use std::f32::consts::PI;
 
-/// TODO
+/// `many_morph_targets` stress test
 #[derive(FromArgs, Resource)]
 struct Args {
-    /// TODO
+    /// number of meshes.
     #[argh(option, default = "1024")]
     count: usize,
 }
@@ -53,38 +53,48 @@ fn main() {
         .run();
 }
 
-#[derive(Component)]
-struct AnimationToPlay(Handle<AnimationClip>);
+#[derive(Component, Clone)]
+struct AnimationToPlay {
+    graph_handle: Handle<AnimationGraph>,
+    index: AnimationNodeIndex,
+}
 
-fn setup(asset_server: Res<AssetServer>, args: Res<Args>, mut commands: Commands) {
-    let scene_handle = asset_server
-        .load(GltfAssetLabel::Scene(0).from_asset("models/animated/MorphStressTest.gltf"));
+fn setup(
+    args: Res<Args>,
+    asset_server: Res<AssetServer>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut commands: Commands,
+) {
+    const ASSET_PATH: &str = "models/animated/MorphStressTest.gltf";
 
-    let animation_handles = (0..3)
-        .map(|index| {
-            asset_server.load(
-                GltfAssetLabel::Animation(index).from_asset("models/animated/MorphStressTest.gltf"),
-            )
+    let scene = SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(ASSET_PATH)));
+
+    let animations = (0..3)
+        .map(|gltf_index| {
+            let (graph, index) = AnimationGraph::from_clip(
+                asset_server.load(GltfAssetLabel::Animation(gltf_index).from_asset(ASSET_PATH)),
+            );
+            AnimationToPlay {
+                graph_handle: graphs.add(graph),
+                index,
+            }
         })
         .collect::<Vec<_>>();
+
+    // Arrange the meshes in a grid.
 
     let count = args.count.max(1);
     let x_dim = ((count as f32).sqrt().ceil() as usize).max(1);
     let y_dim = count.div_ceil(x_dim);
 
     for mesh_index in 0..count {
-        let animation_index = mesh_index.rem_euclid(animation_handles.len());
-        let animation_handle = animation_handles[animation_index].clone();
+        let animation = animations[mesh_index.rem_euclid(animations.len())].clone();
 
         let x = 2.5 + (5.0 * ((mesh_index.rem_euclid(x_dim) as f32) - ((x_dim as f32) * 0.5)));
         let y = -2.2 - (3.0 * ((mesh_index.div_euclid(x_dim) as f32) - ((y_dim as f32) * 0.5)));
 
         commands
-            .spawn((
-                AnimationToPlay(animation_handle),
-                SceneRoot(scene_handle.clone()),
-                Transform::from_xyz(x, y, 0.0),
-            ))
+            .spawn((animation, scene.clone(), Transform::from_xyz(x, y, 0.0)))
             .observe(play_animation);
     }
 
@@ -105,19 +115,15 @@ fn play_animation(
     children: Query<&Children>,
     animations_to_play: Query<&AnimationToPlay>,
     mut players: Query<&mut AnimationPlayer>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     if let Ok(animation_to_play) = animations_to_play.get(trigger.target()) {
         for child in children.iter_descendants(trigger.target()) {
             if let Ok(mut player) = players.get_mut(child) {
-                let (graph, animation_index) =
-                    AnimationGraph::from_clip(animation_to_play.0.clone());
-
                 commands
                     .entity(child)
-                    .insert(AnimationGraphHandle(graphs.add(graph)));
+                    .insert(AnimationGraphHandle(animation_to_play.graph_handle.clone()));
 
-                player.play(animation_index).repeat();
+                player.play(animation_to_play.index).repeat();
             }
         }
     }
