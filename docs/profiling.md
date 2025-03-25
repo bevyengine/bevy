@@ -155,7 +155,7 @@ Add the `RenderDiagnosticsPlugin` to your app, and then compile with Bevy's `tra
 
 > [!NOTE]
 > Due to dynamic clock speeds, GPU timings will have large frame-to-frame variance, unless you use an external tool to lock your GPU clocks to base speeds. When measuring GPU performance via Tracy, only look at the MTPC column of Tracy's statistics panel, and not individual frame data.
-
+<!-- markdownlint-disable MD028 -->
 
 > [!NOTE]
 > Unlike ECS systems, Bevy will not automatically add GPU profiling spans. You will need to add GPU timing spans yourself for any custom rendering work. See the [`RenderDiagnosticsPlugin`](https://docs.rs/bevy/latest/bevy/render/diagnostic/struct.RenderDiagnosticsPlugin.html) docs for more details.
