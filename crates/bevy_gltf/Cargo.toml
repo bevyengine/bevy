@@ -27,6 +27,7 @@ bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.16.0-rc.1" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.1" }
 bevy_image = { path = "../bevy_image", version = "0.16.0-rc.1" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-rc.1" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.16.0-rc.1" }
 bevy_pbr = { path = "../bevy_pbr", version = "0.16.0-rc.1" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.1" }
 bevy_render = { path = "../bevy_render", version = "0.16.0-rc.1" }

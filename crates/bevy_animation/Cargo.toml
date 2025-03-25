@@ -16,6 +16,7 @@ bevy_color = { path = "../bevy_color", version = "0.16.0-rc.1" }
 bevy_derive = { path = "../bevy_derive", version = "0.16.0-rc.1" }
 bevy_log = { path = "../bevy_log", version = "0.16.0-rc.1" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-rc.1" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.16.0-rc.1" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.1", features = [
   "petgraph",
 ] }
