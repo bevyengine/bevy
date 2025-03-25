@@ -2753,6 +2753,81 @@ impl World {
         Some(result)
     }
 
+    /// Temporarily removes the requested resource from this [`World`] if it exists, runs custom user code,
+    /// then re-adds the resource before returning. Returns the result of the closure.
+    ///
+    /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
+    /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
+    ///  /// # Example
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// #[derive(Resource)]
+    /// struct A(u32);
+    /// #[derive(Component)]
+    /// struct B(u32);
+    /// let mut world = World::new();
+    /// world.insert_resource(A(1));
+    /// let entity = world.spawn(B(1)).id();
+    /// let component_id = A.id();
+    /// world.resource_scope_by_id(component_id, |world: &mut World, mut a: Mut<A>| {
+    ///     let b = world.get_mut::<B>(entity).unwrap();
+    ///     a.0 += b.0;
+    /// });
+    /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
+    /// ```
+    ///
+    /// See also [`try_resource_scopy_by_id`](Self::try_resource_scopy_by_id).
+    #[track_caller]
+    pub fn resource_scope_by_id<R: Resource, U>(&mut self, id: ComponentId, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+        self.try_resource_scope_by_id(id, f)
+            .unwrap_or_else(|| panic!("resource with ComponentId {} does not exist.", id.index()))
+    }
+
+    /// Temporarily removes the requested resource from this [`World`] if it exists, runs custom user code,
+    /// then re-adds the resource before returning. Returns `None` if the resource does not exist in this [`World`].
+    ///
+    /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
+    /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
+    pub fn try_resource_scope_by_id<R: Resource, U>(&mut self, id: ComponentId, f: impl FnOnce(&mut World, Mut<R>) -> U) -> Option<U> {
+        let last_change_tick = self.last_change_tick();
+        let change_tick = self.change_tick();
+    
+        let (ptr, mut ticks, mut caller) = self
+            .storages
+            .resources
+            .get_mut(id)
+            .and_then(ResourceData::remove)?;
+        // Read the value onto the stack to avoid potential mut aliasing.
+        // SAFETY: `ptr` was obtained from the TypeId of `R`.
+        let mut value = unsafe { ptr.read::<R>() };
+        let value_mut = Mut {
+            value: &mut value,
+            ticks: TicksMut {
+                added: &mut ticks.added,
+                changed: &mut ticks.changed,
+                last_run: last_change_tick,
+                this_run: change_tick,
+            },
+            changed_by: caller.as_mut(),
+        };
+        let result = f(self, value_mut);
+        assert!(!self.contains_resource_by_id(id),
+            "Resource; ComponentId  = `{}`, was inserted during a call to World::resource_scope_by_id.\n\
+            This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
+            id.index());
+    
+        OwningPtr::make(value, |ptr| {
+            // SAFETY: pointer is of type R
+            unsafe {
+                self.storages.resources.get_mut(id).map(|info| {
+                    info.insert_with_ticks(ptr, ticks, caller);
+                })
+            }
+        })?;
+    
+        Some(result)
+    }
+
     /// Sends an [`Event`].
     /// This method returns the [ID](`EventId`) of the sent `event`,
     /// or [`None`] if the `event` could not be sent.
