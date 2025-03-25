@@ -1174,7 +1174,7 @@ impl World {
 
         // SAFETY: command_queue is not referenced anywhere else
         if !unsafe { self.command_queue.is_empty() } {
-            self.flush_commands();
+            self.flush();
             entity_location = self
                 .entities()
                 .get(entity)
