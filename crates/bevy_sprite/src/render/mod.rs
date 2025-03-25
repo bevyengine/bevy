@@ -789,15 +789,6 @@ pub fn prepare_sprite_image_bind_groups(
                         );
                     }
 
-                    if extracted_sprite.flip_x {
-                        uv_offset_scale.x += uv_offset_scale.z;
-                        uv_offset_scale.z *= -1.0;
-                    }
-                    if extracted_sprite.flip_y {
-                        uv_offset_scale.y += uv_offset_scale.w;
-                        uv_offset_scale.w *= -1.0;
-                    }
-
                     let transform = extracted_sprite.transform.affine()
                         * Affine3A::from_scale_rotation_translation(
                             quad_size.extend(1.0),
