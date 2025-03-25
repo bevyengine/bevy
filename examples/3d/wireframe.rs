@@ -49,6 +49,9 @@ fn main() {
 }
 
 /// set up a simple 3D scene
+/// Note that entities cannot be spawned with both a material and a wireframe, so for cubes we want
+/// to show both for, we spawn one with the Material and NoWireframe, the other we spawn with a
+/// Wireframe (or global Wireframe config), and no Material.
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -66,22 +69,36 @@ fn setup(
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::from(ORANGE))),
         Transform::from_xyz(0.0, 0.5, 0.0),
+        NoWireframe,
+    ));
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        Transform::from_xyz(0.0, 0.5, 0.0),
     ));
     // Green cube: Always renders a wireframe
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(Color::from(LIME))),
         Transform::from_xyz(1.0, 0.5, 1.0),
         Wireframe,
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`
         WireframeColor { color: LIME.into() },
     ));
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(LIME))),
+        Transform::from_xyz(1.0, 0.5, 1.0),
+        NoWireframe,
+    ));
 
     // plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
         MeshMaterial3d(materials.add(Color::from(BLUE))),
+        NoWireframe,
+    ));
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
         // You can insert this component without the `Wireframe` component
         // to override the color of the global wireframe for this mesh
         WireframeColor {
