@@ -45,6 +45,7 @@ use bevy_reflect::Reflect;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 pub use clone_entities::*;
+use concurrent_queue::ConcurrentQueue;
 pub use entity_set::*;
 pub use map_entities::*;
 
@@ -73,8 +74,18 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::atomic::Ordering;
-use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
+use bevy_platform_support::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc,
+};
+use core::{
+    fmt,
+    hash::Hash,
+    mem,
+    num::NonZero,
+    panic::Location,
+    task::{Poll, Waker},
+};
 use log::warn;
 
 #[cfg(feature = "serialize")]
@@ -515,6 +526,159 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 
+#[derive(Debug)]
+struct RemoteEntityRequest(Waker);
+
+#[derive(Debug)]
+struct RemoteEntitiesInner {
+    /// This is purely an optimization.
+    /// When this is greater than 0, we are waiting on request fulfillment.
+    is_waiting: AtomicU32,
+    /// The number of times requests have been fulfilled.
+    generation: AtomicU32,
+    /// Since anyone can make requests at any time, this must be unbounded.
+    requests: ConcurrentQueue<RemoteEntityRequest>,
+    reserved: ConcurrentQueue<Entity>,
+}
+
+/// An error that occurs when an [`Entity`] can not be reserved remotely.
+/// See also [`RemoteEntities`].
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RemoteReservationError {
+    /// This happens when [`Entities`] are closed, dropped, etc while a [`RemoteEntitiesReserver`] is trying to reserve from it.
+    #[error("A remote entity reserver tried to reserve an entity from a closed `Entities`.")]
+    Closed,
+}
+
+struct RemoteReservedEntities {
+    source: Arc<RemoteEntitiesInner>,
+    requested_on_generation: Option<u32>,
+}
+
+impl Future for RemoteReservedEntities {
+    type Output = Result<Entity, RemoteReservationError>;
+
+    fn poll(
+        mut self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> Poll<Self::Output> {
+        match self.source.reserved.pop() {
+            Ok(found) => Poll::Ready(Ok(found)),
+            Err(concurrent_queue::PopError::Closed) => {
+                Poll::Ready(Err(RemoteReservationError::Closed))
+            }
+            Err(concurrent_queue::PopError::Empty) => {
+                let current_generation = self.source.generation.load(Ordering::Acquire);
+                if self
+                    .requested_on_generation
+                    .is_none_or(|generation| generation != current_generation)
+                {
+                    self.requested_on_generation = self
+                        .source
+                        .requests
+                        .push(RemoteEntityRequest(cx.waker().clone()))
+                        .is_ok()
+                        .then_some(current_generation);
+                }
+
+                // We can use relaxed ordering here. Even though it might result in extra waiting, who cares?
+                self.source.is_waiting.fetch_add(1, Ordering::Relaxed);
+                // Now we are waiting for a flush
+                Poll::Pending
+            }
+        }
+    }
+}
+
+impl RemoteEntitiesInner {
+    fn fulfill(&self, entities: &Entities, batch_size: NonZero<u32>) {
+        self.is_waiting.store(0, Ordering::Relaxed);
+        for reserved in entities.reserve_entities(batch_size.get()) {
+            self.reserved
+                .push(reserved)
+                .expect("This never closes, and it can't run out of room.");
+        }
+
+        self.generation.fetch_add(1, Ordering::AcqRel);
+        for request in self.requests.try_iter() {
+            request.0.wake();
+        }
+    }
+
+    #[inline]
+    fn try_fulfill(&self, entities: &Entities, batch_size: NonZero<u32>) {
+        // we do this to hint to the compiler that the if branch is unlinkely to be taken.
+        #[cold]
+        fn do_fulfill(this: &RemoteEntitiesInner, entities: &Entities, batch_size: NonZero<u32>) {
+            this.fulfill(entities, batch_size);
+        }
+
+        if self.is_waiting.load(Ordering::Relaxed) > 0 {
+            // TODO: add core::intrinsics::unlikely once stable
+            do_fulfill(self, entities, batch_size);
+        }
+    }
+
+    fn new() -> Self {
+        Self {
+            is_waiting: AtomicU32::new(0),
+            generation: AtomicU32::new(0),
+            requests: ConcurrentQueue::unbounded(),
+            reserved: ConcurrentQueue::unbounded(),
+        }
+    }
+
+    fn close(&self) {
+        self.reserved.close();
+        self.requests.close();
+    }
+}
+
+/// Manages access to [`Entities`] from any thread and async.
+pub struct RemoteEntities {
+    inner: Arc<RemoteEntitiesInner>,
+}
+
+impl RemoteEntities {
+    /// Constructs a [`RemoteEntitiesReserver`] that can be shared between threads.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    /// let remote = world.entities().get_remote();
+    ///
+    /// // The reserve is async so we need it to be on a separate thread.
+    /// let thread = std::thread::spawn(move || {
+    ///     let future = async {
+    ///         for _ in 0..100 {
+    ///             reserver.reserve_entity().await.unwrap();
+    ///         }
+    ///     };
+    ///     bevy_tasks::block_on(future);
+    /// });
+    ///
+    /// // We need to flush the entities as needed or the remote entities will get stuck.
+    /// while !thread.is_finished() {
+    ///     world.flush();
+    /// }
+    /// ```
+    pub async fn reserve_entity(&self) -> Result<Entity, RemoteReservationError> {
+        RemoteReservedEntities {
+            source: self.inner.clone(),
+            requested_on_generation: None,
+        }
+        .await
+    }
+
+    /// Returns true only if the [`Entities`] has discontinued this remote access.
+    pub fn is_closed(&self) -> bool {
+        self.inner.reserved.is_closed()
+    }
+}
+
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
 /// Contains metadata on:
@@ -525,6 +689,10 @@ unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 /// [`World`]: crate::world::World
 #[derive(Debug)]
 pub struct Entities {
+    /// This is the number of entities we reserve in bulk for [`RemoteEntities`].
+    /// A value too high can cause excess memory to be used, but a value too low can cause additional waiting.
+    pub remote_batch_size: NonZero<u32>,
+    remote: Arc<RemoteEntitiesInner>,
     meta: Vec<EntityMeta>,
 
     /// The `pending` and `free_cursor` fields describe three sets of Entity IDs
@@ -572,11 +740,23 @@ pub struct Entities {
 }
 
 impl Entities {
-    pub(crate) const fn new() -> Self {
+    /// The default value of [`remote_batch_size`](Self::remote_batch_size).
+    pub const DEFAULT_REMOTE_BATCH_SIZE: NonZero<u32> = NonZero::new(1024).unwrap();
+
+    pub(crate) fn new() -> Self {
         Entities {
             meta: Vec::new(),
             pending: Vec::new(),
             free_cursor: AtomicIdCursor::new(0),
+            remote: Arc::new(RemoteEntitiesInner::new()),
+            remote_batch_size: Self::DEFAULT_REMOTE_BATCH_SIZE,
+        }
+    }
+
+    /// Constructs a new [`RemoteEntities`] for this instance.
+    pub fn get_remote(&self) -> RemoteEntities {
+        RemoteEntities {
+            inner: self.remote.clone(),
         }
     }
 
@@ -821,6 +1001,8 @@ impl Entities {
         self.meta.clear();
         self.pending.clear();
         *self.free_cursor.get_mut() = 0;
+        self.remote.close();
+        self.remote = Arc::new(RemoteEntitiesInner::new());
     }
 
     /// Returns the location of an [`Entity`].
@@ -907,6 +1089,9 @@ impl Entities {
     /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
     /// to be initialized with the invalid archetype.
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
+        // this may do extra reservations, so we do it before flushing.
+        self.remote.try_fulfill(self, self.remote_batch_size);
+
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
 
@@ -1032,6 +1217,13 @@ impl Entities {
         EntityDoesNotExistDetails {
             location: self.entity_get_spawned_or_despawned_by(entity),
         }
+    }
+}
+
+impl Drop for Entities {
+    fn drop(&mut self) {
+        // Make sure remote entities are informed.
+        self.remote.close();
     }
 }
 
@@ -1215,6 +1407,45 @@ mod tests {
         let next_entity = entities.alloc();
         assert_eq!(next_entity.index(), entity.index());
         assert!(next_entity.generation() > entity.generation() + GENERATIONS);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn remote_reservation() {
+        use std::thread;
+
+        use bevy_tasks::block_on;
+
+        let mut entities = Entities::new();
+
+        let mut threads = (0..3)
+            .map(|_| {
+                let reserver = entities.get_remote();
+                thread::spawn(move || {
+                    let future = async {
+                        for _ in 0..100 {
+                            reserver.reserve_entity().await.unwrap();
+                        }
+                    };
+                    block_on(future);
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let timeout = std::time::Instant::now();
+        loop {
+            threads.retain(|thread| !thread.is_finished());
+            entities.flush_as_invalid();
+            if threads.is_empty() {
+                break;
+            }
+            if timeout.elapsed().as_secs() > 60 {
+                panic!("remote entities timmed out.")
+            }
+        }
+
+        // It might be a little over since we may have reserved extra entities for remote reservation.
+        assert!(entities.len() >= 300);
     }
 
     #[test]
