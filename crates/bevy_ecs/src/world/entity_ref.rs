@@ -1773,22 +1773,24 @@ impl<'w> EntityWorldMut<'w> {
                 entity,
                 location,
                 MaybeLocation::caller(),
-                |storages, components, bundle_components| {
+                |sets, table, components, bundle_components| {
                     let mut bundle_components = bundle_components.iter().copied();
                     (
                         false,
-                        T::from_components(storages, &mut |storages| {
+                        T::from_components(&mut (sets, table), &mut |(sets, table)| {
                             let component_id = bundle_components.next().unwrap();
                             // SAFETY: the component existed to be removed, so its id must be valid.
                             let component_info = components.get_info_unchecked(component_id);
                             match component_info.storage_type() {
                                 StorageType::Table => {
-                                    let table = &mut storages.tables[location.table_id];
-                                    // SAFETY: The remover is cleaning this up.
-                                    table.take_component(component_id, location.table_row)
+                                    table
+                                        .as_mut()
+                                        // SAFETY: The table must be valid if the component is in it.
+                                        .debug_checked_unwrap()
+                                        // SAFETY: The remover is cleaning this up.
+                                        .take_component(component_id, location.table_row)
                                 }
-                                StorageType::SparseSet => storages
-                                    .sparse_sets
+                                StorageType::SparseSet => sets
                                     .get_mut(component_id)
                                     .unwrap()
                                     .remove_and_forget(entity)
@@ -1830,7 +1832,12 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
         let new_location = unsafe {
             remover
-                .remove(self.entity, self.location, caller, |_, _, _| (true, ()))
+                .remove(
+                    self.entity,
+                    self.location,
+                    caller,
+                    BundleRemover::empty_pre_remove,
+                )
                 .debug_checked_unwrap()
         }
         .0;
@@ -1873,7 +1880,12 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
         let new_location = unsafe {
             remover
-                .remove(self.entity, self.location, caller, |_, _, _| (true, ()))
+                .remove(
+                    self.entity,
+                    self.location,
+                    caller,
+                    BundleRemover::empty_pre_remove,
+                )
                 .debug_checked_unwrap()
         }
         .0;
@@ -1934,7 +1946,12 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
         let new_location = unsafe {
             remover
-                .remove(self.entity, self.location, caller, |_, _, _| (true, ()))
+                .remove(
+                    self.entity,
+                    self.location,
+                    caller,
+                    BundleRemover::empty_pre_remove,
+                )
                 .debug_checked_unwrap()
         }
         .0;
@@ -1982,7 +1999,12 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
         let new_location = unsafe {
             remover
-                .remove(self.entity, self.location, caller, |_, _, _| (true, ()))
+                .remove(
+                    self.entity,
+                    self.location,
+                    caller,
+                    BundleRemover::empty_pre_remove,
+                )
                 .debug_checked_unwrap()
         }
         .0;
@@ -2025,7 +2047,7 @@ impl<'w> EntityWorldMut<'w> {
                     self.entity,
                     self.location,
                     MaybeLocation::caller(),
-                    |_, _, _| (true, ()),
+                    BundleRemover::empty_pre_remove,
                 )
                 .debug_checked_unwrap()
         }
@@ -2068,7 +2090,12 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
         let new_location = unsafe {
             remover
-                .remove(self.entity, self.location, caller, |_, _, _| (true, ()))
+                .remove(
+                    self.entity,
+                    self.location,
+                    caller,
+                    BundleRemover::empty_pre_remove,
+                )
                 .debug_checked_unwrap()
         }
         .0;

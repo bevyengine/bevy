@@ -1443,6 +1443,16 @@ impl<'w> BundleRemover<'w> {
         })
     }
 
+    /// This can be passed to [`remove`](Self::remove) as the `pre_remove` function if you don't want to do anything before removing.
+    pub fn empty_pre_remove(
+        _: &mut SparseSets,
+        _: Option<&mut Table>,
+        _: &Components,
+        _: &[ComponentId],
+    ) -> (bool, ()) {
+        (true, ())
+    }
+
     /// Performs the removal.
     ///
     /// `pre_remove` should return a bool for if the components still need to be dropped.
@@ -1458,7 +1468,12 @@ impl<'w> BundleRemover<'w> {
         entity: Entity,
         location: EntityLocation,
         caller: MaybeLocation,
-        pre_remove: impl FnOnce(&mut Storages, &Components, &[ComponentId]) -> (bool, T),
+        pre_remove: impl FnOnce(
+            &mut SparseSets,
+            Option<&mut Table>,
+            &Components,
+            &[ComponentId],
+        ) -> (bool, T),
     ) -> Option<(EntityLocation, T)> {
         // Hooks
         // SAFETY: all bundle components exist in World
@@ -1506,7 +1521,11 @@ impl<'w> BundleRemover<'w> {
         let world = unsafe { self.world.world_mut() };
 
         let (needs_drop, pre_remove_result) = pre_remove(
-            &mut world.storages,
+            &mut world.storages.sparse_sets,
+            self.old_and_new_table
+                .as_ref()
+                // SAFETY: There is no conflicting access for this scope.
+                .map(|(old, _)| unsafe { &mut *old.as_ptr() }),
             &world.components,
             self.bundle_info.as_ref().explicit_components(),
         );
