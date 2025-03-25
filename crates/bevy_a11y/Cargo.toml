@@ -46,7 +46,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.1", default-features = f
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.1", default-features = false, optional = true }
 
 # other
-accesskit = { version = "0.17", default-features = false }
+accesskit = { version = "0.18", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "alloc",
 ], optional = true }
