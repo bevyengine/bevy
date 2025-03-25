@@ -48,7 +48,10 @@ fn main() {
         .run();
 }
 
-/// Set up a simple 3D scene
+/// set up a simple 2D scene
+/// Note that entities cannot be spawned with both a material and a wireframe, so for objects we want
+/// to show both for, we spawn one with the Material and NoWireframe2d, the other we spawn with a
+/// Wireframe (or global Wireframe config), and no Material.
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -66,15 +69,24 @@ fn setup(
         NoWireframe2d,
     ));
     // Rectangle: Follows global wireframe setting
+    let rectangle_mesh = meshes.add(Rectangle::new(100.0, 100.0));
     commands.spawn((
-        Mesh2d(meshes.add(Rectangle::new(100.0, 100.0))),
+        Mesh2d(rectangle_mesh.clone()),
         MeshMaterial2d(materials.add(Color::BLACK)),
         Transform::from_xyz(0.0, 0.0, 0.0),
+        NoWireframe2d,
     ));
+    commands.spawn((Mesh2d(rectangle_mesh), Transform::from_xyz(0.0, 0.0, 0.0)));
     // Circle: Always renders a wireframe
+    let circle_mesh = meshes.add(Circle::new(50.0));
     commands.spawn((
-        Mesh2d(meshes.add(Circle::new(50.0))),
+        Mesh2d(circle_mesh.clone()),
         MeshMaterial2d(materials.add(Color::BLACK)),
+        Transform::from_xyz(150.0, 0.0, 0.0),
+        NoWireframe2d,
+    ));
+    commands.spawn((
+        Mesh2d(circle_mesh),
         Transform::from_xyz(150.0, 0.0, 0.0),
         Wireframe2d,
         // This lets you configure the wireframe color of this entity.
