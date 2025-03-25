@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{ComponentId, Components, Tick},
+    component::{ComponentId, Tick},
     query::FilteredAccess,
     storage::Table,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -27,6 +27,7 @@ use variadics_please::all_tuples;
 ///     - Each filter in that disjunction must be a conjunction of the corresponding element's filter with the previous `access`
 /// - For each resource readonly accessed by [`init_fetch`], [`update_component_access`] should add read access.
 /// - Mutable resource access is not allowed.
+/// - [`init_state`](WorldQuery::init_state) must only access world metadata (like components). It must not access specific entities or resources.
 ///
 /// When implementing [`update_component_access`], note that `add_read` and `add_write` both also add a `With` filter, whereas `extend_access` does not change the filters.
 ///
@@ -101,7 +102,7 @@ pub unsafe trait WorldQuery {
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
 
-    /// Sets available accesses for implementors with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
+    /// Sets available accesses for implementers with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
     /// or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
     ///
     /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
@@ -115,11 +116,7 @@ pub unsafe trait WorldQuery {
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>);
 
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
-    fn init_state(world: &mut World) -> Self::State;
-
-    /// Attempts to initialize a [`State`](WorldQuery::State) for this [`WorldQuery`] type using read-only
-    /// access to [`Components`].
-    fn get_state(components: &Components) -> Option<Self::State>;
+    fn init_state(world: &World) -> Self::State;
 
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     ///
@@ -204,11 +201,9 @@ macro_rules! impl_tuple_world_query {
                 let ($($name,)*) = state;
                 $($name::update_component_access($name, access);)*
             }
-            fn init_state(world: &mut World) -> Self::State {
+
+            fn init_state(world: &World) -> Self::State {
                 ($($name::init_state(world),)*)
-            }
-            fn get_state(components: &Components) -> Option<Self::State> {
-                Some(($($name::get_state(components)?,)*))
             }
 
             fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
