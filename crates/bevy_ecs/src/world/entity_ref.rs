@@ -4040,7 +4040,7 @@ where
 /// # Safety
 ///
 /// - [`OwningPtr`] and [`StorageType`] iterators must correspond to the
-///   [`BundleInfo`] used to construct [`BundleInserter`]
+///   [`BundleInfo`](crate::bundle::BundleInfo) used to construct [`BundleInserter`]
 /// - [`Entity`] must correspond to [`EntityLocation`]
 unsafe fn insert_dynamic_bundle<
     'a,
