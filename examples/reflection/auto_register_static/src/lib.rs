@@ -2,8 +2,8 @@
 use bevy::prelude::*;
 
 // The type that should be automatically registered.
-// All types subject to automatic registration must be defined in `lib`,
-// any `#[derive(Reflect)]` registration without the `bin` are not guaranteed to be registered automatically.
+// All types subject to automatic registration must be defined not be define in the same crate as `load_type_registrations!``.
+// Any `#[derive(Reflect)]` types within the `bin` crate are not guaranteed to be registered automatically.
 #[derive(Reflect)]
 struct Struct {
     a: i32,
@@ -32,7 +32,7 @@ pub fn main() {
 fn startup(reg: Res<AppTypeRegistry>) {
     let registry = reg.read();
     info!(
-        "Is `Struct` get registered? {}",
+        "Is `Struct` registered? {}",
         registry.contains(core::any::TypeId::of::<Struct>())
     );
     info!(
