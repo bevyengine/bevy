@@ -1,4 +1,4 @@
-use crate::{ron, DynamicSceneBuilder, Scene, SceneSpawnError};
+use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::reflect::{ReflectMapEntities, ReflectResource};
 use bevy_ecs::{
@@ -6,15 +6,18 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent},
     world::World,
 };
-use bevy_reflect::{PartialReflect, TypePath, TypeRegistry};
+use bevy_reflect::{PartialReflect, TypePath};
 
 use crate::reflect_utils::clone_reflect_value;
-#[cfg(feature = "serialize")]
-use crate::serde::SceneSerializer;
 use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::relationship::RelationshipHookMode;
+
 #[cfg(feature = "serialize")]
-use serde::Serialize;
+use {
+    crate::{ron, serde::SceneSerializer},
+    bevy_reflect::TypeRegistry,
+    serde::Serialize,
+};
 
 /// A collection of serializable resources and dynamic entities.
 ///

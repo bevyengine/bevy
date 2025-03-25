@@ -25,7 +25,10 @@ use crate::{
     observer::{Observer, TriggerTargets},
     resource::Resource,
     schedule::ScheduleLabel,
-    system::{Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId, SystemInput},
+    system::{
+        Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId, SystemInput,
+        ValidationOutcome,
+    },
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
         EntityWorldMut, FromWorld, World,
@@ -179,7 +182,7 @@ const _: () = {
             state: &Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
             world: UnsafeWorldCell,
-        ) -> bool {
+        ) -> ValidationOutcome {
             <(Deferred<CommandQueue>, &Entities) as bevy_ecs::system::SystemParam>::validate_param(
                 &state.state,
                 system_meta,

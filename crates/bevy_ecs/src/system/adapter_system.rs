@@ -1,6 +1,6 @@
 use alloc::{borrow::Cow, vec::Vec};
 
-use super::{IntoSystem, ReadOnlySystem, System};
+use super::{IntoSystem, ReadOnlySystem, System, ValidationOutcome};
 use crate::{
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
@@ -179,7 +179,7 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> ValidationOutcome {
         // SAFETY: Delegate to other `System` implementations.
         unsafe { self.system.validate_param_unsafe(world) }
     }

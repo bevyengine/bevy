@@ -2,7 +2,10 @@ use crate::MainWorld;
 use bevy_ecs::{
     component::Tick,
     prelude::*,
-    system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemState},
+    system::{
+        ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemState,
+        ValidationOutcome,
+    },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use core::ops::{Deref, DerefMut};
@@ -79,14 +82,13 @@ where
     #[inline]
     unsafe fn validate_param(
         state: &Self::State,
-        system_meta: &SystemMeta,
+        _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> ValidationOutcome {
         // SAFETY: Read-only access to world data registered in `init_state`.
         let result = unsafe { world.get_resource_by_id(state.main_world_state) };
         let Some(main_world) = result else {
-            system_meta.try_warn_param::<&World>();
-            return false;
+            return ValidationOutcome::Invalid;
         };
         // SAFETY: Type is guaranteed by `SystemState`.
         let main_world: &World = unsafe { main_world.deref() };
