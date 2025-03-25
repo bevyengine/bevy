@@ -154,12 +154,7 @@ impl TypeRegistry {
     /// ```
     #[cfg(feature = "auto_register")]
     pub fn register_derived_types(&mut self) {
-        crate::__macro_exports::auto_register::init();
-        for registration in inventory::iter::<
-            crate::__macro_exports::auto_register::AutomaticReflectRegistrations,
-        >() {
-            registration.0(self);
-        }
+        crate::__macro_exports::auto_register::register_types(self);
     }
 
     /// Attempts to register the type `T` if it has not yet been registered already.

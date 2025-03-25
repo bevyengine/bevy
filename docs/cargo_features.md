@@ -45,6 +45,7 @@ The default feature set enables most of the expected features of a game engine, 
 |ktx2|KTX2 compressed texture support|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
+|reflect_auto_register|Enable automatic reflect registration|
 |smaa_luts|Include SMAA Look Up Tables KTX2 Files|
 |std|Allows access to the `std` crate.|
 |sysinfo_plugin|Enables system information diagnostic plugin|
@@ -99,7 +100,7 @@ The default feature set enables most of the expected features of a game engine, 
 |pbr_transmission_textures|Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |qoi|QOI image format support|
-|reflect_auto_register|Enable automatic reflect registration|
+|reflect_auto_register_static|Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.|
 |reflect_documentation|Enable documentation reflection|
 |reflect_functions|Enable function reflection|
 |serialize|Enable serialization support through serde|

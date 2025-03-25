@@ -157,6 +157,7 @@ default = [
   "hdr",
   "multi_threaded",
   "png",
+  "reflect_auto_register",
   "smaa_luts",
   "sysinfo_plugin",
   "tonemapping_luts",
@@ -518,6 +519,9 @@ reflect_documentation = ["bevy_internal/reflect_documentation"]
 
 # Enable automatic reflect registration
 reflect_auto_register = ["bevy_internal/reflect_auto_register"]
+
+# Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.
+reflect_auto_register_static = ["bevy_internal/reflect_auto_register_static"]
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
