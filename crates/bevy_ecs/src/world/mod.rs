@@ -1332,6 +1332,35 @@ impl World {
         Ok(result)
     }
 
+    /// Temporarily removes a [`Component`] identified by the provided
+    /// [`ComponentId`] from the provided [`Entity`] and runs the provided
+    /// closure on it, returning the result if the component was available.
+    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut_by_id`](World::get_mut_by_id).
+    ///
+    /// You should prefer the typed [`modify_component`](World::modify_component)
+    /// whenever possible.
+    #[inline]
+    pub fn modify_component_by_id<R>(
+        &mut self,
+        entity: Entity,
+        component_id: ComponentId,
+        f: impl for<'a> FnOnce(MutUntyped<'a>) -> R,
+    ) -> Result<Option<R>, EntityMutableFetchError> {
+        let mut world = DeferredWorld::from(&mut *self);
+
+        let result = world.modify_component_by_id(entity, component_id, f)?;
+
+        self.flush();
+        Ok(result)
+    }
+
     /// Despawns the given [`Entity`], if it exists. This will also remove all of the entity's
     /// [`Components`](Component).
     ///
