@@ -578,7 +578,7 @@ pub fn update_point_light_frusta(
         .collect::<Vec<_>>();
 
     for (entity, transform, point_light, mut cubemap_frusta) in &mut views {
-        // if this light isn't changed, and neither is the set of global_lights,
+        // If this light hasn't changed, and neither has the set of global_lights,
         // then we can skip this calculation.
         if !global_lights.is_changed() && !changed_lights.contains(entity) {
             continue;
