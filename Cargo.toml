@@ -28,6 +28,8 @@ members = [
   "examples/mobile",
   # Examples of using Bevy on no_std platforms.
   "examples/no_std/*",
+  # Examples of compiling Bevy with automatic reflect type registration for platforms without `inventory` support.
+  "examples/reflection/auto_register_static",
   # Benchmarks
   "benches",
   # Internal tools that are not published.
@@ -2666,6 +2668,17 @@ doc-scrape-examples = true
 [package.metadata.example.type_data]
 name = "Type Data"
 description = "Demonstrates how to create and use type data"
+category = "Reflection"
+wasm = false
+
+[[example]]
+name = "auto_register_static"
+path = "examples/reflection/auto_register_static/src/main.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.auto_register_static]
+name = "Automatic types registartion"
+description = "Demonstrates how to set up automatic reflect types registration for platforms without `inventory` support"
 category = "Reflection"
 wasm = false
 
