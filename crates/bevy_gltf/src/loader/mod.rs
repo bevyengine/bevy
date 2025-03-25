@@ -10,6 +10,7 @@ use std::{
 use bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
+    RenderAssetUsages,
 };
 use bevy_color::{Color, LinearRgba};
 use bevy_core_pipeline::prelude::Camera3d;
@@ -24,6 +25,11 @@ use bevy_image::{
     ImageType, TextureError,
 };
 use bevy_math::{Mat4, Vec3};
+use bevy_mesh::{
+    morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
+    skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+    Indices, Mesh, MeshVertexAttribute, PrimitiveTopology, VertexAttributeValues,
+};
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_pbr::UvChannel;
 use bevy_pbr::{
@@ -32,14 +38,9 @@ use bevy_pbr::{
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
-    mesh::{
-        morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
-        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        Indices, Mesh, Mesh3d, MeshVertexAttribute, VertexAttributeValues,
-    },
+    mesh::Mesh3d,
     primitives::Aabb,
-    render_asset::RenderAssetUsages,
-    render_resource::{Face, PrimitiveTopology},
+    render_resource::Face,
     view::Visibility,
 };
 use bevy_scene::Scene;
@@ -122,10 +123,10 @@ pub enum GltfError {
     MissingAnimationSampler(usize),
     /// Failed to generate tangents.
     #[error("failed to generate tangents: {0}")]
-    GenerateTangentsError(#[from] bevy_render::mesh::GenerateTangentsError),
+    GenerateTangentsError(#[from] bevy_mesh::GenerateTangentsError),
     /// Failed to generate morph targets.
     #[error("failed to generate morph targets: {0}")]
-    MorphTarget(#[from] bevy_render::mesh::morph::MorphBuildError),
+    MorphTarget(#[from] bevy_mesh::morph::MorphBuildError),
     /// Circular children in Nodes
     #[error("GLTF model must be a tree, found cycle instead at node indices: {0:?}")]
     #[from(ignore)]
@@ -1775,7 +1776,8 @@ mod test {
     };
     use bevy_ecs::{resource::Resource, world::World};
     use bevy_log::LogPlugin;
-    use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};
+    use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
+    use bevy_render::mesh::MeshPlugin;
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {
