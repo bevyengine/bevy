@@ -150,13 +150,12 @@ use downcast_rs::{impl_downcast, Downcast};
 ///     }
 ///
 ///
-/// You can then create an [`AnimationClip`] to animate this property like so:
+/// You can then create an [`AnimatableCurve`] to animate this property like so:
 ///
-///     # use bevy_animation::{AnimationClip, AnimationTargetId, VariableCurve, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
+///     # use bevy_animation::{VariableCurve, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
 ///     # use bevy_animation::prelude::{AnimatableProperty, AnimatableKeyframeCurve, AnimatableCurve};
 ///     # use bevy_ecs::{name::Name, component::Component};
 ///     # use std::any::TypeId;
-///     # let animation_target_id = AnimationTargetId::from(&Name::new("Test"));
 ///     # #[derive(Component)]
 ///     # struct ExampleComponent { power_level: Option<f32> }
 ///     # #[derive(Clone)]
@@ -181,19 +180,13 @@ use downcast_rs::{impl_downcast, Downcast};
 ///     #         EvaluatorId::Type(TypeId::of::<Self>())
 ///     #     }
 ///     # }
-///     # let mut animation_clip = AnimationClip::default();
-///     animation_clip.add_curve_to_target(
-///         animation_target_id,
-///         AnimatableCurve::new(
-///             PowerLevelProperty,
-///             AnimatableKeyframeCurve::new([
-///                 (0.0, 0.0),
-///                 (1.0, 9001.0),
-///             ]).expect("Failed to create power level curve")
-///         )
+///     AnimatableCurve::new(
+///         PowerLevelProperty,
+///         AnimatableKeyframeCurve::new([
+///             (0.0, 0.0),
+///             (1.0, 9001.0),
+///         ]).expect("Failed to create power level curve")
 ///     );
-///
-/// [`AnimationClip`]: crate::AnimationClip
 pub trait AnimatableProperty: Send + Sync + 'static {
     /// The animated property type.
     type Property: Animatable;
