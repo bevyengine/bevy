@@ -213,7 +213,7 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
                 <#type_path as #bevy_reflect_path::__macro_exports::RegisterForReflection>::__register(registry);
             }
         })
-    } else {
+    } else if cfg!(feature = "auto_register_inventory") {
         Some(quote! {
             #bevy_reflect_path::__macro_exports::auto_register::inventory::submit!{
                 #bevy_reflect_path::__macro_exports::auto_register::AutomaticReflectRegistrations(
@@ -221,5 +221,7 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
                 )
             }
         })
+    } else {
+        None
     }
 }

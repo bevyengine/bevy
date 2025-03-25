@@ -69,10 +69,21 @@ critical-section = [
   "bevy_utils/critical-section",
 ]
 
-## Enables automatic reflect registration
-auto_register = ["bevy_reflect_derive/auto_register", "dep:inventory"]
-## Enable automatic reflect registration without inventory. See `load_type_registrations` for more info.
-auto_register_static = ["bevy_reflect_derive/auto_register_static"]
+# Enables automatic reflect registration. Does nothing by itself, 
+# must select `auto_register_inventory` or `auto_register_static` to make it work.
+auto_register = []
+## Enables automatic reflect registration using inventory. Not supported on all platforms.
+auto_register_inventory = [
+  "auto_register",
+  "bevy_reflect_derive/auto_register_inventory",
+  "dep:inventory",
+]
+## Enable automatic reflect registration without inventory. This feature has precedence over `auto_register_inventory`.
+## See `load_type_registrations` for more info.
+auto_register_static = [
+  "auto_register",
+  "bevy_reflect_derive/auto_register_static",
+]
 
 ## Enables use of browser APIs.
 ## Note this is currently only applicable on `wasm32` architectures.

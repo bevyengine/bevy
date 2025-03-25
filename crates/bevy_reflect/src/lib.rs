@@ -733,12 +733,15 @@ pub mod __macro_exports {
     impl RegisterForReflection for DynamicTuple {}
 
     /// Automatic reflect registration implementation
-    #[cfg(any(feature = "auto_register_static", feature = "auto_register"))]
+    #[cfg(feature = "auto_register")]
     pub mod auto_register {
         pub use super::*;
 
         /// inventory impl
-        #[cfg(all(not(feature = "auto_register_static"), feature = "auto_register"))]
+        #[cfg(all(
+            not(feature = "auto_register_static"),
+            feature = "auto_register_inventory"
+        ))]
         mod __automatic_type_registration_impl {
             use super::*;
 

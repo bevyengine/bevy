@@ -276,9 +276,9 @@ reflect_functions = [
   "bevy_ecs/reflect_functions",
 ]
 
-# Enable automatic reflect registration
+# Enable automatic reflect registration using inventory.
 reflect_auto_register = [
-  "bevy_reflect/auto_register",
+  "bevy_reflect/auto_register_inventory",
   "bevy_app/reflect_auto_register",
   "bevy_ecs/reflect_auto_register",
 ]
