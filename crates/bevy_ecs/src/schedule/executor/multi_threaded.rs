@@ -18,7 +18,7 @@ use crate::{
     prelude::Resource,
     query::Access,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
-    system::{ScheduleSystem, SystemParamValidationError, ValidationOutcome},
+    system::ScheduleSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -582,18 +582,19 @@ impl ExecutorState {
             //   required by the system.
             // - `update_archetype_component_access` has been called for system.
             let valid_params = match unsafe { system.validate_param_unsafe(world) } {
-                ValidationOutcome::Valid => true,
-                ValidationOutcome::Invalid => {
-                    error_handler(
-                        SystemParamValidationError.into(),
-                        ErrorContext::System {
-                            name: system.name(),
-                            last_run: system.get_last_run(),
-                        },
-                    );
+                Ok(()) => true,
+                Err(e) => {
+                    if !e.is_skipped() {
+                        error_handler(
+                            e.into(),
+                            ErrorContext::System {
+                                name: system.name(),
+                                last_run: system.get_last_run(),
+                            },
+                        );
+                    }
                     false
                 }
-                ValidationOutcome::Skipped => false,
             };
             if !valid_params {
                 self.skipped_systems.insert(system_index);
@@ -796,18 +797,19 @@ unsafe fn evaluate_and_fold_conditions(
             //   required by the condition.
             // - `update_archetype_component_access` has been called for condition.
             match unsafe { condition.validate_param_unsafe(world) } {
-                ValidationOutcome::Valid => (),
-                ValidationOutcome::Invalid => {
-                    error_handler(
-                        SystemParamValidationError.into(),
-                        ErrorContext::System {
-                            name: condition.name(),
-                            last_run: condition.get_last_run(),
-                        },
-                    );
+                Ok(()) => (),
+                Err(e) => {
+                    if !e.is_skipped() {
+                        error_handler(
+                            e.into(),
+                            ErrorContext::System {
+                                name: condition.name(),
+                                last_run: condition.get_last_run(),
+                            },
+                        );
+                    }
                     return false;
                 }
-                ValidationOutcome::Skipped => return false,
             }
             // SAFETY:
             // - The caller ensures that `world` has permission to read any data

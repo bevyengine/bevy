@@ -7,7 +7,7 @@ use crate::{
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
-    system::{IntoObserverSystem, ObserverSystem, SystemParamValidationError, ValidationOutcome},
+    system::{IntoObserverSystem, ObserverSystem},
     world::DeferredWorld,
 };
 use bevy_ptr::PtrMut;
@@ -406,7 +406,7 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     unsafe {
         (*system).update_archetype_component_access(world);
         match (*system).validate_param_unsafe(world) {
-            ValidationOutcome::Valid => {
+            Ok(()) => {
                 if let Err(err) = (*system).run_unsafe(trigger, world) {
                     error_handler(
                         err,
@@ -418,14 +418,17 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
                 };
                 (*system).queue_deferred(world.into_deferred());
             }
-            ValidationOutcome::Invalid => error_handler(
-                SystemParamValidationError.into(),
-                ErrorContext::Observer {
-                    name: (*system).name(),
-                    last_run: (*system).get_last_run(),
-                },
-            ),
-            ValidationOutcome::Skipped => (),
+            Err(e) => {
+                if !e.is_skipped() {
+                    error_handler(
+                        e.into(),
+                        ErrorContext::Observer {
+                            name: (*system).name(),
+                            last_run: (*system).get_last_run(),
+                        },
+                    )
+                }
+            }
         }
     }
 }

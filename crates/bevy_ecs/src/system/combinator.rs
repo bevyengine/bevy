@@ -7,7 +7,7 @@ use crate::{
     prelude::World,
     query::Access,
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemIn, ValidationOutcome},
+    system::{input::SystemInput, SystemIn, SystemParamValidationError},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -212,7 +212,10 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> ValidationOutcome {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegate to other `System` implementations.
         unsafe { self.a.validate_param_unsafe(world) }
     }
@@ -431,18 +434,18 @@ where
         self.b.queue_deferred(world);
     }
 
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> ValidationOutcome {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegate to other `System` implementations.
         unsafe { self.a.validate_param_unsafe(world) }
     }
 
-    fn validate_param(&mut self, world: &World) -> ValidationOutcome {
-        // This follows the logic of `ValidationOutcome::combine`, but short-circuits
-        let validate_a = self.a.validate_param(world);
-        match validate_a {
-            ValidationOutcome::Valid => self.b.validate_param(world),
-            ValidationOutcome::Invalid | ValidationOutcome::Skipped => validate_a,
-        }
+    fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
+        self.a.validate_param(world)?;
+        self.b.validate_param(world)?;
+        Ok(())
     }
 
     fn initialize(&mut self, world: &mut World) {

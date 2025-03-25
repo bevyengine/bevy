@@ -14,7 +14,7 @@ use alloc::{borrow::Cow, vec, vec::Vec};
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
-use super::ValidationOutcome;
+use super::SystemParamValidationError;
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -156,9 +156,12 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, _world: UnsafeWorldCell) -> ValidationOutcome {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        _world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         // All exclusive system params are always available.
-        ValidationOutcome::Valid
+        Ok(())
     }
 
     #[inline]
