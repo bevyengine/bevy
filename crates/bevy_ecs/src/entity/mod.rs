@@ -635,6 +635,7 @@ impl RemoteEntitiesInner {
 }
 
 /// Manages access to [`Entities`] from any thread and async.
+#[derive(Clone)]
 pub struct RemoteEntities {
     inner: Arc<RemoteEntitiesInner>,
 }
@@ -654,7 +655,7 @@ impl RemoteEntities {
     /// let thread = std::thread::spawn(move || {
     ///     let future = async {
     ///         for _ in 0..100 {
-    ///             reserver.reserve_entity().await.unwrap();
+    ///             remote.reserve_entity().await.unwrap();
     ///         }
     ///     };
     ///     bevy_tasks::block_on(future);
