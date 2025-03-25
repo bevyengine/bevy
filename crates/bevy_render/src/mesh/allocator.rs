@@ -361,7 +361,7 @@ pub fn allocate_and_free_meshes(
     // Process removed meshes.
     mesh_allocator.free_meshes(&extracted_meshes);
 
-    // Process newly-added meshes.
+    // Process newly-added or modified meshes.
     mesh_allocator.allocate_meshes(
         &mesh_allocator_settings,
         &extracted_meshes,
