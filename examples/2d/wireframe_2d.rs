@@ -50,7 +50,7 @@ fn main() {
 
 /// set up a simple 2D scene
 /// Note that entities cannot be spawned with both a material and a wireframe, so for objects we want
-/// to show both for, we spawn one with the Material and NoWireframe2d, the other we spawn with a
+/// to show both for, we spawn one with the Material and `NoWireframe2d`, the other we spawn with a
 /// Wireframe (or global Wireframe config), and no Material.
 fn setup(
     mut commands: Commands,
