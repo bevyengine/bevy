@@ -1,7 +1,6 @@
 //! A shader that uses the WESL shading language.
 
 use bevy::{
-    asset::weak_handle,
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
