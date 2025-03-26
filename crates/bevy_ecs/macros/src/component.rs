@@ -568,6 +568,9 @@ impl Parse for Require {
         let mut path = input.parse::<Path>()?;
         let mut last_segment_is_lower = false;
         let mut is_constructor_call = false;
+        // Use the case of the type name to check if it's an enum
+        // This doesn't match everything that can be an enum according to the rust spec
+        // but it matches what clippy is OK with
         let is_enum = {
             let mut first_chars = path
                 .segments
