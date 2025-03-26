@@ -6,13 +6,13 @@ use crate::{
     render_phase::DrawError,
     renderer::RenderContext,
 };
-pub use bevy_ecs::label::DynEq;
 use bevy_ecs::{
-    define_label,
-    intern::Interned,
     query::{QueryItem, QueryState, ReadOnlyQueryData},
     world::{FromWorld, World},
 };
+pub use bevy_label::DynEq;
+use bevy_label::{define_label, intern::Interned};
+
 use core::fmt::Debug;
 use downcast_rs::{impl_downcast, Downcast};
 use thiserror::Error;
