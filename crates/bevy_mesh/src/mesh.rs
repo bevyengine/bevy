@@ -828,7 +828,7 @@ impl Mesh {
     ///
     /// Returns [`Err(MeshMergeError)`](MeshMergeError) if any of the following conditions are met:
     /// * the vertex attribute values of `other` are incompatible with `self`.
-    /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
+    ///   For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
     /// * the primitive topology of `other` doesn't match the primitive topology of `self`
     pub fn merge(&mut self, other: &Mesh) -> Result<(), MeshMergeError> {
         use VertexAttributeValues::*;
