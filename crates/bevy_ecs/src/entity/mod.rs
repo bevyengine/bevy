@@ -543,8 +543,12 @@ impl RemoteEntitiesInner {
         keep_hot: u32,
     ) {
         let to_fulfill = entities.remote.recent_requests.swap(0, Ordering::Relaxed);
+        let current_hot = entities.remote.keep_hot.load(Ordering::Relaxed);
+        let should_reserve = (to_fulfill + keep_hot).saturating_sub(current_hot); // should_reserve = to_fulfill + (keep_hot - cuurent_hot)
+        let new_hot = (current_hot + should_reserve).saturating_sub(to_fulfill); // new_hot = current_hot + (should_reserve - to_fulfill).
+        entities.remote.keep_hot.store(new_hot, Ordering::Relaxed);
 
-        for _ in 0..to_fulfill {
+        for _ in 0..should_reserve {
             let entity = entities.alloc();
             // SAFETY: we just allocated it
             let loc = unsafe {
@@ -582,13 +586,13 @@ impl RemoteEntitiesInner {
         }
     }
 
-    fn new(keep_hot: u32) -> Self {
+    fn new() -> Self {
         let (sender, receiver) = async_channel::unbounded();
         Self {
             recent_requests: AtomicU32::new(0),
             reserver: sender,
             reserved: receiver,
-            keep_hot: AtomicU32::new(keep_hot),
+            keep_hot: AtomicU32::new(0),
         }
     }
 
@@ -713,7 +717,7 @@ impl Entities {
             meta: Vec::new(),
             pending: Vec::new(),
             free_cursor: AtomicIdCursor::new(0),
-            remote: Arc::new(RemoteEntitiesInner::new(Self::DEFAULT_HOT_REMOTE_ENTITIES)),
+            remote: Arc::new(RemoteEntitiesInner::new()),
             entities_hot_for_remote: Self::DEFAULT_HOT_REMOTE_ENTITIES,
         }
     }
@@ -967,7 +971,7 @@ impl Entities {
         self.pending.clear();
         *self.free_cursor.get_mut() = 0;
         self.remote.close();
-        self.remote = Arc::new(RemoteEntitiesInner::new(self.entities_hot_for_remote));
+        self.remote = Arc::new(RemoteEntitiesInner::new());
     }
 
     /// Returns the location of an [`Entity`].
