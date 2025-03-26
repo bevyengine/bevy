@@ -160,16 +160,69 @@ use thiserror::Error;
 /// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
 /// ```
 ///
-/// You can also define a custom constructor function or closure:
+/// You can define inline component values that take the following forms:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// #[require(
+///     B(1), // tuple structs
+///     C { value: 1 }, // named-field structs
+///     D::One, // enum variants
+///     E::ONE, // associated consts
+///     F::new(1) // constructors
+/// )]
+/// struct A;
+///
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// struct B(u8);
+///
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// struct C {
+///     value: u8
+/// }
+///
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// enum D {
+///    Zero,
+///    One,
+/// }
+///
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// struct E(u8);
+///
+/// impl E {
+///     pub const ONE: Self = Self(1);
+/// }
+///
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// struct F(u8);
+///
+/// impl F {
+///     fn new(value: u8) -> Self {
+///         Self(value)
+///     }
+/// }
+///
+/// # let mut world = World::default();
+/// let id = world.spawn(A).id();
+/// assert_eq!(&B(1), world.entity(id).get::<B>().unwrap());
+/// assert_eq!(&C { value: 1 }, world.entity(id).get::<C>().unwrap());
+/// assert_eq!(&D::One, world.entity(id).get::<D>().unwrap());
+/// assert_eq!(&E(1), world.entity(id).get::<E>().unwrap());
+/// assert_eq!(&F(1), world.entity(id).get::<F>().unwrap());
+/// ````
+///
+///
+/// You can also define arbitrary expressions by using `=`
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Component)]
-/// #[require(C(init_c))]
+/// #[require(C = init_c())]
 /// struct A;
 ///
 /// #[derive(Component, PartialEq, Eq, Debug)]
-/// #[require(C(|| C(20)))]
+/// #[require(C = C(20))]
 /// struct B;
 ///
 /// #[derive(Component, PartialEq, Eq, Debug)]
@@ -188,34 +241,6 @@ use thiserror::Error;
 /// let id = world.spawn(B).id();
 /// assert_eq!(&C(20), world.entity(id).get::<C>().unwrap());
 /// ```
-///
-/// For convenience sake, you can abbreviate enum labels or constant values, with the type inferred to match that of the component you are requiring:
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// #[derive(Component)]
-/// #[require(B = One, C = ONE)]
-/// struct A;
-///
-/// #[derive(Component, PartialEq, Eq, Debug)]
-/// enum B {
-///    Zero,
-///    One,
-///    Two
-/// }
-///
-/// #[derive(Component, PartialEq, Eq, Debug)]
-/// struct C(u8);
-///
-/// impl C {
-///     pub const ONE: Self = Self(1);
-/// }
-///
-/// # let mut world = World::default();
-/// let id = world.spawn(A).id();
-/// assert_eq!(&B::One, world.entity(id).get::<B>().unwrap());
-/// assert_eq!(&C(1), world.entity(id).get::<C>().unwrap());
-/// ````
 ///
 /// Required components are _recursive_. This means, if a Required Component has required components,
 /// those components will _also_ be inserted if they are missing:
@@ -252,13 +277,13 @@ use thiserror::Error;
 /// struct X(usize);
 ///
 /// #[derive(Component, Default)]
-/// #[require(X(|| X(1)))]
+/// #[require(X(1))]
 /// struct Y;
 ///
 /// #[derive(Component)]
 /// #[require(
 ///     Y,
-///     X(|| X(2)),
+///     X(2),
 /// )]
 /// struct Z;
 ///
