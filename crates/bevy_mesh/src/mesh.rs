@@ -813,7 +813,7 @@ impl Mesh {
         if self.primitive_topology != other.primitive_topology {
             return Err(MeshMergeError::IncompatiblePrimitiveTopology {
                 self_primitive_topology: self.primitive_topology,
-                other_primitive_topology: other.primitive_topology
+                other_primitive_topology: other.primitive_topology,
             });
         }
 
@@ -1251,16 +1251,20 @@ impl core::ops::Mul<Mesh> for Transform {
 /// Error that can occur when calling [`Mesh::merge`].
 #[derive(Error, Debug, Clone)]
 pub enum MeshMergeError {
-  #[error("Incompatible vertex attribute types {} and {}", self_attribute.name, other_attribute.map(|a| a.name).unwrap_or("None"))]
-  IncompatibleVertexAttributes {
-    self_attribute: MeshVertexAttribute,
-    other_attribute: Option<MeshVertexAttribute>,
-  },
-  #[error("Incompatible primitive topologies {:?} and {:?}", self_primitive_topology, other_primitive_topology)]
-  IncompatiblePrimitiveTopology {
-    self_primitive_topology: PrimitiveTopology,
-    other_primitive_topology: PrimitiveTopology,
-  }
+    #[error("Incompatible vertex attribute types {} and {}", self_attribute.name, other_attribute.map(|a| a.name).unwrap_or("None"))]
+    IncompatibleVertexAttributes {
+        self_attribute: MeshVertexAttribute,
+        other_attribute: Option<MeshVertexAttribute>,
+    },
+    #[error(
+        "Incompatible primitive topologies {:?} and {:?}",
+        self_primitive_topology,
+        other_primitive_topology
+    )]
+    IncompatiblePrimitiveTopology {
+        self_primitive_topology: PrimitiveTopology,
+        other_primitive_topology: PrimitiveTopology,
+    },
 }
 
 #[cfg(test)]
