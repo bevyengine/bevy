@@ -1,7 +1,7 @@
 use alloc::string::ToString;
 use alloc::{format, string::String};
-use core::num::NonZero;
 use bevy_platform_support::sync::LazyLock;
+use core::num::NonZero;
 
 use bevy_ecs::{
     entity::{Entity, EntityBorrow},
@@ -32,7 +32,7 @@ static DEFAULT_WINDOW_TITLE: LazyLock<String> = LazyLock::new(|| {
             .and_then(|current_exe| Some(format!("{}", current_exe.file_stem()?.to_string_lossy())))
             .unwrap_or_else(|| "App".to_string())
     }
-    
+
     #[cfg(not(feature = "std"))]
     {
         "App".to_string()
