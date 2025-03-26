@@ -2673,12 +2673,12 @@ impl SystemParamValidationError {
     }
 
     /// Constructs a `SystemParamValidationError` that skips the system.
-    pub fn skipped() -> Self {
+    pub const fn skipped() -> Self {
         Self { skipped: true }
     }
 
     /// Constructs a `SystemParamValidationError` for an invalid parameter that should be treated as an error.
-    pub fn invalid() -> Self {
+    pub const fn invalid() -> Self {
         Self { skipped: false }
     }
 }
