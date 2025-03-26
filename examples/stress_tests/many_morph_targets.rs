@@ -21,7 +21,7 @@ enum ArgWeights {
     /// Set all the weights to one.
     One,
 
-    /// Set all the weights to zero, minimising vertex shader cost.
+    /// Set all the weights to zero, minimizing vertex shader cost.
     Zero,
 
     /// Set all the weights to a very small value, so the pixel shader cost
@@ -49,7 +49,7 @@ enum ArgCamera {
     /// Keep all the meshes in view and at a reasonable size.
     Default,
 
-    /// Zoom far out. This is used to reduce pixel shader costs and so emphasise
+    /// Zoom far out. This is used to reduce pixel shader costs and so emphasize
     /// vertex shader costs.
     Far,
 }
