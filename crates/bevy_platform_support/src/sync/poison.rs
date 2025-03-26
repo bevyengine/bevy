@@ -1,12 +1,12 @@
 //! Provides `LockResult`, `PoisonError`, `TryLockError`, `TryLockResult`
 
-pub use poison::{LockResult, PoisonError, TryLockError, TryLockResult};
+pub use implementation::{LockResult, PoisonError, TryLockError, TryLockResult};
 
 #[cfg(feature = "std")]
-use std::sync as poison;
+use std::sync as implementation;
 
 #[cfg(not(feature = "std"))]
-mod poison {
+mod implementation {
     use core::{error::Error, fmt};
 
     /// Fallback implementation of `PoisonError` from the standard library.

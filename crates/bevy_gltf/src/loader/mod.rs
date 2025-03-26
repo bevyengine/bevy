@@ -10,6 +10,7 @@ use std::{
 use bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
+    RenderAssetUsages,
 };
 use bevy_color::{Color, LinearRgba};
 use bevy_core_pipeline::prelude::Camera3d;
@@ -24,6 +25,11 @@ use bevy_image::{
     ImageType, TextureError,
 };
 use bevy_math::{Mat4, Vec3};
+use bevy_mesh::{
+    morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
+    skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+    Indices, Mesh, MeshVertexAttribute, PrimitiveTopology, VertexAttributeValues,
+};
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_pbr::UvChannel;
 use bevy_pbr::{
@@ -32,14 +38,9 @@ use bevy_pbr::{
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
-    mesh::{
-        morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
-        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        Indices, Mesh, Mesh3d, MeshVertexAttribute, VertexAttributeValues,
-    },
+    mesh::Mesh3d,
     primitives::Aabb,
-    render_asset::RenderAssetUsages,
-    render_resource::{Face, PrimitiveTopology},
+    render_resource::Face,
     view::Visibility,
 };
 use bevy_scene::Scene;
@@ -122,10 +123,10 @@ pub enum GltfError {
     MissingAnimationSampler(usize),
     /// Failed to generate tangents.
     #[error("failed to generate tangents: {0}")]
-    GenerateTangentsError(#[from] bevy_render::mesh::GenerateTangentsError),
+    GenerateTangentsError(#[from] bevy_mesh::GenerateTangentsError),
     /// Failed to generate morph targets.
     #[error("failed to generate morph targets: {0}")]
-    MorphTarget(#[from] bevy_render::mesh::morph::MorphBuildError),
+    MorphTarget(#[from] bevy_mesh::morph::MorphBuildError),
     /// Circular children in Nodes
     #[error("GLTF model must be a tree, found cycle instead at node indices: {0:?}")]
     #[from(ignore)]
@@ -740,9 +741,10 @@ async fn load_gltf<'a, 'b, 'c>(
             let reader = gltf_skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
             let local_to_bone_bind_matrices: Vec<Mat4> = reader
                 .read_inverse_bind_matrices()
-                .unwrap()
-                .map(|mat| Mat4::from_cols_array_2d(&mat))
-                .collect();
+                .map(|mats| mats.map(|mat| Mat4::from_cols_array_2d(&mat)).collect())
+                .unwrap_or_else(|| {
+                    core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
+                });
 
             load_context
                 .add_labeled_asset(
@@ -974,18 +976,13 @@ async fn load_image<'a, 'b>(
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
     let sampler_descriptor = texture_sampler(&gltf_texture);
-    #[cfg(all(debug_assertions, feature = "dds"))]
-    let name = gltf_texture
-        .name()
-        .map_or("Unknown GLTF Texture".to_string(), ToString::to_string);
+
     match gltf_texture.source().source() {
         Source::View { view, mime_type } => {
             let start = view.offset();
             let end = view.offset() + view.length();
             let buffer = &buffer_data[view.buffer().index()][start..end];
             let image = Image::from_buffer(
-                #[cfg(all(debug_assertions, feature = "dds"))]
-                name,
                 buffer,
                 ImageType::MimeType(mime_type),
                 supported_compressed_formats,
@@ -1008,8 +1005,6 @@ async fn load_image<'a, 'b>(
                 let image_type = ImageType::MimeType(data_uri.mime_type);
                 Ok(ImageOrPath::Image {
                     image: Image::from_buffer(
-                        #[cfg(all(debug_assertions, feature = "dds"))]
-                        name,
                         &bytes,
                         mime_type.map(ImageType::MimeType).unwrap_or(image_type),
                         supported_compressed_formats,
@@ -1280,9 +1275,12 @@ fn load_material(
 }
 
 /// Loads a glTF node.
-#[expect(
-    clippy::result_large_err,
-    reason = "`GltfError` is only barely past the threshold for large errors."
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    expect(
+        clippy::result_large_err,
+        reason = "`GltfError` is only barely past the threshold for large errors."
+    )
 )]
 fn load_node(
     gltf_node: &Node,
@@ -1771,7 +1769,8 @@ mod test {
     };
     use bevy_ecs::{resource::Resource, world::World};
     use bevy_log::LogPlugin;
-    use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};
+    use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
+    use bevy_render::mesh::MeshPlugin;
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {

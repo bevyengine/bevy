@@ -548,7 +548,9 @@ weight = {}
                 let _ = fs::create_dir_all(&example_path);
 
                 let code_path = example_path.join(Path::new(&to_show.path).file_name().unwrap());
-                let _ = fs::copy(&to_show.path, &code_path);
+                let code = fs::read_to_string(&to_show.path).unwrap();
+                let (docblock, code) = split_docblock_and_code(&code);
+                let _ = fs::write(&code_path, code);
 
                 let mut example_index = File::create(example_path.join("index.md")).unwrap();
                 example_index
@@ -572,7 +574,10 @@ code_path = \"content/examples{}/{}\"
 shader_code_paths = {:?}
 github_code_path = \"{}\"
 header_message = \"Examples ({})\"
-+++",
++++
+
+{}
+",
                             to_show.name,
                             match api {
                                 WebApi::Webgpu => "-webgpu",
@@ -610,6 +615,7 @@ header_message = \"Examples ({})\"
                                 WebApi::Webgpu => "WebGPU",
                                 WebApi::Webgl2 => "WebGL2",
                             },
+                            docblock,
                         )
                         .as_bytes(),
                     )
@@ -729,6 +735,23 @@ header_message = \"Examples ({})\"
             pb.finish_print("done");
         }
     }
+}
+
+fn split_docblock_and_code(code: &str) -> (String, &str) {
+    let mut docblock_lines = Vec::new();
+    let mut code_byte_start = 0;
+
+    for line in code.lines() {
+        if line.starts_with("//!") {
+            docblock_lines.push(line.trim_start_matches("//!").trim());
+        } else if !line.trim().is_empty() {
+            break;
+        }
+
+        code_byte_start += line.len() + 1;
+    }
+
+    (docblock_lines.join("\n"), &code[code_byte_start..])
 }
 
 fn parse_examples() -> Vec<Example> {

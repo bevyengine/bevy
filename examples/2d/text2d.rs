@@ -72,41 +72,35 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
     let box_size = Vec2::new(300.0, 200.0);
     let box_position = Vec2::new(0.0, -250.0);
-    commands
-        .spawn((
-            Sprite::from_color(Color::srgb(0.25, 0.25, 0.55), box_size),
-            Transform::from_translation(box_position.extend(0.0)),
-        ))
-        .with_children(|builder| {
-            builder.spawn((
-                Text2d::new("this text wraps in the box\n(Unicode linebreaks)"),
-                slightly_smaller_text_font.clone(),
-                TextLayout::new(JustifyText::Left, LineBreak::WordBoundary),
-                // Wrap text in the rectangle
-                TextBounds::from(box_size),
-                // Ensure the text is drawn on top of the box
-                Transform::from_translation(Vec3::Z),
-            ));
-        });
+    commands.spawn((
+        Sprite::from_color(Color::srgb(0.25, 0.25, 0.55), box_size),
+        Transform::from_translation(box_position.extend(0.0)),
+        children![(
+            Text2d::new("this text wraps in the box\n(Unicode linebreaks)"),
+            slightly_smaller_text_font.clone(),
+            TextLayout::new(JustifyText::Left, LineBreak::WordBoundary),
+            // Wrap text in the rectangle
+            TextBounds::from(box_size),
+            // Ensure the text is drawn on top of the box
+            Transform::from_translation(Vec3::Z),
+        )],
+    ));
 
     let other_box_size = Vec2::new(300.0, 200.0);
     let other_box_position = Vec2::new(320.0, -250.0);
-    commands
-        .spawn((
-            Sprite::from_color(Color::srgb(0.25, 0.25, 0.55), other_box_size),
-            Transform::from_translation(other_box_position.extend(0.0)),
-        ))
-        .with_children(|builder| {
-            builder.spawn((
-                Text2d::new("this text wraps in the box\n(AnyCharacter linebreaks)"),
-                slightly_smaller_text_font.clone(),
-                TextLayout::new(JustifyText::Left, LineBreak::AnyCharacter),
-                // Wrap text in the rectangle
-                TextBounds::from(other_box_size),
-                // Ensure the text is drawn on top of the box
-                Transform::from_translation(Vec3::Z),
-            ));
-        });
+    commands.spawn((
+        Sprite::from_color(Color::srgb(0.25, 0.25, 0.55), other_box_size),
+        Transform::from_translation(other_box_position.extend(0.0)),
+        children![(
+            Text2d::new("this text wraps in the box\n(AnyCharacter linebreaks)"),
+            slightly_smaller_text_font.clone(),
+            TextLayout::new(JustifyText::Left, LineBreak::AnyCharacter),
+            // Wrap text in the rectangle
+            TextBounds::from(other_box_size),
+            // Ensure the text is drawn on top of the box
+            Transform::from_translation(Vec3::Z),
+        )],
+    ));
 
     // Demonstrate font smoothing off
     commands.spawn((
@@ -129,10 +123,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_children(|commands| {
             for (text_anchor, color) in [
-                (Anchor::TopLeft, Color::Srgba(LIGHT_SALMON)),
-                (Anchor::TopRight, Color::Srgba(LIGHT_GREEN)),
-                (Anchor::BottomRight, Color::Srgba(LIGHT_BLUE)),
-                (Anchor::BottomLeft, Color::Srgba(LIGHT_YELLOW)),
+                (Anchor::TOP_LEFT, Color::Srgba(LIGHT_SALMON)),
+                (Anchor::TOP_RIGHT, Color::Srgba(LIGHT_GREEN)),
+                (Anchor::BOTTOM_RIGHT, Color::Srgba(LIGHT_BLUE)),
+                (Anchor::BOTTOM_LEFT, Color::Srgba(LIGHT_YELLOW)),
             ] {
                 commands
                     .spawn((

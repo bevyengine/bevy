@@ -16,7 +16,7 @@ use crate::{
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
     CompleteErasedLoadedAsset, DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset,
-    UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
+    UnapprovedPathMode, UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
 use alloc::{
@@ -68,6 +68,7 @@ pub(crate) struct AssetServerData {
     sources: AssetSources,
     mode: AssetServerMode,
     meta_check: AssetMetaCheck,
+    unapproved_path_mode: UnapprovedPathMode,
 }
 
 /// The "asset mode" the server is currently in.
@@ -82,13 +83,19 @@ pub enum AssetServerMode {
 impl AssetServer {
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
-    pub fn new(sources: AssetSources, mode: AssetServerMode, watching_for_changes: bool) -> Self {
+    pub fn new(
+        sources: AssetSources,
+        mode: AssetServerMode,
+        watching_for_changes: bool,
+        unapproved_path_mode: UnapprovedPathMode,
+    ) -> Self {
         Self::new_with_loaders(
             sources,
             Default::default(),
             mode,
             AssetMetaCheck::Always,
             watching_for_changes,
+            unapproved_path_mode,
         )
     }
 
@@ -99,6 +106,7 @@ impl AssetServer {
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
         watching_for_changes: bool,
+        unapproved_path_mode: UnapprovedPathMode,
     ) -> Self {
         Self::new_with_loaders(
             sources,
@@ -106,6 +114,7 @@ impl AssetServer {
             mode,
             meta_check,
             watching_for_changes,
+            unapproved_path_mode,
         )
     }
 
@@ -115,6 +124,7 @@ impl AssetServer {
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
         watching_for_changes: bool,
+        unapproved_path_mode: UnapprovedPathMode,
     ) -> Self {
         let (asset_event_sender, asset_event_receiver) = crossbeam_channel::unbounded();
         let mut infos = AssetInfos::default();
@@ -128,6 +138,7 @@ impl AssetServer {
                 asset_event_receiver,
                 loaders,
                 infos: RwLock::new(infos),
+                unapproved_path_mode,
             }),
         }
     }
@@ -311,7 +322,16 @@ impl AssetServer {
     /// The asset load will fail and an error will be printed to the logs if the asset stored at `path` is not of type `A`.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
-        self.load_with_meta_transform(path, None, ())
+        self.load_with_meta_transform(path, None, (), false)
+    }
+
+    /// Same as [`load`](AssetServer::load), but you can load assets from unaproved paths
+    /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
+    /// is [`Deny`](UnapprovedPathMode::Deny).
+    ///
+    /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
+    pub fn load_override<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
+        self.load_with_meta_transform(path, None, (), true)
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -335,7 +355,20 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, None, guard)
+        self.load_with_meta_transform(path, None, guard, false)
+    }
+
+    /// Same as [`load`](AssetServer::load_acquire), but you can load assets from unaproved paths
+    /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
+    /// is [`Deny`](UnapprovedPathMode::Deny).
+    ///
+    /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
+    pub fn load_acquire_override<'a, A: Asset, G: Send + Sync + 'static>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        guard: G,
+    ) -> Handle<A> {
+        self.load_with_meta_transform(path, None, guard, true)
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path`. The given `settings` function will override the asset's
@@ -347,7 +380,30 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), ())
+        self.load_with_meta_transform(
+            path,
+            Some(loader_settings_meta_transform(settings)),
+            (),
+            false,
+        )
+    }
+
+    /// Same as [`load`](AssetServer::load_with_settings), but you can load assets from unaproved paths
+    /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
+    /// is [`Deny`](UnapprovedPathMode::Deny).
+    ///
+    /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
+    pub fn load_with_settings_override<'a, A: Asset, S: Settings>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        settings: impl Fn(&mut S) + Send + Sync + 'static,
+    ) -> Handle<A> {
+        self.load_with_meta_transform(
+            path,
+            Some(loader_settings_meta_transform(settings)),
+            (),
+            true,
+        )
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -366,7 +422,36 @@ impl AssetServer {
         settings: impl Fn(&mut S) + Send + Sync + 'static,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), guard)
+        self.load_with_meta_transform(
+            path,
+            Some(loader_settings_meta_transform(settings)),
+            guard,
+            false,
+        )
+    }
+
+    /// Same as [`load`](AssetServer::load_acquire_with_settings), but you can load assets from unaproved paths
+    /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
+    /// is [`Deny`](UnapprovedPathMode::Deny).
+    ///
+    /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
+    pub fn load_acquire_with_settings_override<
+        'a,
+        A: Asset,
+        S: Settings,
+        G: Send + Sync + 'static,
+    >(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        settings: impl Fn(&mut S) + Send + Sync + 'static,
+        guard: G,
+    ) -> Handle<A> {
+        self.load_with_meta_transform(
+            path,
+            Some(loader_settings_meta_transform(settings)),
+            guard,
+            true,
+        )
     }
 
     pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
@@ -374,8 +459,20 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         meta_transform: Option<MetaTransform>,
         guard: G,
+        override_unapproved: bool,
     ) -> Handle<A> {
         let path = path.into().into_owned();
+
+        if path.is_unapproved() {
+            match (&self.data.unapproved_path_mode, override_unapproved) {
+                (UnapprovedPathMode::Allow, _) | (UnapprovedPathMode::Deny, true) => {}
+                (UnapprovedPathMode::Deny, false) | (UnapprovedPathMode::Forbid, _) => {
+                    error!("Asset path {path} is unapproved. See UnapprovedPathMode for details.");
+                    return Handle::default();
+                }
+            }
+        }
+
         let mut infos = self.data.infos.write();
         let (handle, should_load) = infos.get_or_create_path_handle::<A>(
             path.clone(),

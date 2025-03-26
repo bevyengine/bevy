@@ -14,10 +14,7 @@ use crate::{
     component::{Component, HookContext, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
     error::{ignore, CommandWithEntity, HandleError},
-    system::{
-        entity_command::{self},
-        Commands,
-    },
+    system::entity_command::{self},
     world::{DeferredWorld, EntityWorldMut},
 };
 use log::warn;
@@ -304,7 +301,6 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 /// This will also queue up clones of the relationship sources if the [`EntityCloner`](crate::entity::EntityCloner) is configured
 /// to spawn recursively.
 pub fn clone_relationship_target<T: RelationshipTarget>(
-    _commands: &mut Commands,
     source: &SourceComponent,
     context: &mut ComponentCloneCtx,
 ) {

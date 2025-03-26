@@ -1,4 +1,4 @@
-use crate::{ron, DynamicSceneBuilder, Scene, SceneSpawnError};
+use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::reflect::{ReflectMapEntities, ReflectResource};
 use bevy_ecs::{
@@ -6,15 +6,18 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent},
     world::World,
 };
-use bevy_reflect::{PartialReflect, TypePath, TypeRegistry};
+use bevy_reflect::{PartialReflect, TypePath};
 
 use crate::reflect_utils::clone_reflect_value;
-#[cfg(feature = "serialize")]
-use crate::serde::SceneSerializer;
 use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::relationship::RelationshipHookMode;
+
 #[cfg(feature = "serialize")]
-use serde::Serialize;
+use {
+    crate::{ron, serde::SceneSerializer},
+    bevy_reflect::TypeRegistry,
+    serde::Serialize,
+};
 
 /// A collection of serializable resources and dynamic entities.
 ///
@@ -214,24 +217,24 @@ where
 mod tests {
     use bevy_ecs::{
         component::Component,
-        entity::{
-            hash_map::EntityHashMap, Entity, EntityMapper, MapEntities, VisitEntities,
-            VisitEntitiesMut,
-        },
+        entity::{hash_map::EntityHashMap, Entity, EntityMapper, MapEntities},
         hierarchy::ChildOf,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
         resource::Resource,
         world::World,
     };
+
     use bevy_reflect::Reflect;
 
     use crate::dynamic_scene::DynamicScene;
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
-    #[derive(Resource, Reflect, Debug, VisitEntities, VisitEntitiesMut)]
+    #[derive(Resource, Reflect, MapEntities, Debug)]
     #[reflect(Resource, MapEntities)]
     struct TestResource {
+        #[entities]
         entity_a: Entity,
+        #[entities]
         entity_b: Entity,
     }
 
@@ -360,7 +363,7 @@ mod tests {
         struct B(pub Entity);
 
         impl MapEntities for B {
-            fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+            fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
                 self.0 = entity_mapper.get_mapped(self.0);
             }
         }
