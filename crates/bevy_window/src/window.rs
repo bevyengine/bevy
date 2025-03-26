@@ -1,5 +1,7 @@
-use alloc::{borrow::ToOwned, string::String};
+use alloc::string::ToString;
+use alloc::{format, string::String};
 use core::num::NonZero;
+use std::sync::LazyLock;
 
 use bevy_ecs::{
     entity::{Entity, EntityBorrow},
@@ -18,6 +20,16 @@ use {
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use crate::VideoMode;
+
+/// Default string used for the window title.
+///
+/// It will try to use the name of the current exe if possible, otherwise it defaults to "App"
+static DEFAULT_WINDOW_TITLE: LazyLock<String> = LazyLock::new(|| {
+    std::env::current_exe()
+        .ok()
+        .and_then(|current_exe| Some(format!("{}", current_exe.file_stem()?.to_string_lossy())))
+        .unwrap_or_else(|| "App".to_string())
+});
 
 /// Marker [`Component`] for the window considered the primary window.
 ///
@@ -429,7 +441,7 @@ pub struct Window {
 impl Default for Window {
     fn default() -> Self {
         Self {
-            title: "App".to_owned(),
+            title: DEFAULT_WINDOW_TITLE.to_string(),
             name: None,
             cursor_options: Default::default(),
             present_mode: Default::default(),
