@@ -6157,7 +6157,7 @@ mod tests {
         struct A;
 
         #[derive(Component, Clone, PartialEq, Debug, Default)]
-        #[require(C(|| C(3)))]
+        #[require(C(3))]
         struct B;
 
         #[derive(Component, Clone, PartialEq, Debug, Default)]
