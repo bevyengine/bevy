@@ -1614,7 +1614,7 @@ mod tests {
 
         for new in normals.iter().copied().flatten() {
             // std impl is unstable
-            const FRAC_1_SQRT_3: f32 = 0.577350269189625764509148780501957456;
+            const FRAC_1_SQRT_3: f32 = 0.57735026;
             const MIN: f32 = FRAC_1_SQRT_3 - f32::EPSILON;
             const MAX: f32 = FRAC_1_SQRT_3 + f32::EPSILON;
             assert!(new.abs() >= MIN, "{new} < {MIN}");
