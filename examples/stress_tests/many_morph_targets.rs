@@ -8,9 +8,9 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
+use core::f32::consts::PI;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-use std::f32::consts::PI;
 
 /// `many_morph_targets` stress test
 #[derive(FromArgs, Resource)]
