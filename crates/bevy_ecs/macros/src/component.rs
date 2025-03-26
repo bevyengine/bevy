@@ -809,7 +809,7 @@ fn derive_relationship_target(
             #[inline]
             fn from_collection_risky(collection: Self::Collection) -> Self {
                 Self {
-                    #(#members: core::default::Default::default(),),*
+                    #(#members: core::default::Default::default(),)*
                     #relationship_member: collection
                 }
             }
