@@ -8,6 +8,8 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 use std::f32::consts::PI;
 
 /// `many_morph_targets` stress test
@@ -57,6 +59,16 @@ fn main() {
 struct AnimationToPlay {
     graph_handle: Handle<AnimationGraph>,
     index: AnimationNodeIndex,
+    speed: f32,
+}
+
+impl AnimationToPlay {
+    fn with_speed(&self, speed: f32) -> Self {
+        AnimationToPlay {
+            speed,
+            ..self.clone()
+        }
+    }
 }
 
 fn setup(
@@ -69,6 +81,8 @@ fn setup(
 
     let scene = SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(ASSET_PATH)));
 
+    let mut rng = ChaCha8Rng::seed_from_u64(856673);
+
     let animations = (0..3)
         .map(|gltf_index| {
             let (graph, index) = AnimationGraph::from_clip(
@@ -77,6 +91,7 @@ fn setup(
             AnimationToPlay {
                 graph_handle: graphs.add(graph),
                 index,
+                speed: 1.0,
             }
         })
         .collect::<Vec<_>>();
@@ -93,8 +108,17 @@ fn setup(
         let x = 2.5 + (5.0 * ((mesh_index.rem_euclid(x_dim) as f32) - ((x_dim as f32) * 0.5)));
         let y = -2.2 - (3.0 * ((mesh_index.div_euclid(x_dim) as f32) - ((y_dim as f32) * 0.5)));
 
+        // Randomly vary the animation speed so that the number of morph targets
+        // active on each frame is more likely to be stable.
+
+        let animation_speed = rng.r#gen::<f32>() + 0.5;
+
         commands
-            .spawn((animation, scene.clone(), Transform::from_xyz(x, y, 0.0)))
+            .spawn((
+                animation.with_speed(animation_speed),
+                scene.clone(),
+                Transform::from_xyz(x, y, 0.0),
+            ))
             .observe(play_animation);
     }
 
@@ -123,7 +147,10 @@ fn play_animation(
                     .entity(child)
                     .insert(AnimationGraphHandle(animation_to_play.graph_handle.clone()));
 
-                player.play(animation_to_play.index).repeat();
+                player
+                    .play(animation_to_play.index)
+                    .repeat()
+                    .set_speed(animation_to_play.speed);
             }
         }
     }
