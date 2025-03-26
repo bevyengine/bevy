@@ -151,10 +151,10 @@ Note that while RenderDoc is a great debugging tool, it is _not_ a profiler, and
 
 While it doesn't provide as much detail as vendor-specific tooling, Tracy can also be used to coarsely measure GPU performance.
 
-Add the `RenderDiagnosticsPlugin` to your app, and then compile with Bevy's `trace_tracy` feature. GPU spans will show up in a separate row at the top of Tracy, labeled as `RenderQueue`.
+When you compile with Bevy's `trace_tracy` feature, GPU spans will show up in a separate row at the top of Tracy, labeled as `RenderQueue`.
 
 > [!NOTE]
-> Due to dynamic clock speeds, GPU timings will have large frame-to-frame variance, unless you use an external tool to lock your GPU clocks to base speeds. When measuring GPU performance via Tracy, only look at the MTPC column of Tracy's statistics panel, and not individual frame data.
+> Due to dynamic clock speeds, GPU timings will have large frame-to-frame variance, unless you use an external tool to lock your GPU clocks to base speeds. When measuring GPU performance via Tracy, only look at the MTPC column of Tracy's statistics panel, or the span distribution/median, and not at any individual frame data.
 <!-- markdownlint-disable MD028 -->
 
 > [!NOTE]
