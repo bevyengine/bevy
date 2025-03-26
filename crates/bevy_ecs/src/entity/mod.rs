@@ -1373,14 +1373,11 @@ mod tests {
         assert!(next_entity.generation() > entity.generation() + GENERATIONS);
     }
 
-    #[test]
     #[cfg(feature = "std")]
-    fn remote_reservation() {
+    fn test_remote_reservation(entities: &mut Entities) {
+        use bevy_tasks::block_on;
         use std::thread;
 
-        use bevy_tasks::block_on;
-
-        let mut entities = Entities::new();
         // Lower batch size so more waiting is tested.
         entities.entities_hot_for_remote = 16;
 
@@ -1412,6 +1409,23 @@ mod tests {
 
         // It might be a little over since we may have reserved extra entities for remote reservation.
         assert!(entities.len() >= 300);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn remote_reservation() {
+        let mut entities = Entities::new();
+        // Lower batch size so more waiting is tested.
+        entities.entities_hot_for_remote = 16;
+        test_remote_reservation(&mut entities);
+        // Lower batch size so more waiting is tested.
+        entities.entities_hot_for_remote = 1024;
+        test_remote_reservation(&mut entities);
+
+        // Try 0
+        let mut entities = Entities::new();
+        entities.entities_hot_for_remote = 0;
+        test_remote_reservation(&mut entities);
     }
 
     #[test]
