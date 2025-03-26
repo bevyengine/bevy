@@ -32,6 +32,24 @@ impl FromStr for ArgWeights {
     }
 }
 
+#[derive(PartialEq)]
+enum ArgCamera {
+    Default,
+    Far,
+}
+
+impl FromStr for ArgCamera {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "default" => Ok(Self::Default),
+            "far" => Ok(Self::Far),
+            _ => Err("must be 'default' or 'far'".into()),
+        }
+    }
+}
+
 /// `many_morph_targets` stress test
 #[derive(FromArgs, Resource)]
 struct Args {
@@ -42,6 +60,10 @@ struct Args {
     /// options: 'animated', 'all', 'none'
     #[argh(option, default = "ArgWeights::Animated")]
     weights: ArgWeights,
+
+    /// options: 'default', 'far'
+    #[argh(option, default = "ArgCamera::Default")]
+    camera: ArgCamera,
 }
 
 fn main() {
@@ -152,9 +174,15 @@ fn setup(
         Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
     ));
 
+    let camera_distance = (x_dim as f32)
+        * match args.camera {
+            ArgCamera::Default => 4.0,
+            ArgCamera::Far => 100.0,
+        };
+
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 0.0, (x_dim as f32) * 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(0.0, 0.0, camera_distance).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
