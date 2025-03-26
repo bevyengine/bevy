@@ -13,7 +13,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{
         Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
-        ValidationOutcome,
+        SystemParamValidationError,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -225,7 +225,7 @@ where
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> ValidationOutcome {
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
         unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }
     }

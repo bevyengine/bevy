@@ -9,16 +9,14 @@
 //!
 //! Other system parameters, such as [`Query`], will never fail validation: returning a query with no matching entities is valid.
 //!
-//! The result of failed system parameter validation is determined by the [`ValidationOutcome`] returned
+//! The result of failed system parameter validation is determined by the [`SystemParamValidationError`] returned
 //! by [`SystemParam::validate_param`] for each system parameter.
-//! Each system will pass, fail, or skip based on the joint outcome of all its parameters,
-//! according to the rules defined in [`ValidationOutcome::combine`].
+//! Each system will pass if all of its parameters are valid, or else return [`SystemParamValidationError`] for the first failing parameter.
 //!
-//! To learn more about setting the fallback behavior for [`ValidationOutcome`] failures,
+//! To learn more about setting the fallback behavior for [`SystemParamValidationError`] failures,
 //! please see the `error_handling.rs` example.
 //!
-//! [`ValidationOutcome`]: bevy::ecs::system::ValidationOutcome
-//! [`ValidationOutcome::combine`]: bevy::ecs::system::ValidationOutcome::combine
+//! [`SystemParamValidationError`]: bevy::ecs::system::SystemParamValidationError
 //! [`SystemParam::validate_param`]: bevy::ecs::system::SystemParam::validate_param
 
 use bevy::ecs::error::{warn, GLOBAL_ERROR_HANDLER};

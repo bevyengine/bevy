@@ -3,8 +3,8 @@ use bevy_ecs::{
     component::Tick,
     prelude::*,
     system::{
-        ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemState,
-        ValidationOutcome,
+        ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemParamValidationError,
+        SystemState,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -84,11 +84,11 @@ where
         state: &Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> ValidationOutcome {
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Read-only access to world data registered in `init_state`.
         let result = unsafe { world.get_resource_by_id(state.main_world_state) };
         let Some(main_world) = result else {
-            return ValidationOutcome::Invalid;
+            return Err(SystemParamValidationError::invalid());
         };
         // SAFETY: Type is guaranteed by `SystemState`.
         let main_world: &World = unsafe { main_world.deref() };
