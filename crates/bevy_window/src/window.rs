@@ -25,10 +25,18 @@ use crate::VideoMode;
 ///
 /// It will try to use the name of the current exe if possible, otherwise it defaults to "App"
 static DEFAULT_WINDOW_TITLE: LazyLock<String> = LazyLock::new(|| {
-    std::env::current_exe()
-        .ok()
-        .and_then(|current_exe| Some(format!("{}", current_exe.file_stem()?.to_string_lossy())))
-        .unwrap_or_else(|| "App".to_string())
+    #[cfg(feature = "std")]
+    {
+        std::env::current_exe()
+            .ok()
+            .and_then(|current_exe| Some(format!("{}", current_exe.file_stem()?.to_string_lossy())))
+            .unwrap_or_else(|| "App".to_string())
+    }
+    
+    #[cfg(not(feature = "std"))]
+    {
+        "App".to_string()
+    }
 });
 
 /// Marker [`Component`] for the window considered the primary window.
