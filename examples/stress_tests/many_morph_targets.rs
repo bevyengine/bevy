@@ -21,8 +21,12 @@ enum ArgWeights {
     /// Set all the weights to one.
     One,
 
-    /// Set all the weights to zero, effectively disabling morph targets.
+    /// Set all the weights to zero, minimising vertex shader cost.
     Zero,
+
+    /// Set all the weights to a very small value, so the pixel shader cost
+    /// should be similar to `Zero` but vertex shader cost the same as `One`.
+    Tiny,
 }
 
 impl FromStr for ArgWeights {
@@ -33,7 +37,8 @@ impl FromStr for ArgWeights {
             "animated" => Ok(Self::Animated),
             "zero" => Ok(Self::Zero),
             "one" => Ok(Self::One),
-            _ => Err("must be 'animated', 'one', or 'zero'".into()),
+            "tiny" => Ok(Self::Tiny),
+            _ => Err("must be 'animated', 'one', `zero`, or 'tiny'".into()),
         }
     }
 }
@@ -61,14 +66,14 @@ impl FromStr for ArgCamera {
     }
 }
 
-/// `many_morph_targets` stress test
+/// many_morph_targets stress test
 #[derive(FromArgs, Resource)]
 struct Args {
     /// number of meshes
     #[argh(option, default = "1024")]
     count: usize,
 
-    /// options: 'animated', 'one', 'zero'
+    /// options: 'animated', 'one', 'zero', 'tiny'
     #[argh(option, default = "ArgWeights::Animated")]
     weights: ArgWeights,
 
@@ -234,6 +239,7 @@ fn set_weights(
     let weight_value = match args.weights {
         ArgWeights::One => Some(1.0),
         ArgWeights::Zero => Some(0.0),
+        ArgWeights::Tiny => Some(0.00001),
         _ => None,
     };
 
