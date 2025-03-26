@@ -828,8 +828,8 @@ impl Mesh {
     ///
     /// If any of the following conditions are not met, this function errors:
     /// * All of the vertex attributes that have the same attribute id, must also
-    ///   have the same attribute type. 
-    ///   For example two attributes with the same id, but where one is a 
+    ///   have the same attribute type.
+    ///   For example two attributes with the same id, but where one is a
     ///   [`VertexAttributeValues::Float32`] and the other is a
     ///   [`VertexAttributeValues::Float32x3`], would be invalid.
     /// * Both meshes must have the same primitive topology.
