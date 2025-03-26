@@ -45,7 +45,6 @@ use bevy_reflect::Reflect;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 pub use clone_entities::*;
-use concurrent_queue::ConcurrentQueue;
 pub use entity_set::*;
 pub use map_entities::*;
 
@@ -78,14 +77,7 @@ use bevy_platform_support::sync::{
     atomic::{AtomicU32, Ordering},
     Arc,
 };
-use core::{
-    fmt,
-    hash::Hash,
-    mem,
-    num::NonZero,
-    panic::Location,
-    task::{Poll, Waker},
-};
+use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
 #[cfg(feature = "serialize")]
@@ -527,16 +519,11 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 
 #[derive(Debug)]
-struct RemoteEntityRequest(Waker);
-
-#[derive(Debug)]
 struct RemoteEntitiesInner {
-    /// This is purely an optimization.
-    /// When this is greater than 0, we are waiting on request fulfillment.
-    is_waiting: AtomicU32,
-    /// Since anyone can make requests at any time, this must be unbounded.
-    requests: ConcurrentQueue<RemoteEntityRequest>,
-    reserved: ConcurrentQueue<Entity>,
+    recent_requests: AtomicU32,
+    keep_hot: AtomicU32,
+    reserved: async_channel::Receiver<Entity>,
+    reserver: async_channel::Sender<Entity>,
 }
 
 /// An error that occurs when an [`Entity`] can not be reserved remotely.
@@ -548,87 +535,65 @@ pub enum RemoteReservationError {
     Closed,
 }
 
-struct RemoteReservedEntities {
-    source: Arc<RemoteEntitiesInner>,
-}
-
-impl Future for RemoteReservedEntities {
-    type Output = Result<Entity, RemoteReservationError>;
-
-    fn poll(
-        self: core::pin::Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
-    ) -> Poll<Self::Output> {
-        match self.source.reserved.pop() {
-            Ok(found) => Poll::Ready(Ok(found)),
-            Err(concurrent_queue::PopError::Closed) => {
-                Poll::Ready(Err(RemoteReservationError::Closed))
-            }
-            Err(concurrent_queue::PopError::Empty) => {
-                match self
-                    .source
-                    .requests
-                    .push(RemoteEntityRequest(cx.waker().clone()))
-                {
-                    Ok(_) => {
-                        // We can use relaxed ordering here. Even though it might result in extra waiting, who cares?
-                        self.source.is_waiting.fetch_add(1, Ordering::Relaxed);
-                        // Now we are waiting for a flush
-                        Poll::Pending
-                    }
-                    Err(concurrent_queue::PushError::Closed(_)) => {
-                        Poll::Ready(Err(RemoteReservationError::Closed))
-                    }
-                    Err(concurrent_queue::PushError::Full(_)) => {
-                        unreachable!("Requests can't be full")
-                    }
-                }
-            }
-        }
-    }
-}
-
 impl RemoteEntitiesInner {
-    fn fulfill(&self, entities: &Entities, batch_size: NonZero<u32>) {
-        self.is_waiting.store(0, Ordering::Relaxed);
-        if self.reserved.is_empty() {
-            for reserved in entities.reserve_entities(batch_size.get()) {
-                self.reserved
-                    .push(reserved)
-                    .expect("This never closes, and it can't run out of room.");
-            }
-        }
+    #[inline]
+    fn fulfill(
+        entities: &mut Entities,
+        mut reserve_allocated: impl FnMut(Entity, &mut EntityLocation),
+        keep_hot: u32,
+    ) {
+        let to_fulfill = entities.remote.recent_requests.swap(0, Ordering::Relaxed);
 
-        for request in self.requests.try_iter() {
-            request.0.wake();
+        for _ in 0..to_fulfill {
+            let entity = entities.alloc();
+            // SAFETY: we just allocated it
+            let loc = unsafe {
+                &mut entities
+                    .meta
+                    .get_unchecked_mut(entity.index() as usize)
+                    .location
+            };
+            reserve_allocated(entity, loc);
+            let result = entities.remote.reserver.try_send(entity);
+            // It should not be closed and it can't get full.
+            debug_assert!(result.is_ok());
         }
     }
 
     #[inline]
-    fn try_fulfill(&self, entities: &Entities, batch_size: NonZero<u32>) {
+    fn try_fulfill(
+        entities: &mut Entities,
+        reserve_allocated: impl FnMut(Entity, &mut EntityLocation),
+        keep_hot: u32,
+    ) {
         // we do this to hint to the compiler that the if branch is unlinkely to be taken.
         #[cold]
-        fn do_fulfill(this: &RemoteEntitiesInner, entities: &Entities, batch_size: NonZero<u32>) {
-            this.fulfill(entities, batch_size);
+        fn do_fulfill(
+            entities: &mut Entities,
+            reserve_allocated: impl FnMut(Entity, &mut EntityLocation),
+            keep_hot: u32,
+        ) {
+            RemoteEntitiesInner::fulfill(entities, reserve_allocated, keep_hot);
         }
 
-        if self.is_waiting.load(Ordering::Relaxed) > 0 {
+        if entities.remote.recent_requests.load(Ordering::Relaxed) > 0 {
             // TODO: add core::intrinsics::unlikely once stable
-            do_fulfill(self, entities, batch_size);
+            do_fulfill(entities, reserve_allocated, keep_hot);
         }
     }
 
-    fn new() -> Self {
+    fn new(keep_hot: u32) -> Self {
+        let (sender, receiver) = async_channel::unbounded();
         Self {
-            is_waiting: AtomicU32::new(0),
-            requests: ConcurrentQueue::unbounded(),
-            reserved: ConcurrentQueue::unbounded(),
+            recent_requests: AtomicU32::new(0),
+            reserver: sender,
+            reserved: receiver,
+            keep_hot: AtomicU32::new(keep_hot),
         }
     }
 
     fn close(&self) {
         self.reserved.close();
-        self.requests.close();
     }
 }
 
@@ -665,10 +630,12 @@ impl RemoteEntities {
     /// }
     /// ```
     pub async fn reserve_entity(&self) -> Result<Entity, RemoteReservationError> {
-        RemoteReservedEntities {
-            source: self.inner.clone(),
-        }
-        .await
+        self.inner.recent_requests.fetch_add(1, Ordering::Relaxed);
+        self.inner
+            .reserved
+            .recv()
+            .await
+            .map_err(|_| RemoteReservationError::Closed)
     }
 
     /// Returns true only if the [`Entities`] has discontinued this remote access.
@@ -687,9 +654,9 @@ impl RemoteEntities {
 /// [`World`]: crate::world::World
 #[derive(Debug)]
 pub struct Entities {
-    /// This is the number of entities we reserve in bulk for [`RemoteEntities`].
+    /// This is the number of entities we keep ready for remote reservations via [`RemoteEntities::reserve_entity`].
     /// A value too high can cause excess memory to be used, but a value too low can cause additional waiting.
-    pub remote_batch_size: NonZero<u32>,
+    pub entities_hot_for_remote: u32,
     remote: Arc<RemoteEntitiesInner>,
     meta: Vec<EntityMeta>,
 
@@ -738,16 +705,16 @@ pub struct Entities {
 }
 
 impl Entities {
-    /// The default value of [`remote_batch_size`](Self::remote_batch_size).
-    pub const DEFAULT_REMOTE_BATCH_SIZE: NonZero<u32> = NonZero::new(1024).unwrap();
+    /// The default value of [`entities_hot_for_remote`](Self::entities_hot_for_remote).
+    pub const DEFAULT_HOT_REMOTE_ENTITIES: u32 = 256;
 
     pub(crate) fn new() -> Self {
         Entities {
             meta: Vec::new(),
             pending: Vec::new(),
             free_cursor: AtomicIdCursor::new(0),
-            remote: Arc::new(RemoteEntitiesInner::new()),
-            remote_batch_size: Self::DEFAULT_REMOTE_BATCH_SIZE,
+            remote: Arc::new(RemoteEntitiesInner::new(Self::DEFAULT_HOT_REMOTE_ENTITIES)),
+            entities_hot_for_remote: Self::DEFAULT_HOT_REMOTE_ENTITIES,
         }
     }
 
@@ -1000,7 +967,7 @@ impl Entities {
         self.pending.clear();
         *self.free_cursor.get_mut() = 0;
         self.remote.close();
-        self.remote = Arc::new(RemoteEntitiesInner::new());
+        self.remote = Arc::new(RemoteEntitiesInner::new(self.entities_hot_for_remote));
     }
 
     /// Returns the location of an [`Entity`].
@@ -1087,9 +1054,6 @@ impl Entities {
     /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
     /// to be initialized with the invalid archetype.
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
-        // this may do extra reservations, so we do it before flushing.
-        self.remote.try_fulfill(self, self.remote_batch_size);
-
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
 
@@ -1117,6 +1081,8 @@ impl Entities {
                 &mut meta.location,
             );
         }
+
+        RemoteEntitiesInner::try_fulfill(self, init, self.entities_hot_for_remote);
     }
 
     /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
@@ -1416,7 +1382,7 @@ mod tests {
 
         let mut entities = Entities::new();
         // Lower batch size so more waiting is tested.
-        entities.remote_batch_size = NonZero::new(16).unwrap();
+        entities.entities_hot_for_remote = 16;
 
         let mut threads = (0..3)
             .map(|_| {
