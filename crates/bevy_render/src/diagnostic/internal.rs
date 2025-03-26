@@ -53,7 +53,7 @@ impl DiagnosticsRecorder {
         #[cfg(feature = "tracing-tracy")]
         let tracy_gpu_context =
             super::tracy_gpu::new_tracy_gpu_context(adapter_info, device, queue);
-        let _ = adapter_info;
+        let _ = adapter_info; // Prevent unused variable warnings when tracing-tracy is not enabled
 
         DiagnosticsRecorder(WgpuWrapper::new(DiagnosticsRecorderInternal {
             timestamp_period_ns: queue.get_timestamp_period(),
