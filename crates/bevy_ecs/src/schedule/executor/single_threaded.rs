@@ -96,7 +96,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                 let valid_params = match system.validate_param(world) {
                     Ok(()) => true,
                     Err(e) => {
-                        if !e.is_skipped() {
+                        if !e.skipped {
                             error_handler(
                                 e.into(),
                                 ErrorContext::System {
@@ -223,7 +223,7 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
             match condition.validate_param(world) {
                 Ok(()) => (),
                 Err(e) => {
-                    if !e.is_skipped() {
+                    if !e.skipped {
                         error_handler(
                             e.into(),
                             ErrorContext::System {

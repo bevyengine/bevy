@@ -584,7 +584,7 @@ impl ExecutorState {
             let valid_params = match unsafe { system.validate_param_unsafe(world) } {
                 Ok(()) => true,
                 Err(e) => {
-                    if !e.is_skipped() {
+                    if !e.skipped {
                         error_handler(
                             e.into(),
                             ErrorContext::System {
@@ -799,7 +799,7 @@ unsafe fn evaluate_and_fold_conditions(
             match unsafe { condition.validate_param_unsafe(world) } {
                 Ok(()) => (),
                 Err(e) => {
-                    if !e.is_skipped() {
+                    if !e.skipped {
                         error_handler(
                             e.into(),
                             ErrorContext::System {

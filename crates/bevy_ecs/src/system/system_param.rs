@@ -2653,11 +2653,6 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
 #[derive(Debug, PartialEq, Eq, Clone, Display, Error)]
 pub struct SystemParamValidationError {
     /// Whether the system should be skipped.
-    pub skipped: bool,
-}
-
-impl SystemParamValidationError {
-    /// Whether the system should be skipped.
     ///
     /// If `false`, the error should be handled.
     /// By default, this will result in a panic. See [`crate::error`] for more information.
@@ -2668,10 +2663,10 @@ impl SystemParamValidationError {
     ///
     /// If `true`, the system should be skipped.
     /// This is suitable for system params that are intended to only operate in certain application states, such as [`Single`].
-    pub fn is_skipped(&self) -> bool {
-        self.skipped
-    }
+    pub skipped: bool,
+}
 
+impl SystemParamValidationError {
     /// Constructs a `SystemParamValidationError` that skips the system.
     pub const fn skipped() -> Self {
         Self { skipped: true }

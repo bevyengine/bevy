@@ -419,7 +419,7 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
                 (*system).queue_deferred(world.into_deferred());
             }
             Err(e) => {
-                if !e.is_skipped() {
+                if !e.skipped {
                     error_handler(
                         e.into(),
                         ErrorContext::Observer {
