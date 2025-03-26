@@ -358,7 +358,7 @@ pub fn allocate_and_free_meshes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
-    // Process removed meshes.
+    // Process removed or modified meshes.
     mesh_allocator.free_meshes(&extracted_meshes);
 
     // Process newly-added or modified meshes.
@@ -607,6 +607,7 @@ impl MeshAllocator {
         }
     }
 
+    /// Frees allocations for meshes that were removed or modified this frame.
     fn free_meshes(&mut self, extracted_meshes: &ExtractedAssets<RenderMesh>) {
         let mut empty_slabs = <HashSet<_>>::default();
 
