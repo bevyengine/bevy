@@ -1,5 +1,4 @@
-use alloc::string::ToString;
-use alloc::{format, string::String};
+use alloc::{borrow::ToOwned, format, string::String};
 use core::num::NonZero;
 
 use bevy_ecs::{
@@ -30,12 +29,12 @@ static DEFAULT_WINDOW_TITLE: LazyLock<String> = LazyLock::new(|| {
         std::env::current_exe()
             .ok()
             .and_then(|current_exe| Some(format!("{}", current_exe.file_stem()?.to_string_lossy())))
-            .unwrap_or_else(|| "App".to_string())
+            .unwrap_or_else(|| "App".to_owned())
     }
 
     #[cfg(not(feature = "std"))]
     {
-        "App".to_string()
+        "App".to_owned()
     }
 });
 
@@ -449,7 +448,7 @@ pub struct Window {
 impl Default for Window {
     fn default() -> Self {
         Self {
-            title: DEFAULT_WINDOW_TITLE.to_string(),
+            title: DEFAULT_WINDOW_TITLE.to_owned(),
             name: None,
             cursor_options: Default::default(),
             present_mode: Default::default(),
