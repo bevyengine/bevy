@@ -140,6 +140,11 @@ concurrent-queue = { version = "2.5.0", default-features = false, features = [
   "portable-atomic",
 ] }
 
+# This is an unused dependency, but it adds the feature to a dependency of async-channel for no_std support
+event-listener = { version = "5", default-features = false, features = [
+  "portable-atomic",
+] }
+
 [dev-dependencies]
 rand = "0.8"
 static_assertions = "1.1.0"
