@@ -15,8 +15,8 @@ use rand_chacha::ChaCha8Rng;
 #[derive(PartialEq)]
 enum ArgWeights {
     Animated,
-    None,
     All,
+    None,
 }
 
 impl FromStr for ArgWeights {
@@ -27,7 +27,7 @@ impl FromStr for ArgWeights {
             "animated" => Ok(Self::Animated),
             "none" => Ok(Self::None),
             "all" => Ok(Self::All),
-            _ => Err("Accepted values: 'animated', 'none', 'all'".into()),
+            _ => Err("must be 'animated', 'none', or 'all'".into()),
         }
     }
 }
@@ -35,11 +35,11 @@ impl FromStr for ArgWeights {
 /// `many_morph_targets` stress test
 #[derive(FromArgs, Resource)]
 struct Args {
-    /// number of meshes.
+    /// number of meshes
     #[argh(option, default = "1024")]
     count: usize,
 
-    /// weights.
+    /// options: 'animated', 'all', 'none'
     #[argh(option, default = "ArgWeights::Animated")]
     weights: ArgWeights,
 }
@@ -193,8 +193,8 @@ fn set_weights(
     mut weight_components: Query<&mut MorphWeights>,
 ) {
     let weight_value = match args.weights {
-        ArgWeights::None => Some(0.0),
         ArgWeights::All => Some(1.0),
+        ArgWeights::None => Some(0.0),
         _ => None,
     };
 
