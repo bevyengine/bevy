@@ -66,7 +66,7 @@ impl FromStr for ArgCamera {
     }
 }
 
-/// many_morph_targets stress test
+/// `many_morph_targets` stress test
 #[derive(FromArgs, Resource)]
 struct Args {
     /// number of meshes
