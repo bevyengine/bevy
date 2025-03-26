@@ -3,13 +3,13 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
 use std::collections::HashSet;
 use syn::{
-    parenthesized,
+    braced, parenthesized,
     parse::Parse,
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
-    token::{Comma, Paren},
-    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprClosure, ExprPath, Field, Fields,
+    token::{Brace, Comma, Paren},
+    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprPath, Field, FieldValue, Fields,
     Ident, LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
@@ -207,17 +207,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 );
             });
             match &require.func {
-                Some(RequireFunc::Path(func)) => {
-                    register_required.push(quote! {
-                        components.register_required_components_manual::<Self, #ident>(
-                            required_components,
-                            || { let x: #ident = #func().into(); x },
-                            inheritance_depth,
-                            recursion_check_stack
-                        );
-                    });
-                }
-                Some(RequireFunc::Closure(func)) => {
+                Some(func) => {
                     register_required.push(quote! {
                         components.register_required_components_manual::<Self, #ident>(
                             required_components,
@@ -478,12 +468,7 @@ enum StorageTy {
 
 struct Require {
     path: Path,
-    func: Option<RequireFunc>,
-}
-
-enum RequireFunc {
-    Path(Path),
-    Closure(ExprClosure),
+    func: Option<TokenStream2>,
 }
 
 struct Relationship {
@@ -580,25 +565,68 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
 
 impl Parse for Require {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        let path = input.parse::<Path>()?;
-        let func = if input.peek(Paren) {
+        let mut path = input.parse::<Path>()?;
+        let mut last_segment_is_lower = false;
+        let mut is_constructor_call = false;
+        let is_enum = {
+            let mut first_chars = path
+                .segments
+                .iter()
+                .rev()
+                .filter_map(|s| s.ident.to_string().chars().next());
+            if let Some(last) = first_chars.next() {
+                if last.is_uppercase() {
+                    if let Some(last) = first_chars.next() {
+                        last.is_uppercase()
+                    } else {
+                        false
+                    }
+                } else {
+                    last_segment_is_lower = true;
+                    false
+                }
+            } else {
+                false
+            }
+        };
+
+        let func = if input.peek(Token![=]) {
+            // If there is an '=', then this is a "function style" require
+            let _t: syn::Token![=] = input.parse()?;
+            let expr: Expr = input.parse()?;
+            let tokens: TokenStream = quote::quote! (|| #expr).into();
+            Some(TokenStream2::from(tokens))
+        } else if input.peek(Brace) {
+            // This is a "value style" named-struct-like require
+            let content;
+            braced!(content in input);
+            let fields = Punctuated::<FieldValue, Token![,]>::parse_terminated(&content)?;
+            let tokens: TokenStream = quote::quote! (|| #path { #fields }).into();
+            Some(TokenStream2::from(tokens))
+        } else if input.peek(Paren) {
+            // This is a "value style" tuple-struct-like require
             let content;
             parenthesized!(content in input);
-            if let Ok(func) = content.parse::<ExprClosure>() {
-                Some(RequireFunc::Closure(func))
-            } else {
-                let func = content.parse::<Path>()?;
-                Some(RequireFunc::Path(func))
-            }
-        } else if input.peek(Token![=]) {
-            let _t: syn::Token![=] = input.parse()?;
-            let label: Ident = input.parse()?;
-            let tokens: TokenStream = quote::quote! (|| #path::#label).into();
-            let func = syn::parse(tokens).unwrap();
-            Some(RequireFunc::Closure(func))
+            is_constructor_call = last_segment_is_lower;
+            let fields = Punctuated::<Expr, Token![,]>::parse_terminated(&content)?;
+            let tokens: TokenStream = quote::quote! (|| #path (#fields)).into();
+            Some(TokenStream2::from(tokens))
+        } else if is_enum {
+            // if this is an enum, then it is an inline enum component declaration
+            let tokens: TokenStream = quote::quote! (|| #path).into();
+            Some(TokenStream2::from(tokens))
         } else {
+            // if this isn't any of the above, then it is a component ident, which will use Default
             None
         };
+
+        if is_enum || is_constructor_call {
+            let path_len = path.segments.len();
+            path = Path {
+                leading_colon: path.leading_colon,
+                segments: Punctuated::from_iter(path.segments.into_iter().take(path_len - 1)),
+            };
+        }
         Ok(Require { path, func })
     }
 }
