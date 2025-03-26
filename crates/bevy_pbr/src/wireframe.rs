@@ -123,7 +123,7 @@ fn global_color_changed(
     mut materials: ResMut<Assets<WireframeMaterial>>,
     global_material: Res<GlobalWireframeMaterial>,
 ) {
-    if let Some(global_material) = materials.get_mut(&global_material.handle) {
+    if let Some(global_material) = materials.get_cloned_mut(&global_material.handle) {
         global_material.color = config.default_color.into();
     }
 }
