@@ -63,7 +63,6 @@ do
   pushd "$crate"
   cargo publish
   popd
-  sleep 5
 done
 
 popd
