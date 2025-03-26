@@ -1,5 +1,6 @@
 //! This module contains the basic building blocks of Bevy's UI
 
+mod builder;
 mod button;
 mod events;
 mod image;
@@ -7,10 +8,12 @@ mod label;
 mod text;
 
 use crate::{
-    AlignContent, AlignItems, AlignSelf, BorderRadius, Display, FlexDirection, FlexWrap,
-    JustifyContent, JustifyItems, JustifySelf, Node, ReflectComponent, ReflectDefault, UiRect, Val,
+    AlignContent, AlignItems, AlignSelf, BackgroundColor, BorderColor, BorderRadius, Display,
+    FlexDirection, FlexWrap, JustifyContent, JustifyItems, JustifySelf, Node, ReflectComponent,
+    ReflectDefault, UiRect, Val,
 };
 use bevy_color::{Color, Srgba};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     bundle::Bundle,
     component::Component,
@@ -23,6 +26,7 @@ use bevy_math::Vec2;
 use bevy_picking::events::{Over, Pointer};
 use bevy_reflect::Reflect;
 
+use bevy_text::TextColor;
 pub use button::*;
 pub use events::*;
 pub use image::*;
@@ -114,9 +118,10 @@ impl<T> Rollback<T> {
 /// - Widget "event reactor" API that lets users specify their own UI event type which can be
 /// emitted and handled by widgets for widget-to-widget communication.  See [Elm] for the underlying
 /// model of constructing UI trees.
-#[derive(Bundle, Default)]
+#[derive(Bundle, Default, Deref, DerefMut)]
 pub struct WidgetBundle {
     /// Size and layout info
+    #[deref]
     pub node: Node,
     /// Color scheme used in this widget tree
     pub color: ColorStyle,
@@ -129,192 +134,14 @@ pub struct WidgetBundle {
 }
 
 /*
+ *** TODO
 
-Node styling
-- CSS layout parameters
-- Theme/ palette
-- Local style overrides
+- Apply `CodeStyle`, `BorderStyle`, ... to relevant render components.  [DESIGN NEEDED]: new widgets inherit the styles of their parents.  An override in one widget would apply it consistently for ALL child widgets in its tree.
 
-Interactions
-- Focus
-- Hover
-- Click
-- Touch (?)
-- Drag
-- DragInternal (?)
-- Keyboard
+- Switch `WidgetBundle` API to a trait, which implements `Deref<Target=Node>` to make the ~90% of functions just map to the inner Node, then implement the ~10% of widget-specific functions on the type itself.
+
+- Have defaults for `button()`, `checkbox()`, ... which return their respective `<Widget>Bundle` but let users override everything via their spective builder APIs.  Each specific bundle should `Deref` to its inner composing bundle.
 */
-
-impl WidgetBundle {
-    /// Set width and height to 100%
-    #[inline]
-    pub fn fill_parent(self) -> Self {
-        Self {
-            node: Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                ..self.node
-            },
-            ..self
-        }
-    }
-
-    #[inline]
-    pub fn width(self, w: impl Into<Val>) -> Self {
-        Self {
-            node: Node {
-                width: w.into(),
-                ..self.node
-            },
-            ..self
-        }
-    }
-
-    #[inline]
-    pub fn height(self, h: impl Into<Val>) -> Self {
-        Self {
-            node: Node {
-                height: h.into(),
-                ..self.node
-            },
-            ..self
-        }
-    }
-
-    #[inline]
-    pub fn display(self, d: impl Into<Display>) -> Self {
-        Self {
-            node: Node {
-                display: d.into(),
-                ..self.node
-            },
-            ..self
-        }
-    }
-
-    #[inline]
-    pub fn flex_direction(self, d: impl Into<FlexDirection>) -> Self {
-        Self {
-            node: Node {
-                flex_direction: d.into(),
-                ..self.node
-            },
-            ..self
-        }
-    }
-
-    #[inline]
-    pub fn flex_wrap(self, w: impl Into<FlexWrap>) -> Self {
-        Self {
-            node: Node {
-                flex_wrap: w.into(),
-                ..self.node
-            },
-            ..self
-        }
-    }
-
-    #[inline]
-    pub fn align_items(self, a: impl Into<AlignItems>) -> Self {
-        Self {
-            node: Node {
-                align_items: a.into(),
-                ..self.node
-            },
-            ..self
-        }
-    }
-    #[inline]
-    pub fn align_content(self, a: impl Into<AlignContent>) -> Self {
-        Self {
-            node: Node {
-                align_content: a.into(),
-                ..self.node
-            },
-            ..self
-        }
-    }
-    #[inline]
-    pub fn align_self(self, a: impl Into<AlignSelf>) -> Self {
-        Self {
-            node: Node {
-                align_self: a.into(),
-                ..self.node
-            },
-            ..self
-        }
-    }
-
-    #[inline]
-    pub fn justify_items(self, a: impl Into<JustifyItems>) -> Self {
-        Self {
-            node: Node {
-                justify_items: a.into(),
-                ..self.node
-            },
-            ..self
-        }
-    }
-    #[inline]
-    pub fn justify_content(self, a: impl Into<JustifyContent>) -> Self {
-        Self {
-            node: Node {
-                justify_content: a.into(),
-                ..self.node
-            },
-            ..self
-        }
-    }
-    #[inline]
-    pub fn justify_self(self, a: impl Into<JustifySelf>) -> Self {
-        Self {
-            node: Node {
-                justify_self: a.into(),
-                ..self.node
-            },
-            ..self
-        }
-    }
-    #[inline]
-    pub fn padding(self, p: impl Into<UiRect>) -> Self {
-        Self {
-            node: Node {
-                padding: p.into(),
-                ..self.node
-            },
-            ..self
-        }
-    }
-    #[inline]
-    pub fn margin(self, m: impl Into<UiRect>) -> Self {
-        Self {
-            node: Node {
-                margin: m.into(),
-                ..self.node
-            },
-            ..self
-        }
-    }
-
-    #[inline]
-    pub fn border(self, b: impl Into<UiRect>) -> Self {
-        Self {
-            node: Node {
-                border: b.into(),
-                ..self.node
-            },
-            ..self
-        }
-    }
-
-    #[inline]
-    pub fn border_radius(self, b: impl Into<BorderRadius>) -> Self {
-        Self {
-            border_radius: b.into(),
-            ..self
-        }
-    }
-}
 
 pub fn apply_observe(mut commands: Commands, q: Query<Entity, With<EventsReactor<PickingEvent>>>) {
     // fixme: ideally we don't want to re-apply `observe` on nodes that already do so, or where the
@@ -330,5 +157,27 @@ pub fn apply_observe(mut commands: Commands, q: Query<Entity, With<EventsReactor
                     .push_back(PickingEvent::Over(trig.event().clone()));
             },
         );
+    }
+}
+
+pub fn apply_colorstyle(
+    mut commands: Commands,
+    mut q: Query<(
+        Entity,
+        &ColorStyle,
+        Option<&mut BackgroundColor>,
+        Option<&mut TextColor>,
+        Option<&mut BorderColor>,
+    )>,
+) {
+    for (ent, color, opt_bg, opt_txt, opt_bord) in q.iter_mut() {
+        match opt_bg {
+            Some(mut bg_color) => *bg_color = BackgroundColor(color.background),
+            _ => {
+                commands
+                    .entity(ent)
+                    .insert(BackgroundColor(color.background));
+            }
+        };
     }
 }

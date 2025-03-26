@@ -1,3 +1,4 @@
+use crate::{ReflectComponent, ReflectDefault};
 use bevy_app::{Plugin, PreUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -6,11 +7,11 @@ use bevy_ecs::{
     system::{Query, ResMut},
 };
 use bevy_picking::events::*;
-use bevy_reflect::Reflect;
-use std::{collections::VecDeque, marker::PhantomData};
+use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, Typed};
+use std::{collections::VecDeque, fmt::Debug, marker::PhantomData};
 
 /// A widget can subscribe to an event type with this component
-#[derive(Component, Debug, Clone, PartialEq, Eq, Reflect, Deref, DerefMut)]
+#[derive(Component, Debug, Clone, PartialEq, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct EventsReactor<T: Event>(pub(crate) VecDeque<T>);
 
@@ -41,8 +42,13 @@ impl<T: Event + 'static> EventsDispatch<T> {
 }
 
 /// Marker trait for a user event type
-pub trait Event: Clone + Send + Sync + 'static {}
-impl<T: Clone + Send + Sync + 'static> Event for T {}
+pub trait Event
+where
+    Self: Clone + PartialEq + Debug + Send + Sync + 'static,
+{
+}
+
+impl<T> Event for T where T: Clone + PartialEq + Debug + Send + Sync + 'static {}
 
 /// A generic events relay plugin
 pub struct EventsPlugin<T: Event> {
@@ -57,11 +63,14 @@ impl<T: Event> Default for EventsPlugin<T> {
     }
 }
 
-impl<T: Event + 'static> Plugin for EventsPlugin<T> {
+impl<T> Plugin for EventsPlugin<T>
+where
+    T: Event + Typed + GetTypeRegistration + FromReflect + 'static,
+{
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<EventsDispatch<T>>();
-	app.register_type::<EventsReactor<T>>();
-	app.register_type::<T>();
+        app.register_type::<EventsReactor<T>>();
+        app.register_type::<T>();
         app.add_systems(PreUpdate, relay_events::<T>);
     }
 }
@@ -73,7 +82,7 @@ fn relay_events<T: Event + 'static>(
 ) {
     for ev in &mut dispatch.queue {
         for mut reactor in q.iter_mut() {
-.            reactor.0.push_back(ev.clone());
+            reactor.0.push_back(ev.clone());
         }
     }
 }
@@ -96,12 +105,3 @@ pub enum PickingEvent {
     DragEntry(Pointer<DragEntry>),
     Scroll(Pointer<Scroll>),
 }
-
-// // user code
-// pub enum MyEvent {}
-
-// #[derive(Component)]
-// struct MyMarker;
-
-// // Users write this:
-// fn handle_my_event(mut q: Query<&mut EventsReactor<MyEvent>, With<MyMarker>>) {}
