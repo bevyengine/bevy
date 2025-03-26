@@ -703,6 +703,64 @@ impl Parse for RelationshipTarget {
     }
 }
 
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Component)]
+/// #[relationship(relationship_target=Target)]
+/// struct Source(Entity);
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship=Source)]
+/// struct Target(Vec<Entity>);
+/// ```
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Component)]
+/// #[relationship(relationship_target=Target)]
+/// struct Source{
+///     #[relationship]
+///     target: Entity,
+/// };
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship=Source)]
+/// struct Target(Vec<Entity>);
+/// ```
+/// Testing case with single extra field
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Component)]
+/// #[relationship(relationship_target=Target)]
+/// struct Source{
+///     #[relationship]
+///     target: Entity,
+///     foo: String,
+/// };
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship=Source)]
+/// struct Target(Vec<Entity>);
+/// ```
+/// Testing case with multiple extra fields
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Component)]
+/// #[relationship(relationship_target=Target)]
+/// struct Source{
+///     #[relationship]
+///     target: Entity,
+///     foo: String,
+///     bar: String,
+/// };
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship=Source)]
+/// struct Target(Vec<Entity>);
+/// ```
 fn derive_relationship(
     ast: &DeriveInput,
     attrs: &Attrs,
@@ -754,6 +812,63 @@ fn derive_relationship(
     }))
 }
 
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Component)]
+/// #[relationship(relationship_target=Target)]
+/// struct Source(Entity);
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship=Source)]
+/// struct Target(Vec<Entity>);
+/// ```
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Component)]
+/// #[relationship(relationship_target=Target)]
+/// struct Source(Entity);
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship=Source)]
+/// struct Target{
+///     related: Vec<Entity>,
+/// }
+/// ```
+/// Testing case with single extra field
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Component)]
+/// #[relationship(relationship_target=Target)]
+/// struct Source(Entity);
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship=Source)]
+/// struct Target{
+///     #[relationship]
+///     related: Vec<Entity>,
+///     foo: String,
+/// }
+/// ```
+/// Testing case with multiple extra fields
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Component)]
+/// #[relationship(relationship_target=Target)]
+/// struct Source(Entity);
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship=Source)]
+/// struct Target{
+///     #[relationship]
+///     related: Vec<Entity>,
+///     foo: String,
+///     bar: String,
+/// }
+/// ```
 fn derive_relationship_target(
     ast: &DeriveInput,
     attrs: &Attrs,

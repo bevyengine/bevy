@@ -14,6 +14,10 @@ bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.16.0-dev" }
 syn = { version = "2.0.99", features = ["full", "extra-traits"] }
 quote = "1.0"
 proc-macro2 = "1.0"
+
+[dev-dependencies]
+bevy_ecs = { path = "../", version = "0.16.0-dev" }
+
 [lints]
 workspace = true
 
