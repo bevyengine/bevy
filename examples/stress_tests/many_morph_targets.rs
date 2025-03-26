@@ -8,9 +8,29 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
-use core::f32::consts::PI;
+use core::{f32::consts::PI, str::FromStr};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
+
+#[derive(PartialEq)]
+enum ArgWeights {
+    Animated,
+    None,
+    All,
+}
+
+impl FromStr for ArgWeights {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "animated" => Ok(Self::Animated),
+            "none" => Ok(Self::None),
+            "all" => Ok(Self::All),
+            _ => Err("Accepted values: 'animated', 'none', 'all'".into()),
+        }
+    }
+}
 
 /// `many_morph_targets` stress test
 #[derive(FromArgs, Resource)]
@@ -18,6 +38,10 @@ struct Args {
     /// number of meshes.
     #[argh(option, default = "1024")]
     count: usize,
+
+    /// weights.
+    #[argh(option, default = "ArgWeights::Animated")]
+    weights: ArgWeights,
 }
 
 fn main() {
@@ -119,7 +143,8 @@ fn setup(
                 scene.clone(),
                 Transform::from_xyz(x, y, 0.0),
             ))
-            .observe(play_animation);
+            .observe(play_animation)
+            .observe(set_weights);
     }
 
     commands.spawn((
@@ -136,10 +161,15 @@ fn setup(
 fn play_animation(
     trigger: Trigger<SceneInstanceReady>,
     mut commands: Commands,
+    args: Res<Args>,
     children: Query<&Children>,
     animations_to_play: Query<&AnimationToPlay>,
     mut players: Query<&mut AnimationPlayer>,
 ) {
+    if args.weights != ArgWeights::Animated {
+        return;
+    }
+
     if let Ok(animation_to_play) = animations_to_play.get(trigger.target()) {
         for child in children.iter_descendants(trigger.target()) {
             if let Ok(mut player) = players.get_mut(child) {
@@ -151,6 +181,27 @@ fn play_animation(
                     .play(animation_to_play.index)
                     .repeat()
                     .set_speed(animation_to_play.speed);
+            }
+        }
+    }
+}
+
+fn set_weights(
+    trigger: Trigger<SceneInstanceReady>,
+    args: Res<Args>,
+    children: Query<&Children>,
+    mut weight_components: Query<&mut MorphWeights>,
+) {
+    let weight_value = match args.weights {
+        ArgWeights::None => Some(0.0),
+        ArgWeights::All => Some(1.0),
+        _ => None,
+    };
+
+    if let Some(weight_value) = weight_value {
+        for child in children.iter_descendants(trigger.target()) {
+            if let Ok(mut weight_component) = weight_components.get_mut(child) {
+                weight_component.weights_mut().fill(weight_value);
             }
         }
     }
