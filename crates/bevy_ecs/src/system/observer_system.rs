@@ -139,12 +139,6 @@ where
     }
 
     #[inline]
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
-        self.observer.run(input, world);
-        Ok(())
-    }
-
-    #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         self.observer.apply_deferred(world);
     }
