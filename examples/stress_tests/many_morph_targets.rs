@@ -12,11 +12,17 @@ use core::{f32::consts::PI, str::FromStr};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
+/// Controls the weight values.
 #[derive(PartialEq)]
 enum ArgWeights {
+    /// Weights will change over time and be a mix of zero and non-zero.
     Animated,
-    All,
-    None,
+
+    /// Set all the weights to one.
+    One,
+
+    /// Set all the weights to zero, effectively disabling morph targets.
+    Zero,
 }
 
 impl FromStr for ArgWeights {
@@ -25,16 +31,21 @@ impl FromStr for ArgWeights {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "animated" => Ok(Self::Animated),
-            "none" => Ok(Self::None),
-            "all" => Ok(Self::All),
-            _ => Err("must be 'animated', 'none', or 'all'".into()),
+            "zero" => Ok(Self::Zero),
+            "one" => Ok(Self::One),
+            _ => Err("must be 'animated', 'one', or 'zero'".into()),
         }
     }
 }
 
+/// Controls the camera.
 #[derive(PartialEq)]
 enum ArgCamera {
+    /// Keep all the meshes in view and at a reasonable size.
     Default,
+
+    /// Zoom far out. This is used to reduce pixel shader costs and so emphasise
+    /// vertex shader costs.
     Far,
 }
 
@@ -57,7 +68,7 @@ struct Args {
     #[argh(option, default = "1024")]
     count: usize,
 
-    /// options: 'animated', 'all', 'none'
+    /// options: 'animated', 'one', 'zero'
     #[argh(option, default = "ArgWeights::Animated")]
     weights: ArgWeights,
 
@@ -177,7 +188,7 @@ fn setup(
     let camera_distance = (x_dim as f32)
         * match args.camera {
             ArgCamera::Default => 4.0,
-            ArgCamera::Far => 100.0,
+            ArgCamera::Far => 200.0,
         };
 
     commands.spawn((
@@ -221,8 +232,8 @@ fn set_weights(
     mut weight_components: Query<&mut MorphWeights>,
 ) {
     let weight_value = match args.weights {
-        ArgWeights::All => Some(1.0),
-        ArgWeights::None => Some(0.0),
+        ArgWeights::One => Some(1.0),
+        ArgWeights::Zero => Some(0.0),
         _ => None,
     };
 
