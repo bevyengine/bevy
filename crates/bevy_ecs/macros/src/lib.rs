@@ -21,7 +21,7 @@ use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote, ToTokens};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, Data, DataStruct, DeriveInput, GenericParam, Member, TypeParam,
+    ConstParam, Data, DataStruct, DeriveInput, GenericParam, TypeParam,
 };
 
 enum BundleFieldKind {

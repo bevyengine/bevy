@@ -270,9 +270,9 @@ pub(crate) fn map_entities(
                 })
                 .for_each(|(index, field)| {
                     let member = as_member(field.ident.as_ref(), index);
-
-                    map.push(quote!(#self_ident.#field_member.map_entities(mapper);));
+                    map.push(quote!(#self_ident.#member.map_entities(mapper);));
                 });
+                
             if map.is_empty() {
                 return None;
             };
