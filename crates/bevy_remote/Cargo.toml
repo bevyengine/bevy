@@ -1,6 +1,6 @@
 [package]
 name = "bevy_remote"
-version = "0.16.0-rc.1"
+version = "0.16.0-rc.2"
 edition = "2024"
 description = "The Bevy Remote Protocol"
 homepage = "https://bevyengine.org"
@@ -14,15 +14,15 @@ http = ["dep:async-io", "dep:smol-hyper"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-rc.1" }
-bevy_derive = { path = "../bevy_derive", version = "0.16.0-rc.1" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.1", features = [
+bevy_app = { path = "../bevy_app", version = "0.16.0-rc.2" }
+bevy_derive = { path = "../bevy_derive", version = "0.16.0-rc.2" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.2", features = [
   "serialize",
 ] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.1" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-rc.1" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.1" }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-rc.1", default-features = false, features = [
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.2" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-rc.2" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.2" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-rc.2", default-features = false, features = [
   "std",
   "serialize",
 ] }
