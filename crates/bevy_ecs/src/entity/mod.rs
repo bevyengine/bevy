@@ -1380,10 +1380,10 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_remote_reservation(entities: &mut Entities) {
         use bevy_tasks::block_on;
+        use rand::{rngs::StdRng, Rng, SeedableRng};
         use std::thread;
 
-        // Lower batch size so more waiting is tested.
-        entities.entities_hot_for_remote = 16;
+        let mut rng = StdRng::seed_from_u64(89274528);
 
         let mut threads = (0..3)
             .map(|_| {
@@ -1403,6 +1403,7 @@ mod tests {
         loop {
             threads.retain(|thread| !thread.is_finished());
             entities.flush_as_invalid();
+            entities.entities_hot_for_remote = rng.r#gen::<u32>() & 127;
             if threads.is_empty() {
                 break;
             }
@@ -1413,6 +1414,10 @@ mod tests {
 
         // It might be a little over since we may have reserved extra entities for remote reservation.
         assert!(entities.len() >= 300);
+        assert_eq!(
+            entities.remote.keep_hot.load(Ordering::Relaxed),
+            entities.remote.reserved.len() as u32
+        );
     }
 
     #[test]
