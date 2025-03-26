@@ -1,7 +1,7 @@
 use alloc::string::ToString;
 use alloc::{format, string::String};
 use core::num::NonZero;
-use std::sync::LazyLock;
+use bevy_platform_support::sync::LazyLock;
 
 use bevy_ecs::{
     entity::{Entity, EntityBorrow},
