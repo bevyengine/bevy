@@ -114,8 +114,7 @@ where
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Self::Out {
-        // SAFETY: `Self::is_exclusive` returns true, so the caller is
-        // required to ensure that the it's valid to call `world_mut()`
+        // SAFETY: The safety is upheld by the caller.
         let world = unsafe { world.world_mut() };
         world.last_change_tick_scope(self.system_meta.last_run, |world| {
             #[cfg(feature = "trace")]

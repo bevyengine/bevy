@@ -452,6 +452,8 @@ impl ExecutorState {
 
                 // SAFETY:
                 // - Caller ensured no other reference to this system exists.
+                // - `system_task_metadata[system_index].is_exclusive` is `false`,
+                //   so `System::is_exclusive` returned `false` when we called it.
                 // - `can_run` has been called, which calls `update_archetype_component_access` with this system.
                 // - `can_run` returned true, so no systems with conflicting world access are running.
                 unsafe {
@@ -592,6 +594,7 @@ impl ExecutorState {
 
     /// # Safety
     /// - Caller must not alias systems that are running.
+    /// - `is_exclusive` must have returned `false` for the specified system.
     /// - `world` must have permission to access the world data
     ///   used by the specified system.
     /// - `update_archetype_component_access` must have been called with `world`
