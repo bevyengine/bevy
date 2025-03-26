@@ -13,8 +13,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use core::marker::PhantomData;
 use thiserror::Error;
 
-use super::ValidationOutcome;
-
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
 #[require(SystemIdMarker)]
@@ -353,7 +351,7 @@ impl World {
             initialized = true;
         }
 
-        let result = if let ValidationOutcome::Valid = system.validate_param(self) {
+        let result = if system.validate_param(self).is_ok() {
             // Wait to run the commands until the system is available again.
             // This is needed so the systems can recursively run themselves.
             let ret = system.run_without_applying_deferred(input, self);
@@ -897,5 +895,14 @@ mod tests {
         world.run_system(id).unwrap();
 
         assert_eq!(INVOCATIONS_LEFT.get(), 0);
+    }
+
+    #[test]
+    fn run_system_exclusive_adapters() {
+        let mut world = World::new();
+        fn system(_: &mut World) {}
+        world.run_system_cached(system).unwrap();
+        world.run_system_cached(system.pipe(system)).unwrap();
+        world.run_system_cached(system.map(|()| {})).unwrap();
     }
 }
