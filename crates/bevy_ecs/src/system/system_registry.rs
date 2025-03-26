@@ -896,4 +896,13 @@ mod tests {
 
         assert_eq!(INVOCATIONS_LEFT.get(), 0);
     }
+
+    #[test]
+    fn run_system_exclusive_adapters() {
+        let mut world = World::new();
+        fn system(_: &mut World) {}
+        world.run_system_cached(system).unwrap();
+        world.run_system_cached(system.pipe(system)).unwrap();
+        world.run_system_cached(system.map(|()| {})).unwrap();
+    }
 }
