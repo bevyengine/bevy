@@ -144,7 +144,7 @@ fn setup(
 
     // Arrange the meshes in a grid.
 
-    let count = args.count.max(1);
+    let count = args.count;
     let x_dim = ((count as f32).sqrt().ceil() as usize).max(1);
     let y_dim = count.div_ceil(x_dim);
 
