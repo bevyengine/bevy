@@ -39,7 +39,7 @@ pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
 
-use widget::{ImageNode, ImageNodeSize};
+use widget::{BorderStyle, ColorStyle, EventsPlugin, ImageNode, ImageNodeSize, PickingEvent};
 
 /// The UI prelude.
 ///
@@ -59,7 +59,10 @@ pub mod prelude {
             geometry::*,
             ui_material::*,
             ui_node::*,
-            widget::{Button, ImageNode, Label, NodeImageMode},
+            widget::{
+                BorderGeometry, BorderStyle, Button, ColorStyle, Event, EventsDispatch, ImageNode,
+                Label, NodeImageMode, WidgetBundle,
+            },
             Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
@@ -142,6 +145,7 @@ struct AmbiguousWithUpdateText2DLayout;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiSurface>()
+            .add_plugins(EventsPlugin::<PickingEvent>::default())
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
             .register_type::<BackgroundColor>()
@@ -169,6 +173,9 @@ impl Plugin for UiPlugin {
             .register_type::<UiAntiAlias>()
             .register_type::<TextShadow>()
             .register_type::<ComputedNodeTarget>()
+            .register_type::<ColorStyle>()
+            .register_type::<BorderStyle>()
+            .register_type::<ShadowStyle>()
             .configure_sets(
                 PostUpdate,
                 (
@@ -183,6 +190,7 @@ impl Plugin for UiPlugin {
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+                // widget::handle_button_clicks,
             );
 
         #[cfg(feature = "bevy_ui_picking_backend")]
