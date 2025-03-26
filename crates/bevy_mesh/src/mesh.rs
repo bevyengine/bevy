@@ -826,10 +826,22 @@ impl Mesh {
     ///
     /// # Errors
     ///
-    /// Returns [`Err(MergeMeshError)`](MergeMeshError) if the vertex attribute values of `other` are incompatible with `self`.
+    /// Returns [`Err(MeshMergeError)`](MeshMergeError) if any of the following conditions are met:
+    /// * the vertex attribute values of `other` are incompatible with `self`.
     /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
-    pub fn merge(&mut self, other: &Mesh) -> Result<(), MergeMeshError> {
+    /// * the primitive topology of `other` doesn't match the primitive topology of `self`
+    pub fn merge(&mut self, other: &Mesh) -> Result<(), MeshMergeError> {
         use VertexAttributeValues::*;
+
+        // Check if the meshes `primitive_topology` field is the same,
+        // as if that is not the case, the resulting mesh could (and most likely would)
+        // be invalid.
+        if self.primitive_topology != other.primitive_topology {
+            return Err(MeshMergeError::IncompatiblePrimitiveTopology {
+                self_primitive_topology: self.primitive_topology,
+                other_primitive_topology: other.primitive_topology
+            });
+        }
 
         // The indices of `other` should start after the last vertex of `self`.
         let index_offset = self.count_vertices();
@@ -871,7 +883,7 @@ impl Mesh {
                     (Uint8x4(vec1), Uint8x4(vec2)) => vec1.extend(vec2),
                     (Unorm8x4(vec1), Unorm8x4(vec2)) => vec1.extend(vec2),
                     _ => {
-                        return Err(MergeMeshError {
+                        return Err(MeshMergeError::IncompatibleVertexAttributes {
                             self_attribute: *attribute,
                             other_attribute: other
                                 .attribute_data(attribute.id)
@@ -1391,10 +1403,17 @@ impl MeshDeserializer {
 
 /// Error that can occur when calling [`Mesh::merge`].
 #[derive(Error, Debug, Clone)]
-#[error("Incompatible vertex attribute types {} and {}", self_attribute.name, other_attribute.map(|a| a.name).unwrap_or("None"))]
-pub struct MergeMeshError {
-    pub self_attribute: MeshVertexAttribute,
-    pub other_attribute: Option<MeshVertexAttribute>,
+pub enum MeshMergeError {
+  #[error("Incompatible vertex attribute types {} and {}", self_attribute.name, other_attribute.map(|a| a.name).unwrap_or("None"))]
+  IncompatibleVertexAttributes {
+    self_attribute: MeshVertexAttribute,
+    other_attribute: Option<MeshVertexAttribute>,
+  },
+  #[error("Incompatible primitive topologies {:?} and {:?}", self_primitive_topology, other_primitive_topology)]
+  IncompatiblePrimitiveTopology {
+    self_primitive_topology: PrimitiveTopology,
+    other_primitive_topology: PrimitiveTopology,
+  }
 }
 
 #[cfg(test)]
