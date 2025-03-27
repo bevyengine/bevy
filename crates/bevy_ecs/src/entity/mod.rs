@@ -521,7 +521,7 @@ unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 #[derive(Debug)]
 struct RemoteEntitiesInner {
     recent_requests: AtomicU32,
-    keep_hot: AtomicU32,
+    in_channel: AtomicU32,
     reserved: async_channel::Receiver<Entity>,
     reserver: async_channel::Sender<Entity>,
 }
@@ -539,14 +539,17 @@ impl RemoteEntitiesInner {
     #[inline]
     fn fulfill(
         entities: &mut Entities,
-        mut reserve_allocated: impl FnMut(Entity, &mut EntityLocation),
-        keep_hot: u32,
+        mut init_allocated: impl FnMut(Entity, &mut EntityLocation),
+        in_channel: u32,
     ) {
         let to_fulfill = entities.remote.recent_requests.swap(0, Ordering::Relaxed);
-        let current_hot = entities.remote.keep_hot.load(Ordering::Relaxed);
-        let should_reserve = (to_fulfill + keep_hot).saturating_sub(current_hot); // should_reserve = to_fulfill + (keep_hot - cuurent_hot)
-        let new_hot = (current_hot + should_reserve).saturating_sub(to_fulfill); // new_hot = current_hot + (should_reserve - to_fulfill).
-        entities.remote.keep_hot.store(new_hot, Ordering::Relaxed);
+        let current_in_channel = entities.remote.in_channel.load(Ordering::Relaxed);
+        let should_reserve = (to_fulfill + in_channel).saturating_sub(current_in_channel); // should_reserve = to_fulfill + (in_channel - current_in_channel)
+        let new_in_channel = (current_in_channel + should_reserve).saturating_sub(to_fulfill); // new_in_channel = current_in_channel + (should_reserve - to_fulfill).
+        entities
+            .remote
+            .in_channel
+            .store(new_in_channel, Ordering::Relaxed);
 
         for _ in 0..should_reserve {
             let entity = entities.alloc();
@@ -557,7 +560,7 @@ impl RemoteEntitiesInner {
                     .get_unchecked_mut(entity.index() as usize)
                     .location
             };
-            reserve_allocated(entity, loc);
+            init_allocated(entity, loc);
             let result = entities.remote.reserver.try_send(entity);
             // It should not be closed and it can't get full.
             debug_assert!(result.is_ok());
@@ -567,22 +570,22 @@ impl RemoteEntitiesInner {
     #[inline]
     fn try_fulfill(
         entities: &mut Entities,
-        reserve_allocated: impl FnMut(Entity, &mut EntityLocation),
-        keep_hot: u32,
+        init_allocated: impl FnMut(Entity, &mut EntityLocation),
+        in_channel: u32,
     ) {
         // we do this to hint to the compiler that the if branch is unlinkely to be taken.
         #[cold]
         fn do_fulfill(
             entities: &mut Entities,
-            reserve_allocated: impl FnMut(Entity, &mut EntityLocation),
-            keep_hot: u32,
+            init_allocated: impl FnMut(Entity, &mut EntityLocation),
+            in_channel: u32,
         ) {
-            RemoteEntitiesInner::fulfill(entities, reserve_allocated, keep_hot);
+            RemoteEntitiesInner::fulfill(entities, init_allocated, in_channel);
         }
 
         if entities.remote.recent_requests.load(Ordering::Relaxed) > 0 {
             // TODO: add core::intrinsics::unlikely once stable
-            do_fulfill(entities, reserve_allocated, keep_hot);
+            do_fulfill(entities, init_allocated, in_channel);
         }
     }
 
@@ -592,7 +595,7 @@ impl RemoteEntitiesInner {
             recent_requests: AtomicU32::new(0),
             reserver: sender,
             reserved: receiver,
-            keep_hot: AtomicU32::new(0),
+            in_channel: AtomicU32::new(0),
         }
     }
 
@@ -1410,12 +1413,12 @@ mod tests {
                 break;
             }
             if timeout.elapsed().as_secs() > 60 {
-                panic!("remote entities timmed out.")
+                panic!("remote entities timed out.")
             }
         }
 
         assert_eq!(
-            entities.remote.keep_hot.load(Ordering::Relaxed),
+            entities.remote.in_channel.load(Ordering::Relaxed),
             entities.remote.reserved.len() as u32
         );
     }
