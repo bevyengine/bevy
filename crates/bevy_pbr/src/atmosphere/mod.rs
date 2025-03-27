@@ -161,6 +161,7 @@ impl Plugin for AtmospherePlugin {
         let render_adapter = render_app.world().resource::<RenderAdapter>();
         let render_device = render_app.world().resource::<RenderDevice>();
 
+        #[cfg(not(target_arch = "wasm32"))]
         if !render_device
             .features()
             .contains(WgpuFeatures::DUAL_SOURCE_BLENDING)
