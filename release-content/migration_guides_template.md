@@ -1,5 +1,5 @@
 ---
-heading: Feature that broke
+title: Feature that broke
 pull_requests: [14791, 15458, 15269]
 ---
 

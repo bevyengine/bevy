@@ -1,5 +1,5 @@
 ---
-heading: Feature name
+title: Feature name
 authors: ["@FerrisTheCrab", "@BirdObsessed"]
 pull_requests: [14791, 15458, 15269]
 ---
