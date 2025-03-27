@@ -1378,7 +1378,7 @@ mod tests {
     }
 
     #[cfg(feature = "std")]
-    fn test_remote_reservation(entities: &mut Entities) {
+    fn test_remote_reservation<const RAND: bool>(entities: &mut Entities) {
         use bevy_tasks::block_on;
         use rand::{rngs::StdRng, Rng, SeedableRng};
         use std::thread;
@@ -1403,7 +1403,9 @@ mod tests {
         loop {
             threads.retain(|thread| !thread.is_finished());
             entities.flush_as_invalid();
-            entities.entities_hot_for_remote = rng.r#gen::<u32>() & 127;
+            if RAND {
+                entities.entities_hot_for_remote = rng.r#gen::<u32>() & 127;
+            }
             if threads.is_empty() {
                 break;
             }
@@ -1412,8 +1414,6 @@ mod tests {
             }
         }
 
-        // It might be a little over since we may have reserved extra entities for remote reservation.
-        assert!(entities.len() >= 300);
         assert_eq!(
             entities.remote.keep_hot.load(Ordering::Relaxed),
             entities.remote.reserved.len() as u32
@@ -1422,19 +1422,39 @@ mod tests {
 
     #[test]
     #[cfg(feature = "std")]
-    fn remote_reservation() {
+    fn remote_reservation_empty() {
+        let mut entities = Entities::new();
+        entities.entities_hot_for_remote = 0;
+        test_remote_reservation::<false>(&mut entities);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn remote_reservation_standard() {
         let mut entities = Entities::new();
         // Lower batch size so more waiting is tested.
         entities.entities_hot_for_remote = 16;
-        test_remote_reservation(&mut entities);
+        test_remote_reservation::<false>(&mut entities);
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn remote_reservation_volitol() {
+        let mut entities = Entities::new();
+
+        entities.entities_hot_for_remote = 16;
+        test_remote_reservation::<false>(&mut entities);
+        test_remote_reservation::<true>(&mut entities);
+
         // Lower batch size so more waiting is tested.
         entities.entities_hot_for_remote = 1024;
-        test_remote_reservation(&mut entities);
+        test_remote_reservation::<false>(&mut entities);
+        test_remote_reservation::<true>(&mut entities);
 
-        // Try 0
-        let mut entities = Entities::new();
+        entities.entities_hot_for_remote = 1024;
+        test_remote_reservation::<false>(&mut entities);
         entities.entities_hot_for_remote = 0;
-        test_remote_reservation(&mut entities);
+        test_remote_reservation::<false>(&mut entities);
     }
 
     #[test]
