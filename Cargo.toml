@@ -7,7 +7,10 @@ description = "A refreshingly simple data-driven game engine and app framework"
 include = [
   "/docs/**",
   "/docs-rs/**",
+  "/examples/**",
   "/src/**",
+  "/tests/**",
+  "/tests-integration",
   "/LICENSE-APACHE",
   "/LICENSE-MIT",
   "/README.md",
