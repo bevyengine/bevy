@@ -541,59 +541,6 @@ pub enum RemoteReservationError {
 }
 
 impl RemoteEntitiesInner {
-    #[inline]
-    fn fulfill(
-        entities: &mut Entities,
-        mut init_allocated: impl FnMut(Entity, &mut EntityLocation),
-        in_channel: u32,
-    ) {
-        let to_fulfill = entities.remote.recent_requests.swap(0, Ordering::Relaxed);
-        let current_in_channel = entities.remote.in_channel.load(Ordering::Relaxed);
-        let should_reserve = (to_fulfill + in_channel).saturating_sub(current_in_channel); // should_reserve = to_fulfill + (in_channel - current_in_channel)
-        let new_in_channel = (current_in_channel + should_reserve).saturating_sub(to_fulfill); // new_in_channel = current_in_channel + (should_reserve - to_fulfill).
-        entities
-            .remote
-            .in_channel
-            .store(new_in_channel, Ordering::Relaxed);
-
-        for _ in 0..should_reserve {
-            let entity = entities.alloc();
-            // SAFETY: we just allocated it
-            let loc = unsafe {
-                &mut entities
-                    .meta
-                    .get_unchecked_mut(entity.index() as usize)
-                    .location
-            };
-            init_allocated(entity, loc);
-            let result = entities.remote.reserver.try_send(entity);
-            // It should not be closed and it can't get full.
-            debug_assert!(result.is_ok());
-        }
-    }
-
-    #[inline]
-    fn try_fulfill(
-        entities: &mut Entities,
-        init_allocated: impl FnMut(Entity, &mut EntityLocation),
-        in_channel: u32,
-    ) {
-        // we do this to hint to the compiler that the if branch is unlinkely to be taken.
-        #[cold]
-        fn do_fulfill(
-            entities: &mut Entities,
-            init_allocated: impl FnMut(Entity, &mut EntityLocation),
-            in_channel: u32,
-        ) {
-            RemoteEntitiesInner::fulfill(entities, init_allocated, in_channel);
-        }
-
-        if entities.remote.recent_requests.load(Ordering::Relaxed) > 0 {
-            // TODO: add core::intrinsics::unlikely once stable
-            do_fulfill(entities, init_allocated, in_channel);
-        }
-    }
-
     fn new() -> Self {
         let (sender, receiver) = async_channel::unbounded();
         Self {
@@ -1094,7 +1041,39 @@ impl Entities {
             );
         }
 
-        RemoteEntitiesInner::try_fulfill(self, init, self.entities_hot_for_remote);
+        if self.remote.recent_requests.load(Ordering::Relaxed) > 0 {
+            // TODO: add core::intrinsics::unlikely once stable
+            self.force_remote_fulfill(init);
+        }
+    }
+
+    // we do this to hint to the compiler that the if branch is unlinkely to be taken.
+    #[cold]
+    fn force_remote_fulfill(&mut self, init_allocated: impl FnMut(Entity, &mut EntityLocation)) {
+        let in_channel = self.entities_hot_for_remote;
+        let mut init_allocated = init_allocated;
+        let to_fulfill = self.remote.recent_requests.swap(0, Ordering::Relaxed);
+        let current_in_channel = self.remote.in_channel.load(Ordering::Relaxed);
+        let should_reserve = (to_fulfill + in_channel).saturating_sub(current_in_channel); // should_reserve = to_fulfill + (in_channel - current_in_channel)
+        let new_in_channel = (current_in_channel + should_reserve).saturating_sub(to_fulfill); // new_in_channel = current_in_channel + (should_reserve - to_fulfill).
+        self.remote
+            .in_channel
+            .store(new_in_channel, Ordering::Relaxed);
+
+        for _ in 0..should_reserve {
+            let entity = self.alloc();
+            // SAFETY: we just allocated it
+            let loc = unsafe {
+                &mut self
+                    .meta
+                    .get_unchecked_mut(entity.index() as usize)
+                    .location
+            };
+            init_allocated(entity, loc);
+            let result = self.remote.reserver.try_send(entity);
+            // It should not be closed and it can't get full.
+            debug_assert!(result.is_ok());
+        }
     }
 
     /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
