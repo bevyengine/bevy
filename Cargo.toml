@@ -4317,3 +4317,11 @@ name = "`no_std` Compatible Library"
 description = "Example library compatible with `std` and `no_std` targets"
 category = "Embedded"
 wasm = true
+
+[[example]]
+name = "test_animation_transitions"
+path = "tests/animation/test_animation_transitions.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.test_animation_transitions]
+hidden = true
