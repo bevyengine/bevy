@@ -1,44 +1,70 @@
-use crate::material_bind_groups::MaterialBindGroupAllocator;
-use crate::{DrawMesh, Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin, MeshMaterial3d, MeshPipeline, MeshPipelineKey, PreparedMaterial, RenderMaterialInstances, RenderMeshInstances, SetMaterialBindGroup, SetMeshBindGroup, SetMeshViewBindGroup};
-use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::{
-    load_internal_asset, weak_handle, Asset, AssetApp, Assets, Handle, UntypedAssetId,
+use crate::{
+    alpha_mode_pipeline_key, DrawMesh, EntitySpecializationTicks, Material, MaterialPipeline,
+    MaterialPipelineKey, MaterialPlugin, MeshMaterial3d, MeshPipeline, MeshPipelineKey,
+    PreparedMaterial, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
+    RenderMeshInstances, SetMaterialBindGroup, SetMeshBindGroup, SetMeshViewBindGroup,
+    SpecializedMaterialPipelineCache, ViewKeyCache, ViewSpecializationTicks,
 };
-use bevy_color::{Color, ColorToComponents, LinearRgba};
-use bevy_core_pipeline::core_3d::{Camera3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey};
+use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
+use bevy_asset::prelude::AssetChanged;
+use bevy_asset::{
+    load_internal_asset, weak_handle, AsAssetId, Asset, AssetApp, AssetEvents, AssetId, Assets,
+    Handle,
+};
+use bevy_color::{Color, ColorToComponents};
+use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
+use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
+use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::component::Tick;
 use bevy_ecs::entity::hash_map::EntityHashMap;
-use bevy_ecs::entity::hash_set::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_ecs::system::lifetimeless::SRes;
-use bevy_ecs::system::SystemParamItem;
+use bevy_ecs::system::{SystemChangeTick, SystemParamItem};
 use bevy_math::{FloatOrd, Vec4};
 use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform_support::hash::FixedHasher;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport};
 use bevy_render::camera::ExtractedCamera;
 use bevy_render::extract_component::UniformComponentPlugin;
-use bevy_render::mesh::allocator::SlabId;
+use bevy_render::mesh::allocator::{MeshAllocator, SlabId};
 use bevy_render::mesh::{MeshVertexBufferLayout, RenderMesh};
-use bevy_render::render_asset::RenderAssets;
-use bevy_render::render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode};
-use bevy_render::render_phase::{BinnedPhaseItem, BinnedRenderPhasePlugin, DrawFunctionId, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases, ViewSortedRenderPhases};
+use bevy_render::render_asset::{
+    prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
+};
+use bevy_render::render_graph::{
+    NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
+};
+use bevy_render::render_phase::{
+    AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
+    CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, InputUniformIndex, PhaseItem,
+    PhaseItemBatchSetKey, PhaseItemExtraIndex, RenderCommand, RenderCommandResult, SetItemPipeline,
+    TrackedRenderPass, ViewBinnedRenderPhases, ViewSortedRenderPhases,
+};
 use bevy_render::render_resource::binding_types::{
     sampler, storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer,
 };
 use bevy_render::renderer::{RenderContext, RenderDevice};
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
-use bevy_render::view::{ExtractedView, NoIndirectDrawing, RenderVisibleEntities, RetainedViewEntity, ViewDepthTexture, ViewTarget};
+use bevy_render::view::{
+    ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
+    RetainedViewEntity, ViewDepthTexture, ViewTarget,
+};
 use bevy_render::{
     extract_resource::ExtractResource,
     mesh::{Mesh3d, MeshVertexBufferLayoutRef},
     prelude::*,
     render_resource::*,
-    Extract, RenderApp,
+    Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
 };
+use derive_more::From;
 use nonmax::NonMaxU32;
+use std::hash::Hash;
+use std::marker::PhantomData;
 use std::ops::Range;
 use tracing::error;
-use bevy_render::batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport};
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("2646a633-f8e3-4380-87ae-b44d881abbce");
@@ -53,7 +79,18 @@ pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> =
 ///
 /// This is a native only feature.
 #[derive(Debug, Default)]
-pub struct WireframePlugin;
+pub struct WireframePlugin {
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
+}
+
+impl WireframePlugin {
+    /// Creates a new [`WireframePlugin`] with the given debug flags.
+    pub fn new(debug_flags: RenderDebugFlags) -> Self {
+        Self { debug_flags }
+    }
+}
+
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(
@@ -63,17 +100,82 @@ impl Plugin for WireframePlugin {
             Shader::from_wgsl
         );
 
-        app.add_plugins((BinnedRenderPhasePlugin::<Wireframe3d, MeshPipeline>::default(),))
-            .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
-            .register_type::<Wireframe>()
-            .register_type::<NoWireframe>()
-            .register_type::<WireframeConfig>()
-            .register_type::<WireframeColor>()
-            .init_resource::<WireframeConfig>();
+        app.add_plugins((
+            BinnedRenderPhasePlugin::<Wireframe3d, MeshPipeline>::new(self.debug_flags),
+            RenderAssetPlugin::<RenderWireframeMaterial>::default(),
+        ))
+        .init_asset::<WireframeMaterial>()
+        .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
+        .register_type::<NoWireframe>()
+        .register_type::<WireframeConfig>()
+        .register_type::<WireframeColor>()
+        .init_resource::<WireframeConfig>()
+        .init_resource::<WireframeEntitiesNeedingSpecialization>()
+        .add_systems(Startup, setup_global_wireframe_material)
+        .add_systems(
+            Update,
+            (
+                global_color_changed.run_if(resource_changed::<WireframeConfig>),
+                wireframe_color_changed,
+                // Run `apply_global_wireframe_material` after `apply_wireframe_material` so that the global
+                // wireframe setting is applied to a mesh on the same frame its wireframe marker component is removed.
+                (apply_wireframe_material, apply_global_wireframe_material).chain(),
+            ),
+        )
+        .add_systems(
+            PostUpdate,
+            check_wireframe_entities_needing_specialization
+                .after(AssetEvents)
+                .run_if(resource_exists::<WireframeConfig>),
+        );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
+        render_app
+            .init_resource::<WireframeEntitySpecializationTicks>()
+            .init_resource::<SpecializedWireframePipelineCache>()
+            .init_resource::<DrawFunctions<Wireframe3d>>()
+            .add_render_command::<Wireframe3d, DrawWireframe3d>()
+            .init_resource::<RenderWireframeInstances>()
+            .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
+            .add_render_graph_node::<ViewNodeRunner<Wireframe3dNode>>(Core3d, Wireframe3dLabel)
+            .add_render_graph_edges(
+                Core3d,
+                (
+                    Node3d::StartDebugPass,
+                    Wireframe3dLabel,
+                    Node3d::EndDebugPass,
+                ),
+            )
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_wireframe_3d_camera,
+                    extract_wireframe_entities_needing_specialization,
+                    extract_wireframe_materials,
+                ),
+            )
+            .add_systems(
+                Render,
+                (
+                    specialize_wireframes
+                        .in_set(RenderSet::PrepareMeshes)
+                        .after(prepare_assets::<RenderWireframeMaterial>)
+                        .after(prepare_assets::<RenderMesh>),
+                    queue_wireframes
+                        .in_set(RenderSet::QueueMeshes)
+                        .after(prepare_assets::<RenderWireframeMaterial>),
+                ),
+            );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+        render_app.init_resource::<Wireframe3dPipeline>();
     }
 }
 
@@ -113,7 +215,7 @@ impl PhaseItem for Wireframe3d {
     }
 
     fn draw_function(&self) -> DrawFunctionId {
-        todo!()
+        self.batch_set_key.draw_function
     }
 
     fn batch_range(&self) -> &Range<u32> {
@@ -130,6 +232,12 @@ impl PhaseItem for Wireframe3d {
 
     fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
         (&mut self.batch_range, &mut self.extra_index)
+    }
+}
+
+impl CachedRenderPipelinePhaseItem for Wireframe3d {
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
+        self.batch_set_key.pipeline
     }
 }
 
@@ -154,6 +262,7 @@ impl BinnedPhaseItem for Wireframe3d {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Wireframe3dBatchSetKey {
     /// The identifier of the render pipeline.
     pub pipeline: CachedRenderPipelineId,
@@ -172,18 +281,28 @@ struct Wireframe3dBatchSetKey {
     pub index_slab: Option<SlabId>,
 }
 
+impl PhaseItemBatchSetKey for Wireframe3dBatchSetKey {
+    fn indexed(&self) -> bool {
+        self.index_slab.is_some()
+    }
+}
+
 /// Data that must be identical in order to *batch* phase items together.
 ///
 /// Note that a *batch set* (if multi-draw is in use) contains multiple batches.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Wireframe3dBinKey {
-    pub color: Entity,
+    /// The wireframe material asset ID.
+    pub asset_id: AssetId<WireframeMaterial>,
 }
 
-pub struct SetWireframe3dPushConstants<const N: usize>;
+pub struct SetWireframe3dPushConstants;
 
-impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetWireframe3dPushConstants<I> {
-    type Param = (SRes<ExtractedWireframeConfig>);
+impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dPushConstants {
+    type Param = (
+        SRes<RenderWireframeInstances>,
+        SRes<RenderAssets<RenderWireframeMaterial>>,
+    );
     type ViewQuery = ();
     type ItemQuery = ();
 
@@ -192,13 +311,20 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetWireframe3dPushConsta
         item: &P,
         _view: (),
         _item_query: Option<()>,
-        (wireframe_config): SystemParamItem<'w, '_, Self::Param>,
+        (wireframe_instances, wireframe_assets): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(wireframe_material) = wireframe_instances.get(&item.main_entity()) else {
+            return RenderCommandResult::Failure("No wireframe material found for entity");
+        };
+        let Some(wireframe_material) = wireframe_assets.get(*wireframe_material) else {
+            return RenderCommandResult::Failure("No wireframe material found for entity");
+        };
+
         pass.set_push_constants(
             ShaderStages::FRAGMENT,
             0,
-            bytemuck::bytes_of(&wireframe_config.color_for_entity(item.main_entity())),
+            bytemuck::bytes_of(&wireframe_material.color),
         );
         RenderCommandResult::Success
     }
@@ -208,14 +334,9 @@ pub type DrawWireframe3d = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetMeshBindGroup<1>,
-    SetWireframe3dPushConstants<2>,
+    SetWireframe3dPushConstants,
     DrawMesh,
 );
-
-pub struct Wireframe3dPipelineKey {
-    mesh_key: MeshPipelineKey,
-    color: [f32; 4],
-}
 
 #[derive(Resource, Clone)]
 pub struct Wireframe3dPipeline {
@@ -244,23 +365,25 @@ impl FromWorld for Wireframe3dPipeline {
 }
 
 impl SpecializedMeshPipeline for Wireframe3dPipeline {
-    type Key = Wireframe3dPipelineKey;
+    type Key = MeshPipelineKey;
 
     fn specialize(
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayoutRef,
-    ) -> Result<(), SpecializedMeshPipelineError> {
-        let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
+        descriptor.label = Some("wireframe_3d_pipeline".into());
         descriptor.layout.push(self.layout.clone());
         descriptor.push_constant_ranges.push(PushConstantRange {
             stages: ShaderStages::FRAGMENT,
-            range: 0..4,
+            range: 0..16,
         });
-        descriptor.fragment.unwrap().shader = self.shader.clone();
+        let fragment = descriptor.fragment.as_mut().unwrap();
+        fragment.shader = self.shader.clone();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
-        Ok(())
+        Ok(descriptor)
     }
 }
 
@@ -274,13 +397,14 @@ impl ViewNode for Wireframe3dNode {
         &'static ExtractedCamera,
         &'static ExtractedView,
         &'static ViewTarget,
+        &'static ViewDepthTexture,
     );
 
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target): QueryItem<'w, Self::ViewQuery>,
+        (camera, view, target, depth): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let Some(wireframe_phase) = world.get_resource::<ViewBinnedRenderPhases<Wireframe3d>>()
@@ -295,7 +419,7 @@ impl ViewNode for Wireframe3dNode {
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("wireframe_3d_pass"),
             color_attachments: &[Some(target.get_color_attachment())],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
             timestamp_writes: None,
             occlusion_query_set: None,
         });
@@ -350,94 +474,199 @@ pub struct WireframeConfig {
     pub default_color: Color,
 }
 
-pub struct ExtractedWireframeConfig {
-    pub global: bool,
-    pub default_color: [f32; 4],
-    pub color_entities: HashMap<[f32; 4], Entity>,
-    pub color_instances: MainEntityHashMap<Entity>,
-    pub no_wireframe_instances: MainEntityHashSet,
+#[derive(Asset, Reflect, Clone, Debug, Default)]
+#[reflect(Clone, Default)]
+pub struct WireframeMaterial {
+    pub color: Color,
 }
 
-impl ExtractedWireframeConfig {
-    pub fn color_for_entity(&self, main_entity: MainEntity) -> Option<[f32; 4]> {
-        if let Some(color) = self.color_instances.get(&main_entity) {
-            return Some(*color);
+pub struct RenderWireframeMaterial {
+    pub color: [f32; 4],
+}
+
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[reflect(Component, Default, Clone, PartialEq)]
+pub struct Mesh3dWireframe(pub Handle<WireframeMaterial>);
+
+impl AsAssetId for Mesh3dWireframe {
+    type Asset = WireframeMaterial;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.0.id()
+    }
+}
+
+impl RenderAsset for RenderWireframeMaterial {
+    type SourceAsset = WireframeMaterial;
+    type Param = ();
+
+    fn prepare_asset(
+        source_asset: Self::SourceAsset,
+        _asset_id: AssetId<Self::SourceAsset>,
+        _param: &mut SystemParamItem<Self::Param>,
+    ) -> std::result::Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        Ok(RenderWireframeMaterial {
+            color: source_asset.color.to_linear().to_f32_array(),
+        })
+    }
+}
+
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct RenderWireframeInstances(MainEntityHashMap<AssetId<WireframeMaterial>>);
+
+pub fn extract_wireframe_materials(
+    mut material_instances: ResMut<RenderWireframeInstances>,
+    changed_meshes_query: Extract<
+        Query<
+            (Entity, &ViewVisibility, &Mesh3dWireframe),
+            Or<(Changed<ViewVisibility>, Changed<Mesh3dWireframe>)>,
+        >,
+    >,
+    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
+    mut removed_materials_query: Extract<RemovedComponents<Mesh3dWireframe>>,
+) {
+    for (entity, view_visibility, material) in &changed_meshes_query {
+        if view_visibility.get() {
+            material_instances.insert(entity.into(), material.id());
+        } else {
+            material_instances.remove(&MainEntity::from(entity));
         }
-        if self.no_wireframe_instances.contains(&main_entity) {
-            return None;
+    }
+
+    for entity in removed_visibilities_query
+        .read()
+        .chain(removed_materials_query.read())
+    {
+        // Only queue a mesh for removal if we didn't pick it up above.
+        // It's possible that a necessary component was removed and re-added in
+        // the same frame.
+        if !changed_meshes_query.contains(entity) {
+            material_instances.remove(&MainEntity::from(entity));
         }
-        Some(self.default_color)
+    }
+}
+
+#[derive(Resource)]
+struct GlobalWireframeMaterial {
+    // This handle will be reused when the global config is enabled
+    handle: Handle<WireframeMaterial>,
+}
+
+fn setup_global_wireframe_material(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<WireframeMaterial>>,
+    config: Res<WireframeConfig>,
+) {
+    // Create the handle used for the global material
+    commands.insert_resource(GlobalWireframeMaterial {
+        handle: materials.add(WireframeMaterial {
+            color: config.default_color.into(),
+        }),
+    });
+}
+
+/// Updates the wireframe material of all entities without a [`WireframeColor`] or without a [`Wireframe`] component
+fn global_color_changed(
+    config: Res<WireframeConfig>,
+    mut materials: ResMut<Assets<WireframeMaterial>>,
+    global_material: Res<GlobalWireframeMaterial>,
+) {
+    if let Some(global_material) = materials.get_mut(&global_material.handle) {
+        global_material.color = config.default_color.into();
     }
 }
 
 /// Updates the wireframe material when the color in [`WireframeColor`] changes
-fn extract_wireframe_colors(
-    mut commands: Commands,
-    config: Extract<Res<WireframeConfig>>,
-    mut extracted_config: ResMut<ExtractedWireframeConfig>,
-    colors_changed: Extract<
-        Query<(Entity, &WireframeColor), (With<Wireframe>, Changed<WireframeColor>)>,
+fn wireframe_color_changed(
+    mut materials: ResMut<Assets<WireframeMaterial>>,
+    mut colors_changed: Query<
+        (&mut Mesh3dWireframe, &WireframeColor),
+        (With<Wireframe>, Changed<WireframeColor>),
     >,
-    without_colors: Extract<Query<Entity, (With<Wireframe>, Without<WireframeColor>)>>,
-    no_wireframe_added: Extract<Query<Entity, Added<NoWireframe>>>,
-    colors_removed: Extract<RemovedComponents<WireframeColor>>,
-    no_wireframe_removed: Extract<RemovedComponents<NoWireframe>>,
-    wireframe_removed: Extract<RemovedComponents<Wireframe>>,
-    mut seen_colors: Local<HashSet<[f32; 4]>>,
 ) {
-    seen_colors.clear();
-    extracted_config.global = config.global;
-    extracted_config.default_color = config.default_color.to_linear().to_f32_array();
-    let default_color_entity = extracted_config
-        .color_entities
-        .entry(extracted_config.default_color)
-        .or_insert_with(|| {
-            commands.spawn(ExtractedWireframeColor {
-                color: extracted_config.default_color,
-            }).id()
+    for (mut handle, wireframe_color) in &mut colors_changed {
+        handle.0 = materials.add(WireframeMaterial {
+            color: wireframe_color.color.into(),
         });
-    seen_colors.insert(extracted_config.default_color);
-    for (entity, wireframe_color) in &colors_changed {
-        let linear_color = wireframe_color.color.to_linear().to_f32_array();
-        let color_entity = extracted_config.color_entities.entry(linear_color).or_insert_with(|| {
-            commands.spawn(ExtractedWireframeColor {
-                color: linear_color,
-            }).id()
-        });
-        extracted_config
-            .color_instances
-            .insert(entity.into(), *color_entity);
     }
-    for entity in &no_wireframe_added {
-        extracted_config
-            .no_wireframe_instances
-            .insert(entity.into());
-    }
-    for entity in no_wireframe_removed.iter() {
-        extracted_config
-            .no_wireframe_instances
-            .remove(&entity.into());
-    }
-    for entity in colors_removed.iter() {
-        if without_colors.contains(entity) {
-            extracted_config
-                .color_instances
-                .insert(&entity.into(), extracted_config.default_color);
-        } else {
-            extracted_config.color_instances.remove(&entity.into());
+}
+
+/// Applies or remove the wireframe material to any mesh with a [`Wireframe`] component, and removes it
+/// for any mesh with a [`NoWireframe`] component.
+fn apply_wireframe_material(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<WireframeMaterial>>,
+    wireframes: Query<
+        (Entity, Option<&WireframeColor>),
+        (With<Wireframe>, Without<Mesh3dWireframe>),
+    >,
+    no_wireframes: Query<Entity, (With<NoWireframe>, With<Mesh3dWireframe>)>,
+    mut removed_wireframes: RemovedComponents<Wireframe>,
+    global_material: Res<GlobalWireframeMaterial>,
+) {
+    for e in removed_wireframes.read().chain(no_wireframes.iter()) {
+        if let Ok(mut commands) = commands.get_entity(e) {
+            commands.remove::<Mesh3dWireframe>();
         }
     }
-    for entity in wireframe_removed.iter() {
-        extracted_config.color_instances.remove(&entity.into());
+
+    let mut material_to_spawn = vec![];
+    for (e, maybe_color) in &wireframes {
+        let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
+        material_to_spawn.push((e, Mesh3dWireframe(material)));
+    }
+    commands.try_insert_batch(material_to_spawn);
+}
+
+type WireframeFilter = (With<Mesh3d>, Without<Wireframe>, Without<NoWireframe>);
+
+/// Applies or removes a wireframe material on any mesh without a [`Wireframe`] or [`NoWireframe`] component.
+fn apply_global_wireframe_material(
+    mut commands: Commands,
+    config: Res<WireframeConfig>,
+    meshes_without_material: Query<
+        (Entity, Option<&WireframeColor>),
+        (WireframeFilter, Without<Mesh3dWireframe>),
+    >,
+    meshes_with_global_material: Query<Entity, (WireframeFilter, With<Mesh3dWireframe>)>,
+    global_material: Res<GlobalWireframeMaterial>,
+    mut materials: ResMut<Assets<WireframeMaterial>>,
+) {
+    if config.global {
+        let mut material_to_spawn = vec![];
+        for (e, maybe_color) in &meshes_without_material {
+            let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
+            // We only add the material handle but not the Wireframe component
+            // This makes it easy to detect which mesh is using the global material and which ones are user specified
+            material_to_spawn.push((e, Mesh3dWireframe(material)));
+        }
+        commands.try_insert_batch(material_to_spawn);
+    } else {
+        for e in &meshes_with_global_material {
+            commands.entity(e).remove::<Mesh3dWireframe>();
+        }
+    }
+}
+
+/// Gets a handle to a wireframe material with a fallback on the default material
+fn get_wireframe_material(
+    maybe_color: Option<&WireframeColor>,
+    wireframe_materials: &mut Assets<WireframeMaterial>,
+    global_material: &GlobalWireframeMaterial,
+) -> Handle<WireframeMaterial> {
+    if let Some(wireframe_color) = maybe_color {
+        wireframe_materials.add(WireframeMaterial {
+            color: wireframe_color.color.into(),
+        })
+    } else {
+        // If there's no color specified we can use the global material since it's already set to use the default_color
+        global_material.handle.clone()
     }
 }
 
 fn extract_wireframe_3d_camera(
     mut wireframe_3d_phases: ResMut<ViewBinnedRenderPhases<Wireframe3d>>,
-    cameras: Extract<Query<(Entity,
-                            &Camera,
-                            Has<NoIndirectDrawing>,
-    ), With<Camera3d>>>,
+    cameras: Extract<Query<(Entity, &Camera, Has<NoIndirectDrawing>), With<Camera3d>>>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
@@ -461,28 +690,212 @@ fn extract_wireframe_3d_camera(
     wireframe_3d_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
 
-fn queue_wireframe(
-    custom_draw_functions: Res<DrawFunctions<Wireframe3d>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<Wireframe3dPipeline>>,
-    pipeline_cache: Res<PipelineCache>,
-    wireframe_3d_pipeline: Res<Wireframe3dPipeline>,
+pub fn extract_wireframe_entities_needing_specialization(
+    entities_needing_specialization: Extract<Res<WireframeEntitiesNeedingSpecialization>>,
+    mut entity_specialization_ticks: ResMut<WireframeEntitySpecializationTicks>,
+    ticks: SystemChangeTick,
+) {
+    for entity in entities_needing_specialization.iter() {
+        // Update the entity's specialization tick with this run's tick
+        entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
+    }
+}
+
+#[derive(Clone, Resource, Deref, DerefMut, Debug, Default)]
+pub struct WireframeEntitiesNeedingSpecialization {
+    #[deref]
+    pub entities: Vec<Entity>,
+}
+
+#[derive(Resource, Deref, DerefMut, Clone, Debug)]
+pub struct WireframeEntitySpecializationTicks {
+    pub entities: MainEntityHashMap<Tick>,
+}
+
+impl Default for WireframeEntitySpecializationTicks {
+    fn default() -> Self {
+        Self {
+            entities: MainEntityHashMap::default(),
+        }
+    }
+}
+
+/// Stores the [`crate::SpecializedMaterialViewPipelineCache`] for each view.
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct SpecializedWireframePipelineCache {
+    // view entity -> view pipeline cache
+    #[deref]
+    map: HashMap<RetainedViewEntity, SpecializedWireframeViewPipelineCache>,
+}
+
+/// Stores the cached render pipeline ID for each entity in a single view, as
+/// well as the last time it was changed.
+#[derive(Deref, DerefMut, Default)]
+pub struct SpecializedWireframeViewPipelineCache {
+    // material entity -> (tick, pipeline_id)
+    #[deref]
+    map: MainEntityHashMap<(Tick, CachedRenderPipelineId)>,
+}
+
+pub fn check_wireframe_entities_needing_specialization(
+    needs_specialization: Query<
+        Entity,
+        Or<(
+            Changed<Mesh3d>,
+            AssetChanged<Mesh3d>,
+            Changed<Mesh3dWireframe>,
+            AssetChanged<Mesh3dWireframe>,
+        )>,
+    >,
+    mut entities_needing_specialization: ResMut<WireframeEntitiesNeedingSpecialization>,
+) {
+    entities_needing_specialization.clear();
+    for entity in &needs_specialization {
+        entities_needing_specialization.push(entity);
+    }
+}
+
+pub fn specialize_wireframes(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
+    render_wireframe_instances: Res<RenderWireframeInstances>,
+    render_visibility_ranges: Res<RenderVisibilityRanges>,
+    wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    view_key_cache: Res<ViewKeyCache>,
+    entity_specialization_ticks: Res<WireframeEntitySpecializationTicks>,
+    view_specialization_ticks: Res<ViewSpecializationTicks>,
+    mut specialized_material_pipeline_cache: ResMut<SpecializedWireframePipelineCache>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<Wireframe3dPipeline>>,
+    pipeline: Res<Wireframe3dPipeline>,
+    pipeline_cache: Res<PipelineCache>,
+    ticks: SystemChangeTick,
+) {
+    // Record the retained IDs of all shadow views so that we can expire old
+    // pipeline IDs.
+    let mut all_views: HashSet<RetainedViewEntity, FixedHasher> = HashSet::default();
+
+    for (view, visible_entities) in &views {
+        all_views.insert(view.retained_view_entity);
+
+        if !wireframe_phases.contains_key(&view.retained_view_entity) {
+            continue;
+        }
+
+        let Some(view_key) = view_key_cache.get(&view.retained_view_entity) else {
+            continue;
+        };
+
+        let view_tick = view_specialization_ticks
+            .get(&view.retained_view_entity)
+            .unwrap();
+        let view_specialized_material_pipeline_cache = specialized_material_pipeline_cache
+            .entry(view.retained_view_entity)
+            .or_default();
+
+        for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
+            let Some(material_asset_id) = render_wireframe_instances.get(visible_entity) else {
+                continue;
+            };
+            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let last_specialized_tick = view_specialized_material_pipeline_cache
+                .get(visible_entity)
+                .map(|(tick, _)| *tick);
+            let needs_specialization = last_specialized_tick.is_none_or(|tick| {
+                view_tick.is_newer_than(tick, ticks.this_run())
+                    || entity_tick.is_newer_than(tick, ticks.this_run())
+            });
+            if !needs_specialization {
+                continue;
+            }
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            else {
+                continue;
+            };
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                continue;
+            };
+
+            let mut mesh_key = *view_key;
+            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+
+            if render_visibility_ranges.entity_has_crossfading_visibility_ranges(*visible_entity) {
+                mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
+            }
+
+            if view_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
+                // If the previous frame have skins or morph targets, note that.
+                if mesh_instance
+                    .flags
+                    .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
+                {
+                    mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
+                }
+                if mesh_instance
+                    .flags
+                    .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
+                {
+                    mesh_key |= MeshPipelineKey::HAS_PREVIOUS_MORPH;
+                }
+            }
+
+            let pipeline_id =
+                pipelines.specialize(&pipeline_cache, &pipeline, mesh_key, &mesh.layout);
+            let pipeline_id = match pipeline_id {
+                Ok(id) => id,
+                Err(err) => {
+                    error!("{}", err);
+                    continue;
+                }
+            };
+
+            view_specialized_material_pipeline_cache
+                .insert(*visible_entity, (ticks.this_run(), pipeline_id));
+        }
+    }
+
+    // Delete specialized pipelines belonging to views that have expired.
+    specialized_material_pipeline_cache
+        .retain(|retained_view_entity, _| all_views.contains(retained_view_entity));
+}
+
+fn queue_wireframes(
+    custom_draw_functions: Res<DrawFunctions<Wireframe3d>>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
+    render_mesh_instances: Res<RenderMeshInstances>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    mesh_allocator: Res<MeshAllocator>,
+    specialized_wireframe_pipeline_cache: Res<SpecializedWireframePipelineCache>,
+    render_wireframe_instances: Res<RenderWireframeInstances>,
     mut wireframe_3d_phases: ResMut<ViewBinnedRenderPhases<Wireframe3d>>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
-    extracted_wireframe_config: Res<ExtractedWireframeConfig>,
 ) {
     for (view, visible_entities, msaa) in &mut views {
         let Some(wireframe_phase) = wireframe_3d_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
-        let draw_custom = custom_draw_functions.read().id::<DrawWireframe3d>();
+        let draw_wireframe = custom_draw_functions.read().id::<DrawWireframe3d>();
 
-        let view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+        let Some(view_specialized_material_pipeline_cache) =
+            specialized_wireframe_pipeline_cache.get(&view.retained_view_entity)
+        else {
+            continue;
+        };
 
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let Some(color) = extracted_wireframe_config.color_for_entity(*visible_entity) else {
+            let Some((current_change_tick, pipeline_id)) = view_specialized_material_pipeline_cache
+                .get(visible_entity)
+                .map(|(current_change_tick, pipeline_id)| (*current_change_tick, *pipeline_id))
+            else {
+                continue;
+            };
+
+            // Skip the entity if it's cached in a bin and up to date.
+            if wireframe_phase.validate_cached_entity(*visible_entity, current_change_tick) {
+                continue;
+            }
+
+            let Some(wireframe_instance) = render_wireframe_instances.get(visible_entity) else {
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
@@ -492,37 +905,25 @@ fn queue_wireframe(
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
+            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
 
-            let mut mesh_key = view_key;
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
-            let pipeline_key = Wireframe3dPipelineKey {
-                mesh_key,
-                color,
-            };
-
-            let pipeline_id = pipelines.specialize(
-                &pipeline_cache,
-                &wireframe_3d_pipeline,
-                pipeline_key,
-                &mesh.layout,
-            );
-            let pipeline_id = match pipeline_id {
-                Ok(id) => id,
-                Err(err) => {
-                    error!("{}", err);
-                    continue;
-                }
-            };
             let bin_key = Wireframe3dBinKey {
-                color,
+                asset_id: *wireframe_instance,
             };
             let batch_set_key = Wireframe3dBatchSetKey {
-                vertex_slab: mesh_instance.vertex_slab,
-                index_slab: mesh_instance.index_slab,
+                pipeline: pipeline_id,
+                draw_function: draw_wireframe,
+                vertex_slab: vertex_slab.unwrap_or_default(),
+                index_slab,
             };
-            wireframe_phase.add(Wireframe3dBinKey {
-                color_entity: (),
-            });
+            wireframe_phase.add(
+                batch_set_key,
+                bin_key,
+                (*render_entity, *visible_entity),
+                InputUniformIndex::default(),
+                BinnedRenderPhaseType::BatchableMesh,
+                current_change_tick,
+            );
         }
     }
 }
