@@ -1055,7 +1055,7 @@ impl Entities {
         let to_fulfill = self.remote.recent_requests.swap(0, Ordering::Relaxed);
         let current_in_channel = self.remote.in_channel.load(Ordering::Relaxed);
         let should_reserve = (to_fulfill + in_channel).saturating_sub(current_in_channel); // should_reserve = to_fulfill + (in_channel - current_in_channel)
-        let new_in_channel = (current_in_channel + should_reserve).saturating_sub(to_fulfill); // new_in_channel = current_in_channel + (should_reserve - to_fulfill).
+        let new_in_channel = current_in_channel + should_reserve - to_fulfill; // new_in_channel = current_in_channel + (should_reserve - to_fulfill).
         self.remote
             .in_channel
             .store(new_in_channel, Ordering::Relaxed);
