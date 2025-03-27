@@ -9,8 +9,8 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Brace, Comma, Paren},
-    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprPath, Field, FieldValue, Fields,
-    Ident, LitStr, Member, Path, Result, Token, Type, Visibility,
+    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprPath, Field, Fields, Ident,
+    LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
 pub const EVENT: &str = "event";
@@ -603,16 +603,16 @@ impl Parse for Require {
             // This is a "value style" named-struct-like require
             let content;
             braced!(content in input);
-            let fields = Punctuated::<FieldValue, Token![,]>::parse_terminated(&content)?;
-            let tokens: TokenStream = quote::quote! (|| #path { #fields }).into();
+            let content = content.parse::<TokenStream2>()?;
+            let tokens: TokenStream = quote::quote! (|| #path { #content }).into();
             Some(TokenStream2::from(tokens))
         } else if input.peek(Paren) {
             // This is a "value style" tuple-struct-like require
             let content;
             parenthesized!(content in input);
+            let content = content.parse::<TokenStream2>()?;
             is_constructor_call = last_segment_is_lower;
-            let fields = Punctuated::<Expr, Token![,]>::parse_terminated(&content)?;
-            let tokens: TokenStream = quote::quote! (|| #path (#fields)).into();
+            let tokens: TokenStream = quote::quote! (|| #path (#content)).into();
             Some(TokenStream2::from(tokens))
         } else if is_enum {
             // if this is an enum, then it is an inline enum component declaration
