@@ -15,6 +15,12 @@ use bevy_ecs::{
 /// By default, it will run the following schedules in the given order:
 ///
 /// On the first run of the schedule (and only on the first run), it will run:
+/// * [`StateTransition`]
+///      * This means that [`OnEnter(ExampleState)`] will be called *before* [`PreStartup`]
+///        if `ExampleState` is the starting state of the app.
+///      * If you want to run systems before any state transitions, regardless of which state is the starting state,
+///        for example, for registering required components, you can add your own custom startup schedule
+///        before [`StateTransition`]. See [`MainScheduleOrder::insert_startup_before`] for more details.
 /// * [`PreStartup`]
 /// * [`Startup`]
 /// * [`PostStartup`]
@@ -38,6 +44,7 @@ use bevy_ecs::{
 /// See [`RenderPlugin`] and [`PipelinedRenderingPlugin`] for more details.
 ///
 /// [`StateTransition`]: https://docs.rs/bevy/latest/bevy/prelude/struct.StateTransition.html
+/// [`OnEnter(ExampleState)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
 /// [`RenderPlugin`]: https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html
 /// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
 /// [`SubApp`]: crate::SubApp
