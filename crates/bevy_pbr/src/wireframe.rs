@@ -1,9 +1,6 @@
 use crate::{
-    alpha_mode_pipeline_key, DrawMesh, EntitySpecializationTicks, Material, MaterialPipeline,
-    MaterialPipelineKey, MaterialPlugin, MeshMaterial3d, MeshPipeline, MeshPipelineKey,
-    PreparedMaterial, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
-    RenderMeshInstances, SetMaterialBindGroup, SetMeshBindGroup, SetMeshViewBindGroup,
-    SpecializedMaterialPipelineCache, ViewKeyCache, ViewSpecializationTicks,
+    DrawMesh, MeshPipeline, MeshPipelineKey, RenderMeshInstanceFlags, RenderMeshInstances,
+    SetMeshBindGroup, SetMeshViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::prelude::AssetChanged;
@@ -921,7 +918,10 @@ fn queue_wireframes(
                 bin_key,
                 (*render_entity, *visible_entity),
                 InputUniformIndex::default(),
-                BinnedRenderPhaseType::BatchableMesh,
+                BinnedRenderPhaseType::mesh(
+                    mesh_instance.should_batch(),
+                    &gpu_preprocessing_support,
+                ),
                 current_change_tick,
             );
         }
