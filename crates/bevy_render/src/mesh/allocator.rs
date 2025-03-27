@@ -21,7 +21,7 @@ use bevy_utils::default;
 use offset_allocator::{Allocation, Allocator};
 use tracing::error;
 use wgpu::{
-    BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, DownlevelFlags,
+    BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, DownlevelFlags, Features,
     COPY_BUFFER_ALIGNMENT,
 };
 
@@ -78,6 +78,9 @@ pub struct MeshAllocator {
     /// WebGL 2. On this platform, we must give each vertex array its own
     /// buffer, because we can't adjust the first vertex when we perform a draw.
     general_vertex_slabs_supported: bool,
+
+    /// Extra buffer usages to add to any created vertex or index buffer.
+    extra_buffer_usages: BufferUsages,
 }
 
 /// Tunable parameters that customize the behavior of the allocator.
@@ -337,6 +340,17 @@ impl FromWorld for MeshAllocator {
             .flags
             .contains(DownlevelFlags::BASE_VERTEX);
 
+        // If ray tracing is enabled, enable these buffer usages.
+        // Probably(?) has little cost on RT-capable hardware if they end up going unused.
+        let mut extra_buffer_usages = BufferUsages::empty();
+        if world
+            .resource::<RenderDevice>()
+            .features()
+            .contains(Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE)
+        {
+            extra_buffer_usages |= BufferUsages::BLAS_INPUT | BufferUsages::STORAGE;
+        }
+
         Self {
             slabs: HashMap::default(),
             slab_layouts: HashMap::default(),
@@ -344,6 +358,7 @@ impl FromWorld for MeshAllocator {
             mesh_id_to_index_slab: HashMap::default(),
             next_slab_id: default(),
             general_vertex_slabs_supported,
+            extra_buffer_usages,
         }
     }
 }
@@ -594,7 +609,7 @@ impl MeshAllocator {
                         buffer_usages_to_str(buffer_usages)
                     )),
                     size: len as u64,
-                    usage: buffer_usages | BufferUsages::COPY_DST,
+                    usage: buffer_usages | BufferUsages::COPY_DST | self.extra_buffer_usages,
                     mapped_at_creation: true,
                 });
                 {
@@ -823,7 +838,7 @@ impl MeshAllocator {
                 buffer_usages_to_str(buffer_usages)
             )),
             size: slab.current_slot_capacity as u64 * slab.element_layout.slot_size(),
-            usage: buffer_usages,
+            usage: buffer_usages | self.extra_buffer_usages,
             mapped_at_creation: false,
         });
 
