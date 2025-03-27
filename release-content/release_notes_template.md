@@ -4,7 +4,7 @@ authors: ["@FerrisTheCrab", "@BirdObsessed"]
 pull_requests: [14791, 15458, 15269]
 ---
 
-Copy the contents of this file into `./release-notes`, update the metadata, and release note content here. You may use markdown headings levels one through three, and must not start with a heading.
+Copy the contents of this file into `./release-notes`, update the metadata, and add release note content here. You may use markdown headings levels one through three, and must not start with a heading.
 
 Answer the following:
 
