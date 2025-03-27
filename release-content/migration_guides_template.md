@@ -9,6 +9,6 @@ Briefly communicate:
 
 - What has changed since the last release?
 - Why did we make this breaking change?
-- Wow can users migrate their existing code?
+- How can users migrate their existing code?
 
 Remember to copy this template into a new file with a descriptive name.
