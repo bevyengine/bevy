@@ -3,12 +3,28 @@ title: Feature that broke
 pull_requests: [14791, 15458, 15269]
 ---
 
-Copy the contents of this file into `./migration-guides`, update the metadata, and add migration guide content here. Use bullet points and make sure it's searchable. Avoid headings.
+Copy the contents of this file into a new file in `./migration-guides`, update the metadata, and add migration guide content here.
 
-Briefly communicate:
+# Goals
+
+Aim to communicate:
 
 - What has changed since the last release?
 - Why did we make this breaking change?
 - How can users migrate their existing code?
 
-Remember to copy this template into a new file with a descriptive name.
+# Style Guide
+
+Keep it short and sweet:
+
+- Use bullet points and make sure it's searchable. 
+- Avoid headings, or use at most one level.
+- Use backticks for types (e.g. `Vec<T>`) in either the title or the body.
+- Diff codeblocks can also be useful for succinctly communicating changes.
+
+```diff
+fn my_system(world: &mut World) {
++ world.new_method();
+- world.old_method();
+}
+```

@@ -38,7 +38,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `It looks like your PR is a breaking change, but you didn't provide a migration guide.
+              body: `It looks like your PR is a breaking change, but **you didn't provide a migration guide**.
 
               Please review the [instructions for writing migration guides](https://github.com/bevyengine/bevy/tree/main/release-content/migration_guides.md), then expand or revise the content in the [migration guides directory](https://github.com/bevyengine/bevy/tree/main/release-content/migration-guides) to reflect your changes.`
             })
@@ -68,7 +68,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `It looks like your PR has been selected for a highlight in the next release blog post, but you didn't provide a release note.
+              body: `It looks like your PR has been selected for a highlight in the next release blog post, but **you didn't provide a release note**.
 
               Please review the [instructions for writing release notes](https://github.com/bevyengine/bevy/tree/main/release-content/release_notes.md), then expand or revise the content in the [release notes directory](https://github.com/bevyengine/bevy/tree/main/release-content/release_notes) to showcase your changes.`
             })
