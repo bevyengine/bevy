@@ -23,7 +23,6 @@ pub mod prepass;
 mod skybox;
 pub mod tonemapping;
 pub mod upscaling;
-
 pub use skybox::Skybox;
 
 /// The core pipeline prelude.
