@@ -17,7 +17,7 @@ Aim to communicate:
 
 Keep it short and sweet:
 
-- Use bullet points and make sure it's searchable. 
+- Use bullet points and make sure it's searchable.
 - Avoid headings. If you must, use only level-two headings.
 - Use backticks for types (e.g. `Vec<T>`) in either the title or the body.
 - Diff codeblocks can also be useful for succinctly communicating changes.
