@@ -1430,7 +1430,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "std")]
-    fn remote_reservation_empty() {
+    fn remote_reservation_empty_hot() {
         let mut entities = Entities::new();
         entities.entities_hot_for_remote = 0;
         test_remote_reservation::<false>(&mut entities);
@@ -1438,7 +1438,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "std")]
-    fn remote_reservation_standard() {
+    fn remote_reservation_standard_hot() {
         let mut entities = Entities::new();
         // Lower batch size so more waiting is tested.
         entities.entities_hot_for_remote = 16;
@@ -1447,7 +1447,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "std")]
-    fn remote_reservation_volitol() {
+    fn remote_reservation_volitol_hot() {
         let mut entities = Entities::new();
 
         entities.entities_hot_for_remote = 16;
