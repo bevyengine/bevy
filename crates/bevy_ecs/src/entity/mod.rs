@@ -87,6 +87,7 @@ use core::{
     panic::Location,
 };
 use log::warn;
+use smallvec::SmallVec;
 
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
