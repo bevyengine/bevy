@@ -521,7 +521,7 @@ unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 /// This is the shared data behind [`RemoteEntities`].
 #[derive(Debug)]
 struct RemoteEntitiesInner {
-    /// The number of requests that have been made since the last [`fulfill`](Self::fulfill).
+    /// The number of requests that have been made since the last [`force_remote_fulfill`](Entities::force_remote_fulfill).
     recent_requests: AtomicU32,
     /// The number of entities we're trying to keep in the channel for low latency access.
     in_channel: AtomicU32,
