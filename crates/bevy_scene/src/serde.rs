@@ -522,7 +522,6 @@ mod tests {
         world::FromWorld,
     };
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-    use bincode::Options;
     use serde::{de::DeserializeSeed, Deserialize, Serialize};
     use std::io::BufReader;
 
@@ -894,8 +893,9 @@ mod tests {
 
         let scene = DynamicScene::from_world(&world);
 
+        let config = bincode::config::standard().with_fixed_int_encoding();
         let scene_serializer = SceneSerializer::new(&scene, registry);
-        let serialized_scene = bincode::serialize(&scene_serializer).unwrap();
+        let serialized_scene = bincode::serde::encode_to_vec(&scene_serializer, config).unwrap();
 
         assert_eq!(
             vec![
@@ -914,10 +914,9 @@ mod tests {
             type_registry: registry,
         };
 
-        let deserialized_scene = bincode::DefaultOptions::new()
-            .with_fixint_encoding()
-            .deserialize_seed(scene_deserializer, &serialized_scene)
-            .unwrap();
+        let (deserialized_scene, _read_bytes) =
+            bincode::serde::seed_decode_from_slice(scene_deserializer, &serialized_scene, config)
+                .unwrap();
 
         assert_eq!(1, deserialized_scene.entities.len());
         assert_scene_eq(&scene, &deserialized_scene);

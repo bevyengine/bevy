@@ -133,6 +133,7 @@ default = [
   "bevy_audio",
   "bevy_color",
   "bevy_core_pipeline",
+  "bevy_anti_aliasing",
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
@@ -213,6 +214,13 @@ bevy_core_pipeline = [
   "bevy_render",
 ]
 
+# Provides various anti aliasing solutions
+bevy_anti_aliasing = [
+  "bevy_internal/bevy_anti_aliasing",
+  "bevy_asset",
+  "bevy_render",
+]
+
 # Adds gamepad support
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 
@@ -225,6 +233,7 @@ bevy_pbr = [
   "bevy_asset",
   "bevy_render",
   "bevy_core_pipeline",
+  "bevy_anti_aliasing",
 ]
 
 # Provides picking functionality
@@ -242,6 +251,7 @@ bevy_sprite = [
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
+  "bevy_anti_aliasing",
 ]
 
 # Provides text functionality
@@ -254,6 +264,7 @@ bevy_ui = [
   "bevy_text",
   "bevy_sprite",
   "bevy_color",
+  "bevy_anti_aliasing",
 ]
 
 # Windowing layer
@@ -561,7 +572,7 @@ hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
-accesskit = "0.17"
+accesskit = "0.18"
 nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
@@ -1581,6 +1592,7 @@ wasm = true
 name = "headless"
 path = "examples/app/headless.rs"
 doc-scrape-examples = true
+required-features = ["bevy_log"]
 
 [package.metadata.example.headless]
 name = "Headless"
@@ -2203,6 +2215,7 @@ wasm = false
 name = "fallible_params"
 path = "examples/ecs/fallible_params.rs"
 doc-scrape-examples = true
+required-features = ["configurable_error_handler"]
 
 [package.metadata.example.fallible_params]
 name = "Fallible System Parameters"
@@ -2217,8 +2230,8 @@ doc-scrape-examples = true
 required-features = ["bevy_mesh_picking_backend", "configurable_error_handler"]
 
 [package.metadata.example.error_handling]
-name = "Fallible Systems"
-description = "Systems that return results to handle errors"
+name = "Error handling"
+description = "How to return and handle errors across the ECS"
 category = "ECS (Entity Component System)"
 wasm = false
 

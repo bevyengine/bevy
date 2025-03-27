@@ -35,7 +35,6 @@ pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
-use prelude::UiPickingPlugin;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
@@ -169,6 +168,7 @@ impl Plugin for UiPlugin {
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
             .register_type::<TextShadow>()
+            .register_type::<ComputedNodeTarget>()
             .configure_sets(
                 PostUpdate,
                 (
@@ -180,11 +180,13 @@ impl Plugin for UiPlugin {
                 )
                     .chain(),
             )
-            .add_plugins(UiPickingPlugin)
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             );
+
+        #[cfg(feature = "bevy_ui_picking_backend")]
+        app.add_plugins(picking_backend::UiPickingPlugin);
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystem::Layout)
