@@ -385,4 +385,41 @@ mod tests {
         assert!(!world.entity(b).contains::<Rel>());
         assert!(!world.entity(b).contains::<RelTarget>());
     }
+
+    #[test]
+    fn relationship_with_multiple_non_target_fields_compiles() {
+        #[derive(Component)]
+        #[relationship(relationship_target=Target)]
+        #[expect(dead_code, reason = "test struct")]
+        struct Source {
+            #[relationship]
+            target: Entity,
+            foo: u8,
+            bar: u8,
+        }
+
+        #[derive(Component)]
+        #[relationship_target(relationship=Source)]
+        struct Target(Vec<Entity>);
+
+        // No assert necessary, looking to make sure compilation works with the macros
+    }
+    #[test]
+    fn relationship_target_with_multiple_non_target_fields_compiles() {
+        #[derive(Component)]
+        #[relationship(relationship_target=Target)]
+        struct Source(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship=Source)]
+        #[expect(dead_code, reason = "test struct")]
+        struct Target {
+            #[relationship]
+            target: Vec<Entity>,
+            foo: u8,
+            bar: u8,
+        }
+
+        // No assert necessary, looking to make sure compilation works with the macros
+    }
 }
