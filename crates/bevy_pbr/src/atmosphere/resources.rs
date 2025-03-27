@@ -341,6 +341,11 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
             shader_defs.push("TONEMAP_IN_SHADER".into());
         }
 
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            shader_defs.push("DUAL_SOURCE_BLENDING".into());
+        }
+
         RenderPipelineDescriptor {
             label: Some(format!("render_sky_pipeline_{}", key.msaa_samples).into()),
             layout: vec![if key.msaa_samples == 1 {
@@ -367,7 +372,11 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
                     blend: Some(BlendState {
                         color: BlendComponent {
                             src_factor: BlendFactor::One,
+                            #[cfg(not(target_arch = "wasm32"))]
                             dst_factor: BlendFactor::Src1,
+                            // Dual source blending is not supported on Web
+                            #[cfg(target_arch = "wasm32")]
+                            dst_factor: BlendFactor::SrcAlpha,
                             operation: BlendOperation::Add,
                         },
                         alpha: BlendComponent {
