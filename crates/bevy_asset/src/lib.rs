@@ -670,7 +670,7 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, DuplicateLabelAssetError, LoadState, UnapprovedPathMode,
+        AssetPlugin, AssetServer, Assets, LoadState, UnapprovedPathMode,
     };
     use alloc::{
         boxed::Box,
@@ -726,8 +726,6 @@ mod tests {
         CannotLoadDependency { dependency: AssetPath<'static> },
         #[error("A RON error occurred during loading")]
         RonSpannedError(#[from] ron::error::SpannedError),
-        #[error(transparent)]
-        DuplicateLabelAssetError(#[from] DuplicateLabelAssetError),
         #[error("An IO error occurred during loading")]
         Io(#[from] std::io::Error),
     }
@@ -773,7 +771,7 @@ mod tests {
                     .sub_texts
                     .drain(..)
                     .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
-                    .collect::<Result<Vec<_>, _>>()?,
+                    .collect(),
             })
         }
 
@@ -1809,49 +1807,6 @@ mod tests {
 
         // running schedule does not error on ambiguity between the 2 uses_assets systems
         app.world_mut().run_schedule(Update);
-    }
-
-    #[test]
-    fn fails_to_load_for_duplicate_subasset_labels() {
-        let mut app = App::new();
-
-        let dir = Dir::default();
-        dir.insert_asset_text(
-            Path::new("a.ron"),
-            r#"(
-    text: "b",
-    dependencies: [],
-    embedded_dependencies: [],
-    sub_texts: ["A", "A"],
-)"#,
-        );
-
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSource::build()
-                .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() })),
-        )
-        .add_plugins((
-            TaskPoolPlugin::default(),
-            LogPlugin::default(),
-            AssetPlugin::default(),
-        ));
-
-        app.init_asset::<CoolText>()
-            .init_asset::<SubText>()
-            .register_asset_loader(CoolTextLoader);
-
-        let asset_server = app.world().resource::<AssetServer>().clone();
-        let handle = asset_server.load::<CoolText>("a.ron");
-
-        run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
-            LoadState::Loading => None,
-            LoadState::Failed(err) => {
-                assert!(matches!(*err, AssetLoadError::AssetLoaderError(_)));
-                Some(())
-            }
-            state => panic!("Unexpected asset state: {state:?}"),
-        });
     }
 
     // This test is not checking a requirement, but documenting a current limitation. We simply are

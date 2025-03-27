@@ -13,6 +13,7 @@ use alloc::{
 };
 use atomicow::CowArc;
 use bevy_ecs::world::World;
+use bevy_log::warn;
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::any::{Any, TypeId};
@@ -461,7 +462,7 @@ impl<'a> LoadContext<'a> {
         &mut self,
         label: String,
         load: impl FnOnce(&mut LoadContext) -> A,
-    ) -> Result<Handle<A>, DuplicateLabelAssetError> {
+    ) -> Handle<A> {
         let mut context = self.begin_labeled_asset();
         let asset = load(&mut context);
         let complete_asset = context.finish(asset);
@@ -478,11 +479,7 @@ impl<'a> LoadContext<'a> {
     /// new [`LoadContext`] to track the dependencies for the labeled asset.
     ///
     /// See [`AssetPath`] for more on labeled assets.
-    pub fn add_labeled_asset<A: Asset>(
-        &mut self,
-        label: String,
-        asset: A,
-    ) -> Result<Handle<A>, DuplicateLabelAssetError> {
+    pub fn add_labeled_asset<A: Asset>(&mut self, label: String, asset: A) -> Handle<A> {
         self.labeled_asset_scope(label, |_| asset)
     }
 
@@ -495,7 +492,7 @@ impl<'a> LoadContext<'a> {
         &mut self,
         label: impl Into<CowArc<'static, str>>,
         loaded_asset: CompleteLoadedAsset<A>,
-    ) -> Result<Handle<A>, DuplicateLabelAssetError> {
+    ) -> Handle<A> {
         let label = label.into();
         let CompleteLoadedAsset {
             asset,
@@ -506,25 +503,19 @@ impl<'a> LoadContext<'a> {
         let handle = self
             .asset_server
             .get_or_create_path_handle(labeled_path, None);
-        let has_duplicate = self
-            .labeled_assets
-            .insert(
-                label.clone(),
-                LabeledAsset {
-                    asset: loaded_asset,
-                    handle: handle.clone().untyped(),
-                },
-            )
-            .is_some();
-        if has_duplicate {
-            return Err(DuplicateLabelAssetError(label.to_string()));
-        }
+        self.labeled_assets.insert(
+            label,
+            LabeledAsset {
+                asset: loaded_asset,
+                handle: handle.clone().untyped(),
+            },
+        );
         for (label, asset) in labeled_assets {
             if self.labeled_assets.insert(label.clone(), asset).is_some() {
-                return Err(DuplicateLabelAssetError(label.to_string()));
+                warn!("A labeled asset with the label \"{label}\" already exists. Replacing with the new asset.");
             }
         }
-        Ok(handle)
+        handle
     }
 
     /// Returns `true` if an asset with the label `label` exists in this context.
@@ -674,8 +665,3 @@ pub enum ReadAssetBytesError {
     #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
     MissingAssetHash,
 }
-
-/// An error when labeled assets have the same label, containing the duplicate label.
-#[derive(Error, Debug)]
-#[error("Encountered a duplicate label while loading an asset: \"{0}\"")]
-pub struct DuplicateLabelAssetError(pub String);
