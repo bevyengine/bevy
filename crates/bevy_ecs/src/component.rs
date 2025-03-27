@@ -166,7 +166,10 @@ use thiserror::Error;
 /// #[derive(Component)]
 /// #[require(
 ///     B(1), // tuple structs
-///     C { value: 1 }, // named-field structs
+///     C { // named-field structs
+///         x: 1,
+///         ..Default::default()
+///     },
 ///     D::One, // enum variants
 ///     E::ONE, // associated consts
 ///     F::new(1) // constructors
@@ -176,9 +179,10 @@ use thiserror::Error;
 /// #[derive(Component, PartialEq, Eq, Debug)]
 /// struct B(u8);
 ///
-/// #[derive(Component, PartialEq, Eq, Debug)]
+/// #[derive(Component, PartialEq, Eq, Debug, Default)]
 /// struct C {
-///     value: u8
+///     x: u8,
+///     y: u8,
 /// }
 ///
 /// #[derive(Component, PartialEq, Eq, Debug)]
@@ -206,7 +210,7 @@ use thiserror::Error;
 /// # let mut world = World::default();
 /// let id = world.spawn(A).id();
 /// assert_eq!(&B(1), world.entity(id).get::<B>().unwrap());
-/// assert_eq!(&C { value: 1 }, world.entity(id).get::<C>().unwrap());
+/// assert_eq!(&C { x: 1, y: 0 }, world.entity(id).get::<C>().unwrap());
 /// assert_eq!(&D::One, world.entity(id).get::<D>().unwrap());
 /// assert_eq!(&E(1), world.entity(id).get::<E>().unwrap());
 /// assert_eq!(&F(1), world.entity(id).get::<F>().unwrap());
