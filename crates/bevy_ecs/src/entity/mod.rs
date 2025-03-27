@@ -518,10 +518,15 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 
+/// This is the shared data behind [`RemoteEntities`].
 #[derive(Debug)]
 struct RemoteEntitiesInner {
+    /// The number of requests that have been made since the last [`fulfill`](Self::fulfill).
     recent_requests: AtomicU32,
+    /// The number of entities we're trying to keep in the channel for low latency access.
     in_channel: AtomicU32,
+
+    // Channels for sending and receiving reserved entities.
     reserved: async_channel::Receiver<Entity>,
     reserver: async_channel::Sender<Entity>,
 }
