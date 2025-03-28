@@ -2911,4 +2911,18 @@ mod tests {
         let _query: Query<()> = p.downcast_mut_inner().unwrap();
         let _query: Query<()> = p.downcast().unwrap();
     }
+
+    #[test]
+    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_resource_error::res_system`: SystemParamValidationError { skipped: false }"]
+    fn missing_resource_error() {
+        #[derive(Resource)]
+        pub struct MissingResource;
+
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems(res_system);
+        let mut world = World::new();
+        schedule.run(&mut world);
+
+        fn res_system(_: Res<MissingResource>) {}
+    }
 }
