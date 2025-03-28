@@ -233,7 +233,7 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
     ///
     /// This is useful if you have a run condition whose concrete type is unknown.
     /// Prefer `run_if` for run conditions whose type is known at compile time.
-    pub fn run_if_dyn(&mut self, condition: BoxedCondition) {
+    pub fn run_if_dyn_inner(&mut self, condition: BoxedCondition) {
         match self {
             Self::ScheduleConfig(config) => {
                 config.conditions.push(condition);
@@ -447,6 +447,18 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
         self.into_configs().run_if(condition)
     }
 
+    /// Adds a new boxed run condition to the systems.
+    ///
+    /// This is useful if you have a run condition whose concrete type is unknown.
+    /// Prefer [`run_if`](IntoScheduleConfigs::run_if) for run conditions whose type is known at compile time.
+    ///
+    /// For more information on run conditions, read the documentation of [`run_if`](IntoScheduleConfigs::run_if).
+    fn run_if_dyn<M>(self, condition: BoxedCondition) -> ScheduleConfigs<T> {
+        let mut config = self.into_configs();
+        config.run_if_dyn_inner(condition);
+        config
+    }
+
     /// Suppress warnings and errors that would result from these systems having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
@@ -532,7 +544,12 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleCo
     }
 
     fn run_if<M>(mut self, condition: impl Condition<M>) -> ScheduleConfigs<T> {
-        self.run_if_dyn(new_condition(condition));
+        self.run_if_dyn_inner(new_condition(condition));
+        self
+    }
+
+    fn run_if_dyn<M>(mut self, condition: BoxedCondition) -> ScheduleConfigs<T> {
+        self.run_if_dyn_inner(condition);
         self
     }
 
