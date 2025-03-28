@@ -1060,6 +1060,7 @@ impl Entities {
             .in_channel
             .store(new_in_channel, Ordering::Relaxed);
 
+        self.reserve(should_reserve);
         for _ in 0..should_reserve {
             let entity = self.alloc();
             // SAFETY: we just allocated it
