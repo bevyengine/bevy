@@ -37,8 +37,10 @@
 //! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
 
 mod clone_entities;
+mod entity_allocation;
 mod entity_set;
 mod map_entities;
+
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
