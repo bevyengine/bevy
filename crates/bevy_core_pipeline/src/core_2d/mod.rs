@@ -123,6 +123,8 @@ impl Plugin for Core2dPlugin {
                     Node2d::MainOpaquePass,
                     Node2d::MainTransparentPass,
                     Node2d::EndMainPass,
+                    Node2d::StartDebugPass,
+                    Node2d::EndDebugPass,
                     Node2d::Tonemapping,
                     Node2d::EndMainPassPostProcessing,
                     Node2d::Upscaling,
