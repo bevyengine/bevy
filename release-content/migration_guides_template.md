@@ -20,8 +20,8 @@ Keep it short and sweet:
 - What, then why, then how to migrate.
 - Some helpful standardized phrases:
   - `OldType` is now `NewType`. Replace all references and imports.
-  - The `Struct::method()` method now requires an additional `magnitude: f32` argument
-  - `Enum` has a new variant, `Enum::NewVariant`, which must be handled during `match` statements
+  - The `Struct::method()` method now requires an additional `magnitude: f32` argument.
+  - `Enum` has a new variant, `Enum::NewVariant`, which must be handled during `match` statements.
   - The `Type::method` method has been removed. Use `Type::other_method` instead.
   - The `crate::old_module` module is now `crate::new_module`. Update your imports.
   - `function` now returns `Option<String>`, instead of `String`.
