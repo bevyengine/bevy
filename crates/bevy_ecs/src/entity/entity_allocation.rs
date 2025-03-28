@@ -5,21 +5,22 @@ use bevy_platform_support::{
         Arc,
     },
 };
-use core::mem::MaybeUninit;
+use core::mem::{ManuallyDrop, MaybeUninit};
 
-use bevy_utils::syncunsafecell::SyncUnsafeCell;
+use crate::query::DebugCheckedUnwrap;
 
 use super::Entity;
 
 /// This is the item we store in the owned buffers.
 /// It might not be init (if it's out of bounds).
-/// It's in an unsafe cell (makes things simpler.)
-type Slot = MaybeUninit<SyncUnsafeCell<Entity>>;
+type Slot = MaybeUninit<Entity>;
 
 /// Each chunk stores a buffer of [`Slot`]s at a fixed capacity.
 struct Chunk {
     /// Points to the first slot. If this is null, we need to allocate it.
     first: AtomicPtr<Slot>,
+    /// The idnex of this chunk.
+    index: u32,
 }
 
 impl Chunk {
@@ -55,6 +56,75 @@ impl Chunk {
 
         (chunk_index, slice_index)
     }
+
+    /// Gets the entity at the index within this chunk.
+    ///
+    /// # Safety
+    ///
+    /// The chunk must be valid, the index must be in bounds, and the [`Slot`] must be init.
+    unsafe fn get(&self, index: u32) -> Entity {
+        // SAFETY: caller ensure we are init.
+        let head = unsafe { self.ptr().debug_checked_unwrap() };
+        let target = head.add(index as usize);
+
+        // SAFETY: Ensured by caller.
+        unsafe { (*target).assume_init() }
+    }
+
+    /// Sets this entity at this index.
+    ///
+    /// # Safety
+    ///
+    /// This must not be called concurrently.
+    /// Index must be in bounds.
+    unsafe fn set(&self, index: u32, entity: Entity) {
+        let head = self.ptr().unwrap_or_else(|| self.init());
+        let target = head.add(index as usize);
+
+        // SAFETY: Ensured by caller.
+        unsafe { (*target).write(entity) };
+    }
+
+    /// Initializes the chunk to be valid, returning the pointer.
+    ///
+    /// # Safety
+    ///
+    /// This must not be called concurrently.
+    #[cold]
+    unsafe fn init(&self) -> *mut Slot {
+        let cap = Self::capacity_of_chunk(self.index);
+        let mut buff = ManuallyDrop::new(Vec::new());
+        buff.reserve_exact(cap as usize);
+        let ptr = buff.as_mut_ptr();
+        self.first.store(ptr, Ordering::Relaxed);
+        ptr
+    }
+
+    /// Returns [`Self::first`] if it is valid.
+    #[inline]
+    fn ptr(&self) -> Option<*mut Slot> {
+        let ptr = self.first.load(Ordering::Relaxed);
+        (!ptr.is_null()).then_some(ptr)
+    }
+
+    fn new(index: u32) -> Self {
+        Self {
+            first: AtomicPtr::new(core::ptr::null_mut()),
+            index,
+        }
+    }
+}
+
+impl Drop for Chunk {
+    fn drop(&mut self) {
+        if let Some(to_drop) = self.ptr() {
+            let cap = Self::capacity_of_chunk(self.index) as usize;
+            // SAFETY: This was created in [`Self::init`] from a standard Vec.
+            unsafe {
+                Vec::from_raw_parts(to_drop, cap, cap);
+            }
+        }
+    }
 }
 
 /// This is the shared data for the owned list.
@@ -67,6 +137,23 @@ struct OwnedBuffer {
     len: AtomicUsize,
     /// This points to the index in this buffer of the first [`Slot`] that is pending reuse.
     free_cursor: AtomicUsize,
+}
+
+impl OwnedBuffer {
+    fn new() -> Self {
+        let base = [(); Chunk::NUM_CHUNKS as usize];
+        let mut index = 0u32;
+        let chunks = base.map(|()| {
+            let chunk = Chunk::new(index);
+            index += 1;
+            chunk
+        });
+        Self {
+            chunks,
+            len: AtomicUsize::new(0),
+            free_cursor: AtomicUsize::new(0),
+        }
+    }
 }
 
 /// This is the owned list.
