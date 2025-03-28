@@ -103,9 +103,38 @@ impl<'w> DeferredWorld<'w> {
             return Ok(None);
         };
 
+        self.modify_component_by_id(entity, component_id, move |component| {
+            // SAFETY: component matches the component_id collected in the above line
+            let mut component = unsafe { component.with_type::<T>() };
+
+            f(&mut component)
+        })
+    }
+
+    /// Temporarily removes a [`Component`] identified by the provided
+    /// [`ComponentId`] from the provided [`Entity`] and runs the provided
+    /// closure on it, returning the result if the component was available.
+    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut_by_id`](DeferredWorld::get_mut_by_id).
+    ///
+    /// You should prefer the typed [`modify_component`](DeferredWorld::modify_component)
+    /// whenever possible.
+    #[inline]
+    pub(crate) fn modify_component_by_id<R>(
+        &mut self,
+        entity: Entity,
+        component_id: ComponentId,
+        f: impl for<'a> FnOnce(MutUntyped<'a>) -> R,
+    ) -> Result<Option<R>, EntityMutableFetchError> {
         let entity_cell = self.get_entity_mut(entity)?;
 
-        if !entity_cell.contains::<T>() {
+        if !entity_cell.contains_id(component_id) {
             return Ok(None);
         }
 
@@ -142,11 +171,11 @@ impl<'w> DeferredWorld<'w> {
         // SAFETY: we will run the required hooks to simulate removal/replacement.
         let mut component = unsafe {
             entity_cell
-                .get_mut_assume_mutable::<T>()
+                .get_mut_assume_mutable_by_id(component_id)
                 .expect("component access confirmed above")
         };
 
-        let result = f(&mut component);
+        let result = f(component.reborrow());
 
         // Simulate adding this component by updating the relevant ticks
         *component.ticks.added = *component.ticks.changed;
