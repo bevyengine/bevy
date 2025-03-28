@@ -507,7 +507,7 @@ pub struct WireframeEntitySpecializationTicks {
     pub entities: MainEntityHashMap<Tick>,
 }
 
-/// Stores the [`crate::SpecializedWireframeViewPipelineCache`] for each view.
+/// Stores the [`SpecializedWireframeViewPipelineCache`] for each view.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct SpecializedWireframePipelineCache {
     // view entity -> view pipeline cache
