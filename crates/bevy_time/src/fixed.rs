@@ -65,7 +65,7 @@ use crate::{time::Time, virt::Virtual};
 /// frame. Any [`overstep()`](Time::overstep) present in the accumulator will be
 /// processed according to the new [`timestep()`](Time::timestep) value.
 #[derive(Debug, Copy, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone))]
 pub struct Fixed {
     timestep: Duration,
     overstep: Duration,

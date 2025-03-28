@@ -15,7 +15,7 @@ struct MaterialBindings {
 }
 
 #ifdef BINDLESS
-@group(2) @binding(0) var<storage> materials: binding_array<MaterialBindings>;
+@group(2) @binding(0) var<storage> materials: array<MaterialBindings>;
 @group(2) @binding(10) var<storage> material_color: binding_array<Color>;
 #else   // BINDLESS
 @group(2) @binding(0) var<uniform> material_color: Color;

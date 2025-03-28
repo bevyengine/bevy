@@ -20,6 +20,7 @@ use core::{
 
 /// An enum configuring how line joints will be drawn.
 #[derive(Debug, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash)]
+#[reflect(Default, PartialEq, Hash, Clone)]
 pub enum GizmoLineJoint {
     /// Does not draw any line joints.
     #[default]
@@ -37,6 +38,7 @@ pub enum GizmoLineJoint {
 
 /// An enum used to configure the style of gizmo lines, similar to CSS line-style
 #[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
+#[reflect(Default, PartialEq, Hash, Clone)]
 #[non_exhaustive]
 pub enum GizmoLineStyle {
     /// A solid line without any decorators
@@ -83,11 +85,13 @@ pub trait GizmoConfigGroup: Reflect + TypePath + Default {}
 
 /// The default gizmo config group.
 #[derive(Default, Reflect, GizmoConfigGroup)]
+#[reflect(Default)]
 pub struct DefaultGizmoConfigGroup;
 
 /// Used when the gizmo config group needs to be type-erased.
 /// Also used for retained gizmos, which can't have a gizmo config group.
 #[derive(Default, Reflect, GizmoConfigGroup, Debug, Clone)]
+#[reflect(Default, Clone)]
 pub struct ErasedGizmoConfigGroup;
 
 /// A [`Resource`] storing [`GizmoConfig`] and [`GizmoConfigGroup`] structs
@@ -167,6 +171,7 @@ impl GizmoConfigStore {
 
 /// A struct that stores configuration for gizmos.
 #[derive(Clone, Reflect, Debug)]
+#[reflect(Clone, Default)]
 pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
     ///
@@ -208,6 +213,7 @@ impl Default for GizmoConfig {
 
 /// A struct that stores configuration for gizmos.
 #[derive(Clone, Reflect, Debug)]
+#[reflect(Clone, Default)]
 pub struct GizmoLineConfig {
     /// Line width specified in pixels.
     ///

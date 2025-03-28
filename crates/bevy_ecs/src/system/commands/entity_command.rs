@@ -5,7 +5,6 @@
 //! [`EntityCommands`](crate::system::EntityCommands).
 
 use alloc::vec::Vec;
-use core::fmt;
 use log::info;
 
 use crate::{
@@ -13,11 +12,10 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentInfo},
     entity::{Entity, EntityClonerBuilder},
-    error::Result,
     event::Event,
-    relationship::RelationshipInsertHookMode,
-    system::{command::HandleError, Command, IntoObserverSystem},
-    world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld, World},
+    relationship::RelationshipHookMode,
+    system::IntoObserverSystem,
+    world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld},
 };
 use bevy_ptr::OwningPtr;
 
@@ -84,53 +82,6 @@ pub trait EntityCommand<Out = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`].
     fn apply(self, entity: EntityWorldMut) -> Out;
 }
-/// Passes in a specific entity to an [`EntityCommand`], resulting in a [`Command`] that
-/// internally runs the [`EntityCommand`] on that entity.
-///
-// NOTE: This is a separate trait from `EntityCommand` because "result-returning entity commands" and
-// "non-result returning entity commands" require different implementations, so they cannot be automatically
-// implemented. And this isn't the type of implementation that we want to thrust on people implementing
-// EntityCommand.
-pub trait CommandWithEntity<Out> {
-    /// Passes in a specific entity to an [`EntityCommand`], resulting in a [`Command`] that
-    /// internally runs the [`EntityCommand`] on that entity.
-    fn with_entity(self, entity: Entity) -> impl Command<Out> + HandleError<Out>;
-}
-
-impl<C> CommandWithEntity<Result<(), EntityMutableFetchError>> for C
-where
-    C: EntityCommand,
-{
-    fn with_entity(
-        self,
-        entity: Entity,
-    ) -> impl Command<Result<(), EntityMutableFetchError>>
-           + HandleError<Result<(), EntityMutableFetchError>> {
-        move |world: &mut World| -> Result<(), EntityMutableFetchError> {
-            let entity = world.get_entity_mut(entity)?;
-            self.apply(entity);
-            Ok(())
-        }
-    }
-}
-
-impl<C, T, Err> CommandWithEntity<Result<T, EntityCommandError<Err>>> for C
-where
-    C: EntityCommand<Result<T, Err>>,
-    Err: fmt::Debug + fmt::Display + Send + Sync + 'static,
-{
-    fn with_entity(
-        self,
-        entity: Entity,
-    ) -> impl Command<Result<T, EntityCommandError<Err>>> + HandleError<Result<T, EntityCommandError<Err>>>
-    {
-        move |world: &mut World| {
-            let entity = world.get_entity_mut(entity)?;
-            self.apply(entity)
-                .map_err(EntityCommandError::CommandFailed)
-        }
-    }
-}
 
 /// An error that occurs when running an [`EntityCommand`] on a specific entity.
 #[derive(thiserror::Error, Debug)]
@@ -157,7 +108,7 @@ where
 pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.insert_with_caller(bundle, mode, caller, RelationshipInsertHookMode::Run);
+        entity.insert_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
     }
 }
 
@@ -184,7 +135,7 @@ pub unsafe fn insert_by_id<T: Send + 'static>(
                 ptr,
                 mode,
                 caller,
-                RelationshipInsertHookMode::Run,
+                RelationshipHookMode::Run,
             );
         });
     }
@@ -197,7 +148,7 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         let value = entity.world_scope(|world| T::from_world(world));
-        entity.insert_with_caller(value, mode, caller, RelationshipInsertHookMode::Run);
+        entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
     }
 }
 

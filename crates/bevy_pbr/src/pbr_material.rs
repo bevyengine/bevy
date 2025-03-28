@@ -4,6 +4,7 @@ use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
+    texture::GpuImage,
 };
 use bitflags::bitflags;
 
@@ -16,7 +17,7 @@ use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
 /// [`bevy_render::mesh::Mesh::ATTRIBUTE_UV_1`].
 /// The default is [`UvChannel::Uv0`].
 #[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone, PartialEq)]
 pub enum UvChannel {
     #[default]
     Uv0,
@@ -32,7 +33,7 @@ pub enum UvChannel {
 #[bind_group_data(StandardMaterialKey)]
 #[data(0, StandardMaterialUniform, binding_array(10))]
 #[bindless]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct StandardMaterial {
     /// The color of the surface of the material before lighting.
     ///
@@ -630,7 +631,7 @@ pub struct StandardMaterial {
     ///
     /// [`Mesh`]: bevy_render::mesh::Mesh
     // TODO: include this in reflection somehow (maybe via remote types like serde https://serde.rs/remote-derive.html)
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub cull_mode: Option<Face>,
 
     /// Whether to apply only the base color to this material.

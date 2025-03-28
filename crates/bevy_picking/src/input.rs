@@ -48,7 +48,7 @@ pub mod prelude {
 /// This plugin contains several settings, and is added to the world as a resource after initialization.
 /// You can configure pointer input settings at runtime by accessing the resource.
 #[derive(Copy, Clone, Resource, Debug, Reflect)]
-#[reflect(Resource, Default)]
+#[reflect(Resource, Default, Clone)]
 pub struct PointerInputPlugin {
     /// Should touch inputs be updated?
     pub is_touch_enabled: bool,

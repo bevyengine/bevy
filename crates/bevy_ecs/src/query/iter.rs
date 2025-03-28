@@ -2585,6 +2585,7 @@ impl<T> Ord for NeutralOrd<T> {
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use alloc::vec::Vec;
     use std::println;

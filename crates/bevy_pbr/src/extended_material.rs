@@ -128,6 +128,7 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 /// the `extended_material` example).
 #[derive(Asset, Clone, Debug, Reflect)]
 #[reflect(type_path = false)]
+#[reflect(Clone)]
 pub struct ExtendedMaterial<B: Material, E: MaterialExtension> {
     pub base: B,
     pub extension: E,

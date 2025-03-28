@@ -18,7 +18,7 @@ use crate::{
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use core::any::TypeId;
 
-use super::IntoSystem;
+use super::{IntoSystem, SystemParamValidationError};
 
 /// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
 ///
@@ -30,7 +30,7 @@ use super::IntoSystem;
 ///
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
 /// It's possible to specify explicit execution order between specific systems,
-/// see [`IntoSystemConfigs`](crate::schedule::IntoSystemConfigs).
+/// see [`IntoScheduleConfigs`](crate::schedule::IntoScheduleConfigs).
 #[diagnostic::on_unimplemented(message = "`{Self}` is not a system", label = "invalid system")]
 pub trait System: Send + Sync + 'static {
     /// The system's input.
@@ -74,6 +74,8 @@ pub trait System: Send + Sync + 'static {
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
     ///   registered in `archetype_component_access`. There must be no conflicting
     ///   simultaneous accesses while the system is running.
+    /// - If [`System::is_exclusive`] returns `true`, then it must be valid to call
+    ///   [`UnsafeWorldCell::world_mut`] on `world`.
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
@@ -88,14 +90,25 @@ pub trait System: Send + Sync + 'static {
     ///
     /// [`run_readonly`]: ReadOnlySystem::run_readonly
     fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        let ret = self.run_without_applying_deferred(input, world);
+        self.apply_deferred(world);
+        ret
+    }
+
+    /// Runs the system with the given input in the world.
+    ///
+    /// [`run_readonly`]: ReadOnlySystem::run_readonly
+    fn run_without_applying_deferred(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: &mut World,
+    ) -> Self::Out {
         let world_cell = world.as_unsafe_world_cell();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.
         // - `update_archetype_component_access` has been called.
-        let ret = unsafe { self.run_unsafe(input, world_cell) };
-        self.apply_deferred(world);
-        ret
+        unsafe { self.run_unsafe(input, world_cell) }
     }
 
     /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers) of this system to the world.
@@ -126,11 +139,14 @@ pub trait System: Send + Sync + 'static {
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool;
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError>;
 
     /// Safe version of [`System::validate_param_unsafe`].
     /// that runs on exclusive, single-threaded `world` pointer.
-    fn validate_param(&mut self, world: &World) -> bool {
+    fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
         let world_cell = world.as_unsafe_world_cell_readonly();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
@@ -144,7 +160,7 @@ pub trait System: Send + Sync + 'static {
 
     /// Update the system's archetype component [`Access`].
     ///
-    /// ## Note for implementors
+    /// ## Note for implementers
     /// `world` may only be used to access metadata. This can be done in safe code
     /// via functions such as [`UnsafeWorldCell::archetypes`].
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell);
@@ -357,10 +373,11 @@ impl RunSystemOnce for &mut World {
     {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        if system.validate_param(self) {
-            Ok(system.run(input, self))
-        } else {
-            Err(RunSystemError::InvalidParams(system.name()))
+        match system.validate_param(self) {
+            Ok(()) => Ok(system.run(input, self)),
+            // TODO: should we expse the fact that the system was skipped to the user?
+            // Should we somehow unify this better with system error handling?
+            Err(_) => Err(RunSystemError::InvalidParams(system.name())),
         }
     }
 }
@@ -456,7 +473,7 @@ mod tests {
 
         let mut world = World::default();
         // This fails because `T` has not been added to the world yet.
-        let result = world.run_system_once(system.warn_param_missing());
+        let result = world.run_system_once(system);
 
         assert!(matches!(result, Err(RunSystemError::InvalidParams(_))));
     }

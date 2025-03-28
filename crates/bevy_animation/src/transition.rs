@@ -29,7 +29,7 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 /// component to get confused about which animation is the "main" animation, and
 /// transitions will usually be incorrect as a result.
 #[derive(Component, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct AnimationTransitions {
     main_animation: Option<AnimationNodeIndex>,
     transitions: Vec<AnimationTransition>,
@@ -52,6 +52,7 @@ impl Clone for AnimationTransitions {
 
 /// An animation that is being faded out as part of a transition
 #[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Clone)]
 pub struct AnimationTransition {
     /// The current weight. Starts at 1.0 and goes to 0.0 during the fade-out.
     current_weight: f32,

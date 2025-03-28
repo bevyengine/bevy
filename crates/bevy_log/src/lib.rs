@@ -259,6 +259,7 @@ impl Default for LogPlugin {
 }
 
 impl Plugin for LogPlugin {
+    #[expect(clippy::print_stderr, reason = "Allowed during logger setup")]
     fn build(&self, app: &mut App) {
         #[cfg(feature = "trace")]
         {

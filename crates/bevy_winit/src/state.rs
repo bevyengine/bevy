@@ -16,7 +16,9 @@ use bevy_input::{
     gestures::*,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
-use bevy_log::{error, trace, warn};
+#[cfg(any(not(target_arch = "wasm32"), feature = "custom_cursor"))]
+use bevy_log::error;
+use bevy_log::{trace, warn};
 #[cfg(feature = "custom_cursor")]
 use bevy_math::URect;
 use bevy_math::{ivec2, DVec2, Vec2};
@@ -49,7 +51,7 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use crate::{
     accessibility::AccessKitAdapters,
     converters, create_windows,
-    system::{create_monitors, CachedWindow},
+    system::{create_monitors, CachedWindow, WinitWindowPressedKeys},
     AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper,
     RawWinitWindowEvent, UpdateMode, WinitSettings, WinitWindows,
 };
@@ -93,7 +95,15 @@ struct WinitAppRunnerState<T: Event> {
         EventWriter<'static, WindowBackendScaleFactorChanged>,
         EventWriter<'static, WindowScaleFactorChanged>,
         NonSend<'static, WinitWindows>,
-        Query<'static, 'static, (&'static mut Window, &'static mut CachedWindow)>,
+        Query<
+            'static,
+            'static,
+            (
+                &'static mut Window,
+                &'static mut CachedWindow,
+                &'static mut WinitWindowPressedKeys,
+            ),
+        >,
         NonSendMut<'static, AccessKitAdapters>,
     )>,
 }
@@ -108,7 +118,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             EventWriter<WindowBackendScaleFactorChanged>,
             EventWriter<WindowScaleFactorChanged>,
             NonSend<WinitWindows>,
-            Query<(&mut Window, &mut CachedWindow)>,
+            Query<(&mut Window, &mut CachedWindow, &mut WinitWindowPressedKeys)>,
             NonSendMut<AccessKitAdapters>,
         )> = SystemState::new(app.world_mut());
 
@@ -259,7 +269,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             return;
         };
 
-        let Ok((mut win, _)) = windows.get_mut(window) else {
+        let Ok((mut win, _, mut pressed_keys)) = windows.get_mut(window) else {
             warn!("Window {window:?} is missing `Window` component, skipping event {event:?}");
             return;
         };
@@ -297,13 +307,21 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             WindowEvent::KeyboardInput {
                 ref event,
                 // On some platforms, winit sends "synthetic" key press events when the window
-                // gains or loses focus. These should not be handled, so we only process key
-                // events if they are not synthetic key presses.
+                // gains or loses focus. These are not implemented on every platform, so we ignore
+                // winit's synthetic key pressed and implement the same mechanism ourselves.
+                // (See the `WinitWindowPressedKeys` component)
                 is_synthetic: false,
                 ..
             } => {
-                self.bevy_window_events
-                    .send(converters::convert_keyboard_input(event, window));
+                let keyboard_input = converters::convert_keyboard_input(event, window);
+                if event.state.is_pressed() {
+                    pressed_keys
+                        .0
+                        .insert(keyboard_input.key_code, keyboard_input.logical_key.clone());
+                } else {
+                    pressed_keys.0.remove(&keyboard_input.key_code);
+                }
+                self.bevy_window_events.send(keyboard_input);
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let physical_position = DVec2::new(position.x, position.y);
@@ -438,7 +456,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                     // Have the startup behavior run in about_to_wait, which prevents issues with
                     // invisible window creation. https://github.com/bevyengine/bevy/issues/18027
                     if self.startup_forced_updates == 0 {
-                        self.redraw_requested = true;
                         self.redraw_requested(_event_loop);
                     }
                 }
@@ -492,11 +509,14 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             let winit_windows = self.world().non_send_resource::<WinitWindows>();
             let headless = winit_windows.windows.is_empty();
             let exiting = self.app_exit.is_some();
+            let reactive = matches!(self.update_mode, UpdateMode::Reactive { .. });
             let all_invisible = winit_windows
                 .windows
                 .iter()
                 .all(|(_, w)| !w.is_visible().unwrap_or(false));
-            if !exiting && (self.startup_forced_updates > 0 || headless || all_invisible) {
+            if !exiting
+                && (self.startup_forced_updates > 0 || headless || all_invisible || reactive)
+            {
                 self.redraw_requested(event_loop);
             }
         }

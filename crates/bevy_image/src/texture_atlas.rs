@@ -87,7 +87,11 @@ impl TextureAtlasSources {
 ///
 /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
 #[derive(Asset, PartialEq, Eq, Debug, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -200,7 +204,7 @@ impl TextureAtlasLayout {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Default, Debug, PartialEq, Hash)
+    reflect(Default, Debug, PartialEq, Hash, Clone)
 )]
 pub struct TextureAtlas {
     /// Texture atlas layout handle

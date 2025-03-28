@@ -37,6 +37,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         || Some(quote!(#bevy_reflect_path::tuple_struct_partial_eq)),
         || None,
     );
+    let clone_fn = reflect_struct.get_clone_impl();
 
     #[cfg(not(feature = "functions"))]
     let function_impls = None::<proc_macro2::TokenStream>;
@@ -86,10 +87,10 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                 #bevy_reflect_path::TupleStructFieldIter::new(self)
             }
 
-            fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicTupleStruct {
+            fn to_dynamic_tuple_struct(&self) -> #bevy_reflect_path::DynamicTupleStruct {
                 let mut dynamic: #bevy_reflect_path::DynamicTupleStruct = #FQDefault::default();
                 dynamic.set_represented_type(#bevy_reflect_path::PartialReflect::get_represented_type_info(self));
-                #(dynamic.insert_boxed(#bevy_reflect_path::PartialReflect::clone_value(#fields_ref));)*
+                #(dynamic.insert_boxed(#bevy_reflect_path::PartialReflect::to_dynamic(#fields_ref));)*
                 dynamic
             }
         }
@@ -98,10 +99,6 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             #[inline]
             fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
-            }
-            #[inline]
-            fn clone_value(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect> {
-                #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#bevy_reflect_path::TupleStruct::clone_dynamic(self))
             }
 
             #[inline]
@@ -144,6 +141,8 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             }
 
             #common_methods
+
+            #clone_fn
         }
     }
 }
