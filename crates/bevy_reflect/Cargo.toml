@@ -68,6 +68,8 @@ critical-section = [
   "bevy_platform_support/critical-section",
   "bevy_utils/critical-section",
 ]
+# Enables automatic reflect registration
+auto_register = ["bevy_reflect_derive/auto_register", "dep:inventory"]
 
 ## Enables use of browser APIs.
 ## Note this is currently only applicable on `wasm32` architectures.
@@ -114,6 +116,9 @@ variadics_please = "1.1"
 wgpu-types = { version = "24", features = [
   "serde",
 ], optional = true, default-features = false }
+
+# deps for automatic type registration
+inventory = { version = "0.3", optional = true }
 
 [dev-dependencies]
 ron = "0.8.0"
