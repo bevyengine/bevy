@@ -25,7 +25,7 @@ use thiserror::Error;
 use tracing::info_span;
 
 use crate::{
-    component::{ComponentId, Components, Tick},
+    component::{ComponentId, ComponentName, Components, Tick},
     error::default_error_handler,
     prelude::Component,
     resource::Resource,
@@ -1902,7 +1902,7 @@ impl ScheduleGraph {
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
         components: &'a Components,
-    ) -> impl Iterator<Item = (String, String, Vec<&'a str>)> + 'a {
+    ) -> impl Iterator<Item = (String, String, Vec<ComponentName<'a>>)> + 'a {
         ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {
