@@ -3,7 +3,10 @@ use crate::{
     SetMeshBindGroup, SetMeshViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
-use bevy_asset::{load_internal_asset, prelude::AssetChanged, weak_handle, AsAssetId, Asset, AssetApp, AssetEvents, AssetId, Assets, Handle, UntypedAssetId};
+use bevy_asset::{
+    load_internal_asset, prelude::AssetChanged, weak_handle, AsAssetId, Asset, AssetApp,
+    AssetEvents, AssetId, Assets, Handle, UntypedAssetId,
+};
 use bevy_color::{Color, ColorToComponents};
 use bevy_core_pipeline::core_3d::{
     graph::{Core3d, Node3d},
@@ -42,9 +45,7 @@ use bevy_render::{
         PhaseItemBatchSetKey, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
         SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
     },
-    render_resource::{
-        *,
-    },
+    render_resource::*,
     renderer::RenderContext,
     sync_world::{MainEntity, MainEntityHashMap},
     view::{

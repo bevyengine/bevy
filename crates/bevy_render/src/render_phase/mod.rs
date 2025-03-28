@@ -420,7 +420,6 @@ impl<BPI> ViewBinnedRenderPhases<BPI>
 where
     BPI: BinnedPhaseItem,
 {
-
     pub fn prepare_for_new_frame(
         &mut self,
         retained_view_entity: RetainedViewEntity,
