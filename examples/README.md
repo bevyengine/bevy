@@ -576,6 +576,7 @@ Example | Description
 [Custom User Event](../examples/window/custom_user_event.rs) | Handles custom user events within the event loop
 [Low Power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 [Monitor info](../examples/window/monitor_info.rs) | Displays information about available monitors (displays).
+[Multi-Window Camera UI](../examples/window/multi_window_camera_ui.rs) | Demonstrates creating multiple windows with multiple cameras with different UIs
 [Multiple Windows](../examples/window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
 [Scale Factor Override](../examples/window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 [Screenshot](../examples/window/screenshot.rs) | Shows how to save screenshots to disk
