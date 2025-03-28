@@ -508,7 +508,7 @@ pub struct WireframeEntitySpecializationTicks {
     pub entities: MainEntityHashMap<Tick>,
 }
 
-/// Stores the [`crate::SpecializedMaterialViewPipelineCache`] for each view.
+/// Stores the [`crate::SpecializedWireframeViewPipelineCache`] for each view.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct SpecializedWireframePipelineCache {
     // view entity -> view pipeline cache
@@ -571,7 +571,7 @@ fn setup_global_wireframe_material(
     // Create the handle used for the global material
     commands.insert_resource(GlobalWireframeMaterial {
         handle: materials.add(WireframeMaterial {
-            color: config.default_color.into(),
+            color: config.default_color,
         }),
     });
 }
@@ -583,7 +583,7 @@ fn global_color_changed(
     global_material: Res<GlobalWireframeMaterial>,
 ) {
     if let Some(global_material) = materials.get_mut(&global_material.handle) {
-        global_material.color = config.default_color.into();
+        global_material.color = config.default_color;
     }
 }
 
