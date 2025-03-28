@@ -1558,13 +1558,14 @@ fn load_node(
     // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
     if !settings.load_meshes.is_empty() {
         if let Some(mesh) = gltf_node.mesh() {
-            // Create `MorphWeights`. The weights will be copied from `mesh.weights()`
-            // if present. If not then the weights are zero.
+            // Create the `MorphWeights` component. The weights will be copied
+            // from `mesh.weights()` if present. If not then the weights are
+            // zero.
             //
-            // The glTF spec says that all primitives must have the same number
-            // of morph targets, and `mesh.weights()` should be equal to that
-            // number if present. We're more forgiving and take whichever is
-            // biggest, leaving any unspecified weights at zero.
+            // The glTF spec says that all primitives within a mesh must have
+            // the same number of morph targets, and `mesh.weights()` should be
+            // equal to that number if present. We're more forgiving and take
+            // whichever is largest, leaving any unspecified weights at zero.
             if (max_morph_target_count > 0) || mesh.weights().is_some() {
                 let mut weights = Vec::from(mesh.weights().unwrap_or(&[]));
 
