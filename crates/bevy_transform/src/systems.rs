@@ -391,9 +391,6 @@ mod parallel {
                 unsafe {
                     let (_, (_, p_global_transform, tree), (p_children, _)) =
                         nodes.get_unchecked(parent).unwrap();
-                    if !tree.is_changed() {
-                        continue;
-                    }
                     propagate_descendants_unchecked(
                         parent,
                         p_global_transform,
