@@ -268,29 +268,17 @@ mod parallel {
     /// [`mark_dirty_trees`](super::mark_dirty_trees).
     pub fn propagate_parent_transforms(
         mut queue: Local<WorkQueue>,
-        mut orphaned: RemovedComponents<ChildOf>,
-        mut orphans: Local<Vec<Entity>>,
         mut roots: Query<
             (Entity, Ref<Transform>, &mut GlobalTransform, &Children),
             (Without<ChildOf>, Changed<TransformTreeChanged>),
         >,
         nodes: NodeQuery,
     ) {
-        // Orphans
-        orphans.clear();
-        orphans.extend(orphaned.read());
-        orphans.sort_unstable();
-
         // Process roots in parallel, seeding the work queue
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
             |outbox, (parent, transform, mut parent_transform, children)| {
-                if transform.is_changed()
-                    || parent_transform.is_added()
-                    || orphans.binary_search(&parent).is_ok()
-                {
-                    *parent_transform = GlobalTransform::from(*transform);
-                }
+                *parent_transform = GlobalTransform::from(*transform);
 
                 // SAFETY: the parent entities passed into this function are taken from iterating
                 // over the root entity query. Queries iterate over disjoint entities, preventing
