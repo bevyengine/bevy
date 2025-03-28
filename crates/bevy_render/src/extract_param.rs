@@ -88,7 +88,9 @@ where
         // SAFETY: Read-only access to world data registered in `init_state`.
         let result = unsafe { world.get_resource_by_id(state.main_world_state) };
         let Some(main_world) = result else {
-            return Err(SystemParamValidationError::invalid());
+            return Err(SystemParamValidationError::invalid::<Self>(
+                "`MainWorld` resource does not exist",
+            ));
         };
         // SAFETY: Type is guaranteed by `SystemState`.
         let main_world: &World = unsafe { main_world.deref() };
