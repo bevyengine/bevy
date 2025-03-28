@@ -162,8 +162,8 @@ impl ComputedNode {
         ResolvedBorderRadius {
             top_left: compute_radius(self.border_radius.top_left, outer_distance),
             top_right: compute_radius(self.border_radius.top_right, outer_distance),
-            bottom_left: compute_radius(self.border_radius.bottom_left, outer_distance),
             bottom_right: compute_radius(self.border_radius.bottom_right, outer_distance),
+            bottom_left: compute_radius(self.border_radius.bottom_left, outer_distance),
         }
     }
 
@@ -200,8 +200,8 @@ impl ComputedNode {
         ResolvedBorderRadius {
             top_left: clamp_corner(self.border_radius.top_left, s, b.xy()),
             top_right: clamp_corner(self.border_radius.top_right, s, b.zy()),
-            bottom_left: clamp_corner(self.border_radius.bottom_right, s, b.zw()),
             bottom_right: clamp_corner(self.border_radius.bottom_left, s, b.xw()),
+            bottom_left: clamp_corner(self.border_radius.bottom_right, s, b.zw()),
         }
     }
 
@@ -2217,8 +2217,8 @@ pub struct GlobalZIndex(pub i32);
 pub struct BorderRadius {
     pub top_left: Val,
     pub top_right: Val,
-    pub bottom_left: Val,
     pub bottom_right: Val,
+    pub bottom_left: Val,
 }
 
 impl Default for BorderRadius {
@@ -2430,27 +2430,28 @@ impl BorderRadius {
 
     /// Resolve the border radius for a single corner from the given context values.
     /// Returns the radius of the corner in physical pixels.
-    pub fn resolve_single_corner(
+    pub const fn resolve_single_corner(
         radius: Val,
         node_size: Vec2,
         viewport_size: Vec2,
         scale_factor: f32,
     ) -> f32 {
+        let min_extent = node_size.x.min(node_size.y);
         match radius {
             Val::Auto => 0.,
             Val::Px(px) => px * scale_factor,
-            Val::Percent(percent) => node_size.min_element() * percent / 100.,
+            Val::Percent(percent) => min_extent * percent / 100.,
             Val::Vw(percent) => viewport_size.x * percent / 100.,
             Val::Vh(percent) => viewport_size.y * percent / 100.,
-            Val::VMin(percent) => viewport_size.min_element() * percent / 100.,
-            Val::VMax(percent) => viewport_size.max_element() * percent / 100.,
+            Val::VMin(percent) => viewport_size.x.min(viewport_size.y) * percent / 100.,
+            Val::VMax(percent) => viewport_size.x.max(viewport_size.y) * percent / 100.,
         }
-        .clamp(0., 0.5 * node_size.min_element())
+        .clamp(0., 0.5 * min_extent)
     }
 
     /// Resolve the border radii for the corners from the given context values.
     /// Returns the radii of the each corner in physical pixels.
-    pub fn resolve(
+    pub const fn resolve(
         &self,
         node_size: Vec2,
         viewport_size: Vec2,
@@ -2469,14 +2470,14 @@ impl BorderRadius {
                 viewport_size,
                 scale_factor,
             ),
-            bottom_left: Self::resolve_single_corner(
-                self.bottom_left,
+            bottom_right: Self::resolve_single_corner(
+                self.bottom_right,
                 node_size,
                 viewport_size,
                 scale_factor,
             ),
-            bottom_right: Self::resolve_single_corner(
-                self.bottom_right,
+            bottom_left: Self::resolve_single_corner(
+                self.bottom_left,
                 node_size,
                 viewport_size,
                 scale_factor,
@@ -2493,16 +2494,16 @@ impl BorderRadius {
 pub struct ResolvedBorderRadius {
     pub top_left: f32,
     pub top_right: f32,
-    pub bottom_left: f32,
     pub bottom_right: f32,
+    pub bottom_left: f32,
 }
 
 impl ResolvedBorderRadius {
     pub const ZERO: Self = Self {
         top_left: 0.,
         top_right: 0.,
-        bottom_left: 0.,
         bottom_right: 0.,
+        bottom_left: 0.,
     };
 }
 
