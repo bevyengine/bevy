@@ -17,18 +17,21 @@ use crate::{
         FromWorld, World,
     },
 };
-use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
+use alloc::{
+    borrow::{Cow, ToOwned},
+    boxed::Box,
+    vec::Vec,
+};
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::synccell::SyncCell;
 use core::{
     any::Any,
-    fmt::Debug,
+    fmt::{Debug, Display},
     marker::PhantomData,
     ops::{Deref, DerefMut},
     panic::Location,
 };
-use derive_more::derive::Display;
 use disqualified::ShortName;
 use thiserror::Error;
 
@@ -441,7 +444,12 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         };
         match query.single_inner() {
             Ok(_) => Ok(()),
-            Err(_) => Err(SystemParamValidationError::skipped()),
+            Err(QuerySingleError::NoEntities(_)) => Err(
+                SystemParamValidationError::skipped::<Self>("No matching entities"),
+            ),
+            Err(QuerySingleError::MultipleEntities(_)) => Err(
+                SystemParamValidationError::skipped::<Self>("Multiple matching entities"),
+            ),
         }
     }
 }
@@ -508,9 +516,9 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         };
         match query.single_inner() {
             Ok(_) | Err(QuerySingleError::NoEntities(_)) => Ok(()),
-            Err(QuerySingleError::MultipleEntities(_)) => {
-                Err(SystemParamValidationError::skipped())
-            }
+            Err(QuerySingleError::MultipleEntities(_)) => Err(
+                SystemParamValidationError::skipped::<Self>("Multiple matching entities"),
+            ),
         }
     }
 }
@@ -577,7 +585,9 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
             )
         };
         if query.is_empty() {
-            Err(SystemParamValidationError::skipped())
+            Err(SystemParamValidationError::skipped::<Self>(
+                "No matching entities",
+            ))
         } else {
             Ok(())
         }
@@ -862,7 +872,9 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         {
             Ok(())
         } else {
-            Err(SystemParamValidationError::invalid())
+            Err(SystemParamValidationError::invalid::<Self>(
+                "Resource does not exist",
+            ))
         }
     }
 
@@ -975,7 +987,9 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         {
             Ok(())
         } else {
-            Err(SystemParamValidationError::invalid())
+            Err(SystemParamValidationError::invalid::<Self>(
+                "Resource does not exist",
+            ))
         }
     }
 
@@ -1573,7 +1587,9 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         {
             Ok(())
         } else {
-            Err(SystemParamValidationError::invalid())
+            Err(SystemParamValidationError::invalid::<Self>(
+                "Non-send resource does not exist",
+            ))
         }
     }
 
@@ -1683,7 +1699,9 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         {
             Ok(())
         } else {
-            Err(SystemParamValidationError::invalid())
+            Err(SystemParamValidationError::invalid::<Self>(
+                "Non-send resource does not exist",
+            ))
         }
     }
 
@@ -2650,7 +2668,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
 ///
 /// Returned as an error from [`SystemParam::validate_param`],
 /// and handled using the unified error handling mechanisms defined in [`bevy_ecs::error`].
-#[derive(Debug, PartialEq, Eq, Clone, Display, Error)]
+#[derive(Debug, PartialEq, Eq, Clone, Error)]
 pub struct SystemParamValidationError {
     /// Whether the system should be skipped.
     ///
@@ -2664,17 +2682,45 @@ pub struct SystemParamValidationError {
     /// If `true`, the system should be skipped.
     /// This is suitable for system params that are intended to only operate in certain application states, such as [`Single`].
     pub skipped: bool,
+
+    /// A message describing the validation error.
+    pub message: Cow<'static, str>,
+
+    /// A string identifying the invalid parameter.
+    /// This is usually the type name of the parameter.
+    pub param: Cow<'static, str>,
 }
 
 impl SystemParamValidationError {
     /// Constructs a `SystemParamValidationError` that skips the system.
-    pub const fn skipped() -> Self {
-        Self { skipped: true }
+    /// The parameter name is initialized to the type name of `T`, so a `SystemParam` should usually pass `Self`.
+    pub fn skipped<T>(message: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            skipped: true,
+            message: message.into(),
+            param: Cow::Borrowed(core::any::type_name::<T>()),
+        }
     }
 
     /// Constructs a `SystemParamValidationError` for an invalid parameter that should be treated as an error.
-    pub const fn invalid() -> Self {
-        Self { skipped: false }
+    /// The parameter name is initialized to the type name of `T`, so a `SystemParam` should usually pass `Self`.
+    pub fn invalid<T>(message: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            skipped: false,
+            message: message.into(),
+            param: Cow::Borrowed(core::any::type_name::<T>()),
+        }
+    }
+}
+
+impl Display for SystemParamValidationError {
+    fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(
+            fmt,
+            "Parameter `{}` failed validation: {}",
+            ShortName(&self.param),
+            self.message
+        )
     }
 }
 
@@ -2913,7 +2959,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_resource_error::res_system`: SystemParamValidationError { skipped: false }"]
+    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_resource_error::res_system`: SystemParamValidationError { skipped: false, message: \"Resource does not exist\", param: \"bevy_ecs::change_detection::Res<bevy_ecs::system::system_param::tests::missing_resource_error::MissingResource>\" }"]
     fn missing_resource_error() {
         #[derive(Resource)]
         pub struct MissingResource;
