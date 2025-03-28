@@ -22,6 +22,7 @@ pub use futures_lite::AsyncWriteExt;
 pub use source::*;
 
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use bevy_platform_support::io;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::future::Future;
 use core::{
@@ -43,7 +44,7 @@ pub enum AssetReaderError {
 
     /// Encountered an I/O error while loading an asset.
     #[error("Encountered an I/O error while loading asset: {0}")]
-    Io(Arc<std::io::Error>),
+    Io(Arc<io::Error>),
 
     /// The HTTP request completed but returned an unhandled [HTTP response status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status).
     /// If the request fails before getting a status code (e.g. request timeout, interrupted connection, etc), expect [`AssetReaderError::Io`].
@@ -66,8 +67,8 @@ impl PartialEq for AssetReaderError {
 
 impl Eq for AssetReaderError {}
 
-impl From<std::io::Error> for AssetReaderError {
-    fn from(value: std::io::Error) -> Self {
+impl From<io::Error> for AssetReaderError {
+    fn from(value: io::Error) -> Self {
         Self::Io(Arc::new(value))
     }
 }
@@ -99,14 +100,14 @@ pub trait AsyncSeekForward {
     /// # Implementation
     ///
     /// Implementations of this trait should handle [`Poll::Pending`] correctly, converting
-    /// [`std::io::ErrorKind::WouldBlock`] errors into [`Poll::Pending`] to indicate that the operation is not
+    /// [`io::ErrorKind::WouldBlock`] errors into [`Poll::Pending`] to indicate that the operation is not
     /// yet complete and should be retried, and either internally retry or convert
-    /// [`std::io::ErrorKind::Interrupted`] into another error kind.
+    /// [`io::ErrorKind::Interrupted`] into another error kind.
     fn poll_seek_forward(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         offset: u64,
-    ) -> Poll<futures_io::Result<u64>>;
+    ) -> Poll<io::Result<u64>>;
 }
 
 impl<T: ?Sized + AsyncSeekForward + Unpin> AsyncSeekForward for Box<T> {
@@ -114,7 +115,7 @@ impl<T: ?Sized + AsyncSeekForward + Unpin> AsyncSeekForward for Box<T> {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         offset: u64,
-    ) -> Poll<futures_io::Result<u64>> {
+    ) -> Poll<io::Result<u64>> {
         Pin::new(&mut **self).poll_seek_forward(cx, offset)
     }
 }
@@ -169,7 +170,7 @@ pub trait Reader: AsyncRead + AsyncSeekForward + Unpin + Send + Sync {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
-    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+    ) -> StackFuture<'a, io::Result<usize>, STACK_FUTURE_SIZE> {
         let future = futures_lite::AsyncReadExt::read_to_end(self, buf);
         StackFuture::from(future)
     }
@@ -179,7 +180,7 @@ impl Reader for Box<dyn Reader + '_> {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
-    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+    ) -> StackFuture<'a, io::Result<usize>, STACK_FUTURE_SIZE> {
         (**self).read_to_end(buf)
     }
 }
@@ -335,7 +336,7 @@ pub type PathStream = dyn Stream<Item = PathBuf> + Unpin + Send;
 pub enum AssetWriterError {
     /// Encountered an I/O error while loading an asset.
     #[error("encountered an io error while loading asset: {0}")]
-    Io(#[from] std::io::Error),
+    Io(#[from] io::Error),
 }
 
 /// Preforms write operations on an asset storage. [`AssetWriter`] exposes a "virtual filesystem"
@@ -636,7 +637,7 @@ impl AsyncRead for VecReader {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<futures_io::Result<usize>> {
+    ) -> Poll<io::Result<usize>> {
         if self.bytes_read >= self.bytes.len() {
             Poll::Ready(Ok(0))
         } else {
@@ -652,7 +653,7 @@ impl AsyncSeekForward for VecReader {
         mut self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
         offset: u64,
-    ) -> Poll<std::io::Result<u64>> {
+    ) -> Poll<io::Result<u64>> {
         let result = self
             .bytes_read
             .try_into()
@@ -662,8 +663,8 @@ impl AsyncSeekForward for VecReader {
             self.bytes_read = new_pos as _;
             Poll::Ready(Ok(new_pos as _))
         } else {
-            Poll::Ready(Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
+            Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
                 "seek position is out of range",
             )))
         }
@@ -674,7 +675,7 @@ impl Reader for VecReader {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
-    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+    ) -> StackFuture<'a, io::Result<usize>, STACK_FUTURE_SIZE> {
         StackFuture::from(async {
             if self.bytes_read >= self.bytes.len() {
                 Ok(0)
@@ -709,7 +710,7 @@ impl<'a> AsyncRead for SliceReader<'a> {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<std::io::Result<usize>> {
+    ) -> Poll<io::Result<usize>> {
         if self.bytes_read >= self.bytes.len() {
             Poll::Ready(Ok(0))
         } else {
@@ -725,7 +726,7 @@ impl<'a> AsyncSeekForward for SliceReader<'a> {
         mut self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
         offset: u64,
-    ) -> Poll<std::io::Result<u64>> {
+    ) -> Poll<io::Result<u64>> {
         let result = self
             .bytes_read
             .try_into()
@@ -736,8 +737,8 @@ impl<'a> AsyncSeekForward for SliceReader<'a> {
 
             Poll::Ready(Ok(new_pos as _))
         } else {
-            Poll::Ready(Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
+            Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
                 "seek position is out of range",
             )))
         }
@@ -748,7 +749,7 @@ impl Reader for SliceReader<'_> {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
-    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+    ) -> StackFuture<'a, io::Result<usize>, STACK_FUTURE_SIZE> {
         StackFuture::from(async {
             if self.bytes_read >= self.bytes.len() {
                 Ok(0)

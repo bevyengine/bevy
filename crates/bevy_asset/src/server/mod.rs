@@ -2036,7 +2036,7 @@ pub enum WriteDefaultMetaError {
     #[error("asset meta file already exists, so avoiding overwrite")]
     MetaAlreadyExists,
     #[error("encountered an I/O error while reading the existing meta file: {0}")]
-    IoErrorFromExistingMetaCheck(Arc<std::io::Error>),
+    IoErrorFromExistingMetaCheck(Arc<bevy_platform_support::io::Error>),
     #[error("encountered HTTP status {0} when reading the existing meta file")]
     HttpErrorFromExistingMetaCheck(u16),
 }

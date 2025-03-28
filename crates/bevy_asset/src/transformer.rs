@@ -22,7 +22,7 @@ pub trait AssetTransformer: Send + Sync + 'static {
     type AssetOutput: Asset;
     /// The settings type used by this [`AssetTransformer`].
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
-    /// The type of [error](`std::error::Error`) which could be encountered by this transformer.
+    /// The type of [error](`core::error::Error`) which could be encountered by this transformer.
     type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
 
     /// Transforms the given [`TransformedAsset`] to [`AssetTransformer::AssetOutput`].

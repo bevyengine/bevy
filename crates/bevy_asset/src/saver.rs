@@ -22,7 +22,7 @@ pub trait AssetSaver: Send + Sync + 'static {
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
     /// The type of [`AssetLoader`] used to load this [`Asset`]
     type OutputLoader: AssetLoader;
-    /// The type of [error](`std::error::Error`) which could be encountered by this saver.
+    /// The type of [error](`core::error::Error`) which could be encountered by this saver.
     type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
 
     /// Saves the given runtime [`Asset`] by writing it to a byte format using `writer`. The passed in `settings` can influence how the
