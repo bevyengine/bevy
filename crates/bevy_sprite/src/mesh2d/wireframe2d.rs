@@ -53,8 +53,7 @@ use bevy_render::{
     },
     Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
 };
-use derive_more::From;
-use std::{hash::Hash, ops::Range};
+use core::{hash::Hash, ops::Range};
 use tracing::error;
 
 pub const WIREFRAME_2D_SHADER_HANDLE: Handle<Shader> =
@@ -467,7 +466,7 @@ pub struct RenderWireframeMaterial {
     pub color: [f32; 4],
 }
 
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct Mesh2dWireframe(pub Handle<Wireframe2dMaterial>);
 
@@ -487,7 +486,7 @@ impl RenderAsset for RenderWireframeMaterial {
         source_asset: Self::SourceAsset,
         _asset_id: AssetId<Self::SourceAsset>,
         _param: &mut SystemParamItem<Self::Param>,
-    ) -> std::result::Result<Self, PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         Ok(RenderWireframeMaterial {
             color: source_asset.color.to_linear().to_f32_array(),
         })
@@ -597,7 +596,7 @@ fn wireframe_color_changed(
 ) {
     for (mut handle, wireframe_color) in &mut colors_changed {
         handle.0 = materials.add(Wireframe2dMaterial {
-            color: wireframe_color.color.into(),
+            color: wireframe_color.color,
         });
     }
 }
@@ -667,7 +666,7 @@ fn get_wireframe_material(
 ) -> Handle<Wireframe2dMaterial> {
     if let Some(wireframe_color) = maybe_color {
         wireframe_materials.add(Wireframe2dMaterial {
-            color: wireframe_color.color.into(),
+            color: wireframe_color.color,
         })
     } else {
         // If there's no color specified we can use the global material since it's already set to use the default_color
