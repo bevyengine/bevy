@@ -19,6 +19,8 @@ pub mod graph {
         MainOpaquePass,
         MainTransparentPass,
         EndMainPass,
+        StartDebugPass,
+        EndDebugPass,
         Bloom,
         PostProcessing,
         Tonemapping,
@@ -109,6 +111,8 @@ impl Plugin for Core2dPlugin {
                 Node2d::MainTransparentPass,
             )
             .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPass)
+            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::StartDebugPass)
+            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndDebugPass)
             .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core2d, Node2d::Tonemapping)
             .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core2d, Node2d::Upscaling)

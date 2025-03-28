@@ -1,11 +1,4 @@
-#import bevy_pbr::{
-    mesh_bindings::mesh,
-    mesh_functions,
-    skinning,
-    morph::morph,
-    forward_io::{Vertex, VertexOutput},
-    view_transformations::position_world_to_clip,
-}
+#import bevy_pbr::forward_io::VertexOutput
 
 struct PushConstants {
     color: vec4<f32>

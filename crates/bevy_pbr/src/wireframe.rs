@@ -3,10 +3,7 @@ use crate::{
     SetMeshBindGroup, SetMeshViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
-use bevy_asset::{
-    load_internal_asset, prelude::AssetChanged, weak_handle, AsAssetId, Asset, AssetApp,
-    AssetEvents, AssetId, Assets, Handle,
-};
+use bevy_asset::{load_internal_asset, prelude::AssetChanged, weak_handle, AsAssetId, Asset, AssetApp, AssetEvents, AssetId, Assets, Handle, UntypedAssetId};
 use bevy_color::{Color, ColorToComponents};
 use bevy_core_pipeline::core_3d::{
     graph::{Core3d, Node3d},
@@ -41,7 +38,7 @@ use bevy_render::{
     },
     render_phase::{
         AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, InputUniformIndex, PhaseItem,
+        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
         PhaseItemBatchSetKey, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
         SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
     },
@@ -262,7 +259,7 @@ pub struct Wireframe3dBatchSetKey {
     pub pipeline: CachedRenderPipelineId,
 
     /// The wireframe material asset ID.
-    pub asset_id: AssetId<WireframeMaterial>,
+    pub asset_id: UntypedAssetId,
 
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
@@ -289,8 +286,8 @@ impl PhaseItemBatchSetKey for Wireframe3dBatchSetKey {
 /// Note that a *batch set* (if multi-draw is in use) contains multiple batches.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Wireframe3dBinKey {
-    /// The wireframe material asset ID.
-    pub asset_id: AssetId<WireframeMaterial>,
+    /// The wireframe mesh asset ID.
+    pub asset_id: UntypedAssetId,
 }
 
 pub struct SetWireframe3dPushConstants;
@@ -735,6 +732,7 @@ pub fn check_wireframe_entities_needing_specialization(
 pub fn specialize_wireframes(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
+    render_wireframe_instances: Res<RenderWireframeInstances>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
@@ -770,6 +768,9 @@ pub fn specialize_wireframes(
             .or_default();
 
         for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
+            if !render_wireframe_instances.contains_key(visible_entity) {
+                continue;
+            };
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -875,11 +876,11 @@ fn queue_wireframes(
             };
             let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
             let bin_key = Wireframe3dBinKey {
-                asset_id: *wireframe_instance,
+                asset_id: mesh_instance.mesh_asset_id.untyped(),
             };
             let batch_set_key = Wireframe3dBatchSetKey {
                 pipeline: pipeline_id,
-                asset_id: *wireframe_instance,
+                asset_id: wireframe_instance.untyped(),
                 draw_function: draw_wireframe,
                 vertex_slab: vertex_slab.unwrap_or_default(),
                 index_slab,
