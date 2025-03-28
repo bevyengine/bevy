@@ -1426,7 +1426,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "std")]
-    fn remote_reservation_volitol_hot() {
+    fn remote_reservation_frequently_changed_hot() {
         let mut entities = Entities::new();
 
         entities.entities_hot_for_remote = 16;
