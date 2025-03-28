@@ -100,8 +100,7 @@ impl MorphTargetImage {
 /// Controls the [morph targets] of one or more meshes.
 ///
 /// Any entity can contain a `MorphWeights` component. An entity with a `Mesh3d`
-/// component can then reference it by adding a [`MeshMorphWeights`]
-/// component.
+/// component can then reference it by using a [`MeshMorphWeights`] component.
 ///
 /// Here, a single `MorphTargets` component is used to drive multiple meshes:
 ///
@@ -110,25 +109,20 @@ impl MorphTargetImage {
 /// # use bevy_asset::prelude::*;
 /// # use bevy_mesh::*;
 /// # use bevy_mesh::morph::*;
-/// # #[derive(Component)]
-/// # struct Mesh3d(Handle<Mesh>);
-/// fn setup(mut commands: Commands, meshes: &[Handle<Mesh>]) {
+/// fn setup(mut commands: Commands, mesh_entities: &[Entity]) {
 ///     // Create the `MorphWeights` component.
 ///     let weights_component = MorphWeights::new(
 ///         vec![0.0, 0.5, 1.0],
-///         Some(meshes[0].clone())
+///         None,
 ///     ).unwrap();
 ///
-///     // Spawn an entity that contains the weights. Or we could have added them to
+///     // Spawn an entity to contain the weights. Or we could have added them to
 ///     // an existing entity.
 ///     let weights_entity = commands.spawn(weights_component).id();
 ///
-///     for mesh in meshes {
+///     for &mesh_entity in mesh_entities {
 ///         // The `MeshMorphWeights` component references the entity with `MorphWeights`.
-///         commands.spawn((
-///             MeshMorphWeights(weights_entity),
-///             Mesh3d(mesh.clone())
-///         ));
+///         commands.entity(mesh_entity).insert(MeshMorphWeights(weights_entity));
 ///     }
 /// }
 /// ```
@@ -144,15 +138,11 @@ impl MorphTargetImage {
 /// # use bevy_asset::prelude::*;
 /// # use bevy_mesh::*;
 /// # use bevy_mesh::morph::*;
-/// # #[derive(Component)]
-/// # struct Mesh3d(Handle<Mesh>);
-/// # fn setup(mut commands: Commands, mesh: Handle<Mesh>) {
-/// # let weights_component = MorphWeights::new(vec![0.0, 0.5, 1.0], Some(mesh.clone())).unwrap();
-/// let entity = commands.spawn(weights_component).id();
-///
-/// commands.entity(entity).insert(
-///     (MeshMorphWeights(entity),
-///     Mesh3d(mesh.clone())
+/// # fn setup(mut commands: Commands, mesh_entity: Entity) {
+/// # let weights_component = MorphWeights::new(vec![0.0, 0.5, 1.0], None).unwrap();
+/// commands.entity(mesh_entity).insert((
+///     weights_component,
+///     MeshMorphWeights(mesh_entity),
 /// ));
 /// # }
 /// ```
