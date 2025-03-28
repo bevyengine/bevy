@@ -338,7 +338,7 @@ mod tests {
         entity::{Entities, Entity},
         error::Result,
         prelude::{AnyOf, EntityRef},
-        query::{Added, Changed, Or, With, Without},
+        query::{Added, Changed, DataSet, Or, With, Without},
         removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
@@ -828,6 +828,49 @@ mod tests {
     #[should_panic]
     fn conflicting_query_sets_system() {
         fn sys(_set_1: ParamSet<(Query<&mut A>,)>, _set_2: ParamSet<(Query<&mut A>, Query<&B>)>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn data_set_system() {
+        fn sys(mut _query: Query<DataSet<(&mut A, &A)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_query_with_data_set_system() {
+        fn sys(_query_1: Query<&mut A>, _query_2: Query<DataSet<(&mut A, &B)>>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_data_set_with_query_system() {
+        fn sys(_query_1: Query<DataSet<(&mut A, &B)>>, _query_2: Query<&mut A>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_data_set_in_second_item_system() {
+        fn sys(_query_1: Query<DataSet<(&B, &A)>>, _query_2: Query<&mut A>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_data_sets_system() {
+        fn sys(_query_1: Query<DataSet<(&mut A,)>>, _query_2: Query<DataSet<(&mut A, &B)>>) {}
 
         let mut world = World::default();
         run_system(&mut world, sys);
