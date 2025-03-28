@@ -59,7 +59,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(CustomMaterial {
-            time: 0.0,
+            time: Vec4::ZERO,
             party_mode: false,
         })),
         Transform::from_xyz(0.0, 0.5, 0.0),
@@ -80,7 +80,7 @@ fn update(
 ) {
     for (material, mut transform) in query.iter_mut() {
         let material = materials.get_mut(material).unwrap();
-        material.time = time.elapsed_secs();
+        material.time.x = time.elapsed_secs();
         if keys.just_pressed(KeyCode::Space) {
             material.party_mode = !material.party_mode;
         }
@@ -95,8 +95,9 @@ fn update(
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
 #[bind_group_data(CustomMaterialKey)]
 struct CustomMaterial {
+    // Needed for 16 bit alignment in WebGL2
     #[uniform(0)]
-    time: f32,
+    time: Vec4,
     party_mode: bool,
 }
 
