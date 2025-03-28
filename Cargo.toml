@@ -26,6 +26,8 @@ members = [
   "crates/bevy_reflect/compile_fail",
   # Examples of compiling Bevy for mobile platforms.
   "examples/mobile",
+  # Examples of using Bevy on no_std platforms.
+  "examples/no_std/*",
   # Benchmarks
   "benches",
   # Internal tools that are not published.
@@ -51,6 +53,8 @@ unwrap_or_default = "warn"
 needless_lifetimes = "allow"
 too_many_arguments = "allow"
 nonstandard_macro_braces = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -120,6 +124,8 @@ unused_qualifications = "warn"
 
 [features]
 default = [
+  "std",
+  "async_executor",
   "android-game-activity",
   "android_shared_stdcxx",
   "animation",
@@ -127,9 +133,12 @@ default = [
   "bevy_audio",
   "bevy_color",
   "bevy_core_pipeline",
+  "bevy_anti_aliasing",
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
+  "bevy_input_focus",
+  "bevy_log",
   "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
@@ -155,6 +164,9 @@ default = [
   "webgl2",
   "x11",
 ]
+
+# Recommended defaults for no_std applications
+default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 
 # Provides an implementation for picking meshes
 bevy_mesh_picking_backend = [
@@ -202,6 +214,13 @@ bevy_core_pipeline = [
   "bevy_render",
 ]
 
+# Provides various anti aliasing solutions
+bevy_anti_aliasing = [
+  "bevy_internal/bevy_anti_aliasing",
+  "bevy_asset",
+  "bevy_render",
+]
+
 # Adds gamepad support
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 
@@ -214,6 +233,7 @@ bevy_pbr = [
   "bevy_asset",
   "bevy_render",
   "bevy_core_pipeline",
+  "bevy_anti_aliasing",
 ]
 
 # Provides picking functionality
@@ -231,6 +251,7 @@ bevy_sprite = [
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
+  "bevy_anti_aliasing",
 ]
 
 # Provides text functionality
@@ -243,6 +264,7 @@ bevy_ui = [
   "bevy_text",
   "bevy_sprite",
   "bevy_color",
+  "bevy_anti_aliasing",
 ]
 
 # Windowing layer
@@ -262,6 +284,15 @@ bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
+
+# Enable integration with `tracing` and `log`
+bevy_log = ["bevy_internal/bevy_log"]
+
+# Enable input focus subsystem
+bevy_input_focus = ["bevy_internal/bevy_input_focus"]
+
+# Use the configurable global error handler as the default error handler.
+configurable_error_handler = ["bevy_internal/configurable_error_handler"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -429,6 +460,9 @@ shader_format_glsl = ["bevy_internal/shader_format_glsl"]
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 
+# Enable support for shaders in WESL
+shader_format_wesl = ["bevy_internal/shader_format_wesl"]
+
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 
@@ -488,6 +522,21 @@ custom_cursor = ["bevy_internal/custom_cursor"]
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_internal/ghost_nodes"]
 
+# Uses `async-executor` as a task execution backend.
+async_executor = ["std", "bevy_internal/async_executor"]
+
+# Allows access to the `std` crate.
+std = ["bevy_internal/std"]
+
+# `critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.
+critical-section = ["bevy_internal/critical-section"]
+
+# Uses the `libm` maths library instead of the one provided in `std` and `core`.
+libm = ["bevy_internal/libm"]
+
+# Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.
+web = ["bevy_internal/web"]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
@@ -523,14 +572,14 @@ hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
-accesskit = "0.17"
+accesskit = "0.18"
 nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 smol = "2"
 smol-macros = "0.1"
 smol-hyper = "0.1"
-ureq = { version = "2.10.1", features = ["json"] }
+ureq = { version = "3.0.8", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { version = "0.2" }
@@ -574,7 +623,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.2d_viewport_to_world]
 name = "2D Viewport To World"
-description = "Demonstrates how to use the `Camera::viewport_to_world_2d` method"
+description = "Demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera."
 category = "2D Rendering"
 wasm = true
 
@@ -1543,6 +1592,7 @@ wasm = true
 name = "headless"
 path = "examples/app/headless.rs"
 doc-scrape-examples = true
+required-features = ["bevy_log"]
 
 [package.metadata.example.headless]
 name = "Headless"
@@ -1804,7 +1854,7 @@ path = "examples/asset/multi_asset_sync.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.multi_asset_sync]
-name = "Mult-asset synchronization"
+name = "Multi-asset synchronization"
 description = "Demonstrates how to wait for multiple assets to be loaded."
 category = "Assets"
 wasm = true
@@ -2165,6 +2215,7 @@ wasm = false
 name = "fallible_params"
 path = "examples/ecs/fallible_params.rs"
 doc-scrape-examples = true
+required-features = ["configurable_error_handler"]
 
 [package.metadata.example.fallible_params]
 name = "Fallible System Parameters"
@@ -2173,14 +2224,14 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "fallible_systems"
-path = "examples/ecs/fallible_systems.rs"
+name = "error_handling"
+path = "examples/ecs/error_handling.rs"
 doc-scrape-examples = true
-required-features = ["bevy_mesh_picking_backend"]
+required-features = ["bevy_mesh_picking_backend", "configurable_error_handler"]
 
-[package.metadata.example.fallible_systems]
-name = "Fallible Systems"
-description = "Systems that return results to handle errors"
+[package.metadata.example.error_handling]
+name = "Error handling"
+description = "How to return and handle errors across the ECS"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2733,6 +2784,18 @@ required-features = ["shader_format_glsl"]
 [package.metadata.example.shader_material_glsl]
 name = "Material - GLSL"
 description = "A shader that uses the GLSL shading language"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "shader_material_wesl"
+path = "examples/shader/shader_material_wesl.rs"
+doc-scrape-examples = true
+required-features = ["shader_format_wesl"]
+
+[package.metadata.example.shader_material_wesl]
+name = "Material - WESL"
+description = "A shader that uses WESL"
 category = "Shaders"
 wasm = true
 
@@ -4168,11 +4231,11 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
-name = "testbed_ui_layout_rounding"
-path = "examples/testbed/ui_layout_rounding.rs"
+name = "testbed_full_ui"
+path = "examples/testbed/full_ui.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.testbed_ui_layout_rounding]
+[package.metadata.example.testbed_full_ui]
 hidden = true
 
 [[example]]
@@ -4218,3 +4281,39 @@ name = "Occlusion Culling"
 description = "Demonstration of Occlusion Culling"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "camera_controller"
+path = "examples/helpers/camera_controller.rs"
+doc-scrape-examples = true
+crate-type = ["lib"]
+
+[package.metadata.example.camera_controller]
+name = "Camera Controller"
+description = "Example Free-Cam Styled Camera Controller"
+category = "Helpers"
+wasm = true
+
+[[example]]
+name = "widgets"
+path = "examples/helpers/widgets.rs"
+doc-scrape-examples = true
+crate-type = ["lib"]
+
+[package.metadata.example.widgets]
+name = "Widgets"
+description = "Example UI Widgets"
+category = "Helpers"
+wasm = true
+
+[[example]]
+name = "no_std_library"
+path = "examples/no_std/library/src/lib.rs"
+doc-scrape-examples = true
+crate-type = ["lib"]
+
+[package.metadata.example.no_std_library]
+name = "`no_std` Compatible Library"
+description = "Example library compatible with `std` and `no_std` targets"
+category = "Embedded"
+wasm = true

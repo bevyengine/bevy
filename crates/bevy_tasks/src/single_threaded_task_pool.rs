@@ -10,49 +10,11 @@ use std::thread_local;
 #[cfg(not(feature = "std"))]
 use bevy_platform_support::sync::{Mutex, PoisonError};
 
-#[cfg(all(
-    feature = "std",
-    any(feature = "async_executor", feature = "edge_executor")
-))]
+#[cfg(feature = "std")]
 use crate::executor::LocalExecutor;
 
-#[cfg(all(
-    not(feature = "std"),
-    any(feature = "async_executor", feature = "edge_executor")
-))]
+#[cfg(not(feature = "std"))]
 use crate::executor::Executor as LocalExecutor;
-
-#[cfg(not(any(feature = "async_executor", feature = "edge_executor")))]
-mod dummy_executor {
-    use async_task::Task;
-    use core::{future::Future, marker::PhantomData};
-
-    /// Dummy implementation of a `LocalExecutor` to allow for a cleaner compiler error
-    /// due to missing feature flags.
-    #[doc(hidden)]
-    #[derive(Debug)]
-    pub struct LocalExecutor<'a>(PhantomData<fn(&'a ())>);
-
-    impl<'a> LocalExecutor<'a> {
-        /// Dummy implementation
-        pub const fn new() -> Self {
-            Self(PhantomData)
-        }
-
-        /// Dummy implementation
-        pub fn try_tick(&self) -> bool {
-            unimplemented!()
-        }
-
-        /// Dummy implementation
-        pub fn spawn<T: 'a>(&self, _: impl Future<Output = T> + 'a) -> Task<T> {
-            unimplemented!()
-        }
-    }
-}
-
-#[cfg(not(any(feature = "async_executor", feature = "edge_executor")))]
-use dummy_executor::LocalExecutor;
 
 #[cfg(feature = "std")]
 thread_local! {
@@ -237,26 +199,27 @@ impl TaskPool {
     where
         T: 'static + MaybeSend + MaybeSync,
     {
-        #[cfg(target_arch = "wasm32")]
-        return Task::wrap_future(future);
+        cfg_if::cfg_if! {
+            if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+                Task::wrap_future(future)
+            } else if #[cfg(feature = "std")] {
+                LOCAL_EXECUTOR.with(|executor| {
+                    let task = executor.spawn(future);
+                    // Loop until all tasks are done
+                    while executor.try_tick() {}
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "std"))]
-        return LOCAL_EXECUTOR.with(|executor| {
-            let task = executor.spawn(future);
-            // Loop until all tasks are done
-            while executor.try_tick() {}
+                    Task::new(task)
+                })
+            } else {
+                {
+                    let task = LOCAL_EXECUTOR.spawn(future);
+                    // Loop until all tasks are done
+                    while LOCAL_EXECUTOR.try_tick() {}
 
-            Task::new(task)
-        });
-
-        #[cfg(all(not(target_arch = "wasm32"), not(feature = "std")))]
-        return {
-            let task = LOCAL_EXECUTOR.spawn(future);
-            // Loop until all tasks are done
-            while LOCAL_EXECUTOR.try_tick() {}
-
-            Task::new(task)
-        };
+                    Task::new(task)
+                }
+            }
+        }
     }
 
     /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].

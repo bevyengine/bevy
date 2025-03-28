@@ -80,7 +80,7 @@ use bevy_reflect::{prelude::*, Reflect};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Resource)
+    reflect(Debug, Default, Resource, Clone)
 )]
 pub struct InputFocus(pub Option<Entity>);
 
@@ -123,7 +123,11 @@ impl InputFocus {
 ///
 /// By default, this resource is set to `false`.
 #[derive(Clone, Debug, Resource, Default)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Resource))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Resource, Clone)
+)]
 pub struct InputFocusVisible(pub bool);
 
 /// A bubble-able user input event that starts at the currently focused entity.
@@ -134,7 +138,7 @@ pub struct InputFocusVisible(pub bool);
 /// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
 /// in the [`InputFocusSet::Dispatch`] system set during [`PreUpdate`].
 #[derive(Clone, Debug, Component)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
 pub struct FocusedInput<E: Event + Clone> {
     /// The underlying input event.
     pub input: E,
@@ -226,7 +230,7 @@ pub fn dispatch_focused_input<E: Event + Clone>(
     windows: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
 ) {
-    if let Ok(window) = windows.get_single() {
+    if let Ok(window) = windows.single() {
         // If an element has keyboard focus, then dispatch the input event to that element.
         if let Some(focused_entity) = focus.0 {
             for ev in key_events.read() {

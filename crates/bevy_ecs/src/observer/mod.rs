@@ -894,14 +894,9 @@ mod tests {
         }
     }
 
-    #[derive(Component)]
+    #[derive(Component, Event)]
+    #[event(traversal = &'static ChildOf, auto_propagate)]
     struct EventPropagating;
-
-    impl Event for EventPropagating {
-        type Traversal = &'static ChildOf;
-
-        const AUTO_PROPAGATE: bool = true;
-    }
 
     #[test]
     fn observer_order_spawn_despawn() {
@@ -1651,6 +1646,23 @@ mod tests {
         world.trigger_targets(EventPropagating, child);
         world.flush();
         assert_eq!(vec!["event", "event"], world.resource::<Order>().0);
+    }
+
+    // Originally for https://github.com/bevyengine/bevy/issues/18452
+    #[test]
+    fn observer_modifies_relationship() {
+        fn on_add(trigger: Trigger<OnAdd, A>, mut commands: Commands) {
+            commands
+                .entity(trigger.target())
+                .with_related::<crate::hierarchy::ChildOf>(|rsc| {
+                    rsc.spawn_empty();
+                });
+        }
+
+        let mut world = World::new();
+        world.add_observer(on_add);
+        world.spawn(A);
+        world.flush();
     }
 
     // Regression test for https://github.com/bevyengine/bevy/issues/14467

@@ -28,7 +28,9 @@ use core::{
     ops::{Deref, DerefMut},
     panic::Location,
 };
+use derive_more::derive::Display;
 use disqualified::ShortName;
+use thiserror::Error;
 
 use super::Populated;
 use variadics_please::{all_tuples, all_tuples_enumerated};
@@ -232,7 +234,11 @@ pub unsafe trait SystemParam: Sized {
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
 
     /// Validates that the param can be acquired by the [`get_param`](SystemParam::get_param).
-    /// Built-in executors use this to prevent systems with invalid params from running.
+    ///
+    /// Built-in executors use this to prevent systems with invalid params from running,
+    /// and any failures here will be bubbled up to the default error handler defined in [`bevy_ecs::error`],
+    /// with a value of type [`SystemParamValidationError`].
+    ///
     /// For nested [`SystemParam`]s validation will fail if any
     /// delegated validation fails.
     ///
@@ -252,6 +258,9 @@ pub unsafe trait SystemParam: Sized {
     /// world mutations inbetween. Otherwise, while it won't lead to any undefined behavior,
     /// the validity of the param may change.
     ///
+    /// [`System::validate_param`](super::system::System::validate_param),
+    /// calls this method for each supplied system param.
+    ///
     /// # Safety
     ///
     /// - The passed [`UnsafeWorldCell`] must have read-only access to world data
@@ -266,20 +275,18 @@ pub unsafe trait SystemParam: Sized {
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
-        // By default we allow panics in [`SystemParam::get_param`] and return `true`.
-        // Preventing panics is an optional feature.
-        true
+    ) -> Result<(), SystemParamValidationError> {
+        Ok(())
     }
 
     /// Creates a parameter to be passed into a [`SystemParamFunction`](super::SystemParamFunction).
     ///
     /// # Safety
     ///
-    /// - The passed [`UnsafeWorldCell`] must have access to any world data
-    ///   registered in [`init_state`](SystemParam::init_state).
+    /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
+    ///   in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    /// - all `world`'s archetypes have been processed by [`new_archetype`](SystemParam::new_archetype).
+    /// - All `world`'s archetypes have been processed by [`new_archetype`](SystemParam::new_archetype).
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
@@ -408,7 +415,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
             state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
         };
         let single = query
-            .get_single_inner()
+            .single_inner()
             .expect("The query was expected to contain exactly one matching entity.");
         Single {
             item: single,
@@ -421,7 +428,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
         // The caller ensures the world matches the one used in init_state.
@@ -432,11 +439,10 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
                 world.change_tick(),
             )
         };
-        let is_valid = query.get_single_inner().is_ok();
-        if !is_valid {
-            system_meta.try_warn_param::<Self>();
+        match query.single_inner() {
+            Ok(_) => Ok(()),
+            Err(_) => Err(SystemParamValidationError::skipped()),
         }
-        is_valid
     }
 }
 
@@ -474,7 +480,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         let query = unsafe {
             state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
         };
-        match query.get_single_inner() {
+        match query.single_inner() {
             Ok(single) => Some(Single {
                 item: single,
                 _filter: PhantomData,
@@ -489,7 +495,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
         // The caller ensures the world matches the one used in init_state.
@@ -500,12 +506,12 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
                 world.change_tick(),
             )
         };
-        let result = query.get_single_inner();
-        let is_valid = !matches!(result, Err(QuerySingleError::MultipleEntities(_)));
-        if !is_valid {
-            system_meta.try_warn_param::<Self>();
+        match query.single_inner() {
+            Ok(_) | Err(QuerySingleError::NoEntities(_)) => Ok(()),
+            Err(QuerySingleError::MultipleEntities(_)) => {
+                Err(SystemParamValidationError::skipped())
+            }
         }
-        is_valid
     }
 }
 
@@ -559,7 +565,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY:
         // - We have read-only access to the components accessed by query.
         // - The caller ensures the world matches the one used in init_state.
@@ -570,7 +576,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
                 world.change_tick(),
             )
         };
-        !query.is_empty()
+        if query.is_empty() {
+            Err(SystemParamValidationError::skipped())
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -765,7 +775,7 @@ macro_rules! impl_param_set {
                 state: &'s Self::State,
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell<'w>,
-            ) -> bool {
+            ) -> Result<(), SystemParamValidationError> {
                 <($($param,)*) as SystemParam>::validate_param(state, system_meta, world)
             }
 
@@ -817,7 +827,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.components.register_resource::<T>();
+        let component_id = world.components_registrator().register_resource::<T>();
         let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
@@ -841,18 +851,19 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        system_meta: &SystemMeta,
+        _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Read-only access to resource metadata.
-        let is_valid = unsafe { world.storages() }
+        if unsafe { world.storages() }
             .resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present);
-        if !is_valid {
-            system_meta.try_warn_param::<Self>();
+            .is_some_and(ResourceData::is_present)
+        {
+            Ok(())
+        } else {
+            Err(SystemParamValidationError::invalid())
         }
-        is_valid
     }
 
     #[inline]
@@ -926,7 +937,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.components.register_resource::<T>();
+        let component_id = world.components_registrator().register_resource::<T>();
         let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
@@ -953,18 +964,19 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        system_meta: &SystemMeta,
+        _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Read-only access to resource metadata.
-        let is_valid = unsafe { world.storages() }
+        if unsafe { world.storages() }
             .resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present);
-        if !is_valid {
-            system_meta.try_warn_param::<Self>();
+            .is_some_and(ResourceData::is_present)
+        {
+            Ok(())
+        } else {
+            Err(SystemParamValidationError::invalid())
         }
-        is_valid
     }
 
     #[inline]
@@ -1420,6 +1432,33 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     }
 }
 
+/// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
+pub struct NonSendMarker;
+
+// SAFETY: No world access.
+unsafe impl SystemParam for NonSendMarker {
+    type State = ();
+    type Item<'w, 's> = Self;
+
+    #[inline]
+    fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        system_meta.set_non_send();
+    }
+
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        Self
+    }
+}
+
+// SAFETY: Does not read any world state
+unsafe impl ReadOnlySystemParam for NonSendMarker {}
+
 /// Shared borrow of a non-[`Send`] resource.
 ///
 /// Only `Send` resources may be accessed with the [`Res`] [`SystemParam`]. In case that the
@@ -1499,7 +1538,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
 
-        let component_id = world.components.register_non_send::<T>();
+        let component_id = world.components_registrator().register_non_send::<T>();
         let archetype_component_id = world.initialize_non_send_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
@@ -1523,18 +1562,19 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        system_meta: &SystemMeta,
+        _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Read-only access to resource metadata.
-        let is_valid = unsafe { world.storages() }
+        if unsafe { world.storages() }
             .non_send_resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present);
-        if !is_valid {
-            system_meta.try_warn_param::<Self>();
+            .is_some_and(ResourceData::is_present)
+        {
+            Ok(())
+        } else {
+            Err(SystemParamValidationError::invalid())
         }
-        is_valid
     }
 
     #[inline]
@@ -1605,7 +1645,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
 
-        let component_id = world.components.register_non_send::<T>();
+        let component_id = world.components_registrator().register_non_send::<T>();
         let archetype_component_id = world.initialize_non_send_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
@@ -1632,18 +1672,19 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        system_meta: &SystemMeta,
+        _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Read-only access to resource metadata.
-        let is_valid = unsafe { world.storages() }
+        if unsafe { world.storages() }
             .non_send_resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present);
-        if !is_valid {
-            system_meta.try_warn_param::<Self>();
+            .is_some_and(ResourceData::is_present)
+        {
+            Ok(())
+        } else {
+            Err(SystemParamValidationError::invalid())
         }
-        is_valid
     }
 
     #[inline]
@@ -1851,10 +1892,11 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
-        state
-            .iter()
-            .all(|state| T::validate_param(state, system_meta, world))
+    ) -> Result<(), SystemParamValidationError> {
+        for state in state {
+            T::validate_param(state, system_meta, world)?;
+        }
+        Ok(())
     }
 
     #[inline]
@@ -1999,7 +2041,7 @@ macro_rules! impl_system_param_tuple {
             reason = "Zero-length tuples won't use some of the parameters."
         )]
         $(#[$meta])*
-        // SAFETY: implementors of each `SystemParam` in the tuple have validated their impls
+        // SAFETY: implementers of each `SystemParam` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
@@ -2038,9 +2080,12 @@ macro_rules! impl_system_param_tuple {
                 state: &Self::State,
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell,
-            ) -> bool {
+            ) -> Result<(), SystemParamValidationError> {
                 let ($($param,)*) = state;
-                $($param::validate_param($param, system_meta, world)&&)* true
+                $(
+                    $param::validate_param($param, system_meta, world)?;
+                )*
+                Ok(())
             }
 
             #[inline]
@@ -2207,7 +2252,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> Result<(), SystemParamValidationError> {
         P::validate_param(state, system_meta, world)
     }
 
@@ -2453,7 +2498,11 @@ trait DynParamState: Sync + Send {
     ///
     /// # Safety
     /// Refer to [`SystemParam::validate_param`].
-    unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell) -> bool;
+    unsafe fn validate_param(
+        &self,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError>;
 }
 
 /// A wrapper around a [`SystemParam::State`] that can be used as a trait object in a [`DynSystemParam`].
@@ -2477,7 +2526,11 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
         T::queue(&mut self.0, system_meta, world);
     }
 
-    unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param(
+        &self,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         T::validate_param(&self.0, system_meta, world)
     }
 }
@@ -2497,7 +2550,7 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> Result<(), SystemParamValidationError> {
         state.0.validate_param(system_meta, world)
     }
 
@@ -2589,6 +2642,39 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_state` or `build`,
         // and the builder registers `access` in `build`.
         unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) }
+    }
+}
+
+/// An error that occurs when a system parameter is not valid,
+/// used by system executors to determine what to do with a system.
+///
+/// Returned as an error from [`SystemParam::validate_param`],
+/// and handled using the unified error handling mechanisms defined in [`bevy_ecs::error`].
+#[derive(Debug, PartialEq, Eq, Clone, Display, Error)]
+pub struct SystemParamValidationError {
+    /// Whether the system should be skipped.
+    ///
+    /// If `false`, the error should be handled.
+    /// By default, this will result in a panic. See [`crate::error`] for more information.
+    ///
+    /// This is the default behavior, and is suitable for system params that should *always* be valid,
+    /// either because sensible fallback behavior exists (like [`Query`] or because
+    /// failures in validation should be considered a bug in the user's logic that must be immediately addressed (like [`Res`]).
+    ///
+    /// If `true`, the system should be skipped.
+    /// This is suitable for system params that are intended to only operate in certain application states, such as [`Single`].
+    pub skipped: bool,
+}
+
+impl SystemParamValidationError {
+    /// Constructs a `SystemParamValidationError` that skips the system.
+    pub const fn skipped() -> Self {
+        Self { skipped: true }
+    }
+
+    /// Constructs a `SystemParamValidationError` for an invalid parameter that should be treated as an error.
+    pub const fn invalid() -> Self {
+        Self { skipped: false }
     }
 }
 

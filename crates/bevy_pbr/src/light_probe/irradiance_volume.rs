@@ -168,7 +168,7 @@ pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "w
 ///
 /// See [`crate::irradiance_volume`] for detailed information.
 #[derive(Clone, Reflect, Component, Debug)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct IrradianceVolume {
     /// The 3D texture that represents the ambient cubes, encoded in the format
     /// described in [`crate::irradiance_volume`].
@@ -251,7 +251,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
                 fallback_image,
             )
         } else {
-            RenderViewIrradianceVolumeBindGroupEntries::get_single(
+            RenderViewIrradianceVolumeBindGroupEntries::single(
                 render_view_irradiance_volumes,
                 images,
                 fallback_image,
@@ -295,7 +295,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
     /// Looks up and returns the bindings for any irradiance volumes visible in
     /// the view, as well as the sampler. This is the version used when binding
     /// arrays aren't available on the current platform.
-    fn get_single(
+    fn single(
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,

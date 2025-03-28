@@ -72,7 +72,6 @@ use thiserror::Error;
 /// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
 /// # impl Reflect for MyStruct {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }

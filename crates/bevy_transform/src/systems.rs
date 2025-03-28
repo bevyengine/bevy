@@ -377,7 +377,7 @@ mod parallel {
                 // the hierarchy, guaranteeing unique access.
                 #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
                 unsafe {
-                    let (_, (_, p_global_transform, tree), (p_children, _)) =
+                    let (_, (_, p_global_transform, _), (p_children, _)) =
                         nodes.get_unchecked(parent).unwrap();
                     propagate_descendants_unchecked(
                         parent,
@@ -453,12 +453,11 @@ mod parallel {
                         return None;
                     }
                     assert_eq!(child_of.parent, parent);
-                    if p_global_transform.is_changed()
-                        || transform.is_changed()
-                        || global_transform.is_added()
-                    {
-                        *global_transform = p_global_transform.mul_transform(*transform);
-                    }
+
+                    // Transform prop is expensive - this helps avoid updating entire subtrees if
+                    // the GlobalTransform is unchanged, at the cost of an added equality check.
+                    global_transform.set_if_neq(p_global_transform.mul_transform(*transform));
+
                     children.map(|children| {
                         // Only continue propagation if the entity has children.
                         last_child = Some((child, global_transform, children));

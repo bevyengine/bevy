@@ -139,6 +139,12 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Gets a mutable reference to the [`World`] this [`UnsafeWorldCell`] belongs to.
     /// This is an incredibly error-prone operation and is only valid in a small number of circumstances.
     ///
+    /// Calling this method implies mutable access to the *whole* world (see first point on safety section
+    /// below), which includes all entities, components, and resources. Notably, calling this on
+    /// [`WorldQuery::init_fetch`](crate::query::WorldQuery::init_fetch) and
+    /// [`SystemParam::get_param`](crate::system::SystemParam::get_param) are most likely *unsound* unless
+    /// you can prove that the underlying [`World`] is exclusive, which in normal circumstances is not.
+    ///
     /// # Safety
     /// - `self` must have been obtained from a call to [`World::as_unsafe_world_cell`]
     ///   (*not* `as_unsafe_world_cell_readonly` or any other method of construction that
@@ -1051,6 +1057,54 @@ impl<'w> UnsafeEntityCell<'w> {
         if !info.mutable() {
             return Err(GetEntityMutByIdError::ComponentIsImmutable);
         }
+
+        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        unsafe {
+            get_component_and_ticks(
+                self.world,
+                component_id,
+                info.storage_type(),
+                self.entity,
+                self.location,
+            )
+            .map(|(value, cells, caller)| MutUntyped {
+                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                value: value.assert_unique(),
+                ticks: TicksMut::from_tick_cells(
+                    cells,
+                    self.world.last_change_tick(),
+                    self.world.change_tick(),
+                ),
+                changed_by: caller.map(|caller| caller.deref_mut()),
+            })
+            .ok_or(GetEntityMutByIdError::ComponentNotFound)
+        }
+    }
+
+    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
+    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
+    /// This method assumes the [`Component`] is mutable, skipping that check.
+    ///
+    /// **You should prefer to use the typed API [`UnsafeEntityCell::get_mut_assume_mutable`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
+    /// - no other references to the component exist at the same time
+    /// - the component `T` is mutable
+    #[inline]
+    pub unsafe fn get_mut_assume_mutable_by_id(
+        self,
+        component_id: ComponentId,
+    ) -> Result<MutUntyped<'w>, GetEntityMutByIdError> {
+        self.world.assert_allows_mutable_access();
+
+        let info = self
+            .world
+            .components()
+            .get_info(component_id)
+            .ok_or(GetEntityMutByIdError::InfoNotFound)?;
 
         // SAFETY: entity_location is valid, component_id is valid as checked by the line above
         unsafe {

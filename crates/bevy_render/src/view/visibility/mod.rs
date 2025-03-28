@@ -34,7 +34,7 @@ use crate::{
 /// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
 /// `Visibility` to set the values of each entity's [`InheritedVisibility`] component.
 #[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(InheritedVisibility, ViewVisibility)]
 pub enum Visibility {
     /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`ChildOf`] target.
@@ -109,7 +109,7 @@ impl PartialEq<&Visibility> for Visibility {
 ///
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[component(on_insert = validate_parent_has_component::<Self>)]
 pub struct InheritedVisibility(bool);
 
@@ -152,7 +152,7 @@ impl InheritedVisibility {
 // Note: This can't be a `ComponentId` because the visibility classes are copied
 // into the render world, and component IDs are per-world.
 #[derive(Clone, Component, Default, Reflect, Deref, DerefMut)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
@@ -166,7 +166,7 @@ pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct ViewVisibility(bool);
 
 impl ViewVisibility {
@@ -219,9 +219,9 @@ pub struct NoFrustumCulling;
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct VisibleEntities {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub entities: TypeIdMap<Vec<Entity>>,
 }
 
@@ -269,9 +269,9 @@ impl VisibleEntities {
 ///
 /// This component is extracted from [`VisibleEntities`].
 #[derive(Clone, Component, Default, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct RenderVisibleEntities {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub entities: TypeIdMap<Vec<(Entity, MainEntity)>>,
 }
 

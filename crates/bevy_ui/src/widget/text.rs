@@ -7,8 +7,8 @@ use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
+    component::Component,
     entity::Entity,
-    prelude::{require, Component},
     query::With,
     reflect::ReflectComponent,
     system::{Query, Res, ResMut},
@@ -29,7 +29,7 @@ use tracing::error;
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct TextNodeFlags {
     /// If set then a new measure function for the text node will be created.
     needs_measure_fn: bool,
@@ -94,7 +94,7 @@ impl Default for TextNodeFlags {
 /// });
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
 pub struct Text(pub String);
 

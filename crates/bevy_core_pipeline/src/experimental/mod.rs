@@ -5,7 +5,3 @@
 //! are included nonetheless for testing purposes.
 
 pub mod mip_generation;
-
-pub mod taa {
-    pub use crate::taa::{TemporalAntiAliasNode, TemporalAntiAliasPlugin, TemporalAntiAliasing};
-}

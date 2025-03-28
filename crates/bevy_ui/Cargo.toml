@@ -20,9 +20,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.16.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
-  "bevy",
-] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.16.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", version = "0.16.0-dev" }
 bevy_text = { path = "../bevy_text", version = "0.16.0-dev" }
@@ -42,7 +40,7 @@ thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
 nonmax = "0.5"
 smallvec = "1.11"
-accesskit = "0.17"
+accesskit = "0.18"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [features]

@@ -391,12 +391,13 @@ impl<'w> RenderContext<'w> {
         adapter_info: AdapterInfo,
         diagnostics_recorder: Option<DiagnosticsRecorder>,
     ) -> Self {
-        // HACK: Parallel command encoding is currently bugged on AMD + Windows + Vulkan with wgpu 0.19.1
-        #[cfg(target_os = "windows")]
+        // HACK: Parallel command encoding is currently bugged on AMD + Windows/Linux + Vulkan
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         let force_serial =
             adapter_info.driver.contains("AMD") && adapter_info.backend == wgpu::Backend::Vulkan;
         #[cfg(not(any(
             target_os = "windows",
+            target_os = "linux",
             all(target_arch = "wasm32", target_feature = "atomics")
         )))]
         let force_serial = {
@@ -497,6 +498,10 @@ impl<'w> RenderContext<'w> {
 
         let mut command_buffers = Vec::with_capacity(self.command_buffer_queue.len());
 
+        #[cfg(feature = "trace")]
+        let _command_buffer_generation_tasks_span =
+            info_span!("command_buffer_generation_tasks").entered();
+
         #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         {
             let mut task_based_command_buffers = ComputeTaskPool::get().scope(|task_pool| {
@@ -535,6 +540,9 @@ impl<'w> RenderContext<'w> {
                 }
             }
         }
+
+        #[cfg(feature = "trace")]
+        drop(_command_buffer_generation_tasks_span);
 
         command_buffers.sort_unstable_by_key(|(i, _)| *i);
 

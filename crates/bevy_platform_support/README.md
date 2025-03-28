@@ -45,12 +45,7 @@ This is explicitly incompatible with `no_std` targets.
 Enables usage of the [`alloc`](https://doc.rust-lang.org/stable/alloc/) crate. Note that this feature is automatically enabled when enabling `std`.
 This is compatible with most `no_std` targets, but not all.
 
-### `portable-atomic`
-
-Switches to using [`portable-atomic`](https://docs.rs/portable-atomic/latest/portable_atomic/) as a backend for atomic types, such as `Arc`, `AtomicU8`, etc.
-You may need to enable this feature on platforms without full support for atomic types or certain operations, such as [atomic CAS](https://en.wikipedia.org/wiki/Compare-and-swap).
-
 ### `critical-section`
 
 Switches to using [`critical-section`](https://docs.rs/critical-section/latest/critical_section/) as a backend for synchronization.
-You may need to enable this feature on platforms with little to no support for atomic operations, and is often paired with the `portable-atomic` feature.
+You may need to enable this feature on platforms with little to no support for atomic operations.

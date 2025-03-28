@@ -1,20 +1,22 @@
-error[E0277]: the trait bound `bevy_ecs::query::Changed<Foo>: ArchetypeFilter` is not satisfied
+error[E0277]: `bevy_ecs::query::Changed<Foo>` is not a valid `Query` filter based on archetype information
   --> tests/ui/query_exact_sized_iterator_safety.rs:7:28
    |
 7  |     is_exact_size_iterator(query.iter());
-   |     ---------------------- ^^^^^^^^^^^^ the trait `ArchetypeFilter` is not implemented for `bevy_ecs::query::Changed<Foo>`, which is required by `QueryIter<'_, '_, &Foo, bevy_ecs::query::Changed<Foo>>: ExactSizeIterator`
+   |     ---------------------- ^^^^^^^^^^^^ invalid `Query` filter
    |     |
    |     required by a bound introduced by this call
    |
+   = help: the trait `ArchetypeFilter` is not implemented for `bevy_ecs::query::Changed<Foo>`
+   = note: an `ArchetypeFilter` typically uses a combination of `With<T>` and `Without<T>` statements
    = help: the following other types implement trait `ArchetypeFilter`:
-             With<T>
-             Without<T>
-             Or<()>
-             Or<(F0,)>
-             Or<(F0, F1)>
-             Or<(F0, F1, F2)>
-             Or<(F0, F1, F2, F3)>
-             Or<(F0, F1, F2, F3, F4)>
+             ()
+             (F,)
+             (F0, F1)
+             (F0, F1, F2)
+             (F0, F1, F2, F3)
+             (F0, F1, F2, F3, F4)
+             (F0, F1, F2, F3, F4, F5)
+             (F0, F1, F2, F3, F4, F5, F6)
            and 26 others
    = note: required for `QueryIter<'_, '_, &Foo, bevy_ecs::query::Changed<Foo>>` to implement `ExactSizeIterator`
 note: required by a bound in `is_exact_size_iterator`
@@ -23,23 +25,25 @@ note: required by a bound in `is_exact_size_iterator`
 16 | fn is_exact_size_iterator<T: ExactSizeIterator>(_iter: T) {}
    |                              ^^^^^^^^^^^^^^^^^ required by this bound in `is_exact_size_iterator`
 
-error[E0277]: the trait bound `bevy_ecs::query::Added<Foo>: ArchetypeFilter` is not satisfied
+error[E0277]: `bevy_ecs::query::Added<Foo>` is not a valid `Query` filter based on archetype information
   --> tests/ui/query_exact_sized_iterator_safety.rs:12:28
    |
 12 |     is_exact_size_iterator(query.iter());
-   |     ---------------------- ^^^^^^^^^^^^ the trait `ArchetypeFilter` is not implemented for `bevy_ecs::query::Added<Foo>`, which is required by `QueryIter<'_, '_, &Foo, bevy_ecs::query::Added<Foo>>: ExactSizeIterator`
+   |     ---------------------- ^^^^^^^^^^^^ invalid `Query` filter
    |     |
    |     required by a bound introduced by this call
    |
+   = help: the trait `ArchetypeFilter` is not implemented for `bevy_ecs::query::Added<Foo>`
+   = note: an `ArchetypeFilter` typically uses a combination of `With<T>` and `Without<T>` statements
    = help: the following other types implement trait `ArchetypeFilter`:
-             With<T>
-             Without<T>
-             Or<()>
-             Or<(F0,)>
-             Or<(F0, F1)>
-             Or<(F0, F1, F2)>
-             Or<(F0, F1, F2, F3)>
-             Or<(F0, F1, F2, F3, F4)>
+             ()
+             (F,)
+             (F0, F1)
+             (F0, F1, F2)
+             (F0, F1, F2, F3)
+             (F0, F1, F2, F3, F4)
+             (F0, F1, F2, F3, F4, F5)
+             (F0, F1, F2, F3, F4, F5, F6)
            and 26 others
    = note: required for `QueryIter<'_, '_, &Foo, bevy_ecs::query::Added<Foo>>` to implement `ExactSizeIterator`
 note: required by a bound in `is_exact_size_iterator`

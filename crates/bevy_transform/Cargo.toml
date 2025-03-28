@@ -15,7 +15,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = fa
 bevy_log = { path = "../bevy_log", version = "0.16.0-dev", default-features = false, optional = true }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, optional = true }
 serde = { version = "1", default-features = false, features = [
   "derive",
@@ -59,16 +59,7 @@ bevy_reflect = [
 
 ## Uses `async-executor` as a task execution backend.
 ## This backend is incompatible with `no_std` targets.
-async_executor = [
-  "std",
-  "dep:bevy_tasks",
-  "dep:bevy_utils",
-  "bevy_tasks/async_executor",
-]
-
-## Uses `edge-executor` as a task execution backend.
-## Use this instead of `async-executor` if working on a `no_std` target.
-edge_executor = ["dep:bevy_tasks", "bevy_tasks/edge_executor"]
+async_executor = ["std", "bevy_tasks/async_executor"]
 
 # Platform Compatibility
 
@@ -82,8 +73,8 @@ std = [
   "bevy_ecs?/std",
   "bevy_math/std",
   "bevy_reflect?/std",
-  "bevy_tasks?/std",
-  "bevy_utils?/std",
+  "bevy_tasks/std",
+  "bevy_utils/std",
   "serde?/std",
 ]
 
@@ -92,7 +83,7 @@ std = [
 critical-section = [
   "bevy_app?/critical-section",
   "bevy_ecs?/critical-section",
-  "bevy_tasks?/critical-section",
+  "bevy_tasks/critical-section",
   "bevy_reflect?/critical-section",
 ]
 

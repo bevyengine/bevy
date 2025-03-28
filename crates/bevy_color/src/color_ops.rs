@@ -95,6 +95,21 @@ pub trait Hue: Sized {
     }
 }
 
+/// Trait for manipulating the saturation of a color.
+///
+/// When working with color spaces that do not have native saturation components
+/// the operations are performed in [`crate::Hsla`].
+pub trait Saturation: Sized {
+    /// Return a new version of this color with the saturation channel set to the given value.
+    fn with_saturation(&self, saturation: f32) -> Self;
+
+    /// Return the saturation of this color [0.0, 1.0].
+    fn saturation(&self) -> f32;
+
+    /// Sets the saturation of this color.
+    fn set_saturation(&mut self, saturation: f32);
+}
+
 /// Trait with methods for converting colors to non-color types
 pub trait ColorToComponents {
     /// Convert to an f32 array

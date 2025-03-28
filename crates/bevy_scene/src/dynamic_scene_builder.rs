@@ -1,5 +1,6 @@
 use core::any::TypeId;
 
+use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use alloc::collections::BTreeMap;
 use bevy_ecs::{
@@ -10,7 +11,7 @@ use bevy_ecs::{
     resource::Resource,
     world::World,
 };
-use bevy_reflect::{PartialReflect, ReflectFromReflect};
+use bevy_reflect::PartialReflect;
 use bevy_utils::default;
 
 /// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities and resources.
@@ -303,14 +304,8 @@ impl<'w> DynamicSceneBuilder<'w> {
                         .data::<ReflectComponent>()?
                         .reflect(original_entity)?;
 
-                    // Clone via `FromReflect`. Unlike `PartialReflect::clone_value` this
-                    // retains the original type and `ReflectSerialize` type data which is needed to
-                    // deserialize.
-                    let component = type_registration
-                        .data::<ReflectFromReflect>()
-                        .and_then(|fr| fr.from_reflect(component.as_partial_reflect()))
-                        .map(PartialReflect::into_partial_reflect)
-                        .unwrap_or_else(|| component.clone_value());
+                    let component =
+                        clone_reflect_value(component.as_partial_reflect(), type_registration);
 
                     entry.components.push(component);
                     Some(())
@@ -381,13 +376,11 @@ impl<'w> DynamicSceneBuilder<'w> {
 
                 let resource = type_registration
                     .data::<ReflectResource>()?
-                    .reflect(self.original_world)?;
+                    .reflect(self.original_world)
+                    .ok()?;
 
-                let resource = type_registration
-                    .data::<ReflectFromReflect>()
-                    .and_then(|fr| fr.from_reflect(resource.as_partial_reflect()))
-                    .map(PartialReflect::into_partial_reflect)
-                    .unwrap_or_else(|| resource.clone_value());
+                let resource =
+                    clone_reflect_value(resource.as_partial_reflect(), type_registration);
 
                 self.extracted_resources.insert(component_id, resource);
                 Some(())

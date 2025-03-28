@@ -1,6 +1,6 @@
 use super::{BorderRect, TextureSlice};
 use bevy_math::{vec2, Rect, Vec2};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Slices a texture using the **9-slicing** technique. This allows to reuse an image at various sizes
 /// without needing to prepare multiple assets. The associated texture will be split into nine portions,
@@ -11,6 +11,7 @@ use bevy_reflect::Reflect;
 ///
 /// See [9-sliced](https://en.wikipedia.org/wiki/9-slice_scaling) textures.
 #[derive(Debug, Clone, Reflect, PartialEq)]
+#[reflect(Clone, PartialEq)]
 pub struct TextureSlicer {
     /// Inset values in pixels that define the four slicing lines dividing the texture into nine sections.
     pub border: BorderRect,
@@ -24,6 +25,7 @@ pub struct TextureSlicer {
 
 /// Defines how a texture slice scales when resized
 #[derive(Debug, Copy, Clone, Default, Reflect, PartialEq)]
+#[reflect(Clone, PartialEq, Default)]
 pub enum SliceScaleMode {
     /// The slice will be stretched to fit the area
     #[default]

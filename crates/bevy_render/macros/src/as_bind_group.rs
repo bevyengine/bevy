@@ -161,6 +161,29 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             }
                             _ => {}
                         }
+
+                        let binding_array_binding = binding_array_binding.unwrap_or(0);
+                        bindless_binding_layouts.push(quote! {
+                            #bind_group_layout_entries.push(
+                                #render_path::render_resource::BindGroupLayoutEntry {
+                                    binding: #binding_array_binding,
+                                    visibility: #render_path::render_resource::ShaderStages::all(),
+                                    ty: #render_path::render_resource::BindingType::Buffer {
+                                        ty: #uniform_binding_type,
+                                        has_dynamic_offset: false,
+                                        min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
+                                    },
+                                    count: #actual_bindless_slot_count,
+                                }
+                            );
+                        });
+
+                        add_bindless_resource_type(
+                            &render_path,
+                            &mut bindless_resource_types,
+                            binding_index,
+                            quote! { #render_path::render_resource::BindlessResourceType::Buffer },
+                        );
                     }
 
                     UniformBindingAttrType::Data => {
@@ -201,7 +224,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                     },
                                     count: None,
                                 }
-                            )
+                            );
                         });
 
                         add_bindless_resource_type(
@@ -242,9 +265,12 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         ),
                         bindless_index:
                             #render_path::render_resource::BindlessIndex(#binding_index),
-                        size: <#converted_shader_type as
-                            #render_path::render_resource::ShaderType>::min_size().get() as
-                            usize,
+                                size: Some(
+                                    <
+                                        #converted_shader_type as
+                                        #render_path::render_resource::ShaderType
+                                    >::min_size().get() as usize
+                                ),
                     }
                 });
 
@@ -375,15 +401,9 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 }
 
                 BindingType::Storage => {
-                    if attr_bindless_count.is_some() {
-                        return Err(Error::new_spanned(
-                            attr,
-                            "Storage buffers are unsupported in bindless mode",
-                        ));
-                    }
-
                     let StorageAttrs {
                         visibility,
+                        binding_array: binding_array_binding,
                         read_only,
                         buffer,
                     } = get_storage_binding_attr(nested_meta_items)?;
@@ -413,8 +433,6 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         });
                     }
 
-                    // TODO: Support bindless buffers that aren't
-                    // structure-level `#[uniform]` attributes.
                     non_bindless_binding_layouts.push(quote! {
                         #bind_group_layout_entries.push(
                             #render_path::render_resource::BindGroupLayoutEntry {
@@ -429,6 +447,54 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             }
                         );
                     });
+
+                    if let Some(binding_array_binding) = binding_array_binding {
+                        // Add the storage buffer to the `BindlessResourceType` list
+                        // in the bindless descriptor.
+                        let bindless_resource_type = quote! {
+                            #render_path::render_resource::BindlessResourceType::Buffer
+                        };
+                        add_bindless_resource_type(
+                            &render_path,
+                            &mut bindless_resource_types,
+                            binding_index,
+                            bindless_resource_type,
+                        );
+
+                        // Push the buffer descriptor.
+                        bindless_buffer_descriptors.push(quote! {
+                            #render_path::render_resource::BindlessBufferDescriptor {
+                                // Note that, because this is bindless, *binding
+                                // index* here refers to the index in the bindless
+                                // index table (`bindless_index`), and the actual
+                                // binding number is the *binding array binding*.
+                                binding_number: #render_path::render_resource::BindingNumber(
+                                    #binding_array_binding
+                                ),
+                                bindless_index:
+                                    #render_path::render_resource::BindlessIndex(#binding_index),
+                                size: None,
+                            }
+                        });
+
+                        // Declare the binding array.
+                        bindless_binding_layouts.push(quote!{
+                            #bind_group_layout_entries.push(
+                                #render_path::render_resource::BindGroupLayoutEntry {
+                                    binding: #binding_array_binding,
+                                    visibility: #render_path::render_resource::ShaderStages::all(),
+                                    ty: #render_path::render_resource::BindingType::Buffer {
+                                        ty: #render_path::render_resource::BufferBindingType::Storage {
+                                            read_only: #read_only
+                                        },
+                                        has_dynamic_offset: false,
+                                        min_binding_size: None,
+                                    },
+                                    count: #actual_bindless_slot_count,
+                                }
+                            );
+                        });
+                    }
                 }
 
                 BindingType::StorageTexture => {
@@ -1270,6 +1336,14 @@ fn get_visibility_flag_value(meta_list: &MetaList) -> Result<ShaderStageVisibili
     Ok(ShaderStageVisibility::Flags(visibility))
 }
 
+// Returns the `binding_array(10)` part of a field-level declaration like
+// `#[storage(binding_array(10))]`.
+fn get_binding_array_flag_value(meta_list: &MetaList) -> Result<u32> {
+    meta_list
+        .parse_args_with(|input: ParseStream| input.parse::<LitInt>())?
+        .base10_parse()
+}
+
 #[derive(Clone, Copy, Default)]
 enum BindingTextureDimension {
     D1,
@@ -1610,6 +1684,7 @@ fn get_sampler_binding_type_value(lit_str: &LitStr) -> Result<SamplerBindingType
 #[derive(Default)]
 struct StorageAttrs {
     visibility: ShaderStageVisibility,
+    binding_array: Option<u32>,
     read_only: bool,
     buffer: bool,
 }
@@ -1619,6 +1694,7 @@ const BUFFER: Symbol = Symbol("buffer");
 
 fn get_storage_binding_attr(metas: Vec<Meta>) -> Result<StorageAttrs> {
     let mut visibility = ShaderStageVisibility::vertex_fragment();
+    let mut binding_array = None;
     let mut read_only = false;
     let mut buffer = false;
 
@@ -1628,6 +1704,10 @@ fn get_storage_binding_attr(metas: Vec<Meta>) -> Result<StorageAttrs> {
             // Parse #[storage(0, visibility(...))].
             List(m) if m.path == VISIBILITY => {
                 visibility = get_visibility_flag_value(&m)?;
+            }
+            // Parse #[storage(0, binding_array(...))] for bindless mode.
+            List(m) if m.path == BINDING_ARRAY_MODIFIER_NAME => {
+                binding_array = Some(get_binding_array_flag_value(&m)?);
             }
             Path(path) if path == READ_ONLY => {
                 read_only = true;
@@ -1646,6 +1726,7 @@ fn get_storage_binding_attr(metas: Vec<Meta>) -> Result<StorageAttrs> {
 
     Ok(StorageAttrs {
         visibility,
+        binding_array,
         read_only,
         buffer,
     })

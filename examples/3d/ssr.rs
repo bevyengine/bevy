@@ -3,8 +3,9 @@
 use std::ops::Range;
 
 use bevy::{
+    anti_aliasing::fxaa::Fxaa,
     color::palettes::css::{BLACK, WHITE},
-    core_pipeline::{fxaa::Fxaa, Skybox},
+    core_pipeline::Skybox,
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,

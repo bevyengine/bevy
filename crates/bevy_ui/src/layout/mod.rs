@@ -727,7 +727,7 @@ mod tests {
             mut cameras: Query<&mut Camera>,
         ) {
             let primary_window = primary_window_query
-                .get_single()
+                .single()
                 .expect("missing primary window");
             let camera_count = cameras.iter().len();
             for (camera_index, mut camera) in cameras.iter_mut().enumerate() {
@@ -784,7 +784,7 @@ mod tests {
             ui_schedule.run(world);
             let (ui_node_entity, UiTargetCamera(target_camera_entity)) = world
                 .query_filtered::<(Entity, &UiTargetCamera), With<MovingUiNode>>()
-                .get_single(world)
+                .single(world)
                 .expect("missing MovingUiNode");
             assert_eq!(expected_camera_entity, target_camera_entity);
             let mut ui_surface = world.resource_mut::<UiSurface>();

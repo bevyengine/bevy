@@ -347,7 +347,7 @@ pub fn extract_lights(
         ));
     }
     *previous_point_lights_len = point_lights_values.len();
-    commands.insert_or_spawn_batch(point_lights_values);
+    commands.try_insert_batch(point_lights_values);
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
@@ -410,7 +410,7 @@ pub fn extract_lights(
         }
     }
     *previous_spot_lights_len = spot_lights_values.len();
-    commands.insert_or_spawn_batch(spot_lights_values);
+    commands.try_insert_batch(spot_lights_values);
 
     for (
         main_entity,
@@ -1809,6 +1809,9 @@ pub fn specialize_shadows<M: Material>(
                 .or_default();
 
             for (_, visible_entity) in visible_entities.iter().copied() {
+                let Some(material_asset_id) = render_material_instances.get(&visible_entity) else {
+                    continue;
+                };
                 let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
                 let last_specialized_tick = view_specialized_material_pipeline_cache
                     .get(&visible_entity)
@@ -1820,7 +1823,9 @@ pub fn specialize_shadows<M: Material>(
                 if !needs_specialization {
                     continue;
                 }
-
+                let Some(material) = render_materials.get(*material_asset_id) else {
+                    continue;
+                };
                 let Some(mesh_instance) =
                     render_mesh_instances.render_mesh_queue_data(visible_entity)
                 else {
@@ -1832,12 +1837,6 @@ pub fn specialize_shadows<M: Material>(
                 {
                     continue;
                 }
-                let Some(material_asset_id) = render_material_instances.get(&visible_entity) else {
-                    continue;
-                };
-                let Some(material) = render_materials.get(*material_asset_id) else {
-                    continue;
-                };
                 let Some(material_bind_group) =
                     material_bind_group_allocator.get(material.binding.group)
                 else {
@@ -2239,18 +2238,12 @@ impl ShadowPassNode {
         world: &'w World,
         is_late: bool,
     ) -> Result<(), NodeRunError> {
-        let diagnostics = render_context.diagnostic_recorder();
-
-        let view_entity = graph.view_entity();
-
         let Some(shadow_render_phases) = world.get_resource::<ViewBinnedRenderPhases<Shadow>>()
         else {
             return Ok(());
         };
 
-        let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
-
-        if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
+        if let Ok(view_lights) = self.main_view_query.get_manual(world, graph.view_entity()) {
             for view_light_entity in view_lights.lights.iter().copied() {
                 let Ok((view_light, extracted_light_view, occlusion_culling)) =
                     self.view_light_query.get_manual(world, view_light_entity)
@@ -2306,8 +2299,6 @@ impl ShadowPassNode {
                 });
             }
         }
-
-        time_span.end(render_context.command_encoder());
 
         Ok(())
     }

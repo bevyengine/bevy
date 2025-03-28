@@ -9,23 +9,23 @@ use bevy_render::sync_world::MainEntity;
 /// This component contains all mesh entities visible from the current light view.
 /// The collection is updated automatically by [`crate::SimulationLightSystems`].
 #[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]
-#[reflect(Component, Debug, Default)]
+#[reflect(Component, Debug, Default, Clone)]
 pub struct VisibleMeshEntities {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub entities: Vec<Entity>,
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]
-#[reflect(Component, Debug, Default)]
+#[reflect(Component, Debug, Default, Clone)]
 pub struct RenderVisibleMeshEntities {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub entities: Vec<(Entity, MainEntity)>,
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Debug, Default)]
+#[reflect(Component, Debug, Default, Clone)]
 pub struct CubemapVisibleEntities {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     data: [VisibleMeshEntities; 6],
 }
 
@@ -48,9 +48,9 @@ impl CubemapVisibleEntities {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Debug, Default)]
+#[reflect(Component, Debug, Default, Clone)]
 pub struct RenderCubemapVisibleEntities {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub(crate) data: [RenderVisibleMeshEntities; 6],
 }
 
@@ -73,17 +73,17 @@ impl RenderCubemapVisibleEntities {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default, Clone)]
 pub struct CascadesVisibleEntities {
     /// Map of view entity to the visible entities for each cascade frustum.
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub entities: EntityHashMap<Vec<VisibleMeshEntities>>,
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default, Clone)]
 pub struct RenderCascadesVisibleEntities {
     /// Map of view entity to the visible entities for each cascade frustum.
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub entities: EntityHashMap<Vec<RenderVisibleMeshEntities>>,
 }

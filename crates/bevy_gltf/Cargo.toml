@@ -9,7 +9,6 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-dds = ["bevy_render/dds", "bevy_image/dds", "bevy_core_pipeline/dds"]
 pbr_transmission_textures = ["bevy_pbr/pbr_transmission_textures"]
 pbr_multi_layer_material_textures = [
   "bevy_pbr/pbr_multi_layer_material_textures",
@@ -27,10 +26,9 @@ bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.16.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.16.0-dev" }
 bevy_pbr = { path = "../bevy_pbr", version = "0.16.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
-  "bevy",
-] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.16.0-dev" }
 bevy_scene = { path = "../bevy_scene", version = "0.16.0-dev", features = [
   "bevy_render",
@@ -60,7 +58,7 @@ gltf = { version = "1.4.0", default-features = false, features = [
 thiserror = { version = "2", default-features = false }
 base64 = "0.22.0"
 fixedbitset = "0.5"
-itertools = "0.13"
+itertools = "0.14"
 percent-encoding = "2.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
