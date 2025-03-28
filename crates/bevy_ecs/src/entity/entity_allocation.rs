@@ -129,13 +129,22 @@ impl Drop for Chunk {
 
 /// This is the shared data for the owned list.
 /// It is the source of truth.
+///
+/// Conceptually, this is like a `Vec<Entity>` divided into two slices.
+/// The first slice stores the [`Entity`]s that are spawned but have no components.
+/// The second slice are those that are free (pending reuse).
+///
+/// The empty slice starts at index zero.
+/// The free slice starts at index [`Self::free_cursor`].
+/// The combined length of the two slices is [`Self::len`].
 struct OwnedBuffer {
     /// Each chunk has a length the power of 2.
     /// We store chunks in smallest to biggest order.
     chunks: [Chunk; Chunk::NUM_CHUNKS as usize],
-    /// This is the total length of the buffer; the sum of each of the [`chunks`](Self::chunks)'s length.
+    /// This is the total length of the whole buffer.
     len: AtomicUsize,
-    /// This points to the index in this buffer of the first [`Slot`] that is pending reuse.
+    /// This is the index in this buffer of the first [`Slot`] that is free (pending reuse).
+    /// If this index is out of bounds (at all) nothing is free. Values out of bounds have no real meaning.
     free_cursor: AtomicUsize,
 }
 
@@ -153,6 +162,30 @@ impl OwnedBuffer {
             len: AtomicUsize::new(0),
             free_cursor: AtomicUsize::new(0),
         }
+    }
+
+    /// Gets the [`Entity`] at this idnex.
+    ///
+    /// # Safety
+    ///
+    /// The index must be in bounds.
+    unsafe fn get(&self, idnex: u32) -> Entity {
+        let (chunk_idnex, index_in_chunk) = Chunk::get_indices(idnex);
+        // SAFETY: `chunk_idnex` is correct. The chunk is valid and the slot is init because the index is inbounds.
+        unsafe {
+            self.chunks
+                .get_unchecked(chunk_idnex as usize)
+                .get(index_in_chunk)
+        }
+    }
+
+    /// This makes a free [`Entity`] an empty entity (if one is available).
+    fn spawn_empty(&self) -> Option<Entity> {
+        let len = self.len.load(Ordering::Relaxed);
+        let index = self.free_cursor.fetch_add(1, Ordering::Relaxed);
+
+        // SAFETY: We check that it is in bounds.
+        (index < len).then(|| unsafe { self.get(index as u32) })
     }
 }
 
