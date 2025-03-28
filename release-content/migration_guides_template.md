@@ -17,10 +17,19 @@ Aim to communicate:
 
 Keep it short and sweet:
 
-- Use bullet points and make sure it's searchable.
+- What, then why, then how to migrate.
+- Some helpful standardized phrases:
+  - `OldType` is now `NewType`. Replace all references and imports.
+  - The `Struct::method()` method now requires an additional `magnitude: f32` argument.
+  - `Enum` has a new variant, `Enum::NewVariant`, which must be handled during `match` statements.
+  - The `Type::method` method has been removed. Use `Type::other_method` instead.
+  - The `crate::old_module` module is now `crate::new_module`. Update your imports.
+  - `function` now returns `Option<String>`, instead of `String`.
+- Make sure it's searchable by directly naming the types and methods involved.
+- Use backticks for types, methods and modules (e.g. `Vec<T>` or `core::mem::swap`).
+- Use bullet points to explain complex changes.
 - Avoid headings. If you must, use only level-two headings.
-- Use backticks for types (e.g. `Vec<T>`) in either the title or the body.
-- Diff codeblocks can also be useful for succinctly communicating changes.
+- Diff codeblocks can be useful for succinctly communicating changes.
 
 ```diff
 fn my_system(world: &mut World) {
