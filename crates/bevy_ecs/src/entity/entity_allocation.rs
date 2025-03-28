@@ -40,9 +40,19 @@ impl Chunk {
 
     /// For this index in the whole buffer, returns the index of the [`Chunk`] and the index within that chunk.
     fn get_indices(full_idnex: u32) -> (u32, u32) {
-        let leading = full_idnex.leading_zeros().min(Self::NUM_CHUNKS - 1);
+        // We're countint leading zeros since each chunk has power of 2 capacity.
+        // So the leading zeros will be proportional to the chunk index.
+        let leading = full_idnex
+            .leading_zeros()
+            // We do a min because we skip the first 8 powers.
+            // The -1 is because this is the number of chunks, but we want the index in the end.
+            .min(Self::NUM_CHUNKS - 1);
+        // We store chunks in smallest to biggest order, so we need to reverse it.
         let chunk_index = Self::NUM_CHUNKS - 1 - leading;
+        // We only need to cut of this particular bit.
+        // The capacity is only one bit, and if other bits needed to be dropped, `leading` would have been greater
         let slice_index = full_idnex & !Self::capacity_of_chunk(chunk_index);
+
         (chunk_index, slice_index)
     }
 }
@@ -51,6 +61,7 @@ impl Chunk {
 /// It is the source of truth.
 struct OwnedBuffer {
     /// Each chunk has a length the power of 2.
+    /// We store chunks in smallest to biggest order.
     chunks: [Chunk; Chunk::NUM_CHUNKS as usize],
     /// This is the total length of the buffer; the sum of each of the [`chunks`](Self::chunks)'s length.
     len: AtomicUsize,
