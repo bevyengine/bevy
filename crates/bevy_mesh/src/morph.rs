@@ -106,8 +106,6 @@ impl MorphTargetImage {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_asset::prelude::*;
-/// # use bevy_mesh::*;
 /// # use bevy_mesh::morph::*;
 /// fn setup(mut commands: Commands, mesh_entities: &[Entity]) {
 ///     // Create the `MorphWeights` component.
@@ -135,8 +133,6 @@ impl MorphTargetImage {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_asset::prelude::*;
-/// # use bevy_mesh::*;
 /// # use bevy_mesh::morph::*;
 /// # fn setup(mut commands: Commands, mesh_entity: Entity) {
 /// # let weights_component = MorphWeights::new(vec![0.0, 0.5, 1.0], None).unwrap();
