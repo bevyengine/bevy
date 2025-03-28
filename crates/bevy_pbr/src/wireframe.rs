@@ -3,63 +3,61 @@ use crate::{
     SetMeshBindGroup, SetMeshViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
-use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{
-    load_internal_asset, weak_handle, AsAssetId, Asset, AssetApp, AssetEvents, AssetId, Assets,
-    Handle,
+    load_internal_asset, prelude::AssetChanged, weak_handle, AsAssetId, Asset, AssetApp,
+    AssetEvents, AssetId, Assets, Handle,
 };
 use bevy_color::{Color, ColorToComponents};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
-use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_core_pipeline::core_3d::{
+    graph::{Core3d, Node3d},
+    Camera3d,
+};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
-use bevy_ecs::entity::hash_map::EntityHashMap;
-use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryItem;
-use bevy_ecs::system::lifetimeless::SRes;
-use bevy_ecs::system::{SystemChangeTick, SystemParamItem};
-use bevy_math::{FloatOrd, Vec4};
-use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_platform_support::hash::FixedHasher;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport};
-use bevy_render::camera::ExtractedCamera;
-use bevy_render::extract_component::UniformComponentPlugin;
-use bevy_render::mesh::allocator::{MeshAllocator, SlabId};
-use bevy_render::mesh::{MeshVertexBufferLayout, RenderMesh};
-use bevy_render::render_asset::{
-    prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
-};
-use bevy_render::render_graph::{
-    NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
-};
-use bevy_render::render_phase::{
-    AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
-    CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, InputUniformIndex, PhaseItem,
-    PhaseItemBatchSetKey, PhaseItemExtraIndex, RenderCommand, RenderCommandResult, SetItemPipeline,
-    TrackedRenderPass, ViewBinnedRenderPhases, ViewSortedRenderPhases,
-};
-use bevy_render::render_resource::binding_types::{
-    sampler, storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer,
-};
-use bevy_render::renderer::{RenderContext, RenderDevice};
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
-use bevy_render::view::{
-    ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
-    RetainedViewEntity, ViewDepthTexture, ViewTarget,
-};
-use bevy_render::{
-    extract_resource::ExtractResource,
-    mesh::{Mesh3d, MeshVertexBufferLayoutRef},
+use bevy_ecs::{
+    component::Tick,
     prelude::*,
-    render_resource::*,
+    query::QueryItem,
+    system::{lifetimeless::SRes, SystemChangeTick, SystemParamItem},
+};
+use bevy_platform_support::{
+    collections::{HashMap, HashSet},
+    hash::FixedHasher,
+};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::{
+    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
+    camera::ExtractedCamera,
+    extract_resource::ExtractResource,
+    mesh::{
+        allocator::{MeshAllocator, SlabId},
+        Mesh3d, MeshVertexBufferLayoutRef, RenderMesh,
+    },
+    prelude::*,
+    render_asset::{
+        prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
+    },
+    render_graph::{
+        NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
+    },
+    render_phase::{
+        AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
+        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, InputUniformIndex, PhaseItem,
+        PhaseItemBatchSetKey, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
+        SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
+    },
+    render_resource::{
+        *,
+    },
+    renderer::RenderContext,
+    sync_world::{MainEntity, MainEntityHashMap},
+    view::{
+        ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
+        RetainedViewEntity, ViewDepthTexture, ViewTarget,
+    },
     Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
 };
 use derive_more::From;
-use nonmax::NonMaxU32;
-use std::hash::Hash;
-use std::marker::PhantomData;
-use std::ops::Range;
+use std::{hash::Hash, ops::Range};
 use tracing::error;
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> =
@@ -88,7 +86,7 @@ impl WireframePlugin {
 }
 
 impl Plugin for WireframePlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
             WIREFRAME_SHADER_HANDLE,
@@ -183,7 +181,7 @@ impl Plugin for WireframePlugin {
 #[reflect(Component, Default, Debug, PartialEq)]
 pub struct Wireframe;
 
-struct Wireframe3d {
+pub struct Wireframe3d {
     /// Determines which objects can be placed into a *batch set*.
     ///
     /// Objects in a single batch set can potentially be multi-drawn together,
@@ -259,9 +257,12 @@ impl BinnedPhaseItem for Wireframe3d {
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct Wireframe3dBatchSetKey {
+pub struct Wireframe3dBatchSetKey {
     /// The identifier of the render pipeline.
     pub pipeline: CachedRenderPipelineId,
+
+    /// The wireframe material asset ID.
+    pub asset_id: AssetId<WireframeMaterial>,
 
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
@@ -545,10 +546,8 @@ pub fn extract_wireframe_materials(
 ) {
     for (entity, view_visibility, material) in &changed_meshes_query {
         if view_visibility.get() {
-            println!("Adding wireframe material for entity {:?}", entity);
             material_instances.insert(entity.into(), material.id());
         } else {
-            println!("Removing wireframe material for entity {:?}", entity);
             material_instances.remove(&MainEntity::from(entity));
         }
     }
@@ -561,7 +560,6 @@ pub fn extract_wireframe_materials(
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
         if !changed_meshes_query.contains(entity) {
-            println!("Removing wireframe material for entity {:?}", entity);
             material_instances.remove(&MainEntity::from(entity));
         }
     }
@@ -737,7 +735,6 @@ pub fn check_wireframe_entities_needing_specialization(
 pub fn specialize_wireframes(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    render_wireframe_instances: Res<RenderWireframeInstances>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
@@ -773,9 +770,6 @@ pub fn specialize_wireframes(
             .or_default();
 
         for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let Some(material_asset_id) = render_wireframe_instances.get(visible_entity) else {
-                continue;
-            };
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -846,9 +840,9 @@ fn queue_wireframes(
     specialized_wireframe_pipeline_cache: Res<SpecializedWireframePipelineCache>,
     render_wireframe_instances: Res<RenderWireframeInstances>,
     mut wireframe_3d_phases: ResMut<ViewBinnedRenderPhases<Wireframe3d>>,
-    mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
 ) {
-    for (view, visible_entities, msaa) in &mut views {
+    for (view, visible_entities) in &mut views {
         let Some(wireframe_phase) = wireframe_3d_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
@@ -861,35 +855,31 @@ fn queue_wireframes(
         };
 
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
+            let Some(wireframe_instance) = render_wireframe_instances.get(visible_entity) else {
+                continue;
+            };
             let Some((current_change_tick, pipeline_id)) = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(current_change_tick, pipeline_id)| (*current_change_tick, *pipeline_id))
             else {
-                println!("No specialized pipeline found for entity {:?}", visible_entity);
                 continue;
             };
 
             // Skip the entity if it's cached in a bin and up to date.
             if wireframe_phase.validate_cached_entity(*visible_entity, current_change_tick) {
-                println!("Entity {:?} is already cached and up to date.", visible_entity);
                 continue;
             }
-
-            let Some(wireframe_instance) = render_wireframe_instances.get(visible_entity) else {
-                println!("No wireframe instance found for entity {:?}", visible_entity);
-                continue;
-            };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
                 continue;
             };
             let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
-
             let bin_key = Wireframe3dBinKey {
                 asset_id: *wireframe_instance,
             };
             let batch_set_key = Wireframe3dBatchSetKey {
                 pipeline: pipeline_id,
+                asset_id: *wireframe_instance,
                 draw_function: draw_wireframe,
                 vertex_slab: vertex_slab.unwrap_or_default(),
                 index_slab,
@@ -898,7 +888,7 @@ fn queue_wireframes(
                 batch_set_key,
                 bin_key,
                 (*render_entity, *visible_entity),
-                InputUniformIndex::default(),
+                mesh_instance.current_uniform_index,
                 BinnedRenderPhaseType::mesh(
                     mesh_instance.should_batch(),
                     &gpu_preprocessing_support,
