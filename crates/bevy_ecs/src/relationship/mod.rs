@@ -209,12 +209,14 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     ///
     /// # Warning
     /// This should generally not be called by user code, as modifying the internal collection could invalidate the relationship.
+    /// The collection should not contain duplicates.
     fn collection_mut_risky(&mut self) -> &mut Self::Collection;
 
     /// Creates a new [`RelationshipTarget`] from the given [`RelationshipTarget::Collection`].
     ///
     /// # Warning
     /// This should generally not be called by user code, as constructing the internal collection could invalidate the relationship.
+    /// The collection should not contain duplicates.
     fn from_collection_risky(collection: Self::Collection) -> Self;
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
