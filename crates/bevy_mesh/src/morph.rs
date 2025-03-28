@@ -97,19 +97,65 @@ impl MorphTargetImage {
     }
 }
 
-/// TODO: Update this documentation.
+/// Controls the [morph targets] of one or more meshes.
 ///
-/// Controls the [morph targets] for all child `Mesh3d` entities. In most cases, [`MorphWeights`] should be considered
-/// the "source of truth" when writing morph targets for meshes. However you can choose to write child [`MeshMorphWeights`]
-/// if your situation requires more granularity. Just note that if you set [`MorphWeights`], it will overwrite child
-/// [`MeshMorphWeights`] values.
+/// Any entity can contain a `MorphWeights` component. An entity with a `Mesh3d`
+/// component can then reference it by adding a [`MeshMorphWeights`]
+/// component.
 ///
-/// This exists because Bevy's [`Mesh`] corresponds to a _single_ surface / material, whereas morph targets
-/// as defined in the GLTF spec exist on "multi-primitive meshes" (where each primitive is its own surface with its own material).
-/// Therefore in Bevy [`MorphWeights`] an a parent entity are the "canonical weights" from a GLTF perspective, which then
-/// synchronized to child `Mesh3d` / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).
+/// Here, a single `MorphTargets` component is used to drive multiple meshes:
 ///
-/// Add this to the parent of one or more [`Entities`](`Entity`) with a `Mesh3d` with a [`MeshMorphWeights`].
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_asset::prelude::*;
+/// # use bevy_mesh::*;
+/// # use bevy_mesh::morph::*;
+/// # #[derive(Component)]
+/// # struct Mesh3d(Handle<Mesh>);
+/// fn setup(mut commands: Commands, meshes: &[Handle<Mesh>]) {
+///     // Create the `MorphWeights` component.
+///     let weights_component = MorphWeights::new(
+///         vec![0.0, 0.5, 1.0],
+///         Some(meshes[0].clone())
+///     ).unwrap();
+///
+///     // Spawn an entity that contains the weights. Or we could have added them to
+///     // an existing entity.
+///     let weights_entity = commands.spawn(weights_component).id();
+///
+///     for mesh in meshes {
+///         // The `MeshMorphWeights` component references the entity with `MorphWeights`.
+///         commands.spawn((
+///             MeshMorphWeights(weights_entity),
+///             Mesh3d(mesh.clone())
+///         ));
+///     }
+/// }
+/// ```
+///
+/// Any changes to the `MorphWeights` component are automatically copied to the
+/// mesh.
+///
+/// In the simplest case, a `MorphTargets` component and a mesh can be in one
+/// entity. The `MeshMorphTargets` component is still required.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_asset::prelude::*;
+/// # use bevy_mesh::*;
+/// # use bevy_mesh::morph::*;
+/// # #[derive(Component)]
+/// # struct Mesh3d(Handle<Mesh>);
+/// # fn setup(mut commands: Commands, mesh: Handle<Mesh>) {
+/// # let weights_component = MorphWeights::new(vec![0.0, 0.5, 1.0], Some(mesh.clone())).unwrap();
+/// let entity = commands.spawn(weights_component).id();
+///
+/// commands.entity(entity).insert(
+///     (MeshMorphWeights(entity),
+///     Mesh3d(mesh.clone())
+/// ));
+/// # }
+/// ```
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Default, Debug, Clone, Component)]
@@ -152,17 +198,9 @@ impl MorphWeights {
     }
 }
 
-/// TODO: Update this documentation.
-///
-/// Control a specific [`Mesh`] instance's [morph targets]. These control the weights of
-/// specific "mesh primitives" in scene formats like GLTF. They can be set manually, but
-/// in most cases they should "automatically" synced by setting the [`MorphWeights`] component
-/// on a parent entity.
-///
-/// See [`MorphWeights`] for more details on Bevy's morph target implementation.
-///
-/// Add this to an [`Entity`] with a `Mesh3d` with a [`MorphAttributes`] set
-/// to control individual weights of each morph target.
+/// Controls the [morph targets] of a specific `Mesh3d` by referencing an
+/// entity with a [`MorphWeights`] component. Multiple meshes can reference a
+/// single `MorphWeights` component.
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Debug, Clone, Component)]
