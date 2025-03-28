@@ -89,7 +89,7 @@ where
         let result = unsafe { world.get_resource_by_id(state.main_world_state) };
         let Some(main_world) = result else {
             return Err(SystemParamValidationError::invalid::<Self>(
-                "Resource does not exist in main world",
+                "`MainWorld` resource does not exist",
             ));
         };
         // SAFETY: Type is guaranteed by `SystemState`.
