@@ -169,8 +169,8 @@ impl OwnedBuffer {
     /// # Safety
     ///
     /// The index must be in bounds.
-    unsafe fn get(&self, idnex: u32) -> Entity {
-        let (chunk_idnex, index_in_chunk) = Chunk::get_indices(idnex);
+    unsafe fn get(&self, index: u32) -> Entity {
+        let (chunk_idnex, index_in_chunk) = Chunk::get_indices(index);
         // SAFETY: `chunk_idnex` is correct. The chunk is valid and the slot is init because the index is inbounds.
         unsafe {
             self.chunks
@@ -185,15 +185,66 @@ impl OwnedBuffer {
         let index = self.free_cursor.fetch_add(1, Ordering::Relaxed);
 
         // SAFETY: We check that it is in bounds.
-        (index < len).then(|| unsafe { self.get(index as u32) })
+        (index < len).then(|| unsafe {
+            // We can safely cast to a `u32` since for it to overflow, there must already be too many entities.
+            self.get(index as u32)
+        })
     }
 }
 
 /// This is the owned list.
-/// It contains all entities owned by an allocator.
+/// It contains all entities owned by an entity allocator.
 /// This includes empty archetype entities and entities pending reuse.
 pub struct Owned {
     buffer: Arc<OwnedBuffer>,
+}
+
+impl Owned {
+    pub fn new() -> Self {
+        Self {
+            buffer: Arc::new(OwnedBuffer::new()),
+        }
+    }
+
+    /// If possible, spawns an empty by reusing a freed one.
+    pub fn spawn_empty(&self) -> Option<Entity> {
+        self.buffer.spawn_empty()
+    }
+
+    /// Sets the [`Entity`] at this idnex.
+    ///
+    /// # Safety
+    ///
+    /// The index must be in bounds.
+    unsafe fn set(&mut self, entity: Entity, index: u32) {
+        let (chunk_idnex, index_in_chunk) = Chunk::get_indices(index);
+        // SAFETY: `chunk_idnex` is correct. The chunk is valid and the slot is init because the index is inbounds.
+        // And this can't be called concurrently since we have `&mut`
+        unsafe {
+            self.buffer
+                .chunks
+                .get_unchecked(chunk_idnex as usize)
+                .set(index_in_chunk, entity);
+        }
+    }
+
+    /// Frees the [`Entity`] so it can be reused.
+    /// Returns it's index in the list.
+    /// This will be it's archetype row if [`spawn_empty`](Self::spawn_empty) reuses it.
+    pub fn free(&mut self, entity: Entity) -> u32 {
+        // We can safely cast to a `u32` since for it to overflow, there must already be too many entities.
+        let index = self.buffer.len.fetch_add(1, Ordering::Relaxed) as u32;
+        // SAFETY: We just incremented the len, so this must be in bounds
+        unsafe {
+            self.set(entity, index);
+        }
+        // If this changes the free cursor, this must be the only free entity, so it should be set to this index.
+        self.buffer
+            .free_cursor
+            .fetch_min(index as usize, Ordering::Relaxed);
+
+        index
+    }
 }
 
 #[cfg(test)]
