@@ -1,4 +1,3 @@
-use crate::{Material2d, Material2dKey, Material2dPlugin, Mesh2d};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
@@ -8,8 +7,10 @@ use bevy_render::{
     extract_resource::ExtractResource, mesh::MeshVertexBufferLayoutRef, prelude::*,
     render_resource::*,
 };
-
-use super::MeshMaterial2d;
+use bevy_render_2d::{
+    material::{Material2dKey, Material2dPlugin},
+    prelude::{Material2d, MeshMaterial2d},
+};
 
 pub const WIREFRAME_2D_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("3d8a3853-2927-4de2-9dc7-3971e7e40970");

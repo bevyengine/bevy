@@ -30,10 +30,12 @@ use bevy::{
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderSet,
     },
-    sprite::{
-        extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline, Mesh2dPipelineKey,
-        Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
-        SetMesh2dViewBindGroup,
+    render_2d::mesh_pipeline::{
+        bind_group::Material2dBindGroupId,
+        commands::{DrawMesh2d, SetMesh2dBindGroup, SetMesh2dViewBindGroup},
+        instancing::RenderMesh2dInstance,
+        mesh::{Mesh2dTransforms, MeshFlags},
+        pipeline::{Mesh2dPipeline, Mesh2dPipelineKey},
     },
 };
 use std::f32::consts::PI;
@@ -311,7 +313,9 @@ impl Plugin for ColoredMesh2dPlugin {
             .init_resource::<RenderColoredMesh2dInstances>()
             .add_systems(
                 ExtractSchedule,
-                extract_colored_mesh2d.after(extract_mesh2d),
+                extract_colored_mesh2d
+                    .after(RenderSet::QueueMeshes)
+                    .in_set(RenderSet::Queue),
             )
             .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::QueueMeshes));
     }
