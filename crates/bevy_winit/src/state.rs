@@ -537,6 +537,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 impl<T: Event> WinitAppRunnerState<T> {
     fn redraw_requested(&mut self, event_loop: &ActiveEventLoop) {
         let mut redraw_event_reader = EventCursor::<RequestRedraw>::default();
+        let mut close_event_reader = EventCursor::<WindowCloseRequested>::default();
 
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
             SystemState::new(self.world_mut());
@@ -662,6 +663,19 @@ impl<T: Event> WinitAppRunnerState<T> {
             let (config, windows) = focused_windows_state.get(self.world());
             let focused = windows.iter().any(|(_, window)| window.focused);
             update_mode = config.update_mode(focused);
+
+            // Running the app may have produced WindowCloseRequested events that should be processed
+            if let Some(close_request_events) =
+                self.world().get_resource::<Events<WindowCloseRequested>>()
+            {
+                if close_event_reader
+                    .read(close_request_events)
+                    .last()
+                    .is_some()
+                {
+                    self.redraw_requested = true;
+                }
+            }
         }
 
         // The update mode could have been changed, so we need to redraw and force an update
