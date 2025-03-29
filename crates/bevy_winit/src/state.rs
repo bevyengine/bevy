@@ -650,10 +650,12 @@ impl<T: Event> WinitAppRunnerState<T> {
                 self.redraw_requested = true;
             }
 
-            // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
-            let (config, windows) = focused_windows_state.get(self.world());
-            let focused = windows.iter().any(|(_, window)| window.focused);
-            update_mode = config.update_mode(focused);
+            // Read RequestRedraw events that may have been sent during the update
+            if let Some(app_redraw_events) = self.world().get_resource::<Events<RequestRedraw>>() {
+                if redraw_event_reader.read(app_redraw_events).last().is_some() {
+                    self.redraw_requested = true;
+                }
+            }
 
             // Running the app may have produced WindowCloseRequested events that should be processed
             if let Some(close_request_events) =
@@ -668,12 +670,10 @@ impl<T: Event> WinitAppRunnerState<T> {
                 }
             }
 
-            // Read RequestRedraw events that may have been sent during the update
-            if let Some(app_redraw_events) = self.world().get_resource::<Events<RequestRedraw>>() {
-                if redraw_event_reader.read(app_redraw_events).last().is_some() {
-                    self.redraw_requested = true;
-                }
-            }
+            // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
+            let (config, windows) = focused_windows_state.get(self.world());
+            let focused = windows.iter().any(|(_, window)| window.focused);
+            update_mode = config.update_mode(focused);
         }
 
         // The update mode could have been changed, so we need to redraw and force an update
