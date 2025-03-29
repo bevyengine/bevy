@@ -92,7 +92,7 @@ impl LogDiagnosticsPlugin {
             };
 
             info!(
-                target: "bevy diagnostic",
+                target: "bevy_diagnostic",
                 // Suffix is only used for 's' or 'ms' currently,
                 // so we reserve two columns for it; however,
                 // Do not reserve columns for the suffix in the average
@@ -103,7 +103,7 @@ impl LogDiagnosticsPlugin {
             );
         } else {
             info!(
-                target: "bevy diagnostic",
+                target: "bevy_diagnostic",
                 "{path:<path_width$}: {value:>.6}{suffix:}",
                 path = diagnostic.path(),
                 suffix = diagnostic.suffix,
