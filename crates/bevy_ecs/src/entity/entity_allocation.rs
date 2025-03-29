@@ -225,14 +225,17 @@ impl Owned {
         self.set(entity, index);
         // We change the length only after the item is valid.
         self.len += 1;
-        self.buffer.len.store(self.len, Ordering::Relaxed);
 
-        // TODO: What if an allocation happens now?
+        // Start by setting this to 0 to prevent remote allocations while we min the `free_cursor`
+        self.buffer.len.store(0, Ordering::Relaxed);
 
         // If this changes the free cursor, this must be the only free entity, so it should be set to this index.
         self.buffer
             .free_cursor
             .fetch_min(index as usize, Ordering::Relaxed);
+
+        // Set the len now that everything is valid.
+        self.buffer.len.store(self.len, Ordering::Relaxed);
 
         index
     }
