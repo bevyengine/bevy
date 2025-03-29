@@ -218,31 +218,8 @@ impl Owned {
         }
     }
 
-    /// Frees the [`Entity`] so it can be reused.
-    /// Returns it's index in the list.
-    /// This will be it's archetype row if [`spawn_empty`](Self::spawn_empty) reuses it.
-    pub fn free(&mut self, entity: Entity) -> u32 {
-        let index = self.len;
-        self.set(entity, index);
-        // We change the length only after the item is valid.
-        self.len += 1;
-
-        // Start by setting this to 0 to prevent remote allocations while we min the `free_cursor`
-        self.buffer.len.store(0, Ordering::Relaxed);
-
-        // If this changes the free cursor, this must be the only free entity, so it should be set to this index.
-        self.buffer
-            .free_cursor
-            .fetch_min(index as usize, Ordering::Relaxed);
-
-        // Set the len now that everything is valid.
-        self.buffer.len.store(self.len, Ordering::Relaxed);
-
-        index
-    }
-
     /// If possible, spawns an empty by reusing a freed one.
-    pub fn spawn_empty(&self) -> Option<Entity> {
+    fn spawn_empty_in_buffer(&self) -> Option<Entity> {
         let index = self.buffer.free_cursor.fetch_add(1, Ordering::Relaxed);
 
         // SAFETY: We check that it is in bounds.
@@ -252,8 +229,8 @@ impl Owned {
         })
     }
 
-    /// Spawns an [`Entity`] without moving it into the empty archetype.
-    pub fn spawn_non_empty(&mut self) -> Option<Entity> {
+    /// Reserves an [`Entity`] without moving it into the empty archetype.
+    fn alloc_non_empty_from_freed(&mut self) -> Option<Entity> {
         if self.len == 0 {
             return None;
         }
@@ -276,6 +253,35 @@ impl Owned {
             // We don't need to write back this source of truth to [`OwnedBuffer::len`] since the `free_cursor` is already out of bounds, so it doesn't matter.
             None
         }
+    }
+
+    /// Frees the [`Entity`] so it can be reused.
+    /// Returns its index in the list.
+    /// This will be it's archetype row if [`spawn_empty`](Self::spawn_empty) reuses it.
+    ///
+    /// # Safety
+    ///
+    /// The entity must not be in the empty archetype in this buffer.
+    pub unsafe fn free_non_empty_buffer(&mut self, entity: Entity) -> u32 {
+        let index = self.len;
+        self.set(entity, index);
+        self.len += 1;
+
+        // Prevent any remote reservations from accessing the buffer for a bit
+        let free_cursor = self
+            .buffer
+            .free_cursor
+            .swap(u32::MAX as usize, Ordering::Relaxed);
+
+        // Set the len now that everything is valid.
+        self.buffer.len.store(self.len, Ordering::Relaxed);
+
+        // If this changes the free cursor, this must be the only free entity, so it should be set to this index.
+        self.buffer
+            .free_cursor
+            .store(free_cursor.min(index as usize), Ordering::Relaxed);
+
+        index
     }
 
     /// The entity at this index in the [`OwnedBuffer`] will no longer be in the empty archetype.
