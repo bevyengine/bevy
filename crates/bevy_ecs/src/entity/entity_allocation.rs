@@ -148,6 +148,10 @@ struct OwnedBuffer {
 }
 
 impl OwnedBuffer {
+    /// This value will slways be greater than the buffer's length.
+    /// When this is the `free_cursor` it effectively disables reusing the free list.
+    const DISABLE_FREE_CURSOR: usize = u32::MAX as usize;
+
     fn new() -> Self {
         let base = [(); Chunk::NUM_CHUNKS as usize];
         let chunks = base.map(|()| Chunk::new());
@@ -275,7 +279,7 @@ impl Owned {
         let free_cursor = self
             .buffer
             .free_cursor
-            .swap(u32::MAX as usize, Ordering::Relaxed);
+            .swap(OwnedBuffer::DISABLE_FREE_CURSOR, Ordering::Relaxed);
 
         // SAFETY: If a `RemoteOwned::try_spawn_empty_from_free` happens here, it will not find a valid free entity.
 
@@ -301,7 +305,11 @@ impl Owned {
     ///
     /// The `index` must be valid and point to a empty archetype valid entity.
     pub unsafe fn make_non_empty(&mut self, index: u32) -> Option<Entity> {
-        let free_cursor = self.buffer.free_cursor.load(Ordering::Relaxed);
+        // This disables the free cursor while we change it.
+        let free_cursor = self
+            .buffer
+            .free_cursor
+            .swap(OwnedBuffer::DISABLE_FREE_CURSOR, Ordering::Relaxed);
 
         if free_cursor >= self.len as usize {
             // Nothing is free so we can just swap remove normally.
@@ -317,6 +325,7 @@ impl Owned {
             self.set(to_swap, index);
 
             // We don't need to write back to [`OwnedBuffer::len`] since the `free_cursor` is already out of bounds, so it doesn't matter.
+            // We don't need to re-enable the free cursor since it's already disabled (naturally out of bounds).
 
             Some(to_swap)
         } else {
@@ -327,7 +336,7 @@ impl Owned {
             let fill_in = self.buffer.get(last_empty);
             self.set(fill_in, index);
 
-            // SAFETY: If a `RemoteOwned::try_spawn_empty_from_free` happens here ???
+            // SAFETY: If a `RemoteOwned::try_spawn_empty_from_free` happens here it will not find a valid free entity to reuse.
 
             // then, we need to fill in the last empty archetype with the last free entity
             self.len -= 1;
@@ -335,45 +344,15 @@ impl Owned {
             let last_free = self.buffer.get(self.len);
             self.set(last_free, last_empty);
 
+            // SAFETY: If a `RemoteOwned::try_spawn_empty_from_free` happens here it will not find a valid free entity to reuse.
+
             // and finally, we need to decrement the free_cursor.
-            let cmp = self.buffer.free_cursor.compare_exchange(
-                free_cursor,
+            // This decrements from what it was, even though it is currently disabled.
+            self.buffer.free_cursor.store(
                 // The last slot in the old empty list is now free
                 last_empty as usize,
                 Ordering::Relaxed,
-                Ordering::Relaxed,
             );
-            match cmp {
-                Ok(_) => Some(fill_in),
-
-                // TODO: hint that this is unlikely
-                Err(mut new_free_cursor) => {
-                    // The free cursor was pulled out from under us.
-                    // Now the buffer looks like | empty archetype | free entity (`last_free`) | just reserved empty archetype | rest of the free entities
-                    let mut last_empty = last_empty;
-                    loop {
-                        let new_last_empty = (new_free_cursor - 1).min(self.len as usize) as u32;
-                        let new_last_empty_entity = self.buffer.get(new_last_empty);
-                        self.set(new_last_empty_entity, last_empty);
-                        self.set(last_free, new_last_empty);
-                        let cmp = self.buffer.free_cursor.compare_exchange(
-                            new_free_cursor,
-                            // The last slot in the old empty list is now free
-                            new_last_empty as usize,
-                            Ordering::Relaxed,
-                            Ordering::Relaxed,
-                        );
-                        match cmp {
-                            Ok(_) => break Some(fill_in),
-                            Err(new) => {
-                                new_free_cursor = new;
-                                last_empty = new_last_empty;
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
     /// This makes this [`Entity`] in the buffer's empty archetype, returning it's index in the buffer.
