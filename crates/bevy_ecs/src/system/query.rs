@@ -2574,7 +2574,7 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 /// [System parameter] that provides access to single entity's components, much like [`Query::single`]/[`Query::single_mut`].
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if zero or more than one matching entity exists.
-/// This will cause a panic, but can be configured to do nothing or warn once.
+/// This will cause the system to be skipped, according to the rules laid out in [`SystemParamValidationError`](crate::system::SystemParamValidationError).
 ///
 /// Use [`Option<Single<D, F>>`] instead if zero or one matching entities can exist.
 ///
@@ -2610,7 +2610,7 @@ impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
 /// [System parameter] that works very much like [`Query`] except it always contains at least one matching entity.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if no matching entities exist.
-/// This will cause a panic, but can be configured to do nothing or warn once.
+/// This will cause the system to be skipped, according to the rules laid out in [`SystemParamValidationError`](crate::system::SystemParamValidationError).
 ///
 /// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
 /// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added) or [`Changed`](crate::query::Changed)

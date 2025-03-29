@@ -18,7 +18,7 @@ use crate::{
     prelude::Resource,
     query::Access,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
-    system::{ScheduleSystem, SystemParamValidationError},
+    system::ScheduleSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -452,6 +452,8 @@ impl ExecutorState {
 
                 // SAFETY:
                 // - Caller ensured no other reference to this system exists.
+                // - `system_task_metadata[system_index].is_exclusive` is `false`,
+                //   so `System::is_exclusive` returned `false` when we called it.
                 // - `can_run` has been called, which calls `update_archetype_component_access` with this system.
                 // - `can_run` returned true, so no systems with conflicting world access are running.
                 unsafe {
@@ -581,18 +583,25 @@ impl ExecutorState {
             // - The caller ensures that `world` has permission to read any data
             //   required by the system.
             // - `update_archetype_component_access` has been called for system.
-            let valid_params = unsafe { system.validate_param_unsafe(world) };
+            let valid_params = match unsafe { system.validate_param_unsafe(world) } {
+                Ok(()) => true,
+                Err(e) => {
+                    if !e.skipped {
+                        error_handler(
+                            e.into(),
+                            ErrorContext::System {
+                                name: system.name(),
+                                last_run: system.get_last_run(),
+                            },
+                        );
+                    }
+                    false
+                }
+            };
             if !valid_params {
-                error_handler(
-                    SystemParamValidationError.into(),
-                    ErrorContext::System {
-                        name: system.name(),
-                        last_run: system.get_last_run(),
-                    },
-                );
-
                 self.skipped_systems.insert(system_index);
             }
+
             should_run &= valid_params;
         }
 
@@ -601,6 +610,7 @@ impl ExecutorState {
 
     /// # Safety
     /// - Caller must not alias systems that are running.
+    /// - `is_exclusive` must have returned `false` for the specified system.
     /// - `world` must have permission to access the world data
     ///   used by the specified system.
     /// - `update_archetype_component_access` must have been called with `world`
@@ -618,6 +628,7 @@ impl ExecutorState {
                 // SAFETY:
                 // - The caller ensures that we have permission to
                 // access the world data used by the system.
+                // - `is_exclusive` returned false
                 // - `update_archetype_component_access` has been called.
                 unsafe {
                     if let Err(err) = __rust_begin_short_backtrace::run_unsafe(
@@ -789,16 +800,20 @@ unsafe fn evaluate_and_fold_conditions(
             // - The caller ensures that `world` has permission to read any data
             //   required by the condition.
             // - `update_archetype_component_access` has been called for condition.
-            if !unsafe { condition.validate_param_unsafe(world) } {
-                error_handler(
-                    SystemParamValidationError.into(),
-                    ErrorContext::System {
-                        name: condition.name(),
-                        last_run: condition.get_last_run(),
-                    },
-                );
-
-                return false;
+            match unsafe { condition.validate_param_unsafe(world) } {
+                Ok(()) => (),
+                Err(e) => {
+                    if !e.skipped {
+                        error_handler(
+                            e.into(),
+                            ErrorContext::System {
+                                name: condition.name(),
+                                last_run: condition.get_last_run(),
+                            },
+                        );
+                    }
+                    return false;
+                }
             }
             // SAFETY:
             // - The caller ensures that `world` has permission to read any data

@@ -4,6 +4,7 @@ use alloc::{collections::VecDeque, sync::Arc};
 use bevy_input_focus::InputFocus;
 use core::cell::RefCell;
 use std::sync::Mutex;
+use winit::event_loop::ActiveEventLoop;
 
 use accesskit::{
     ActionHandler, ActionRequest, ActivationHandler, DeactivationHandler, Node, NodeId, Role, Tree,
@@ -73,8 +74,7 @@ impl AccessKitState {
     fn build_initial_tree(&mut self) -> TreeUpdate {
         let root = self.build_root();
         let accesskit_window_id = NodeId(self.entity.to_bits());
-        let mut tree = Tree::new(accesskit_window_id);
-        tree.app_name = Some(self.name.clone());
+        let tree = Tree::new(accesskit_window_id);
         self.requested.set(true);
 
         TreeUpdate {
@@ -123,6 +123,7 @@ impl DeactivationHandler for WinitDeactivationHandler {
 
 /// Prepares accessibility for a winit window.
 pub(crate) fn prepare_accessibility_for_window(
+    event_loop: &ActiveEventLoop,
     winit_window: &winit::window::Window,
     entity: Entity,
     name: String,
@@ -138,6 +139,7 @@ pub(crate) fn prepare_accessibility_for_window(
     let deactivation_handler = WinitDeactivationHandler;
 
     let adapter = Adapter::with_direct_handlers(
+        event_loop,
         winit_window,
         activation_handler,
         action_handler,

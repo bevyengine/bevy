@@ -178,18 +178,16 @@ pub mod ray {
     /// ```
     #[derive(Clone, Debug, Default, Resource)]
     pub struct RayMap {
-        map: HashMap<RayId, Ray3d>,
+        /// Cartesian product of all pointers and all cameras
+        /// Add your rays here to support picking through indirections,
+        /// e.g. rendered-to-texture cameras
+        pub map: HashMap<RayId, Ray3d>,
     }
 
     impl RayMap {
         /// Iterates over all world space rays for every picking pointer.
         pub fn iter(&self) -> Iter<'_, RayId, Ray3d> {
             self.map.iter()
-        }
-
-        /// The hash map of all rays cast in the current frame.
-        pub fn map(&self) -> &HashMap<RayId, Ray3d> {
-            &self.map
         }
 
         /// Clears the [`RayMap`] and re-populates it with one ray for each
