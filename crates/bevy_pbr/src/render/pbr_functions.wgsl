@@ -291,10 +291,32 @@ fn compute_pbr_lighting(
 fn compute_direct_light(
     in: pbr_types::PbrInput,
     clusterable_object_index_ranges: clustering::ClusterableObjectIndexRanges,
-    lighting_input: ptr<function, lighting::LightingInput>,
     view_z: f32,
+    diffuse_color: vec3<f32>,
+    diffuse_transmissive_color: vec3<f32>,
+    F0: vec3<f32>,
+    F_ab: vec2<f32>,
 ) -> vec3<f32> {
     var direct_light: vec3<f32> = vec3(0.);
+
+    // calculate non-linear roughness from linear perceptualRoughness
+    let metallic = in.material.metallic;
+    let perceptual_roughness = in.material.perceptual_roughness;
+    let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
+    let ior = in.material.ior;
+    let thickness = in.material.thickness;
+    let reflectance = in.material.reflectance;
+    let diffuse_transmission = in.material.diffuse_transmission;
+    let specular_transmission = in.material.specular_transmission;
+
+    let specular_transmissive_color = specular_transmission * in.material.base_color.rgb;
+
+    let diffuse_occlusion = in.diffuse_occlusion;
+    let specular_occlusion = in.specular_occlusion;
+
+    // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
+    let NdotV = max(dot(in.N, in.V), 0.0001);
+    let R = reflect(-in.V, in.N);
 
     // Pack all the values into a structure.
     var lighting_input: lighting::LightingInput;
@@ -344,7 +366,7 @@ fn compute_direct_light(
             shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
 
-        let light_contrib = lighting::point_light(light_id, lighting_input, enable_diffuse);
+        let light_contrib = lighting::point_light(light_id, &lighting_input, enable_diffuse);
         direct_light += light_contrib * shadow;
     }
 
@@ -376,7 +398,7 @@ fn compute_direct_light(
             );
         }
 
-        let light_contrib = lighting::spot_light(light_id, lighting_input, enable_diffuse);
+        let light_contrib = lighting::spot_light(light_id, &lighting_input, enable_diffuse);
         direct_light += light_contrib * shadow;
     }
 
@@ -407,7 +429,7 @@ fn compute_direct_light(
             shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
         }
 
-        var light_contrib = lighting::directional_light(i, lighting_input, enable_diffuse);
+        var light_contrib = lighting::directional_light(i, &lighting_input, enable_diffuse);
 
 #ifdef DIRECTIONAL_LIGHT_SHADOW_MAP_DEBUG_CASCADES
         light_contrib = shadows::cascade_debug_visualization(light_contrib, i, view_z);
@@ -416,6 +438,197 @@ fn compute_direct_light(
     }
 
     return direct_light;
+}
+
+fn compute_transmitted_light(
+    in: pbr_types::PbrInput,
+    clusterable_object_index_ranges: clustering::ClusterableObjectIndexRanges,
+    view_z: f32,
+    diffuse_color: vec3<f32>,
+    diffuse_transmissive_color: vec3<f32>,
+    F0: vec3<f32>,
+    F_ab: vec2<f32>,
+) -> vec3<f32> {
+    var transmitted_light: vec3<f32> = vec3(0.);
+
+    // calculate non-linear roughness from linear perceptualRoughness
+    let metallic = in.material.metallic;
+    let perceptual_roughness = in.material.perceptual_roughness;
+    let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
+    let ior = in.material.ior;
+    let thickness = in.material.thickness;
+    let reflectance = in.material.reflectance;
+    let diffuse_transmission = in.material.diffuse_transmission;
+    let specular_transmission = in.material.specular_transmission;
+
+    let specular_transmissive_color = specular_transmission * in.material.base_color.rgb;
+
+    let diffuse_occlusion = in.diffuse_occlusion;
+    let specular_occlusion = in.specular_occlusion;
+
+    // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
+    let NdotV = max(dot(in.N, in.V), 0.0001);
+    let R = reflect(-in.V, in.N);
+
+    // Calculate the world position of the second Lambertian lobe used for diffuse transmission, by subtracting material thickness
+    let diffuse_transmissive_lobe_world_position = in.world_position - vec4<f32>(in.world_normal, 0.0) * thickness;
+
+    var transmissive_lighting_input: lighting::LightingInput;
+    transmissive_lighting_input.layers[LAYER_BASE].NdotV = 1.0;
+    transmissive_lighting_input.layers[LAYER_BASE].N = -in.N;
+    transmissive_lighting_input.layers[LAYER_BASE].R = vec3(0.0);
+    transmissive_lighting_input.layers[LAYER_BASE].perceptual_roughness = 1.0;
+    transmissive_lighting_input.layers[LAYER_BASE].roughness = 1.0;
+    transmissive_lighting_input.P = diffuse_transmissive_lobe_world_position.xyz;
+    transmissive_lighting_input.V = -in.V;
+    transmissive_lighting_input.diffuse_color = diffuse_transmissive_color;
+    transmissive_lighting_input.F0_ = vec3(0.0);
+    transmissive_lighting_input.F_ab = vec2(0.1);
+
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+    transmissive_lighting_input.layers[LAYER_CLEARCOAT].NdotV = 0.0;
+    transmissive_lighting_input.layers[LAYER_CLEARCOAT].N = vec3(0.0);
+    transmissive_lighting_input.layers[LAYER_CLEARCOAT].R = vec3(0.0);
+    transmissive_lighting_input.layers[LAYER_CLEARCOAT].perceptual_roughness = 0.0;
+    transmissive_lighting_input.layers[LAYER_CLEARCOAT].roughness = 0.0;
+    transmissive_lighting_input.clearcoat_strength = 0.0;
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+    transmissive_lighting_input.anisotropy = in.anisotropy_strength;
+    transmissive_lighting_input.Ta = in.anisotropy_T;
+    transmissive_lighting_input.Ba = in.anisotropy_B;
+#endif  // STANDARD_MATERIAL_ANISOTROPY
+
+    // Point lights
+    for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
+            i < clusterable_object_index_ranges.first_spot_light_index_offset;
+            i = i + 1u) {
+        let light_id = clustering::get_clusterable_object_id(i);
+
+        // If we're lightmapped, disable diffuse contribution from the light if
+        // requested, to avoid double-counting light.
+        #ifdef LIGHTMAP
+                let enable_diffuse =
+                    (view_bindings::clusterable_objects.data[light_id].flags &
+                        mesh_view_types::POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT) != 0u;
+        #else   // LIGHTMAP
+                let enable_diffuse = true;
+        #endif  // LIGHTMAP
+
+
+        // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
+        // world position, inverted normal and view vectors, and the following simplified
+        // values for a fully diffuse transmitted light contribution approximation:
+        //
+        // roughness = 1.0;
+        // NdotV = 1.0;
+        // R = vec3<f32>(0.0) // doesn't really matter
+        // F_ab = vec2<f32>(0.1)
+        // F0 = vec3<f32>(0.0)
+        var transmitted_shadow: f32 = 1.0;
+        if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
+                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+            transmitted_shadow = shadows::fetch_point_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
+        }
+
+        let transmitted_light_contrib =
+            lighting::point_light(light_id, &transmissive_lighting_input, enable_diffuse);
+        transmitted_light += transmitted_light_contrib * transmitted_shadow;
+    }
+
+    // Spot lights
+    for (var i: u32 = clusterable_object_index_ranges.first_spot_light_index_offset;
+            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
+            i = i + 1u) {
+        let light_id = clustering::get_clusterable_object_id(i);
+
+        // If we're lightmapped, disable diffuse contribution from the light if
+        // requested, to avoid double-counting light.
+#ifdef LIGHTMAP
+        let enable_diffuse =
+            (view_bindings::clusterable_objects.data[light_id].flags &
+                mesh_view_types::POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT) != 0u;
+#else   // LIGHTMAP
+        let enable_diffuse = true;
+#endif  // LIGHTMAP
+
+        // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
+        // world position, inverted normal and view vectors, and the following simplified
+        // values for a fully diffuse transmitted light contribution approximation:
+        //
+        // roughness = 1.0;
+        // NdotV = 1.0;
+        // R = vec3<f32>(0.0) // doesn't really matter
+        // F_ab = vec2<f32>(0.1)
+        // F0 = vec3<f32>(0.0)
+        var transmitted_shadow: f32 = 1.0;
+        if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
+                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+            transmitted_shadow = shadows::fetch_spot_shadow(
+                light_id,
+                diffuse_transmissive_lobe_world_position,
+                -in.world_normal,
+                view_bindings::clusterable_objects.data[light_id].shadow_map_near_z,
+            );
+        }
+
+        let transmitted_light_contrib =
+            lighting::spot_light(light_id, &transmissive_lighting_input, enable_diffuse);
+        transmitted_light += transmitted_light_contrib * transmitted_shadow;
+    }
+
+    // directional lights (direct)
+    let n_directional_lights = view_bindings::lights.n_directional_lights;
+    for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
+        // check if this light should be skipped, which occurs if this light does not intersect with the view
+        // note point and spot lights aren't skippable, as the relevant lights are filtered in `assign_lights_to_clusters`
+        let light = &view_bindings::lights.directional_lights[i];
+        if (*light).skip != 0u {
+            continue;
+        }
+
+        // If we're lightmapped, disable diffuse contribution from the light if
+        // requested, to avoid double-counting light.
+#ifdef LIGHTMAP
+        let enable_diffuse =
+            ((*light).flags &
+                mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT) !=
+                0u;
+#else   // LIGHTMAP
+        let enable_diffuse = true;
+#endif  // LIGHTMAP
+
+        // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
+        // world position, inverted normal and view vectors, and the following simplified
+        // values for a fully diffuse transmitted light contribution approximation:
+        //
+        // roughness = 1.0;
+        // NdotV = 1.0;
+        // R = vec3<f32>(0.0) // doesn't really matter
+        // F_ab = vec2<f32>(0.1)
+        // F0 = vec3<f32>(0.0)
+        var transmitted_shadow: f32 = 1.0;
+        if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
+                && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+            transmitted_shadow = shadows::fetch_directional_shadow(i, diffuse_transmissive_lobe_world_position, -in.world_normal, view_z);
+        }
+
+        let transmitted_light_contrib =
+            lighting::directional_light(i, &transmissive_lighting_input, enable_diffuse);
+        transmitted_light += transmitted_light_contrib * transmitted_shadow;
+    }
+
+    // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
+    // world position, inverted normal and view vectors, and the following simplified
+    // values for a fully diffuse transmitted light contribution approximation:
+    //
+    // perceptual_roughness = 1.0;
+    // NdotV = 1.0;
+    // F0 = vec3<f32>(0.0)
+    // diffuse_occlusion = vec3<f32>(1.0)
+    transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
+
+    return transmitted_light;
 }
 
 fn apply_pbr_lighting(
@@ -465,68 +678,11 @@ fn apply_pbr_lighting(
     // Diffuse transmissive strength is inversely related to metallicity and specular transmission, but directly related to diffuse transmission
     let diffuse_transmissive_color = output_color.rgb * (1.0 - metallic) * (1.0 - specular_transmission) * diffuse_transmission;
 
-    // Calculate the world position of the second Lambertian lobe used for diffuse transmission, by subtracting material thickness
-    let diffuse_transmissive_lobe_world_position = in.world_position - vec4<f32>(in.world_normal, 0.0) * thickness;
-
     let F0 = calculate_F0(output_color.rgb, metallic, reflectance);
     let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
 
     // Transmitted Light (Specular and Diffuse)
     var transmitted_light: vec3<f32> = vec3<f32>(0.0);
-
-    // Pack all the values into a structure.
-    var lighting_input: lighting::LightingInput;
-    lighting_input.layers[LAYER_BASE].NdotV = NdotV;
-    lighting_input.layers[LAYER_BASE].N = in.N;
-    lighting_input.layers[LAYER_BASE].R = R;
-    lighting_input.layers[LAYER_BASE].perceptual_roughness = perceptual_roughness;
-    lighting_input.layers[LAYER_BASE].roughness = roughness;
-    lighting_input.P = in.world_position.xyz;
-    lighting_input.V = in.V;
-    lighting_input.diffuse_color = diffuse_color;
-    lighting_input.F0_ = F0;
-    lighting_input.F_ab = F_ab;
-#ifdef STANDARD_MATERIAL_CLEARCOAT
-    lighting_input.layers[LAYER_CLEARCOAT].NdotV = clearcoat_NdotV;
-    lighting_input.layers[LAYER_CLEARCOAT].N = clearcoat_N;
-    lighting_input.layers[LAYER_CLEARCOAT].R = clearcoat_R;
-    lighting_input.layers[LAYER_CLEARCOAT].perceptual_roughness = clearcoat_perceptual_roughness;
-    lighting_input.layers[LAYER_CLEARCOAT].roughness = clearcoat_roughness;
-    lighting_input.clearcoat_strength = clearcoat;
-#endif  // STANDARD_MATERIAL_CLEARCOAT
-#ifdef STANDARD_MATERIAL_ANISOTROPY
-    lighting_input.anisotropy = in.anisotropy_strength;
-    lighting_input.Ta = in.anisotropy_T;
-    lighting_input.Ba = in.anisotropy_B;
-#endif  // STANDARD_MATERIAL_ANISOTROPY
-
-    // And do the same for transmissive if we need to.
-#ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
-    var transmissive_lighting_input: lighting::LightingInput;
-    transmissive_lighting_input.layers[LAYER_BASE].NdotV = 1.0;
-    transmissive_lighting_input.layers[LAYER_BASE].N = -in.N;
-    transmissive_lighting_input.layers[LAYER_BASE].R = vec3(0.0);
-    transmissive_lighting_input.layers[LAYER_BASE].perceptual_roughness = 1.0;
-    transmissive_lighting_input.layers[LAYER_BASE].roughness = 1.0;
-    transmissive_lighting_input.P = diffuse_transmissive_lobe_world_position.xyz;
-    transmissive_lighting_input.V = -in.V;
-    transmissive_lighting_input.diffuse_color = diffuse_transmissive_color;
-    transmissive_lighting_input.F0_ = vec3(0.0);
-    transmissive_lighting_input.F_ab = vec2(0.1);
-#ifdef STANDARD_MATERIAL_CLEARCOAT
-    transmissive_lighting_input.layers[LAYER_CLEARCOAT].NdotV = 0.0;
-    transmissive_lighting_input.layers[LAYER_CLEARCOAT].N = vec3(0.0);
-    transmissive_lighting_input.layers[LAYER_CLEARCOAT].R = vec3(0.0);
-    transmissive_lighting_input.layers[LAYER_CLEARCOAT].perceptual_roughness = 0.0;
-    transmissive_lighting_input.layers[LAYER_CLEARCOAT].roughness = 0.0;
-    transmissive_lighting_input.clearcoat_strength = 0.0;
-#endif  // STANDARD_MATERIAL_CLEARCOAT
-#ifdef STANDARD_MATERIAL_ANISOTROPY
-    transmissive_lighting_input.anisotropy = in.anisotropy_strength;
-    transmissive_lighting_input.Ta = in.anisotropy_T;
-    transmissive_lighting_input.Ba = in.anisotropy_B;
-#endif  // STANDARD_MATERIAL_ANISOTROPY
-#endif  // STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
 
     let view_z = dot(vec4<f32>(
         view_bindings::view.view_from_world[0].z,
@@ -538,179 +694,23 @@ fn apply_pbr_lighting(
     var clusterable_object_index_ranges =
         clustering::unpack_clusterable_object_index_ranges(cluster_index);
 
-    let direct_light: vec3<f32> = compute_direct_light(in, clusterable_object_index_ranges, view_z);
+    let direct_light: vec3<f32> = compute_direct_light(
+        in,
+        clusterable_object_index_ranges,
+        view_z,
+        diffuse_color,
+        diffuse_transmissive_color,
+        F0, F_ab);
 
     // Point lights (direct)
-    for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
-            i < clusterable_object_index_ranges.first_spot_light_index_offset;
-            i = i + 1u) {
-        let light_id = clustering::get_clusterable_object_id(i);
-
-        // If we're lightmapped, disable diffuse contribution from the light if
-        // requested, to avoid double-counting light.
-#ifdef LIGHTMAP
-        let enable_diffuse =
-            (view_bindings::clusterable_objects.data[light_id].flags &
-                mesh_view_types::POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT) != 0u;
-#else   // LIGHTMAP
-        let enable_diffuse = true;
-#endif  // LIGHTMAP
-
-        var shadow: f32 = 1.0;
-        if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal);
-        }
-
-        let light_contrib = lighting::point_light(light_id, &lighting_input, enable_diffuse);
-        // direct_light += light_contrib * shadow;
-
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
-        // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
-        // world position, inverted normal and view vectors, and the following simplified
-        // values for a fully diffuse transmitted light contribution approximation:
-        //
-        // roughness = 1.0;
-        // NdotV = 1.0;
-        // R = vec3<f32>(0.0) // doesn't really matter
-        // F_ab = vec2<f32>(0.1)
-        // F0 = vec3<f32>(0.0)
-        var transmitted_shadow: f32 = 1.0;
-        if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
-                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            transmitted_shadow = shadows::fetch_point_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
-        }
-
-        let transmitted_light_contrib =
-            lighting::point_light(light_id, &transmissive_lighting_input, enable_diffuse);
-        transmitted_light += transmitted_light_contrib * transmitted_shadow;
-#endif
-    }
-
-    // Spot lights (direct)
-    for (var i: u32 = clusterable_object_index_ranges.first_spot_light_index_offset;
-            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
-            i = i + 1u) {
-        let light_id = clustering::get_clusterable_object_id(i);
-
-        // If we're lightmapped, disable diffuse contribution from the light if
-        // requested, to avoid double-counting light.
-#ifdef LIGHTMAP
-        let enable_diffuse =
-            (view_bindings::clusterable_objects.data[light_id].flags &
-                mesh_view_types::POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT) != 0u;
-#else   // LIGHTMAP
-        let enable_diffuse = true;
-#endif  // LIGHTMAP
-
-        var shadow: f32 = 1.0;
-        if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (view_bindings::clusterable_objects.data[light_id].flags &
-                    mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = shadows::fetch_spot_shadow(
-                light_id,
-                in.world_position,
-                in.world_normal,
-                view_bindings::clusterable_objects.data[light_id].shadow_map_near_z,
-            );
-        }
-
-        let light_contrib = lighting::spot_light(light_id, &lighting_input, enable_diffuse);
-        // direct_light += light_contrib * shadow;
-
-#ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
-        // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
-        // world position, inverted normal and view vectors, and the following simplified
-        // values for a fully diffuse transmitted light contribution approximation:
-        //
-        // roughness = 1.0;
-        // NdotV = 1.0;
-        // R = vec3<f32>(0.0) // doesn't really matter
-        // F_ab = vec2<f32>(0.1)
-        // F0 = vec3<f32>(0.0)
-        var transmitted_shadow: f32 = 1.0;
-        if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
-                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            transmitted_shadow = shadows::fetch_spot_shadow(
-                light_id,
-                diffuse_transmissive_lobe_world_position,
-                -in.world_normal,
-                view_bindings::clusterable_objects.data[light_id].shadow_map_near_z,
-            );
-        }
-
-        let transmitted_light_contrib =
-            lighting::spot_light(light_id, &transmissive_lighting_input, enable_diffuse);
-        transmitted_light += transmitted_light_contrib * transmitted_shadow;
-#endif
-    }
-
-    // directional lights (direct)
-    let n_directional_lights = view_bindings::lights.n_directional_lights;
-    for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
-        // check if this light should be skipped, which occurs if this light does not intersect with the view
-        // note point and spot lights aren't skippable, as the relevant lights are filtered in `assign_lights_to_clusters`
-        let light = &view_bindings::lights.directional_lights[i];
-        if (*light).skip != 0u {
-            continue;
-        }
-
-        // If we're lightmapped, disable diffuse contribution from the light if
-        // requested, to avoid double-counting light.
-#ifdef LIGHTMAP
-        let enable_diffuse =
-            ((*light).flags &
-                mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT) !=
-                0u;
-#else   // LIGHTMAP
-        let enable_diffuse = true;
-#endif  // LIGHTMAP
-
-        var shadow: f32 = 1.0;
-        if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z);
-        }
-
-        var light_contrib = lighting::directional_light(i, &lighting_input, enable_diffuse);
-
-#ifdef DIRECTIONAL_LIGHT_SHADOW_MAP_DEBUG_CASCADES
-        light_contrib = shadows::cascade_debug_visualization(light_contrib, i, view_z);
-#endif
-        // direct_light += light_contrib * shadow;
-
-#ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
-        // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
-        // world position, inverted normal and view vectors, and the following simplified
-        // values for a fully diffuse transmitted light contribution approximation:
-        //
-        // roughness = 1.0;
-        // NdotV = 1.0;
-        // R = vec3<f32>(0.0) // doesn't really matter
-        // F_ab = vec2<f32>(0.1)
-        // F0 = vec3<f32>(0.0)
-        var transmitted_shadow: f32 = 1.0;
-        if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
-                && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            transmitted_shadow = shadows::fetch_directional_shadow(i, diffuse_transmissive_lobe_world_position, -in.world_normal, view_z);
-        }
-
-        let transmitted_light_contrib =
-            lighting::directional_light(i, &transmissive_lighting_input, enable_diffuse);
-        transmitted_light += transmitted_light_contrib * transmitted_shadow;
-#endif
-    }
-
-#ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
-    // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
-    // world position, inverted normal and view vectors, and the following simplified
-    // values for a fully diffuse transmitted light contribution approximation:
-    //
-    // perceptual_roughness = 1.0;
-    // NdotV = 1.0;
-    // F0 = vec3<f32>(0.0)
-    // diffuse_occlusion = vec3<f32>(1.0)
-    transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
+    transmitted_light = compute_transmitted_light(
+    in,
+    clusterable_object_index_ranges,
+    view_z,
+    diffuse_color,
+    diffuse_transmissive_color,
+    F0, F_ab);
 #endif
 
     // Diffuse indirect lighting can come from a variety of sources. The
