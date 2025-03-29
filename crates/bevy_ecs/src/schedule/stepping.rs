@@ -220,6 +220,10 @@ impl Stepping {
         self.action != Action::RunAll
     }
 
+    pub fn get_action(&self) -> &Action {
+        &self.action
+    }
+
     /// Run the next system during the next render frame
     ///
     /// NOTE: This will have no impact unless stepping has been enabled
