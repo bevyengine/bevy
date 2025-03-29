@@ -123,7 +123,6 @@ impl Chunk {
 }
 
 /// This is the shared data for the owned list.
-/// It is the source of truth.
 ///
 /// Conceptually, this is like a `Vec<Entity>` divided into two slices.
 /// The first slice stores the [`Entity`]s that are spawned but have no components.
@@ -141,6 +140,7 @@ struct OwnedBuffer {
     /// # Safety
     ///
     /// This must only be changed exclusively. (By [`Owned`])
+    /// [`Owned::len`] is the source of truth.
     len: AtomicU32,
     /// This is the index in this buffer of the first [`Slot`] that is free (pending reuse).
     /// If this index is out of bounds (at all) nothing is free. Values out of bounds have no real meaning.
@@ -234,9 +234,14 @@ impl Owned {
             return None;
         }
 
+        // SAFETY: If a `RemoteOwned::try_spawn_empty_from_free` happens here,
+        // and steals the index we're trying to pop, it will appear to us, that there are no free entities to pop
+
         // Make sure nobody tries to take the slot we're trying to pop.
         self.len -= 1; // len is now the index we're trying to pop.
         self.buffer.len.store(self.len, Ordering::Relaxed);
+
+        // SAFETY: If a `RemoteOwned::try_spawn_empty_from_free` happens here, the length is already changed.
 
         let free_cursor = self.buffer.free_cursor.load(Ordering::Relaxed);
         if free_cursor <= self.len as usize {
@@ -272,8 +277,12 @@ impl Owned {
             .free_cursor
             .swap(u32::MAX as usize, Ordering::Relaxed);
 
+        // SAFETY: If a `RemoteOwned::try_spawn_empty_from_free` happens here, it will not find a valid free entity.
+
         // Set the len now that everything is valid.
         self.buffer.len.store(self.len, Ordering::Relaxed);
+
+        // SAFETY: If a `RemoteOwned::try_spawn_empty_from_free` happens here, it still won't find a valid free entity.
 
         // If this changes the free cursor, this must be the only free entity, so it should be set to this index.
         self.buffer
@@ -317,6 +326,8 @@ impl Owned {
             let last_empty = free_cursor as u32 - 1;
             let fill_in = self.buffer.get(last_empty);
             self.set(fill_in, index);
+
+            // SAFETY: If a `RemoteOwned::try_spawn_empty_from_free` happens here ???
 
             // then, we need to fill in the last empty archetype with the last free entity
             self.len -= 1;
@@ -372,6 +383,8 @@ impl Owned {
     /// `entity` must not be already in the buffer.
     pub unsafe fn make_empty(&mut self, entity: Entity) -> u32 {
         let index = self.buffer.free_cursor.fetch_add(1, Ordering::Relaxed);
+
+        // SAFETY: If a `RemoteOwned::try_spawn_empty_from_free` happens here, it won't conflict with the `index` we're holding onto.
 
         if index < self.len as usize {
             // We can push to the end of the empty archetype list, displacing a free entity.
