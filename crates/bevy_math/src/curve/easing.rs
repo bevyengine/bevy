@@ -34,7 +34,7 @@ pub trait Ease: Sized {
 
 impl<V: VectorSpace> Ease for V {
     fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
-        FunctionCurve::new(Interval::EVERYWHERE, move |t| V::lerp(start, end, t))
+        FunctionCurve::new(Interval::EVERYWHERE, move |t| V::interp(&start, &end, t))
     }
 }
 

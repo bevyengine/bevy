@@ -7,6 +7,29 @@ use core::{
 };
 use variadics_please::all_tuples_enumerated;
 
+/// A type that supports some "nice" form of interpolation.
+///
+/// Types implementing this trait must ensure:
+/// - `T::interp(a, b, 0.0) == a`
+/// - `T::interp(a, b, 1.0) == b`
+/// - `T::interp(a, b, t) == T::interp(b, a, 1 - t)`
+///
+/// Beyond these rules, this trait carries no other requirments. Other sub-traits may add
+/// additional constraints.
+pub trait Interpolate: Sized {
+    /// Interpolates between two values. There are often many ways to interpolate for a given type, but
+    /// this method always represents the "most sane default" when it is avalible.
+    ///
+    /// The exact interpolation behavior is highly implementation-dependant.
+    /// - When `T: Interpolate + Vectorspace`, this is linear interpolation.
+    fn interp(&self, other: &Self, param: f32) -> Self;
+
+    /// Performs interpolation in place. See the documentation on the [`interp`] method for more info.
+    fn interp_assign(&mut self, other: &Self, param: f32) {
+        *self = self.interp(other, param);
+    }
+}
+
 /// A type that supports the mathematical operations of a real vector space, irrespective of dimension.
 /// In particular, this means that the implementing type supports:
 /// - Scalar multiplication and division on the right by elements of `f32`
@@ -26,8 +49,11 @@ use variadics_please::all_tuples_enumerated;
 ///
 /// Note that, because implementing types use floating point arithmetic, they are not required to actually
 /// implement `PartialEq` or `Eq`.
+///
+/// Also note that all vector spaces implement [`Interpolate`] with linear interpolation via a blanket-impl.
 pub trait VectorSpace:
-    Mul<f32, Output = Self>
+    Interpolate
+    + Mul<f32, Output = Self>
     + Div<f32, Output = Self>
     + Add<Self, Output = Self>
     + Sub<Self, Output = Self>
@@ -39,16 +65,18 @@ pub trait VectorSpace:
 {
     /// The zero vector, which is the identity of addition for the vector space type.
     const ZERO: Self;
+}
 
-    /// Perform vector space linear interpolation between this element and another, based
-    /// on the parameter `t`. When `t` is `0`, `self` is recovered. When `t` is `1`, `rhs`
-    /// is recovered.
-    ///
-    /// Note that the value of `t` is not clamped by this function, so extrapolating outside
-    /// of the interval `[0,1]` is allowed.
-    #[inline]
-    fn lerp(self, rhs: Self, t: f32) -> Self {
-        self * (1. - t) + rhs * t
+// Equip all vector spaces with linear interpolation. This will conflict with other implementations of
+// interpolation for vector spaces; that's intetional, linear interpolation is the only sane default
+// for a vector-space.
+impl<V> Interpolate for V
+where
+    V: VectorSpace,
+{
+    /// Performs linear interpolation.
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        *self * (1. - param) + *other * param
     }
 }
 
@@ -355,7 +383,7 @@ where
 {
     #[inline]
     fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-        self.lerp(*other, t)
+        self.interp(other, t)
     }
 }
 
