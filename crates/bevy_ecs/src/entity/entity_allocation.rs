@@ -365,6 +365,39 @@ impl Owned {
             }
         }
     }
+
+    /// This makes this [`Entity`] in the buffer's empty archetype, returning it's index in the buffer.
+    ///
+    /// # Safety
+    ///
+    /// `entity` must not be already in the buffer.
+    pub unsafe fn make_empty(&mut self, entity: Entity) -> u32 {
+        let index = self.buffer.free_cursor.fetch_add(1, Ordering::Relaxed);
+
+        if index < self.len as usize {
+            // We can push to the end of the empty archetype list, displacing a free entity.
+
+            // SAFETY: The idnex is in bounds
+            let free = unsafe { self.set(entity, index as u32).assume_init_read() };
+            // SAFETY: `free` is no longer in the buffer
+            unsafe {
+                self.free_non_empty_buffer(free);
+            }
+            index as u32
+        } else {
+            // There are no free entities, so we can just push
+
+            // do the push
+            let index = self.len;
+            self.set(entity, index);
+
+            // This can not over take the free cursor since we're adding 1 to both.
+            self.len += 1;
+            self.buffer.len.store(self.len, Ordering::Relaxed);
+
+            index
+        }
+    }
 }
 
 #[cfg(test)]
