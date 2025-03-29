@@ -842,7 +842,7 @@ impl ScheduleGraph {
         if !collective_conditions.is_empty() {
             if let [config] = configs {
                 for condition in collective_conditions {
-                    config.run_if_dyn(condition);
+                    config.run_if_dyn_inner(condition);
                 }
             } else {
                 let set = self.create_anonymous_set();
