@@ -19,8 +19,6 @@ type Slot = MaybeUninit<Entity>;
 struct Chunk {
     /// Points to the first slot. If this is null, we need to allocate it.
     first: AtomicPtr<Slot>,
-    /// The idnex of this chunk.
-    index: u32,
 }
 
 impl Chunk {
@@ -77,8 +75,8 @@ impl Chunk {
     ///
     /// This must not be called concurrently.
     /// Index must be in bounds.
-    unsafe fn set(&self, index: u32, entity: Entity) -> Slot {
-        let head = self.ptr().unwrap_or_else(|| self.init());
+    unsafe fn set(&self, index: u32, entity: Entity, index_of_self: u32) -> Slot {
+        let head = self.ptr().unwrap_or_else(|| self.init(index_of_self));
         let target = head.add(index as usize);
 
         // SAFETY: Ensured by caller.
@@ -91,13 +89,23 @@ impl Chunk {
     ///
     /// This must not be called concurrently.
     #[cold]
-    unsafe fn init(&self) -> *mut Slot {
-        let cap = Self::capacity_of_chunk(self.index);
+    unsafe fn init(&self, index: u32) -> *mut Slot {
+        let cap = Self::capacity_of_chunk(index);
         let mut buff = ManuallyDrop::new(Vec::new());
         buff.reserve_exact(cap as usize);
         let ptr = buff.as_mut_ptr();
         self.first.store(ptr, Ordering::Relaxed);
         ptr
+    }
+
+    fn try_dealloc(&self, index: u32) {
+        if let Some(to_drop) = self.ptr() {
+            let cap = Self::capacity_of_chunk(index) as usize;
+            // SAFETY: This was created in [`Self::init`] from a standard Vec.
+            unsafe {
+                Vec::from_raw_parts(to_drop, cap, cap);
+            }
+        }
     }
 
     /// Returns [`Self::first`] if it is valid.
@@ -107,22 +115,9 @@ impl Chunk {
         (!ptr.is_null()).then_some(ptr)
     }
 
-    fn new(index: u32) -> Self {
+    fn new() -> Self {
         Self {
             first: AtomicPtr::new(core::ptr::null_mut()),
-            index,
-        }
-    }
-}
-
-impl Drop for Chunk {
-    fn drop(&mut self) {
-        if let Some(to_drop) = self.ptr() {
-            let cap = Self::capacity_of_chunk(self.index) as usize;
-            // SAFETY: This was created in [`Self::init`] from a standard Vec.
-            unsafe {
-                Vec::from_raw_parts(to_drop, cap, cap);
-            }
         }
     }
 }
@@ -155,12 +150,7 @@ struct OwnedBuffer {
 impl OwnedBuffer {
     fn new() -> Self {
         let base = [(); Chunk::NUM_CHUNKS as usize];
-        let mut index = 0u32;
-        let chunks = base.map(|()| {
-            let chunk = Chunk::new(index);
-            index += 1;
-            chunk
-        });
+        let chunks = base.map(|()| Chunk::new());
         Self {
             chunks,
             len: AtomicU32::new(0),
@@ -180,6 +170,14 @@ impl OwnedBuffer {
             self.chunks
                 .get_unchecked(chunk_idnex as usize)
                 .get(index_in_chunk)
+        }
+    }
+}
+
+impl Drop for OwnedBuffer {
+    fn drop(&mut self) {
+        for index in 0..Chunk::NUM_CHUNKS {
+            self.chunks[index as usize].try_dealloc(index);
         }
     }
 }
@@ -211,10 +209,11 @@ impl Owned {
         // SAFETY: `chunk_idnex` is correct. The chunk is valid and the slot is init because the index is inbounds.
         // And this can't be called concurrently since we have `&mut`
         unsafe {
-            self.buffer
-                .chunks
-                .get_unchecked(chunk_idnex as usize)
-                .set(index_in_chunk, entity)
+            self.buffer.chunks.get_unchecked(chunk_idnex as usize).set(
+                index_in_chunk,
+                entity,
+                chunk_idnex,
+            )
         }
     }
 
