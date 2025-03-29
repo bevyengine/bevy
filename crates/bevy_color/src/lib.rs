@@ -266,6 +266,12 @@ macro_rules! impl_componentwise_vector_space {
                 $($element: 0.0,)+
             };
         }
+
+        impl bevy_math::StableInterpolate for $ty {
+            fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
+                bevy_math::VectorSpace::lerp(*self, *other, t)
+            }
+        }
     };
 }
 

@@ -1,20 +1,4 @@
-use bevy_math::{StableInterpolate, VectorSpace};
-
-use crate::{Laba, LinearRgba, Oklaba, Srgba, Xyza};
-
-macro_rules! impl_stable_interpolate_linear {
-    ($($name: ident),*) => {
-        $(impl StableInterpolate for $name {
-            fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-                $name::lerp(*self, *other, t)
-            }
-        })*
-    };
-}
-
-impl_stable_interpolate_linear! {
-    LinearRgba, Srgba, Xyza, Laba, Oklaba
-}
+//! TODO: Implement for non-linear colors.
 
 #[cfg(test)]
 mod test {
