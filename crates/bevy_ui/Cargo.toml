@@ -38,7 +38,6 @@ serde = { version = "1", features = ["derive"], optional = true }
 bytemuck = { version = "1.5", features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
-nonmax = "0.5"
 smallvec = "1.11"
 accesskit = "0.18"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
