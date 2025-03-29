@@ -1,8 +1,10 @@
-use crate::Mix;
 use alloc::vec::Vec;
-use bevy_math::curve::{
-    cores::{EvenCore, EvenCoreError},
-    Curve, Interval,
+use bevy_math::{
+    curve::{
+        cores::{EvenCore, EvenCoreError},
+        Curve, Interval,
+    },
+    Interpolate,
 };
 
 /// A curve whose samples are defined by a collection of colors.
@@ -15,7 +17,7 @@ pub struct ColorCurve<T> {
 
 impl<T> ColorCurve<T>
 where
-    T: Mix + Clone,
+    T: Clone + Interpolate,
 {
     /// Create a new [`ColorCurve`] from a collection of [mixable] types. The domain of this curve
     /// will always be `[0.0, len - 1]` where `len` is the amount of mixable objects in the
@@ -53,7 +55,7 @@ where
 
 impl<T> Curve<T> for ColorCurve<T>
 where
-    T: Mix + Clone,
+    T: Clone + Interpolate,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -63,7 +65,7 @@ where
     #[inline]
     fn sample_clamped(&self, t: f32) -> T {
         // `EvenCore::sample_with` clamps the input implicitly.
-        self.core.sample_with(t, T::mix)
+        self.core.sample_with(t, T::interp)
     }
 
     #[inline]

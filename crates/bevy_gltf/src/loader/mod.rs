@@ -12,7 +12,7 @@ use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
     RenderAssetUsages,
 };
-use bevy_color::{Color, LinearRgba};
+use bevy_color::{Color, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
@@ -1165,9 +1165,9 @@ fn load_material(
             SpecularExtension::parse(load_context, document, material).unwrap_or_default();
 
         // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
-        let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
-        let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
-
+        let emissive_strength = material.emissive_strength().unwrap_or(1.0);
+        let emissive = LinearRgba::from_vec3(Vec3::from_array(emissive) * emissive_strength);
+        
         StandardMaterial {
             base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
             base_color_channel,

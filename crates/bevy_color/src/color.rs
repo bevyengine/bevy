@@ -1,6 +1,6 @@
 use crate::{
     color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba,
-    Luminance, Mix, Oklaba, Oklcha, Saturation, Srgba, StandardColor, Xyza,
+    Luminance, Oklaba, Oklcha, Saturation, Srgba, StandardColor, Xyza,
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
@@ -849,27 +849,6 @@ impl Saturation for Color {
 
     fn set_saturation(&mut self, saturation: f32) {
         *self = self.with_saturation(saturation);
-    }
-}
-
-impl Mix for Color {
-    fn mix(&self, other: &Self, factor: f32) -> Self {
-        let mut new = *self;
-
-        match &mut new {
-            Color::Srgba(x) => *x = x.mix(&(*other).into(), factor),
-            Color::LinearRgba(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Hsla(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Hsva(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Hwba(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Laba(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Lcha(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Oklaba(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Oklcha(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Xyza(x) => *x = x.mix(&(*other).into(), factor),
-        }
-
-        new
     }
 }
 

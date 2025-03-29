@@ -58,22 +58,13 @@ macro_rules! impl_color_animatable {
     ($ty: ident) => {
         impl Animatable for $ty {
             #[inline]
-            fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
-                let value = *a * (1. - t) + *b * t;
-                value
+            fn interpolate(_a: &Self, _b: &Self, _t: f32) -> Self {
+                todo!()
             }
 
             #[inline]
-            fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
-                let mut value = Default::default();
-                for input in inputs {
-                    if input.additive {
-                        value += input.weight * input.value;
-                    } else {
-                        value = Self::interpolate(&value, &input.value, input.weight);
-                    }
-                }
-                value
+            fn blend(_inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
+                todo!()
             }
         }
     };

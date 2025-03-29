@@ -1,8 +1,8 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
-    ColorToPacked, Gray, Luminance, Mix, StandardColor,
+    color_difference::EuclideanDistance, Alpha, ColorToComponents, ColorToPacked, Gray, Luminance,
+    StandardColor,
 };
-use bevy_math::{ops, Vec3, Vec4};
+use bevy_math::{ops, Interpolate, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
@@ -36,8 +36,6 @@ pub struct LinearRgba {
 }
 
 impl StandardColor for LinearRgba {}
-
-impl_componentwise_vector_space!(LinearRgba, [red, green, blue, alpha]);
 
 impl LinearRgba {
     /// A fully black color with full alpha.
@@ -147,10 +145,10 @@ impl LinearRgba {
         let target_luminance = (luminance + amount).clamp(0.0, 1.0);
         if target_luminance < luminance {
             let adjustment = (luminance - target_luminance) / luminance;
-            self.mix_assign(Self::new(0.0, 0.0, 0.0, self.alpha), adjustment);
+            self.interp_assign(&Self::new(0.0, 0.0, 0.0, self.alpha), adjustment);
         } else if target_luminance > luminance {
             let adjustment = (target_luminance - luminance) / (1. - luminance);
-            self.mix_assign(Self::new(1.0, 1.0, 1.0, self.alpha), adjustment);
+            self.interp_assign(&Self::new(1.0, 1.0, 1.0, self.alpha), adjustment);
         }
     }
 
@@ -204,9 +202,9 @@ impl Luminance for LinearRgba {
     }
 }
 
-impl Mix for LinearRgba {
+impl Interpolate for LinearRgba {
     #[inline]
-    fn mix(&self, other: &Self, factor: f32) -> Self {
+    fn interp(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
         Self {
             red: self.red * n_factor + other.red * factor,

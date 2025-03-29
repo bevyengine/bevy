@@ -1,8 +1,8 @@
 use crate::{
     color_difference::EuclideanDistance, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hue, Hwba,
-    Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
+    Laba, Lcha, LinearRgba, Luminance, Oklaba, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{ops, FloatPow, Vec3, Vec4};
+use bevy_math::{ops, FloatPow, Interpolate, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -111,9 +111,9 @@ impl Default for Oklcha {
     }
 }
 
-impl Mix for Oklcha {
+impl Interpolate for Oklcha {
     #[inline]
-    fn mix(&self, other: &Self, factor: f32) -> Self {
+    fn interp(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
         Self {
             lightness: self.lightness * n_factor + other.lightness * factor,

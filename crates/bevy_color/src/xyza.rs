@@ -1,8 +1,5 @@
-use crate::{
-    impl_componentwise_vector_space, Alpha, ColorToComponents, Gray, LinearRgba, Luminance, Mix,
-    StandardColor,
-};
-use bevy_math::{Vec3, Vec4};
+use crate::{Alpha, ColorToComponents, Gray, LinearRgba, Luminance, StandardColor};
+use bevy_math::{Interpolate, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -34,8 +31,6 @@ pub struct Xyza {
 }
 
 impl StandardColor for Xyza {}
-
-impl_componentwise_vector_space!(Xyza, [x, y, z, alpha]);
 
 impl Xyza {
     /// Construct a new [`Xyza`] color from components.
@@ -136,9 +131,9 @@ impl Luminance for Xyza {
     }
 }
 
-impl Mix for Xyza {
+impl Interpolate for Xyza {
     #[inline]
-    fn mix(&self, other: &Self, factor: f32) -> Self {
+    fn interp(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
         Self {
             x: self.x * n_factor + other.x * factor,

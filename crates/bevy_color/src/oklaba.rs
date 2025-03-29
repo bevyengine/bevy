@@ -1,8 +1,8 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
-    Gray, Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hwba, Lcha,
+    LinearRgba, Luminance, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{ops, FloatPow, Vec3, Vec4};
+use bevy_math::{ops, FloatPow, Interpolate, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -34,8 +34,6 @@ pub struct Oklaba {
 }
 
 impl StandardColor for Oklaba {}
-
-impl_componentwise_vector_space!(Oklaba, [lightness, a, b, alpha]);
 
 impl Oklaba {
     /// Construct a new [`Oklaba`] color from components.
@@ -93,9 +91,9 @@ impl Default for Oklaba {
     }
 }
 
-impl Mix for Oklaba {
+impl Interpolate for Oklaba {
     #[inline]
-    fn mix(&self, other: &Self, factor: f32) -> Self {
+    fn interp(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
         Self {
             lightness: self.lightness * n_factor + other.lightness * factor,

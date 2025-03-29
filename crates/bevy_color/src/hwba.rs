@@ -2,10 +2,8 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use crate::{
-    Alpha, ColorToComponents, Gray, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza,
-};
-use bevy_math::{ops, Vec3, Vec4};
+use crate::{Alpha, ColorToComponents, Gray, Hue, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
+use bevy_math::{ops, Interpolate, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -85,9 +83,9 @@ impl Default for Hwba {
     }
 }
 
-impl Mix for Hwba {
+impl Interpolate for Hwba {
     #[inline]
-    fn mix(&self, other: &Self, factor: f32) -> Self {
+    fn interp(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
         Self {
             hue: crate::color_ops::lerp_hue(self.hue, other.hue, factor),

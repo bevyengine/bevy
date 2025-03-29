@@ -1,10 +1,10 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
-    ColorToPacked, Gray, LinearRgba, Luminance, Mix, StandardColor, Xyza,
+    color_difference::EuclideanDistance, Alpha, ColorToComponents, ColorToPacked, Gray, LinearRgba,
+    Luminance, StandardColor, Xyza,
 };
 #[cfg(feature = "alloc")]
 use alloc::{format, string::String};
-use bevy_math::{ops, Vec3, Vec4};
+use bevy_math::{ops, Interpolate, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use thiserror::Error;
@@ -37,8 +37,6 @@ pub struct Srgba {
 }
 
 impl StandardColor for Srgba {}
-
-impl_componentwise_vector_space!(Srgba, [red, green, blue, alpha]);
 
 impl Srgba {
     // The standard VGA colors, with alpha set to 1.0.
@@ -271,9 +269,9 @@ impl Luminance for Srgba {
     }
 }
 
-impl Mix for Srgba {
+impl Interpolate for Srgba {
     #[inline]
-    fn mix(&self, other: &Self, factor: f32) -> Self {
+    fn interp(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
         Self {
             red: self.red * n_factor + other.red * factor,

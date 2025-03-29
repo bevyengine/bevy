@@ -1,8 +1,7 @@
 use crate::{
-    Alpha, ColorToComponents, Gray, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor,
-    Xyza,
+    Alpha, ColorToComponents, Gray, Hue, Laba, LinearRgba, Luminance, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{ops, Vec3, Vec4};
+use bevy_math::{ops, Interpolate, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -115,9 +114,9 @@ impl Default for Lcha {
     }
 }
 
-impl Mix for Lcha {
+impl Interpolate for Lcha {
     #[inline]
-    fn mix(&self, other: &Self, factor: f32) -> Self {
+    fn interp(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
         Self {
             lightness: self.lightness * n_factor + other.lightness * factor,
