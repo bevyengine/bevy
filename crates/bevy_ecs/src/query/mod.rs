@@ -444,9 +444,9 @@ mod tests {
         let id = world.spawn(A(10)).id();
         let mut query_state = world.query::<&mut A>();
         let mut query = query_state.query_mut(&mut world);
-        let result = query.get_many([id, id]);
+        let result = query.many([id, id]);
         assert_eq!(result, Ok([&A(10), &A(10)]));
-        let mut_result = query.get_many_mut([id, id]);
+        let mut_result = query.many_mut([id, id]);
         assert!(mut_result.is_err());
     }
 
@@ -776,7 +776,7 @@ mod tests {
         q.iter().for_each(|_: &Foo| ());
 
         let _: Option<&Foo> = q.get(e).ok();
-        let _: Option<[&Foo; 1]> = q.get_many([e]).ok();
+        let _: Option<[&Foo; 1]> = q.many([e]).ok();
         let _: Option<&Foo> = q.single().ok();
         let _: &Foo = q.single().unwrap();
     }

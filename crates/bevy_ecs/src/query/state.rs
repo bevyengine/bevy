@@ -994,7 +994,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: &'w World,
         entities: [Entity; N],
     ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError> {
-        self.query(world).get_many_inner(entities)
+        self.query(world).many_inner(entities)
     }
 
     /// A deprecated alias for [`many`](Self::many).
@@ -1043,7 +1043,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: &'w World,
         entities: UniqueEntityArray<N>,
     ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError> {
-        self.query(world).get_many_unique_inner(entities)
+        self.query(world).many_unique_inner(entities)
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
@@ -1102,7 +1102,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: &'w mut World,
         entities: [Entity; N],
     ) -> Result<[D::Item<'w>; N], QueryEntityError> {
-        self.query_mut(world).get_many_mut_inner(entities)
+        self.query_mut(world).many_mut_inner(entities)
     }
 
     /// A deprecated alias for [`many_mut`](Self::many_mut).
@@ -1158,7 +1158,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: &'w mut World,
         entities: UniqueEntityArray<N>,
     ) -> Result<[D::Item<'w>; N], QueryEntityError> {
-        self.query_mut(world).get_many_unique_inner(entities)
+        self.query_mut(world).many_unique_inner(entities)
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].

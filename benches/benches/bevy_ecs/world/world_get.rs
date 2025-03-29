@@ -327,7 +327,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                 let mut count = 0;
                 for comp in entity_groups
                     .iter()
-                    .filter_map(|&ids| query.get_many(ids).ok())
+                    .filter_map(|&ids| query.many(ids).ok())
                 {
                     black_box(comp);
                     count += 1;
@@ -350,7 +350,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                 let mut count = 0;
                 for comp in entity_groups
                     .iter()
-                    .filter_map(|&ids| query.get_many(ids).ok())
+                    .filter_map(|&ids| query.many(ids).ok())
                 {
                     black_box(comp);
                     count += 1;

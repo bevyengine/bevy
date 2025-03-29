@@ -1328,13 +1328,23 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_many_unique`](Self::get_many_unique) to only handle unique inputs.
     /// - [`many`](Self::many) for the panicking version.
     #[inline]
-    pub fn get_many<const N: usize>(
+    pub fn many<const N: usize>(
         &self,
         entities: [Entity; N],
     ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
         // Note that we call a separate `*_inner` method from `get_many_mut`
         // because we don't need to check for duplicates.
-        self.as_readonly().get_many_inner(entities)
+        self.as_readonly().many_inner(entities)
+    }
+
+    /// A deprecated alias for [`many`](Self::many).
+    #[inline]
+    #[deprecated(since = "0.16.0", note = "Please use `many` instead")]
+    pub fn get_many<const N: usize>(
+        &self,
+        entities: [Entity; N],
+    ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
+        self.many(entities)
     }
 
     /// Returns the read-only query items for the given [`UniqueEntityArray`].
@@ -1379,62 +1389,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_many_unique_mut`](Self::get_many_mut) to get mutable query items.
     /// - [`get_many`](Self::get_many) to handle inputs with duplicates.
     #[inline]
-    pub fn get_many_unique<const N: usize>(
+    pub fn many_unique<const N: usize>(
         &self,
         entities: UniqueEntityArray<N>,
     ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
-        self.as_readonly().get_many_unique_inner(entities)
-    }
-
-    /// Returns the read-only query items for the given array of [`Entity`].
-    ///
-    /// # Panics
-    ///
-    /// This method panics if there is a query mismatch or a non-existing entity.
-    ///
-    /// # Examples
-    /// ``` no_run
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Component)]
-    /// struct Targets([Entity; 3]);
-    ///
-    /// #[derive(Component)]
-    /// struct Position{
-    ///     x: i8,
-    ///     y: i8
-    /// };
-    ///
-    /// impl Position {
-    ///     fn distance(&self, other: &Position) -> i8 {
-    ///         // Manhattan distance is way easier to compute!
-    ///         (self.x - other.x).abs() + (self.y - other.y).abs()
-    ///     }
-    /// }
-    ///
-    /// fn check_all_targets_in_range(targeting_query: Query<(Entity, &Targets, &Position)>, targets_query: Query<&Position>){
-    ///     for (targeting_entity, targets, origin) in &targeting_query {
-    ///         // We can use "destructuring" to unpack the results nicely
-    ///         let [target_1, target_2, target_3] = targets_query.many(targets.0);
-    ///
-    ///         assert!(target_1.distance(origin) <= 5);
-    ///         assert!(target_2.distance(origin) <= 5);
-    ///         assert!(target_3.distance(origin) <= 5);
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_many`](Self::get_many) for the non-panicking version.
-    #[inline]
-    #[track_caller]
-    #[deprecated(note = "Use `get_many` instead and handle the Result.")]
-    pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, D>; N] {
-        match self.get_many(entities) {
-            Ok(items) => items,
-            Err(error) => panic!("Cannot get query results: {error}"),
-        }
+        self.as_readonly().many_unique_inner(entities)
     }
 
     /// Returns the query item for the given [`Entity`].
@@ -1608,11 +1567,21 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_many`](Self::get_many) to get read-only query items without checking for duplicate entities.
     /// - [`many_mut`](Self::many_mut) for the panicking version.
     #[inline]
+    pub fn many_mut<const N: usize>(
+        &mut self,
+        entities: [Entity; N],
+    ) -> Result<[D::Item<'_>; N], QueryEntityError> {
+        self.reborrow().many_mut_inner(entities)
+    }
+
+    /// A deprecated alias for [`many_mut`](Self::many_mut).
+    #[inline]
+    #[deprecated(since = "0.16.0", note = "Please use `many_mut` instead")]
     pub fn get_many_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
     ) -> Result<[D::Item<'_>; N], QueryEntityError> {
-        self.reborrow().get_many_mut_inner(entities)
+        self.many_mut(entities)
     }
 
     /// Returns the query items for the given [`UniqueEntityArray`].
@@ -1676,11 +1645,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_many_unique`](Self::get_many) to get read-only query items.
     #[inline]
-    pub fn get_many_unique_mut<const N: usize>(
+    pub fn many_unique_mut<const N: usize>(
         &mut self,
         entities: UniqueEntityArray<N>,
     ) -> Result<[D::Item<'_>; N], QueryEntityError> {
-        self.reborrow().get_many_unique_inner(entities)
+        self.reborrow().many_unique_inner(entities)
     }
 
     /// Returns the query items for the given array of [`Entity`].
@@ -1695,7 +1664,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_many_mut`](Self::get_many_mut) to get items using a mutable reference.
     /// - [`get_many_inner`](Self::get_many_mut_inner) to get read-only query items with the actual "inner" world lifetime.
     #[inline]
-    pub fn get_many_mut_inner<const N: usize>(
+    pub fn many_mut_inner<const N: usize>(
         self,
         entities: [Entity; N],
     ) -> Result<[D::Item<'w>; N], QueryEntityError> {
@@ -1708,7 +1677,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             }
         }
         // SAFETY: All entities are unique, so the results don't alias.
-        unsafe { self.get_many_impl(entities) }
+        unsafe { self.many_impl(entities) }
     }
 
     /// Returns the query items for the given array of [`Entity`].
@@ -1723,7 +1692,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_many_mut`](Self::get_many_mut) to get items using a mutable reference.
     /// - [`get_many_mut_inner`](Self::get_many_mut_inner) to get mutable query items with the actual "inner" world lifetime.
     #[inline]
-    pub fn get_many_inner<const N: usize>(
+    pub fn many_inner<const N: usize>(
         self,
         entities: [Entity; N],
     ) -> Result<[D::Item<'w>; N], QueryEntityError>
@@ -1731,7 +1700,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         D: ReadOnlyQueryData,
     {
         // SAFETY: The query results are read-only, so they don't conflict if there are duplicate entities.
-        unsafe { self.get_many_impl(entities) }
+        unsafe { self.many_impl(entities) }
     }
 
     /// Returns the query items for the given [`UniqueEntityArray`].
@@ -1745,12 +1714,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_many_unique`](Self::get_many_unique) to get read-only query items without checking for duplicate entities.
     /// - [`get_many_unique_mut`](Self::get_many_unique_mut) to get items using a mutable reference.
     #[inline]
-    pub fn get_many_unique_inner<const N: usize>(
+    pub fn many_unique_inner<const N: usize>(
         self,
         entities: UniqueEntityArray<N>,
     ) -> Result<[D::Item<'w>; N], QueryEntityError> {
         // SAFETY: All entities are unique, so the results don't alias.
-        unsafe { self.get_many_impl(entities.into_inner()) }
+        unsafe { self.many_impl(entities.into_inner()) }
     }
 
     /// Returns the query items for the given array of [`Entity`].
@@ -1760,7 +1729,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// The caller must ensure that the query data returned for the entities does not conflict,
     /// either because they are all unique or because the data is read-only.
-    unsafe fn get_many_impl<const N: usize>(
+    unsafe fn many_impl<const N: usize>(
         self,
         entities: [Entity; N],
     ) -> Result<[D::Item<'w>; N], QueryEntityError> {
@@ -1774,64 +1743,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
         // SAFETY: Each value has been fully initialized.
         Ok(values.map(|x| unsafe { x.assume_init() }))
-    }
-
-    /// Returns the query items for the given array of [`Entity`].
-    ///
-    /// # Panics
-    ///
-    /// This method panics if there is a query mismatch, a non-existing entity, or the same `Entity` is included more than once in the array.
-    ///
-    /// # Examples
-    ///
-    /// ``` no_run
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Component)]
-    /// struct Spring{
-    ///     connected_entities: [Entity; 2],
-    ///     strength: f32,
-    /// }
-    ///
-    /// #[derive(Component)]
-    /// struct Position {
-    ///     x: f32,
-    ///     y: f32,
-    /// }
-    ///
-    /// #[derive(Component)]
-    /// struct Force {
-    ///     x: f32,
-    ///     y: f32,
-    /// }
-    ///
-    /// fn spring_forces(spring_query: Query<&Spring>, mut mass_query: Query<(&Position, &mut Force)>){
-    ///     for spring in &spring_query {
-    ///          // We can use "destructuring" to unpack our query items nicely
-    ///          let [(position_1, mut force_1), (position_2, mut force_2)] = mass_query.many_mut(spring.connected_entities);
-    ///
-    ///          force_1.x += spring.strength * (position_1.x - position_2.x);
-    ///          force_1.y += spring.strength * (position_1.y - position_2.y);
-    ///
-    ///          // Silence borrow-checker: I have split your mutable borrow!
-    ///          force_2.x += spring.strength * (position_2.x - position_1.x);
-    ///          force_2.y += spring.strength * (position_2.y - position_1.y);
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_many_mut`](Self::get_many_mut) for the non panicking version.
-    /// - [`many`](Self::many) to get read-only query items.
-    #[inline]
-    #[track_caller]
-    #[deprecated(note = "Use `get_many_mut` instead and handle the Result.")]
-    pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [D::Item<'_>; N] {
-        match self.get_many_mut(entities) {
-            Ok(items) => items,
-            Err(error) => panic!("Cannot get query result: {error}"),
-        }
     }
 
     /// Returns the query item for the given [`Entity`].
@@ -2648,7 +2559,7 @@ mod tests {
     use alloc::vec::Vec;
 
     #[test]
-    fn get_many_uniqueness() {
+    fn many_uniqueness() {
         let mut world = World::new();
 
         let entities: Vec<Entity> = (0..10).map(|_| world.spawn_empty().id()).collect();
@@ -2661,13 +2572,13 @@ mod tests {
         // SAFETY: Query does not access world data.
         assert!(query_state
             .query_mut(&mut world)
-            .get_many_mut_inner::<10>(entities.clone().try_into().unwrap())
+            .many_mut_inner::<10>(entities.clone().try_into().unwrap())
             .is_ok());
 
         assert_eq!(
             query_state
                 .query_mut(&mut world)
-                .get_many_mut_inner([entities[0], entities[0]])
+                .many_mut_inner([entities[0], entities[0]])
                 .unwrap_err(),
             QueryEntityError::AliasedMutability(entities[0])
         );
@@ -2675,7 +2586,7 @@ mod tests {
         assert_eq!(
             query_state
                 .query_mut(&mut world)
-                .get_many_mut_inner([entities[0], entities[1], entities[0]])
+                .many_mut_inner([entities[0], entities[1], entities[0]])
                 .unwrap_err(),
             QueryEntityError::AliasedMutability(entities[0])
         );
@@ -2683,7 +2594,7 @@ mod tests {
         assert_eq!(
             query_state
                 .query_mut(&mut world)
-                .get_many_mut_inner([entities[9], entities[9]])
+                .many_mut_inner([entities[9], entities[9]])
                 .unwrap_err(),
             QueryEntityError::AliasedMutability(entities[9])
         );
