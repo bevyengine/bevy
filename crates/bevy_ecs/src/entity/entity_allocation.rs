@@ -77,12 +77,12 @@ impl Chunk {
     ///
     /// This must not be called concurrently.
     /// Index must be in bounds.
-    unsafe fn set(&self, index: u32, entity: Entity) {
+    unsafe fn set(&self, index: u32, entity: Entity) -> Slot {
         let head = self.ptr().unwrap_or_else(|| self.init());
         let target = head.add(index as usize);
 
         // SAFETY: Ensured by caller.
-        unsafe { (*target).write(entity) };
+        unsafe { core::ptr::replace(target, Slot::new(entity)) }
     }
 
     /// Initializes the chunk to be valid, returning the pointer.
@@ -205,7 +205,8 @@ impl Owned {
     }
 
     /// Sets the [`Entity`] at this idnex.
-    fn set(&mut self, entity: Entity, index: u32) {
+    #[inline]
+    fn set(&mut self, entity: Entity, index: u32) -> Slot {
         let (chunk_idnex, index_in_chunk) = Chunk::get_indices(index);
         // SAFETY: `chunk_idnex` is correct. The chunk is valid and the slot is init because the index is inbounds.
         // And this can't be called concurrently since we have `&mut`
@@ -213,7 +214,7 @@ impl Owned {
             self.buffer
                 .chunks
                 .get_unchecked(chunk_idnex as usize)
-                .set(index_in_chunk, entity);
+                .set(index_in_chunk, entity)
         }
     }
 
@@ -274,6 +275,88 @@ impl Owned {
             self.len += 1;
             // We don't need to write back this source of truth to [`OwnedBuffer::len`] since the `free_cursor` is already out of bounds, so it doesn't matter.
             None
+        }
+    }
+
+    /// The entity at this index in the [`OwnedBuffer`] will no longer be in the empty archetype.
+    /// This removes it from the buffer.
+    ///
+    /// This returns the [`Entity`] that is now at `index`.
+    ///
+    /// # Safety
+    ///
+    /// The `index` must be valid and point to a empty archetype valid entity.
+    pub unsafe fn make_non_empty(&mut self, index: u32) -> Option<Entity> {
+        let free_cursor = self.buffer.free_cursor.load(Ordering::Relaxed);
+
+        if free_cursor >= self.len as usize {
+            // Nothing is free so we can just swap remove normally.
+
+            self.len -= 1;
+
+            if index == self.len {
+                // This is at the end of the list, so we pop instead of swap remove.
+                return None;
+            }
+
+            let to_swap = self.buffer.get(self.len);
+            self.set(to_swap, index);
+
+            // We don't need to write back to [`OwnedBuffer::len`] since the `free_cursor` is already out of bounds, so it doesn't matter.
+
+            Some(to_swap)
+        } else {
+            // There is something free,
+
+            // so first we need to fill in the `index` with the last empty archetype.
+            let last_empty = free_cursor as u32 - 1;
+            let fill_in = self.buffer.get(last_empty);
+            self.set(fill_in, index);
+
+            // then, we need to fill in the last empty archetype with the last free entity
+            self.len -= 1;
+            self.buffer.len.store(self.len, Ordering::Relaxed);
+            let last_free = self.buffer.get(self.len);
+            self.set(last_free, last_empty);
+
+            // and finally, we need to decrement the free_cursor.
+            let cmp = self.buffer.free_cursor.compare_exchange(
+                free_cursor,
+                // The last slot in the old empty list is now free
+                last_empty as usize,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            );
+            match cmp {
+                Ok(_) => Some(fill_in),
+
+                // TODO: hint that this is unlikely
+                Err(mut new_free_cursor) => {
+                    // The free cursor was pulled out from under us.
+                    // Now the buffer looks like | empty archetype | free entity (`last_free`) | just reserved empty archetype | rest of the free entities
+                    let mut last_empty = last_empty;
+                    loop {
+                        let new_last_empty = (new_free_cursor - 1).min(self.len as usize) as u32;
+                        let new_last_empty_entity = self.buffer.get(new_last_empty);
+                        self.set(new_last_empty_entity, last_empty);
+                        self.set(last_free, new_last_empty);
+                        let cmp = self.buffer.free_cursor.compare_exchange(
+                            new_free_cursor,
+                            // The last slot in the old empty list is now free
+                            new_last_empty as usize,
+                            Ordering::Relaxed,
+                            Ordering::Relaxed,
+                        );
+                        match cmp {
+                            Ok(_) => break Some(fill_in),
+                            Err(new) => {
+                                new_free_cursor = new;
+                                last_empty = new_last_empty;
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
