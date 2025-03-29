@@ -400,6 +400,37 @@ impl Owned {
     }
 }
 
+/// This is a more limmited version of [`Owned`].
+/// There can be many of these but only one [`Owned`].
+/// This is what allows for remote spawning.
+pub struct RemoteOwned {
+    buffer: Arc<OwnedBuffer>,
+}
+
+impl RemoteOwned {
+    /// Constructs a new [`RemoteOwned`] from a source [`Owned`].
+    pub fn new(source: &Owned) -> Self {
+        Self {
+            buffer: source.buffer.clone(),
+        }
+    }
+
+    /// If possible, reuses a freed entity and spawns it as an empty entity.
+    fn try_spawn_empty_from_free(&self) -> Option<Entity> {
+        let index = self.buffer.free_cursor.fetch_add(1, Ordering::Relaxed);
+        // We get length after the index since we need this to be more recent than the free cursor.
+        // [`Owned`] handles unexpected changes to the free cursor.
+        // We just need to make *certain* this is in bounds.
+        let len = self.buffer.len.load(Ordering::Relaxed);
+
+        // SAFETY: We check that it is in bounds.
+        (index < len as usize).then(|| unsafe {
+            // We can safely cast to a `u32` since for it to overflow, there must already be too many entities.
+            self.buffer.get(index as u32)
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
