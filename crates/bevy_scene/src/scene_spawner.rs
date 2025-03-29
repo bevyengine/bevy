@@ -660,7 +660,7 @@ mod tests {
         // verify this new entity contains the same data as the original entity
         let [old_a, new_a] = world
             .query::<&A>()
-            .get_many(&world, [entity, new_entity])
+            .many(&world, [entity, new_entity])
             .unwrap();
         assert_eq!(old_a, new_a);
     }

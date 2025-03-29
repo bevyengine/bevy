@@ -989,12 +989,23 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
     /// ```
     #[inline]
-    pub fn get_many<'w, const N: usize>(
+    pub fn many<'w, const N: usize>(
         &mut self,
         world: &'w World,
         entities: [Entity; N],
     ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError> {
         self.query(world).get_many_inner(entities)
+    }
+
+    /// A deprecated alias for [`many`](Self::many).
+    #[inline]
+    #[deprecated(since = "0.16.0", note = "Please use `many` instead")]
+    pub fn get_many<'w, const N: usize>(
+        &mut self,
+        world: &'w World,
+        entities: [Entity; N],
+    ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError> {
+        self.many(world, entities)
     }
 
     /// Returns the read-only query results for the given [`UniqueEntityArray`].
@@ -1027,7 +1038,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
     /// ```
     #[inline]
-    pub fn get_many_unique<'w, const N: usize>(
+    pub fn many_unique<'w, const N: usize>(
         &mut self,
         world: &'w World,
         entities: UniqueEntityArray<N>,
@@ -1086,12 +1097,23 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
     #[inline]
-    pub fn get_many_mut<'w, const N: usize>(
+    pub fn many_mut<'w, const N: usize>(
         &mut self,
         world: &'w mut World,
         entities: [Entity; N],
     ) -> Result<[D::Item<'w>; N], QueryEntityError> {
         self.query_mut(world).get_many_mut_inner(entities)
+    }
+
+    /// A deprecated alias for [`many_mut`](Self::many_mut).
+    #[inline]
+    #[deprecated(since = "0.16.0", note = "Please use `many_mut` instead")]
+    pub fn get_many_mut<'w, const N: usize>(
+        &mut self,
+        world: &'w mut World,
+        entities: [Entity; N],
+    ) -> Result<[D::Item<'w>; N], QueryEntityError> {
+        self.many_mut(world, entities)
     }
 
     /// Returns the query results for the given [`UniqueEntityArray`].
@@ -1131,7 +1153,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// assert_eq!(match query_state.get_many_unique_mut(&mut world, UniqueEntityArray::from([invalid_entity])).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// ```
     #[inline]
-    pub fn get_many_unique_mut<'w, const N: usize>(
+    pub fn many_unique_mut<'w, const N: usize>(
         &mut self,
         world: &'w mut World,
         entities: UniqueEntityArray<N>,
@@ -1904,7 +1926,7 @@ mod tests {
         let world_2 = World::new();
 
         let mut query_state = world_1.query::<Entity>();
-        let _panics = query_state.get_many(&world_2, []);
+        let _panics = query_state.many(&world_2, []);
     }
 
     #[test]
@@ -1914,7 +1936,7 @@ mod tests {
         let mut world_2 = World::new();
 
         let mut query_state = world_1.query::<Entity>();
-        let _panics = query_state.get_many_mut(&mut world_2, []);
+        let _panics = query_state.many_mut(&mut world_2, []);
     }
 
     #[derive(Component, PartialEq, Debug)]

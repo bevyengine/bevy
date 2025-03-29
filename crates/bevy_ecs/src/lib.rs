@@ -1830,7 +1830,7 @@ mod tests {
 
         world.insert_batch(values);
         let mut query = world.query::<(Option<&A>, &B, &C)>();
-        let component_values = query.get_many(&world, [e0, e1, e2]).unwrap();
+        let component_values = query.many(&world, [e0, e1, e2]).unwrap();
 
         assert_eq!(
             component_values,
