@@ -835,19 +835,34 @@ impl AnimationPlayer {
     }
 
     /// Iterates through all animations that this [`AnimationPlayer`] is
-    /// currently playing.
-    pub fn playing_animations(
+    /// currently playing on graph nodes.
+    pub fn playing_animation_nodes(
         &self,
     ) -> impl Iterator<Item = (&AnimationNodeIndex, &ActiveAnimation)> {
         self.active_animations.iter()
     }
 
     /// Iterates through all animations that this [`AnimationPlayer`] is
-    /// currently playing, mutably.
-    pub fn playing_animations_mut(
+    /// currently playing on graph nodes, mutably.
+    pub fn playing_animation_nodes_mut(
         &mut self,
     ) -> impl Iterator<Item = (&AnimationNodeIndex, &mut ActiveAnimation)> {
         self.active_animations.iter_mut()
+    }
+
+    /// Iterates through all animations that this [`AnimationPlayer`] is
+    /// currently playing.
+    pub fn playing_animations(&self) -> impl Iterator<Item = &ActiveAnimation> {
+        self.active_animations
+            .iter()
+            .map(|(_, animation)| animation)
+    }
+    /// Iterates through all animations that this [`AnimationPlayer`] is
+    /// currently playing, mutably.
+    pub fn playing_animations_mut(&mut self) -> impl Iterator<Item = &mut ActiveAnimation> {
+        self.active_animations
+            .iter_mut()
+            .map(|(_, animation)| animation)
     }
 
     /// Returns true if the animation is currently playing or paused, or false
@@ -858,23 +873,19 @@ impl AnimationPlayer {
 
     /// Check if all playing animations have finished, according to the repetition behavior.
     pub fn all_finished(&self) -> bool {
-        self.active_animations
-            .values()
-            .all(ActiveAnimation::is_finished)
+        self.playing_animations().all(ActiveAnimation::is_finished)
     }
 
     /// Check if all playing animations are paused.
     #[doc(alias = "is_paused")]
     pub fn all_paused(&self) -> bool {
-        self.active_animations
-            .values()
-            .all(ActiveAnimation::is_paused)
+        self.playing_animations().all(ActiveAnimation::is_paused)
     }
 
     /// Resume all playing animations.
     #[doc(alias = "pause")]
     pub fn pause_all(&mut self) -> &mut Self {
-        for (_, playing_animation) in self.playing_animations_mut() {
+        for playing_animation in self.playing_animations_mut() {
             playing_animation.pause();
         }
         self
@@ -883,7 +894,7 @@ impl AnimationPlayer {
     /// Resume all active animations.
     #[doc(alias = "resume")]
     pub fn resume_all(&mut self) -> &mut Self {
-        for (_, playing_animation) in self.playing_animations_mut() {
+        for playing_animation in self.playing_animations_mut() {
             playing_animation.resume();
         }
         self
@@ -892,7 +903,7 @@ impl AnimationPlayer {
     /// Rewinds all active animations.
     #[doc(alias = "rewind")]
     pub fn rewind_all(&mut self) -> &mut Self {
-        for (_, playing_animation) in self.playing_animations_mut() {
+        for playing_animation in self.playing_animations_mut() {
             playing_animation.rewind();
         }
         self
@@ -901,7 +912,7 @@ impl AnimationPlayer {
     /// Multiplies the speed of all active animations by the given factor.
     #[doc(alias = "set_speed")]
     pub fn adjust_speeds(&mut self, factor: f32) -> &mut Self {
-        for (_, playing_animation) in self.playing_animations_mut() {
+        for playing_animation in self.playing_animations_mut() {
             let new_speed = playing_animation.speed() * factor;
             playing_animation.set_speed(new_speed);
         }
@@ -915,7 +926,7 @@ impl AnimationPlayer {
     /// are clamped appropriately.
     #[doc(alias = "seek_to")]
     pub fn seek_all_by(&mut self, amount: f32) -> &mut Self {
-        for (_, playing_animation) in self.playing_animations_mut() {
+        for playing_animation in self.playing_animations_mut() {
             let new_time = playing_animation.seek_time();
             playing_animation.seek_to(new_time + amount);
         }

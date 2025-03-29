@@ -132,7 +132,7 @@ fn keyboard_control(
     mut current_animation: Local<usize>,
 ) {
     for (mut player, mut transitions) in &mut animation_players {
-        let Some((&playing_animation_index, _)) = player.playing_animations().next() else {
+        let Some((&playing_animation_index, _)) = player.playing_animation_nodes().next() else {
             continue;
         };
 
