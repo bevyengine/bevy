@@ -296,6 +296,32 @@ fn compute_direct_light(
 ) -> vec3<f32> {
     var direct_light: vec3<f32> = vec3(0.);
 
+    // Pack all the values into a structure.
+    var lighting_input: lighting::LightingInput;
+    lighting_input.layers[LAYER_BASE].NdotV = NdotV;
+    lighting_input.layers[LAYER_BASE].N = in.N;
+    lighting_input.layers[LAYER_BASE].R = R;
+    lighting_input.layers[LAYER_BASE].perceptual_roughness = perceptual_roughness;
+    lighting_input.layers[LAYER_BASE].roughness = roughness;
+    lighting_input.P = in.world_position.xyz;
+    lighting_input.V = in.V;
+    lighting_input.diffuse_color = diffuse_color;
+    lighting_input.F0_ = F0;
+    lighting_input.F_ab = F_ab;
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+    lighting_input.layers[LAYER_CLEARCOAT].NdotV = clearcoat_NdotV;
+    lighting_input.layers[LAYER_CLEARCOAT].N = clearcoat_N;
+    lighting_input.layers[LAYER_CLEARCOAT].R = clearcoat_R;
+    lighting_input.layers[LAYER_CLEARCOAT].perceptual_roughness = clearcoat_perceptual_roughness;
+    lighting_input.layers[LAYER_CLEARCOAT].roughness = clearcoat_roughness;
+    lighting_input.clearcoat_strength = clearcoat;
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+    lighting_input.anisotropy = in.anisotropy_strength;
+    lighting_input.Ta = in.anisotropy_T;
+    lighting_input.Ba = in.anisotropy_B;
+#endif  // STANDARD_MATERIAL_ANISOTROPY
+
     // Point lights (direct)
     for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
             i < clusterable_object_index_ranges.first_spot_light_index_offset;
@@ -512,7 +538,7 @@ fn apply_pbr_lighting(
     var clusterable_object_index_ranges =
         clustering::unpack_clusterable_object_index_ranges(cluster_index);
 
-    let direct_light: vec3<f32> = compute_direct_light(in, clusterable_object_index_ranges, &lighting_input, view_z);
+    let direct_light: vec3<f32> = compute_direct_light(in, clusterable_object_index_ranges, view_z);
 
     // Point lights (direct)
     for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
