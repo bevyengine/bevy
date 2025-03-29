@@ -105,6 +105,7 @@ mod color_range;
 mod hsla;
 mod hsva;
 mod hwba;
+mod interpolate;
 mod laba;
 mod lcha;
 mod linear_rgba;
