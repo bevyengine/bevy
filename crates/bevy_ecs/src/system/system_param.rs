@@ -2971,4 +2971,20 @@ mod tests {
 
         fn res_system(_: Res<MissingResource>) {}
     }
+
+    #[test]
+    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_event_error::event_system`: Parameter `Res<Events<MissingEvent>>` failed validation: Resource does not exist"]
+    fn missing_event_error() {
+        use crate::prelude::{Event, EventReader};
+
+        #[derive(Event)]
+        pub struct MissingEvent;
+
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems(event_system);
+        let mut world = World::new();
+        schedule.run(&mut world);
+
+        fn event_system(_: EventReader<MissingEvent>) {}
+    }
 }
