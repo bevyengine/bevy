@@ -2689,26 +2689,39 @@ pub struct SystemParamValidationError {
     /// A string identifying the invalid parameter.
     /// This is usually the type name of the parameter.
     pub param: Cow<'static, str>,
+
+    /// A string identifying the field within a parameter using `#[derive(SystemParam)]`.
+    /// This will be an empty string for other parameters.
+    ///
+    /// This will be printed after `param` in the `Display` impl, and should include a `::` prefix if non-empty.
+    pub field: Cow<'static, str>,
 }
 
 impl SystemParamValidationError {
     /// Constructs a `SystemParamValidationError` that skips the system.
     /// The parameter name is initialized to the type name of `T`, so a `SystemParam` should usually pass `Self`.
     pub fn skipped<T>(message: impl Into<Cow<'static, str>>) -> Self {
-        Self {
-            skipped: true,
-            message: message.into(),
-            param: Cow::Borrowed(core::any::type_name::<T>()),
-        }
+        Self::new::<T>(true, message, Cow::Borrowed(""))
     }
 
     /// Constructs a `SystemParamValidationError` for an invalid parameter that should be treated as an error.
     /// The parameter name is initialized to the type name of `T`, so a `SystemParam` should usually pass `Self`.
     pub fn invalid<T>(message: impl Into<Cow<'static, str>>) -> Self {
+        Self::new::<T>(false, message, Cow::Borrowed(""))
+    }
+
+    /// Constructs a `SystemParamValidationError` for an invalid parameter.
+    /// The parameter name is initialized to the type name of `T`, so a `SystemParam` should usually pass `Self`.
+    pub fn new<T>(
+        skipped: bool,
+        message: impl Into<Cow<'static, str>>,
+        field: impl Into<Cow<'static, str>>,
+    ) -> Self {
         Self {
-            skipped: false,
+            skipped,
             message: message.into(),
             param: Cow::Borrowed(core::any::type_name::<T>()),
+            field: field.into(),
         }
     }
 }
@@ -2717,8 +2730,9 @@ impl Display for SystemParamValidationError {
     fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             fmt,
-            "Parameter `{}` failed validation: {}",
+            "Parameter `{}{}` failed validation: {}",
             ShortName(&self.param),
+            self.field,
             self.message
         )
     }
@@ -2973,7 +2987,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_event_error::event_system`: Parameter `Res<Events<MissingEvent>>` failed validation: Resource does not exist"]
+    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_event_error::event_system`: Parameter `EventReader<MissingEvent>::events` failed validation: Resource does not exist"]
     fn missing_event_error() {
         use crate::prelude::{Event, EventReader};
 

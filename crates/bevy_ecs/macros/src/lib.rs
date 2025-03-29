@@ -229,18 +229,19 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let path = bevy_ecs_path();
 
     let mut field_locals = Vec::new();
+    let mut field_names = Vec::new();
     let mut fields = Vec::new();
     let mut field_types = Vec::new();
     for (i, field) in field_definitions.iter().enumerate() {
         field_locals.push(format_ident!("f{i}"));
         let i = Index::from(i);
-        fields.push(
-            field
-                .ident
-                .as_ref()
-                .map(|f| quote! { #f })
-                .unwrap_or_else(|| quote! { #i }),
-        );
+        let field_value = field
+            .ident
+            .as_ref()
+            .map(|f| quote! { #f })
+            .unwrap_or_else(|| quote! { #i });
+        field_names.push(format!("::{}", field_value));
+        fields.push(field_value);
         field_types.push(&field.ty);
     }
 
@@ -431,7 +432,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                 ) -> Result<(), #path::system::SystemParamValidationError> {
                     let #state_struct_name { state: (#(#tuple_patterns,)*) } = state;
-                    #(<#field_types as #path::system::SystemParam>::validate_param(#field_locals, _system_meta, _world)?;)*
+                    #(
+                        <#field_types as #path::system::SystemParam>::validate_param(#field_locals, _system_meta, _world)
+                            .map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, err.message, #field_names))?;
+                    )*
                     Ok(())
                 }
 
