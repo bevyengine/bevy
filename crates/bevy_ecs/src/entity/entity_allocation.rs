@@ -353,6 +353,8 @@ impl Owned {
                 last_empty as usize,
                 Ordering::Relaxed,
             );
+            Some(fill_in)
+        }
     }
 
     /// This makes this [`Entity`] in the buffer's empty archetype, returning it's index in the buffer.
