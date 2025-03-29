@@ -427,10 +427,12 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 #[inline]
                 unsafe fn validate_param<'w, 's>(
                     state: &'s Self::State,
-                    system_meta: &#path::system::SystemMeta,
-                    world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
+                    _system_meta: &#path::system::SystemMeta,
+                    _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                 ) -> Result<(), #path::system::SystemParamValidationError> {
-                    <(#(#tuple_types,)*) as #path::system::SystemParam>::validate_param(&state.state, system_meta, world)
+                    let #state_struct_name { state: (#(#tuple_patterns,)*) } = state;
+                    #(<#field_types as #path::system::SystemParam>::validate_param(#field_locals, _system_meta, _world)?;)*
+                    Ok(())
                 }
 
                 #[inline]
