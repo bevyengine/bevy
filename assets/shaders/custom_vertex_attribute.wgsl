@@ -1,3 +1,5 @@
+// For 2d replace `bevy_pbr::mesh_functions` with `bevy_sprite::mesh2d_functions`
+// and `mesh_position_local_to_clip` with `mesh2d_position_local_to_clip`.
 #import bevy_pbr::mesh_functions::{get_world_from_local, mesh_position_local_to_clip}
 
 struct CustomMaterial {
