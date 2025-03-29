@@ -646,15 +646,6 @@ impl<T: Event> WinitAppRunnerState<T> {
                 #[cfg(not(feature = "custom_cursor"))]
                 self.update_cursors();
                 self.ran_update_since_last_redraw = true;
-
-                // Read RequestRedraw events that may have been sent during the update
-                if let Some(app_redraw_events) =
-                    self.world().get_resource::<Events<RequestRedraw>>()
-                {
-                    if redraw_event_reader.read(app_redraw_events).last().is_some() {
-                        self.redraw_requested = true;
-                    }
-                }
             } else {
                 self.redraw_requested = true;
             }
@@ -673,6 +664,13 @@ impl<T: Event> WinitAppRunnerState<T> {
                     .last()
                     .is_some()
                 {
+                    self.redraw_requested = true;
+                }
+            }
+
+            // Read RequestRedraw events that may have been sent during the update
+            if let Some(app_redraw_events) = self.world().get_resource::<Events<RequestRedraw>>() {
+                if redraw_event_reader.read(app_redraw_events).last().is_some() {
                     self.redraw_requested = true;
                 }
             }
