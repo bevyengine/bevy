@@ -7,7 +7,7 @@ use bevy_ecs::{
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    camera::{Camera, CameraProjection, Projection},
+    camera::{Camera, Projection},
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
     mesh::Mesh3d,
