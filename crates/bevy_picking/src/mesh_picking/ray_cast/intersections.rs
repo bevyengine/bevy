@@ -17,9 +17,9 @@ pub struct RayMeshHit {
     /// The distance from the ray origin to the intersection point.
     pub distance: f32,
     /// The vertices of the triangle that was hit.
-    pub triangle: Option<[Vec3; 3]>,
+    pub triangle: [Vec3; 3],
     /// The index of the triangle that was hit.
-    pub triangle_index: Option<usize>,
+    pub triangle_index: usize,
 }
 
 /// Hit data for an intersection between a ray and a triangle.
@@ -188,8 +188,8 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
             distance: mesh_transform
                 .transform_vector3(ray.direction * hit.distance)
                 .length(),
-            triangle: Some(tri_vertices.map(|v| mesh_transform.transform_point3(v))),
-            triangle_index: Some(tri_idx),
+            triangle: tri_vertices.map(|v| mesh_transform.transform_point3(v)),
+            triangle_index: tri_idx,
         })
     })
 }
