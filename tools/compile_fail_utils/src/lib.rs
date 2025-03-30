@@ -59,7 +59,9 @@ fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> ui_test::Result<Co
 
     // Don't leak contributor filesystem paths
     config.path_stderr_filter(Path::new(bevy_root), b"$BEVY_ROOT");
-    config.path_stderr_filter(Path::new(env!("RUSTUP_HOME")), b"$RUSTUP_HOME");
+    if let Some(path) = option_env!("RUSTUP_HOME") {
+        config.path_stderr_filter(Path::new(path), b"$RUSTUP_HOME");
+    }
 
     // ui_test doesn't compile regex with perl character classes.
     // \pL = unicode class for letters, \pN = unicode class for numbers
