@@ -568,12 +568,12 @@ pub fn extract_entities_needs_specialization<M>(
     }
     // Clean up any despawned entities
     for entity in removed_view_visibility_components.read() {
-        entity_specialization_ticks.remove(entity.into());
+        entity_specialization_ticks.remove(&MainEntity::from(entity));
         for view in views {
             specialized_material2d_pipeline_cache
                 .get_mut(view)
                 .map(|cache| {
-                    cache.remove(entity.into());
+                    cache.remove(&MainEntity::from(entity));
                 });
         }
     }

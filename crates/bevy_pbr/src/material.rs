@@ -726,22 +726,22 @@ pub fn extract_entities_needs_specialization<M>(
     }
     // Clean up any despawned entities
     for entity in removed_view_visibility_components.read() {
-        entity_specialization_ticks.remove(entity.into());
+        entity_specialization_ticks.remove(&MainEntity::from(entity));
         for view in views {
             specialized_material_pipeline_cache
                 .get_mut(&view.retained_view_entity)
                 .map(|cache| {
-                    cache.remove(entity.into());
+                    cache.remove(&MainEntity::from(entity));
                 });
             specialized_prepass_material_pipeline_cache
                 .get_mut(&view.retained_view_entity)
                 .map(|cache| {
-                    cache.remove(entity.into());
+                    cache.remove(&MainEntity::from(entity));
                 });
             specialized_shadow_material_pipeline_cache
                 .get_mut(&view.retained_view_entity)
                 .map(|cache| {
-                    cache.remove(entity.into());
+                    cache.remove(&MainEntity::from(entity));
                 });
         }
     }
