@@ -11,7 +11,9 @@ keywords = ["bevy"]
 [features]
 default = ["bevy_reflect"]
 
-bevy_reflect = ["dep:bevy_reflect", "bevy_math/bevy_reflect"]
+# bevy_reflect can't optional as it's needed for TypePath
+# this feature only control reflection in bevy_image
+bevy_reflect = ["bevy_math/bevy_reflect"]
 
 # Image formats
 basis-universal = ["dep:basis-universal"]
@@ -49,7 +51,7 @@ bevy_color = { path = "../bevy_color", version = "0.16.0-rc.2", features = [
   "wgpu-types",
 ] }
 bevy_math = { path = "../bevy_math", version = "0.16.0-rc.2" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.2", optional = true }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.2" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.2" }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-rc.2", default-features = false, features = [
   "std",
