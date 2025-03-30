@@ -187,7 +187,13 @@ where
                     BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::new(
                         self.debug_flags,
                     ),
-                ));
+                ))
+                // This can't be an attribute on the mesh types due to the shape of our dependency graph
+                .register_required_components::<Mesh3d, PreviousGlobalTransform>();
+
+            //
+            #[cfg(feature = "meshlet")]
+            app.register_required_components::<MeshletMesh3d, PreviousGlobalTransform>();
         }
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -257,6 +263,11 @@ pub fn update_previous_view_data(
     }
 }
 
+/// Tracks the previous [`GlobalTransform`] of a mesh,
+/// assuming that the mesh's transform is affine.
+///
+/// This is added as a required component for [`Mesh3d`] and the meshlet equivalent in
+/// the [`PrepassPlugin`].
 #[derive(Component, PartialEq, Default)]
 pub struct PreviousGlobalTransform(pub Affine3A);
 
@@ -270,24 +281,13 @@ pub fn any_camera_active(views: Query<&Camera, Or<(With<Camera3d>, With<ShadowVi
     views.iter().any(|camera| camera.is_active)
 }
 
-/// Updates the [`PreviousGlobalTransform`] of all meshes that match the [`PreviousMeshFilter`],
-/// inserting it if needed.
+/// Updates the [`PreviousGlobalTransform`] of all meshes that match the [`PreviousMeshFilter`].
 pub fn update_mesh_previous_global_transforms(
-    mut commands: Commands,
     mut meshes: Query<(&GlobalTransform, &mut PreviousGlobalTransform), PreviousMeshFilter>,
-    new_meshes: Query<
-        (Entity, &GlobalTransform),
-        (PreviousMeshFilter, Without<PreviousGlobalTransform>),
-    >,
 ) {
-    for (entity, transform) in &new_meshes {
-        commands
-            .entity(entity)
-            .try_insert(PreviousGlobalTransform(transform.affine()));
-    }
-    for (transform, mut previous) in &mut meshes {
+    meshes.par_iter_mut().for_each(|(transform, mut previous)| {
         previous.set_if_neq(PreviousGlobalTransform(transform.affine()));
-    }
+    });
 }
 
 #[derive(Resource)]
