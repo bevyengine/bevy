@@ -34,46 +34,8 @@ impl BevyError {
     pub fn downcast_ref<E: Error + 'static>(&self) -> Option<&E> {
         self.inner.error.downcast_ref::<E>()
     }
-}
 
-/// This type exists (rather than having a `BevyError(Box<dyn InnerBevyError)`) to make [`BevyError`] use a "thin pointer" instead of
-/// a "fat pointer", which reduces the size of our Result by a usize. This does introduce an extra indirection, but error handling is a "cold path".
-/// We don't need to optimize it to that degree.
-/// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but thats not a huge priority right now and the code simplicity
-/// of the current impl is nice.
-struct InnerBevyError {
-    error: Box<dyn Error + Send + Sync + 'static>,
-    #[cfg(feature = "backtrace")]
-    backtrace: std::backtrace::Backtrace,
-}
-
-// NOTE: writing the impl this way gives us From<&str> ... nice!
-impl<E> From<E> for BevyError
-where
-    Box<dyn Error + Send + Sync + 'static>: From<E>,
-{
-    #[cold]
-    fn from(error: E) -> Self {
-        BevyError {
-            inner: Box::new(InnerBevyError {
-                error: error.into(),
-                #[cfg(feature = "backtrace")]
-                backtrace: std::backtrace::Backtrace::capture(),
-            }),
-        }
-    }
-}
-
-impl Display for BevyError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{}", self.inner.error)?;
-        Ok(())
-    }
-}
-
-impl Debug for BevyError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{:?}", self.inner.error)?;
+    fn format_backtrace(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         #[cfg(feature = "backtrace")]
         {
             let backtrace = &self.inner.backtrace;
@@ -123,7 +85,50 @@ impl Debug for BevyError {
                 }
             }
         }
+        Ok(())
+    }
+}
 
+/// This type exists (rather than having a `BevyError(Box<dyn InnerBevyError)`) to make [`BevyError`] use a "thin pointer" instead of
+/// a "fat pointer", which reduces the size of our Result by a usize. This does introduce an extra indirection, but error handling is a "cold path".
+/// We don't need to optimize it to that degree.
+/// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but thats not a huge priority right now and the code simplicity
+/// of the current impl is nice.
+struct InnerBevyError {
+    error: Box<dyn Error + Send + Sync + 'static>,
+    #[cfg(feature = "backtrace")]
+    backtrace: std::backtrace::Backtrace,
+}
+
+// NOTE: writing the impl this way gives us From<&str> ... nice!
+impl<E> From<E> for BevyError
+where
+    Box<dyn Error + Send + Sync + 'static>: From<E>,
+{
+    #[cold]
+    fn from(error: E) -> Self {
+        BevyError {
+            inner: Box::new(InnerBevyError {
+                error: error.into(),
+                #[cfg(feature = "backtrace")]
+                backtrace: std::backtrace::Backtrace::capture(),
+            }),
+        }
+    }
+}
+
+impl Display for BevyError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        writeln!(f, "{}", self.inner.error)?;
+        self.format_backtrace(f)?;
+        Ok(())
+    }
+}
+
+impl Debug for BevyError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        writeln!(f, "{:?}", self.inner.error)?;
+        self.format_backtrace(f)?;
         Ok(())
     }
 }
