@@ -1709,8 +1709,14 @@ impl BinnedRenderPhaseType {
         gpu_preprocessing_support: &GpuPreprocessingSupport,
         no_indirect_drawing_override: bool,
     ) -> BinnedRenderPhaseType {
-        match (batchable, gpu_preprocessing_support.max_supported_mode, no_indirect_drawing_override) {
-            (true, GpuPreprocessingMode::Culling, false) => BinnedRenderPhaseType::MultidrawableMesh,
+        match (
+            batchable,
+            gpu_preprocessing_support.max_supported_mode,
+            no_indirect_drawing_override,
+        ) {
+            (true, GpuPreprocessingMode::Culling, false) => {
+                BinnedRenderPhaseType::MultidrawableMesh
+            }
             (true, _, _) => BinnedRenderPhaseType::BatchableMesh,
             (false, _, _) => BinnedRenderPhaseType::UnbatchableMesh,
         }

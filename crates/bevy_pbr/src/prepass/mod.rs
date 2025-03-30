@@ -1065,7 +1065,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
     mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
     mut alpha_mask_deferred_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
-    views: Query<(&ExtractedView, &RenderVisibleEntities, Has<NoIndirectDrawing>)>,
+    views: Query<(
+        &ExtractedView,
+        &RenderVisibleEntities,
+        Has<NoIndirectDrawing>,
+    )>,
     specialized_material_pipeline_cache: Res<SpecializedPrepassMaterialPipelineCache<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
