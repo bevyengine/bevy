@@ -93,7 +93,7 @@ pub mod prelude {
             Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
             Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction, WithParamWarnPolicy,
+            SystemParamFunction,
         },
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
@@ -1926,7 +1926,7 @@ mod tests {
         struct X;
 
         #[derive(Component)]
-        #[require(Z(new_z))]
+        #[require(Z = new_z())]
         struct Y {
             value: String,
         }
@@ -2651,7 +2651,7 @@ mod tests {
         struct MyRequired(bool);
 
         #[derive(Component, Default)]
-        #[require(MyRequired(|| MyRequired(false)))]
+        #[require(MyRequired(false))]
         struct MiddleMan;
 
         #[derive(Component, Default)]
@@ -2659,7 +2659,7 @@ mod tests {
         struct ConflictingRequire;
 
         #[derive(Component, Default)]
-        #[require(MyRequired(|| MyRequired(true)))]
+        #[require(MyRequired(true))]
         struct MyComponent;
 
         let mut world = World::new();

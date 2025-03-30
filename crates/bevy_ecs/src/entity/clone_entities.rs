@@ -84,7 +84,7 @@ pub struct ComponentCloneCtx<'a, 'b> {
     #[cfg(feature = "bevy_reflect")]
     type_registry: Option<&'a crate::reflect::AppTypeRegistry>,
     #[cfg(not(feature = "bevy_reflect"))]
-    #[expect(dead_code)]
+    #[expect(dead_code, reason = "type_registry is only used with bevy_reflect")]
     type_registry: Option<&'a ()>,
 }
 
@@ -1229,7 +1229,7 @@ mod tests {
         struct A;
 
         #[derive(Component, Clone, PartialEq, Debug, Default)]
-        #[require(C(|| C(5)))]
+        #[require(C(5))]
         struct B;
 
         #[derive(Component, Clone, PartialEq, Debug)]
@@ -1257,7 +1257,7 @@ mod tests {
         struct A;
 
         #[derive(Component, Clone, PartialEq, Debug, Default)]
-        #[require(C(|| C(5)))]
+        #[require(C(5))]
         struct B;
 
         #[derive(Component, Clone, PartialEq, Debug)]

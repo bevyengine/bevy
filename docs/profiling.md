@@ -9,6 +9,8 @@
   - [Chrome tracing format](#chrome-tracing-format)
   - [Perf flame graph](#perf-flame-graph)
 - [GPU runtime](#gpu-runtime)
+  - [Vendor tools](#vendor-tools)
+  - [Tracy RenderQueue](#tracy-renderqueue)
 - [Compile time](#compile-time)
 
 ## CPU runtime
@@ -124,6 +126,16 @@ After closing your app, an interactive `svg` file will be produced:
 
 ## GPU runtime
 
+First, a quick note on how GPU programming works. GPUs are essentially separate computers with their own compiler, scheduler, memory (for discrete GPUs), etc. You do not simply call functions to have the GPU perform work - instead, you communicate with them by sending data back and forth over the PCIe bus, via the GPU driver.
+
+Specifically, you record a list of tasks (commands) for the GPU to perform into a CommandBuffer, and then submit that on a Queue to the GPU. At some point in the future, the GPU will receive the commands and execute them.
+
+In terms of where your app is spending time doing graphics work, it might manifest as a CPU bottleneck (extracting to the render world, wgpu resource tracking, recording commands to a CommandBuffer, or GPU driver code), as a GPU bottleneck (the GPU actually running your commands), or even as a data transfer bottleneck (uploading new assets or other data to the GPU over the PCIe bus).
+
+Graphics related work is not all CPU work or all GPU work, but a mix of both, and you should find the bottleneck and profile using the appropriate tool for each case.
+
+### Vendor tools
+
 If CPU profiling has shown that GPU work is the bottleneck, it's time to profile the GPU.
 
 For profiling GPU work, you should use the tool corresponding to your GPU's vendor:
@@ -135,15 +147,18 @@ For profiling GPU work, you should use the tool corresponding to your GPU's vend
 
 Note that while RenderDoc is a great debugging tool, it is _not_ a profiler, and should not be used for this purpose.
 
-### Graphics work
+### Tracy RenderQueue
 
-Finally, a quick note on how GPU programming works. GPUs are essentially separate computers with their own compiler, scheduler, memory (for discrete GPUs), etc. You do not simply call functions to have the GPU perform work - instead, you communicate with them by sending data back and forth over the PCIe bus, via the GPU driver.
+While it doesn't provide as much detail as vendor-specific tooling, Tracy can also be used to coarsely measure GPU performance.
 
-Specifically, you record a list of tasks (commands) for the GPU to perform into a CommandBuffer, and then submit that on a Queue to the GPU. At some point in the future, the GPU will receive the commands and execute them.
+When you compile with Bevy's `trace_tracy` feature, GPU spans will show up in a separate row at the top of Tracy, labeled as `RenderQueue`.
 
-In terms of where your app is spending time doing graphics work, it might manifest as a CPU bottleneck (extracting to the render world, wgpu resource tracking, recording commands to a CommandBuffer, or GPU driver code), or it might manifest as a GPU bottleneck (the GPU actually running your commands).
+> [!NOTE]
+> Due to dynamic clock speeds, GPU timings will have large frame-to-frame variance, unless you use an external tool to lock your GPU clocks to base speeds. When measuring GPU performance via Tracy, only look at the MTPC column of Tracy's statistics panel, or the span distribution/median, and not at any individual frame data.
+<!-- markdownlint-disable MD028 -->
 
-Graphics related work is not all CPU work or all GPU work, but a mix of both, and you should find the bottleneck and profile using the appropriate tool for each case.
+> [!NOTE]
+> Unlike ECS systems, Bevy will not automatically add GPU profiling spans. You will need to add GPU timing spans yourself for any custom rendering work. See the [`RenderDiagnosticsPlugin`](https://docs.rs/bevy/latest/bevy/render/diagnostic/struct.RenderDiagnosticsPlugin.html) docs for more details.
 
 ## Compile time
 

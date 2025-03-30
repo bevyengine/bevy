@@ -353,9 +353,10 @@ mod tests {
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform_support::collections::HashMap;
     use bevy_render::{camera::ManualTextureViews, prelude::Camera};
+    use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::{
         prelude::GlobalTransform,
-        systems::{compute_transform_leaves, propagate_parent_transforms, sync_simple_transforms},
+        systems::{propagate_parent_transforms, sync_simple_transforms},
     };
     use bevy_utils::prelude::default;
     use bevy_window::{
@@ -408,9 +409,9 @@ mod tests {
                 update_ui_context_system,
                 ApplyDeferred,
                 ui_layout_system,
+                mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
-                compute_transform_leaves,
             )
                 .chain(),
         );
