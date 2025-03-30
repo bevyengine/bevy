@@ -18,7 +18,6 @@ use bevy::{
         primitives::{Aabb, Sphere},
     },
 };
-use futures_lite::StreamExt;
 
 #[path = "../../helpers/camera_controller.rs"]
 mod camera_controller;
@@ -83,8 +82,7 @@ fn main() {
     ))
     .insert_resource(args)
     .add_systems(Startup, setup)
-    .add_systems(PreUpdate, setup_scene_after_load)
-    .add_systems(Update, count_t);
+    .add_systems(PreUpdate, setup_scene_after_load);
 
     // If deferred shading was requested, turn it on.
     if deferred == Some(true) {
@@ -95,10 +93,6 @@ fn main() {
     app.add_plugins(animation_plugin::AnimationManipulationPlugin);
 
     app.run();
-}
-
-fn count_t(q: Query<(), With<Transform>>) {
-    dbg!(q.iter().len());
 }
 
 fn parse_scene(scene_path: String) -> (String, usize) {
