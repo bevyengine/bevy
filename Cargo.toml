@@ -252,7 +252,6 @@ bevy_solari = [
   "bevy_core_pipeline",
   "bevy_pbr",
   "bevy_render",
-  "bevy_render/raytracing",
 ]
 
 # Provides sprite functionality

@@ -6,8 +6,12 @@ pub use types::RaytracingMesh3d;
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_render::{
-    mesh::{allocator::allocate_and_free_meshes, RenderMesh},
+    mesh::{
+        allocator::{allocate_and_free_meshes, MeshAllocator},
+        RenderMesh,
+    },
     render_asset::prepare_assets,
+    render_resource::BufferUsages,
     renderer::RenderDevice,
     settings::WgpuFeatures,
     Render, RenderApp, RenderSet,
@@ -31,6 +35,11 @@ impl Plugin for SolariScenePlugin {
             warn!("SolariScenePlugin not loaded. GPU lacks support for required feature: EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE.");
             return;
         }
+
+        render_app
+            .world_mut()
+            .resource_mut::<MeshAllocator>()
+            .extra_buffer_usages = BufferUsages::BLAS_INPUT | BufferUsages::STORAGE;
 
         render_app.init_resource::<BlasManager>().add_systems(
             Render,

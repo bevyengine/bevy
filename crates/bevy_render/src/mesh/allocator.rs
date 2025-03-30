@@ -79,8 +79,8 @@ pub struct MeshAllocator {
     /// buffer, because we can't adjust the first vertex when we perform a draw.
     general_vertex_slabs_supported: bool,
 
-    /// Extra buffer usages to add to any created vertex or index buffer.
-    extra_buffer_usages: BufferUsages,
+    /// Additional buffer usages to add to any vertex or index buffers created.
+    pub extra_buffer_usages: BufferUsages,
 }
 
 /// Tunable parameters that customize the behavior of the allocator.
@@ -340,20 +340,6 @@ impl FromWorld for MeshAllocator {
             .flags
             .contains(DownlevelFlags::BASE_VERTEX);
 
-        // If ray tracing is enabled, enable these buffer usages.
-        // Might have a little memory/buffer creation cost when developers compile with raytracing support,
-        // and users run on RT-capable hardware, but choose not to use RT. Ideally we find a better way to toggle this.
-        #[cfg_attr(not(feature = "raytracing"), expect(unused_mut))]
-        let mut extra_buffer_usages = BufferUsages::empty();
-        #[cfg(feature = "raytracing")]
-        if world
-            .resource::<RenderDevice>()
-            .features()
-            .contains(wgpu::Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE)
-        {
-            extra_buffer_usages |= BufferUsages::BLAS_INPUT | BufferUsages::STORAGE;
-        }
-
         Self {
             slabs: HashMap::default(),
             slab_layouts: HashMap::default(),
@@ -361,7 +347,7 @@ impl FromWorld for MeshAllocator {
             mesh_id_to_index_slab: HashMap::default(),
             next_slab_id: default(),
             general_vertex_slabs_supported,
-            extra_buffer_usages,
+            extra_buffer_usages: BufferUsages::empty(),
         }
     }
 }
