@@ -1153,6 +1153,34 @@ pub fn advance_animations(
         });
 }
 
+fn trigger_events(
+    par_commands: &ParallelCommands,
+    entity: Entity,
+    target_id: AnimationTargetId,
+    active_animation: &ActiveAnimation,
+    clip: &AnimationClip,
+) {
+    if active_animation.paused {
+        return;
+    }
+
+    let Some(triggered_events) = TriggeredEvents::from_animation(
+        AnimationEventTarget::Node(target_id),
+        clip,
+        active_animation,
+    ) else {
+        return;
+    };
+
+    if !triggered_events.is_empty() {
+        par_commands.command_scope(move |mut commands| {
+            for TimedAnimationEvent { time, event } in triggered_events.iter() {
+                event.trigger(&mut commands, entity, *time, active_animation.weight);
+            }
+        });
+    }
+}
+
 /// A type alias for [`EntityMutExcept`] as used in animation.
 pub type AnimationEntityMut<'w> =
     EntityMutExcept<'w, (AnimationTarget, AnimationPlayer, AnimationGraphHandle)>;
@@ -1196,27 +1224,7 @@ pub fn animate_targets(
                     return;
                 };
 
-                if !active_animation.paused {
-                    // Trigger all animation events that occurred this tick, if any.
-                    if let Some(triggered_events) = TriggeredEvents::from_animation(
-                        AnimationEventTarget::Node(target_id),
-                        clip,
-                        active_animation,
-                    ) {
-                        if !triggered_events.is_empty() {
-                            par_commands.command_scope(move |mut commands| {
-                                for TimedAnimationEvent { time, event } in triggered_events.iter() {
-                                    event.trigger(
-                                        &mut commands,
-                                        entity,
-                                        *time,
-                                        active_animation.weight,
-                                    );
-                                }
-                            });
-                        }
-                    }
-                }
+                trigger_events(&par_commands, entity, target_id, active_animation, clip);
 
                 let Some(curves) = clip.curves_for_target(target_id) else {
                     return;
@@ -1373,29 +1381,7 @@ pub fn animate_targets(
                             continue;
                         };
 
-                        if !active_animation.paused {
-                            // Trigger all animation events that occurred this tick, if any.
-                            if let Some(triggered_events) = TriggeredEvents::from_animation(
-                                AnimationEventTarget::Node(target_id),
-                                clip,
-                                active_animation,
-                            ) {
-                                if !triggered_events.is_empty() {
-                                    par_commands.command_scope(move |mut commands| {
-                                        for TimedAnimationEvent { time, event } in
-                                            triggered_events.iter()
-                                        {
-                                            event.trigger(
-                                                &mut commands,
-                                                entity,
-                                                *time,
-                                                active_animation.weight,
-                                            );
-                                        }
-                                    });
-                                }
-                            }
-                        }
+                        trigger_events(&par_commands, entity, target_id, active_animation, clip);
 
                         let Some(curves) = clip.curves_for_target(target_id) else {
                             continue;
