@@ -178,7 +178,7 @@ where
                 .add_systems(
                     PreUpdate,
                     (
-                        update_mesh_previous_global_transforms,
+                        update_mesh_previous_global_transforms.run_if(any_camera_active),
                         update_previous_view_data,
                     ),
                 )
@@ -265,9 +265,15 @@ type PreviousMeshFilter = With<Mesh3d>;
 #[cfg(feature = "meshlet")]
 type PreviousMeshFilter = Or<(With<Mesh3d>, With<MeshletMesh3d>)>;
 
+/// A run condition for [`update_mesh_previous_global_transforms`] that checks if any camera is active.
+pub fn any_camera_active(views: Query<&Camera, Or<(With<Camera3d>, With<ShadowView>)>>) -> bool {
+    views.iter().any(|camera| camera.is_active)
+}
+
+/// Updates the [`PreviousGlobalTransform`] of all meshes that have a [`PreviousMeshFilter`] component,
+/// inserting it if needed.
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
-    views: Query<&Camera, Or<(With<Camera3d>, With<ShadowView>)>>,
     mut meshes: Query<
         (
             Entity,
@@ -277,21 +283,17 @@ pub fn update_mesh_previous_global_transforms(
         PreviousMeshFilter,
     >,
 ) {
-    let should_run = views.iter().any(|camera| camera.is_active);
-
-    if should_run {
-        for (entity, transform, old_previous_transform) in &mut meshes {
-            let new_previous_transform = PreviousGlobalTransform(transform.affine());
-            match old_previous_transform {
-                None => {
-                    commands.entity(entity).try_insert(new_previous_transform);
-                }
-                // Make sure not to trigger change detection on
-                // `PreviousGlobalTransform` if the previous transform hasn't
-                // changed.
-                Some(mut old_previous_transform) => {
-                    old_previous_transform.set_if_neq(new_previous_transform);
-                }
+    for (entity, transform, old_previous_transform) in &mut meshes {
+        let new_previous_transform = PreviousGlobalTransform(transform.affine());
+        match old_previous_transform {
+            None => {
+                commands.entity(entity).try_insert(new_previous_transform);
+            }
+            // Make sure not to trigger change detection on
+            // `PreviousGlobalTransform` if the previous transform hasn't
+            // changed.
+            Some(mut old_previous_transform) => {
+                old_previous_transform.set_if_neq(new_previous_transform);
             }
         }
     }
