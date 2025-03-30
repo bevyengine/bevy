@@ -615,9 +615,9 @@ impl Parse for Require {
             // if this isn't any of the above, then it is a component ident, which will use Default
             None
         };
-
         if is_enum || is_constructor_call {
             path.segments.pop();
+            path.segments.pop_punct();
         }
         Ok(Require { path, func })
     }
