@@ -131,6 +131,29 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// This will most commonly occur when working with `SystemParam`s generically, as the requirement
 /// has not been proven to the compiler.
 ///
+/// ## Custom Validation Messages
+///
+/// When using the derive macro, any [`SystemParamValidationError`]s will be propagated from the sub-parameters.
+/// If you want to override the error message, add a `#[system_param(validation_message = "New message")]` attribute to the parameter.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Resource)]
+/// # struct SomeResource;
+/// # use bevy_ecs::system::SystemParam;
+/// #
+/// #[derive(SystemParam)]
+/// struct MyParam<'w> {
+///     #[system_param(validation_message = "Custom Message")]
+///     foo: Res<'w, SomeResource>,
+/// }
+///
+/// let mut world = World::new();
+/// let err = world.run_system_cached(|param: MyParam| {}).unwrap_err();
+/// let expected = "Parameter `MyParam::foo` failed validation: Custom Message";
+/// assert!(err.to_string().ends_with(expected));
+/// ```
+///
 /// ## Builders
 ///
 /// If you want to use a [`SystemParamBuilder`](crate::system::SystemParamBuilder) with a derived [`SystemParam`] implementation,
@@ -2987,7 +3010,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_event_error::event_system`: Parameter `EventReader<MissingEvent>::events` failed validation: Resource does not exist"]
+    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_event_error::event_system`: Parameter `EventReader<MissingEvent>::events` failed validation: Event not initialized"]
     fn missing_event_error() {
         use crate::prelude::{Event, EventReader};
 

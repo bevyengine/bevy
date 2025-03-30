@@ -232,6 +232,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let mut field_names = Vec::new();
     let mut fields = Vec::new();
     let mut field_types = Vec::new();
+    let mut field_messages = Vec::new();
     for (i, field) in field_definitions.iter().enumerate() {
         field_locals.push(format_ident!("f{i}"));
         let i = Index::from(i);
@@ -243,6 +244,24 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         field_names.push(format!("::{}", field_value));
         fields.push(field_value);
         field_types.push(&field.ty);
+        let mut field_message = None;
+        for meta in field
+            .attrs
+            .iter()
+            .filter(|a| a.path().is_ident("system_param"))
+        {
+            if let Err(e) = meta.parse_nested_meta(|nested| {
+                if nested.path.is_ident("validation_message") {
+                    field_message = Some(nested.value()?.parse()?);
+                    Ok(())
+                } else {
+                    Err(nested.error("Unsupported attribute"))
+                }
+            }) {
+                return e.into_compile_error().into();
+            }
+        }
+        field_messages.push(field_message.unwrap_or_else(|| quote! { err.message }));
     }
 
     let generics = ast.generics;
@@ -434,7 +453,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     let #state_struct_name { state: (#(#tuple_patterns,)*) } = state;
                     #(
                         <#field_types as #path::system::SystemParam>::validate_param(#field_locals, _system_meta, _world)
-                            .map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, err.message, #field_names))?;
+                            .map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_messages, #field_names))?;
                     )*
                     Ok(())
                 }
