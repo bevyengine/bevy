@@ -35,9 +35,10 @@ impl BevyError {
         self.inner.error.downcast_ref::<E>()
     }
 
-    fn format_backtrace(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn format_backtrace(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         #[cfg(feature = "backtrace")]
         {
+            let f = _f;
             let backtrace = &self.inner.backtrace;
             if let std::backtrace::BacktraceStatus::Captured = backtrace.status() {
                 let full_backtrace = std::env::var("BEVY_BACKTRACE").is_ok_and(|val| val == "full");
