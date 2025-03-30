@@ -39,7 +39,7 @@ impl Plugin for SolariScenePlugin {
         render_app
             .world_mut()
             .resource_mut::<MeshAllocator>()
-            .extra_buffer_usages = BufferUsages::BLAS_INPUT | BufferUsages::STORAGE;
+            .extra_buffer_usages |= BufferUsages::BLAS_INPUT | BufferUsages::STORAGE;
 
         render_app.init_resource::<BlasManager>().add_systems(
             Render,
