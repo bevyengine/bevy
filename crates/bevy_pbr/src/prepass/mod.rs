@@ -270,7 +270,7 @@ pub fn any_camera_active(views: Query<&Camera, Or<(With<Camera3d>, With<ShadowVi
     views.iter().any(|camera| camera.is_active)
 }
 
-/// Updates the [`PreviousGlobalTransform`] of all meshes that have a [`PreviousMeshFilter`] component,
+/// Updates the [`PreviousGlobalTransform`] of all meshes that match the [`PreviousMeshFilter`],
 /// inserting it if needed.
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
