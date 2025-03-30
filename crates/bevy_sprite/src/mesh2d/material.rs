@@ -44,6 +44,7 @@ use bevy_render::{
     view::{ExtractedView, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
+use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;
 use tracing::error;
@@ -644,14 +645,18 @@ pub fn check_entities_needing_specialization<M>(
             AssetChanged<MeshMaterial2d<M>>,
         )>,
     >,
+    mut par_local: Local<Parallel<Vec<Entity>>>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
 ) where
     M: Material2d,
 {
     entities_needing_specialization.clear();
-    for entity in &needs_specialization {
-        entities_needing_specialization.push(entity);
-    }
+
+    needs_specialization
+        .par_iter()
+        .for_each(|entity| par_local.borrow_local_mut().push(entity));
+
+    par_local.drain_into(&mut entities_needing_specialization);
 }
 
 pub fn specialize_material2d_meshes<M: Material2d>(
