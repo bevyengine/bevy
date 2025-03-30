@@ -384,9 +384,9 @@ fn apply_pbr_lighting(
     transmissive_lighting_input.clearcoat_strength = 0.0;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 #ifdef STANDARD_MATERIAL_ANISOTROPY
-    lighting_input.anisotropy = in.anisotropy_strength;
-    lighting_input.Ta = in.anisotropy_T;
-    lighting_input.Ba = in.anisotropy_B;
+    transmissive_lighting_input.anisotropy = in.anisotropy_strength;
+    transmissive_lighting_input.Ta = in.anisotropy_T;
+    transmissive_lighting_input.Ba = in.anisotropy_B;
 #endif  // STANDARD_MATERIAL_ANISOTROPY
 #endif  // STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
 
