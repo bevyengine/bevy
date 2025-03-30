@@ -685,6 +685,7 @@ impl ActiveAnimation {
 #[reflect(Component, Default, Clone)]
 pub struct AnimationPlayer {
     active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
+    active_animation_clip: Option<(Handle<AnimationClip>, ActiveAnimation)>,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -692,11 +693,14 @@ impl Clone for AnimationPlayer {
     fn clone(&self) -> Self {
         Self {
             active_animations: self.active_animations.clone(),
+            active_animation_clip: self.active_animation_clip.clone(),
         }
     }
 
     fn clone_from(&mut self, source: &Self) {
         self.active_animations.clone_from(&source.active_animations);
+        self.active_animation_clip
+            .clone_from(&source.active_animation_clip);
     }
 }
 
@@ -808,29 +812,84 @@ impl CurrentEvaluators {
     }
 }
 
+/// TODO
+pub enum AnimationRef {
+    /// TODO
+    Node(AnimationNodeIndex),
+    /// TODO
+    Clip(Handle<AnimationClip>),
+}
+
+impl From<AnimationNodeIndex> for AnimationRef {
+    fn from(value: AnimationNodeIndex) -> Self {
+        Self::Node(value)
+    }
+}
+
+impl From<Handle<AnimationClip>> for AnimationRef {
+    fn from(value: Handle<AnimationClip>) -> Self {
+        Self::Clip(value)
+    }
+}
+
 impl AnimationPlayer {
     /// Start playing an animation, restarting it if necessary.
-    pub fn start(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
-        let playing_animation = self.active_animations.entry(animation).or_default();
-        playing_animation.replay();
-        playing_animation
+    pub fn start(&mut self, animation: impl Into<AnimationRef>) -> &mut ActiveAnimation {
+        match animation.into() {
+            AnimationRef::Node(node) => {
+                let playing_animation = self.active_animations.entry(node).or_default();
+                playing_animation.replay();
+                playing_animation
+            }
+            AnimationRef::Clip(clip) => {
+                self.active_animation_clip = Some((clip.clone(), ActiveAnimation::default()));
+                &mut self.active_animation_clip.as_mut().unwrap().1
+            }
+        }
     }
 
     /// Start playing an animation, unless the requested animation is already playing.
-    pub fn play(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
-        self.active_animations.entry(animation).or_default()
+    pub fn play(&mut self, animation: impl Into<AnimationRef>) -> &mut ActiveAnimation {
+        match animation.into() {
+            AnimationRef::Node(node) => self.active_animations.entry(node).or_default(),
+            AnimationRef::Clip(clip) => {
+                if self
+                    .active_animation_clip
+                    .as_ref()
+                    .is_none_or(|(active_clip, _)| *active_clip != clip)
+                {
+                    self.active_animation_clip = Some((clip.clone(), ActiveAnimation::default()));
+                }
+
+                &mut self.active_animation_clip.as_mut().unwrap().1
+            }
+        }
     }
 
     /// Stops playing the given animation, removing it from the list of playing
     /// animations.
-    pub fn stop(&mut self, animation: AnimationNodeIndex) -> &mut Self {
-        self.active_animations.remove(&animation);
+    pub fn stop(&mut self, animation: impl Into<AnimationRef>) -> &mut Self {
+        match animation.into() {
+            AnimationRef::Node(node) => {
+                self.active_animations.remove(&node);
+            }
+            AnimationRef::Clip(clip) => {
+                if self
+                    .active_animation_clip
+                    .as_ref()
+                    .is_some_and(|(active_clip, _)| *active_clip == clip)
+                {
+                    self.active_animation_clip = None;
+                }
+            }
+        }
         self
     }
 
     /// Stops all currently-playing animations.
     pub fn stop_all(&mut self) -> &mut Self {
         self.active_animations.clear();
+        self.active_animation_clip = None;
         self
     }
 
@@ -855,18 +914,25 @@ impl AnimationPlayer {
         &'a self,
         graph: &'a Option<&'a AnimationGraph>,
     ) -> impl Iterator<Item = (&'a Handle<AnimationClip>, &'a ActiveAnimation)> {
-        graph.iter().flat_map(|graph| {
-            self.active_animations
-                .iter()
-                .flat_map(move |(node_index, active)| {
-                    graph
-                        .get(*node_index)
-                        .and_then(|node| match node.node_type {
-                            AnimationNodeType::Clip(ref handle) => Some((handle, active)),
-                            _ => None,
-                        })
-                })
-        })
+        graph
+            .iter()
+            .flat_map(|graph| {
+                self.active_animations
+                    .iter()
+                    .flat_map(move |(node_index, active)| {
+                        graph
+                            .get(*node_index)
+                            .and_then(|node| match node.node_type {
+                                AnimationNodeType::Clip(ref handle) => Some((handle, active)),
+                                _ => None,
+                            })
+                    })
+            })
+            .chain(
+                self.active_animation_clip
+                    .iter()
+                    .map(move |(clip, active)| (clip, active)),
+            )
     }
 
     /// TODO
@@ -888,6 +954,11 @@ impl AnimationPlayer {
                         })
                 })
             })
+            .chain(
+                self.active_animation_clip
+                    .iter_mut()
+                    .map(move |&mut (ref clip, ref mut active)| (clip, active)),
+            )
     }
 
     /// Iterates through all animations that this [`AnimationPlayer`] is
@@ -896,19 +967,30 @@ impl AnimationPlayer {
         self.active_animations
             .iter()
             .map(|(_, animation)| animation)
+            .chain(
+                self.active_animation_clip
+                    .iter()
+                    .map(|(_, animation)| animation),
+            )
     }
+
     /// Iterates through all animations that this [`AnimationPlayer`] is
     /// currently playing, mutably.
     pub fn playing_animations_mut(&mut self) -> impl Iterator<Item = &mut ActiveAnimation> {
         self.active_animations
             .iter_mut()
             .map(|(_, animation)| animation)
+            .chain(
+                self.active_animation_clip
+                    .iter_mut()
+                    .map(|(_, animation)| animation),
+            )
     }
 
     /// Returns true if the animation is currently playing or paused, or false
     /// if the animation is stopped.
-    pub fn is_playing_animation(&self, animation: AnimationNodeIndex) -> bool {
-        self.active_animations.contains_key(&animation)
+    pub fn is_playing_animation(&self, animation: impl Into<AnimationRef>) -> bool {
+        self.animation(animation).is_some()
     }
 
     /// Check if all playing animations have finished, according to the repetition behavior.
@@ -977,8 +1059,21 @@ impl AnimationPlayer {
     /// node if it's currently playing.
     ///
     /// If the animation isn't currently active, returns `None`.
-    pub fn animation(&self, animation: AnimationNodeIndex) -> Option<&ActiveAnimation> {
-        self.active_animations.get(&animation)
+    pub fn animation(&self, animation: impl Into<AnimationRef>) -> Option<&ActiveAnimation> {
+        match animation.into() {
+            AnimationRef::Node(node) => self.active_animations.get(&node),
+            AnimationRef::Clip(clip) => {
+                self.active_animation_clip
+                    .as_ref()
+                    .and_then(|(active_clip, state)| {
+                        if *active_clip == clip {
+                            Some(state)
+                        } else {
+                            None
+                        }
+                    })
+            }
+        }
     }
 
     /// Returns a mutable reference to the [`ActiveAnimation`] associated with
@@ -986,7 +1081,20 @@ impl AnimationPlayer {
     ///
     /// If the animation isn't currently active, returns `None`.
     pub fn animation_mut(&mut self, animation: AnimationNodeIndex) -> Option<&mut ActiveAnimation> {
-        self.active_animations.get_mut(&animation)
+        match animation.into() {
+            AnimationRef::Node(node) => self.active_animations.get_mut(&node),
+            AnimationRef::Clip(clip) => {
+                self.active_animation_clip
+                    .as_mut()
+                    .and_then(|(active_clip, state)| {
+                        if *active_clip == clip {
+                            Some(state)
+                        } else {
+                            None
+                        }
+                    })
+            }
+        }
     }
 }
 
@@ -1056,7 +1164,7 @@ pub fn animate_targets(
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
-    players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
+    players: Query<(&AnimationPlayer, Option<&AnimationGraphHandle>)>,
     mut targets: Query<(Entity, &AnimationTarget, AnimationEntityMut)>,
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
@@ -1069,19 +1177,105 @@ pub fn animate_targets(
                 player: player_id,
             } = target;
 
-            let (animation_player, animation_graph_id) =
-                if let Ok((player, graph_handle)) = players.get(player_id) {
-                    (player, graph_handle.id())
-                } else {
-                    trace!(
-                        "Either an animation player {} or a graph was missing for the target \
-                         entity {} ({:?}); no animations will play this frame",
-                        player_id,
-                        entity_mut.id(),
-                        entity_mut.get::<Name>(),
-                    );
+            let Ok((animation_player, graph_handle)) = players.get(player_id) else {
+                trace!(
+                    "An animation player {} was missing for the target \
+                        entity {} ({:?}); no animations will play this frame",
+                    player_id,
+                    entity_mut.id(),
+                    entity_mut.get::<Name>(),
+                );
+
+                return;
+            };
+
+            if let Some((clip_handle, active_animation)) = &animation_player.active_animation_clip {
+                // TODO: Refactor to share code with `active_animations` path.
+
+                let Some(clip) = clips.get(clip_handle) else {
                     return;
                 };
+
+                if !active_animation.paused {
+                    // Trigger all animation events that occurred this tick, if any.
+                    if let Some(triggered_events) = TriggeredEvents::from_animation(
+                        AnimationEventTarget::Node(target_id),
+                        clip,
+                        active_animation,
+                    ) {
+                        if !triggered_events.is_empty() {
+                            par_commands.command_scope(move |mut commands| {
+                                for TimedAnimationEvent { time, event } in triggered_events.iter() {
+                                    event.trigger(
+                                        &mut commands,
+                                        entity,
+                                        *time,
+                                        active_animation.weight,
+                                    );
+                                }
+                            });
+                        }
+                    }
+                }
+
+                let Some(curves) = clip.curves_for_target(target_id) else {
+                    return;
+                };
+
+                let mut evaluation_state = animation_evaluation_state.get_or_default().borrow_mut();
+                let evaluation_state = &mut *evaluation_state;
+
+                // TODO: Weight is never valid?
+                let weight = active_animation.weight;
+                let seek_time = active_animation.seek_time;
+
+                for curve in curves {
+                    let curve_evaluator_id = (*curve.0).evaluator_id();
+                    let curve_evaluator = evaluation_state
+                        .evaluators
+                        .get_or_insert_with(curve_evaluator_id.clone(), || {
+                            curve.0.create_evaluator()
+                        });
+
+                    evaluation_state
+                        .current_evaluators
+                        .insert(curve_evaluator_id);
+
+                    if let Err(err) = AnimationCurve::apply(
+                        &*curve.0,
+                        curve_evaluator,
+                        seek_time,
+                        weight,
+                        AnimationNodeIndex::default(), // TODO: Review. Should be safe but needs verifying.
+                    ) {
+                        warn!("Animation application failed: {:?}", err);
+                    }
+                }
+
+                if let Err(err) = evaluation_state.commit_all(entity_mut) {
+                    warn!("Animation application failed: {:?}", err);
+                }
+
+                return;
+            }
+
+            if animation_player.active_animations.is_empty() {
+                return;
+            }
+
+            let Some(graph_handle) = graph_handle else {
+                // TODO: Should this mention that a graph is only required if
+                // `animation_player` has been told to play nodes?
+                trace!(
+                    "An animation graph was missing for the target \
+                        entity {} ({:?}); no animations will play this frame",
+                    entity_mut.id(),
+                    entity_mut.get::<Name>(),
+                );
+                return;
+            };
+
+            let animation_graph_id = graph_handle.id();
 
             // The graph might not have loaded yet. Safely bail.
             let Some(animation_graph) = graphs.get(animation_graph_id) else {
@@ -1155,6 +1349,7 @@ pub fn animate_targets(
                     }
 
                     AnimationNodeType::Clip(ref animation_clip_handle) => {
+                        // TODO: Refactor to share code with `active_animation_clip`.
                         // This is a clip node.
                         let Some(active_animation) = animation_player
                             .active_animations
