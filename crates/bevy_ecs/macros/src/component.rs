@@ -3,13 +3,13 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
 use std::collections::HashSet;
 use syn::{
-    braced, parenthesized,
+    parenthesized,
     parse::Parse,
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Brace, Comma, Paren},
-    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprPath, ExprStruct, ExprTuple,
+    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprPath, ExprStruct,
     Field, Fields, Ident, LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
