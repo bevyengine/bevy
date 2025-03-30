@@ -220,9 +220,9 @@ impl Stepping {
         self.action != Action::RunAll
     }
 
-    // Returns a reference to the Action to be executed during the current frame.
+    /// check what Action to be executed during the current frame.
     pub fn get_action(&self) -> &Action {
-        &self.action
+        
     }
 
     /// Run the next system during the next render frame
