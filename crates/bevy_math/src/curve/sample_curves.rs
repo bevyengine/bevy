@@ -1,9 +1,10 @@
 //! Sample-interpolated curves constructed using the [`Curve`] API.
 
+use crate::{Interpolate, StableInterpolate};
+
 use super::cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use super::{Curve, Interval};
 
-use crate::StableInterpolate;
 #[cfg(feature = "bevy_reflect")]
 use alloc::format;
 use core::any::type_name;
@@ -143,7 +144,7 @@ pub struct SampleAutoCurve<T> {
 
 impl<T> Curve<T> for SampleAutoCurve<T>
 where
-    T: StableInterpolate,
+    T: StableInterpolate + Clone,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -153,8 +154,7 @@ where
     #[inline]
     fn sample_clamped(&self, t: f32) -> T {
         // `EvenCore::sample_with` is implicitly clamped.
-        self.core
-            .sample_with(t, <T as StableInterpolate>::interpolate_stable)
+        self.core.sample_with(t, <T as Interpolate>::interp)
     }
 
     #[inline]
@@ -315,7 +315,7 @@ pub struct UnevenSampleAutoCurve<T> {
 
 impl<T> Curve<T> for UnevenSampleAutoCurve<T>
 where
-    T: StableInterpolate,
+    T: StableInterpolate + Clone,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -325,8 +325,7 @@ where
     #[inline]
     fn sample_clamped(&self, t: f32) -> T {
         // `UnevenCore::sample_with` is implicitly clamped.
-        self.core
-            .sample_with(t, <T as StableInterpolate>::interpolate_stable)
+        self.core.sample_with(t, <T as Interpolate>::interp)
     }
 
     #[inline]

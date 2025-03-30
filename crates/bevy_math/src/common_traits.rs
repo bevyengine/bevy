@@ -21,12 +21,67 @@ pub trait Interpolate: Sized {
     /// this method always represents the "most sane default" when it is avalible.
     ///
     /// The exact interpolation behavior is highly implementation-dependant.
-    /// - When `T: Interpolate + Vectorspace`, this is linear interpolation.
+    /// - When `T: Interpolate + VectorSpace`, this is linear interpolation.
+    /// - When `T: Interpolate + StableInterpolate`, the interpolation is stable under resampling.
     fn interp(&self, other: &Self, param: f32) -> Self;
 
     /// Performs interpolation in place. See the documentation on the [`interp`] method for more info.
+    #[inline]
     fn interp_assign(&mut self, other: &Self, param: f32) {
         *self = self.interp(other, param);
+    }
+}
+
+macro_rules! impl_interpolate_tuple {
+    ($(#[$meta:meta])* $(($n:tt, $T:ident)),*) => {
+        $(#[$meta])*
+        impl<$($T: Interpolate),*> Interpolate for ($($T,)*) {
+            fn interp(&self, other: &Self, param: f32) -> Self {
+                (
+                    $(
+                        <$T as Interpolate>::interp(&self.$n, &other.$n, param),
+                    )*
+                )
+            }
+        }
+    };
+}
+
+all_tuples_enumerated!(
+    #[doc(fake_variadic)]
+    impl_interpolate_tuple,
+    1,
+    11,
+    T
+);
+
+impl Interpolate for Rot2 {
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        self.slerp(*other, param)
+    }
+}
+
+impl Interpolate for Quat {
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        self.slerp(*other, param)
+    }
+}
+
+impl Interpolate for Dir2 {
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        self.slerp(*other, param)
+    }
+}
+
+impl Interpolate for Dir3 {
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        self.slerp(*other, param)
+    }
+}
+
+impl Interpolate for Dir3A {
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        self.slerp(*other, param)
     }
 }
 
@@ -328,22 +383,7 @@ impl NormedVectorSpace for f32 {
 /// [`Quat::slerp`]: crate::Quat::slerp
 /// [`Quat::lerp`]: crate::Quat::lerp
 /// [`Rot2::nlerp`]: crate::Rot2::nlerp
-pub trait StableInterpolate: Clone {
-    /// Interpolate between this value and the `other` given value using the parameter `t`. At
-    /// `t = 0.0`, a value equivalent to `self` is recovered, while `t = 1.0` recovers a value
-    /// equivalent to `other`, with intermediate values interpolating between the two.
-    /// See the [trait-level documentation] for details.
-    ///
-    /// [trait-level documentation]: StableInterpolate
-    fn interpolate_stable(&self, other: &Self, t: f32) -> Self;
-
-    /// A version of [`interpolate_stable`] that assigns the result to `self` for convenience.
-    ///
-    /// [`interpolate_stable`]: StableInterpolate::interpolate_stable
-    fn interpolate_stable_assign(&mut self, other: &Self, t: f32) {
-        *self = self.interpolate_stable(other, t);
-    }
-
+pub trait StableInterpolate: Interpolate {
     /// Smoothly nudge this value towards the `target` at a given decay rate. The `decay_rate`
     /// parameter controls how fast the distance between `self` and `target` decays relative to
     /// the units of `delta`; the intended usage is for `decay_rate` to generally remain fixed,
@@ -370,76 +410,35 @@ pub trait StableInterpolate: Clone {
     /// object_position.smooth_nudge(&target_position, decay_rate, delta_time);
     /// ```
     fn smooth_nudge(&mut self, target: &Self, decay_rate: f32, delta: f32) {
-        self.interpolate_stable_assign(target, 1.0 - ops::exp(-decay_rate * delta));
+        self.interp_assign(target, 1.0 - ops::exp(-decay_rate * delta));
     }
 }
 
 // Conservatively, we presently only apply this for normed vector spaces, where the notion
 // of being constant-speed is literally true. The technical axioms are satisfied for any
 // VectorSpace type, but the "natural from the semantics" part is less clear in general.
-impl<V> StableInterpolate for V
-where
-    V: NormedVectorSpace,
-{
-    #[inline]
-    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-        self.interp(other, t)
-    }
-}
+impl<V> StableInterpolate for V where V: NormedVectorSpace {}
 
-impl StableInterpolate for Rot2 {
-    #[inline]
-    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-        self.slerp(*other, t)
-    }
-}
+impl StableInterpolate for Rot2 {}
 
-impl StableInterpolate for Quat {
-    #[inline]
-    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-        self.slerp(*other, t)
-    }
-}
+impl StableInterpolate for Quat {}
 
-impl StableInterpolate for Dir2 {
-    #[inline]
-    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-        self.slerp(*other, t)
-    }
-}
+impl StableInterpolate for Dir2 {}
 
-impl StableInterpolate for Dir3 {
-    #[inline]
-    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-        self.slerp(*other, t)
-    }
-}
+impl StableInterpolate for Dir3 {}
 
-impl StableInterpolate for Dir3A {
-    #[inline]
-    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-        self.slerp(*other, t)
-    }
-}
+impl StableInterpolate for Dir3A {}
 
-macro_rules! impl_stable_interpolate_tuple {
+macro_rules! impl_nudge_tuple {
     ($(#[$meta:meta])* $(($n:tt, $T:ident)),*) => {
         $(#[$meta])*
-        impl<$($T: StableInterpolate),*> StableInterpolate for ($($T,)*) {
-            fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-                (
-                    $(
-                        <$T as StableInterpolate>::interpolate_stable(&self.$n, &other.$n, t),
-                    )*
-                )
-            }
-        }
+        impl<$($T: StableInterpolate),*> StableInterpolate for ($($T,)*) {}
     };
 }
 
 all_tuples_enumerated!(
     #[doc(fake_variadic)]
-    impl_stable_interpolate_tuple,
+    impl_nudge_tuple,
     1,
     11,
     T
