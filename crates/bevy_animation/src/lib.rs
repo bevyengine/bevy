@@ -32,7 +32,7 @@ use crate::{
 };
 
 use bevy_app::{Animation, App, Plugin, PostUpdate};
-use bevy_asset::{Asset, AssetApp, AssetEvents, Assets};
+use bevy_asset::{Asset, AssetApp, AssetEvents, Assets, Handle};
 use bevy_ecs::{prelude::*, world::EntityMutExcept};
 use bevy_math::FloatOrd;
 use bevy_platform_support::{collections::HashMap, hash::NoOpHash};
@@ -850,6 +850,46 @@ impl AnimationPlayer {
         self.active_animations.iter_mut()
     }
 
+    /// TODO
+    pub fn playing_animation_clips<'a>(
+        &'a self,
+        graph: &'a Option<&'a AnimationGraph>,
+    ) -> impl Iterator<Item = (&'a Handle<AnimationClip>, &'a ActiveAnimation)> {
+        graph.iter().flat_map(|graph| {
+            self.active_animations
+                .iter()
+                .flat_map(move |(node_index, active)| {
+                    graph
+                        .get(*node_index)
+                        .and_then(|node| match node.node_type {
+                            AnimationNodeType::Clip(ref handle) => Some((handle, active)),
+                            _ => None,
+                        })
+                })
+        })
+    }
+
+    /// TODO
+    pub fn playing_animation_clips_mut<'a>(
+        &'a mut self,
+        graph: &'a Option<&'a AnimationGraph>,
+    ) -> impl Iterator<Item = (&'a Handle<AnimationClip>, &'a mut ActiveAnimation)> {
+        // TODO: Rethink this. Ideally the graph would be checked outside the
+        // loop, but my attempts at that lead to `can't let reference escape FnMut`
+        self.active_animations
+            .iter_mut()
+            .flat_map(move |(node_index, active)| {
+                graph.and_then(|graph| {
+                    graph
+                        .get(*node_index)
+                        .and_then(|node| match node.node_type {
+                            AnimationNodeType::Clip(ref handle) => Some((handle, active)),
+                            _ => None,
+                        })
+                })
+            })
+    }
+
     /// Iterates through all animations that this [`AnimationPlayer`] is
     /// currently playing.
     pub fn playing_animations(&self) -> impl Iterator<Item = &ActiveAnimation> {
@@ -955,27 +995,17 @@ fn trigger_untargeted_animation_events(
     mut commands: Commands,
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
-    players: Query<(Entity, &AnimationPlayer, &AnimationGraphHandle)>,
+    players: Query<(Entity, &AnimationPlayer, Option<&AnimationGraphHandle>)>,
 ) {
     for (entity, player, graph_id) in &players {
-        // The graph might not have loaded yet. Safely bail.
-        let Some(graph) = graphs.get(graph_id) else {
-            return;
-        };
+        let graph = graph_id.and_then(|graph_id| graphs.get(graph_id));
 
-        for (index, active_animation) in player.active_animations.iter() {
+        for (clip, active_animation) in player.playing_animation_clips(&graph) {
             if active_animation.paused {
                 continue;
             }
 
-            let Some(clip) = graph
-                .get(*index)
-                .and_then(|node| match &node.node_type {
-                    AnimationNodeType::Clip(handle) => Some(handle),
-                    AnimationNodeType::Blend | AnimationNodeType::Add => None,
-                })
-                .and_then(|id| clips.get(id))
-            else {
+            let Some(clip) = clips.get(clip) else {
                 continue;
             };
 
@@ -997,34 +1027,18 @@ pub fn advance_animations(
     time: Res<Time>,
     animation_clips: Res<Assets<AnimationClip>>,
     animation_graphs: Res<Assets<AnimationGraph>>,
-    mut players: Query<(&mut AnimationPlayer, &AnimationGraphHandle)>,
+    mut players: Query<(&mut AnimationPlayer, Option<&AnimationGraphHandle>)>,
 ) {
     let delta_seconds = time.delta_secs();
     players
         .par_iter_mut()
         .for_each(|(mut player, graph_handle)| {
-            let Some(animation_graph) = animation_graphs.get(graph_handle) else {
-                return;
-            };
+            let graph = graph_handle.and_then(|graph_handle| animation_graphs.get(graph_handle));
 
-            // Tick animations, and schedule them.
-
-            let AnimationPlayer {
-                ref mut active_animations,
-                ..
-            } = *player;
-
-            for node_index in animation_graph.graph.node_indices() {
-                let node = &animation_graph[node_index];
-
-                if let Some(active_animation) = active_animations.get_mut(&node_index) {
-                    // Tick the animation if necessary.
-                    if !active_animation.paused {
-                        if let AnimationNodeType::Clip(ref clip_handle) = node.node_type {
-                            if let Some(clip) = animation_clips.get(clip_handle) {
-                                active_animation.update(delta_seconds, clip.duration);
-                            }
-                        }
+            for (clip, active_animation) in player.playing_animation_clips_mut(&graph) {
+                if !active_animation.paused {
+                    if let Some(clip) = animation_clips.get(clip) {
+                        active_animation.update(delta_seconds, clip.duration);
                     }
                 }
             }
