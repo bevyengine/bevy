@@ -227,6 +227,10 @@ where
     type In = In;
     type Out = Out;
 
+    fn type_id(&self) -> TypeId {
+        (**self).type_id()
+    }
+
     fn name(&self) -> Cow<'static, str> {
         (**self).name()
     }
@@ -259,6 +263,18 @@ where
         (**self).run_unsafe(input, world)
     }
 
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        (**self).run(input, world)
+    }
+
+    fn run_without_applying_deferred(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: &mut World,
+    ) -> Self::Out {
+        (**self).run_without_applying_deferred(input, world)
+    }
+
     fn apply_deferred(&mut self, world: &mut World) {
         (**self).apply_deferred(world);
     }
@@ -274,6 +290,10 @@ where
         (**self).validate_param_unsafe(world)
     }
 
+    fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
+        (**self).validate_param(world)
+    }
+
     fn initialize(&mut self, world: &mut World) {
         (**self).initialize(world);
     }
@@ -284,6 +304,10 @@ where
 
     fn check_change_tick(&mut self, change_tick: Tick) {
         (**self).check_change_tick(change_tick);
+    }
+
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        (**self).default_system_sets()
     }
 
     fn get_last_run(&self) -> Tick {
@@ -314,6 +338,10 @@ where
     type In = In;
     type Out = Out;
 
+    fn type_id(&self) -> TypeId {
+        (**self).type_id()
+    }
+
     fn name(&self) -> Cow<'static, str> {
         (**self).name()
     }
@@ -346,6 +374,18 @@ where
         (**self).run_unsafe(input, world)
     }
 
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        (**self).run(input, world)
+    }
+
+    fn run_without_applying_deferred(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: &mut World,
+    ) -> Self::Out {
+        (**self).run_without_applying_deferred(input, world)
+    }
+
     fn apply_deferred(&mut self, world: &mut World) {
         (**self).apply_deferred(world);
     }
@@ -361,6 +401,10 @@ where
         (**self).validate_param_unsafe(world)
     }
 
+    fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
+        (**self).validate_param(world)
+    }
+
     fn initialize(&mut self, world: &mut World) {
         (**self).initialize(world);
     }
@@ -371,6 +415,10 @@ where
 
     fn check_change_tick(&mut self, change_tick: Tick) {
         (**self).check_change_tick(change_tick);
+    }
+
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        (**self).default_system_sets()
     }
 
     fn get_last_run(&self) -> Tick {
