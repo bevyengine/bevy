@@ -53,6 +53,7 @@ use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap}
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
 use core::{hash::Hash, marker::PhantomData};
 use tracing::error;
+use bevy_render::view::NoIndirectDrawing;
 
 /// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
@@ -969,12 +970,12 @@ pub fn queue_material_meshes<M: Material>(
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities, Has<NoIndirectDrawing>)>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (view, visible_entities) in &views {
+    for (view, visible_entities, has_no_indirect_drawing) in &views {
         let (
             Some(opaque_phase),
             Some(alpha_mask_phase),
@@ -1068,6 +1069,7 @@ pub fn queue_material_meshes<M: Material>(
                         BinnedRenderPhaseType::mesh(
                             mesh_instance.should_batch(),
                             &gpu_preprocessing_support,
+                            has_no_indirect_drawing,
                         ),
                         current_change_tick,
                     );
@@ -1092,6 +1094,7 @@ pub fn queue_material_meshes<M: Material>(
                         BinnedRenderPhaseType::mesh(
                             mesh_instance.should_batch(),
                             &gpu_preprocessing_support,
+                            has_no_indirect_drawing,
                         ),
                         current_change_tick,
                     );

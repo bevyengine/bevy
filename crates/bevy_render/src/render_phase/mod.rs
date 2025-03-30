@@ -375,8 +375,8 @@ pub enum BinnedRenderPhaseType {
     /// can be batched with other meshes of the same type.
     MultidrawableMesh,
 
-    /// The item is a mesh that's eligible for single-draw indirect rendering
-    /// and can be batched with other meshes of the same type.
+    /// The item is a mesh that can be batched with other meshes of the same type and
+    /// drawn in a single draw call.
     BatchableMesh,
 
     /// The item is a mesh that's eligible for indirect rendering, but can't be
@@ -1707,11 +1707,12 @@ impl BinnedRenderPhaseType {
     pub fn mesh(
         batchable: bool,
         gpu_preprocessing_support: &GpuPreprocessingSupport,
+        no_indirect_drawing_override: bool,
     ) -> BinnedRenderPhaseType {
-        match (batchable, gpu_preprocessing_support.max_supported_mode) {
-            (true, GpuPreprocessingMode::Culling) => BinnedRenderPhaseType::MultidrawableMesh,
-            (true, _) => BinnedRenderPhaseType::BatchableMesh,
-            (false, _) => BinnedRenderPhaseType::UnbatchableMesh,
+        match (batchable, gpu_preprocessing_support.max_supported_mode, no_indirect_drawing_override) {
+            (true, GpuPreprocessingMode::Culling, false) => BinnedRenderPhaseType::MultidrawableMesh,
+            (true, _, _) => BinnedRenderPhaseType::BatchableMesh,
+            (false, _, _) => BinnedRenderPhaseType::UnbatchableMesh,
         }
     }
 }

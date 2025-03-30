@@ -2017,6 +2017,7 @@ pub fn queue_shadows<M: Material>(
                     BinnedRenderPhaseType::mesh(
                         mesh_instance.should_batch(),
                         &gpu_preprocessing_support,
+                        false
                     ),
                     *current_change_tick,
                 );

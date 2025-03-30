@@ -59,7 +59,7 @@ use bevy_ecs::component::Tick;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_platform_support::collections::HashMap;
 use bevy_render::sync_world::MainEntityHashMap;
-use bevy_render::view::RenderVisibleEntities;
+use bevy_render::view::{NoIndirectDrawing, RenderVisibleEntities};
 use bevy_render::RenderSet::{PrepareAssets, PrepareResources};
 use core::{hash::Hash, marker::PhantomData};
 
@@ -1065,12 +1065,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
     mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
     mut alpha_mask_deferred_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
-    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities, Has<NoIndirectDrawing>)>,
     specialized_material_pipeline_cache: Res<SpecializedPrepassMaterialPipelineCache<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (extracted_view, visible_entities) in &views {
+    for (extracted_view, visible_entities, has_no_indirect_drawing) in &views {
         let (
             mut opaque_phase,
             mut alpha_mask_phase,
@@ -1158,6 +1158,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
+                                has_no_indirect_drawing,
                             ),
                             *current_change_tick,
                         );
@@ -1183,6 +1184,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
+                                has_no_indirect_drawing,
                             ),
                             *current_change_tick,
                         );
@@ -1210,6 +1212,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
+                                has_no_indirect_drawing,
                             ),
                             *current_change_tick,
                         );
@@ -1234,6 +1237,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
+                                has_no_indirect_drawing,
                             ),
                             *current_change_tick,
                         );
