@@ -75,11 +75,13 @@ impl Chunk {
     ///
     /// This must not be called concurrently.
     /// Index must be in bounds.
+    /// Access does not conflict with another [`Self::get`].
     unsafe fn set(&self, index: u32, entity: Entity, index_of_self: u32) -> Slot {
         let head = self.ptr().unwrap_or_else(|| self.init(index_of_self));
         let target = head.add(index as usize);
 
-        // SAFETY: Ensured by caller.
+        // SAFETY: Caller ensures we are not fighting with other `set` calls or `get` calls.
+        // A race condition is therefore impossible.
         unsafe { core::ptr::replace(target, Slot::new(entity)) }
     }
 
@@ -195,6 +197,11 @@ pub struct Owned {
     /// This mirrors the [`OwnedBuffer::len`] in [`Self::buffer`].
     /// Since this is the only object that can change this value,
     /// we keep a copy of it here and only write through to the [`OwnedBuffer::len`] as it is changed.
+    ///
+    /// # Safety
+    ///
+    /// If this is at any point not written back to [`OwnedBuffer::len`],
+    /// [`OwnedBuffer::free_cursor`] must already be greater than it.
     len: u32,
 }
 
@@ -207,11 +214,16 @@ impl Owned {
     }
 
     /// Sets the [`Entity`] at this idnex.
+    ///
+    /// # Safety
+    ///
+    /// `index` must be either less than the [`OwnedBuffer::free_cursor`]
+    /// or greater than or equal to [`OwnedBuffer::len`] to ensure nothing else accesses it.
     #[inline]
-    fn set(&mut self, entity: Entity, index: u32) -> Slot {
+    unsafe fn set(&mut self, entity: Entity, index: u32) -> Slot {
         let (chunk_idnex, index_in_chunk) = Chunk::get_indices(index);
         // SAFETY: `chunk_idnex` is correct. The chunk is valid and the slot is init because the index is inbounds.
-        // And this can't be called concurrently since we have `&mut`
+        // And this can't be called concurrently since we have `&mut`.
         unsafe {
             self.buffer.chunks.get_unchecked(chunk_idnex as usize).set(
                 index_in_chunk,
@@ -272,7 +284,10 @@ impl Owned {
     /// The entity must not be in the empty archetype in this buffer.
     pub unsafe fn free_non_empty_buffer(&mut self, entity: Entity) -> u32 {
         let index = self.len;
-        self.set(entity, index);
+        // SAFETY: index is equal to length, or by `Self::len`'s safety, we are less then the free cursor.
+        unsafe {
+            self.set(entity, index);
+        }
         self.len += 1;
 
         // Prevent any remote reservations from accessing the buffer for a bit
@@ -322,9 +337,12 @@ impl Owned {
             }
 
             let to_swap = self.buffer.get(self.len);
-            self.set(to_swap, index);
+            // SAFETY: the index is of a valid empty archetype, so it must be less than the free cursor
+            unsafe {
+                self.set(to_swap, index);
+            }
 
-            // We don't need to write back to [`OwnedBuffer::len`] since the `free_cursor` is already out of bounds, so it doesn't matter.
+            // SAFETY: We don't need to write back to [`OwnedBuffer::len`] since the `free_cursor` is already out of bounds, so it doesn't matter.
             // We don't need to re-enable the free cursor since it's already disabled (naturally out of bounds).
 
             Some(to_swap)
@@ -334,7 +352,10 @@ impl Owned {
             // so first we need to fill in the `index` with the last empty archetype.
             let last_empty = free_cursor as u32 - 1;
             let fill_in = self.buffer.get(last_empty);
-            self.set(fill_in, index);
+            // SAFETY: the index is of a valid empty archetype, so it must be less than the free cursor
+            unsafe {
+                self.set(fill_in, index);
+            }
 
             // SAFETY: If a `RemoteOwned::try_spawn_empty_from_free` happens here it will not find a valid free entity to reuse.
 
@@ -342,7 +363,10 @@ impl Owned {
             self.len -= 1;
             self.buffer.len.store(self.len, Ordering::Relaxed);
             let last_free = self.buffer.get(self.len);
-            self.set(last_free, last_empty);
+            // SAFETY: `last_empty` is 1 less than the free cursor
+            unsafe {
+                self.set(last_free, last_empty);
+            }
 
             // SAFETY: If a `RemoteOwned::try_spawn_empty_from_free` happens here it will not find a valid free entity to reuse.
 
@@ -370,7 +394,7 @@ impl Owned {
         if index < self.len as usize {
             // We can push to the end of the empty archetype list, displacing a free entity.
 
-            // SAFETY: The idnex is in bounds
+            // SAFETY: The idnex is in bounds and `index` is less than the new free cursor.
             let free = unsafe { self.set(entity, index as u32).assume_init_read() };
             // SAFETY: `free` is no longer in the buffer
             unsafe {
@@ -382,7 +406,10 @@ impl Owned {
 
             // do the push
             let index = self.len;
-            self.set(entity, index);
+            // SAFETY: index is equal to length.
+            unsafe {
+                self.set(entity, index);
+            }
 
             // This can not over take the free cursor since we're adding 1 to both.
             self.len += 1;
