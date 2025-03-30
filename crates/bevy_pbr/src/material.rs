@@ -34,6 +34,7 @@ use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_platform_support::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::camera::extract_cameras;
 use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
 use bevy_render::render_asset::prepare_assets;
 use bevy_render::renderer::RenderQueue;
@@ -315,7 +316,7 @@ where
                     ExtractSchedule,
                     (
                         extract_mesh_materials::<M>.before(ExtractMeshesSet),
-                        extract_entities_needs_specialization::<M>,
+                        extract_entities_needs_specialization::<M>.after(extract_cameras),
                     ),
                 )
                 .add_systems(
@@ -709,11 +710,11 @@ pub fn extract_entities_needs_specialization<M>(
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
     mut removed_view_visibility_components: Extract<RemovedComponents<ViewVisibility>>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
-    mut specialized_prepass_material_pipeline_cache: ResMut<
-        SpecializedPrepassMaterialPipelineCache<M>,
+    mut specialized_prepass_material_pipeline_cache: Option<
+        ResMut<SpecializedPrepassMaterialPipelineCache<M>>,
     >,
-    mut specialized_shadow_material_pipeline_cache: ResMut<
-        SpecializedShadowMaterialPipelineCache<M>,
+    mut specialized_shadow_material_pipeline_cache: Option<
+        ResMut<SpecializedShadowMaterialPipelineCache<M>>,
     >,
     views: Query<&ExtractedView>,
     ticks: SystemChangeTick,
@@ -733,13 +734,15 @@ pub fn extract_entities_needs_specialization<M>(
             {
                 cache.remove(&MainEntity::from(entity));
             }
-            if let Some(cache) =
-                specialized_prepass_material_pipeline_cache.get_mut(&view.retained_view_entity)
+            if let Some(cache) = specialized_prepass_material_pipeline_cache
+                .as_mut()
+                .and_then(|c| c.get_mut(&view.retained_view_entity))
             {
                 cache.remove(&MainEntity::from(entity));
             }
-            if let Some(cache) =
-                specialized_shadow_material_pipeline_cache.get_mut(&view.retained_view_entity)
+            if let Some(cache) = specialized_shadow_material_pipeline_cache
+                .as_mut()
+                .and_then(|c| c.get_mut(&view.retained_view_entity))
             {
                 cache.remove(&MainEntity::from(entity));
             }
