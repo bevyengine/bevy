@@ -1324,9 +1324,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # See also
     ///
-    /// - [`get_many_mut`](Self::get_many_mut) to get mutable query items.
-    /// - [`get_many_unique`](Self::get_many_unique) to only handle unique inputs.
-    /// - [`many`](Self::many) for the panicking version.
+    /// - [`many_mut`](Self::many_mut) to get mutable query items.
+    /// - [`many_unique`](Self::many_unique) to only handle unique inputs.
     #[inline]
     pub fn many<const N: usize>(
         &self,
@@ -1660,9 +1659,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # See also
     ///
-    /// - [`get_many`](Self::get_many) to get read-only query items without checking for duplicate entities.
-    /// - [`get_many_mut`](Self::get_many_mut) to get items using a mutable reference.
-    /// - [`get_many_inner`](Self::get_many_mut_inner) to get read-only query items with the actual "inner" world lifetime.
+    /// - [`many`](Self::many) to get read-only query items without checking for duplicate entities.
+    /// - [`many_mut`](Self::many_mut) to get items using a mutable reference.
+    /// - [`many_inner`](Self::many_mut_inner) to get read-only query items with the actual "inner" world lifetime.
     #[inline]
     pub fn many_mut_inner<const N: usize>(
         self,
@@ -1688,9 +1687,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # See also
     ///
-    /// - [`get_many`](Self::get_many) to get read-only query items without checking for duplicate entities.
-    /// - [`get_many_mut`](Self::get_many_mut) to get items using a mutable reference.
-    /// - [`get_many_mut_inner`](Self::get_many_mut_inner) to get mutable query items with the actual "inner" world lifetime.
+    /// - [`many`](Self::many) to get read-only query items without checking for duplicate entities.
+    /// - [`many_mut`](Self::many_mut) to get items using a mutable reference.
+    /// - [`many_mut_inner`](Self::many_mut_inner) to get mutable query items with the actual "inner" world lifetime.
     #[inline]
     pub fn many_inner<const N: usize>(
         self,
@@ -1711,8 +1710,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # See also
     ///
-    /// - [`get_many_unique`](Self::get_many_unique) to get read-only query items without checking for duplicate entities.
-    /// - [`get_many_unique_mut`](Self::get_many_unique_mut) to get items using a mutable reference.
+    /// - [`many_unique`](Self::many_unique) to get read-only query items without checking for duplicate entities.
+    /// - [`many_unique_mut`](Self::many_unique_mut) to get items using a mutable reference.
     #[inline]
     pub fn many_unique_inner<const N: usize>(
         self,
