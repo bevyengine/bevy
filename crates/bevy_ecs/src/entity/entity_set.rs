@@ -36,9 +36,9 @@ pub trait ContainsEntity {
 /// and remains even after [`Clone`] and/or [`Borrow`] calls.
 ///
 /// # Safety
-/// Any [`PartialEq`], [`Eq`], [`PartialOrd`], and [`Ord`] impls must form a total order
-/// matching that of the underlying `Entity`:
-/// `x.entity() == y.entity()` should give the same result as `x == y`.
+/// Any [`PartialEq`], [`Eq`], [`PartialOrd`], and [`Ord`] impls must evaluate the same for `Self` and
+/// its underlying entity.
+/// `x.entity() == y.entity()` must be equivalent to `x == y`.
 ///
 /// The above equivalence must also hold through and between calls to any [`Clone`] and
 /// [`Borrow`]/[`BorrowMut`] impls in place of [`entity()`].
