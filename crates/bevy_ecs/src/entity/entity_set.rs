@@ -41,13 +41,24 @@ pub trait ContainsEntity {
 /// `x.entity() == y.entity()` should give the same result as `x == y`.
 ///
 /// The above equivalence must also hold through and between calls to any [`Clone`] and
-/// [`Borrow`]/[`BorrowMut`] impls in place of [`entity()`]. This is also required of any [`Hash`] impl,
-/// but only when [`Hash::hash`] is called with a deterministic [`Hasher`].
+/// [`Borrow`]/[`BorrowMut`] impls in place of [`entity()`].
 ///
 /// The result of [`entity()`] must be unaffected by any interior mutability.
 ///
 /// The aforementioned properties imply determinism in both [`entity()`] calls
 /// and comparison trait behavior.
+///
+/// All [`Hash`] impls except that for [`Entity`] must delegate to the [`Hash`] impl of
+/// another [`EntityEquivalent`] type. All conversions to the delegatee within the [`Hash`] impl must
+/// follow [`entity()`] equivalence.
+///
+/// It should be noted that [`Hash`] is *not* a comparison trait, and with [`Hash::hash`] being forcibly
+/// generic over all [`Hasher`]s, **cannot** guarantee determinism or uniqueness of any final hash values
+/// on its own.
+/// To obtain hash values forming the same total order as [`Entity`], any [`Hasher`] used must be
+/// deterministic and concerning [`Entity`], collisionless.
+/// Standard library hash collections handle collisions with an [`Eq`] fallback, but do not account for
+/// determinism when [`BuildHasher`] is unspecified,.
 ///
 /// [`Hash`]: core::hash::Hash
 /// [`Hasher`]: core::hash::Hasher
