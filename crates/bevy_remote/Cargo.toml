@@ -31,14 +31,14 @@ bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-d
 anyhow = "1"
 hyper = { version = "1", features = ["server", "http1"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1" }
+serde_json = { version = "1.0.135" }
 http-body-util = "0.1"
 async-channel = "2"
 
 # dependencies that will not compile on wasm
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 async-io = { version = "2", optional = true }
-smol-hyper = { version = "0.1", optional = true }
+smol-hyper = { version = "0.1.1", optional = true }
 
 [lints]
 workspace = true
