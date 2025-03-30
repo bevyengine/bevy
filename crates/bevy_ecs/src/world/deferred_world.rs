@@ -233,8 +233,8 @@ impl<'w> DeferredWorld<'w> {
     /// For examples, see [`DeferredWorld::entity_mut`].
     ///
     /// [`EntityMut`]: crate::world::EntityMut
-    /// [`&EntityHashSet`]: crate::entity::hash_set::EntityHashSet
-    /// [`EntityHashMap<EntityMut>`]: crate::entity::hash_map::EntityHashMap
+    /// [`&EntityHashSet`]: crate::entity::EntityHashSet
+    /// [`EntityHashMap<EntityMut>`]: crate::entity::EntityHashMap
     /// [`Vec<EntityMut>`]: alloc::vec::Vec
     #[inline]
     pub fn get_entity_mut<F: WorldEntityFetch>(
@@ -342,7 +342,7 @@ impl<'w> DeferredWorld<'w> {
     /// ## [`&EntityHashSet`]
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet, world::DeferredWorld};
+    /// # use bevy_ecs::{prelude::*, entity::EntityHashSet, world::DeferredWorld};
     /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
@@ -365,8 +365,8 @@ impl<'w> DeferredWorld<'w> {
     /// ```
     ///
     /// [`EntityMut`]: crate::world::EntityMut
-    /// [`&EntityHashSet`]: crate::entity::hash_set::EntityHashSet
-    /// [`EntityHashMap<EntityMut>`]: crate::entity::hash_map::EntityHashMap
+    /// [`&EntityHashSet`]: crate::entity::EntityHashSet
+    /// [`EntityHashMap<EntityMut>`]: crate::entity::EntityHashMap
     /// [`Vec<EntityMut>`]: alloc::vec::Vec
     #[inline]
     pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::DeferredMut<'_> {

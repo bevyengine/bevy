@@ -5,7 +5,7 @@ use core::num::NonZero;
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
-    entity::{hash_map::EntityHashMap, Entity},
+    entity::{Entity, EntityHashMap},
     query::{With, Without},
     reflect::ReflectComponent,
     resource::Resource,

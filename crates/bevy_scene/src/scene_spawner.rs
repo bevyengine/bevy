@@ -1,7 +1,7 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
-    entity::{hash_map::EntityHashMap, Entity},
+    entity::{Entity, EntityHashMap},
     event::{Event, EventCursor, Events},
     hierarchy::ChildOf,
     reflect::AppTypeRegistry,

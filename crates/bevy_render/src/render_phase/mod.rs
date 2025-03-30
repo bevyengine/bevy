@@ -129,7 +129,7 @@ where
     /// entity are simply called in order at rendering time.
     ///
     /// See the `custom_phase_item` example for an example of how to use this.
-    pub non_mesh_items: IndexMap<(BPI::BatchSetKey, BPI::BinKey), RenderBin>,
+    pub non_mesh_items: IndexMap<(BPI::BatchSetKey, BPI::BinKey), NonMeshEntities>,
 
     /// Information on each batch set.
     ///
@@ -322,6 +322,12 @@ pub struct UnbatchableBinnedEntities {
     pub(crate) buffer_indices: UnbatchableBinnedEntityIndexSet,
 }
 
+/// Information about [`BinnedRenderPhaseType::NonMesh`] entities.
+pub struct NonMeshEntities {
+    /// The entities.
+    pub entities: MainEntityHashMap<Entity>,
+}
+
 /// Stores instance indices and dynamic offsets for unbatchable entities in a
 /// binned render phase.
 ///
@@ -381,8 +387,6 @@ pub enum BinnedRenderPhaseType {
 
     /// The item is a mesh that's eligible for indirect rendering, but can't be
     /// batched with other meshes of the same type.
-    ///
-    /// At the moment, this is used for skinned meshes.
     UnbatchableMesh,
 
     /// The item isn't a mesh at all.
@@ -526,10 +530,12 @@ where
                     .entry((batch_set_key.clone(), bin_key.clone()).clone())
                 {
                     indexmap::map::Entry::Occupied(mut entry) => {
-                        entry.get_mut().insert(main_entity, input_uniform_index);
+                        entry.get_mut().entities.insert(main_entity, entity);
                     }
                     indexmap::map::Entry::Vacant(entry) => {
-                        entry.insert(RenderBin::from_entity(main_entity, input_uniform_index));
+                        let mut entities = MainEntityHashMap::default();
+                        entities.insert(main_entity, entity);
+                        entry.insert(NonMeshEntities { entities });
                     }
                 }
             }
@@ -795,14 +801,14 @@ where
         let draw_functions = world.resource::<DrawFunctions<BPI>>();
         let mut draw_functions = draw_functions.write();
 
-        for ((batch_set_key, bin_key), bin) in &self.non_mesh_items {
-            for &entity in bin.entities.keys() {
+        for ((batch_set_key, bin_key), non_mesh_entities) in &self.non_mesh_items {
+            for (main_entity, entity) in non_mesh_entities.entities.iter() {
                 // Come up with a fake batch range and extra index. The draw
                 // function is expected to manage any sort of batching logic itself.
                 let binned_phase_item = BPI::new(
                     batch_set_key.clone(),
                     bin_key.clone(),
-                    (Entity::PLACEHOLDER, entity),
+                    (*entity, *main_entity),
                     0..1,
                     PhaseItemExtraIndex::None,
                 );
@@ -921,7 +927,7 @@ fn remove_entity_from_bin<BPI>(
     multidrawable_meshes: &mut IndexMap<BPI::BatchSetKey, IndexMap<BPI::BinKey, RenderBin>>,
     batchable_meshes: &mut IndexMap<(BPI::BatchSetKey, BPI::BinKey), RenderBin>,
     unbatchable_meshes: &mut IndexMap<(BPI::BatchSetKey, BPI::BinKey), UnbatchableBinnedEntities>,
-    non_mesh_items: &mut IndexMap<(BPI::BatchSetKey, BPI::BinKey), RenderBin>,
+    non_mesh_items: &mut IndexMap<(BPI::BatchSetKey, BPI::BinKey), NonMeshEntities>,
 ) where
     BPI: BinnedPhaseItem,
 {
@@ -984,10 +990,10 @@ fn remove_entity_from_bin<BPI>(
                 entity_bin_key.batch_set_key.clone(),
                 entity_bin_key.bin_key.clone(),
             )) {
-                bin_entry.get_mut().remove(entity);
+                bin_entry.get_mut().entities.remove(&entity);
 
                 // If the bin is now empty, remove the bin.
-                if bin_entry.get_mut().is_empty() {
+                if bin_entry.get_mut().entities.is_empty() {
                     bin_entry.swap_remove();
                 }
             }
