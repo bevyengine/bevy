@@ -707,6 +707,15 @@ fn extract_mesh_materials<M: Material>(
 pub fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
+    mut removed_view_visibility_components: Extract<RemovedComponents<ViewVisibility>>,
+    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
+    mut specialized_prepass_material_pipeline_cache: ResMut<
+        SpecializedPrepassMaterialPipelineCache<M>,
+    >,
+    mut specialized_shadow_material_pipeline_cache: ResMut<
+        SpecializedShadowMaterialPipelineCache<M>,
+    >,
+    views: Query<&ExtractedView>,
     ticks: SystemChangeTick,
 ) where
     M: Material,
@@ -714,6 +723,27 @@ pub fn extract_entities_needs_specialization<M>(
     for entity in entities_needing_specialization.iter() {
         // Update the entity's specialization tick with this run's tick
         entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
+    }
+    // Clean up any despawned entities
+    for entity in removed_view_visibility_components.read() {
+        entity_specialization_ticks.remove(entity.into());
+        for view in views {
+            specialized_material_pipeline_cache
+                .get_mut(&view.retained_view_entity)
+                .map(|cache| {
+                    cache.remove(entity.into());
+                });
+            specialized_prepass_material_pipeline_cache
+                .get_mut(&view.retained_view_entity)
+                .map(|cache| {
+                    cache.remove(entity.into());
+                });
+            specialized_shadow_material_pipeline_cache
+                .get_mut(&view.retained_view_entity)
+                .map(|cache| {
+                    cache.remove(entity.into());
+                });
+        }
     }
 }
 
