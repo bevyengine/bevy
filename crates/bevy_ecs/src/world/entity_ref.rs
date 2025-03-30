@@ -810,7 +810,7 @@ impl<'w> EntityMut<'w> {
     /// let mut entity_mut = world.entity_mut(entity);
     /// let mut ptrs = entity_mut.get_mut_by_id(&HashSet::from_iter([x_id, y_id]))
     /// #   .unwrap();
-    /// # let [Some(mut x_ptr), Some(mut y_ptr)] = ptrs.get_many_mut([&x_id, &y_id]) else { unreachable!() };
+    /// # let [Some(mut x_ptr), Some(mut y_ptr)] = ptrs.many_mut([&x_id, &y_id]) else { unreachable!() };
     /// # assert_eq!((unsafe { x_ptr.as_mut().deref_mut::<X>() }, unsafe { y_ptr.as_mut().deref_mut::<Y>() }), (&mut X(42), &mut Y(10)));
     /// ```
     #[inline]

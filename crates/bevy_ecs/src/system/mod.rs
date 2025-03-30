@@ -402,7 +402,7 @@ mod tests {
     }
 
     #[test]
-    fn get_many_is_ordered() {
+    fn many_is_ordered() {
         use crate::resource::Resource;
         const ENTITIES_COUNT: usize = 1000;
 

@@ -439,7 +439,7 @@ mod tests {
     }
 
     #[test]
-    fn get_many_only_mut_checks_duplicates() {
+    fn many_only_mut_checks_duplicates() {
         let mut world = World::new();
         let id = world.spawn(A(10)).id();
         let mut query_state = world.query::<&mut A>();

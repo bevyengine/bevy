@@ -1287,7 +1287,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// The returned query items are in the same order as the input.
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
-    /// The elements of the array do not need to be unique, unlike `get_many_mut`.
+    /// The elements of the array do not need to be unique, unlike `many_mut`.
     ///
     /// # Examples
     ///
@@ -1307,14 +1307,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// let mut query_state = world.query::<&A>();
     /// let query = query_state.query(&world);
     ///
-    /// let component_values = query.get_many(entities).unwrap();
+    /// let component_values = query.many(entities).unwrap();
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
     /// let wrong_entity = Entity::from_raw(365);
     ///
     /// assert_eq!(
-    ///     match query.get_many([wrong_entity]).unwrap_err() {
+    ///     match query.many([wrong_entity]).unwrap_err() {
     ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
     ///         _ => panic!(),
     ///     },
@@ -1331,7 +1331,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &self,
         entities: [Entity; N],
     ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
-        // Note that we call a separate `*_inner` method from `get_many_mut`
+        // Note that we call a separate `*_inner` method from `many_mut`
         // because we don't need to check for duplicates.
         self.as_readonly().many_inner(entities)
     }
@@ -1385,8 +1385,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # See also
     ///
-    /// - [`get_many_unique_mut`](Self::get_many_mut) to get mutable query items.
-    /// - [`get_many`](Self::get_many) to handle inputs with duplicates.
+    /// - [`many_unique_mut`](Self::many_mut) to get mutable query items.
+    /// - [`many`](Self::many) to handle inputs with duplicates.
     #[inline]
     pub fn many_unique<const N: usize>(
         &self,
@@ -1524,19 +1524,19 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// let mut query_state = world.query::<&mut A>();
     /// let mut query = query_state.query_mut(&mut world);
     ///
-    /// let mut mutable_component_values = query.get_many_mut(entities).unwrap();
+    /// let mut mutable_component_values = query.many_mut(entities).unwrap();
     ///
     /// for mut a in &mut mutable_component_values {
     ///     a.0 += 5;
     /// }
     ///
-    /// let component_values = query.get_many(entities).unwrap();
+    /// let component_values = query.many(entities).unwrap();
     ///
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
     /// assert_eq!(
     ///     match query
-    ///         .get_many_mut([wrong_entity])
+    ///         .many_mut([wrong_entity])
     ///         .unwrap_err()
     ///     {
     ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
@@ -1546,7 +1546,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// );
     /// assert_eq!(
     ///     match query
-    ///         .get_many_mut([invalid_entity])
+    ///         .many_mut([invalid_entity])
     ///         .unwrap_err()
     ///     {
     ///         QueryEntityError::QueryDoesNotMatch(entity, _) => entity,
@@ -1556,14 +1556,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// );
     /// assert_eq!(
     ///     query
-    ///         .get_many_mut([entities[0], entities[0]])
+    ///         .many_mut([entities[0], entities[0]])
     ///         .unwrap_err(),
     ///     QueryEntityError::AliasedMutability(entities[0])
     /// );
     /// ```
     /// # See also
     ///
-    /// - [`get_many`](Self::get_many) to get read-only query items without checking for duplicate entities.
+    /// - [`many`](Self::many) to get read-only query items without checking for duplicate entities.
     /// - [`many_mut`](Self::many_mut) for the panicking version.
     #[inline]
     pub fn many_mut<const N: usize>(
@@ -1642,7 +1642,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// ```
     /// # See also
     ///
-    /// - [`get_many_unique`](Self::get_many) to get read-only query items.
+    /// - [`many_unique`](Self::many_unique) to get read-only query items.
     #[inline]
     pub fn many_unique_mut<const N: usize>(
         &mut self,
@@ -2565,7 +2565,7 @@ mod tests {
 
         let mut query_state = world.query::<Entity>();
 
-        // It's best to test get_many_mut_inner directly, as it is shared
+        // It's best to test many_mut_inner directly, as it is shared
         // We don't care about aliased mutability for the read-only equivalent
 
         // SAFETY: Query does not access world data.
