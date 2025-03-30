@@ -567,7 +567,7 @@ impl Parse for Require {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
         if input.peek2(Brace) {
             // This is a "value style" named-struct-like require
-            // This will be parsed as a ExprStruct for better error messages
+            // ExprStruct also includes the path, so we check for this beforehand
             let struct_init: ExprStruct = input.parse()?;
             let path = struct_init.path.clone();
             let func = Some(quote!(|| #struct_init));
@@ -611,7 +611,8 @@ impl Parse for Require {
             // This is a "value style" tuple-struct-like require
             let content;
             parenthesized!(content in input);
-            let content = content.parse::<TokenStream2>()?;
+            let content: Punctuated<Expr, Comma> =
+                content.parse_terminated(Expr::parse, Token![,])?;
             is_constructor_call = last_segment_is_lower;
             Some(quote!(|| #path (#content)))
         } else if is_enum {
