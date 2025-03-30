@@ -325,10 +325,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 let mut count = 0;
-                for comp in entity_groups
-                    .iter()
-                    .filter_map(|&ids| query.many(ids).ok())
-                {
+                for comp in entity_groups.iter().filter_map(|&ids| query.many(ids).ok()) {
                     black_box(comp);
                     count += 1;
                     black_box(count);
@@ -348,10 +345,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
 
             bencher.iter(|| {
                 let mut count = 0;
-                for comp in entity_groups
-                    .iter()
-                    .filter_map(|&ids| query.many(ids).ok())
-                {
+                for comp in entity_groups.iter().filter_map(|&ids| query.many(ids).ok()) {
                     black_box(comp);
                     count += 1;
                     black_box(count);
