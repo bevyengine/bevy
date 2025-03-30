@@ -570,11 +570,9 @@ pub fn extract_entities_needs_specialization<M>(
     for entity in removed_view_visibility_components.read() {
         entity_specialization_ticks.remove(&MainEntity::from(entity));
         for view in views {
-            specialized_material2d_pipeline_cache
-                .get_mut(view)
-                .map(|cache| {
-                    cache.remove(&MainEntity::from(entity));
-                });
+            if let Some(cache) = specialized_material2d_pipeline_cache.get_mut(view) {
+                cache.remove(&MainEntity::from(entity));
+            }
         }
     }
 }

@@ -728,21 +728,21 @@ pub fn extract_entities_needs_specialization<M>(
     for entity in removed_view_visibility_components.read() {
         entity_specialization_ticks.remove(&MainEntity::from(entity));
         for view in views {
-            specialized_material_pipeline_cache
-                .get_mut(&view.retained_view_entity)
-                .map(|cache| {
-                    cache.remove(&MainEntity::from(entity));
-                });
-            specialized_prepass_material_pipeline_cache
-                .get_mut(&view.retained_view_entity)
-                .map(|cache| {
-                    cache.remove(&MainEntity::from(entity));
-                });
-            specialized_shadow_material_pipeline_cache
-                .get_mut(&view.retained_view_entity)
-                .map(|cache| {
-                    cache.remove(&MainEntity::from(entity));
-                });
+            if let Some(cache) =
+                specialized_material_pipeline_cache.get_mut(&view.retained_view_entity)
+            {
+                cache.remove(&MainEntity::from(entity));
+            }
+            if let Some(cache) =
+                specialized_prepass_material_pipeline_cache.get_mut(&view.retained_view_entity)
+            {
+                cache.remove(&MainEntity::from(entity));
+            }
+            if let Some(cache) =
+                specialized_shadow_material_pipeline_cache.get_mut(&view.retained_view_entity)
+            {
+                cache.remove(&MainEntity::from(entity));
+            }
         }
     }
 }
