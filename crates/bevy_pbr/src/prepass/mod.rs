@@ -274,28 +274,19 @@ pub fn any_camera_active(views: Query<&Camera, Or<(With<Camera3d>, With<ShadowVi
 /// inserting it if needed.
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
-    mut meshes: Query<
-        (
-            Entity,
-            &GlobalTransform,
-            Option<&mut PreviousGlobalTransform>,
-        ),
-        PreviousMeshFilter,
+    mut meshes: Query<(&GlobalTransform, &mut PreviousGlobalTransform), PreviousMeshFilter>,
+    new_meshes: Query<
+        (Entity, &GlobalTransform),
+        (PreviousMeshFilter, Without<PreviousGlobalTransform>),
     >,
 ) {
-    for (entity, transform, old_previous_transform) in &mut meshes {
-        let new_previous_transform = PreviousGlobalTransform(transform.affine());
-        match old_previous_transform {
-            None => {
-                commands.entity(entity).try_insert(new_previous_transform);
-            }
-            // Make sure not to trigger change detection on
-            // `PreviousGlobalTransform` if the previous transform hasn't
-            // changed.
-            Some(mut old_previous_transform) => {
-                old_previous_transform.set_if_neq(new_previous_transform);
-            }
-        }
+    for (entity, transform) in &new_meshes {
+        commands
+            .entity(entity)
+            .try_insert(PreviousGlobalTransform(transform.affine()));
+    }
+    for (transform, mut previous) in &mut meshes {
+        previous.set_if_neq(PreviousGlobalTransform(transform.affine()));
     }
 }
 
