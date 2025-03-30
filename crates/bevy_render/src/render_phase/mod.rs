@@ -165,6 +165,9 @@ where
     /// remove the entity from the old bin during
     /// [`BinnedRenderPhase::sweep_old_entities`].
     entities_that_changed_bins: Vec<EntityThatChangedBins<BPI>>,
+    /// The gpu preprocessing mode configured for the view this phase is associated
+    /// with.
+    gpu_preprocessing_mode: GpuPreprocessingMode,
 }
 
 /// All entities that share a mesh and a material and can be batched as part of
@@ -462,9 +465,17 @@ where
         bin_key: BPI::BinKey,
         (entity, main_entity): (Entity, MainEntity),
         input_uniform_index: InputUniformIndex,
-        phase_type: BinnedRenderPhaseType,
+        mut phase_type: BinnedRenderPhaseType,
         change_tick: Tick,
     ) {
+        // If the user has overridden indirect drawing for this view, we need to
+        // force the phase type to be batchable instead.
+        if let GpuPreprocessingMode::PreprocessingOnly = self.gpu_preprocessing_mode {
+            if let BinnedRenderPhaseType::MultidrawableMesh = phase_type {
+                phase_type = BinnedRenderPhaseType::BatchableMesh;
+            }
+        }
+
         match phase_type {
             BinnedRenderPhaseType::MultidrawableMesh => {
                 match self.multidrawable_meshes.entry(batch_set_key.clone()) {
@@ -1017,6 +1028,7 @@ where
             cached_entity_bin_keys: IndexMap::default(),
             valid_cached_entity_bin_keys: FixedBitSet::new(),
             entities_that_changed_bins: vec![],
+            gpu_preprocessing_mode: gpu_preprocessing,
         }
     }
 }
@@ -1707,18 +1719,11 @@ impl BinnedRenderPhaseType {
     pub fn mesh(
         batchable: bool,
         gpu_preprocessing_support: &GpuPreprocessingSupport,
-        no_indirect_drawing_override: bool,
     ) -> BinnedRenderPhaseType {
-        match (
-            batchable,
-            gpu_preprocessing_support.max_supported_mode,
-            no_indirect_drawing_override,
-        ) {
-            (true, GpuPreprocessingMode::Culling, false) => {
-                BinnedRenderPhaseType::MultidrawableMesh
-            }
-            (true, _, _) => BinnedRenderPhaseType::BatchableMesh,
-            (false, _, _) => BinnedRenderPhaseType::UnbatchableMesh,
+        match (batchable, gpu_preprocessing_support.max_supported_mode) {
+            (true, GpuPreprocessingMode::Culling) => BinnedRenderPhaseType::MultidrawableMesh,
+            (true, _) => BinnedRenderPhaseType::BatchableMesh,
+            (false, _) => BinnedRenderPhaseType::UnbatchableMesh,
         }
     }
 }

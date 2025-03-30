@@ -37,7 +37,6 @@ use bevy_reflect::Reflect;
 use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
 use bevy_render::render_asset::prepare_assets;
 use bevy_render::renderer::RenderQueue;
-use bevy_render::view::NoIndirectDrawing;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     extract_resource::ExtractResource,
@@ -970,16 +969,12 @@ pub fn queue_material_meshes<M: Material>(
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(
-        &ExtractedView,
-        &RenderVisibleEntities,
-        Has<NoIndirectDrawing>,
-    )>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (view, visible_entities, has_no_indirect_drawing) in &views {
+    for (view, visible_entities) in &views {
         let (
             Some(opaque_phase),
             Some(alpha_mask_phase),
@@ -1073,7 +1068,6 @@ pub fn queue_material_meshes<M: Material>(
                         BinnedRenderPhaseType::mesh(
                             mesh_instance.should_batch(),
                             &gpu_preprocessing_support,
-                            has_no_indirect_drawing,
                         ),
                         current_change_tick,
                     );
@@ -1098,7 +1092,6 @@ pub fn queue_material_meshes<M: Material>(
                         BinnedRenderPhaseType::mesh(
                             mesh_instance.should_batch(),
                             &gpu_preprocessing_support,
-                            has_no_indirect_drawing,
                         ),
                         current_change_tick,
                     );
