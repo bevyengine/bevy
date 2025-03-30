@@ -1354,8 +1354,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
-    ///
+    /// # use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
+    /// #
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
     ///
@@ -1368,14 +1368,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// let mut query_state = world.query::<&A>();
     /// let query = query_state.query(&world);
     ///
-    /// let component_values = query.get_many_unique(entity_set).unwrap();
+    /// let component_values = query.many_unique(entity_set).unwrap();
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
     /// let wrong_entity = Entity::from_raw(365);
     ///
     /// assert_eq!(
-    ///     match query.get_many_unique(UniqueEntityArray::from([wrong_entity])).unwrap_err() {
+    ///     match query.many_unique(UniqueEntityArray::from([wrong_entity])).unwrap_err() {
     ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
     ///         _ => panic!(),
     ///     },
@@ -1591,8 +1591,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
-    ///
+    /// # use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
+    /// #
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
     ///
@@ -1609,19 +1609,19 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// let mut query_state = world.query::<&mut A>();
     /// let mut query = query_state.query_mut(&mut world);
     ///
-    /// let mut mutable_component_values = query.get_many_unique_mut(entity_set).unwrap();
+    /// let mut mutable_component_values = query.many_unique_mut(entity_set).unwrap();
     ///
     /// for mut a in &mut mutable_component_values {
     ///     a.0 += 5;
     /// }
     ///
-    /// let component_values = query.get_many_unique(entity_set).unwrap();
+    /// let component_values = query.many_unique(entity_set).unwrap();
     ///
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
     /// assert_eq!(
     ///     match query
-    ///         .get_many_unique_mut(UniqueEntityArray::from([wrong_entity]))
+    ///         .many_unique_mut(UniqueEntityArray::from([wrong_entity]))
     ///         .unwrap_err()
     ///     {
     ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
@@ -1631,7 +1631,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// );
     /// assert_eq!(
     ///     match query
-    ///         .get_many_unique_mut(UniqueEntityArray::from([invalid_entity]))
+    ///         .many_unique_mut(UniqueEntityArray::from([invalid_entity]))
     ///         .unwrap_err()
     ///     {
     ///         QueryEntityError::QueryDoesNotMatch(entity, _) => entity,

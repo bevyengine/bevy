@@ -1016,8 +1016,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
-    ///
+    /// # use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
+    /// #
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
     ///
@@ -1029,13 +1029,22 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let mut query_state = world.query::<&A>();
     ///
-    /// let component_values = query_state.get_many_unique(&world, entity_set).unwrap();
+    /// let component_values = query_state.many_unique(&world, entity_set).unwrap();
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
     /// let wrong_entity = Entity::from_raw(365);
     ///
-    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// assert_eq!(
+    ///     match query_state
+    ///         .many_unique(&mut world, UniqueEntityArray::from([wrong_entity]))
+    ///         .unwrap_err()
+    ///     {
+    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
+    ///         _ => panic!(),
+    ///     },
+    ///     wrong_entity,
+    /// );
     /// ```
     #[inline]
     pub fn many_unique<'w, const N: usize>(
@@ -1122,8 +1131,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// returned instead.
     ///
     /// ```
-    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
-    ///
+    /// # use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
+    /// #
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
     ///
@@ -1136,21 +1145,39 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let mut query_state = world.query::<&mut A>();
     ///
-    /// let mut mutable_component_values = query_state.get_many_unique_mut(&mut world, entity_set).unwrap();
+    /// let mut mutable_component_values = query_state.many_unique_mut(&mut world, entity_set).unwrap();
     ///
     /// for mut a in &mut mutable_component_values {
     ///     a.0 += 5;
     /// }
     ///
-    /// let component_values = query_state.get_many_unique(&world, entity_set).unwrap();
+    /// let component_values = query_state.many_unique(&world, entity_set).unwrap();
     ///
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
     /// let wrong_entity = Entity::from_raw(57);
     /// let invalid_entity = world.spawn_empty().id();
     ///
-    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
-    /// assert_eq!(match query_state.get_many_unique_mut(&mut world, UniqueEntityArray::from([invalid_entity])).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
+    /// assert_eq!(
+    ///     match query_state
+    ///         .many_unique(&mut world, UniqueEntityArray::from([wrong_entity]))
+    ///         .unwrap_err()
+    ///     {
+    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
+    ///         _ => panic!(),
+    ///     },
+    ///     wrong_entity,
+    /// );
+    /// assert_eq!(
+    ///     match query_state
+    ///         .many_unique_mut(&mut world, UniqueEntityArray::from([invalid_entity]))
+    ///         .unwrap_err()
+    ///     {
+    ///         QueryEntityError::QueryDoesNotMatch(entity, _) => entity,
+    ///         _ => panic!(),
+    ///     },
+    ///     invalid_entity,
+    /// );
     /// ```
     #[inline]
     pub fn many_unique_mut<'w, const N: usize>(
