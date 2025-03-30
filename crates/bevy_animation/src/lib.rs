@@ -1181,6 +1181,41 @@ fn trigger_events(
     }
 }
 
+fn evaluate_clip(
+    evaluation_state: &mut AnimationEvaluationState,
+    active_animation: &ActiveAnimation,
+    curves: &Vec<VariableCurve>,
+    node_index: AnimationNodeIndex,
+    node_weight: f32,
+) {
+    let weight = active_animation.weight * node_weight;
+    let seek_time = active_animation.seek_time;
+
+    for curve in curves {
+        // Fetch the curve evaluator. Curve evaluator types
+        // are unique to each property, but shared among all
+        // curve types. For example, given two curve types A
+        // and B, `RotationCurve<A>` and `RotationCurve<B>`
+        // will both yield a `RotationCurveEvaluator` and
+        // therefore will share the same evaluator in this
+        // table.
+        let curve_evaluator_id = (*curve.0).evaluator_id();
+        let curve_evaluator = evaluation_state
+            .evaluators
+            .get_or_insert_with(curve_evaluator_id.clone(), || curve.0.create_evaluator());
+
+        evaluation_state
+            .current_evaluators
+            .insert(curve_evaluator_id);
+
+        if let Err(err) =
+            AnimationCurve::apply(&*curve.0, curve_evaluator, seek_time, weight, node_index)
+        {
+            warn!("Animation application failed: {:?}", err);
+        }
+    }
+}
+
 /// A type alias for [`EntityMutExcept`] as used in animation.
 pub type AnimationEntityMut<'w> =
     EntityMutExcept<'w, (AnimationTarget, AnimationPlayer, AnimationGraphHandle)>;
@@ -1218,8 +1253,6 @@ pub fn animate_targets(
             };
 
             if let Some((clip_handle, active_animation)) = &animation_player.active_animation_clip {
-                // TODO: Refactor to share code with `active_animations` path.
-
                 let Some(clip) = clips.get(clip_handle) else {
                     return;
                 };
@@ -1233,32 +1266,13 @@ pub fn animate_targets(
                 let mut evaluation_state = animation_evaluation_state.get_or_default().borrow_mut();
                 let evaluation_state = &mut *evaluation_state;
 
-                // TODO: Weight is never valid?
-                let weight = active_animation.weight;
-                let seek_time = active_animation.seek_time;
-
-                for curve in curves {
-                    let curve_evaluator_id = (*curve.0).evaluator_id();
-                    let curve_evaluator = evaluation_state
-                        .evaluators
-                        .get_or_insert_with(curve_evaluator_id.clone(), || {
-                            curve.0.create_evaluator()
-                        });
-
-                    evaluation_state
-                        .current_evaluators
-                        .insert(curve_evaluator_id);
-
-                    if let Err(err) = AnimationCurve::apply(
-                        &*curve.0,
-                        curve_evaluator,
-                        seek_time,
-                        weight,
-                        AnimationNodeIndex::default(), // TODO: Review. Should be safe but needs verifying.
-                    ) {
-                        warn!("Animation application failed: {:?}", err);
-                    }
-                }
+                evaluate_clip(
+                    evaluation_state,
+                    active_animation,
+                    curves,
+                    AnimationNodeIndex::default(),
+                    1.0,
+                );
 
                 if let Err(err) = evaluation_state.commit_all(entity_mut) {
                     warn!("Animation application failed: {:?}", err);
@@ -1357,7 +1371,6 @@ pub fn animate_targets(
                     }
 
                     AnimationNodeType::Clip(ref animation_clip_handle) => {
-                        // TODO: Refactor to share code with `active_animation_clip`.
                         // This is a clip node.
                         let Some(active_animation) = animation_player
                             .active_animations
@@ -1387,38 +1400,13 @@ pub fn animate_targets(
                             continue;
                         };
 
-                        let weight = active_animation.weight * animation_graph_node.weight;
-                        let seek_time = active_animation.seek_time;
-
-                        for curve in curves {
-                            // Fetch the curve evaluator. Curve evaluator types
-                            // are unique to each property, but shared among all
-                            // curve types. For example, given two curve types A
-                            // and B, `RotationCurve<A>` and `RotationCurve<B>`
-                            // will both yield a `RotationCurveEvaluator` and
-                            // therefore will share the same evaluator in this
-                            // table.
-                            let curve_evaluator_id = (*curve.0).evaluator_id();
-                            let curve_evaluator = evaluation_state
-                                .evaluators
-                                .get_or_insert_with(curve_evaluator_id.clone(), || {
-                                    curve.0.create_evaluator()
-                                });
-
-                            evaluation_state
-                                .current_evaluators
-                                .insert(curve_evaluator_id);
-
-                            if let Err(err) = AnimationCurve::apply(
-                                &*curve.0,
-                                curve_evaluator,
-                                seek_time,
-                                weight,
-                                animation_graph_node_index,
-                            ) {
-                                warn!("Animation application failed: {:?}", err);
-                            }
-                        }
+                        evaluate_clip(
+                            evaluation_state,
+                            active_animation,
+                            curves,
+                            animation_graph_node_index,
+                            animation_graph_node.weight,
+                        );
                     }
                 }
             }
