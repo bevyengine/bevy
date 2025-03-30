@@ -21,7 +21,7 @@ use bevy_utils::default;
 use offset_allocator::{Allocation, Allocator};
 use tracing::error;
 use wgpu::{
-    BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, DownlevelFlags, Features,
+    BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, DownlevelFlags,
     COPY_BUFFER_ALIGNMENT,
 };
 
@@ -341,12 +341,15 @@ impl FromWorld for MeshAllocator {
             .contains(DownlevelFlags::BASE_VERTEX);
 
         // If ray tracing is enabled, enable these buffer usages.
-        // Probably(?) has little cost on RT-capable hardware if they end up going unused.
+        // Might have a little memory/buffer creation cost when developers compile with raytracing support,
+        // and users run on RT-capable hardware, but choose not to use RT. Ideally we find a better way to toggle this.
+        #[cfg_attr(not(feature = "raytracing"), expect(unused_mut))]
         let mut extra_buffer_usages = BufferUsages::empty();
+        #[cfg(feature = "raytracing")]
         if world
             .resource::<RenderDevice>()
             .features()
-            .contains(Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE)
+            .contains(wgpu::Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE)
         {
             extra_buffer_usages |= BufferUsages::BLAS_INPUT | BufferUsages::STORAGE;
         }

@@ -47,6 +47,9 @@ webgl = ["wgpu/webgl"]
 webgpu = ["wgpu/webgpu"]
 detailed_trace = []
 
+# Adds extra BufferUsages to Mesh buffers to facilitate raytracing
+raytracing = []
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
