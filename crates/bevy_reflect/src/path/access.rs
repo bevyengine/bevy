@@ -6,7 +6,7 @@ use core::fmt;
 use super::error::AccessErrorKind;
 use crate::{AccessError, PartialReflect, ReflectKind, ReflectMut, ReflectRef, VariantType};
 
-type InnerResult<T> = Result<T, AccessErrorKind>;
+type InnerResult<'a, T> = Result<T, AccessErrorKind<'a>>;
 
 /// A singular element access within a path.
 /// Multiple accesses can be combined into a [`ParsedPath`](super::ParsedPath).
@@ -60,49 +60,94 @@ impl<'a> Access<'a> {
             .map_err(|err| err.with_access(self.clone(), offset))
     }
 
+    #[inline]
+    fn try_parse_field_as_index(
+        base: impl Fn() -> ReflectKind,
+        field: Cow<'a, str>,
+    ) -> Result<usize, AccessErrorKind<'a>> {
+        field
+            .parse()
+            .map_err(|_| AccessErrorKind::UnsupportedAccess {
+                base: base(),
+                access: Access::Field(field),
+            })
+    }
+
     fn element_inner<'r>(
         &self,
         base: &'r dyn PartialReflect,
-    ) -> InnerResult<Option<&'r dyn PartialReflect>> {
+    ) -> InnerResult<'a, Option<&'r dyn PartialReflect>> {
         use ReflectRef::*;
 
         let invalid_variant =
             |expected, actual| AccessErrorKind::IncompatibleEnumVariantTypes { expected, actual };
 
-        match (self, base.reflect_ref()) {
-            (Self::Field(field), Struct(struct_ref)) => Ok(struct_ref.field(field.as_ref())),
-            (Self::Field(field), Enum(enum_ref)) => match enum_ref.variant_type() {
+        match (base.reflect_ref(), self) {
+            // Struct
+            (Struct(struct_ref), Access::Field(field)) => Ok(struct_ref.field(field.as_ref())),
+            (Struct(struct_ref), &Access::FieldIndex(index)) => Ok(struct_ref.field_at(index)),
+            // Tuple Struct
+            (TupleStruct(struct_ref), Access::Field(field)) => Ok(struct_ref.field(
+                Self::try_parse_field_as_index(|| struct_ref.reflect_kind(), field.clone())?,
+            )),
+            (
+                TupleStruct(struct_ref),
+                &Access::FieldIndex(index) | &Access::TupleIndex(index) | &Access::ListIndex(index),
+            ) => Ok(struct_ref.field(index)),
+            // Tuple
+            (Tuple(tuple_ref), Access::Field(field)) => Ok(tuple_ref.field(
+                Self::try_parse_field_as_index(|| tuple_ref.reflect_kind(), field.clone())?,
+            )),
+            (
+                Tuple(tuple_ref),
+                &Access::FieldIndex(index) | &Access::TupleIndex(index) | &Access::ListIndex(index),
+            ) => Ok(tuple_ref.field(index)),
+            // List
+            (List(list_ref), Access::Field(field)) => Ok(list_ref.get(
+                Self::try_parse_field_as_index(|| list_ref.reflect_kind(), field.clone())?,
+            )),
+            (
+                List(list_ref),
+                &Access::FieldIndex(index) | &Access::TupleIndex(index) | &Access::ListIndex(index),
+            ) => Ok(list_ref.get(index)),
+            // Array
+            (Array(array_ref), Access::Field(field)) => Ok(array_ref.get(
+                Self::try_parse_field_as_index(|| array_ref.reflect_kind(), field.clone())?,
+            )),
+            (
+                Array(array_ref),
+                &Access::FieldIndex(index) | &Access::TupleIndex(index) | &Access::ListIndex(index),
+            ) => Ok(array_ref.get(index)),
+            // Map
+            (Map(map_ref), Access::Field(field)) => Ok(map_ref.get(&field.clone().into_owned())),
+            (
+                Map(map_ref),
+                &Access::FieldIndex(index) | &Access::TupleIndex(index) | &Access::ListIndex(index),
+            ) => Ok(map_ref.get(&index)),
+            // Set
+            (Set(set_ref), Access::Field(field)) => Ok(set_ref.get(&field.clone().into_owned())),
+            (
+                Set(set_ref),
+                &Access::FieldIndex(index) | &Access::TupleIndex(index) | &Access::ListIndex(index),
+            ) => Ok(set_ref.get(&index)),
+            // Enum
+            (Enum(enum_ref), Access::Field(field)) => match enum_ref.variant_type() {
                 VariantType::Struct => Ok(enum_ref.field(field.as_ref())),
                 actual => Err(invalid_variant(VariantType::Struct, actual)),
             },
-            (&Self::FieldIndex(index), Struct(struct_ref)) => Ok(struct_ref.field_at(index)),
-            (&Self::FieldIndex(index), Enum(enum_ref)) => match enum_ref.variant_type() {
+            (Enum(enum_ref), &Access::FieldIndex(index)) => match enum_ref.variant_type() {
                 VariantType::Struct => Ok(enum_ref.field_at(index)),
                 actual => Err(invalid_variant(VariantType::Struct, actual)),
             },
-            (Self::Field(_) | Self::FieldIndex(_), actual) => {
-                Err(AccessErrorKind::IncompatibleTypes {
-                    expected: ReflectKind::Struct,
-                    actual: actual.into(),
-                })
+            (Enum(enum_ref), &Access::TupleIndex(index) | &Access::ListIndex(index)) => {
+                match enum_ref.variant_type() {
+                    VariantType::Tuple => Ok(enum_ref.field_at(index)),
+                    actual => Err(invalid_variant(VariantType::Tuple, actual)),
+                }
             }
-
-            (&Self::TupleIndex(index), TupleStruct(tuple)) => Ok(tuple.field(index)),
-            (&Self::TupleIndex(index), Tuple(tuple)) => Ok(tuple.field(index)),
-            (&Self::TupleIndex(index), Enum(enum_ref)) => match enum_ref.variant_type() {
-                VariantType::Tuple => Ok(enum_ref.field_at(index)),
-                actual => Err(invalid_variant(VariantType::Tuple, actual)),
-            },
-            (Self::TupleIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
-                expected: ReflectKind::Tuple,
-                actual: actual.into(),
-            }),
-
-            (&Self::ListIndex(index), List(list)) => Ok(list.get(index)),
-            (&Self::ListIndex(index), Array(list)) => Ok(list.get(index)),
-            (Self::ListIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
-                expected: ReflectKind::List,
-                actual: actual.into(),
+            (other, access) => Err(AccessErrorKind::UnsupportedAccess {
+                base: other.kind(),
+                access: access.clone().into_owned(),
             }),
         }
     }
@@ -116,52 +161,90 @@ impl<'a> Access<'a> {
 
         self.element_inner_mut(base)
             .and_then(|maybe| maybe.ok_or(AccessErrorKind::MissingField(kind)))
-            .map_err(|err| err.with_access(self.clone(), offset))
+            .map_err(move |err| err.with_access(self.clone(), offset))
     }
 
     fn element_inner_mut<'r>(
         &self,
         base: &'r mut dyn PartialReflect,
-    ) -> InnerResult<Option<&'r mut dyn PartialReflect>> {
+    ) -> InnerResult<'a, Option<&'r mut dyn PartialReflect>> {
         use ReflectMut::*;
 
         let invalid_variant =
             |expected, actual| AccessErrorKind::IncompatibleEnumVariantTypes { expected, actual };
 
-        match (self, base.reflect_mut()) {
-            (Self::Field(field), Struct(struct_mut)) => Ok(struct_mut.field_mut(field.as_ref())),
-            (Self::Field(field), Enum(enum_mut)) => match enum_mut.variant_type() {
-                VariantType::Struct => Ok(enum_mut.field_mut(field.as_ref())),
-                actual => Err(invalid_variant(VariantType::Struct, actual)),
-            },
-            (&Self::FieldIndex(index), Struct(struct_mut)) => Ok(struct_mut.field_at_mut(index)),
-            (&Self::FieldIndex(index), Enum(enum_mut)) => match enum_mut.variant_type() {
-                VariantType::Struct => Ok(enum_mut.field_at_mut(index)),
-                actual => Err(invalid_variant(VariantType::Struct, actual)),
-            },
-            (Self::Field(_) | Self::FieldIndex(_), actual) => {
-                Err(AccessErrorKind::IncompatibleTypes {
-                    expected: ReflectKind::Struct,
-                    actual: actual.into(),
-                })
+        match (base.reflect_mut(), self) {
+            // Struct
+            (Struct(struct_ref), Access::Field(field)) => Ok(struct_ref.field_mut(field.as_ref())),
+            (
+                Struct(struct_ref),
+                &Access::FieldIndex(index) | &Access::TupleIndex(index) | &Access::ListIndex(index),
+            ) => Ok(struct_ref.field_at_mut(index)),
+            // Tuple Struct
+            (TupleStruct(struct_ref), Access::Field(field)) => Ok(struct_ref.field_mut(
+                Self::try_parse_field_as_index(|| struct_ref.reflect_kind(), field.clone())?,
+            )),
+            (
+                TupleStruct(struct_ref),
+                &Access::FieldIndex(index) | &Access::TupleIndex(index) | &Access::ListIndex(index),
+            ) => Ok(struct_ref.field_mut(index)),
+            // Tuple
+            (Tuple(tuple_ref), Access::Field(field)) => Ok(tuple_ref.field_mut(
+                Self::try_parse_field_as_index(|| tuple_ref.reflect_kind(), field.clone())?,
+            )),
+            (
+                Tuple(tuple_ref),
+                &Access::FieldIndex(index) | &Access::TupleIndex(index) | &Access::ListIndex(index),
+            ) => Ok(tuple_ref.field_mut(index)),
+            // List
+            (List(list_ref), Access::Field(field)) => Ok(list_ref.get_mut(
+                Self::try_parse_field_as_index(|| list_ref.reflect_kind(), field.clone())?,
+            )),
+            (
+                List(list_ref),
+                &Access::FieldIndex(index) | &Access::TupleIndex(index) | &Access::ListIndex(index),
+            ) => Ok(list_ref.get_mut(index)),
+            // Array
+            (Array(array_ref), Access::Field(field)) => Ok(array_ref.get_mut(
+                Self::try_parse_field_as_index(|| array_ref.reflect_kind(), field.clone())?,
+            )),
+            (
+                Array(array_ref),
+                &Access::FieldIndex(index) | &Access::TupleIndex(index) | &Access::ListIndex(index),
+            ) => Ok(array_ref.get_mut(index)),
+            // Map
+            (Map(map_ref), Access::Field(field)) => {
+                Ok(map_ref.get_mut(&field.clone().into_owned()))
             }
-
-            (&Self::TupleIndex(index), TupleStruct(tuple)) => Ok(tuple.field_mut(index)),
-            (&Self::TupleIndex(index), Tuple(tuple)) => Ok(tuple.field_mut(index)),
-            (&Self::TupleIndex(index), Enum(enum_mut)) => match enum_mut.variant_type() {
-                VariantType::Tuple => Ok(enum_mut.field_at_mut(index)),
-                actual => Err(invalid_variant(VariantType::Tuple, actual)),
+            (
+                Map(map_ref),
+                &Access::FieldIndex(index) | &Access::TupleIndex(index) | &Access::ListIndex(index),
+            ) => Ok(map_ref.get_mut(&index)),
+            // Set - no get_mut
+            // (Set(set_ref), Access::Field(field)) => Ok(set_ref.get(&field.clone().into_owned())),
+            // (
+            //     Set(set_ref),
+            //     &Access::FieldIndex(index) | &Access::TupleIndex(index) | &Access::ListIndex(index),
+            // ) => Ok(set_ref.get(&index)),
+            // Enum
+            // Enum
+            (Enum(enum_ref), Access::Field(field)) => match enum_ref.variant_type() {
+                VariantType::Struct => Ok(enum_ref.field_mut(field.as_ref())),
+                actual => Err(invalid_variant(VariantType::Struct, actual)),
             },
-            (Self::TupleIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
-                expected: ReflectKind::Tuple,
-                actual: actual.into(),
-            }),
-
-            (&Self::ListIndex(index), List(list)) => Ok(list.get_mut(index)),
-            (&Self::ListIndex(index), Array(list)) => Ok(list.get_mut(index)),
-            (Self::ListIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
-                expected: ReflectKind::List,
-                actual: actual.into(),
+            (Enum(enum_ref), &Access::FieldIndex(index)) => match enum_ref.variant_type() {
+                VariantType::Struct => Ok(enum_ref.field_at_mut(index)),
+                actual => Err(invalid_variant(VariantType::Struct, actual)),
+            },
+            (Enum(enum_ref), &Access::TupleIndex(index) | &Access::ListIndex(index)) => {
+                match enum_ref.variant_type() {
+                    VariantType::Tuple => Ok(enum_ref.field_at_mut(index)),
+                    actual => Err(invalid_variant(VariantType::Tuple, actual)),
+                }
+            }
+            (other, access) => Err(AccessErrorKind::UnsupportedAccess {
+                base: other.kind(),
+                access: access.clone().into_owned(),
             }),
         }
     }
