@@ -191,7 +191,6 @@ where
                 // This can't be an attribute on the mesh types due to the shape of our dependency graph
                 .register_required_components::<Mesh3d, PreviousGlobalTransform>();
 
-            //
             #[cfg(feature = "meshlet")]
             app.register_required_components::<MeshletMesh3d, PreviousGlobalTransform>();
         }
