@@ -25,7 +25,13 @@ use {
 static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
 
 /// The indices of the nodes containing animation clips in the graph.
-static CLIP_NODE_INDICES: [u32; 3] = [2, 3, 4];
+fn clip_node_indices() -> [AnimationNodeIndex; 3] {
+    [
+        AnimationNodeIndex::new(2),
+        AnimationNodeIndex::new(3),
+        AnimationNodeIndex::new(4),
+    ]
+}
 
 /// The help text in the upper left corner.
 static HELP_TEXT: &str = "Click and drag an animation clip node to change its weight";
@@ -385,8 +391,8 @@ fn init_animations(
             AnimationGraphHandle(animation_graph.0.clone()),
             ExampleAnimationWeights::default(),
         ));
-        for &node_index in &CLIP_NODE_INDICES {
-            player.play(node_index.into()).repeat();
+        for node_index in clip_node_indices() {
+            player.play(node_index).repeat();
         }
 
         *done = true;
@@ -447,19 +453,17 @@ fn update_ui(
 /// playing animation.
 fn sync_weights(mut query: Query<(&mut AnimationPlayer, &ExampleAnimationWeights)>) {
     for (mut animation_player, animation_weights) in query.iter_mut() {
-        for (&animation_node_index, &animation_weight) in CLIP_NODE_INDICES
+        for (&animation_node_index, &animation_weight) in clip_node_indices()
             .iter()
             .zip(animation_weights.weights.iter())
         {
             // If the animation happens to be no longer active, restart it.
-            if !animation_player.is_playing_animation(animation_node_index.into()) {
-                animation_player.play(animation_node_index.into());
+            if !animation_player.is_playing_animation(animation_node_index) {
+                animation_player.play(animation_node_index);
             }
 
             // Set the weight.
-            if let Some(active_animation) =
-                animation_player.animation_mut(animation_node_index.into())
-            {
+            if let Some(active_animation) = animation_player.animation_mut(animation_node_index) {
                 active_animation.set_weight(animation_weight);
             }
         }
