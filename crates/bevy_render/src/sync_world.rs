@@ -1,6 +1,8 @@
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHash;
+use bevy_ecs::entity::hash_map::EntityEquivalentHashMap;
+use bevy_ecs::entity::hash_set::EntityEquivalentHashSet;
+use bevy_ecs::entity::{EntityHash, TrustedBuildHasher};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityBorrow, TrustedEntityBorrow},
@@ -11,7 +13,7 @@ use bevy_ecs::{
     system::{Local, Query, ResMut, SystemState},
     world::{Mut, OnAdd, OnRemove, World},
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
@@ -150,6 +152,9 @@ impl EntityBorrow for RenderEntity {
 // SAFETY: RenderEntity is a newtype around Entity that derives its comparison traits.
 unsafe impl TrustedEntityBorrow for RenderEntity {}
 
+// SAFETY: EntityHasher hashes `Entity` deterministically.
+unsafe impl TrustedBuildHasher<RenderEntity> for EntityHash {}
+
 /// Component added on the render world entities to keep track of the corresponding main world entity.
 ///
 /// Can also be used as a newtype wrapper for main world entities.
@@ -177,11 +182,18 @@ impl EntityBorrow for MainEntity {
 // SAFETY: RenderEntity is a newtype around Entity that derives its comparison traits.
 unsafe impl TrustedEntityBorrow for MainEntity {}
 
-/// A [`HashMap`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
-pub type MainEntityHashMap<V> = HashMap<MainEntity, V, EntityHash>;
+// SAFETY: EntityHasher hashes `Entity` deterministically.
+unsafe impl TrustedBuildHasher<MainEntity> for EntityHash {}
 
-/// A [`HashSet`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`]..
-pub type MainEntityHashSet = HashSet<MainEntity, EntityHash>;
+/// A [`HashMap`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
+///
+/// [`HashMap`]: `bevy_platform_support::collections::HashMap`
+pub type MainEntityHashMap<V> = EntityEquivalentHashMap<MainEntity, V>;
+
+/// A [`HashSet`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
+///
+/// [`HashSet`]: `bevy_platform_support::collections::HashSet`
+pub type MainEntityHashSet = EntityEquivalentHashSet<MainEntity>;
 
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
