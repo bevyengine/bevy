@@ -217,7 +217,7 @@ where
 mod tests {
     use bevy_ecs::{
         component::Component,
-        entity::{EntityHashMap, Entity, EntityMapper, MapEntities},
+        entity::{Entity, EntityHashMap, EntityMapper, MapEntities},
         hierarchy::ChildOf,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
         resource::Resource,
