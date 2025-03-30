@@ -18,7 +18,7 @@ use log::error;
 use log::debug;
 
 #[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
-enum Action {
+pub enum Action {
     /// Stepping is disabled; run all systems
     #[default]
     RunAll,
@@ -222,7 +222,7 @@ impl Stepping {
 
     /// check what Action to be executed during the current frame.
     pub fn get_action(&self) -> &Action {
-        
+        &self.action
     }
 
     /// Run the next system during the next render frame
