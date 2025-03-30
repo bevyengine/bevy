@@ -4,7 +4,7 @@ use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::{entity::hash_map::EntityHashMap, prelude::*};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_platform_support::collections::HashSet;
 use bevy_utils::default;
 use bevy_window::{

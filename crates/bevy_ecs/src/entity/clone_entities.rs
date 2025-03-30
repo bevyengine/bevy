@@ -844,7 +844,7 @@ mod tests {
     use super::ComponentCloneCtx;
     use crate::{
         component::{Component, ComponentCloneBehavior, ComponentDescriptor, StorageType},
-        entity::{hash_map::EntityHashMap, Entity, EntityCloner, SourceComponent},
+        entity::{Entity, EntityCloner, EntityHashMap, SourceComponent},
         prelude::{ChildOf, Children, Resource},
         reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
         world::{FromWorld, World},
