@@ -1,10 +1,7 @@
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
-    entity::{
-        Entity, EntityDoesNotExistError, EntityEquivalent,
-        EntitySet, UniqueEntityArray
-    },
+    entity::{Entity, EntityDoesNotExistError, EntityEquivalent, EntitySet, UniqueEntityArray},
     query::{
         DebugCheckedUnwrap, NopWorldQuery, QueryCombinationIter, QueryData, QueryEntityError,
         QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
