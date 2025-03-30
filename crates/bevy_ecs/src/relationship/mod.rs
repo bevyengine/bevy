@@ -13,11 +13,8 @@ pub use relationship_source_collection::*;
 use crate::{
     component::{Component, HookContext, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
-    system::{
-        command::HandleError,
-        entity_command::{self, CommandWithEntity},
-        error_handler, Commands,
-    },
+    error::{ignore, CommandWithEntity, HandleError},
+    system::entity_command::{self},
     world::{DeferredWorld, EntityWorldMut},
 };
 use log::warn;
@@ -230,7 +227,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
                 commands.queue(
                     entity_command::remove::<Self::Relationship>()
                         .with_entity(source_entity)
-                        .handle_error_with(error_handler::silent()),
+                        .handle_error_with(ignore),
                 );
             } else {
                 warn!(
@@ -255,7 +252,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
                 commands.queue(
                     entity_command::despawn()
                         .with_entity(source_entity)
-                        .handle_error_with(error_handler::silent()),
+                        .handle_error_with(ignore),
                 );
             } else {
                 warn!(
@@ -304,7 +301,6 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 /// This will also queue up clones of the relationship sources if the [`EntityCloner`](crate::entity::EntityCloner) is configured
 /// to spawn recursively.
 pub fn clone_relationship_target<T: RelationshipTarget>(
-    _commands: &mut Commands,
     source: &SourceComponent,
     context: &mut ComponentCloneCtx,
 ) {
@@ -388,5 +384,42 @@ mod tests {
         let b = world.spawn(Rel(a)).id();
         assert!(!world.entity(b).contains::<Rel>());
         assert!(!world.entity(b).contains::<RelTarget>());
+    }
+
+    #[test]
+    fn relationship_with_multiple_non_target_fields_compiles() {
+        #[derive(Component)]
+        #[relationship(relationship_target=Target)]
+        #[expect(dead_code, reason = "test struct")]
+        struct Source {
+            #[relationship]
+            target: Entity,
+            foo: u8,
+            bar: u8,
+        }
+
+        #[derive(Component)]
+        #[relationship_target(relationship=Source)]
+        struct Target(Vec<Entity>);
+
+        // No assert necessary, looking to make sure compilation works with the macros
+    }
+    #[test]
+    fn relationship_target_with_multiple_non_target_fields_compiles() {
+        #[derive(Component)]
+        #[relationship(relationship_target=Target)]
+        struct Source(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship=Source)]
+        #[expect(dead_code, reason = "test struct")]
+        struct Target {
+            #[relationship]
+            target: Vec<Entity>,
+            foo: u8,
+            bar: u8,
+        }
+
+        // No assert necessary, looking to make sure compilation works with the macros
     }
 }

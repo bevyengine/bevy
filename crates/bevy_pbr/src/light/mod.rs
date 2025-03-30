@@ -492,8 +492,7 @@ pub enum ShadowFilteringMethod {
     Gaussian,
     /// A randomized filter that varies over time, good when TAA is in use.
     ///
-    /// Good quality when used with
-    /// [`TemporalAntiAliasing`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasing)
+    /// Good quality when used with `TemporalAntiAliasing`
     /// and good performance.
     ///
     /// For directional and spot lights, this uses a [method by Jorge Jimenez for
@@ -564,9 +563,13 @@ pub fn update_directional_light_frusta(
 // NOTE: Run this after assign_lights_to_clusters!
 pub fn update_point_light_frusta(
     global_lights: Res<GlobalVisibleClusterableObjects>,
-    mut views: Query<
-        (Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta),
-        Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
+    mut views: Query<(Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta)>,
+    changed_lights: Query<
+        Entity,
+        (
+            With<PointLight>,
+            Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
+        ),
     >,
 ) {
     let view_rotations = CUBE_MAP_FACES
@@ -575,6 +578,12 @@ pub fn update_point_light_frusta(
         .collect::<Vec<_>>();
 
     for (entity, transform, point_light, mut cubemap_frusta) in &mut views {
+        // If this light hasn't changed, and neither has the set of global_lights,
+        // then we can skip this calculation.
+        if !global_lights.is_changed() && !changed_lights.contains(entity) {
+            continue;
+        }
+
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.

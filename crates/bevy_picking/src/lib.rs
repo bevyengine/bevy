@@ -179,7 +179,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
-        MeshPickingPlugin, MeshPickingSettings, RayCastPickable,
+        MeshPickingCamera, MeshPickingPlugin, MeshPickingSettings,
     };
     #[doc(hidden)]
     pub use crate::{

@@ -1,4 +1,4 @@
-use crate::{ron, DynamicSceneBuilder, Scene, SceneSpawnError};
+use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::reflect::{ReflectMapEntities, ReflectResource};
 use bevy_ecs::{
@@ -6,15 +6,18 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent},
     world::World,
 };
-use bevy_reflect::{PartialReflect, TypePath, TypeRegistry};
+use bevy_reflect::{PartialReflect, TypePath};
 
 use crate::reflect_utils::clone_reflect_value;
-#[cfg(feature = "serialize")]
-use crate::serde::SceneSerializer;
 use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::relationship::RelationshipHookMode;
+
 #[cfg(feature = "serialize")]
-use serde::Serialize;
+use {
+    crate::{ron, serde::SceneSerializer},
+    bevy_reflect::TypeRegistry,
+    serde::Serialize,
+};
 
 /// A collection of serializable resources and dynamic entities.
 ///
@@ -149,16 +152,22 @@ impl DynamicScene {
 
             // If this component references entities in the scene, update
             // them to the entities in the world.
-            if let Some(map_entities) = registration.data::<ReflectMapEntities>() {
-                let mut resource = clone_reflect_value(resource.as_partial_reflect(), registration);
+            let mut cloned_resource;
+            let partial_reflect_resource = if let Some(map_entities) =
+                registration.data::<ReflectMapEntities>()
+            {
+                cloned_resource = clone_reflect_value(resource.as_partial_reflect(), registration);
                 SceneEntityMapper::world_scope(entity_map, world, |_, mapper| {
-                    map_entities.map_entities(resource.as_partial_reflect_mut(), mapper);
+                    map_entities.map_entities(cloned_resource.as_partial_reflect_mut(), mapper);
                 });
-            }
+                cloned_resource.as_partial_reflect()
+            } else {
+                resource.as_partial_reflect()
+            };
 
             // If the world already contains an instance of the given resource
             // just apply the (possibly) new value, otherwise insert the resource
-            reflect_resource.apply_or_insert(world, resource.as_partial_reflect(), &type_registry);
+            reflect_resource.apply_or_insert(world, partial_reflect_resource, &type_registry);
         }
 
         Ok(())
@@ -208,23 +217,24 @@ where
 mod tests {
     use bevy_ecs::{
         component::Component,
-        entity::{
-            Entity, EntityHashMap, EntityMapper, MapEntities, VisitEntities, VisitEntitiesMut,
-        },
+        entity::{EntityHashMap, Entity, EntityMapper, MapEntities},
         hierarchy::ChildOf,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
         resource::Resource,
         world::World,
     };
+
     use bevy_reflect::Reflect;
 
     use crate::dynamic_scene::DynamicScene;
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
-    #[derive(Resource, Reflect, Debug, VisitEntities, VisitEntitiesMut)]
+    #[derive(Resource, Reflect, MapEntities, Debug)]
     #[reflect(Resource, MapEntities)]
     struct TestResource {
+        #[entities]
         entity_a: Entity,
+        #[entities]
         entity_b: Entity,
     }
 
@@ -353,7 +363,7 @@ mod tests {
         struct B(pub Entity);
 
         impl MapEntities for B {
-            fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+            fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
                 self.0 = entity_mapper.get_mapped(self.0);
             }
         }

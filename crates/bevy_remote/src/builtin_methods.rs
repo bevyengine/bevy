@@ -19,18 +19,17 @@ use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
     GetPath, PartialReflect, TypeRegistration, TypeRegistry,
 };
-use bevy_utils::default;
 use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::{
     error_codes,
-    schemas::{
-        json_schema::JsonSchemaBevyType,
-        open_rpc::{OpenRpcDocument, ServerObject},
-    },
+    schemas::{json_schema::JsonSchemaBevyType, open_rpc::OpenRpcDocument},
     BrpError, BrpResult,
 };
+
+#[cfg(all(feature = "http", not(target_family = "wasm")))]
+use {crate::schemas::open_rpc::ServerObject, bevy_utils::default};
 
 /// The method path for a `bevy/get` request.
 pub const BRP_GET_METHOD: &str = "bevy/get";
@@ -821,6 +820,8 @@ pub fn process_remote_list_methods_request(
     world: &mut World,
 ) -> BrpResult {
     let remote_methods = world.resource::<crate::RemoteMethods>();
+
+    #[cfg(all(feature = "http", not(target_family = "wasm")))]
     let servers = match (
         world.get_resource::<crate::http::HostAddress>(),
         world.get_resource::<crate::http::HostPort>(),
@@ -837,6 +838,10 @@ pub fn process_remote_list_methods_request(
         }]),
         _ => None,
     };
+
+    #[cfg(any(not(feature = "http"), target_family = "wasm"))]
+    let servers = None;
+
     let doc = OpenRpcDocument {
         info: Default::default(),
         methods: remote_methods.into(),

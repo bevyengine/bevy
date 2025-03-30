@@ -20,7 +20,10 @@ use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
-/// A component that marks cameras that should be used in the [`SpritePickingPlugin`].
+/// An optional component that marks cameras that should be used in the [`SpritePickingPlugin`].
+///
+/// Only needed if [`SpritePickingSettings::require_markers`] is set to `true`, and ignored
+/// otherwise.
 #[derive(Debug, Clone, Default, Component, Reflect)]
 #[reflect(Debug, Default, Component, Clone)]
 pub struct SpritePickingCamera;
@@ -62,6 +65,7 @@ impl Default for SpritePickingSettings {
     }
 }
 
+/// Enables the sprite picking backend, allowing you to click on, hover over and drag sprites.
 #[derive(Clone)]
 pub struct SpritePickingPlugin;
 

@@ -133,6 +133,7 @@ default = [
   "bevy_audio",
   "bevy_color",
   "bevy_core_pipeline",
+  "bevy_anti_aliasing",
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
@@ -213,6 +214,13 @@ bevy_core_pipeline = [
   "bevy_render",
 ]
 
+# Provides various anti aliasing solutions
+bevy_anti_aliasing = [
+  "bevy_internal/bevy_anti_aliasing",
+  "bevy_asset",
+  "bevy_render",
+]
+
 # Adds gamepad support
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 
@@ -225,6 +233,7 @@ bevy_pbr = [
   "bevy_asset",
   "bevy_render",
   "bevy_core_pipeline",
+  "bevy_anti_aliasing",
 ]
 
 # Provides picking functionality
@@ -242,6 +251,7 @@ bevy_sprite = [
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
+  "bevy_anti_aliasing",
 ]
 
 # Provides text functionality
@@ -254,6 +264,7 @@ bevy_ui = [
   "bevy_text",
   "bevy_sprite",
   "bevy_color",
+  "bevy_anti_aliasing",
 ]
 
 # Windowing layer
@@ -279,6 +290,9 @@ bevy_log = ["bevy_internal/bevy_log"]
 
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
+
+# Use the configurable global error handler as the default error handler.
+configurable_error_handler = ["bevy_internal/configurable_error_handler"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -558,7 +572,7 @@ hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
-accesskit = "0.17"
+accesskit = "0.18"
 nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
@@ -1578,6 +1592,7 @@ wasm = true
 name = "headless"
 path = "examples/app/headless.rs"
 doc-scrape-examples = true
+required-features = ["bevy_log"]
 
 [package.metadata.example.headless]
 name = "Headless"
@@ -2200,6 +2215,7 @@ wasm = false
 name = "fallible_params"
 path = "examples/ecs/fallible_params.rs"
 doc-scrape-examples = true
+required-features = ["configurable_error_handler"]
 
 [package.metadata.example.fallible_params]
 name = "Fallible System Parameters"
@@ -2208,14 +2224,14 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "fallible_systems"
-path = "examples/ecs/fallible_systems.rs"
+name = "error_handling"
+path = "examples/ecs/error_handling.rs"
 doc-scrape-examples = true
-required-features = ["bevy_mesh_picking_backend"]
+required-features = ["bevy_mesh_picking_backend", "configurable_error_handler"]
 
-[package.metadata.example.fallible_systems]
-name = "Fallible Systems"
-description = "Systems that return results to handle errors"
+[package.metadata.example.error_handling]
+name = "Error handling"
+description = "How to return and handle errors across the ECS"
 category = "ECS (Entity Component System)"
 wasm = false
 
