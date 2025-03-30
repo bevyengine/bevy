@@ -386,7 +386,7 @@ pub fn check_visibility_ranges(
     mut visible_entity_ranges: ResMut<VisibleEntityRanges>,
     view_query: Query<(Entity, &GlobalTransform), With<Camera>>,
     mut par_local: Local<Parallel<Vec<(Entity, u32)>>>,
-    mut entity_query: Query<(Entity, &GlobalTransform, Option<&Aabb>, &VisibilityRange)>,
+    entity_query: Query<(Entity, &GlobalTransform, Option<&Aabb>, &VisibilityRange)>,
 ) {
     visible_entity_ranges.clear();
 
