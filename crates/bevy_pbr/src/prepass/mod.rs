@@ -178,7 +178,7 @@ where
                 .add_systems(
                     PreUpdate,
                     (
-                        update_mesh_previous_global_transforms,
+                        update_mesh_previous_global_transforms.run_if(any_camera_active),
                         update_previous_view_data,
                     ),
                 )
@@ -187,7 +187,12 @@ where
                     BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::new(
                         self.debug_flags,
                     ),
-                ));
+                ))
+                // This can't be an attribute on the mesh types due to the shape of our dependency graph
+                .register_required_components::<Mesh3d, PreviousGlobalTransform>();
+
+            #[cfg(feature = "meshlet")]
+            app.register_required_components::<MeshletMesh3d, PreviousGlobalTransform>();
         }
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -257,6 +262,11 @@ pub fn update_previous_view_data(
     }
 }
 
+/// Tracks the previous [`GlobalTransform`] of a mesh,
+/// assuming that the mesh's transform is affine.
+///
+/// This is added as a required component for [`Mesh3d`] and the meshlet equivalent in
+/// the [`PrepassPlugin`].
 #[derive(Component, PartialEq, Default)]
 pub struct PreviousGlobalTransform(pub Affine3A);
 
@@ -265,24 +275,18 @@ type PreviousMeshFilter = With<Mesh3d>;
 #[cfg(feature = "meshlet")]
 type PreviousMeshFilter = Or<(With<Mesh3d>, With<MeshletMesh3d>)>;
 
-pub fn update_mesh_previous_global_transforms(
-    mut commands: Commands,
-    views: Query<&Camera, Or<(With<Camera3d>, With<ShadowView>)>>,
-    meshes: Query<(Entity, &GlobalTransform, Option<&PreviousGlobalTransform>), PreviousMeshFilter>,
-) {
-    let should_run = views.iter().any(|camera| camera.is_active);
+/// A run condition for [`update_mesh_previous_global_transforms`] that checks if any camera is active.
+pub fn any_camera_active(views: Query<&Camera, Or<(With<Camera3d>, With<ShadowView>)>>) -> bool {
+    views.iter().any(|camera| camera.is_active)
+}
 
-    if should_run {
-        for (entity, transform, old_previous_transform) in &meshes {
-            let new_previous_transform = PreviousGlobalTransform(transform.affine());
-            // Make sure not to trigger change detection on
-            // `PreviousGlobalTransform` if the previous transform hasn't
-            // changed.
-            if old_previous_transform != Some(&new_previous_transform) {
-                commands.entity(entity).try_insert(new_previous_transform);
-            }
-        }
-    }
+/// Updates the [`PreviousGlobalTransform`] of all meshes that match the [`PreviousMeshFilter`].
+pub fn update_mesh_previous_global_transforms(
+    mut meshes: Query<(&GlobalTransform, &mut PreviousGlobalTransform), PreviousMeshFilter>,
+) {
+    meshes.par_iter_mut().for_each(|(transform, mut previous)| {
+        previous.set_if_neq(PreviousGlobalTransform(transform.affine()));
+    });
 }
 
 #[derive(Resource)]
