@@ -3,14 +3,14 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
 use std::collections::HashSet;
 use syn::{
-    parenthesized,
+    braced, parenthesized,
     parse::Parse,
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Brace, Comma, Paren},
-    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprPath, ExprStruct, Field, Fields,
-    Ident, LitStr, Member, Path, Result, Token, Type, Visibility,
+    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprPath, Field, Fields, Ident,
+    LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
 pub const EVENT: &str = "event";
@@ -565,14 +565,6 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
 
 impl Parse for Require {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        if input.peek2(Brace) {
-            // This is a "value style" named-struct-like require
-            // ExprStruct also includes the path, so we check for this beforehand
-            let struct_init: ExprStruct = input.parse()?;
-            let path = struct_init.path.clone();
-            let func = Some(quote!(|| #struct_init));
-            return Ok(Require { path, func });
-        }
         let mut path = input.parse::<Path>()?;
         let mut last_segment_is_lower = false;
         let mut is_constructor_call = false;
@@ -611,10 +603,15 @@ impl Parse for Require {
             // This is a "value style" tuple-struct-like require
             let content;
             parenthesized!(content in input);
-            let content: Punctuated<Expr, Comma> =
-                content.parse_terminated(Expr::parse, Token![,])?;
+            let content = content.parse_terminated(Expr::parse, Token![,])?;
             is_constructor_call = last_segment_is_lower;
             Some(quote!(|| #path (#content)))
+        } else if input.peek(Brace) {
+            // This is a "value style" named-struct-like require
+            let content;
+            braced!(content in input);
+            let content = content.parse::<TokenStream2>()?;
+            Some(quote!(|| #path { #content }))
         } else if is_enum {
             // if this is an enum, then it is an inline enum component declaration
             Some(quote!(|| #path))
