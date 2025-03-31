@@ -1,7 +1,7 @@
 use bevy_platform_support::{
     prelude::Vec,
     sync::{
-        atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering},
+        atomic::{AtomicIsize, AtomicPtr, AtomicU32, Ordering},
         Arc,
     },
 };
@@ -127,6 +127,67 @@ impl Chunk {
         Self {
             first: AtomicPtr::new(core::ptr::null_mut()),
         }
+    }
+}
+
+struct PendingBuffer {
+    /// The chunks of the pending list.
+    /// Put end-to-end, these chunks form a list of pending entities.
+    chunks: [Chunk; Chunk::NUM_CHUNKS as usize],
+    /// The length of the pending buffer
+    len: AtomicIsize,
+}
+
+impl PendingBuffer {
+    /// Frees the `entity` allowing it to be reused.
+    ///
+    /// # Safety
+    ///
+    /// This must not conflict with any other [`Self::free`] or [`Self::alloc`] calls.
+    unsafe fn free(&self, entity: Entity) {
+        // Disable remote allocation. (We could do a compare exchange loop, but this is faster in the common case.)
+        let len = self.len.swap(-1, Ordering::AcqRel).max(0);
+        // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
+        let (chunk_index, index) = Chunk::get_indices(len as u32);
+
+        // SAFETY: index is correct.
+        let chunk = unsafe { self.chunks.get_unchecked(chunk_index as usize) };
+
+        // SAFETY: Caller ensures this is not concurrent. The index is correct.
+        // This can not confluct with a `get` because we already disabled remote allocation.
+        unsafe {
+            chunk.set(index, entity, chunk_index);
+        }
+
+        let new_len = len + 1;
+        // It doesn't matter when other threads realize remote allocation is enabled again.
+        self.len.store(new_len, Ordering::Relaxed);
+    }
+
+    /// Allocates an [`Entity`] from the pending list if one is available.
+    ///
+    /// # Safety
+    ///
+    /// This must not conflict with [`Self::free`] calls.
+    unsafe fn alloc(&self) -> Option<Entity> {
+        // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
+        let len = self.len.fetch_sub(1, Ordering::Relaxed);
+        (len > 0).then(|| {
+            let idnex = len - 1;
+            // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
+            let (chunk_index, index) = Chunk::get_indices(idnex as u32);
+
+            // SAFETY: index is correct.
+            let chunk = unsafe { self.chunks.get_unchecked(chunk_index as usize) };
+
+            // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
+            unsafe { chunk.get(index) }
+        })
+    }
+
+    /// Allocates an [`Entity`] from the pending list if one is available.
+    fn remote_alloc(&self) -> Option<Entity> {
+        todo!()
     }
 }
 
