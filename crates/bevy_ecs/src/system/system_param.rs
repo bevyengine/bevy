@@ -2959,7 +2959,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_resource_error::res_system`: SystemParamValidationError { skipped: false, message: \"Resource does not exist\", param: \"bevy_ecs::change_detection::Res<bevy_ecs::system::system_param::tests::missing_resource_error::MissingResource>\" }"]
+    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_resource_error::res_system`: Parameter `Res<MissingResource>` failed validation: Resource does not exist"]
     fn missing_resource_error() {
         #[derive(Resource)]
         pub struct MissingResource;
