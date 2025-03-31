@@ -81,6 +81,11 @@ pub struct ArchetypeId(u32);
 impl ArchetypeId {
     /// The ID for the [`Archetype`] without any components.
     pub const EMPTY: ArchetypeId = ArchetypeId(0);
+    /// This represents an archetype that does not actually exist.
+    /// This can be used as a placeholder.
+    ///
+    /// On an entity, this archetype signals that the entity is not yet part of any archetype.
+    ///
     /// # Safety:
     ///
     /// This must always have an all-1s bit pattern to ensure soundness in fast entity id space allocation.

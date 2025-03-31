@@ -86,7 +86,6 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::atomic::Ordering;
 use core::{fmt, hash::Hash, num::NonZero, panic::Location};
 use log::warn;
 
@@ -697,12 +696,7 @@ impl Entities {
         if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
             Some(Entity::from_raw_and_generation(index, generation))
         } else {
-            // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
-            let free_cursor = self.free_cursor.load(Ordering::Relaxed);
-            // If this entity was manually created, then free_cursor might be positive
-            // Returning None handles that case correctly
-            let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then_some(Entity::from_raw(index))
+            (self.allocator.is_valid_index(index)).then_some(Entity::from_raw(index))
         }
     }
 
@@ -848,8 +842,8 @@ struct EntityMeta {
 }
 
 impl EntityMeta {
-    /// meta for **pending entity**
-    const EMPTY: EntityMeta = EntityMeta {
+    /// This is the metadata for an entity index that has never had its location set or been freed.
+    const FRESH: EntityMeta = EntityMeta {
         generation: NonZero::<u32>::MIN,
         location: EntityLocation::INVALID,
         spawned_or_despawned_by: MaybeLocation::new(None),

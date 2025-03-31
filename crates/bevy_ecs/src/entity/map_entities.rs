@@ -48,7 +48,7 @@ use smallvec::SmallVec;
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
-    /// Implementors should look up any and all [`Entity`] values stored within `self` and
+    /// Implementers should look up any and all [`Entity`] values stored within `self` and
     /// update them to the mapped values via `entity_mapper`.
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E);
 }
@@ -102,7 +102,7 @@ impl<A: smallvec::Array<Item = Entity>> MapEntities for SmallVec<A> {
 ///
 /// More generally, this can be used to map [`Entity`] references between any two [`Worlds`](World).
 ///
-/// This is used by [`MapEntities`] implementors.
+/// This is used by [`MapEntities`] implementers.
 ///
 /// ## Example
 ///
@@ -120,7 +120,7 @@ impl<A: smallvec::Array<Item = Entity>> MapEntities for SmallVec<A> {
 ///     fn get_mapped(&mut self, entity: Entity) -> Entity {
 ///         self.map.get(&entity).copied().unwrap_or(entity)
 ///     }
-///     
+///
 ///     fn set_mapped(&mut self, source: Entity, target: Entity) {
 ///         self.map.insert(source, target);
 ///     }
@@ -333,17 +333,12 @@ mod tests {
     #[test]
     fn entity_mapper_no_panic() {
         let mut world = World::new();
-        // "Dirty" the `Entities`, requiring a flush afterward.
         world.entities.reserve_entity();
-        assert!(world.entities.needs_flush());
 
         // Create and exercise a SceneEntityMapper - should not panic because it flushes
         // `Entities` first.
         SceneEntityMapper::world_scope(&mut Default::default(), &mut world, |_, m| {
             m.get_mapped(Entity::PLACEHOLDER);
         });
-
-        // The SceneEntityMapper should leave `Entities` in a flushed state.
-        assert!(!world.entities.needs_flush());
     }
 }
