@@ -1,6 +1,6 @@
 [package]
 name = "bevy_state"
-version = "0.16.0-rc.2"
+version = "0.16.0-rc.3"
 edition = "2024"
 description = "Finite state machines for Bevy"
 homepage = "https://bevyengine.org"
@@ -48,12 +48,12 @@ critical-section = [
 
 [dependencies]
 # bevy
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.2", default-features = false }
-bevy_state_macros = { path = "macros", version = "0.16.0-rc.2" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.2", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.2", default-features = false, optional = true }
-bevy_app = { path = "../bevy_app", version = "0.16.0-rc.2", default-features = false, optional = true }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-rc.2", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.3", default-features = false }
+bevy_state_macros = { path = "macros", version = "0.16.0-rc.3" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.3", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.3", default-features = false, optional = true }
+bevy_app = { path = "../bevy_app", version = "0.16.0-rc.3", default-features = false, optional = true }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-rc.3", default-features = false }
 variadics_please = "1.1"
 
 # other
