@@ -179,10 +179,10 @@ pub struct EventLoopProxyWrapper<T: 'static>(EventLoopProxy<T>);
 
 /// A wrapper around [`winit::event_loop::OwnedDisplayHandle`]
 ///
-/// The DisplayHandleWrapper can be used to build integrations that rely on direct
+/// The `DisplayHandleWrapper` can be used to build integrations that rely on direct
 /// access to the display handle
 ///
-/// Use Res<DisplayHandleWrapper> to receive this resource.
+/// Use `Res<DisplayHandleWrapper>` to receive this resource.
 #[derive(Resource, Deref)]
 pub struct DisplayHandleWrapper(pub winit::event_loop::OwnedDisplayHandle);
 
