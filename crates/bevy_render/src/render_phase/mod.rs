@@ -470,10 +470,10 @@ where
     ) {
         // If the user has overridden indirect drawing for this view, we need to
         // force the phase type to be batchable instead.
-        if let GpuPreprocessingMode::PreprocessingOnly = self.gpu_preprocessing_mode {
-            if let BinnedRenderPhaseType::MultidrawableMesh = phase_type {
-                phase_type = BinnedRenderPhaseType::BatchableMesh;
-            }
+        if self.gpu_preprocessing_mode == GpuPreprocessingMode::PreprocessingOnly
+            && phase_type == BinnedRenderPhaseType::MultidrawableMesh
+        {
+            phase_type = BinnedRenderPhaseType::BatchableMesh;
         }
 
         match phase_type {
