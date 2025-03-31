@@ -2005,7 +2005,7 @@ impl Components {
             })
     }
 
-    /// Gets the [`ComponentName`] of the component with this [`ComponentId`] if it is present.
+    /// Gets the name of the component with this [`ComponentId`] if it is present.
     /// This will return `None` only if the id is neither regisered nor queued to be registered.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
