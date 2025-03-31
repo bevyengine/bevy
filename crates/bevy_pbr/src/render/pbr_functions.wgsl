@@ -440,7 +440,7 @@ fn compute_direct_light(
     return direct_light;
 }
 
-fn compute_transmitted_light(
+fn compute_transmitted_direct_light(
     in: pbr_types::PbrInput,
     clusterable_object_index_ranges: clustering::ClusterableObjectIndexRanges,
     view_z: f32,
@@ -789,9 +789,8 @@ fn apply_pbr_lighting(
         diffuse_transmissive_color,
         F0, F_ab);
 
-    // Point lights (direct)
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
-    transmitted_light = compute_transmitted_light(
+    transmitted_light = compute_transmitted_direct_light(
     in,
     clusterable_object_index_ranges,
     view_z,
