@@ -13,8 +13,8 @@ use crate::{
     world::{DeferredWorld, FromWorld, World},
 };
 use alloc::boxed::Box;
+use alloc::string::ToString;
 use alloc::{borrow::Cow, format, vec::Vec};
-use atomicow::CowArc;
 pub use bevy_ecs_macros::Component;
 use bevy_platform_support::sync::Arc;
 use bevy_platform_support::{
@@ -981,36 +981,6 @@ impl SparseSetIndex for ComponentId {
     #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Self(value)
-    }
-}
-
-/// Represents the name of a component.
-#[derive(Clone)]
-pub struct ComponentName<'a>(pub CowArc<'a, ComponentDescriptor>);
-
-impl Deref for ComponentName<'_> {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        self.0.name()
-    }
-}
-
-impl Debug for ComponentName<'_> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.0.name())
-    }
-}
-
-impl core::fmt::Display for ComponentName<'_> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.0.name())
-    }
-}
-
-impl From<ComponentName<'_>> for alloc::string::String {
-    fn from(value: ComponentName) -> Self {
-        value.0.name().into()
     }
 }
 
@@ -2018,13 +1988,10 @@ impl Components {
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
-    pub fn get_descriptor<'a>(
-        &'a self,
-        id: ComponentId,
-    ) -> Option<CowArc<'a, ComponentDescriptor>> {
+    pub fn get_descriptor<'a>(&'a self, id: ComponentId) -> Option<Cow<'a, ComponentDescriptor>> {
         self.components
             .get(id.0)
-            .and_then(|info| info.as_ref().map(|info| CowArc::Borrowed(&info.descriptor)))
+            .and_then(|info| info.as_ref().map(|info| Cow::Borrowed(&info.descriptor)))
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
                 // first check components, then resources, then dynamic
@@ -2034,7 +2001,7 @@ impl Components {
                     .chain(queued.resources.values())
                     .chain(queued.dynamic_registrations.iter())
                     .find(|queued| queued.id == id)
-                    .map(|queued| CowArc::Owned(Arc::new(queued.descriptor.clone())))
+                    .map(|queued| Cow::Owned(queued.descriptor.clone()))
             })
     }
 
@@ -2043,8 +2010,24 @@ impl Components {
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
-    pub fn get_name(&self, id: ComponentId) -> Option<ComponentName> {
-        self.get_descriptor(id).map(ComponentName)
+    pub fn get_name<'a>(&'a self, id: ComponentId) -> Option<Cow<'a, str>> {
+        self.components
+            .get(id.0)
+            .and_then(|info| {
+                info.as_ref()
+                    .map(|info| Cow::Borrowed(info.descriptor.name()))
+            })
+            .or_else(|| {
+                let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
+                // first check components, then resources, then dynamic
+                queued
+                    .components
+                    .values()
+                    .chain(queued.resources.values())
+                    .chain(queued.dynamic_registrations.iter())
+                    .find(|queued| queued.id == id)
+                    .map(|queued| Cow::Owned(queued.descriptor.name().to_string()))
+            })
     }
 
     /// Gets the metadata associated with the given component.

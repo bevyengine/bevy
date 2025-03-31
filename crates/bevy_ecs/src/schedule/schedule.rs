@@ -2,6 +2,7 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17344."
 )]
+use alloc::borrow::Cow;
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -25,7 +26,7 @@ use thiserror::Error;
 use tracing::info_span;
 
 use crate::{
-    component::{ComponentId, ComponentName, Components, Tick},
+    component::{ComponentId, Components, Tick},
     error::default_error_handler,
     prelude::Component,
     resource::Resource,
@@ -1902,7 +1903,7 @@ impl ScheduleGraph {
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
         components: &'a Components,
-    ) -> impl Iterator<Item = (String, String, Vec<ComponentName<'a>>)> + 'a {
+    ) -> impl Iterator<Item = (String, String, Vec<Cow<'a, str>>)> + 'a {
         ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {
