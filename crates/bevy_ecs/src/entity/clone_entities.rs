@@ -844,7 +844,7 @@ mod tests {
     use super::ComponentCloneCtx;
     use crate::{
         component::{Component, ComponentCloneBehavior, ComponentDescriptor, StorageType},
-        entity::{hash_map::EntityHashMap, Entity, EntityCloner, SourceComponent},
+        entity::{Entity, EntityCloner, EntityHashMap, SourceComponent},
         prelude::{ChildOf, Children, Resource},
         reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
         world::{FromWorld, World},
@@ -1229,7 +1229,7 @@ mod tests {
         struct A;
 
         #[derive(Component, Clone, PartialEq, Debug, Default)]
-        #[require(C(|| C(5)))]
+        #[require(C(5))]
         struct B;
 
         #[derive(Component, Clone, PartialEq, Debug)]
@@ -1257,7 +1257,7 @@ mod tests {
         struct A;
 
         #[derive(Component, Clone, PartialEq, Debug, Default)]
-        #[require(C(|| C(5)))]
+        #[require(C(5))]
         struct B;
 
         #[derive(Component, Clone, PartialEq, Debug)]

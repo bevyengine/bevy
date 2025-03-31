@@ -22,6 +22,7 @@ bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-d
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.16.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 
 bitflags = "2.3"
 derive_more = { version = "1", default-features = false, features = ["from"] }

@@ -15,13 +15,14 @@ use bevy_core_pipeline::core_2d::{
 };
 use bevy_ecs::{
     entity::Entity,
-    query::{Changed, Or},
+    query::{Changed, Or, With},
     removal_detection::RemovedComponents,
     schedule::IntoScheduleConfigs,
-    system::{Query, Res, ResMut, SystemChangeTick},
+    system::{Local, Query, Res, ResMut, SystemChangeTick},
 };
 use bevy_math::FloatOrd;
 use bevy_render::{
+    camera::extract_cameras,
     mesh::{Mesh2d, RenderMesh},
     render_asset::{prepare_assets, RenderAssetPlugin, RenderAssets},
     render_phase::{
@@ -33,6 +34,7 @@ use bevy_render::{
     view::{ExtractedView, RenderVisibleEntities, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
+use bevy_utils::Parallel;
 
 use crate::mesh_pipeline::{
     instancing::RenderMesh2dInstances,
@@ -90,7 +92,7 @@ where
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_entities_needs_specialization::<M>,
+                        extract_entities_needs_specialization::<M>.after(extract_cameras),
                         extract_mesh_materials_2d::<M>,
                     ),
                 )
@@ -173,6 +175,9 @@ fn extract_mesh_materials_2d<M: Material2d>(
 fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
+    mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial2d<M>>>,
+    mut specialized_material2d_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
+    views: Query<&MainEntity, With<ExtractedView>>,
     ticks: SystemChangeTick,
 ) where
     M: Material2d,
@@ -181,26 +186,42 @@ fn extract_entities_needs_specialization<M>(
         // Update the entity's specialization tick with this run's tick
         entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
     }
+    // Clean up any despawned entities
+    for entity in removed_mesh_material_components.read() {
+        entity_specialization_ticks.remove(&MainEntity::from(entity));
+        for view in views {
+            if let Some(cache) = specialized_material2d_pipeline_cache.get_mut(view) {
+                cache.remove(&MainEntity::from(entity));
+            }
+        }
+    }
 }
 
 fn check_entities_needing_specialization<M>(
     needs_specialization: Query<
         Entity,
-        Or<(
-            Changed<Mesh2d>,
-            AssetChanged<Mesh2d>,
-            Changed<MeshMaterial2d<M>>,
-            AssetChanged<MeshMaterial2d<M>>,
-        )>,
+        (
+            Or<(
+                Changed<Mesh2d>,
+                AssetChanged<Mesh2d>,
+                Changed<MeshMaterial2d<M>>,
+                AssetChanged<MeshMaterial2d<M>>,
+            )>,
+            With<MeshMaterial2d<M>>,
+        ),
     >,
+    mut par_local: Local<Parallel<Vec<Entity>>>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
 ) where
     M: Material2d,
 {
     entities_needing_specialization.clear();
-    for entity in &needs_specialization {
-        entities_needing_specialization.push(entity);
-    }
+
+    needs_specialization
+        .par_iter()
+        .for_each(|entity| par_local.borrow_local_mut().push(entity));
+
+    par_local.drain_into(&mut entities_needing_specialization);
 }
 
 fn specialize_material2d_meshes<M: Material2d>(

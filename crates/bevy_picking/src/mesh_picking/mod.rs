@@ -86,7 +86,7 @@ pub fn update_hits(
     mut ray_cast: MeshRayCast,
     mut output: EventWriter<PointerHits>,
 ) {
-    for (&ray_id, &ray) in ray_map.map().iter() {
+    for (&ray_id, &ray) in ray_map.iter() {
         let Ok((camera, cam_can_pick, cam_layers)) = picking_cameras.get(ray_id.camera) else {
             continue;
         };

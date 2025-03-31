@@ -30,13 +30,6 @@ sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
 
 # Texture formats that have specific rendering support (HDR enabled by default)
 basis-universal = ["bevy_image/basis-universal", "bevy_render/basis-universal"]
-dds = [
-  "bevy_image/dds",
-  "bevy_render/dds",
-  "bevy_core_pipeline/dds",
-  "bevy_anti_aliasing/dds",
-  "bevy_gltf?/dds",
-]
 exr = ["bevy_image/exr", "bevy_render/exr"]
 hdr = ["bevy_image/hdr", "bevy_render/hdr"]
 ktx2 = ["bevy_image/ktx2", "bevy_render/ktx2"]
@@ -57,6 +50,7 @@ qoi = ["bevy_image/qoi"]
 tga = ["bevy_image/tga"]
 tiff = ["bevy_image/tiff"]
 webp = ["bevy_image/webp"]
+dds = ["bevy_image/dds"]
 
 # Enable SPIR-V passthrough
 spirv_shader_passthrough = ["bevy_render/spirv_shader_passthrough"]
@@ -369,10 +363,11 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = fa
 ] }
 bevy_input = { path = "../bevy_input", version = "0.16.0-dev", default-features = false, features = [
   "bevy_reflect",
-], optional = true }
+] }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev", default-features = false, features = [
   "bevy_reflect",
-], optional = true }
+  "nostd-libm",
+] }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
@@ -386,7 +381,7 @@ bevy_time = { path = "../bevy_time", version = "0.16.0-dev", default-features = 
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev", default-features = false, features = [
   "bevy-support",
   "bevy_reflect",
-], optional = true }
+] }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
@@ -432,7 +427,7 @@ bevy_ui = { path = "../bevy_ui", optional = true, version = "0.16.0-dev" }
 bevy_window = { path = "../bevy_window", optional = true, version = "0.16.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }
-bevy_winit = { path = "../bevy_winit", optional = true, version = "0.16.0-dev" }
+bevy_winit = { path = "../bevy_winit", optional = true, version = "0.16.0-dev", default-features = false }
 
 [lints]
 workspace = true

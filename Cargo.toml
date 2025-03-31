@@ -577,7 +577,7 @@ hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
-accesskit = "0.17"
+accesskit = "0.18"
 nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
@@ -1597,6 +1597,7 @@ wasm = true
 name = "headless"
 path = "examples/app/headless.rs"
 doc-scrape-examples = true
+required-features = ["bevy_log"]
 
 [package.metadata.example.headless]
 name = "Headless"
@@ -2219,6 +2220,7 @@ wasm = false
 name = "fallible_params"
 path = "examples/ecs/fallible_params.rs"
 doc-scrape-examples = true
+required-features = ["configurable_error_handler"]
 
 [package.metadata.example.fallible_params]
 name = "Fallible System Parameters"
