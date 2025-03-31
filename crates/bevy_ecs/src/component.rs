@@ -2027,28 +2027,14 @@ impl Components {
             .and_then(|info| info.as_ref().map(|info| CowArc::Borrowed(&info.descriptor)))
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
-                // first check components
+                // first check components, then resources, then dynamic
                 queued
                     .components
                     .values()
+                    .chain(queued.resources.values())
+                    .chain(queued.dynamic_registrations.iter())
                     .find(|queued| queued.id == id)
                     .map(|queued| CowArc::Owned(Arc::new(queued.descriptor.clone())))
-                    .or_else(|| {
-                        // otherwise check resources
-                        queued
-                            .resources
-                            .values()
-                            .find(|queued| queued.id == id)
-                            .map(|queued| CowArc::Owned(Arc::new(queued.descriptor.clone())))
-                    })
-                    .or_else(|| {
-                        // otherwise check dynamic
-                        queued
-                            .dynamic_registrations
-                            .iter()
-                            .find(|queued| queued.id == id)
-                            .map(|queued| CowArc::Owned(Arc::new(queued.descriptor.clone())))
-                    })
             })
     }
 
