@@ -688,18 +688,19 @@ impl<'w, 's> Commands<'w, 's> {
         });
     }
 
-    /// Adds a series of [`Bundles`](Bundle) to the [`Entity`] they are paired with,
+    /// Adds a series of [`Bundles`](Bundle) to each [`Entity`] they are paired with,
     /// based on a batch of `(Entity, Bundle)` pairs.
     ///
-    /// A batch can be any type that implements [`IntoIterator`] and contains `(Entity, Bundle)` tuples,
-    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec) or an array `[(Entity, Bundle); N]`.
+    /// A batch can be any type that implements [`IntoIterator`]
+    /// and contains `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec)
+    /// or an array `[(Entity, Bundle); N]`.
     ///
     /// This will overwrite any pre-existing components shared by the [`Bundle`] type.
     /// Use [`Commands::insert_batch_if_new`] to keep the pre-existing components instead.
     ///
-    /// This method is equivalent to iterating the batch,
-    /// calling [`entity`](Self::entity) for each pair,
-    /// and passing the bundle to [`insert`](EntityCommands::insert),
+    /// This method is equivalent to iterating the batch
+    /// and calling [`insert`](EntityCommands::insert) for each pair,
     /// but is faster by caching data that is shared between entities.
     #[track_caller]
     pub fn insert_batch<I, B>(&mut self, batch: I)
@@ -710,18 +711,20 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::insert_batch(batch, InsertMode::Replace));
     }
 
-    /// Adds a series of [`Bundles`](Bundle) to the [`Entity`] they are paired with,
+    /// Adds a series of [`Bundles`](Bundle) to each [`Entity`] they are paired with,
     /// based on a batch of `(Entity, Bundle)` pairs.
     ///
-    /// A batch can be any type that implements [`IntoIterator`] and contains `(Entity, Bundle)` tuples,
-    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec) or an array `[(Entity, Bundle); N]`.
+    /// A batch can be any type that implements [`IntoIterator`]
+    /// and contains `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec)
+    /// or an array `[(Entity, Bundle); N]`.
     ///
-    /// This will keep any pre-existing components shared by the [`Bundle`] type and discard the new values.
+    /// This will keep any pre-existing components shared by the [`Bundle`] type
+    /// and discard the new values.
     /// Use [`Commands::insert_batch`] to overwrite the pre-existing components instead.
     ///
-    /// This method is equivalent to iterating the batch,
-    /// calling [`entity`](Self::entity) for each pair,
-    /// and passing the bundle to [`insert_if_new`](EntityCommands::insert_if_new),
+    /// This method is equivalent to iterating the batch
+    /// and calling [`insert_if_new`](EntityCommands::insert_if_new) for each pair,
     /// but is faster by caching data that is shared between entities.
     #[track_caller]
     pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
@@ -735,15 +738,16 @@ impl<'w, 's> Commands<'w, 's> {
     /// Adds a series of [`Bundles`](Bundle) to each [`Entity`] they are paired with,
     /// based on a batch of `(Entity, Bundle)` pairs.
     ///
-    /// A batch can be any type that implements [`IntoIterator`] and contains `(Entity, Bundle)` tuples,
-    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec) or an array `[(Entity, Bundle); N]`.
+    /// A batch can be any type that implements [`IntoIterator`]
+    /// and contains `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec)
+    /// or an array `[(Entity, Bundle); N]`.
     ///
     /// This will overwrite any pre-existing components shared by the [`Bundle`] type.
     /// Use [`Commands::try_insert_batch_if_new`] to keep the pre-existing components instead.
     ///
-    /// This method is equivalent to iterating the batch,
-    /// calling [`get_entity`](Self::get_entity) for each pair,
-    /// and passing the bundle to [`insert`](EntityCommands::insert),
+    /// This method is equivalent to iterating the batch
+    /// and calling [`insert`](EntityCommands::insert) for each pair,
     /// but is faster by caching data that is shared between entities.
     ///
     /// This command will emit a warning if any of the given entities do not exist.
@@ -756,18 +760,20 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::insert_batch(batch, InsertMode::Replace).handle_error_with(warn));
     }
 
-    /// Adds a series of [`Bundles`](Bundle) to the [`Entity`] they are paired with,
+    /// Adds a series of [`Bundles`](Bundle) to each [`Entity`] they are paired with,
     /// based on a batch of `(Entity, Bundle)` pairs.
     ///
-    /// A batch can be any type that implements [`IntoIterator`] and contains `(Entity, Bundle)` tuples,
-    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec) or an array `[(Entity, Bundle); N]`.
+    /// A batch can be any type that implements [`IntoIterator`]
+    /// and contains `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec)
+    /// or an array `[(Entity, Bundle); N]`.
     ///
-    /// This will keep any pre-existing components shared by the [`Bundle`] type and discard the new values.
+    /// This will keep any pre-existing components shared by the [`Bundle`] type
+    /// and discard the new values.
     /// Use [`Commands::try_insert_batch`] to overwrite the pre-existing components instead.
     ///
-    /// This method is equivalent to iterating the batch,
-    /// calling [`get_entity`](Self::get_entity) for each pair,
-    /// and passing the bundle to [`insert_if_new`](EntityCommands::insert_if_new),
+    /// This method is equivalent to iterating the batch
+    /// and calling [`insert_if_new`](EntityCommands::insert_if_new) for each pair,
     /// but is faster by caching data that is shared between entities.
     ///
     /// This command will emit a warning if any of the given entities do not exist.
