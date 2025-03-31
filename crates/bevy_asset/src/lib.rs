@@ -686,7 +686,6 @@ mod tests {
         prelude::*,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
-    use bevy_log::LogPlugin;
     use bevy_platform_support::collections::HashMap;
     use bevy_reflect::TypePath;
     use core::time::Duration;
@@ -855,11 +854,7 @@ mod tests {
             AssetSourceId::Default,
             AssetSource::build().with_reader(move || Box::new(gated_memory_reader.clone())),
         )
-        .add_plugins((
-            TaskPoolPlugin::default(),
-            LogPlugin::default(),
-            AssetPlugin::default(),
-        ));
+        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
         (app, gate_opener)
     }
 
@@ -1757,11 +1752,7 @@ mod tests {
             "unstable",
             AssetSource::build().with_reader(move || Box::new(unstable_reader.clone())),
         )
-        .add_plugins((
-            TaskPoolPlugin::default(),
-            LogPlugin::default(),
-            AssetPlugin::default(),
-        ))
+        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
         .init_asset::<CoolText>()
         .register_asset_loader(CoolTextLoader)
         .init_resource::<ErrorTracker>()
@@ -1832,11 +1823,7 @@ mod tests {
             AssetSource::build()
                 .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() })),
         )
-        .add_plugins((
-            TaskPoolPlugin::default(),
-            LogPlugin::default(),
-            AssetPlugin::default(),
-        ));
+        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
 
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
@@ -1941,7 +1928,6 @@ mod tests {
         )
         .add_plugins((
             TaskPoolPlugin::default(),
-            LogPlugin::default(),
             AssetPlugin {
                 unapproved_path_mode: mode,
                 ..Default::default()
