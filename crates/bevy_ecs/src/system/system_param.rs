@@ -468,10 +468,10 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         match query.single_inner() {
             Ok(_) => Ok(()),
             Err(QuerySingleError::NoEntities(_)) => Err(
-                SystemParamValidationError::skipped::<Self>("No matching entities"),
+                SystemParamValidationError::invalid::<Self>("No matching entities"),
             ),
             Err(QuerySingleError::MultipleEntities(_)) => Err(
-                SystemParamValidationError::skipped::<Self>("Multiple matching entities"),
+                SystemParamValidationError::invalid::<Self>("Multiple matching entities"),
             ),
         }
     }
@@ -540,7 +540,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         match query.single_inner() {
             Ok(_) | Err(QuerySingleError::NoEntities(_)) => Ok(()),
             Err(QuerySingleError::MultipleEntities(_)) => Err(
-                SystemParamValidationError::skipped::<Self>("Multiple matching entities"),
+                SystemParamValidationError::invalid::<Self>("Multiple matching entities"),
             ),
         }
     }
@@ -608,7 +608,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
             )
         };
         if query.is_empty() {
-            Err(SystemParamValidationError::skipped::<Self>(
+            Err(SystemParamValidationError::invalid::<Self>(
                 "No matching entities",
             ))
         } else {
@@ -1918,6 +1918,8 @@ unsafe impl SystemParam for SystemChangeTick {
 
 /// A [`SystemParam`] that wraps another parameter and causes its system to skip instead of failing when the parameter is invalid.
 ///
+/// This is especially useful with [`Single`] and [`Populated`].
+///
 /// # Example
 ///
 /// ```
@@ -2816,12 +2818,6 @@ pub struct SystemParamValidationError {
 }
 
 impl SystemParamValidationError {
-    /// Constructs a `SystemParamValidationError` that skips the system.
-    /// The parameter name is initialized to the type name of `T`, so a `SystemParam` should usually pass `Self`.
-    pub fn skipped<T>(message: impl Into<Cow<'static, str>>) -> Self {
-        Self::new::<T>(true, message, Cow::Borrowed(""))
-    }
-
     /// Constructs a `SystemParamValidationError` for an invalid parameter that should be treated as an error.
     /// The parameter name is initialized to the type name of `T`, so a `SystemParam` should usually pass `Self`.
     pub fn invalid<T>(message: impl Into<Cow<'static, str>>) -> Self {

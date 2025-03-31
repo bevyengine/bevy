@@ -317,7 +317,7 @@ mod tests {
     use crate::{
         prelude::{Component, Resource, Schedule},
         schedule::ExecutorKind,
-        system::{Populated, Res, ResMut, Single},
+        system::{Populated, Res, ResMut, Single, When},
         world::World,
     };
 
@@ -336,12 +336,12 @@ mod tests {
         single_ran: bool,
     }
 
-    fn set_single_state(mut _single: Single<&TestComponent>, mut state: ResMut<TestState>) {
+    fn set_single_state(mut _single: When<Single<&TestComponent>>, mut state: ResMut<TestState>) {
         state.single_ran = true;
     }
 
     fn set_populated_state(
-        mut _populated: Populated<&TestComponent>,
+        mut _populated: When<Populated<&TestComponent>>,
         mut state: ResMut<TestState>,
     ) {
         state.populated_ran = true;
