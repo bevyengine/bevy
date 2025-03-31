@@ -214,7 +214,7 @@ impl PendingBuffer {
 
         let mut len = self.len.load(Ordering::Acquire);
         loop {
-            if len == 0 {
+            if len <= 0 {
                 return None;
             }
 
