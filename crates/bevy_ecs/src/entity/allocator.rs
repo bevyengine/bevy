@@ -140,6 +140,15 @@ struct PendingBuffer {
 }
 
 impl PendingBuffer {
+    /// Gets the number of pending entities.
+    ///
+    /// # Safety
+    ///
+    /// For this to be accurate, this must not be called during a [`Self::free`].
+    unsafe fn num_pending(&self) -> u64 {
+        self.len.load(Ordering::Relaxed).max(0) as u64
+    }
+
     /// Frees the `entity` allowing it to be reused.
     ///
     /// # Safety
@@ -351,6 +360,12 @@ impl Allocator {
     /// The total number of indices given out.
     pub fn total_entity_indices(&self) -> u64 {
         self.shared.total_entity_indices()
+    }
+
+    /// The number of pending entities.
+    pub fn num_pending(&self) -> u64 {
+        // SAFETY: `free` is not being called since it takes `&mut self`.
+        unsafe { self.shared.pending.num_pending() }
     }
 
     /// Returns whether or not the index is valid in this allocator.

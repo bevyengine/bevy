@@ -87,7 +87,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_platform_support::sync::atomic::Ordering;
-use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
+use core::{fmt, hash::Hash, num::NonZero, panic::Location};
 use log::warn;
 
 #[cfg(feature = "serialize")]
@@ -568,7 +568,7 @@ impl Entities {
     #[deprecated(
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
-    pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
+    pub fn alloc_at(&mut self, _entity: Entity) -> Option<EntityLocation> {
         unimplemented!()
     }
 
@@ -584,7 +584,7 @@ impl Entities {
     )]
     pub(crate) fn alloc_at_without_replacement(
         &mut self,
-        entity: Entity,
+        _entity: Entity,
     ) -> AllocAtWithoutReplacement {
         unimplemented!()
     }
@@ -731,40 +731,18 @@ impl Entities {
     }
 
     /// The count of all entities in the [`World`] that have ever been allocated
-    /// including the entities that are currently freed.
-    ///
-    /// This does not include entities that have been reserved but have never been
-    /// allocated yet.
+    /// including the entities that are currently pending reuse.
     ///
     /// [`World`]: crate::world::World
     #[inline]
     pub fn total_count(&self) -> usize {
-        self.meta.len()
-    }
-
-    /// The count of all entities in the [`World`] that are used,
-    /// including both those allocated and those reserved, but not those freed.
-    ///
-    /// [`World`]: crate::world::World
-    #[inline]
-    pub fn used_count(&self) -> usize {
-        (self.meta.len() as isize - self.free_cursor.load(Ordering::Relaxed) as isize) as usize
-    }
-
-    /// The count of all entities in the [`World`] that have ever been allocated or reserved, including those that are freed.
-    /// This is the value that [`Self::total_count()`] would return if [`Self::flush()`] were called right now.
-    ///
-    /// [`World`]: crate::world::World
-    #[inline]
-    pub fn total_prospective_count(&self) -> usize {
-        self.meta.len() + (-self.free_cursor.load(Ordering::Relaxed)).min(0) as usize
+        self.allocator.total_entity_indices() as usize
     }
 
     /// The count of currently allocated entities.
     #[inline]
-    pub fn len(&self) -> u32 {
-        // `pending`, by definition, can't be bigger than `meta`.
-        (self.meta.len() - self.pending.len()) as u32
+    pub fn len(&self) -> u64 {
+        self.allocator.total_entity_indices() - self.allocator.num_pending()
     }
 
     /// Checks if any entity is currently active.
