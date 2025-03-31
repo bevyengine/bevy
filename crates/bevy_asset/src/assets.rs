@@ -460,12 +460,12 @@ impl<A: Asset> Assets<A> {
     }
 
     /// Removes the [`Asset`] with the given `id`.
-    pub(crate) fn remove_dropped(&mut self, id: AssetId<A>) {
+    pub(crate) fn remove_dropped(&mut self, id: AssetId<A>) -> bool {
         match self.duplicate_handles.get_mut(&id) {
             None | Some(0) => {}
             Some(value) => {
                 *value -= 1;
-                return;
+                return false;
             }
         }
         let existed = match id {
@@ -475,6 +475,8 @@ impl<A: Asset> Assets<A> {
         if existed {
             self.queued_events.push(AssetEvent::Removed { id });
         }
+
+        existed
     }
 
     /// Returns `true` if there are no assets in this collection.
@@ -553,8 +555,9 @@ impl<A: Asset> Assets<A> {
                 }
             }
 
-            assets.queued_events.push(AssetEvent::Unused { id });
-            assets.remove_dropped(id);
+            if assets.remove_dropped(id) {
+                assets.queued_events.push(AssetEvent::Unused { id });
+            }
         }
     }
 
