@@ -241,6 +241,15 @@ impl PendingBuffer {
     }
 }
 
+impl Drop for PendingBuffer {
+    fn drop(&mut self) {
+        for index in 0..Chunk::NUM_CHUNKS {
+            // SAFETY: we have `&mut`
+            unsafe { self.chunks[index as usize].dealloc(index) };
+        }
+    }
+}
+
 /// This stores allocation data shared by all entity allocators.
 struct SharedAllocator {
     /// The entities pending reuse
@@ -254,7 +263,7 @@ impl SharedAllocator {
     ///
     /// # Safety
     ///
-    /// This must not conflict with [`Self::free`] calls.
+    /// This must not conflict with [`PendingBuffer::free`] calls.
     unsafe fn alloc(&self) -> Entity {
         // SAFETY: assured by caller
         unsafe { self.pending.alloc() }.unwrap_or_else(|| {
@@ -282,6 +291,31 @@ impl SharedAllocator {
     fn is_valid_index(&self, index: u32) -> bool {
         let next = self.next_entity_index.load(Ordering::Relaxed);
         index < next
+    }
+}
+
+pub struct Allocator {
+    shared: Arc<SharedAllocator>,
+}
+
+impl Allocator {
+    /// Allocates a new [`Entity`], reusing a freed index if one exists.
+    pub fn alloc(&self) -> Entity {
+        // SAFETY: violating safety requires a `&mut self` to exist, but rust does not allow that.
+        unsafe { self.shared.alloc() }
+    }
+
+    /// Returns whether or not the index is valid in this allocator.
+    pub fn is_valid_index(&self, index: u32) -> bool {
+        self.shared.is_valid_index(index)
+    }
+
+    /// Frees the entity allowing it to be reused.
+    pub fn free(&mut self, entity: Entity) {
+        // SAFETY: We have `&mut self`.
+        unsafe {
+            self.shared.pending.free(entity);
+        }
     }
 }
 
