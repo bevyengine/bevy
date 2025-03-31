@@ -599,6 +599,12 @@ impl Parse for Require {
             input.parse::<Token![=]>()?;
             let expr: Expr = input.parse()?;
             Some(quote!(|| #expr ))
+        } else if input.peek(Brace) {
+            // This is a "value style" named-struct-like require
+            let content;
+            braced!(content in input);
+            let content = content.parse::<TokenStream2>()?;
+            Some(quote!(|| #path { #content }))
         } else if input.peek(Paren) {
             // This is a "value style" tuple-struct-like require
             let content;
@@ -606,12 +612,6 @@ impl Parse for Require {
             let content = content.parse_terminated(Expr::parse, Token![,])?;
             is_constructor_call = last_segment_is_lower;
             Some(quote!(|| #path (#content)))
-        } else if input.peek(Brace) {
-            // This is a "value style" named-struct-like require
-            let content;
-            braced!(content in input);
-            let content = content.parse::<TokenStream2>()?;
-            Some(quote!(|| #path { #content }))
         } else if is_enum {
             // if this is an enum, then it is an inline enum component declaration
             Some(quote!(|| #path))
