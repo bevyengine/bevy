@@ -171,7 +171,7 @@ impl PendingBuffer {
     /// This must not conflict with [`Self::free`] calls.
     unsafe fn alloc(&self) -> Option<Entity> {
         // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
-        let len = self.len.fetch_sub(1, Ordering::Relaxed);
+        let len = self.len.fetch_sub(1, Ordering::AcqRel);
         (len > 0).then(|| {
             let idnex = len - 1;
             // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
@@ -187,7 +187,56 @@ impl PendingBuffer {
 
     /// Allocates an [`Entity`] from the pending list if one is available.
     fn remote_alloc(&self) -> Option<Entity> {
-        todo!()
+        // The goal is the same as `alloc`, so what's the difference?
+        // `alloc` knows `free` is not being called, but this does not.
+        // What if we `len.fetch_sub(1)` but then `free` overwrites the entity before we could read it?
+        // That would mean we would leak an entity and give another entity out twice.
+        // We get around this by only updating `len` after the read is complete.
+        // But that means something else could be trying to allocate the same index!
+        // So we need a `len.compare_exchange` loop to ensure the index is unique.
+        //
+        // Examples:
+        //
+        // What if another allocation happens during the loop?
+        // The exchange will fail, and we try again.
+        //
+        // What happens if a `free` starts during the loop?
+        // The exchange will fail, and we return `None`.
+        //
+        // What happens if a `free` starts and finishes during the loop?
+        // The exchange will fail (len is 1 more than expected) and we try again.
+        //
+        // What happens if a `free` starts and finishes, and then a different allocation takes the freed entity?
+        // The exchange will not fail, and we allocate the correct entity.
+        // The other allocation gets the newly freed one, and we get the previous one.
+        // If the `free`s and `alloc`s are not balanced, the exchange will fail, and we try again.
+
+        let mut len = self.len.load(Ordering::Acquire);
+        loop {
+            if len == 0 {
+                return None;
+            }
+
+            let target_new_len = len - 1;
+            // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
+            let (chunk_index, index) = Chunk::get_indices(target_new_len as u32);
+
+            // SAFETY: index is correct.
+            let chunk = unsafe { self.chunks.get_unchecked(chunk_index as usize) };
+
+            // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
+            let entity = unsafe { chunk.get(index) };
+
+            match self.len.compare_exchange(
+                len,
+                target_new_len,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return Some(entity),
+                Err(updated_len) => len = updated_len,
+            }
+        }
     }
 }
 
