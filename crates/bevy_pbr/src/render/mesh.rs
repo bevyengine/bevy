@@ -49,7 +49,6 @@ use bevy_utils::{default, Parallel, TypeIdMap};
 use core::any::TypeId;
 use core::mem::size_of;
 use material_bind_groups::MaterialBindingId;
-use render::skin;
 use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
@@ -1865,7 +1864,7 @@ impl FromWorld for MeshPipeline {
                 &render_device,
                 &render_adapter,
             ),
-            skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device),
+            skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device),
         }
     }
 }
@@ -3004,7 +3003,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             offset_count += 1;
         }
         if let Some(current_skin_index) = current_skin_byte_offset {
-            if skin::skins_use_uniform_buffers(&render_device) {
+            if skins_use_uniform_buffers(&render_device) {
                 dynamic_offsets[offset_count] = current_skin_index.byte_offset;
                 offset_count += 1;
             }
@@ -3017,7 +3016,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         // Attach motion vectors if needed.
         if has_motion_vector_prepass {
             // Attach the previous skin index for motion vector computation.
-            if skin::skins_use_uniform_buffers(&render_device) {
+            if skins_use_uniform_buffers(&render_device) {
                 if let Some(current_skin_byte_offset) = current_skin_byte_offset {
                     dynamic_offsets[offset_count] = current_skin_byte_offset.byte_offset;
                     offset_count += 1;

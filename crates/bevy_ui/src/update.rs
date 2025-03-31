@@ -9,7 +9,7 @@ use crate::{
 use super::ComputedNode;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    entity::{hash_set::EntityHashSet, Entity},
+    entity::{Entity, EntityHashSet},
     hierarchy::ChildOf,
     query::{Changed, With},
     system::{Commands, Local, Query, Res},

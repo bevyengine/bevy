@@ -25,10 +25,9 @@ use alloc::{
 use bevy_platform_support::sync::Arc;
 
 use super::{
-    unique_array::UniqueEntityArray,
     unique_vec::{self, UniqueEntityVec},
-    Entity, EntitySet, EntitySetIterator, FromEntitySetIterator, TrustedEntityBorrow,
-    UniqueEntityIter,
+    Entity, EntityEquivalent, EntitySet, EntitySetIterator, FromEntitySetIterator,
+    UniqueEntityArray, UniqueEntityIter,
 };
 
 /// A slice that contains only unique entities.
@@ -36,9 +35,9 @@ use super::{
 /// It can be obtained by slicing [`UniqueEntityVec`].
 #[repr(transparent)]
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct UniqueEntitySlice<T: TrustedEntityBorrow = Entity>([T]);
+pub struct UniqueEntitySlice<T: EntityEquivalent = Entity>([T]);
 
-impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> UniqueEntitySlice<T> {
     /// Constructs a `UniqueEntitySlice` from a [`&[T]`] unsafely.
     ///
     /// # Safety
@@ -816,13 +815,13 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
 }
 
 /// Converts a reference to T into a slice of length 1 (without copying).
-pub const fn from_ref<T: TrustedEntityBorrow>(s: &T) -> &UniqueEntitySlice<T> {
+pub const fn from_ref<T: EntityEquivalent>(s: &T) -> &UniqueEntitySlice<T> {
     // SAFETY: A slice with a length of 1 is always unique.
     unsafe { UniqueEntitySlice::from_slice_unchecked(slice::from_ref(s)) }
 }
 
 /// Converts a reference to T into a slice of length 1 (without copying).
-pub const fn from_mut<T: TrustedEntityBorrow>(s: &mut T) -> &mut UniqueEntitySlice<T> {
+pub const fn from_mut<T: EntityEquivalent>(s: &mut T) -> &mut UniqueEntitySlice<T> {
     // SAFETY: A slice with a length of 1 is always unique.
     unsafe { UniqueEntitySlice::from_slice_unchecked_mut(slice::from_mut(s)) }
 }
@@ -835,7 +834,7 @@ pub const fn from_mut<T: TrustedEntityBorrow>(s: &mut T) -> &mut UniqueEntitySli
 ///
 /// [`slice::from_raw_parts`] must be safe to call with `data` and `len`.
 /// Additionally, all elements in the resulting slice must be unique.
-pub const unsafe fn from_raw_parts<'a, T: TrustedEntityBorrow>(
+pub const unsafe fn from_raw_parts<'a, T: EntityEquivalent>(
     data: *const T,
     len: usize,
 ) -> &'a UniqueEntitySlice<T> {
@@ -851,7 +850,7 @@ pub const unsafe fn from_raw_parts<'a, T: TrustedEntityBorrow>(
 ///
 /// [`slice::from_raw_parts_mut`] must be safe to call with `data` and `len`.
 /// Additionally, all elements in the resulting slice must be unique.
-pub const unsafe fn from_raw_parts_mut<'a, T: TrustedEntityBorrow>(
+pub const unsafe fn from_raw_parts_mut<'a, T: EntityEquivalent>(
     data: *mut T,
     len: usize,
 ) -> &'a mut UniqueEntitySlice<T> {
@@ -864,7 +863,7 @@ pub const unsafe fn from_raw_parts_mut<'a, T: TrustedEntityBorrow>(
 /// # Safety
 ///
 /// All elements in each of the casted slices must be unique.
-pub unsafe fn cast_slice_of_unique_entity_slice<'a, 'b, T: TrustedEntityBorrow + 'a>(
+pub unsafe fn cast_slice_of_unique_entity_slice<'a, 'b, T: EntityEquivalent + 'a>(
     slice: &'b [&'a [T]],
 ) -> &'b [&'a UniqueEntitySlice<T>] {
     // SAFETY: All elements in the original iterator are unique slices.
@@ -876,7 +875,7 @@ pub unsafe fn cast_slice_of_unique_entity_slice<'a, 'b, T: TrustedEntityBorrow +
 /// # Safety
 ///
 /// All elements in each of the casted slices must be unique.
-pub unsafe fn cast_slice_of_unique_entity_slice_mut<'a, 'b, T: TrustedEntityBorrow + 'a>(
+pub unsafe fn cast_slice_of_unique_entity_slice_mut<'a, 'b, T: EntityEquivalent + 'a>(
     slice: &'b mut [&'a [T]],
 ) -> &'b mut [&'a UniqueEntitySlice<T>] {
     // SAFETY: All elements in the original iterator are unique slices.
@@ -888,14 +887,14 @@ pub unsafe fn cast_slice_of_unique_entity_slice_mut<'a, 'b, T: TrustedEntityBorr
 /// # Safety
 ///
 /// All elements in each of the casted slices must be unique.
-pub unsafe fn cast_slice_of_mut_unique_entity_slice_mut<'a, 'b, T: TrustedEntityBorrow + 'a>(
+pub unsafe fn cast_slice_of_mut_unique_entity_slice_mut<'a, 'b, T: EntityEquivalent + 'a>(
     slice: &'b mut [&'a mut [T]],
 ) -> &'b mut [&'a mut UniqueEntitySlice<T>] {
     // SAFETY: All elements in the original iterator are unique slices.
     unsafe { &mut *(ptr::from_mut(slice) as *mut [&mut UniqueEntitySlice<T>]) }
 }
 
-impl<'a, T: TrustedEntityBorrow> IntoIterator for &'a UniqueEntitySlice<T> {
+impl<'a, T: EntityEquivalent> IntoIterator for &'a UniqueEntitySlice<T> {
     type Item = &'a T;
 
     type IntoIter = Iter<'a, T>;
@@ -905,7 +904,7 @@ impl<'a, T: TrustedEntityBorrow> IntoIterator for &'a UniqueEntitySlice<T> {
     }
 }
 
-impl<'a, T: TrustedEntityBorrow> IntoIterator for &'a Box<UniqueEntitySlice<T>> {
+impl<'a, T: EntityEquivalent> IntoIterator for &'a Box<UniqueEntitySlice<T>> {
     type Item = &'a T;
 
     type IntoIter = Iter<'a, T>;
@@ -915,7 +914,7 @@ impl<'a, T: TrustedEntityBorrow> IntoIterator for &'a Box<UniqueEntitySlice<T>> 
     }
 }
 
-impl<T: TrustedEntityBorrow> IntoIterator for Box<UniqueEntitySlice<T>> {
+impl<T: EntityEquivalent> IntoIterator for Box<UniqueEntitySlice<T>> {
     type Item = T;
 
     type IntoIter = unique_vec::IntoIter<T>;
@@ -925,7 +924,7 @@ impl<T: TrustedEntityBorrow> IntoIterator for Box<UniqueEntitySlice<T>> {
     }
 }
 
-impl<T: TrustedEntityBorrow> Deref for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> Deref for UniqueEntitySlice<T> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
@@ -933,79 +932,79 @@ impl<T: TrustedEntityBorrow> Deref for UniqueEntitySlice<T> {
     }
 }
 
-impl<T: TrustedEntityBorrow> AsRef<[T]> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> AsRef<[T]> for UniqueEntitySlice<T> {
     fn as_ref(&self) -> &[T] {
         self
     }
 }
 
-impl<T: TrustedEntityBorrow> AsRef<Self> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> AsRef<Self> for UniqueEntitySlice<T> {
     fn as_ref(&self) -> &Self {
         self
     }
 }
 
-impl<T: TrustedEntityBorrow> AsMut<Self> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> AsMut<Self> for UniqueEntitySlice<T> {
     fn as_mut(&mut self) -> &mut Self {
         self
     }
 }
 
-impl<T: TrustedEntityBorrow> Borrow<[T]> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> Borrow<[T]> for UniqueEntitySlice<T> {
     fn borrow(&self) -> &[T] {
         self
     }
 }
 
-impl<T: TrustedEntityBorrow + Clone> Clone for Box<UniqueEntitySlice<T>> {
+impl<T: EntityEquivalent + Clone> Clone for Box<UniqueEntitySlice<T>> {
     fn clone(&self) -> Self {
         self.to_vec().into_boxed_slice()
     }
 }
 
-impl<T: TrustedEntityBorrow> Default for &UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> Default for &UniqueEntitySlice<T> {
     fn default() -> Self {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntitySlice::from_slice_unchecked(Default::default()) }
     }
 }
 
-impl<T: TrustedEntityBorrow> Default for &mut UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> Default for &mut UniqueEntitySlice<T> {
     fn default() -> Self {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntitySlice::from_slice_unchecked_mut(Default::default()) }
     }
 }
 
-impl<T: TrustedEntityBorrow> Default for Box<UniqueEntitySlice<T>> {
+impl<T: EntityEquivalent> Default for Box<UniqueEntitySlice<T>> {
     fn default() -> Self {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntitySlice::from_boxed_slice_unchecked(Default::default()) }
     }
 }
 
-impl<T: TrustedEntityBorrow + Clone> From<&UniqueEntitySlice<T>> for Box<UniqueEntitySlice<T>> {
+impl<T: EntityEquivalent + Clone> From<&UniqueEntitySlice<T>> for Box<UniqueEntitySlice<T>> {
     fn from(value: &UniqueEntitySlice<T>) -> Self {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntitySlice::from_boxed_slice_unchecked(value.0.into()) }
     }
 }
 
-impl<T: TrustedEntityBorrow + Clone> From<&UniqueEntitySlice<T>> for Arc<UniqueEntitySlice<T>> {
+impl<T: EntityEquivalent + Clone> From<&UniqueEntitySlice<T>> for Arc<UniqueEntitySlice<T>> {
     fn from(value: &UniqueEntitySlice<T>) -> Self {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntitySlice::from_arc_slice_unchecked(value.0.into()) }
     }
 }
 
-impl<T: TrustedEntityBorrow + Clone> From<&UniqueEntitySlice<T>> for Rc<UniqueEntitySlice<T>> {
+impl<T: EntityEquivalent + Clone> From<&UniqueEntitySlice<T>> for Rc<UniqueEntitySlice<T>> {
     fn from(value: &UniqueEntitySlice<T>) -> Self {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntitySlice::from_rc_slice_unchecked(value.0.into()) }
     }
 }
 
-impl<'a, T: TrustedEntityBorrow + Clone> From<&'a UniqueEntitySlice<T>>
+impl<'a, T: EntityEquivalent + Clone> From<&'a UniqueEntitySlice<T>>
     for Cow<'a, UniqueEntitySlice<T>>
 {
     fn from(value: &'a UniqueEntitySlice<T>) -> Self {
@@ -1013,7 +1012,7 @@ impl<'a, T: TrustedEntityBorrow + Clone> From<&'a UniqueEntitySlice<T>>
     }
 }
 
-impl<T: TrustedEntityBorrow + Clone, const N: usize> From<UniqueEntityArray<N, T>>
+impl<T: EntityEquivalent + Clone, const N: usize> From<UniqueEntityArray<N, T>>
     for Box<UniqueEntitySlice<T>>
 {
     fn from(value: UniqueEntityArray<N, T>) -> Self {
@@ -1022,7 +1021,7 @@ impl<T: TrustedEntityBorrow + Clone, const N: usize> From<UniqueEntityArray<N, T
     }
 }
 
-impl<'a, T: TrustedEntityBorrow + Clone> From<Cow<'a, UniqueEntitySlice<T>>>
+impl<'a, T: EntityEquivalent + Clone> From<Cow<'a, UniqueEntitySlice<T>>>
     for Box<UniqueEntitySlice<T>>
 {
     fn from(value: Cow<'a, UniqueEntitySlice<T>>) -> Self {
@@ -1033,13 +1032,13 @@ impl<'a, T: TrustedEntityBorrow + Clone> From<Cow<'a, UniqueEntitySlice<T>>>
     }
 }
 
-impl<T: TrustedEntityBorrow> From<UniqueEntityVec<T>> for Box<UniqueEntitySlice<T>> {
+impl<T: EntityEquivalent> From<UniqueEntityVec<T>> for Box<UniqueEntitySlice<T>> {
     fn from(value: UniqueEntityVec<T>) -> Self {
         value.into_boxed_slice()
     }
 }
 
-impl<T: TrustedEntityBorrow> FromIterator<T> for Box<UniqueEntitySlice<T>> {
+impl<T: EntityEquivalent> FromIterator<T> for Box<UniqueEntitySlice<T>> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         iter.into_iter()
             .collect::<UniqueEntityVec<T>>()
@@ -1047,7 +1046,7 @@ impl<T: TrustedEntityBorrow> FromIterator<T> for Box<UniqueEntitySlice<T>> {
     }
 }
 
-impl<T: TrustedEntityBorrow> FromEntitySetIterator<T> for Box<UniqueEntitySlice<T>> {
+impl<T: EntityEquivalent> FromEntitySetIterator<T> for Box<UniqueEntitySlice<T>> {
     fn from_entity_set_iter<I: EntitySet<Item = T>>(iter: I) -> Self {
         iter.into_iter()
             .collect_set::<UniqueEntityVec<T>>()
@@ -1055,7 +1054,7 @@ impl<T: TrustedEntityBorrow> FromEntitySetIterator<T> for Box<UniqueEntitySlice<
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow> PartialEq<UniqueEntityVec<U>>
+impl<T: EntityEquivalent + PartialEq<U>, U: EntityEquivalent> PartialEq<UniqueEntityVec<U>>
     for &UniqueEntitySlice<T>
 {
     fn eq(&self, other: &UniqueEntityVec<U>) -> bool {
@@ -1063,7 +1062,7 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow> PartialEq<Un
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow> PartialEq<UniqueEntityVec<U>>
+impl<T: EntityEquivalent + PartialEq<U>, U: EntityEquivalent> PartialEq<UniqueEntityVec<U>>
     for &mut UniqueEntitySlice<T>
 {
     fn eq(&self, other: &UniqueEntityVec<U>) -> bool {
@@ -1071,7 +1070,7 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow> PartialEq<Un
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow> PartialEq<UniqueEntityVec<U>>
+impl<T: EntityEquivalent + PartialEq<U>, U: EntityEquivalent> PartialEq<UniqueEntityVec<U>>
     for UniqueEntitySlice<T>
 {
     fn eq(&self, other: &UniqueEntityVec<U>) -> bool {
@@ -1079,7 +1078,7 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow> PartialEq<Un
     }
 }
 
-impl<T: PartialEq<U>, U: TrustedEntityBorrow, const N: usize> PartialEq<&UniqueEntitySlice<U>>
+impl<T: PartialEq<U>, U: EntityEquivalent, const N: usize> PartialEq<&UniqueEntitySlice<U>>
     for [T; N]
 {
     fn eq(&self, other: &&UniqueEntitySlice<U>) -> bool {
@@ -1087,7 +1086,7 @@ impl<T: PartialEq<U>, U: TrustedEntityBorrow, const N: usize> PartialEq<&UniqueE
     }
 }
 
-impl<T: PartialEq<U> + Clone, U: TrustedEntityBorrow> PartialEq<&UniqueEntitySlice<U>>
+impl<T: PartialEq<U> + Clone, U: EntityEquivalent> PartialEq<&UniqueEntitySlice<U>>
     for Cow<'_, [T]>
 {
     fn eq(&self, other: &&UniqueEntitySlice<U>) -> bool {
@@ -1095,7 +1094,7 @@ impl<T: PartialEq<U> + Clone, U: TrustedEntityBorrow> PartialEq<&UniqueEntitySli
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U> + Clone, U: TrustedEntityBorrow>
+impl<T: EntityEquivalent + PartialEq<U> + Clone, U: EntityEquivalent>
     PartialEq<&UniqueEntitySlice<U>> for Cow<'_, UniqueEntitySlice<T>>
 {
     fn eq(&self, other: &&UniqueEntitySlice<U>) -> bool {
@@ -1103,19 +1102,19 @@ impl<T: TrustedEntityBorrow + PartialEq<U> + Clone, U: TrustedEntityBorrow>
     }
 }
 
-impl<T: PartialEq<U>, U: TrustedEntityBorrow> PartialEq<&UniqueEntitySlice<U>> for Vec<T> {
+impl<T: PartialEq<U>, U: EntityEquivalent> PartialEq<&UniqueEntitySlice<U>> for Vec<T> {
     fn eq(&self, other: &&UniqueEntitySlice<U>) -> bool {
         self.eq(&other.0)
     }
 }
 
-impl<T: PartialEq<U>, U: TrustedEntityBorrow> PartialEq<&UniqueEntitySlice<U>> for VecDeque<T> {
+impl<T: PartialEq<U>, U: EntityEquivalent> PartialEq<&UniqueEntitySlice<U>> for VecDeque<T> {
     fn eq(&self, other: &&UniqueEntitySlice<U>) -> bool {
         self.eq(&&other.0)
     }
 }
 
-impl<T: PartialEq<U>, U: TrustedEntityBorrow, const N: usize> PartialEq<&mut UniqueEntitySlice<U>>
+impl<T: PartialEq<U>, U: EntityEquivalent, const N: usize> PartialEq<&mut UniqueEntitySlice<U>>
     for [T; N]
 {
     fn eq(&self, other: &&mut UniqueEntitySlice<U>) -> bool {
@@ -1123,7 +1122,7 @@ impl<T: PartialEq<U>, U: TrustedEntityBorrow, const N: usize> PartialEq<&mut Uni
     }
 }
 
-impl<T: PartialEq<U> + Clone, U: TrustedEntityBorrow> PartialEq<&mut UniqueEntitySlice<U>>
+impl<T: PartialEq<U> + Clone, U: EntityEquivalent> PartialEq<&mut UniqueEntitySlice<U>>
     for Cow<'_, [T]>
 {
     fn eq(&self, other: &&mut UniqueEntitySlice<U>) -> bool {
@@ -1131,7 +1130,7 @@ impl<T: PartialEq<U> + Clone, U: TrustedEntityBorrow> PartialEq<&mut UniqueEntit
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U> + Clone, U: TrustedEntityBorrow>
+impl<T: EntityEquivalent + PartialEq<U> + Clone, U: EntityEquivalent>
     PartialEq<&mut UniqueEntitySlice<U>> for Cow<'_, UniqueEntitySlice<T>>
 {
     fn eq(&self, other: &&mut UniqueEntitySlice<U>) -> bool {
@@ -1139,27 +1138,27 @@ impl<T: TrustedEntityBorrow + PartialEq<U> + Clone, U: TrustedEntityBorrow>
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U> + Clone, U: TrustedEntityBorrow>
-    PartialEq<UniqueEntityVec<U>> for Cow<'_, UniqueEntitySlice<T>>
+impl<T: EntityEquivalent + PartialEq<U> + Clone, U: EntityEquivalent> PartialEq<UniqueEntityVec<U>>
+    for Cow<'_, UniqueEntitySlice<T>>
 {
     fn eq(&self, other: &UniqueEntityVec<U>) -> bool {
         self.0.eq(other.as_vec())
     }
 }
 
-impl<T: PartialEq<U>, U: TrustedEntityBorrow> PartialEq<&mut UniqueEntitySlice<U>> for Vec<T> {
+impl<T: PartialEq<U>, U: EntityEquivalent> PartialEq<&mut UniqueEntitySlice<U>> for Vec<T> {
     fn eq(&self, other: &&mut UniqueEntitySlice<U>) -> bool {
         self.eq(&other.0)
     }
 }
 
-impl<T: PartialEq<U>, U: TrustedEntityBorrow> PartialEq<&mut UniqueEntitySlice<U>> for VecDeque<T> {
+impl<T: PartialEq<U>, U: EntityEquivalent> PartialEq<&mut UniqueEntitySlice<U>> for VecDeque<T> {
     fn eq(&self, other: &&mut UniqueEntitySlice<U>) -> bool {
         self.eq(&&other.0)
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow> PartialEq<UniqueEntitySlice<U>>
+impl<T: EntityEquivalent + PartialEq<U>, U: EntityEquivalent> PartialEq<UniqueEntitySlice<U>>
     for [T]
 {
     fn eq(&self, other: &UniqueEntitySlice<U>) -> bool {
@@ -1167,7 +1166,7 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow> PartialEq<Un
     }
 }
 
-impl<T: PartialEq<U>, U: TrustedEntityBorrow, const N: usize> PartialEq<UniqueEntitySlice<U>>
+impl<T: PartialEq<U>, U: EntityEquivalent, const N: usize> PartialEq<UniqueEntitySlice<U>>
     for [T; N]
 {
     fn eq(&self, other: &UniqueEntitySlice<U>) -> bool {
@@ -1175,7 +1174,7 @@ impl<T: PartialEq<U>, U: TrustedEntityBorrow, const N: usize> PartialEq<UniqueEn
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow> PartialEq<UniqueEntitySlice<U>>
+impl<T: EntityEquivalent + PartialEq<U>, U: EntityEquivalent> PartialEq<UniqueEntitySlice<U>>
     for Vec<T>
 {
     fn eq(&self, other: &UniqueEntitySlice<U>) -> bool {
@@ -1183,7 +1182,7 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow> PartialEq<Un
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U>, U, const N: usize> PartialEq<[U; N]>
+impl<T: EntityEquivalent + PartialEq<U>, U, const N: usize> PartialEq<[U; N]>
     for &UniqueEntitySlice<T>
 {
     fn eq(&self, other: &[U; N]) -> bool {
@@ -1191,7 +1190,7 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U, const N: usize> PartialEq<[U; N]>
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U>, U, const N: usize> PartialEq<[U; N]>
+impl<T: EntityEquivalent + PartialEq<U>, U, const N: usize> PartialEq<[U; N]>
     for &mut UniqueEntitySlice<T>
 {
     fn eq(&self, other: &[U; N]) -> bool {
@@ -1199,7 +1198,7 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U, const N: usize> PartialEq<[U; N]>
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U>, U, const N: usize> PartialEq<[U; N]>
+impl<T: EntityEquivalent + PartialEq<U>, U, const N: usize> PartialEq<[U; N]>
     for UniqueEntitySlice<T>
 {
     fn eq(&self, other: &[U; N]) -> bool {
@@ -1207,7 +1206,7 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U, const N: usize> PartialEq<[U; N]>
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usize>
+impl<T: EntityEquivalent + PartialEq<U>, U: EntityEquivalent, const N: usize>
     PartialEq<UniqueEntityArray<N, U>> for &UniqueEntitySlice<T>
 {
     fn eq(&self, other: &UniqueEntityArray<N, U>) -> bool {
@@ -1215,7 +1214,7 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usi
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usize>
+impl<T: EntityEquivalent + PartialEq<U>, U: EntityEquivalent, const N: usize>
     PartialEq<UniqueEntityArray<N, U>> for &mut UniqueEntitySlice<T>
 {
     fn eq(&self, other: &UniqueEntityArray<N, U>) -> bool {
@@ -1223,7 +1222,7 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usi
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usize>
+impl<T: EntityEquivalent + PartialEq<U>, U: EntityEquivalent, const N: usize>
     PartialEq<UniqueEntityArray<N, U>> for UniqueEntitySlice<T>
 {
     fn eq(&self, other: &UniqueEntityArray<N, U>) -> bool {
@@ -1231,25 +1230,25 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usi
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U>, U> PartialEq<Vec<U>> for &UniqueEntitySlice<T> {
+impl<T: EntityEquivalent + PartialEq<U>, U> PartialEq<Vec<U>> for &UniqueEntitySlice<T> {
     fn eq(&self, other: &Vec<U>) -> bool {
         self.0.eq(other)
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U>, U> PartialEq<Vec<U>> for &mut UniqueEntitySlice<T> {
+impl<T: EntityEquivalent + PartialEq<U>, U> PartialEq<Vec<U>> for &mut UniqueEntitySlice<T> {
     fn eq(&self, other: &Vec<U>) -> bool {
         self.0.eq(other)
     }
 }
 
-impl<T: TrustedEntityBorrow + PartialEq<U>, U> PartialEq<Vec<U>> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent + PartialEq<U>, U> PartialEq<Vec<U>> for UniqueEntitySlice<T> {
     fn eq(&self, other: &Vec<U>) -> bool {
         self.0.eq(other)
     }
 }
 
-impl<T: TrustedEntityBorrow + Clone> ToOwned for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent + Clone> ToOwned for UniqueEntitySlice<T> {
     type Owned = UniqueEntityVec<T>;
 
     fn to_owned(&self) -> Self::Owned {
@@ -1258,7 +1257,7 @@ impl<T: TrustedEntityBorrow + Clone> ToOwned for UniqueEntitySlice<T> {
     }
 }
 
-impl<'a, T: TrustedEntityBorrow + Copy, const N: usize> TryFrom<&'a UniqueEntitySlice<T>>
+impl<'a, T: EntityEquivalent + Copy, const N: usize> TryFrom<&'a UniqueEntitySlice<T>>
     for &'a UniqueEntityArray<N, T>
 {
     type Error = TryFromSliceError;
@@ -1270,7 +1269,7 @@ impl<'a, T: TrustedEntityBorrow + Copy, const N: usize> TryFrom<&'a UniqueEntity
     }
 }
 
-impl<T: TrustedEntityBorrow + Copy, const N: usize> TryFrom<&UniqueEntitySlice<T>>
+impl<T: EntityEquivalent + Copy, const N: usize> TryFrom<&UniqueEntitySlice<T>>
     for UniqueEntityArray<N, T>
 {
     type Error = TryFromSliceError;
@@ -1280,7 +1279,7 @@ impl<T: TrustedEntityBorrow + Copy, const N: usize> TryFrom<&UniqueEntitySlice<T
     }
 }
 
-impl<T: TrustedEntityBorrow + Copy, const N: usize> TryFrom<&mut UniqueEntitySlice<T>>
+impl<T: EntityEquivalent + Copy, const N: usize> TryFrom<&mut UniqueEntitySlice<T>>
     for UniqueEntityArray<N, T>
 {
     type Error = TryFromSliceError;
@@ -1290,7 +1289,7 @@ impl<T: TrustedEntityBorrow + Copy, const N: usize> TryFrom<&mut UniqueEntitySli
     }
 }
 
-impl<T: TrustedEntityBorrow> Index<(Bound<usize>, Bound<usize>)> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> Index<(Bound<usize>, Bound<usize>)> for UniqueEntitySlice<T> {
     type Output = Self;
     fn index(&self, key: (Bound<usize>, Bound<usize>)) -> &Self {
         // SAFETY: All elements in the original slice are unique.
@@ -1298,7 +1297,7 @@ impl<T: TrustedEntityBorrow> Index<(Bound<usize>, Bound<usize>)> for UniqueEntit
     }
 }
 
-impl<T: TrustedEntityBorrow> Index<Range<usize>> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> Index<Range<usize>> for UniqueEntitySlice<T> {
     type Output = Self;
     fn index(&self, key: Range<usize>) -> &Self {
         // SAFETY: All elements in the original slice are unique.
@@ -1306,7 +1305,7 @@ impl<T: TrustedEntityBorrow> Index<Range<usize>> for UniqueEntitySlice<T> {
     }
 }
 
-impl<T: TrustedEntityBorrow> Index<RangeFrom<usize>> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> Index<RangeFrom<usize>> for UniqueEntitySlice<T> {
     type Output = Self;
     fn index(&self, key: RangeFrom<usize>) -> &Self {
         // SAFETY: All elements in the original slice are unique.
@@ -1314,7 +1313,7 @@ impl<T: TrustedEntityBorrow> Index<RangeFrom<usize>> for UniqueEntitySlice<T> {
     }
 }
 
-impl<T: TrustedEntityBorrow> Index<RangeFull> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> Index<RangeFull> for UniqueEntitySlice<T> {
     type Output = Self;
     fn index(&self, key: RangeFull) -> &Self {
         // SAFETY: All elements in the original slice are unique.
@@ -1322,7 +1321,7 @@ impl<T: TrustedEntityBorrow> Index<RangeFull> for UniqueEntitySlice<T> {
     }
 }
 
-impl<T: TrustedEntityBorrow> Index<RangeInclusive<usize>> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> Index<RangeInclusive<usize>> for UniqueEntitySlice<T> {
     type Output = UniqueEntitySlice<T>;
     fn index(&self, key: RangeInclusive<usize>) -> &Self {
         // SAFETY: All elements in the original slice are unique.
@@ -1330,7 +1329,7 @@ impl<T: TrustedEntityBorrow> Index<RangeInclusive<usize>> for UniqueEntitySlice<
     }
 }
 
-impl<T: TrustedEntityBorrow> Index<RangeTo<usize>> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> Index<RangeTo<usize>> for UniqueEntitySlice<T> {
     type Output = UniqueEntitySlice<T>;
     fn index(&self, key: RangeTo<usize>) -> &Self {
         // SAFETY: All elements in the original slice are unique.
@@ -1338,7 +1337,7 @@ impl<T: TrustedEntityBorrow> Index<RangeTo<usize>> for UniqueEntitySlice<T> {
     }
 }
 
-impl<T: TrustedEntityBorrow> Index<RangeToInclusive<usize>> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> Index<RangeToInclusive<usize>> for UniqueEntitySlice<T> {
     type Output = UniqueEntitySlice<T>;
     fn index(&self, key: RangeToInclusive<usize>) -> &Self {
         // SAFETY: All elements in the original slice are unique.
@@ -1346,7 +1345,7 @@ impl<T: TrustedEntityBorrow> Index<RangeToInclusive<usize>> for UniqueEntitySlic
     }
 }
 
-impl<T: TrustedEntityBorrow> Index<usize> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> Index<usize> for UniqueEntitySlice<T> {
     type Output = T;
 
     fn index(&self, index: usize) -> &T {
@@ -1354,49 +1353,49 @@ impl<T: TrustedEntityBorrow> Index<usize> for UniqueEntitySlice<T> {
     }
 }
 
-impl<T: TrustedEntityBorrow> IndexMut<(Bound<usize>, Bound<usize>)> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> IndexMut<(Bound<usize>, Bound<usize>)> for UniqueEntitySlice<T> {
     fn index_mut(&mut self, key: (Bound<usize>, Bound<usize>)) -> &mut Self {
         // SAFETY: All elements in the original slice are unique.
         unsafe { Self::from_slice_unchecked_mut(self.0.index_mut(key)) }
     }
 }
 
-impl<T: TrustedEntityBorrow> IndexMut<Range<usize>> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> IndexMut<Range<usize>> for UniqueEntitySlice<T> {
     fn index_mut(&mut self, key: Range<usize>) -> &mut Self {
         // SAFETY: All elements in the original slice are unique.
         unsafe { Self::from_slice_unchecked_mut(self.0.index_mut(key)) }
     }
 }
 
-impl<T: TrustedEntityBorrow> IndexMut<RangeFrom<usize>> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> IndexMut<RangeFrom<usize>> for UniqueEntitySlice<T> {
     fn index_mut(&mut self, key: RangeFrom<usize>) -> &mut Self {
         // SAFETY: All elements in the original slice are unique.
         unsafe { Self::from_slice_unchecked_mut(self.0.index_mut(key)) }
     }
 }
 
-impl<T: TrustedEntityBorrow> IndexMut<RangeFull> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> IndexMut<RangeFull> for UniqueEntitySlice<T> {
     fn index_mut(&mut self, key: RangeFull) -> &mut Self {
         // SAFETY: All elements in the original slice are unique.
         unsafe { Self::from_slice_unchecked_mut(self.0.index_mut(key)) }
     }
 }
 
-impl<T: TrustedEntityBorrow> IndexMut<RangeInclusive<usize>> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> IndexMut<RangeInclusive<usize>> for UniqueEntitySlice<T> {
     fn index_mut(&mut self, key: RangeInclusive<usize>) -> &mut Self {
         // SAFETY: All elements in the original slice are unique.
         unsafe { Self::from_slice_unchecked_mut(self.0.index_mut(key)) }
     }
 }
 
-impl<T: TrustedEntityBorrow> IndexMut<RangeTo<usize>> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> IndexMut<RangeTo<usize>> for UniqueEntitySlice<T> {
     fn index_mut(&mut self, key: RangeTo<usize>) -> &mut Self {
         // SAFETY: All elements in the original slice are unique.
         unsafe { Self::from_slice_unchecked_mut(self.0.index_mut(key)) }
     }
 }
 
-impl<T: TrustedEntityBorrow> IndexMut<RangeToInclusive<usize>> for UniqueEntitySlice<T> {
+impl<T: EntityEquivalent> IndexMut<RangeToInclusive<usize>> for UniqueEntitySlice<T> {
     fn index_mut(&mut self, key: RangeToInclusive<usize>) -> &mut Self {
         // SAFETY: All elements in the original slice are unique.
         unsafe { Self::from_slice_unchecked_mut(self.0.index_mut(key)) }
@@ -1411,7 +1410,7 @@ impl<T: TrustedEntityBorrow> IndexMut<RangeToInclusive<usize>> for UniqueEntityS
 /// [`iter`]: `UniqueEntitySlice::iter`
 pub type Iter<'a, T> = UniqueEntityIter<slice::Iter<'a, T>>;
 
-impl<'a, T: TrustedEntityBorrow> UniqueEntityIter<slice::Iter<'a, T>> {
+impl<'a, T: EntityEquivalent> UniqueEntityIter<slice::Iter<'a, T>> {
     /// Views the underlying data as a subslice of the original data.
     ///
     /// Equivalent to [`slice::Iter::as_slice`].
@@ -1424,7 +1423,7 @@ impl<'a, T: TrustedEntityBorrow> UniqueEntityIter<slice::Iter<'a, T>> {
 /// Mutable slice iterator.
 pub type IterMut<'a, T> = UniqueEntityIter<slice::IterMut<'a, T>>;
 
-impl<'a, T: TrustedEntityBorrow> UniqueEntityIter<slice::IterMut<'a, T>> {
+impl<'a, T: EntityEquivalent> UniqueEntityIter<slice::IterMut<'a, T>> {
     /// Views the underlying data as a mutable subslice of the original data.
     ///
     /// Equivalent to [`slice::IterMut::into_slice`].
@@ -1445,11 +1444,11 @@ impl<'a, T: TrustedEntityBorrow> UniqueEntityIter<slice::IterMut<'a, T>> {
 /// An iterator that yields `&UniqueEntitySlice`. Note that an entity may appear
 /// in multiple slices, depending on the wrapped iterator.
 #[derive(Debug)]
-pub struct UniqueEntitySliceIter<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a [T]>> {
+pub struct UniqueEntitySliceIter<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a [T]>> {
     pub(crate) iter: I,
 }
 
-impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a [T]>> UniqueEntitySliceIter<'a, T, I> {
+impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a [T]>> UniqueEntitySliceIter<'a, T, I> {
     /// Constructs a [`UniqueEntitySliceIter`] from a slice iterator unsafely.
     ///
     /// # Safety
@@ -1480,7 +1479,7 @@ impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a [T]>> UniqueEntityS
     }
 }
 
-impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a [T]>> Iterator
+impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a [T]>> Iterator
     for UniqueEntitySliceIter<'a, T, I>
 {
     type Item = &'a UniqueEntitySlice<T>;
@@ -1496,12 +1495,12 @@ impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a [T]>> Iterator
     }
 }
 
-impl<'a, T: TrustedEntityBorrow + 'a, I: ExactSizeIterator<Item = &'a [T]>> ExactSizeIterator
+impl<'a, T: EntityEquivalent + 'a, I: ExactSizeIterator<Item = &'a [T]>> ExactSizeIterator
     for UniqueEntitySliceIter<'a, T, I>
 {
 }
 
-impl<'a, T: TrustedEntityBorrow + 'a, I: DoubleEndedIterator<Item = &'a [T]>> DoubleEndedIterator
+impl<'a, T: EntityEquivalent + 'a, I: DoubleEndedIterator<Item = &'a [T]>> DoubleEndedIterator
     for UniqueEntitySliceIter<'a, T, I>
 {
     fn next_back(&mut self) -> Option<Self::Item> {
@@ -1511,12 +1510,12 @@ impl<'a, T: TrustedEntityBorrow + 'a, I: DoubleEndedIterator<Item = &'a [T]>> Do
     }
 }
 
-impl<'a, T: TrustedEntityBorrow + 'a, I: FusedIterator<Item = &'a [T]>> FusedIterator
+impl<'a, T: EntityEquivalent + 'a, I: FusedIterator<Item = &'a [T]>> FusedIterator
     for UniqueEntitySliceIter<'a, T, I>
 {
 }
 
-impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a [T]> + AsRef<[&'a [T]]>>
+impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a [T]> + AsRef<[&'a [T]]>>
     AsRef<[&'a UniqueEntitySlice<T>]> for UniqueEntitySliceIter<'a, T, I>
 {
     fn as_ref(&self) -> &[&'a UniqueEntitySlice<T>] {
@@ -1542,7 +1541,7 @@ pub type Chunks<'a, T = Entity> = UniqueEntitySliceIter<'a, T, slice::Chunks<'a,
 /// This struct is created by [`UniqueEntitySlice::chunks_exact`].
 pub type ChunksExact<'a, T = Entity> = UniqueEntitySliceIter<'a, T, slice::ChunksExact<'a, T>>;
 
-impl<'a, T: TrustedEntityBorrow> UniqueEntitySliceIter<'a, T, slice::ChunksExact<'a, T>> {
+impl<'a, T: EntityEquivalent> UniqueEntitySliceIter<'a, T, slice::ChunksExact<'a, T>> {
     /// Returns the remainder of the original slice that is not going to be
     /// returned by the iterator.
     ///
@@ -1565,7 +1564,7 @@ pub type RChunks<'a, T = Entity> = UniqueEntitySliceIter<'a, T, slice::RChunks<'
 /// This struct is created by [`UniqueEntitySlice::rchunks_exact`].
 pub type RChunksExact<'a, T = Entity> = UniqueEntitySliceIter<'a, T, slice::RChunksExact<'a, T>>;
 
-impl<'a, T: TrustedEntityBorrow> UniqueEntitySliceIter<'a, T, slice::RChunksExact<'a, T>> {
+impl<'a, T: EntityEquivalent> UniqueEntitySliceIter<'a, T, slice::RChunksExact<'a, T>> {
     /// Returns the remainder of the original slice that is not going to be
     /// returned by the iterator.
     ///
@@ -1616,15 +1615,11 @@ pub type RSplitN<'a, P, T = Entity> = UniqueEntitySliceIter<'a, T, slice::RSplit
 /// An iterator that yields `&mut UniqueEntitySlice`. Note that an entity may appear
 /// in multiple slices, depending on the wrapped iterator.
 #[derive(Debug)]
-pub struct UniqueEntitySliceIterMut<
-    'a,
-    T: TrustedEntityBorrow + 'a,
-    I: Iterator<Item = &'a mut [T]>,
-> {
+pub struct UniqueEntitySliceIterMut<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a mut [T]>> {
     pub(crate) iter: I,
 }
 
-impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a mut [T]>>
+impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a mut [T]>>
     UniqueEntitySliceIterMut<'a, T, I>
 {
     /// Constructs a [`UniqueEntitySliceIterMut`] from a mutable slice iterator unsafely.
@@ -1657,7 +1652,7 @@ impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a mut [T]>>
     }
 }
 
-impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a mut [T]>> Iterator
+impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a mut [T]>> Iterator
     for UniqueEntitySliceIterMut<'a, T, I>
 {
     type Item = &'a mut UniqueEntitySlice<T>;
@@ -1673,13 +1668,13 @@ impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a mut [T]>> Iterator
     }
 }
 
-impl<'a, T: TrustedEntityBorrow + 'a, I: ExactSizeIterator<Item = &'a mut [T]>> ExactSizeIterator
+impl<'a, T: EntityEquivalent + 'a, I: ExactSizeIterator<Item = &'a mut [T]>> ExactSizeIterator
     for UniqueEntitySliceIterMut<'a, T, I>
 {
 }
 
-impl<'a, T: TrustedEntityBorrow + 'a, I: DoubleEndedIterator<Item = &'a mut [T]>>
-    DoubleEndedIterator for UniqueEntitySliceIterMut<'a, T, I>
+impl<'a, T: EntityEquivalent + 'a, I: DoubleEndedIterator<Item = &'a mut [T]>> DoubleEndedIterator
+    for UniqueEntitySliceIterMut<'a, T, I>
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back().map(|slice|
@@ -1688,12 +1683,12 @@ impl<'a, T: TrustedEntityBorrow + 'a, I: DoubleEndedIterator<Item = &'a mut [T]>
     }
 }
 
-impl<'a, T: TrustedEntityBorrow + 'a, I: FusedIterator<Item = &'a mut [T]>> FusedIterator
+impl<'a, T: EntityEquivalent + 'a, I: FusedIterator<Item = &'a mut [T]>> FusedIterator
     for UniqueEntitySliceIterMut<'a, T, I>
 {
 }
 
-impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a mut [T]> + AsRef<[&'a [T]]>>
+impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a mut [T]> + AsRef<[&'a [T]]>>
     AsRef<[&'a UniqueEntitySlice<T>]> for UniqueEntitySliceIterMut<'a, T, I>
 {
     fn as_ref(&self) -> &[&'a UniqueEntitySlice<T>] {
@@ -1702,7 +1697,7 @@ impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a mut [T]> + AsRef<[&
     }
 }
 
-impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a mut [T]> + AsMut<[&'a mut [T]]>>
+impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a mut [T]> + AsMut<[&'a mut [T]]>>
     AsMut<[&'a mut UniqueEntitySlice<T>]> for UniqueEntitySliceIterMut<'a, T, I>
 {
     fn as_mut(&mut self) -> &mut [&'a mut UniqueEntitySlice<T>] {
@@ -1724,7 +1719,7 @@ pub type ChunksMut<'a, T = Entity> = UniqueEntitySliceIterMut<'a, T, slice::Chun
 pub type ChunksExactMut<'a, T = Entity> =
     UniqueEntitySliceIterMut<'a, T, slice::ChunksExactMut<'a, T>>;
 
-impl<'a, T: TrustedEntityBorrow> UniqueEntitySliceIterMut<'a, T, slice::ChunksExactMut<'a, T>> {
+impl<'a, T: EntityEquivalent> UniqueEntitySliceIterMut<'a, T, slice::ChunksExactMut<'a, T>> {
     /// Returns the remainder of the original slice that is not going to be
     /// returned by the iterator.
     ///
@@ -1748,7 +1743,7 @@ pub type RChunksMut<'a, T = Entity> = UniqueEntitySliceIterMut<'a, T, slice::RCh
 pub type RChunksExactMut<'a, T = Entity> =
     UniqueEntitySliceIterMut<'a, T, slice::RChunksExactMut<'a, T>>;
 
-impl<'a, T: TrustedEntityBorrow> UniqueEntitySliceIterMut<'a, T, slice::RChunksExactMut<'a, T>> {
+impl<'a, T: EntityEquivalent> UniqueEntitySliceIterMut<'a, T, slice::RChunksExactMut<'a, T>> {
     /// Returns the remainder of the original slice that is not going to be
     /// returned by the iterator.
     ///
