@@ -937,7 +937,7 @@ impl RenderMeshInstances {
     }
 
     /// Returns the ID of the mesh asset attached to the given entity, if any.
-    pub(crate) fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
+    pub fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => instances.mesh_asset_id(entity),
             RenderMeshInstances::GpuBuilding(ref instances) => instances.mesh_asset_id(entity),
