@@ -718,6 +718,105 @@ fn compute_indirect_light(
     return indirect_light;
 }
 
+fn compute_transmitted_indirect_light(
+    in: pbr_types::PbrInput,
+    clusterable_object_index_ranges: clustering::ClusterableObjectIndexRanges,
+    view_z: f32,
+    roughness: f32,
+    diffuse_transmissive_color: vec3<f32>,
+    F0: vec3<f32>,
+) -> vec3<f32> {
+    var transmitted_light = vec3(0.0f);
+    // we'll use the specular component of the transmitted environment
+    // light in the call to `specular_transmissive_light()` below
+    var specular_transmitted_environment_light = vec3<f32>(0.0);
+
+    let thickness = in.material.thickness;
+    let ior = in.material.ior;
+    let perceptual_roughness = in.material.perceptual_roughness;
+    let specular_transmissive_color = in.material.specular_transmission * in.material.base_color.rgb;
+
+#ifdef ENVIRONMENT_MAP
+
+#ifdef STANDARD_MATERIAL_DIFFUSE_OR_SPECULAR_TRANSMISSION
+    // NOTE: We use the diffuse transmissive color, inverted normal and view vectors,
+    // and the following simplified values for the transmitted environment light contribution
+    // approximation:
+    //
+    // diffuse_color = vec3<f32>(1.0) // later we use `diffuse_transmissive_color` and `specular_transmissive_color`
+    // NdotV = 1.0;
+    // R = T // see definition below
+    // F0 = vec3<f32>(1.0)
+    // diffuse_occlusion = 1.0
+    //
+    // (This one is slightly different from the other light types above, because the environment
+    // map light returns both diffuse and specular components separately, and we want to use both)
+
+    let T = -normalize(
+        in.V + // start with view vector at entry point
+        refract(in.V, -in.N, 1.0 / in.material.ior) * in.material.thickness // add refracted vector scaled by thickness, towards exit point
+    ); // normalize to find exit point view vector
+
+    var transmissive_environment_light_input: lighting::LightingInput;
+    transmissive_environment_light_input.diffuse_color = vec3(1.0);
+    transmissive_environment_light_input.layers[LAYER_BASE].NdotV = 1.0;
+    transmissive_environment_light_input.P = in.world_position.xyz;
+    transmissive_environment_light_input.layers[LAYER_BASE].N = -in.N;
+    transmissive_environment_light_input.V = in.V;
+    transmissive_environment_light_input.layers[LAYER_BASE].R = T;
+    transmissive_environment_light_input.layers[LAYER_BASE].perceptual_roughness = in.material.perceptual_roughness;
+    transmissive_environment_light_input.layers[LAYER_BASE].roughness = roughness;
+    transmissive_environment_light_input.F0_ = vec3<f32>(1.0);
+    transmissive_environment_light_input.F_ab = vec2(0.1);
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+    // No clearcoat.
+    transmissive_environment_light_input.clearcoat_strength = 0.0;
+    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].NdotV = 0.0;
+    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].N = in.N;
+    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].R = vec3(0.0);
+    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].perceptual_roughness = 0.0;
+    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].roughness = 0.0;
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+
+    let transmitted_environment_light = environment_map::environment_map_light(
+        &transmissive_environment_light_input,
+        &clusterable_object_index_ranges,
+        false,
+    );
+
+#ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
+    transmitted_light += transmitted_environment_light.diffuse * diffuse_transmissive_color;
+#endif  // STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
+#ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION
+    specular_transmitted_environment_light = transmitted_environment_light.specular * specular_transmissive_color;
+#endif  // STANDARD_MATERIAL_SPECULAR_TRANSMISSION
+
+#endif  // STANDARD_MATERIAL_SPECULAR_OR_DIFFUSE_TRANSMISSION
+
+#endif  // ENVIRONMENT_MAP
+
+#ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION
+    transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
+
+    if (in.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT) != 0u {
+        // We reuse the `atmospheric_fog()` function here, as it's fundamentally
+        // equivalent to the attenuation that takes place inside the material volume,
+        // and will allow us to eventually hook up subsurface scattering more easily
+        var attenuation_fog: mesh_view_types::Fog;
+        attenuation_fog.base_color.a = 1.0;
+        attenuation_fog.be = pow(1.0 - in.material.attenuation_color.rgb, vec3<f32>(E)) / in.material.attenuation_distance;
+        // TODO: Add the subsurface scattering factor below
+        // attenuation_fog.bi = /* ... */
+        transmitted_light = bevy_pbr::fog::atmospheric_fog(
+            attenuation_fog, vec4<f32>(transmitted_light, 1.0), thickness,
+            vec3<f32>(0.0) // TODO: Pass in (pre-attenuated) scattered light contribution here
+        ).rgb;
+    }
+#endif
+
+    return transmitted_light;
+}
+
 fn apply_pbr_lighting(
     in: pbr_types::PbrInput,
 ) -> vec4<f32> {
@@ -791,78 +890,25 @@ fn apply_pbr_lighting(
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
     transmitted_light = compute_transmitted_direct_light(
-    in,
-    clusterable_object_index_ranges,
-    view_z,
-    diffuse_color,
-    diffuse_transmissive_color,
-    F0, F_ab);
+        in,
+        clusterable_object_index_ranges,
+        view_z,
+        diffuse_color,
+        diffuse_transmissive_color,
+        F0, F_ab
+    );
 #endif
 
     let indirect_light = compute_indirect_light(in, clusterable_object_index_ranges, diffuse_color, NdotV, F0);
 
-    // we'll use the specular component of the transmitted environment
-    // light in the call to `specular_transmissive_light()` below
-    var specular_transmitted_environment_light = vec3<f32>(0.0);
-
-#ifdef ENVIRONMENT_MAP
-
-#ifdef STANDARD_MATERIAL_DIFFUSE_OR_SPECULAR_TRANSMISSION
-    // NOTE: We use the diffuse transmissive color, inverted normal and view vectors,
-    // and the following simplified values for the transmitted environment light contribution
-    // approximation:
-    //
-    // diffuse_color = vec3<f32>(1.0) // later we use `diffuse_transmissive_color` and `specular_transmissive_color`
-    // NdotV = 1.0;
-    // R = T // see definition below
-    // F0 = vec3<f32>(1.0)
-    // diffuse_occlusion = 1.0
-    //
-    // (This one is slightly different from the other light types above, because the environment
-    // map light returns both diffuse and specular components separately, and we want to use both)
-
-    let T = -normalize(
-        in.V + // start with view vector at entry point
-        refract(in.V, -in.N, 1.0 / ior) * thickness // add refracted vector scaled by thickness, towards exit point
-    ); // normalize to find exit point view vector
-
-    var transmissive_environment_light_input: lighting::LightingInput;
-    transmissive_environment_light_input.diffuse_color = vec3(1.0);
-    transmissive_environment_light_input.layers[LAYER_BASE].NdotV = 1.0;
-    transmissive_environment_light_input.P = in.world_position.xyz;
-    transmissive_environment_light_input.layers[LAYER_BASE].N = -in.N;
-    transmissive_environment_light_input.V = in.V;
-    transmissive_environment_light_input.layers[LAYER_BASE].R = T;
-    transmissive_environment_light_input.layers[LAYER_BASE].perceptual_roughness = perceptual_roughness;
-    transmissive_environment_light_input.layers[LAYER_BASE].roughness = roughness;
-    transmissive_environment_light_input.F0_ = vec3<f32>(1.0);
-    transmissive_environment_light_input.F_ab = vec2(0.1);
-#ifdef STANDARD_MATERIAL_CLEARCOAT
-    // No clearcoat.
-    transmissive_environment_light_input.clearcoat_strength = 0.0;
-    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].NdotV = 0.0;
-    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].N = in.N;
-    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].R = vec3(0.0);
-    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].perceptual_roughness = 0.0;
-    transmissive_environment_light_input.layers[LAYER_CLEARCOAT].roughness = 0.0;
-#endif  // STANDARD_MATERIAL_CLEARCOAT
-
-    let transmitted_environment_light = environment_map::environment_map_light(
-        &transmissive_environment_light_input,
-        &clusterable_object_index_ranges,
-        false,
+    transmitted_light += compute_transmitted_indirect_light(
+        in,
+        clusterable_object_index_ranges,
+        view_z,
+        roughness,
+        diffuse_transmissive_color,
+        F0
     );
-
-#ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
-    transmitted_light += transmitted_environment_light.diffuse * diffuse_transmissive_color;
-#endif  // STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
-#ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION
-    specular_transmitted_environment_light = transmitted_environment_light.specular * specular_transmissive_color;
-#endif  // STANDARD_MATERIAL_SPECULAR_TRANSMISSION
-
-#endif  // STANDARD_MATERIAL_SPECULAR_OR_DIFFUSE_TRANSMISSION
-
-#endif  // ENVIRONMENT_MAP
 
     var emissive_light = emissive.rgb * output_color.a;
 
@@ -875,25 +921,6 @@ fn apply_pbr_lighting(
 #endif
 
     emissive_light = emissive_light * mix(1.0, view_bindings::view.exposure, emissive.a);
-
-#ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION
-    transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
-
-    if (in.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT) != 0u {
-        // We reuse the `atmospheric_fog()` function here, as it's fundamentally
-        // equivalent to the attenuation that takes place inside the material volume,
-        // and will allow us to eventually hook up subsurface scattering more easily
-        var attenuation_fog: mesh_view_types::Fog;
-        attenuation_fog.base_color.a = 1.0;
-        attenuation_fog.be = pow(1.0 - in.material.attenuation_color.rgb, vec3<f32>(E)) / in.material.attenuation_distance;
-        // TODO: Add the subsurface scattering factor below
-        // attenuation_fog.bi = /* ... */
-        transmitted_light = bevy_pbr::fog::atmospheric_fog(
-            attenuation_fog, vec4<f32>(transmitted_light, 1.0), thickness,
-            vec3<f32>(0.0) // TODO: Pass in (pre-attenuated) scattered light contribution here
-        ).rgb;
-    }
-#endif
 
     // Total light
     output_color = vec4<f32>(
