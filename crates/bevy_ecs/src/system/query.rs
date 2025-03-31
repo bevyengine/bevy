@@ -23,7 +23,7 @@ use core::{
 /// `Query` is a generic data structure that accepts two type parameters:
 ///
 /// - **`D` (query data)**:
-///   The type of data fetched by the query, which will be returned in the query item.
+///   The type of data fetched by the query, which will be returned as the query item.
 ///   Only entities that match the requested data will generate an item.
 ///   Must implement the [`QueryData`] trait.
 /// - **`F` (query filter)**:
