@@ -235,6 +235,7 @@ impl Hash for Entity {
 #[deprecated(
     note = "This is exclusively used with the now deprecated `Entities::alloc_at_without_replacement`."
 )]
+#[expect(unused, reason = "This is not implemented on this branch")]
 pub(crate) enum AllocAtWithoutReplacement {
     Exists(EntityLocation),
     DidNotExist,
@@ -478,42 +479,6 @@ impl SparseSetIndex for Entity {
     }
 }
 
-/// An [`Iterator`] returning a sequence of [`Entity`] values from
-pub struct AllocEntitiesIterator<'a> {
-    // Metas, so we can recover the current generation for anything in the freelist.
-    meta: &'a [EntityMeta],
-
-    // Reserved indices formerly in the freelist to hand out.
-    freelist_indices: core::slice::Iter<'a, u32>,
-
-    // New Entity indices to hand out, outside the range of meta.len().
-    new_indices: core::ops::Range<u32>,
-}
-
-impl<'a> Iterator for AllocEntitiesIterator<'a> {
-    type Item = Entity;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.freelist_indices
-            .next()
-            .map(|&index| {
-                Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
-            })
-            .or_else(|| self.new_indices.next().map(Entity::from_raw))
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.freelist_indices.len() + self.new_indices.len();
-        (len, Some(len))
-    }
-}
-
-impl<'a> ExactSizeIterator for AllocEntitiesIterator<'a> {}
-impl<'a> core::iter::FusedIterator for AllocEntitiesIterator<'a> {}
-
-// SAFETY: Newly reserved entity values are unique.
-unsafe impl EntitySetIterator for AllocEntitiesIterator<'_> {}
-
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
 /// Contains metadata on:
@@ -539,8 +504,8 @@ impl Entities {
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
-    pub fn reserve_entities(&self, count: u32) -> AllocEntitiesIterator {
-        self.alloc_entities(count)
+    pub fn reserve_entities(&self, count: u32) -> allocator::AllocEntitiesIterator {
+        self.alloc_many(count)
     }
 
     /// Reserve one entity ID concurrently.
@@ -552,12 +517,12 @@ impl Entities {
 
     /// Allocate an entity ID directly.
     pub fn alloc(&self) -> Entity {
-        todo!()
+        self.allocator.alloc()
     }
 
     /// A more efficient way to [`alloc`](Self::alloc) multiple entities.
-    pub fn alloc_entities(&self, count: u32) -> AllocEntitiesIterator {
-        todo!()
+    pub fn alloc_many(&self, count: u32) -> allocator::AllocEntitiesIterator {
+        self.allocator.alloc_many(count)
     }
 
     /// Allocate a specific entity ID, overwriting its generation.

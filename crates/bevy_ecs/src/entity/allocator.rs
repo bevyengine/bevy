@@ -9,7 +9,7 @@ use core::mem::{ManuallyDrop, MaybeUninit};
 
 use crate::query::DebugCheckedUnwrap;
 
-use super::Entity;
+use super::{Entity, EntitySetIterator};
 
 /// This is the item we store in the pending list.
 /// It might not be init (if it's out of bounds).
@@ -380,7 +380,40 @@ impl Allocator {
             self.shared.pending.free(entity);
         }
     }
+
+    /// Allocates `count` entities in an iterator.
+    pub fn alloc_many(&self, entities: u32) -> AllocEntitiesIterator {
+        AllocEntitiesIterator {
+            allocator: self,
+            num_left: entities,
+        }
+    }
 }
+
+/// An [`Iterator`] returning a sequence of [`Entity`] values from an [`Allocator`].
+pub struct AllocEntitiesIterator<'a> {
+    allocator: &'a Allocator,
+    num_left: u32,
+}
+
+impl<'a> Iterator for AllocEntitiesIterator<'a> {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.num_left.checked_sub(1).map(|_| self.allocator.alloc())
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.num_left as usize;
+        (len, Some(len))
+    }
+}
+
+impl<'a> ExactSizeIterator for AllocEntitiesIterator<'a> {}
+impl<'a> core::iter::FusedIterator for AllocEntitiesIterator<'a> {}
+
+// SAFETY: Newly reserved entity values are unique.
+unsafe impl EntitySetIterator for AllocEntitiesIterator<'_> {}
 
 /// This is a stripped down version of [`Allocator`] that operates on fewer assumptions.
 /// As a result, using this will be slower than [`Allocator`] but this offers additional freedoms.
