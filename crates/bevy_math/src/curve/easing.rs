@@ -605,6 +605,21 @@ pub enum EaseFunction {
     Elastic(f32),
 }
 
+/// TODO
+pub struct SmoothStep;
+
+impl Curve<f32> for SmoothStep {
+    #[inline]
+    fn domain(&self) -> Interval {
+        Interval::UNIT
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> f32 {
+        ((3.0 - 2.0 * t) * t) * t
+    }
+}
+
 mod easing_functions {
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
 
@@ -696,11 +711,6 @@ mod easing_functions {
     #[inline]
     pub(crate) fn smoothstep_out(t: f32) -> f32 {
         (1.5 + (-0.5 * t) * t) * t
-    }
-
-    #[inline]
-    pub(crate) fn smoothstep(t: f32) -> f32 {
-        ((3.0 - 2.0 * t) * t) * t
     }
 
     #[inline]
@@ -878,7 +888,7 @@ impl EaseFunction {
             EaseFunction::QuinticInOut => easing_functions::quintic_in_out(t),
             EaseFunction::SmoothStepIn => easing_functions::smoothstep_in(t),
             EaseFunction::SmoothStepOut => easing_functions::smoothstep_out(t),
-            EaseFunction::SmoothStep => easing_functions::smoothstep(t),
+            EaseFunction::SmoothStep => SmoothStep.sample_unchecked(t),
             EaseFunction::SmootherStepIn => easing_functions::smootherstep_in(t),
             EaseFunction::SmootherStepOut => easing_functions::smootherstep_out(t),
             EaseFunction::SmootherStep => easing_functions::smootherstep(t),
