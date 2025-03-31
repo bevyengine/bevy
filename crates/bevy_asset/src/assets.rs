@@ -462,13 +462,14 @@ impl<A: Asset> Assets<A> {
     /// Removes the [`Asset`] with the given `id`.
     pub(crate) fn remove_dropped(&mut self, id: AssetId<A>) -> bool {
         match self.duplicate_handles.get_mut(&id) {
-            None | Some(0) => {
+            Some(0) => {
                 self.queued_events.push(AssetEvent::Unused { id });
             }
             Some(value) => {
                 *value -= 1;
                 return false;
             }
+            None => {}
         }
         let existed = match id {
             AssetId::Index { index, .. } => self.dense_storage.remove_dropped(index).is_some(),
