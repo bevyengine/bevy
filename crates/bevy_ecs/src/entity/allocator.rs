@@ -7,9 +7,11 @@ use bevy_platform_support::{
 };
 use core::mem::{ManuallyDrop, MaybeUninit};
 
+use crate::query::DebugCheckedUnwrap;
+
 use super::Entity;
 
-/// This is the item we store in the owned buffers.
+/// This is the item we store in the pending list.
 /// It might not be init (if it's out of bounds).
 type Slot = MaybeUninit<Entity>;
 
@@ -52,6 +54,79 @@ impl Chunk {
         let slice_index = full_idnex & !Self::capacity_of_chunk(chunk_index);
 
         (chunk_index, slice_index)
+    }
+
+    /// Gets the entity at the index within this chunk.
+    ///
+    /// # Safety
+    ///
+    /// [`Self::set`] must have been called on this index before.
+    unsafe fn get(&self, index: u32) -> Entity {
+        // SAFETY: caller ensure we are init.
+        let head = unsafe { self.ptr().debug_checked_unwrap() };
+        let target = head.add(index as usize);
+
+        // SAFETY: Ensured by caller.
+        unsafe { (*target).assume_init() }
+    }
+
+    /// Sets this entity at this index.
+    ///
+    /// # Safety
+    ///
+    /// This must not be called concurrently.
+    /// Index must be in bounds.
+    /// Access does not conflict with another [`Self::get`].
+    unsafe fn set(&self, index: u32, entity: Entity, index_of_self: u32) -> Slot {
+        let head = self.ptr().unwrap_or_else(|| self.init(index_of_self));
+        let target = head.add(index as usize);
+
+        // SAFETY: Caller ensures we are not fighting with other `set` calls or `get` calls.
+        // A race condition is therefore impossible.
+        unsafe { core::ptr::replace(target, Slot::new(entity)) }
+    }
+
+    /// Initializes the chunk to be valid, returning the pointer.
+    ///
+    /// # Safety
+    ///
+    /// This must not be called concurrently.
+    #[cold]
+    unsafe fn init(&self, index: u32) -> *mut Slot {
+        let cap = Self::capacity_of_chunk(index);
+        let mut buff = ManuallyDrop::new(Vec::new());
+        buff.reserve_exact(cap as usize);
+        let ptr = buff.as_mut_ptr();
+        self.first.store(ptr, Ordering::Relaxed);
+        ptr
+    }
+
+    /// Frees memory
+    ///
+    /// # Safety
+    ///
+    /// This must not be called concurrently.
+    unsafe fn dealloc(&self, index: u32) {
+        if let Some(to_drop) = self.ptr() {
+            let cap = Self::capacity_of_chunk(index) as usize;
+            // SAFETY: This was created in [`Self::init`] from a standard Vec.
+            unsafe {
+                Vec::from_raw_parts(to_drop, cap, cap);
+            }
+        }
+    }
+
+    /// Returns [`Self::first`] if it is valid.
+    #[inline]
+    fn ptr(&self) -> Option<*mut Slot> {
+        let ptr = self.first.load(Ordering::Relaxed);
+        (!ptr.is_null()).then_some(ptr)
+    }
+
+    fn new() -> Self {
+        Self {
+            first: AtomicPtr::new(core::ptr::null_mut()),
+        }
     }
 }
 
