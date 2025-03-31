@@ -59,7 +59,6 @@ use crate::{
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// #
 /// fn my_system(mut commands: Commands) {
 ///    // ...
 /// }
@@ -343,7 +342,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// #[derive(Component)]
     /// struct ComponentA(u32);
     /// #[derive(Component)]
@@ -392,7 +390,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// #[derive(Resource)]
     /// struct PlayerEntity {
     ///     entity: Entity
@@ -433,7 +430,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// #[derive(Resource)]
     /// struct PlayerEntity {
     ///     entity: Entity
@@ -533,7 +529,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// #[derive(Resource, Default)]
     /// struct Counter(u64);
     ///
@@ -583,7 +578,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// use bevy_ecs::error::warn;
     ///
     /// #[derive(Resource, Default)]
@@ -797,7 +791,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// #[derive(Resource, Default)]
     /// struct Scoreboard {
     ///     current_score: u32,
@@ -822,7 +815,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// #[derive(Resource)]
     /// struct Scoreboard {
     ///     current_score: u32,
@@ -848,7 +840,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// #[derive(Resource)]
     /// struct Scoreboard {
     ///     current_score: u32,
@@ -1131,10 +1122,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::schedule::ScheduleLabel;
-    /// #
     /// # #[derive(Default, Resource)]
     /// # struct Counter(u32);
-    /// #
     /// #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone, Copy)]
     /// struct FooSchedule;
     ///
@@ -1548,7 +1537,6 @@ impl<'a> EntityCommands<'a> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// # #[derive(Resource)]
     /// # struct PlayerEntity { entity: Entity }
     /// #[derive(Component)]
@@ -1591,7 +1579,6 @@ impl<'a> EntityCommands<'a> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// # #[derive(Resource)]
     /// # struct PlayerEntity { entity: Entity }
     /// #[derive(Component)]
@@ -1631,7 +1618,6 @@ impl<'a> EntityCommands<'a> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// # #[derive(Resource)]
     /// # struct PlayerEntity { entity: Entity }
     /// #
@@ -1685,7 +1671,6 @@ impl<'a> EntityCommands<'a> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// # #[derive(Resource)]
     /// # struct CharacterToRemove { entity: Entity }
     /// #
@@ -1817,7 +1802,6 @@ impl<'a> EntityCommands<'a> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// # #[derive(Resource)]
     /// # struct PlayerEntity { entity: Entity }
     /// #[derive(Component)]

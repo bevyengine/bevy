@@ -1,5 +1,5 @@
 //! Contains the definition of the [`Command`] trait,
-//! as well as blanket implementations of the trait for closures.
+//! as well as the blanket implementation of the trait for closures.
 //!
 //! It also contains functions that return closures for use with
 //! [`Commands`](crate::system::Commands).
