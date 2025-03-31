@@ -680,8 +680,13 @@ impl Mesh {
     /// vertices.
     ///
     /// This method weights normals by the angles of the corners of connected triangles, thus
-    /// eliminating triangle area and count as factors in the final normal. If you would rather the
-    /// normals be weighted by triangle area, see [`Mesh::compute_face_weighted_normals`] instead.
+    /// eliminating triangle area and count as factors in the final normal. This does make it
+    /// somewhat slower than [`Mesh::compute_face_weighted_normals`] which does not need to
+    /// greedily normalize each triangle's normal or calculate corner angles.
+    ///
+    /// If you would rather have the computed normals be weighted by triangle area, see
+    /// [`Mesh::compute_face_weighted_normals`] instead. If you need to weight them in some other
+    /// way, see [`Mesh::compute_custom_smooth_normals`].
     ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
@@ -709,8 +714,14 @@ impl Mesh {
     ///
     /// This method weights normals by the area of each triangle containing the vertex. Thus,
     /// larger triangles will skew the normals of their vertices towards their own normal more
-    /// than smaller triangles will. If you would rather the normals be influenced only by the angles
-    /// of connected edges, see [`Mesh::compute_smooth_normals`] instead.
+    /// than smaller triangles will.
+    ///
+    /// This method is actually somewhat faster than [`Mesh::compute_smooth_normals`] because an
+    /// intermediate result of triangle normal calculation is already scaled by the triangle's area.
+    ///
+    /// If you would rather have the computed normals be influenced only by the angles of connected
+    /// edges, see [`Mesh::compute_smooth_normals`] instead. If you need to weight them in some
+    /// other way, see [`Mesh::compute_custom_smooth_normals`].
     ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
@@ -835,6 +846,10 @@ impl Mesh {
     ///
     /// (Alternatively, you can use [`Mesh::compute_smooth_normals`] to mutate an existing mesh in-place)
     ///
+    /// This method weights normals by the angles of triangle corners connected to each vertex. If
+    /// you would rather have the computed normals be weighted by triangle area, see
+    /// [`Mesh::with_computed_face_weighted_normals`] instead.
+    ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
@@ -851,8 +866,8 @@ impl Mesh {
     ///
     /// This method weights normals by the area of each triangle containing the vertex. Thus,
     /// larger triangles will skew the normals of their vertices towards their own normal more
-    /// than smaller triangles will. If you would rather the normals be influenced only by the angles
-    /// of connected edges, see [`Mesh::compute_smooth_normals`] instead.
+    /// than smaller triangles will. If you would rather have the computed normals be influenced
+    /// only by the angles of connected edges, see [`Mesh::with_computed_smooth_normals`] instead.
     ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
