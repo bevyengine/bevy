@@ -817,6 +817,26 @@ fn compute_transmitted_indirect_light(
     return transmitted_light;
 }
 
+fn compute_emissive_light(
+    in: pbr_types::PbrInput,
+    output_color: vec4<f32>,
+) -> vec3<f32> {
+    var emissive_light = in.material.emissive.rgb * output_color.a;
+    let clearcoat_NdotV = max(dot(in.clearcoat_N, in.V), 0.0001);
+
+    // "The clearcoat layer is on top of emission in the layering stack.
+    // Consequently, the emission is darkened by the Fresnel term."
+    //
+    // <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md#emission>
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+    emissive_light = emissive_light * (0.04 + (1.0 - 0.04) * pow(1.0 - clearcoat_NdotV, 5.0));
+#endif
+
+    emissive_light = emissive_light * mix(1.0, view_bindings::view.exposure, in.material.emissive.a);
+
+    return emissive_light;
+}
+
 fn apply_pbr_lighting(
     in: pbr_types::PbrInput,
 ) -> vec4<f32> {
@@ -910,17 +930,7 @@ fn apply_pbr_lighting(
         F0
     );
 
-    var emissive_light = emissive.rgb * output_color.a;
-
-    // "The clearcoat layer is on top of emission in the layering stack.
-    // Consequently, the emission is darkened by the Fresnel term."
-    //
-    // <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md#emission>
-#ifdef STANDARD_MATERIAL_CLEARCOAT
-    emissive_light = emissive_light * (0.04 + (1.0 - 0.04) * pow(1.0 - clearcoat_NdotV, 5.0));
-#endif
-
-    emissive_light = emissive_light * mix(1.0, view_bindings::view.exposure, emissive.a);
+    let emissive_light = compute_emissive_light(in, output_color);
 
     // Total light
     output_color = vec4<f32>(
