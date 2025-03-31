@@ -39,13 +39,11 @@ pub use bevy_gizmos as gizmos;
 pub use bevy_gltf as gltf;
 #[cfg(feature = "bevy_image")]
 pub use bevy_image as image;
-#[cfg(any(feature = "libm", feature = "std"))]
 pub use bevy_input as input;
 #[cfg(feature = "bevy_input_focus")]
 pub use bevy_input_focus as input_focus;
 #[cfg(feature = "bevy_log")]
 pub use bevy_log as log;
-#[cfg(any(feature = "libm", feature = "std"))]
 pub use bevy_math as math;
 #[cfg(feature = "bevy_pbr")]
 pub use bevy_pbr as pbr;
@@ -68,7 +66,6 @@ pub use bevy_tasks as tasks;
 #[cfg(feature = "bevy_text")]
 pub use bevy_text as text;
 pub use bevy_time as time;
-#[cfg(any(feature = "libm", feature = "std"))]
 pub use bevy_transform as transform;
 #[cfg(feature = "bevy_ui")]
 pub use bevy_ui as ui;
