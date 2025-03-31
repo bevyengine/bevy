@@ -12,11 +12,11 @@ use bevy::{
     },
     input::mouse::MouseWheel,
     math::{vec3, vec4},
-    pbr::{
-        DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
-    },
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    render_3d::{
+        DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
+    },
 };
 
 /// This example uses a shader source file from the assets subdirectory

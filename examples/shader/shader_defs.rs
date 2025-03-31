@@ -1,7 +1,6 @@
 //! A shader that uses "shaders defs", which selectively toggle parts of a shader.
 
 use bevy::{
-    pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -10,6 +9,7 @@ use bevy::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
         },
     },
+    render_3d::{MaterialPipeline, MaterialPipelineKey},
 };
 
 /// This example uses a shader source file from the assets subdirectory

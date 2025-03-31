@@ -124,8 +124,7 @@ impl Default for DirectionalLightShadowMap {
 /// Prefer using [`CascadeShadowConfigBuilder`] to construct an instance.
 ///
 /// ```
-/// # use bevy_pbr::CascadeShadowConfig;
-/// # use bevy_pbr::CascadeShadowConfigBuilder;
+/// # use bevy_render_3d::{CascadeShadowConfig,CascadeShadowConfigBuilder};
 /// # use bevy_utils::default;
 /// #
 /// let config: CascadeShadowConfig = CascadeShadowConfigBuilder {
@@ -444,10 +443,12 @@ fn calculate_cascade(
         texel_size: cascade_texel_size,
     }
 }
+
 /// Add this component to make a [`Mesh3d`] not cast shadows.
 #[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowCaster;
+
 /// Add this component to make a [`Mesh3d`] not receive shadows.
 ///
 /// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
@@ -456,11 +457,8 @@ pub struct NotShadowCaster;
 #[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowReceiver;
-/// Add this component to make a [`Mesh3d`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
-/// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
-///
-/// Not enabled by default, as it requires carefully setting up [`thickness`](crate::pbr_material::StandardMaterial::thickness)
-/// (and potentially even baking a thickness texture!) to match the geometry of the mesh, in order to avoid self-shadow artifacts.
+
+/// Allow receiving shadows that have been transmitted by transparent objects.
 ///
 /// **Note:** Using [`NotShadowReceiver`] overrides this component.
 #[derive(Debug, Component, Reflect, Default)]

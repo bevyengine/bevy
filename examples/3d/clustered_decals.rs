@@ -7,14 +7,14 @@ use std::process;
 use bevy::{
     color::palettes::css::{LIME, ORANGE_RED, SILVER},
     input::mouse::AccumulatedMouseMotion,
-    pbr::{
-        decal::{self, clustered::ClusteredDecal},
-        ExtendedMaterial, MaterialExtension,
-    },
     prelude::*,
     render::{
         render_resource::{AsBindGroup, ShaderRef},
         renderer::{RenderAdapter, RenderDevice},
+    },
+    render_3d::{
+        decal::{self, clustered::ClusteredDecal},
+        ExtendedMaterial, MaterialExtension,
     },
     window::SystemCursorIcon,
     winit::cursor::CursorIcon,

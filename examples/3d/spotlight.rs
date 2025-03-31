@@ -5,8 +5,8 @@ use std::f32::consts::*;
 use bevy::{
     color::palettes::basic::{MAROON, RED},
     math::ops,
-    pbr::NotShadowCaster,
     prelude::*,
+    render_3d::NotShadowCaster,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;

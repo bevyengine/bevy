@@ -1,7 +1,6 @@
 //! Create a custom material to draw basic lines in 3D
 
 use bevy::{
-    pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -12,6 +11,7 @@ use bevy::{
             SpecializedMeshPipelineError,
         },
     },
+    render_3d::{MaterialPipeline, MaterialPipelineKey},
 };
 
 /// This example uses a shader source file from the assets subdirectory

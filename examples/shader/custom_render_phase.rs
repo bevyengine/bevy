@@ -19,10 +19,6 @@ use bevy::{
         system::{lifetimeless::SRes, SystemParamItem},
     },
     math::FloatOrd,
-    pbr::{
-        DrawMesh, MeshInputUniform, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey,
-        MeshUniform, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
-    },
     platform_support::collections::HashSet,
     prelude::*,
     render::{
@@ -55,6 +51,10 @@ use bevy::{
         sync_world::MainEntity,
         view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
         Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
+    },
+    render_3d::{
+        DrawMesh, MeshInputUniform, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey,
+        MeshUniform, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
     },
 };
 use nonmax::NonMaxU32;

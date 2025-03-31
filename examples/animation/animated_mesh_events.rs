@@ -3,8 +3,8 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
-    animation::AnimationTargetId, color::palettes::css::WHITE, pbr::CascadeShadowConfigBuilder,
-    prelude::*,
+    animation::AnimationTargetId, color::palettes::css::WHITE, prelude::*,
+    render_3d::CascadeShadowConfigBuilder,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;

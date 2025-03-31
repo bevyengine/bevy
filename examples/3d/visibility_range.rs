@@ -6,9 +6,9 @@ use bevy::{
     core_pipeline::prepass::{DepthPrepass, NormalPrepass},
     input::mouse::MouseWheel,
     math::vec3,
-    pbr::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
     prelude::*,
     render::view::VisibilityRange,
+    render_3d::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
 };
 
 // Where the camera is focused.

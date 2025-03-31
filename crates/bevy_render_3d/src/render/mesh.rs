@@ -101,6 +101,15 @@ impl MeshRenderPlugin {
     }
 }
 
+impl Default for MeshRenderPlugin {
+    fn default() -> Self {
+        Self {
+            use_gpu_instance_buffer_builder: true,
+            debug_flags: default(),
+        }
+    }
+}
+
 pub const FORWARD_IO_HANDLE: Handle<Shader> = weak_handle!("38111de1-6e35-4dbb-877b-7b6f9334baf6");
 pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> =
     weak_handle!("979493db-4ae1-4003-b5c6-fcbb88b152a2");
@@ -914,7 +923,8 @@ impl RenderMeshMaterialIds {
         self.mesh_to_material
             .get(&entity)
             .cloned()
-            .unwrap_or(AssetId::<StandardMaterial>::invalid().into())
+            // All assets have the same invalid AssetId
+            .unwrap_or(AssetId::<Mesh>::invalid().into())
     }
 
     pub(crate) fn insert(&mut self, mesh_entity: MainEntity, material_id: UntypedAssetId) {

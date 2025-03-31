@@ -143,6 +143,7 @@ default = [
   "bevy_pbr",
   "bevy_picking",
   "bevy_render",
+  "bevy_render_3d",
   "bevy_scene",
   "bevy_sprite",
   "bevy_sprite_picking_backend",
@@ -241,6 +242,9 @@ bevy_picking = ["bevy_internal/bevy_picking"]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
+
+# Provides functionality for rendering in 3d
+bevy_render_3d = ["bevy_internal/bevy_render_3d"]
 
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]

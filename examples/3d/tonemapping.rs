@@ -2,7 +2,6 @@
 
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
-    pbr::CascadeShadowConfigBuilder,
     platform_support::collections::HashMap,
     prelude::*,
     reflect::TypePath,
@@ -10,6 +9,7 @@ use bevy::{
         render_resource::{AsBindGroup, ShaderRef},
         view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
     },
+    render_3d::CascadeShadowConfigBuilder,
 };
 use std::f32::consts::PI;
 

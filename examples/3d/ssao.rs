@@ -3,9 +3,9 @@
 use bevy::{
     anti_aliasing::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
     math::ops,
-    pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
     render::camera::TemporalJitter,
+    render_3d::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
 };
 use std::f32::consts::PI;
 

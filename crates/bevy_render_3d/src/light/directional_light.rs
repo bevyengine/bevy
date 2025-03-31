@@ -45,7 +45,7 @@ use super::*;
 ///
 /// ```
 /// # use bevy_app::prelude::*;
-/// # use bevy_pbr::DirectionalLightShadowMap;
+/// # use bevy_render_3d::DirectionalLightShadowMap;
 /// App::new()
 ///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
 /// ```

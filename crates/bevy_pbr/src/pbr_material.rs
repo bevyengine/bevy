@@ -1,14 +1,20 @@
-use bevy_asset::Asset;
-use bevy_color::{Alpha, ColorToComponents};
+use bevy_asset::{Asset, Handle};
+use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
+use bevy_image::Image;
 use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
-    texture::GpuImage,
+    alpha::AlphaMode, mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets,
+    render_resource::*, texture::GpuImage,
 };
+use bevy_render_3d::{
+    deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, Material, MaterialPipeline,
+    MaterialPipelineKey, OpaqueRendererMethod,
+};
+
 use bitflags::bitflags;
 
-use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
+use crate::{prelude::ParallaxMappingMethod, PBR_PREPASS_SHADER_HANDLE, PBR_SHADER_HANDLE};
 
 /// An enum to define which UV attribute to use for a texture.
 ///
@@ -29,6 +35,8 @@ pub enum UvChannel {
 /// <https://google.github.io/filament/Material%20Properties.pdf>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
+///
+/// [`StandardMaterial`] comes with out of the box support for forward decals.
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
 #[data(0, StandardMaterialUniform, binding_array(10))]
@@ -215,7 +223,7 @@ pub struct StandardMaterial {
     ///
     /// - The material's [`StandardMaterial::base_color`] also modulates the transmitted light;
     /// - To receive transmitted shadows on the diffuse transmission lobe (i.e. the “backside”) of the material,
-    ///   use the [`TransmittedShadowReceiver`] component.
+    ///   use the [`TransmittedShadowReceiver`](bevy_render_3d::TransmittedShadowReceiver) component.
     #[doc(alias = "translucency")]
     pub diffuse_transmission: f32,
 

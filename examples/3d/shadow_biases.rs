@@ -3,7 +3,7 @@
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 
-use bevy::{pbr::ShadowFilteringMethod, prelude::*};
+use bevy::{prelude::*, render_3d::ShadowFilteringMethod};
 use camera_controller::{CameraController, CameraControllerPlugin};
 
 fn main() {

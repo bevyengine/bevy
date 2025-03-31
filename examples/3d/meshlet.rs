@@ -6,12 +6,12 @@
 mod camera_controller;
 
 use bevy::{
-    pbr::{
+    prelude::*,
+    render::render_resource::AsBindGroup,
+    render_3d::{
         experimental::meshlet::{MeshletMesh3d, MeshletPlugin},
         CascadeShadowConfigBuilder, DirectionalLightShadowMap,
     },
-    prelude::*,
-    render::render_resource::AsBindGroup,
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::{f32::consts::PI, path::Path, process::ExitCode};

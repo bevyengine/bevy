@@ -7,9 +7,7 @@
 //! project support other lightmap baking methods.
 //!
 //! When a [`Lightmap`] component is added to an entity with a [`Mesh3d`] and a
-//! [`MeshMaterial3d<StandardMaterial>`], Bevy applies the lightmap when rendering. The brightness
-//! of the lightmap may be controlled with the `lightmap_exposure` field on
-//! [`StandardMaterial`].
+//! [`MeshMaterial3d`], Bevy applies the lightmap when rendering.
 //!
 //! During the rendering extraction phase, we extract all lightmaps into the
 //! [`RenderLightmaps`] table, which lives in the render world. Mesh bindgroup
@@ -27,8 +25,8 @@
 //!
 //! [The Lightmapper]: https://github.com/Naxela/The_Lightmapper
 //! [`Mesh3d`]: bevy_render::mesh::Mesh3d
-//! [`MeshMaterial3d<StandardMaterial>`]: crate::StandardMaterial
-//! [`StandardMaterial`]: crate::StandardMaterial
+//! [`MeshMaterial3d`]: crate::MeshMaterial3d
+//! [`Material`]: crate::Material
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_app::{App, Plugin};
@@ -84,7 +82,7 @@ pub struct LightmapPlugin;
 /// lightmap.
 ///
 /// When assigned to an entity that contains a [`Mesh3d`](bevy_render::mesh::Mesh3d) and a
-/// [`MeshMaterial3d<StandardMaterial>`](crate::StandardMaterial), if the mesh
+/// [`MeshMaterial3d<Material>`](crate::Material), if the mesh
 /// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_render::mesh::Mesh::ATTRIBUTE_UV_1)),
 /// then the lightmap will render using those UVs.
 #[derive(Component, Clone, Reflect)]
