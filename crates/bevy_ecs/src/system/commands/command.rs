@@ -1,5 +1,5 @@
-//! This module contains the definition of the [`Command`] trait, as well as
-//! blanket implementations of the trait for closures.
+//! Contains the definition of the [`Command`] trait,
+//! as well as blanket implementations of the trait for closures.
 //!
 //! It also contains functions that return closures for use with
 //! [`Commands`](crate::system::Commands).
@@ -183,8 +183,10 @@ where
     }
 }
 
-/// A [`Command`] that removes a system previously registered with
-/// [`World::register_system_cached`].
+/// A [`Command`] that removes a system previously registered with one of the following:
+/// - [`Commands::run_system_cached`](crate::system::Commands::run_system_cached)
+/// - [`World::run_system_cached`]
+/// - [`World::register_system_cached`]
 pub fn unregister_system_cached<I, O, M, S>(system: S) -> impl Command<Result>
 where
     I: SystemInput + Send + 'static,
