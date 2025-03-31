@@ -390,6 +390,15 @@ impl Allocator {
     }
 }
 
+impl core::fmt::Debug for Allocator {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct(core::any::type_name::<Self>())
+            .field("total_indices", &self.total_entity_indices())
+            .field("total_pending", &self.num_pending())
+            .finish()
+    }
+}
+
 /// An [`Iterator`] returning a sequence of [`Entity`] values from an [`Allocator`].
 pub struct AllocEntitiesIterator<'a> {
     allocator: &'a Allocator,

@@ -487,7 +487,7 @@ impl SparseSetIndex for Entity {
 ///  - The location of the entity's components in memory (via [`EntityLocation`])
 ///
 /// [`World`]: crate::world::World
-// #[derive(Debug)]
+#[derive(Debug)]
 pub struct Entities {
     meta: Vec<EntityMeta>,
     allocator: Allocator,
