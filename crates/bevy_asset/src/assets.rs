@@ -460,26 +460,27 @@ impl<A: Asset> Assets<A> {
     }
 
     /// Removes the [`Asset`] with the given `id`.
-    pub(crate) fn remove_dropped(&mut self, id: AssetId<A>) -> bool {
-        match self.duplicate_handles.get_mut(&id) {
-            Some(0) => {
-                self.queued_events.push(AssetEvent::Unused { id });
-            }
-            Some(value) => {
-                *value -= 1;
-                return false;
-            }
-            None => {}
-        }
+    pub(crate) fn remove_dropped(&mut self, id: AssetId<A>) {
         let existed = match id {
             AssetId::Index { index, .. } => self.dense_storage.remove_dropped(index).is_some(),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid).is_some(),
         };
-        if existed {
-            self.queued_events.push(AssetEvent::Removed { id });
+
+        if !existed {
+            return;
         }
 
-        existed
+        match self.duplicate_handles.get_mut(&id) {
+            None | Some(0) => {
+                self.queued_events.push(AssetEvent::Unused { id });
+            }
+            Some(value) => {
+                *value -= 1;
+                return;
+            }
+        }
+
+        self.queued_events.push(AssetEvent::Removed { id });
     }
 
     /// Returns `true` if there are no assets in this collection.
