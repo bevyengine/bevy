@@ -41,16 +41,16 @@ struct AnimationState {
 struct Container(u8);
 
 trait UpdateTransform {
-    fn update(&self, t: f32, transform: &mut Transform);
+    fn update(&self, t: f32, transform: &mut Node);
 }
 
 #[derive(Component)]
 struct Move;
 
 impl UpdateTransform for Move {
-    fn update(&self, t: f32, transform: &mut Transform) {
-        transform.translation.x = ops::sin(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
-        transform.translation.y = -ops::cos(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
+    fn update(&self, t: f32, node: &mut Node) {
+        node.transform.translation.x = ops::sin(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
+        node.transform.translation.y = -ops::cos(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
     }
 }
 
@@ -58,9 +58,9 @@ impl UpdateTransform for Move {
 struct Scale;
 
 impl UpdateTransform for Scale {
-    fn update(&self, t: f32, transform: &mut Transform) {
-        transform.scale.x = 1.0 + 0.5 * ops::cos(t * TAU).max(0.0);
-        transform.scale.y = 1.0 + 0.5 * ops::cos(t * TAU + PI).max(0.0);
+    fn update(&self, t: f32, node: &mut Node) {
+        node.transform.scale.x = 1.0 + 0.5 * ops::cos(t * TAU).max(0.0);
+        node.transform.scale.y = 1.0 + 0.5 * ops::cos(t * TAU + PI).max(0.0);
     }
 }
 
@@ -68,8 +68,8 @@ impl UpdateTransform for Scale {
 struct Rotate;
 
 impl UpdateTransform for Rotate {
-    fn update(&self, t: f32, transform: &mut Transform) {
-        transform.rotation =
+    fn update(&self, t: f32, node: &mut Node) {
+        node.transform.rotation =
             Quat::from_axis_angle(Vec3::Z, (ops::cos(t * TAU) * 45.0).to_radians());
     }
 }
@@ -175,10 +175,6 @@ fn spawn_container(
     update_transform: impl UpdateTransform + Component,
     spawn_children: impl FnOnce(&mut ChildSpawnerCommands),
 ) {
-    let mut transform = Transform::default();
-
-    update_transform.update(0.0, &mut transform);
-
     parent
         .spawn((
             Node {
@@ -198,11 +194,8 @@ fn spawn_container(
                     Node {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
-                        top: Val::Px(transform.translation.x),
-                        left: Val::Px(transform.translation.y),
                         ..default()
                     },
-                    transform,
                     update_transform,
                 ))
                 .with_children(spawn_children);
@@ -233,13 +226,10 @@ fn update_animation(
 
 fn update_transform<T: UpdateTransform + Component>(
     animation: Res<AnimationState>,
-    mut containers: Query<(&mut Transform, &mut Node, &ComputedNode, &T)>,
+    mut containers: Query<(&mut Node, &T)>,
 ) {
-    for (mut transform, mut node, computed_node, update_transform) in &mut containers {
-        update_transform.update(animation.t, &mut transform);
-
-        node.left = Val::Px(transform.translation.x * computed_node.inverse_scale_factor());
-        node.top = Val::Px(transform.translation.y * computed_node.inverse_scale_factor());
+    for (mut node, update_transform) in &mut containers {
+        update_transform.update(animation.t, &mut node);
     }
 }
 
