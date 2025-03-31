@@ -41,7 +41,7 @@ mod clone_entities;
 mod entity_set;
 mod map_entities;
 
-use allocator::Allocator;
+use allocator::{Allocator, RemoteAllocator};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
@@ -769,6 +769,38 @@ impl Entities {
     ) -> EntityDoesNotExistDetails {
         EntityDoesNotExistDetails {
             location: self.entity_get_spawned_or_despawned_by(entity),
+        }
+    }
+}
+
+/// A remote version of [`Entities`] with limited functionality.
+#[derive(Clone)]
+pub struct RemoteEntities {
+    allocator: RemoteAllocator,
+}
+
+impl RemoteEntities {
+    /// Allocates an [`Entity`] if the source [`Entities`] is still linked to this [`RemoteEntities`].
+    pub fn alloc(&self) -> Option<Entity> {
+        self.allocator.alloc()
+    }
+
+    /// Returns true if this [`RemoteEntities`] is still connected to its source [`Entities`].
+    /// This will return `false` if its source has been dropped or [`Entities::clear`]ed.
+    ///
+    /// Note that this does not guarantee immediately calling [`Self::alloc`] will return `Some`,
+    /// as this can close at any time.
+    pub fn is_closed(&self) -> bool {
+        self.allocator.is_closed()
+    }
+
+    /// Creates a new [`RemoteEntities`] with this [`Entities`] as its source.
+    /// Note that this can be closed at any time,
+    /// so before using an allocated [`Entity`],
+    /// check [`is_closed`](Self::is_closed).
+    pub fn new(source: &Entities) -> Self {
+        Self {
+            allocator: RemoteAllocator::new(&source.allocator),
         }
     }
 }

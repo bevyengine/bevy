@@ -417,6 +417,7 @@ unsafe impl EntitySetIterator for AllocEntitiesIterator<'_> {}
 
 /// This is a stripped down version of [`Allocator`] that operates on fewer assumptions.
 /// As a result, using this will be slower than [`Allocator`] but this offers additional freedoms.
+#[derive(Clone)]
 pub struct RemoteAllocator {
     shared: Weak<SharedAllocator>,
 }
@@ -430,6 +431,11 @@ impl RemoteAllocator {
         self.shared
             .upgrade()
             .map(|allocator| allocator.remote_alloc())
+    }
+
+    /// Returns whether or not this [`RemoteAllocator`] is still connected to its source [`Allocator`].
+    pub fn is_closed(&self) -> bool {
+        self.shared.strong_count() > 0
     }
 
     /// Creates a new [`RemoteAllocator`] with the provided [`Allocator`] source.
