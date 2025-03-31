@@ -2026,7 +2026,7 @@ impl Components {
                     .chain(queued.resources.values())
                     .chain(queued.dynamic_registrations.iter())
                     .find(|queued| queued.id == id)
-                    .map(|queued| Cow::Owned(queued.descriptor.name().to_string()))
+                    .map(|queued| queued.descriptor.name.clone())
             })
     }
 
