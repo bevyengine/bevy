@@ -17,14 +17,14 @@ impl AsyncSeekForward for File {
         mut self: Pin<&mut Self>,
         cx: &mut task::Context<'_>,
         offset: u64,
-    ) -> Poll<futures_io::Result<u64>> {
+    ) -> Poll<bevy_platform_support::io::Result<u64>> {
         let offset: Result<i64, _> = offset.try_into();
 
         if let Ok(offset) = offset {
             Pin::new(&mut self).poll_seek(cx, futures_io::SeekFrom::Current(offset))
         } else {
-            Poll::Ready(Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
+            Poll::Ready(Err(bevy_platform_support::io::Error::new(
+                bevy_platform_support::io::ErrorKind::InvalidInput,
                 "seek position is out of range",
             )))
         }
@@ -37,7 +37,7 @@ impl AssetReader for FileAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let full_path = self.root_path.join(path);
         File::open(&full_path).await.map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
+            if e.kind() == bevy_platform_support::io::ErrorKind::NotFound {
                 AssetReaderError::NotFound(full_path)
             } else {
                 e.into()
@@ -49,7 +49,7 @@ impl AssetReader for FileAssetReader {
         let meta_path = get_meta_path(path);
         let full_path = self.root_path.join(meta_path);
         File::open(&full_path).await.map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
+            if e.kind() == bevy_platform_support::io::ErrorKind::NotFound {
                 AssetReaderError::NotFound(full_path)
             } else {
                 e.into()
@@ -82,7 +82,7 @@ impl AssetReader for FileAssetReader {
                 Ok(read_dir)
             }
             Err(e) => {
-                if e.kind() == std::io::ErrorKind::NotFound {
+                if e.kind() == bevy_platform_support::io::ErrorKind::NotFound {
                     Err(AssetReaderError::NotFound(full_path))
                 } else {
                     Err(e.into())

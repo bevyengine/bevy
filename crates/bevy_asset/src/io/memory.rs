@@ -233,7 +233,7 @@ impl AsyncRead for DataReader {
         mut self: Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<futures_io::Result<usize>> {
+    ) -> Poll<bevy_platform_support::io::Result<usize>> {
         if self.bytes_read >= self.data.value().len() {
             Poll::Ready(Ok(0))
         } else {
@@ -250,7 +250,7 @@ impl AsyncSeekForward for DataReader {
         mut self: Pin<&mut Self>,
         _cx: &mut core::task::Context<'_>,
         offset: u64,
-    ) -> Poll<std::io::Result<u64>> {
+    ) -> Poll<bevy_platform_support::io::Result<u64>> {
         let result = self
             .bytes_read
             .try_into()
@@ -260,8 +260,8 @@ impl AsyncSeekForward for DataReader {
             self.bytes_read = new_pos as _;
             Poll::Ready(Ok(new_pos as _))
         } else {
-            Poll::Ready(Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
+            Poll::Ready(Err(bevy_platform_support::io::Error::new(
+                bevy_platform_support::io::ErrorKind::InvalidInput,
                 "seek position is out of range",
             )))
         }
@@ -272,7 +272,11 @@ impl Reader for DataReader {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
-    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
+    ) -> stackfuture::StackFuture<
+        'a,
+        bevy_platform_support::io::Result<usize>,
+        { super::STACK_FUTURE_SIZE },
+    > {
         stackfuture::StackFuture::from(async {
             if self.bytes_read >= self.data.value().len() {
                 Ok(0)
