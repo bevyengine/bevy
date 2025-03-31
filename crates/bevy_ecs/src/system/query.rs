@@ -407,10 +407,12 @@ use core::{
 ///
 /// Query filters ([`With`] / [`Without`]) can improve performance because they narrow the kinds of
 /// entities that can be fetched. Systems that access fewer kinds of entities are more likely to be
-/// parallelized by the scheduler. On the other hand, be careful using optional components
-/// (`Option<&ComponentA>`) because they broaden the amount of entities kinds that can be accessed.
-/// This is especially true of a query that _only_ fetches optional components, as the query would
-/// iterate over all entities in the world.
+/// parallelized by the scheduler.
+///
+/// On the other hand, be careful using optional components (`Option<&ComponentA>`) and
+/// [`EntityRef`] because they broaden the amount of entities kinds that can be accessed. This is
+/// especially true of a query that _only_ fetches optional components or [`EntityRef`], as the
+/// query would iterate over all entities in the world.
 ///
 /// There are two types of [component storage types]: [`Table`] and [`SparseSet`]. [`Table`] offers
 /// fast iteration speeds, but slower insertion and removal speeds. [`SparseSet`] is the opposite:
