@@ -1,3 +1,4 @@
+mod binder;
 mod blas;
 mod types;
 
@@ -16,12 +17,13 @@ use bevy_render::{
     settings::WgpuFeatures,
     Render, RenderApp, RenderSet,
 };
+use binder::{prepare_raytracing_scene_bindings, RaytracingSceneBindings};
 use blas::{manage_blas, BlasManager};
 use tracing::warn;
 
-pub struct SolariScenePlugin;
+pub struct RaytracingScenePlugin;
 
-impl Plugin for SolariScenePlugin {
+impl Plugin for RaytracingScenePlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<RaytracingMesh3d>();
     }
@@ -31,8 +33,11 @@ impl Plugin for SolariScenePlugin {
 
         let render_device = render_app.world().resource::<RenderDevice>();
         let features = render_device.features();
-        if !features.contains(WgpuFeatures::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE) {
-            warn!("SolariScenePlugin not loaded. GPU lacks support for required feature: EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE.");
+        if !features.contains(Self::required_wgpu_features()) {
+            warn!(
+                "SolariScenePlugin not loaded. GPU lacks support for required feature: {:?}.",
+                Self::required_wgpu_features().difference(features)
+            );
             return;
         }
 
@@ -41,12 +46,30 @@ impl Plugin for SolariScenePlugin {
             .resource_mut::<MeshAllocator>()
             .extra_buffer_usages |= BufferUsages::BLAS_INPUT | BufferUsages::STORAGE;
 
-        render_app.init_resource::<BlasManager>().add_systems(
-            Render,
-            manage_blas
-                .in_set(RenderSet::PrepareAssets)
-                .before(prepare_assets::<RenderMesh>)
-                .after(allocate_and_free_meshes),
-        );
+        render_app
+            .init_resource::<BlasManager>()
+            .init_resource::<RaytracingSceneBindings>()
+            .add_systems(
+                Render,
+                (
+                    manage_blas
+                        .in_set(RenderSet::PrepareAssets)
+                        .before(prepare_assets::<RenderMesh>)
+                        .after(allocate_and_free_meshes),
+                    prepare_raytracing_scene_bindings.in_set(RenderSet::PrepareBindGroups),
+                ),
+            );
+    }
+}
+
+impl RaytracingScenePlugin {
+    /// [`WgpuFeatures`] required for this plugin to function.
+    pub fn required_wgpu_features() -> WgpuFeatures {
+        WgpuFeatures::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE
+            | WgpuFeatures::BUFFER_BINDING_ARRAY
+            | WgpuFeatures::TEXTURE_BINDING_ARRAY
+            | WgpuFeatures::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING
+            | WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING
+            | WgpuFeatures::PARTIALLY_BOUND_BINDING_ARRAY
     }
 }

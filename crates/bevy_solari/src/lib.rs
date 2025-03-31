@@ -10,12 +10,12 @@ pub mod prelude {
 }
 
 use bevy_app::{App, Plugin};
-use scene::SolariScenePlugin;
+use scene::RaytracingScenePlugin;
 
 pub struct SolariPlugin;
 
 impl Plugin for SolariPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(SolariScenePlugin);
+        app.add_plugins(RaytracingScenePlugin);
     }
 }

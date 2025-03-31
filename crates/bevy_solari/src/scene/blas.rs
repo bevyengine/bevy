@@ -51,7 +51,7 @@ pub fn manage_blas(
     let blas_resources = extracted_meshes
         .extracted
         .iter()
-        .filter(|(_, mesh)| is_mesh_solari_compatible(mesh))
+        .filter(|(_, mesh)| is_mesh_raytracing_compatible(mesh))
         .map(|(asset_id, _)| {
             let vertex_slice = mesh_allocator.mesh_vertex_slice(asset_id).unwrap();
             let index_slice = mesh_allocator.mesh_index_slice(asset_id).unwrap();
@@ -121,7 +121,7 @@ fn create_blas(
     (blas, blas_size)
 }
 
-fn is_mesh_solari_compatible(mesh: &Mesh) -> bool {
+fn is_mesh_raytracing_compatible(mesh: &Mesh) -> bool {
     let triangle_list = mesh.primitive_topology() == PrimitiveTopology::TriangleList;
     let vertex_attributes = mesh.attributes().map(|(attribute, _)| attribute.id).eq([
         Mesh::ATTRIBUTE_POSITION.id,
