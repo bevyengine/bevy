@@ -44,7 +44,7 @@ web = ["dep:web-time", "dep:getrandom"]
 [dependencies]
 cfg-if = "1.0.0"
 critical-section = { version = "1.2.0", default-features = false, optional = true }
-spin = { version = "0.9.8", default-features = false, features = [
+spin = { version = "0.10.0", default-features = false, features = [
   "mutex",
   "spin_mutex",
   "rwlock",
@@ -68,7 +68,7 @@ getrandom = { version = "0.2.0", default-features = false, optional = true, feat
 portable-atomic = { version = "1", default-features = false, features = [
   "fallback",
 ] }
-spin = { version = "0.9.8", default-features = false, features = [
+spin = { version = "0.10.0", default-features = false, features = [
   "portable_atomic",
 ] }
 
