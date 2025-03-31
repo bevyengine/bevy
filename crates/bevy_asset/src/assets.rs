@@ -465,7 +465,6 @@ impl<A: Asset> Assets<A> {
             None => {}
             Some(0) => {
                 self.duplicate_handles.remove(&id);
-                self.queued_events.push(AssetEvent::Unused { id });
             }
             Some(value) => {
                 *value -= 1;
