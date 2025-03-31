@@ -13,7 +13,6 @@ use crate::{
     world::{DeferredWorld, FromWorld, World},
 };
 use alloc::boxed::Box;
-use alloc::string::ToString;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
 use bevy_platform_support::sync::Arc;
