@@ -299,7 +299,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// #[derive(Component)]
     /// struct Label(&'static str);
     /// #[derive(Component)]
@@ -925,7 +924,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::{prelude::*, world::CommandQueue, system::SystemId};
-    /// #
     /// #[derive(Resource)]
     /// struct Counter(i32);
     ///
@@ -1897,7 +1895,6 @@ impl<'a> EntityCommands<'a> {
     /// Configure through [`EntityClonerBuilder`] as follows:
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// #[derive(Component, Clone)]
     /// struct ComponentA(u32);
     /// #[derive(Component, Clone)]
@@ -1944,7 +1941,6 @@ impl<'a> EntityCommands<'a> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// #[derive(Component, Clone)]
     /// struct ComponentA(u32);
     /// #[derive(Component, Clone)]
@@ -1983,7 +1979,6 @@ impl<'a> EntityCommands<'a> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
     /// #[derive(Component, Clone)]
     /// struct ComponentA(u32);
     /// #[derive(Component, Clone)]
