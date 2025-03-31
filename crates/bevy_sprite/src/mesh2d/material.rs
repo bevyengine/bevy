@@ -650,12 +650,15 @@ impl<M> Default for SpecializedMaterial2dViewPipelineCache<M> {
 pub fn check_entities_needing_specialization<M>(
     needs_specialization: Query<
         Entity,
-        Or<(
-            Changed<Mesh2d>,
-            AssetChanged<Mesh2d>,
-            Changed<MeshMaterial2d<M>>,
-            AssetChanged<MeshMaterial2d<M>>,
-        )>,
+        (
+            Or<(
+                Changed<Mesh2d>,
+                AssetChanged<Mesh2d>,
+                Changed<MeshMaterial2d<M>>,
+                AssetChanged<MeshMaterial2d<M>>,
+            )>,
+            With<MeshMaterial2d<M>>,
+        ),
     >,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
 ) where
