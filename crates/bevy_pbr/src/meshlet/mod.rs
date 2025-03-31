@@ -149,7 +149,7 @@ impl Plugin for MeshletPlugin {
 
         if self.cluster_buffer_slots > 2_u32.pow(25) {
             error!("MeshletPlugin::cluster_buffer_slots must not be greater than 2^25.");
-            std::process::exit(1);
+            bevy_platform_support::process::exit(1);
         }
 
         load_internal_asset!(
@@ -229,7 +229,7 @@ impl Plugin for MeshletPlugin {
                 "MeshletPlugin can't be used. GPU lacks support for required features: {:?}.",
                 Self::required_wgpu_features().difference(features)
             );
-            std::process::exit(1);
+            bevy_platform_support::process::exit(1);
         }
 
         render_app
@@ -320,7 +320,7 @@ fn configure_meshlet_views(
     for (entity, msaa, normal_prepass, motion_vector_prepass, deferred_prepass) in &mut views_3d {
         if *msaa != Msaa::Off {
             error!("MeshletPlugin can't be used with MSAA. Add Msaa::Off to your camera to use this plugin.");
-            std::process::exit(1);
+            bevy_platform_support::process::exit(1);
         }
 
         if !(normal_prepass || motion_vector_prepass || deferred_prepass) {
