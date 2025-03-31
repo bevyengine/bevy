@@ -2,7 +2,7 @@ use bevy_platform_support::{
     prelude::Vec,
     sync::{
         atomic::{AtomicBool, AtomicIsize, AtomicPtr, AtomicU32, Ordering},
-        Arc,
+        Arc, Weak,
     },
 };
 use core::mem::{ManuallyDrop, MaybeUninit};
@@ -330,6 +330,7 @@ impl SharedAllocator {
     }
 }
 
+/// This keeps track of freed entities and allows the allocation of new ones.
 pub struct Allocator {
     shared: Arc<SharedAllocator>,
 }
@@ -362,6 +363,32 @@ impl Allocator {
         // SAFETY: We have `&mut self`.
         unsafe {
             self.shared.pending.free(entity);
+        }
+    }
+}
+
+/// This is a stripped down version of [`Allocator`] that operates on fewer assumptions.
+/// As a result, using this will be slower than [`Allocator`] but this offers additional freedoms.
+pub struct RemoteAllocator {
+    shared: Weak<SharedAllocator>,
+}
+
+impl RemoteAllocator {
+    /// Allocates an entity remotely.
+    /// This is not guaranteed to reuse a freed entity, even if one exists.
+    ///
+    /// This will return [`None`] if the source [`Allocator`] is destroyed.
+    pub fn alloc(&self) -> Option<Entity> {
+        self.shared
+            .upgrade()
+            .map(|allocator| allocator.remote_alloc())
+    }
+
+    /// Creates a new [`RemoteAllocator`] with the provided [`Allocator`] source.
+    /// If the source is ever destroyed, [`Self::alloc`] will yield [`None`].
+    pub fn new(source: &Allocator) -> Self {
+        Self {
+            shared: Arc::downgrade(&source.shared),
         }
     }
 }
