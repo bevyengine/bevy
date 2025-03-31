@@ -575,16 +575,9 @@ impl Entities {
     }
 
     /// Ensure at least `n` allocations can succeed without reallocating.
-    #[expect(
-        clippy::allow_attributes,
-        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
-    )]
-    #[allow(
-        clippy::unnecessary_fallible_conversions,
-        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
-    )]
     pub fn reserve(&mut self, additional: u32) {
-        todo!()
+        let shortfall = (additional as u64).saturating_sub(self.allocator.num_pending());
+        self.meta.reserve(shortfall as usize);
     }
 
     /// Returns true if the [`Entities`] contains [`entity`](Entity).
