@@ -130,6 +130,7 @@ impl Chunk {
     }
 }
 
+/// This is conceptually like a `Vec<Entity>` that stores entities pending reuse.
 struct PendingBuffer {
     /// The chunks of the pending list.
     /// Put end-to-end, these chunks form a list of pending entities.
@@ -185,7 +186,7 @@ impl PendingBuffer {
         })
     }
 
-    /// Allocates an [`Entity`] from the pending list if one is available.
+    /// Allocates an [`Entity`] from the pending list if one is available and it is safe to do so.
     fn remote_alloc(&self) -> Option<Entity> {
         // The goal is the same as `alloc`, so what's the difference?
         // `alloc` knows `free` is not being called, but this does not.
@@ -237,6 +238,50 @@ impl PendingBuffer {
                 Err(updated_len) => len = updated_len,
             }
         }
+    }
+}
+
+/// This stores allocation data shared by all entity allocators.
+struct SharedAllocator {
+    /// The entities pending reuse
+    pending: PendingBuffer,
+    /// The next value of [`Entity::index`] to give out if needed.
+    next_entity_index: AtomicU32,
+}
+
+impl SharedAllocator {
+    /// Allocates a new [`Entity`], reusing a freed index if one exists.
+    ///
+    /// # Safety
+    ///
+    /// This must not conflict with [`Self::free`] calls.
+    unsafe fn alloc(&self) -> Entity {
+        // SAFETY: assured by caller
+        unsafe { self.pending.alloc() }.unwrap_or_else(|| {
+            let index = self.next_entity_index.fetch_add(1, Ordering::Relaxed);
+            if index == 0 {
+                panic!("too many entities")
+            }
+            Entity::from_raw(index)
+        })
+    }
+
+    /// Allocates a new [`Entity`].
+    /// This will only try to reuse a freed index if it is safe to do so.
+    fn remote_alloc(&self) -> Entity {
+        self.pending.remote_alloc().unwrap_or_else(|| {
+            let index = self.next_entity_index.fetch_add(1, Ordering::Relaxed);
+            if index == 0 {
+                panic!("too many entities")
+            }
+            Entity::from_raw(index)
+        })
+    }
+
+    /// Returns whether or not the index is valid in this allocator.
+    fn is_valid_index(&self, index: u32) -> bool {
+        let next = self.next_entity_index.load(Ordering::Relaxed);
+        index < next
     }
 }
 
