@@ -18,7 +18,7 @@ use core::{
 /// A [system parameter] that provides selective access to the [`Component`] data stored in a [`World`].
 ///
 /// Queries enable systems to access [entity identifiers] and [components] without requiring direct access to the [`World`].
-/// Its iterators and getter methods return *query items*, which are types containing data relative to an entity.
+/// Its iterators and getter methods return *query items*, which are types containing data related to an entity.
 ///
 /// `Query` is a generic data structure that accepts two type parameters:
 ///
@@ -148,8 +148,8 @@ use core::{
 /// # bevy_ecs::system::assert_is_system(complex_query);
 /// ```
 ///
-/// Note that this currently only works on tuples with 15 or fewer items. You may nest tuples,
-/// however, to get around this limit:
+/// Note that this currently only works on tuples with 15 or fewer items. You may nest tuples to
+/// get around this limit:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -368,12 +368,12 @@ use core::{
 /// |Query methods|Effect|
 /// |-|-|
 /// |[`iter`]\[[`_mut`][`iter_mut`]\]|Returns an iterator over all query items.|
-/// |[`iter().for_each()`][`for_each`],<br />[`iter_mut().for_each()`][`for_each`],<br />[`par_iter`]\[[`_mut`][`par_iter_mut`]\]|Runs a specified function for each query item.|
-/// |[`iter_many`]\[[`_mut`][`iter_many_mut`]\]|Iterates over query items that match a list of entities.|
+/// |[`iter[_mut]().for_each()`][`for_each`],<br />[`par_iter`]\[[`_mut`][`par_iter_mut`]\]|Runs a specified function for each query item.|
+/// |[`iter_many`]\[[`_unique`][`iter_many_unique`]\]\[[`_mut`][`iter_many_mut`]\]|Iterates over query items that match a list of entities.|
 /// |[`iter_combinations`]\[[`_mut`][`iter_combinations_mut`]\]|Iterates over all combinations of query items.|
 /// |[`single`](Self::single)\[[`_mut`][`single_mut`]\]|Returns a single query item if only one exists.|
 /// |[`get`]\[[`_mut`][`get_mut`]\]|Returns the query item for a specified entity.|
-/// |[`get_many`]\[[`_mut`][`get_many_mut`]\]|Returns all query items that match a list of entities.|
+/// |[`get_many`]\[[`_unique`][`get_many_unique`]\]\[[`_mut`][`get_many_mut`]\]|Returns all query items that match a list of entities.|
 ///
 /// There are two methods for each type of query operation: immutable and mutable (ending with `_mut`).
 /// When using immutable methods, the query items returned are of type [`ROQueryItem`], a read-only version of the query item.
@@ -385,6 +385,7 @@ use core::{
 /// [`par_iter`]: Self::par_iter
 /// [`par_iter_mut`]: Self::par_iter_mut
 /// [`iter_many`]: Self::iter_many
+/// [`iter_many_unique`]: Self::iter_many_unique
 /// [`iter_many_mut`]: Self::iter_many_mut
 /// [`iter_combinations`]: Self::iter_combinations
 /// [`iter_combinations_mut`]: Self::iter_combinations_mut
@@ -392,6 +393,7 @@ use core::{
 /// [`get`]: Self::get
 /// [`get_mut`]: Self::get_mut
 /// [`get_many`]: Self::get_many
+/// [`get_many_unique`]: Self::get_many_unique
 /// [`get_many_mut`]: Self::get_many_mut
 ///
 /// # Performance
@@ -428,7 +430,7 @@ use core::{
 /// |Query operation|Computational complexity|
 /// |-|-|
 /// |[`iter`]\[[`_mut`][`iter_mut`]\]|O(n)|
-/// |[`iter().for_each()`][`for_each`],<br />[`iter_mut().for_each()`][`for_each`],<br/>[`par_iter`]\[[`_mut`][`par_iter_mut`]\]|O(n)|
+/// |[`iter[_mut]().for_each()`][`for_each`],<br/>[`par_iter`]\[[`_mut`][`par_iter_mut`]\]|O(n)|
 /// |[`iter_many`]\[[`_mut`][`iter_many_mut`]\]|O(k)|
 /// |[`iter_combinations`]\[[`_mut`][`iter_combinations_mut`]\]|O(<sub>n</sub>C<sub>r</sub>)|
 /// |[`single`](Self::single)\[[`_mut`][`single_mut`]\]|O(a)|
