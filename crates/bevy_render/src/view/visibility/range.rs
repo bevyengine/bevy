@@ -432,7 +432,7 @@ pub fn check_visibility_ranges(
         },
     );
 
-    visible_entity_ranges.entities.extend(par_local.drain())
+    visible_entity_ranges.entities.extend(par_local.drain());
 }
 
 /// Extracts all [`VisibilityRange`] components from the main world to the
