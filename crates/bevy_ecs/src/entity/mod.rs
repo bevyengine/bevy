@@ -553,25 +553,44 @@ impl Entities {
         unimplemented!()
     }
 
-    /// Destroy an entity, allowing it to be reused.
-    ///
-    /// Must not be called while reserved entities are awaiting `flush()`.
-    pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
-        let meta = &mut self.meta[entity.index() as usize];
-        if meta.generation != entity.generation {
+    /// This is the same as [`free`](Entities::free), but it allows skipping some generations.
+    /// When the entity is reused, it will have a generation greater than the current generation + `generations`.
+    #[inline]
+    pub(crate) fn free_current_and_future_generations(
+        &mut self,
+        entity: Entity,
+        generations: u32,
+    ) -> Option<EntityLocation> {
+        let theoretical = self.resolve_from_id(entity.index());
+        if theoretical.is_none_or(|theoretcal| theoretcal != entity) {
             return None;
         }
 
-        meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, 1);
+        // SAFETY: We resolved its id to ensure it is valid.
+        let meta = unsafe { self.force_get_meta_mut(entity.index() as usize) };
+        let prev_generation = meta.generation;
 
-        if meta.generation == NonZero::<u32>::MIN {
+        meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, 1 + generations);
+
+        if prev_generation > meta.generation || generations == u32::MAX {
             warn!(
                 "Entity({}) generation wrapped on Entities::free, aliasing may occur",
                 entity.index
             );
         }
 
-        todo!()
+        let new_entity = Entity::from_raw_and_generation(entity.index, meta.generation);
+        let loc = core::mem::replace(&mut meta.location, EntityLocation::INVALID);
+        self.allocator.free(new_entity);
+
+        Some(loc)
+    }
+
+    /// Destroy an entity, allowing it to be reused.
+    ///
+    /// Must not be called while reserved entities are awaiting `flush()`.
+    pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
+        self.free_current_and_future_generations(entity, 1)
     }
 
     /// Ensure at least `n` allocations can succeed without reallocating.
@@ -595,16 +614,15 @@ impl Entities {
     }
 
     /// Returns the location of an [`Entity`].
-    /// Note: for pending entities, returns `None`.
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if let Some(meta) = self.meta.get(entity.index() as usize) {
-            if meta.generation != entity.generation
-                || meta.location.archetype_id == ArchetypeId::INVALID
-            {
+            if meta.generation != entity.generation {
                 return None;
             }
             Some(meta.location)
+        } else if self.allocator.is_valid_index(entity.index()) {
+            Some(EntityLocation::INVALID)
         } else {
             None
         }
@@ -620,31 +638,38 @@ impl Entities {
     #[inline]
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
         // SAFETY: Caller guarantees that `index` a valid entity index
-        let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
+        let meta = unsafe { self.force_get_meta_mut(index as usize) };
         meta.location = location;
     }
 
-    /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
-    /// `index` will count `generation` starting from the prior `generation` + the specified
-    /// value + 1.
+    /// Get's the meta for this index mutably, creating it if it did not exist.
     ///
-    /// Does nothing if no entity with this `index` has been allocated yet.
-    pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
-        if (index as usize) >= self.meta.len() {
-            return false;
-        }
-
-        let meta = &mut self.meta[index as usize];
-        if meta.location.archetype_id == ArchetypeId::INVALID {
-            meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, generations);
-            true
+    /// # Safetey
+    ///
+    /// `idnex` must be a valid index
+    unsafe fn force_get_meta_mut(&mut self, index: usize) -> &mut EntityMeta {
+        if index >= self.meta.len() {
+            self.resize_meta_for_index_risky(index)
         } else {
-            false
+            // SAFETY: index is in bounds
+            unsafe { self.meta.get_unchecked_mut(index) }
         }
     }
 
+    /// Changes the size of [`Self::meta`] to support this index.
+    /// This is risky because it assumes the index is not already in bounds.
+    ///
+    /// This is only used in `force_get_meta_mut` just to help branch prediction.
+    // TODO: Hint unlikely instead of #[cold] once it is stabilized.
+    #[cold]
+    fn resize_meta_for_index_risky(&mut self, index: usize) -> &mut EntityMeta {
+        self.meta.resize(index + 1, EntityMeta::FRESH);
+        // SAFETY: We just added it
+        unsafe { self.meta.get_unchecked_mut(index) }
+    }
+
     /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
-    /// Returns `None` if this [`Entity`] is outside of the range of currently reserved Entities
+    /// Returns `None` if this [`Entity`] is outside of the range of currently allocated Entities
     ///
     /// Note: This method may return [`Entities`](Entity) which are currently free
     /// Note that [`contains`](Entities::contains) will correctly return false for freed
@@ -708,10 +733,11 @@ impl Entities {
     #[inline]
     pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: MaybeLocation) {
         caller.map(|caller| {
-            let meta = self
-                .meta
-                .get_mut(index as usize)
-                .expect("Entity index invalid");
+            if !self.allocator.is_valid_index(index) {
+                panic!("Entity index invalid")
+            }
+            // SAFETY: We just checked that it is valid
+            let meta = unsafe { self.force_get_meta_mut(index as usize) };
             meta.spawned_or_despawned_by = MaybeLocation::new(Some(caller));
         });
     }
@@ -905,23 +931,15 @@ mod tests {
     }
 
     #[test]
-    fn reserve_generations() {
-        let mut entities = Entities::new();
-        let entity = entities.alloc();
-        entities.free(entity);
-
-        assert!(entities.reserve_generations(entity.index(), 1));
-    }
-
-    #[test]
     fn reserve_generations_and_alloc() {
         const GENERATIONS: u32 = 10;
 
         let mut entities = Entities::new();
         let entity = entities.alloc();
-        entities.free(entity);
 
-        assert!(entities.reserve_generations(entity.index(), GENERATIONS));
+        assert!(entities
+            .free_current_and_future_generations(entity, GENERATIONS)
+            .is_some());
 
         // The very next entity allocated should be a further generation on the same index
         let next_entity = entities.alloc();

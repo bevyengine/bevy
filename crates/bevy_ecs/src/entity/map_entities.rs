@@ -256,8 +256,9 @@ impl<'m> SceneEntityMapper<'m> {
     pub fn finish(self, world: &mut World) {
         // SAFETY: Entities data is kept in a valid state via `EntityMap::world_scope`
         let entities = unsafe { world.entities_mut() };
-        assert!(entities.free(self.dead_start).is_some());
-        assert!(entities.reserve_generations(self.dead_start.index(), self.generations));
+        assert!(entities
+            .free_current_and_future_generations(self.dead_start, self.generations)
+            .is_some());
     }
 
     /// Creates an [`SceneEntityMapper`] from a provided [`World`] and [`EntityHashMap<Entity>`], then calls the
