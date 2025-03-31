@@ -37,7 +37,7 @@ pub struct OnTransition<S: States> {
 
 /// Runs [state transitions](States).
 ///
-/// By default, it will be triggered after `PreUpdate`, but
+/// By default, it will be triggered once before [`PreStartup`] and then each frame after [`PreUpdate`], but
 /// you can manually trigger it at arbitrary times by creating an exclusive
 /// system to run the schedule.
 ///
@@ -49,6 +49,9 @@ pub struct OnTransition<S: States> {
 ///     let _ = world.try_run_schedule(StateTransition);
 /// }
 /// ```
+///
+/// [`PreStartup`]: https://docs.rs/bevy/latest/bevy/prelude/struct.PreStartup.html
+/// [`PreUpdate`]: https://docs.rs/bevy/latest/bevy/prelude/struct.PreUpdate.html
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StateTransition;
 
