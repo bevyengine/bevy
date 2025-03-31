@@ -462,7 +462,9 @@ impl<A: Asset> Assets<A> {
     /// Removes the [`Asset`] with the given `id`.
     pub(crate) fn remove_dropped(&mut self, id: AssetId<A>) -> bool {
         match self.duplicate_handles.get_mut(&id) {
-            None | Some(0) => {}
+            None | Some(0) => {
+                self.queued_events.push(AssetEvent::Unused { id });
+            }
             Some(value) => {
                 *value -= 1;
                 return false;
@@ -555,9 +557,7 @@ impl<A: Asset> Assets<A> {
                 }
             }
 
-            if assets.remove_dropped(id) {
-                assets.queued_events.push(AssetEvent::Unused { id });
-            }
+            assets.remove_dropped(id);
         }
     }
 
