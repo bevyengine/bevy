@@ -215,17 +215,11 @@ enum InternalQueue<'s> {
 
 impl<'w, 's> Commands<'w, 's> {
     /// Returns a new `Commands` instance from a [`CommandQueue`] and a [`World`].
-    ///
-    /// It is not required to call this constructor
-    /// when using `Commands` as a [system parameter](crate::system::SystemParam).
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
         Self::new_from_entities(queue, &world.entities)
     }
 
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
-    ///
-    /// It is not required to call this constructor
-    /// when using `Commands` as a [system parameter](crate::system::SystemParam).
     pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
         Self {
             queue: InternalQueue::CommandQueue(Deferred(queue)),
@@ -480,7 +474,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// This method is equivalent to iterating the batch
     /// and calling [`spawn`](Self::spawn) for each bundle,
-    /// but is faster due to memory pre-allocation.
+    /// but is faster by pre-allocating memory and having exclusive [`World`] access.
     ///
     /// # Example
     ///
@@ -783,7 +777,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// The inferred value is determined by the [`FromWorld`] trait of the resource.
     /// Note that any resource with the [`Default`] trait automatically implements [`FromWorld`],
-    /// and those default values will be used instead.
+    /// and those default values will be used.
     ///
     /// If the resource already exists when the command is applied, nothing happens.
     ///
@@ -1162,8 +1156,10 @@ impl<'w, 's> Commands<'w, 's> {
 /// (that is, if it removes, adds, or changes something), it's not executed immediately.
 ///
 /// Instead, the command is added to a "command queue."
-/// The command queue is applied later between [`Schedules`](crate::schedule::Schedule),
-/// one by one, so that each command can have exclusive access to the World.
+/// The command queue is applied later
+/// when the [`ApplyDeferred`](crate::schedule::ApplyDeferred) system runs.
+/// Commands are executed one-by-one so that
+/// each command can have exclusive access to the `World`.
 ///
 /// # Fallible
 ///
