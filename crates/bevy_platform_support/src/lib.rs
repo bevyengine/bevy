@@ -17,6 +17,7 @@ extern crate alloc;
 
 pub mod hash;
 pub mod sync;
+pub mod thread;
 pub mod time;
 
 #[cfg(feature = "alloc")]
