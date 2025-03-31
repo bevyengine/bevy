@@ -556,7 +556,7 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
 pub fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
-    mut removed_view_visibility_components: Extract<RemovedComponents<ViewVisibility>>,
+    mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial2d<M>>>,
     mut specialized_material2d_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
     views: Query<&MainEntity, With<ExtractedView>>,
     ticks: SystemChangeTick,
@@ -568,7 +568,7 @@ pub fn extract_entities_needs_specialization<M>(
         entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
     }
     // Clean up any despawned entities
-    for entity in removed_view_visibility_components.read() {
+    for entity in removed_mesh_material_components.read() {
         entity_specialization_ticks.remove(&MainEntity::from(entity));
         for view in views {
             if let Some(cache) = specialized_material2d_pipeline_cache.get_mut(view) {

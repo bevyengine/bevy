@@ -708,7 +708,7 @@ fn extract_mesh_materials<M: Material>(
 pub fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
-    mut removed_view_visibility_components: Extract<RemovedComponents<ViewVisibility>>,
+    mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial3d<M>>>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
     mut specialized_prepass_material_pipeline_cache: Option<
         ResMut<SpecializedPrepassMaterialPipelineCache<M>>,
@@ -726,7 +726,7 @@ pub fn extract_entities_needs_specialization<M>(
         entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
     }
     // Clean up any despawned entities
-    for entity in removed_view_visibility_components.read() {
+    for entity in removed_mesh_material_components.read() {
         entity_specialization_ticks.remove(&MainEntity::from(entity));
         for view in views {
             if let Some(cache) =
