@@ -239,6 +239,13 @@ impl PendingBuffer {
             }
         }
     }
+
+    fn new() -> Self {
+        Self {
+            chunks: core::array::from_fn(|_index| Chunk::new()),
+            len: AtomicIsize::new(0),
+        }
+    }
 }
 
 impl Drop for PendingBuffer {
@@ -292,6 +299,13 @@ impl SharedAllocator {
         let next = self.next_entity_index.load(Ordering::Relaxed);
         index < next
     }
+
+    fn new() -> Self {
+        Self {
+            pending: PendingBuffer::new(),
+            next_entity_index: AtomicU32::new(0),
+        }
+    }
 }
 
 pub struct Allocator {
@@ -299,6 +313,12 @@ pub struct Allocator {
 }
 
 impl Allocator {
+    pub fn new() -> Self {
+        Self {
+            shared: Arc::new(SharedAllocator::new()),
+        }
+    }
+
     /// Allocates a new [`Entity`], reusing a freed index if one exists.
     pub fn alloc(&self) -> Entity {
         // SAFETY: violating safety requires a `&mut self` to exist, but rust does not allow that.
