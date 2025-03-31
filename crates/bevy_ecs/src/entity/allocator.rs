@@ -1,7 +1,7 @@
 use bevy_platform_support::{
     prelude::Vec,
     sync::{
-        atomic::{AtomicIsize, AtomicPtr, AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicIsize, AtomicPtr, AtomicU32, Ordering},
         Arc,
     },
 };
@@ -263,9 +263,46 @@ struct SharedAllocator {
     pending: PendingBuffer,
     /// The next value of [`Entity::index`] to give out if needed.
     next_entity_index: AtomicU32,
+    /// If true, the [`Self::next_entity_index`] has been incremented before,
+    /// so if it hits or passes zero again, an overflow has occored.
+    entity_index_given: AtomicBool,
 }
 
 impl SharedAllocator {
+    /// The total number of indices given out.
+    fn total_entity_indices(&self) -> u64 {
+        let next = self.next_entity_index.load(Ordering::Relaxed);
+        if next == 0 {
+            if self.entity_index_given.load(Ordering::Relaxed) {
+                // every index has been given
+                u32::MAX as u64 + 1
+            } else {
+                // no index has been given
+                0
+            }
+        } else {
+            (next - 1) as u64
+        }
+    }
+
+    /// Call this when the entity index is suspected to have overflown.
+    /// Panic if the overflow did happen.
+    #[cold]
+    fn check_overflow(&self) {
+        if self.entity_index_given.swap(true, Ordering::AcqRel) {
+            panic!("too many entities")
+        }
+    }
+
+    /// Allocates an [`Entity`] with a brand new index.
+    fn alloc_new_index(&self) -> Entity {
+        let index = self.next_entity_index.fetch_add(1, Ordering::Relaxed);
+        if index == 0 {
+            self.check_overflow();
+        }
+        Entity::from_raw(index)
+    }
+
     /// Allocates a new [`Entity`], reusing a freed index if one exists.
     ///
     /// # Safety
@@ -273,37 +310,22 @@ impl SharedAllocator {
     /// This must not conflict with [`PendingBuffer::free`] calls.
     unsafe fn alloc(&self) -> Entity {
         // SAFETY: assured by caller
-        unsafe { self.pending.alloc() }.unwrap_or_else(|| {
-            let index = self.next_entity_index.fetch_add(1, Ordering::Relaxed);
-            if index == 0 {
-                panic!("too many entities")
-            }
-            Entity::from_raw(index)
-        })
+        unsafe { self.pending.alloc() }.unwrap_or_else(|| self.alloc_new_index())
     }
 
     /// Allocates a new [`Entity`].
     /// This will only try to reuse a freed index if it is safe to do so.
     fn remote_alloc(&self) -> Entity {
-        self.pending.remote_alloc().unwrap_or_else(|| {
-            let index = self.next_entity_index.fetch_add(1, Ordering::Relaxed);
-            if index == 0 {
-                panic!("too many entities")
-            }
-            Entity::from_raw(index)
-        })
-    }
-
-    /// Returns whether or not the index is valid in this allocator.
-    fn is_valid_index(&self, index: u32) -> bool {
-        let next = self.next_entity_index.load(Ordering::Relaxed);
-        index < next
+        self.pending
+            .remote_alloc()
+            .unwrap_or_else(|| self.alloc_new_index())
     }
 
     fn new() -> Self {
         Self {
             pending: PendingBuffer::new(),
             next_entity_index: AtomicU32::new(0),
+            entity_index_given: AtomicBool::new(false),
         }
     }
 }
@@ -325,9 +347,14 @@ impl Allocator {
         unsafe { self.shared.alloc() }
     }
 
+    /// The total number of indices given out.
+    pub fn total_entity_indices(&self) -> u64 {
+        self.shared.total_entity_indices()
+    }
+
     /// Returns whether or not the index is valid in this allocator.
     pub fn is_valid_index(&self, index: u32) -> bool {
-        self.shared.is_valid_index(index)
+        (index as u64) < self.total_entity_indices()
     }
 
     /// Frees the entity allowing it to be reused.
