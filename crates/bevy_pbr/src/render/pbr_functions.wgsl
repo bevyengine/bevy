@@ -318,6 +318,17 @@ fn compute_direct_light(
     let NdotV = max(dot(in.N, in.V), 0.0001);
     let R = reflect(-in.V, in.N);
 
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+    // Do the above calculations again for the clearcoat layer. Remember that
+    // the clearcoat can have its own roughness and its own normal.
+    let clearcoat = in.material.clearcoat;
+    let clearcoat_perceptual_roughness = in.material.clearcoat_perceptual_roughness;
+    let clearcoat_roughness = lighting::perceptualRoughnessToRoughness(clearcoat_perceptual_roughness);
+    let clearcoat_N = in.clearcoat_N;
+    let clearcoat_NdotV = max(dot(clearcoat_N, in.V), 0.0001);
+    let clearcoat_R = reflect(-in.V, clearcoat_N);
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+
     // Pack all the values into a structure.
     var lighting_input: lighting::LightingInput;
     lighting_input.layers[LAYER_BASE].NdotV = NdotV;
