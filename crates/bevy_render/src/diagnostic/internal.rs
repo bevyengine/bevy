@@ -6,8 +6,10 @@ use core::{
 use std::thread::{self, ThreadId};
 
 use bevy_diagnostic::{Diagnostic, DiagnosticMeasurement, DiagnosticPath, DiagnosticsStore};
-use bevy_ecs::resource::Resource;
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::{
+    resource::Resource,
+    system::{Res, ResMut},
+};
 use bevy_platform_support::time::Instant;
 use std::sync::Mutex;
 use wgpu::{

@@ -1,10 +1,9 @@
 #[cfg(feature = "debug_stack")]
 use crate::serde::de::error_utils::TYPE_INFO_STACK;
-use crate::serde::{ReflectDeserializeWithRegistry, SerializationData};
 use crate::{
     PartialReflect, ReflectDeserialize, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
     serde::{
-        TypeRegistrationDeserializer,
+        ReflectDeserializeWithRegistry, SerializationData, TypeRegistrationDeserializer,
         de::{
             arrays::ArrayVisitor, enums::EnumVisitor, error_utils::make_custom_error,
             lists::ListVisitor, maps::MapVisitor, options::OptionVisitor, sets::SetVisitor,

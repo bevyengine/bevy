@@ -183,7 +183,7 @@ pub struct PointerLocation {
 }
 
 impl PointerLocation {
-    ///Returns a [`PointerLocation`] associated with the given location
+    /// Returns a [`PointerLocation`] associated with the given location
     pub fn new(location: Location) -> Self {
         Self {
             location: Some(location),

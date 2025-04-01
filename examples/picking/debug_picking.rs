@@ -1,8 +1,10 @@
 //! A simple scene to demonstrate picking events for UI and mesh entities,
 //! Demonstrates how to change debug settings
 
-use bevy::dev_tools::picking_debug::{DebugPickingMode, DebugPickingPlugin};
-use bevy::prelude::*;
+use bevy::{
+    dev_tools::picking_debug::{DebugPickingMode, DebugPickingPlugin},
+    prelude::*,
+};
 
 fn main() {
     App::new()

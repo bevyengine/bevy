@@ -225,8 +225,7 @@ mod tests {
     use bevy_app::App;
     use bevy_asset::RenderAssetUsages;
     use bevy_image::Image;
-    use bevy_math::Rect;
-    use bevy_math::Vec2;
+    use bevy_math::{Rect, Vec2};
     use wgpu_types::{Extent3d, TextureDimension};
 
     use super::*;

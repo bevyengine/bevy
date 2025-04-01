@@ -3,9 +3,11 @@ use core::fmt::{Debug, Formatter};
 
 use crate::{
     Type, TypePath,
-    func::FunctionOverloadError,
-    func::args::{ArgCount, ArgCountOutOfBoundsError, ArgInfo, GetOwnership, Ownership},
-    func::signature::ArgumentSignature,
+    func::{
+        FunctionOverloadError,
+        args::{ArgCount, ArgCountOutOfBoundsError, ArgInfo, GetOwnership, Ownership},
+        signature::ArgumentSignature,
+    },
     type_info::impl_type_methods,
 };
 

@@ -1,13 +1,12 @@
-use crate::generics::impl_generic_info_methods;
 use crate::{
     ApplyError, Generics, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
     ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
     attributes::{CustomAttributes, impl_custom_attribute_methods},
+    generics::impl_generic_info_methods,
     type_info::impl_type_methods,
 };
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
-use bevy_platform_support::collections::HashMap;
-use bevy_platform_support::sync::Arc;
+use bevy_platform_support::{collections::HashMap, sync::Arc};
 use bevy_reflect_derive::impl_type_path;
 use core::{
     fmt::{Debug, Formatter},

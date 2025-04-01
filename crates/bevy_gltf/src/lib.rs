@@ -113,7 +113,9 @@ pub mod prelude {
     pub use crate::{assets::Gltf, assets::GltfExtras, label::GltfAssetLabel};
 }
 
-pub use {assets::*, label::GltfAssetLabel, loader::*};
+pub use assets::*;
+pub use label::GltfAssetLabel;
+pub use loader::*;
 
 /// Adds support for glTF file loading to the app.
 #[derive(Default)]

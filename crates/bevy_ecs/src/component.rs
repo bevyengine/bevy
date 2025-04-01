@@ -12,13 +12,11 @@ use crate::{
     system::{Local, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
-use alloc::boxed::Box;
-use alloc::{borrow::Cow, format, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
-use bevy_platform_support::sync::Arc;
 use bevy_platform_support::{
     collections::{HashMap, HashSet},
-    sync::PoisonError,
+    sync::{Arc, PoisonError},
 };
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
@@ -3023,7 +3021,6 @@ pub fn enforce_no_required_components_recursion(
 /// Component [clone handler function](ComponentCloneFn) implemented using the [`Clone`] trait.
 /// Can be [set](Component::clone_behavior) as clone handler for the specific component it is implemented for.
 /// It will panic if set as handler for any other component.
-///
 pub fn component_clone_via_clone<C: Clone + Component>(
     source: &SourceComponent,
     ctx: &mut ComponentCloneCtx,

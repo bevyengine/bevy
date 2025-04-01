@@ -4,9 +4,7 @@ use crate::{
     array_debug, enum_debug, list_debug, map_debug, set_debug, struct_debug, tuple_debug,
     tuple_struct_debug,
 };
-use alloc::borrow::Cow;
-use alloc::boxed::Box;
-use alloc::string::ToString;
+use alloc::{borrow::Cow, boxed::Box, string::ToString};
 use core::{
     any::{Any, TypeId},
     fmt::Debug,

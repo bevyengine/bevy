@@ -2,9 +2,7 @@ use crate::{
     Gilrs, GilrsGamepads,
     converter::{convert_axis, convert_button},
 };
-use bevy_ecs::event::EventWriter;
-use bevy_ecs::prelude::Commands;
-use bevy_ecs::system::ResMut;
+use bevy_ecs::{event::EventWriter, prelude::Commands, system::ResMut};
 use bevy_input::gamepad::{
     GamepadConnection, GamepadConnectionEvent, RawGamepadAxisChangedEvent,
     RawGamepadButtonChangedEvent, RawGamepadEvent,

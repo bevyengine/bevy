@@ -7,43 +7,40 @@ pub mod ui_texture_slice_pipeline;
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
 
-use crate::widget::ImageNode;
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
-    ComputedNodeTarget, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
+    ComputedNodeTarget, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias, widget::ImageNode,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle, load_internal_asset, weak_handle};
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
-use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
-use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_ecs::prelude::*;
-use bevy_ecs::system::SystemParam;
+use bevy_core_pipeline::{
+    core_2d::{
+        Camera2d,
+        graph::{Core2d, Node2d},
+    },
+    core_3d::{
+        Camera3d,
+        graph::{Core3d, Node3d},
+    },
+};
+use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
-use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
-use bevy_render::render_phase::ViewSortedRenderPhases;
-use bevy_render::renderer::RenderContext;
-use bevy_render::sync_world::MainEntity;
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
-use bevy_render::view::RetainedViewEntity;
 use bevy_render::{
-    Extract, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     camera::Camera,
     render_asset::RenderAssets,
-    render_graph::{Node as RenderGraphNode, RenderGraph},
-    render_phase::{AddRenderCommand, DrawFunctions, sort_phase_system},
+    render_graph::{Node as RenderGraphNode, NodeRunError, RenderGraph, RenderGraphContext},
+    render_phase::{
+        AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, ViewSortedRenderPhases,
+        sort_phase_system,
+    },
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, ViewUniforms},
-};
-use bevy_render::{
-    ExtractSchedule, Render,
-    render_phase::{PhaseItem, PhaseItemExtraIndex},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
-    texture::GpuImage,
-    view::InheritedVisibility,
+    renderer::{RenderContext, RenderDevice, RenderQueue},
+    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
+    texture::{GpuImage, TRANSPARENT_IMAGE_HANDLE},
+    view::{ExtractedView, InheritedVisibility, RetainedViewEntity, ViewUniforms},
 };
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
 #[cfg(feature = "bevy_ui_debug")]

@@ -220,33 +220,24 @@ fn update_contexts_recursively(
 
 #[cfg(test)]
 mod tests {
-    use bevy_asset::AssetEvent;
-    use bevy_asset::Assets;
+    use bevy_asset::{AssetEvent, Assets};
     use bevy_core_pipeline::core_2d::Camera2d;
-    use bevy_ecs::event::Events;
-    use bevy_ecs::hierarchy::ChildOf;
-    use bevy_ecs::schedule::IntoScheduleConfigs;
-    use bevy_ecs::schedule::Schedule;
-    use bevy_ecs::world::World;
+    use bevy_ecs::{
+        event::Events,
+        hierarchy::ChildOf,
+        schedule::{IntoScheduleConfigs, Schedule},
+        world::World,
+    };
     use bevy_image::Image;
     use bevy_math::UVec2;
-    use bevy_render::camera::Camera;
-    use bevy_render::camera::ManualTextureViews;
-    use bevy_render::camera::RenderTarget;
+    use bevy_render::camera::{Camera, ManualTextureViews, RenderTarget};
     use bevy_utils::default;
-    use bevy_window::PrimaryWindow;
-    use bevy_window::Window;
-    use bevy_window::WindowCreated;
-    use bevy_window::WindowRef;
-    use bevy_window::WindowResized;
-    use bevy_window::WindowResolution;
-    use bevy_window::WindowScaleFactorChanged;
+    use bevy_window::{
+        PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized, WindowResolution,
+        WindowScaleFactorChanged,
+    };
 
-    use crate::ComputedNodeTarget;
-    use crate::IsDefaultUiCamera;
-    use crate::Node;
-    use crate::UiScale;
-    use crate::UiTargetCamera;
+    use crate::{ComputedNodeTarget, IsDefaultUiCamera, Node, UiScale, UiTargetCamera};
 
     fn setup_test_world_and_schedule() -> (World, Schedule) {
         let mut world = World::new();

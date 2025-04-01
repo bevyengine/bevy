@@ -481,11 +481,13 @@ mod tests {
 
     use crate::prelude::{Schedule, World};
 
-    use crate::component::Component;
-    use crate::entity::Entity;
-    use crate::query::{QueryState, With};
-    use crate::system::Query;
-    use crate::world::Mut;
+    use crate::{
+        component::Component,
+        entity::Entity,
+        query::{QueryState, With},
+        system::Query,
+        world::Mut,
+    };
 
     use super::UniqueEntityIter;
 

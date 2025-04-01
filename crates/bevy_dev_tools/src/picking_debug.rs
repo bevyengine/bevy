@@ -4,17 +4,22 @@ use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_color::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_picking::backend::HitData;
-use bevy_picking::hover::HoverMap;
-use bevy_picking::pointer::{Location, PointerId, PointerPress};
-use bevy_picking::prelude::*;
-use bevy_picking::{PickSet, pointer};
+use bevy_picking::{
+    PickSet,
+    backend::HitData,
+    hover::HoverMap,
+    pointer,
+    pointer::{Location, PointerId, PointerPress},
+    prelude::*,
+};
 use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
 use bevy_text::prelude::*;
 use bevy_ui::prelude::*;
-use core::cmp::Ordering;
-use core::fmt::{Debug, Display, Formatter, Result};
+use core::{
+    cmp::Ordering,
+    fmt::{Debug, Display, Formatter, Result},
+};
 use tracing::{debug, trace};
 
 /// This resource determines the runtime behavior of the debug plugin.

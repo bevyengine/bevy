@@ -21,8 +21,7 @@ use bevy_utils::synccell::SyncCell;
 use core::cell::RefCell;
 
 use bevy_app::{App, Plugin, PostUpdate, PreStartup, PreUpdate};
-use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_input::InputSystem;
 use bevy_platform_support::collections::HashMap;
 use gilrs::GilrsBuilder;

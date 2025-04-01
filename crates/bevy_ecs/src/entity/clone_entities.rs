@@ -289,7 +289,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 ///
 /// After configuration is complete an entity can be cloned using [`Self::clone_entity`].
 ///
-///```
+/// ```
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::entity::EntityCloner;
 ///
@@ -308,7 +308,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 /// EntityCloner::build(&mut world).clone_entity(entity, entity_clone);
 ///
 /// assert!(world.get::<A>(entity_clone).is_some_and(|c| *c == component));
-///```
+/// ```
 ///
 /// # Default cloning strategy
 /// By default, all types that derive [`Component`] and implement either [`Clone`] or `Reflect` (with `ReflectComponent`) will be cloned
@@ -852,8 +852,7 @@ mod tests {
     use alloc::vec::Vec;
     use bevy_ptr::OwningPtr;
     use bevy_reflect::Reflect;
-    use core::marker::PhantomData;
-    use core::{alloc::Layout, ops::Deref};
+    use core::{alloc::Layout, marker::PhantomData, ops::Deref};
 
     #[cfg(feature = "bevy_reflect")]
     mod reflect {

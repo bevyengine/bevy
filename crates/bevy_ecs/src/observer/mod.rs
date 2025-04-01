@@ -846,9 +846,9 @@ mod tests {
     use bevy_platform_support::collections::HashMap;
     use bevy_ptr::OwningPtr;
 
-    use crate::component::ComponentId;
     use crate::{
         change_detection::MaybeLocation,
+        component::ComponentId,
         observer::{Observer, ObserverDescriptor, ObserverState, OnReplace},
         prelude::*,
         traversal::Traversal,

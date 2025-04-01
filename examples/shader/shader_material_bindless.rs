@@ -1,7 +1,9 @@
 //! A material that uses bindless textures.
 
-use bevy::prelude::*;
-use bevy::render::render_resource::{AsBindGroup, ShaderRef, ShaderType};
+use bevy::{
+    prelude::*,
+    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+};
 
 const SHADER_ASSET_PATH: &str = "shaders/bindless_material.wgsl";
 

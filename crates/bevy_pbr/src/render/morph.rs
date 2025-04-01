@@ -1,13 +1,13 @@
 use core::{iter, mem};
 
 use bevy_ecs::prelude::*;
-use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     Extract,
     batching::NoAutomaticBatching,
     mesh::morph::{MAX_MORPH_WEIGHTS, MeshMorphWeights},
     render_resource::{BufferUsages, RawBufferVec},
     renderer::{RenderDevice, RenderQueue},
+    sync_world::MainEntityHashMap,
     view::ViewVisibility,
 };
 use bytemuck::NoUninit;

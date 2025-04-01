@@ -1,16 +1,14 @@
 use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
-use bevy_ecs::reflect::{ReflectMapEntities, ReflectResource};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap, SceneEntityMapper},
-    reflect::{AppTypeRegistry, ReflectComponent},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
 use bevy_reflect::{PartialReflect, TypePath};
 
 use crate::reflect_utils::clone_reflect_value;
-use bevy_ecs::component::ComponentCloneBehavior;
-use bevy_ecs::relationship::RelationshipHookMode;
+use bevy_ecs::{component::ComponentCloneBehavior, relationship::RelationshipHookMode};
 
 #[cfg(feature = "serialize")]
 use {
@@ -226,8 +224,7 @@ mod tests {
 
     use bevy_reflect::Reflect;
 
-    use crate::dynamic_scene::DynamicScene;
-    use crate::dynamic_scene_builder::DynamicSceneBuilder;
+    use crate::{dynamic_scene::DynamicScene, dynamic_scene_builder::DynamicSceneBuilder};
 
     #[derive(Resource, Reflect, MapEntities, Debug)]
     #[reflect(Resource, MapEntities)]

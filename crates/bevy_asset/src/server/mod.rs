@@ -18,11 +18,14 @@ use crate::{
     },
     path::AssetPath,
 };
-use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
 use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
     format,
     string::{String, ToString},
     sync::Arc,
+    vec,
+    vec::Vec,
 };
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;

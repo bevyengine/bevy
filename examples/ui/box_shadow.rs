@@ -1,14 +1,11 @@
 //! This example shows how to create a node with a shadow
 
 use argh::FromArgs;
-use bevy::color::palettes::css::BLUE;
-use bevy::color::palettes::css::DEEP_SKY_BLUE;
-use bevy::color::palettes::css::GREEN;
-use bevy::color::palettes::css::LIGHT_SKY_BLUE;
-use bevy::color::palettes::css::RED;
-use bevy::color::palettes::css::YELLOW;
-use bevy::prelude::*;
-use bevy::winit::WinitSettings;
+use bevy::{
+    color::palettes::css::{BLUE, DEEP_SKY_BLUE, GREEN, LIGHT_SKY_BLUE, RED, YELLOW},
+    prelude::*,
+    winit::WinitSettings,
+};
 
 #[derive(FromArgs, Resource)]
 /// `box_shadow` example

@@ -23,8 +23,8 @@ pub use source::*;
 
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
-use core::future::Future;
 use core::{
+    future::Future,
     mem::size_of,
     pin::Pin,
     task::{Context, Poll},

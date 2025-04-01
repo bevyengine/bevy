@@ -45,15 +45,13 @@ use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
     Render, RenderApp, RenderSet,
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{Shader, TextureFormat, TextureUsages},
-    renderer::RenderAdapter,
-};
-use bevy_render::{
-    extract_component::UniformComponentPlugin,
-    render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
-    renderer::RenderDevice,
+    render_resource::{
+        DownlevelFlags, Shader, ShaderType, SpecializedRenderPipelines, TextureFormat,
+        TextureUsages,
+    },
+    renderer::{RenderAdapter, RenderDevice},
     settings::WgpuFeatures,
 };
 
@@ -314,7 +312,7 @@ pub struct Atmosphere {
     ///
     /// domain: (-1, 1)
     /// units: N/A
-    pub mie_asymmetry: f32, //the "asymmetry" value of the phase function, unitless. Domain: (-1, 1)
+    pub mie_asymmetry: f32, /* the "asymmetry" value of the phase function, unitless. Domain: (-1, 1) */
 
     /// The altitude at which the ozone layer is centered.
     ///

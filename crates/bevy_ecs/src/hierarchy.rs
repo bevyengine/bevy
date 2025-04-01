@@ -19,8 +19,7 @@ use crate::{
 use alloc::{format, string::String, vec::Vec};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
-use core::ops::Deref;
-use core::slice;
+use core::{ops::Deref, slice};
 use disqualified::ShortName;
 use log::warn;
 

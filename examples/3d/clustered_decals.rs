@@ -1,8 +1,10 @@
 //! Demonstrates clustered decals, which affix decals to surfaces.
 
-use std::f32::consts::{FRAC_PI_3, PI};
-use std::fmt::{self, Formatter};
-use std::process;
+use std::{
+    f32::consts::{FRAC_PI_3, PI},
+    fmt::{self, Formatter},
+    process,
+};
 
 use bevy::{
     color::palettes::css::{LIME, ORANGE_RED, SILVER},

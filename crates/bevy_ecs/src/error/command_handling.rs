@@ -61,7 +61,6 @@ where
 
 /// Passes in a specific entity to an [`EntityCommand`], resulting in a [`Command`] that
 /// internally runs the [`EntityCommand`] on that entity.
-///
 // NOTE: This is a separate trait from `EntityCommand` because "result-returning entity commands" and
 // "non-result returning entity commands" require different implementations, so they cannot be automatically
 // implemented. And this isn't the type of implementation that we want to thrust on people implementing

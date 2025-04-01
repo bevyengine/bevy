@@ -4,8 +4,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_ecs::{component::*, prelude::*};
 use bevy_math::UVec2;
-use bevy_platform_support::collections::HashSet;
-use bevy_platform_support::time::Instant;
+use bevy_platform_support::{collections::HashSet, time::Instant};
 use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
     Render, RenderApp, RenderSet,

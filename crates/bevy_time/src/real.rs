@@ -39,7 +39,6 @@ use crate::time::Time;
 ///
 /// [^disclaimer]: When using [`TimeUpdateStrategy::ManualDuration`](crate::TimeUpdateStrategy::ManualDuration),
 ///     [`Time<Real>#impl-Time<Real>`] is only a *mock* of wall clock time.
-///
 #[derive(Debug, Copy, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone, Default))]
 pub struct Real {

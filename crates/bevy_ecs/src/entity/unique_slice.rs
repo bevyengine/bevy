@@ -96,7 +96,6 @@ impl<T: EntityEquivalent> UniqueEntitySlice<T> {
     }
 
     // Constructs a `UniqueEntitySlice` from a [`Rc<[T]>`] unsafely.
-    ///
     /// # Safety
     ///
     /// `slice` must contain only unique elements.
@@ -327,8 +326,6 @@ impl<T: EntityEquivalent> UniqueEntitySlice<T> {
         }
     }
 
-    ///
-    ///
     /// Equivalent to [`[T]::chunks_exact`].
     ///
     /// [`[T]::chunks_exact`]: `slice::chunks_exact`
@@ -780,7 +777,6 @@ impl<T: EntityEquivalent> UniqueEntitySlice<T> {
     }
 
     // Sorts the slice with a key extraction function, preserving initial order of equal elements.
-    ///
     /// Equivalent to [`[T]::sort_by_cached_key`](slice::sort_by_cached_key).
     pub fn sort_by_cached_key<K, F>(&mut self, f: F)
     where

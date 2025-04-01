@@ -22,7 +22,6 @@
 //! The saving behavior uses the standard filesystem APIs, which are blocking, so it
 //! utilizes a thread pool (`IoTaskPool`) to avoid stalling the main thread. This
 //! won't work on WASM because WASM typically doesn't have direct filesystem access.
-//!
 
 use bevy::{asset::LoadState, prelude::*, tasks::IoTaskPool};
 use core::time::Duration;

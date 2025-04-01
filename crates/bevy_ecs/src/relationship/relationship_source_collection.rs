@@ -432,8 +432,10 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::{Component, World};
-    use crate::relationship::RelationshipTarget;
+    use crate::{
+        prelude::{Component, World},
+        relationship::RelationshipTarget,
+    };
 
     #[test]
     fn vec_relationship_source_collection() {

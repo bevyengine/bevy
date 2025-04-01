@@ -1,7 +1,6 @@
 use core::any::TypeId;
 
-use crate::reflect_utils::clone_reflect_value;
-use crate::{DynamicScene, SceneSpawnError};
+use crate::{DynamicScene, SceneSpawnError, reflect_utils::clone_reflect_value};
 use bevy_asset::Asset;
 use bevy_ecs::{
     component::ComponentCloneBehavior,

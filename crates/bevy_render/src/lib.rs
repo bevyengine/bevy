@@ -89,9 +89,9 @@ use sync_world::{
     SyncToRenderWorld, SyncWorldPlugin, despawn_temporary_render_entities, entity_sync_system,
 };
 
-use crate::gpu_readback::GpuReadbackPlugin;
 use crate::{
     camera::CameraPlugin,
+    gpu_readback::GpuReadbackPlugin,
     mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},

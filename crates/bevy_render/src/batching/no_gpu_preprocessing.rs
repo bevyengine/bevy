@@ -1,9 +1,11 @@
 //! Batching functionality when GPU preprocessing isn't in use.
 
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::Entity;
-use bevy_ecs::resource::Resource;
-use bevy_ecs::system::{Res, ResMut, StaticSystemParam};
+use bevy_ecs::{
+    entity::Entity,
+    resource::Resource,
+    system::{Res, ResMut, StaticSystemParam},
+};
 use smallvec::{SmallVec, smallvec};
 use tracing::error;
 use wgpu::BindingResource;

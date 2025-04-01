@@ -19,7 +19,6 @@ use bevy_ecs::{
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_platform_support::collections::HashMap;
-use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
     Extract,
     render_asset::RenderAssets,
@@ -35,8 +34,8 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{DefaultImageSampler, FallbackImage, GpuImage},
     view::{
-        ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
-        ViewVisibility,
+        ExtractedView, Msaa, RenderVisibleEntities, RetainedViewEntity, ViewTarget, ViewUniform,
+        ViewUniformOffset, ViewUniforms, ViewVisibility,
     },
 };
 use bevy_transform::components::GlobalTransform;

@@ -1,57 +1,63 @@
-use crate::material_bind_groups::{
-    FallbackBindlessResources, MaterialBindGroupAllocator, MaterialBindingId,
-};
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
     InstanceManager, prepare_material_meshlet_meshes_main_opaque_pass,
     queue_material_meshlet_meshes,
 };
-use crate::*;
-use bevy_asset::prelude::AssetChanged;
-use bevy_asset::{Asset, AssetEvents, AssetId, AssetServer, UntypedAssetId};
-use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
-use bevy_core_pipeline::prepass::{AlphaMask3dPrepass, Opaque3dPrepass};
+use crate::{
+    material_bind_groups::{
+        FallbackBindlessResources, MaterialBindGroupAllocator, MaterialBindingId,
+    },
+    *,
+};
+use bevy_asset::{Asset, AssetEvents, AssetId, AssetServer, UntypedAssetId, prelude::AssetChanged};
 use bevy_core_pipeline::{
     core_3d::{
         AlphaMask3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, ScreenSpaceTransmissionQuality,
         Transmissive3d, Transparent3d,
     },
-    prepass::{OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey},
+    deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
+    prepass::{
+        AlphaMask3dPrepass, Opaque3dPrepass, OpaqueNoLightmap3dBatchSetKey,
+        OpaqueNoLightmap3dBinKey,
+    },
     tonemapping::Tonemapping,
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
-use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
+    component::Tick,
     prelude::*,
     system::{
-        SystemParamItem,
+        SystemChangeTick, SystemParamItem,
         lifetimeless::{SRes, SResMut},
     },
 };
-use bevy_platform_support::collections::hash_map::Entry;
-use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_platform_support::hash::FixedHasher;
-use bevy_reflect::Reflect;
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_render::camera::extract_cameras;
-use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
-use bevy_render::render_asset::prepare_assets;
-use bevy_render::renderer::RenderQueue;
+use bevy_platform_support::{
+    collections::{HashMap, HashSet, hash_map::Entry},
+    hash::FixedHasher,
+};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
     Extract,
     batching::gpu_preprocessing::GpuPreprocessingSupport,
+    camera::extract_cameras,
     extract_resource::ExtractResource,
-    mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+    mesh::{
+        Mesh3d, MeshVertexBufferLayoutRef, RenderMesh, allocator::MeshAllocator,
+        mark_3d_meshes_as_changed_if_their_assets_changed,
+    },
+    render_asset::{
+        PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets, prepare_assets,
+    },
     render_phase::*,
     render_resource::*,
-    renderer::RenderDevice,
-    sync_world::MainEntity,
-    view::{ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity, ViewVisibility},
+    renderer::{RenderDevice, RenderQueue},
+    sync_world::{MainEntity, MainEntityHashMap},
+    texture::FallbackImage,
+    view::{
+        ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
+        ViewVisibility,
+    },
 };
-use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
-use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
 use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
 use tracing::error;

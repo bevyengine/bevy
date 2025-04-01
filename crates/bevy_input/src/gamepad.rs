@@ -14,8 +14,7 @@ use bevy_ecs::{
     name::Name,
     system::{Commands, Query},
 };
-use bevy_math::Vec2;
-use bevy_math::ops;
+use bevy_math::{Vec2, ops};
 use bevy_platform_support::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{Reflect, std_traits::ReflectDefault};
@@ -1840,9 +1839,7 @@ mod tests {
     use crate::ButtonState;
     use alloc::string::ToString;
     use bevy_app::{App, PreUpdate};
-    use bevy_ecs::entity::Entity;
-    use bevy_ecs::event::Events;
-    use bevy_ecs::schedule::IntoScheduleConfigs;
+    use bevy_ecs::{entity::Entity, event::Events, schedule::IntoScheduleConfigs};
 
     fn test_button_axis_settings_filter(
         settings: ButtonAxisSettings,
@@ -2828,7 +2825,7 @@ mod tests {
         );
         ctx.update();
 
-        //Check it clears next frame
+        // Check it clears next frame
         assert!(
             !ctx.app
                 .world_mut()
@@ -2935,7 +2932,7 @@ mod tests {
         );
         ctx.update();
 
-        //Check it clears next frame
+        // Check it clears next frame
         assert!(
             !ctx.app
                 .world_mut()

@@ -6,8 +6,7 @@ use bevy_input::{
     touch::{ForceTouch, TouchInput, TouchPhase},
 };
 use bevy_math::{CompassOctant, Vec2};
-use bevy_window::SystemCursorIcon;
-use bevy_window::{EnabledButtons, WindowLevel, WindowTheme};
+use bevy_window::{EnabledButtons, SystemCursorIcon, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
 pub fn convert_keyboard_input(

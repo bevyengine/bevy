@@ -4912,10 +4912,9 @@ mod tests {
     use core::panic::AssertUnwindSafe;
     use std::sync::OnceLock;
 
-    use crate::component::HookContext;
     use crate::{
         change_detection::{MaybeLocation, MutUntyped},
-        component::ComponentId,
+        component::{ComponentId, HookContext},
         prelude::*,
         system::{RunSystemOnce as _, assert_is_system},
         world::{DeferredWorld, FilteredEntityMut, FilteredEntityRef, error::EntityComponentError},
@@ -6110,7 +6109,7 @@ mod tests {
             "OrdB observer on_add",
             "OrdB hook on_insert",
             "OrdB observer on_insert",
-            "OrdB command on_add", // command added by OrdB hook on_add, needs to run before despawn command
+            "OrdB command on_add", /* command added by OrdB hook on_add, needs to run before despawn command */
             "OrdA observer on_replace", // start of despawn
             "OrdA hook on_replace",
             "OrdA observer on_remove",

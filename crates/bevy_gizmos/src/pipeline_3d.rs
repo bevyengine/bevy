@@ -21,7 +21,6 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
-use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     Render, RenderApp, RenderSet,
     render_asset::{RenderAssets, prepare_assets},
@@ -30,6 +29,7 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
+    sync_world::MainEntity,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
 };
 use tracing::error;

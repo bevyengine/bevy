@@ -1,15 +1,13 @@
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_render::experimental::occlusion_culling::OcclusionCulling;
-use bevy_render::render_graph::ViewNode;
+use bevy_render::{experimental::occlusion_culling::OcclusionCulling, render_graph::ViewNode};
 
-use bevy_render::view::{ExtractedView, NoIndirectDrawing};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::ViewDepthTexture,
+    view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture},
 };
 use tracing::error;
 #[cfg(feature = "trace")]

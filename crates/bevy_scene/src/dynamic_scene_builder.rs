@@ -1,7 +1,6 @@
 use core::any::TypeId;
 
-use crate::reflect_utils::clone_reflect_value;
-use crate::{DynamicEntity, DynamicScene, SceneFilter};
+use crate::{DynamicEntity, DynamicScene, SceneFilter, reflect_utils::clone_reflect_value};
 use alloc::collections::BTreeMap;
 use bevy_ecs::{
     component::{Component, ComponentId},

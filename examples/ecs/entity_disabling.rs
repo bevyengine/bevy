@@ -17,8 +17,7 @@
 //! For example, `Query<&A, With<Disabled>`, `Query<(Entity, Has<Disabled>>)` or
 //! `Query<&A, Or<(With<Disabled>, With<B>)>>` will include disabled entities.
 
-use bevy::ecs::entity_disabling::Disabled;
-use bevy::prelude::*;
+use bevy::{ecs::entity_disabling::Disabled, prelude::*};
 
 fn main() {
     App::new()

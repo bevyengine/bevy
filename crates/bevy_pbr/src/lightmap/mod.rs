@@ -53,12 +53,11 @@ use bevy_render::{
     Extract, ExtractSchedule, RenderApp,
     render_asset::RenderAssets,
     render_resource::{Sampler, Shader, TextureView, WgpuSampler, WgpuTextureView},
-    renderer::RenderAdapter,
-    sync_world::MainEntity,
+    renderer::{RenderAdapter, RenderDevice},
+    sync_world::{MainEntity, MainEntityHashMap},
     texture::{FallbackImage, GpuImage},
     view::ViewVisibility,
 };
-use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
 use bevy_utils::default;
 use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};

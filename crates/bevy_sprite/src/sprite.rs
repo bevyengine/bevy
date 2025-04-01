@@ -279,8 +279,7 @@ impl From<Vec2> for Anchor {
 mod tests {
     use bevy_asset::{Assets, RenderAssetUsages};
     use bevy_color::Color;
-    use bevy_image::Image;
-    use bevy_image::{TextureAtlas, TextureAtlasLayout};
+    use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
     use bevy_math::{Rect, URect, UVec2, Vec2};
     use bevy_render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 

@@ -1,8 +1,9 @@
-use crate::serde::ReflectSerializeWithRegistry;
 #[cfg(feature = "debug_stack")]
 use crate::serde::ser::error_utils::TYPE_INFO_STACK;
-use crate::serde::ser::error_utils::make_custom_error;
-use crate::{PartialReflect, ReflectSerialize, TypeRegistry};
+use crate::{
+    PartialReflect, ReflectSerialize, TypeRegistry,
+    serde::{ReflectSerializeWithRegistry, ser::error_utils::make_custom_error},
+};
 use core::borrow::Borrow;
 use serde::{Serialize, Serializer};
 

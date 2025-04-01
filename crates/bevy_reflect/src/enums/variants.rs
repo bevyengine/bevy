@@ -3,8 +3,7 @@ use crate::{
     attributes::{CustomAttributes, impl_custom_attribute_methods},
 };
 use alloc::boxed::Box;
-use bevy_platform_support::collections::HashMap;
-use bevy_platform_support::sync::Arc;
+use bevy_platform_support::{collections::HashMap, sync::Arc};
 use core::slice::Iter;
 use thiserror::Error;
 

@@ -1,6 +1,6 @@
-use crate::field_attributes::CloneBehavior;
 use crate::{
-    derive_data::ReflectEnum, derive_data::StructField, field_attributes::DefaultBehavior,
+    derive_data::{ReflectEnum, StructField},
+    field_attributes::{CloneBehavior, DefaultBehavior},
     ident::ident_or_index,
 };
 use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption, FQResult};

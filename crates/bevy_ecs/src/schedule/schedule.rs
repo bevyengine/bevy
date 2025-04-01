@@ -2,8 +2,8 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17344."
 )]
-use alloc::borrow::Cow;
 use alloc::{
+    borrow::Cow,
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
     format,

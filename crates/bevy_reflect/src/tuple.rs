@@ -1,12 +1,11 @@
 use bevy_reflect_derive::impl_type_path;
 use variadics_please::all_tuples;
 
-use crate::generics::impl_generic_info_methods;
 use crate::{
     ApplyError, FromReflect, Generics, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect,
     ReflectCloneError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
-    TypeRegistration, TypeRegistry, Typed, UnnamedField, type_info::impl_type_methods,
-    utility::GenericTypePathCell,
+    TypeRegistration, TypeRegistry, Typed, UnnamedField, generics::impl_generic_info_methods,
+    type_info::impl_type_methods, utility::GenericTypePathCell,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use core::{

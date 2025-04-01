@@ -30,8 +30,7 @@ mod rangefinder;
 
 use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
-use bevy_ecs::entity::EntityHash;
+use bevy_ecs::{component::Tick, entity::EntityHash};
 use bevy_platform_support::collections::{HashMap, hash_map::Entry};
 use bevy_utils::default;
 pub use draw::*;
@@ -43,22 +42,20 @@ use nonmax::NonMaxU32;
 pub use rangefinder::*;
 use wgpu::Features;
 
-use crate::RenderDebugFlags;
-use crate::batching::gpu_preprocessing::{
-    GpuPreprocessingMode, GpuPreprocessingSupport, PhaseBatchedInstanceBuffers,
-    PhaseIndirectParametersBuffers,
-};
-use crate::renderer::RenderDevice;
-use crate::sync_world::{MainEntity, MainEntityHashMap};
-use crate::view::RetainedViewEntity;
 use crate::{
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderDebugFlags, RenderSet,
     batching::{
         self, GetFullBatchData,
-        gpu_preprocessing::{self, BatchedInstanceBuffers},
+        gpu_preprocessing::{
+            self, BatchedInstanceBuffers, GpuPreprocessingMode, GpuPreprocessingSupport,
+            PhaseBatchedInstanceBuffers, PhaseIndirectParametersBuffers,
+        },
         no_gpu_preprocessing::{self, BatchedInstanceBuffer},
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
+    renderer::RenderDevice,
+    sync_world::{MainEntity, MainEntityHashMap},
+    view::RetainedViewEntity,
 };
 use bevy_ecs::{
     prelude::*,

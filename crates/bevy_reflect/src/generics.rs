@@ -1,5 +1,4 @@
-use crate::type_info::impl_type_methods;
-use crate::{Reflect, Type, TypePath};
+use crate::{Reflect, Type, TypePath, type_info::impl_type_methods};
 use alloc::{borrow::Cow, boxed::Box};
 use bevy_platform_support::sync::Arc;
 use core::ops::Deref;

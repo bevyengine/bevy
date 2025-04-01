@@ -1,8 +1,7 @@
-use crate::renderer::WgpuWrapper;
 use crate::{
     Extract,
     render_resource::*,
-    renderer::{RenderAdapter, RenderDevice},
+    renderer::{RenderAdapter, RenderDevice, WgpuWrapper},
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{AssetEvent, AssetId, Assets};

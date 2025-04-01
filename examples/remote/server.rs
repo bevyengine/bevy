@@ -1,8 +1,8 @@
 //! A Bevy app that you can connect to with the BRP and edit.
 
-use bevy::math::ops::cos;
 use bevy::{
     input::common_conditions::input_just_pressed,
+    math::ops::cos,
     prelude::*,
     remote::{RemotePlugin, http::RemoteHttpPlugin},
 };

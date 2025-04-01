@@ -15,8 +15,7 @@
 extern crate alloc;
 
 use bevy_derive::Deref;
-use bevy_reflect::Reflect;
-use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::{Reflect, prelude::ReflectDefault};
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
 use core::marker::PhantomData;
 use winit::{event_loop::EventLoop, window::WindowId};

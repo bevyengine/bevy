@@ -1,8 +1,10 @@
 use super::RenderQueue;
-use crate::WgpuWrapper;
-use crate::render_resource::{
-    BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
-    RenderPipeline, Sampler, Texture,
+use crate::{
+    WgpuWrapper,
+    render_resource::{
+        BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
+        RenderPipeline, Sampler, Texture,
+    },
 };
 use bevy_ecs::resource::Resource;
 use wgpu::{

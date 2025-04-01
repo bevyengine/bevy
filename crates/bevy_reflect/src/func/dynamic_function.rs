@@ -168,7 +168,7 @@ impl<'env> DynamicFunction<'env> {
     /// let args = ArgList::default().with_owned(25.0_f32).with_owned(75.0_f32);
     /// let result = func.call(args).unwrap().unwrap_owned();
     /// assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
-    ///```
+    /// ```
     ///
     /// ```
     /// # use bevy_reflect::func::{ArgList, IntoFunction};
@@ -201,7 +201,7 @@ impl<'env> DynamicFunction<'env> {
     /// assert_eq!(result.try_take::<i32>().unwrap(), 200);
     /// ```
     ///
-    ///```should_panic
+    /// ```should_panic
     /// # use bevy_reflect::func::IntoFunction;
     ///
     /// fn add(a: i32, b: i32) -> i32 {
@@ -476,9 +476,10 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunction<'env> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Type;
-    use crate::func::signature::ArgumentSignature;
-    use crate::func::{FunctionError, IntoReturn, SignatureInfo};
+    use crate::{
+        Type,
+        func::{FunctionError, IntoReturn, SignatureInfo, signature::ArgumentSignature},
+    };
     use alloc::{format, string::String, vec, vec::Vec};
     use bevy_platform_support::collections::HashSet;
     use core::ops::Add;

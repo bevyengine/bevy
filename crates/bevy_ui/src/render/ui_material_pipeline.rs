@@ -12,7 +12,6 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
-use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSet,
     extract_component::ExtractComponentPlugin,
@@ -21,6 +20,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
+    sync_world::{MainEntity, TemporaryRenderEntity},
     view::*,
 };
 use bevy_sprite::BorderRect;

@@ -3,8 +3,9 @@ use crate::{
     SetMesh2dBindGroup, SetMesh2dViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::prelude::AssetChanged;
-use bevy_asset::{AsAssetId, Asset, AssetApp, AssetEvents, AssetId, AssetServer, Handle};
+use bevy_asset::{
+    AsAssetId, Asset, AssetApp, AssetEvents, AssetId, AssetServer, Handle, prelude::AssetChanged,
+};
 use bevy_core_pipeline::{
     core_2d::{
         AlphaMask2d, AlphaMask2dBinKey, BatchSetKey2d, Opaque2d, Opaque2dBinKey, Transparent2d,
@@ -12,38 +13,34 @@ use bevy_core_pipeline::{
     tonemapping::Tonemapping,
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
-use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
+    component::Tick,
     prelude::*,
-    system::{SystemParamItem, lifetimeless::SRes},
+    system::{SystemChangeTick, SystemParamItem, lifetimeless::SRes},
 };
 use bevy_math::FloatOrd;
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{Reflect, prelude::ReflectDefault};
-use bevy_render::camera::extract_cameras;
-use bevy_render::render_phase::{DrawFunctionId, InputUniformIndex};
-use bevy_render::render_resource::CachedRenderPipelineId;
-use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    camera::extract_cameras,
     mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{
         PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets, prepare_assets,
     },
     render_phase::{
-        AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
-        RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
-        ViewBinnedRenderPhases, ViewSortedRenderPhases,
+        AddRenderCommand, BinnedRenderPhaseType, DrawFunctionId, DrawFunctions, InputUniformIndex,
+        PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult, SetItemPipeline,
+        TrackedRenderPass, ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout, BindingResources,
-        PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
-        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        CachedRenderPipelineId, PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
-    view::{ExtractedView, ViewVisibility},
+    view::{ExtractedView, RenderVisibleEntities, ViewVisibility},
 };
 use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};

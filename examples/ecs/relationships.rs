@@ -11,9 +11,10 @@
 //! In this example we're creating a [`Targeting`]/[`TargetedBy`] relationship,
 //! demonstrating how you might model units which target a single unit in combat.
 
-use bevy::ecs::entity::EntityHashSet;
-use bevy::ecs::system::RunSystemOnce;
-use bevy::prelude::*;
+use bevy::{
+    ecs::{entity::EntityHashSet, system::RunSystemOnce},
+    prelude::*,
+};
 
 /// The entity that this entity is targeting.
 ///

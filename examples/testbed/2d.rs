@@ -147,10 +147,7 @@ mod bloom {
 }
 
 mod text {
-    use bevy::color::palettes;
-    use bevy::prelude::*;
-    use bevy::sprite::Anchor;
-    use bevy::text::TextBounds;
+    use bevy::{color::palettes, prelude::*, sprite::Anchor, text::TextBounds};
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, StateScoped(super::Scene::Text)));
@@ -258,9 +255,11 @@ mod text {
 }
 
 mod sprite {
-    use bevy::color::palettes::css::{BLUE, LIME, RED};
-    use bevy::prelude::*;
-    use bevy::sprite::Anchor;
+    use bevy::{
+        color::palettes::css::{BLUE, LIME, RED},
+        prelude::*,
+        sprite::Anchor,
+    };
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, StateScoped(super::Scene::Sprite)));

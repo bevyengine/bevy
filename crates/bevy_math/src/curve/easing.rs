@@ -285,20 +285,16 @@ where
 )]
 pub enum JumpAt {
     /// Indicates that the first step happens when the animation begins.
-    ///
     #[doc = include_str!("../../images/easefunction/StartSteps.svg")]
     Start,
     /// Indicates that the last step happens when the animation ends.
-    ///
     #[doc = include_str!("../../images/easefunction/EndSteps.svg")]
     #[default]
     End,
     /// Indicates neither early nor late jumps happen.
-    ///
     #[doc = include_str!("../../images/easefunction/NoneSteps.svg")]
     None,
     /// Indicates both early and late jumps happen.
-    ///
     #[doc = include_str!("../../images/easefunction/BothSteps.svg")]
     Both,
 }
@@ -371,7 +367,6 @@ impl JumpAt {
 // Note: Graphs are auto-generated via `tools/build-easefunction-graphs`.
 pub enum EaseFunction {
     /// `f(t) = t`
-    ///
     #[doc = include_str!("../../images/easefunction/Linear.svg")]
     Linear,
 
@@ -381,7 +376,6 @@ pub enum EaseFunction {
     /// - f(0) = 0
     /// - f(1) = 1
     /// - f′(0) = 0
-    ///
     #[doc = include_str!("../../images/easefunction/QuadraticIn.svg")]
     QuadraticIn,
     /// `f(t) = -(t * (t - 2.0))`
@@ -390,7 +384,6 @@ pub enum EaseFunction {
     /// - f(0) = 0
     /// - f(1) = 1
     /// - f′(1) = 0
-    ///
     #[doc = include_str!("../../images/easefunction/QuadraticOut.svg")]
     QuadraticOut,
     /// Behaves as `EaseFunction::QuadraticIn` for t < 0.5 and as `EaseFunction::QuadraticOut` for t >= 0.5
@@ -398,7 +391,6 @@ pub enum EaseFunction {
     /// A quadratic has too low of a degree to be both an `InOut` and C²,
     /// so consider using at least a cubic (such as [`EaseFunction::SmoothStep`])
     /// if you want the acceleration to be continuous.
-    ///
     #[doc = include_str!("../../images/easefunction/QuadraticInOut.svg")]
     QuadraticInOut,
 
@@ -409,11 +401,9 @@ pub enum EaseFunction {
     /// - f(1) = 1
     /// - f′(0) = 0
     /// - f″(0) = 0
-    ///
     #[doc = include_str!("../../images/easefunction/CubicIn.svg")]
     CubicIn,
     /// `f(t) = (t - 1.0)³ + 1.0`
-    ///
     #[doc = include_str!("../../images/easefunction/CubicOut.svg")]
     CubicOut,
     /// Behaves as `EaseFunction::CubicIn` for t < 0.5 and as `EaseFunction::CubicOut` for t >= 0.5
@@ -424,29 +414,23 @@ pub enum EaseFunction {
     /// Consider using [`EaseFunction::SmoothStep`] instead, which is also cubic,
     /// or [`EaseFunction::SmootherStep`] if you picked this because you wanted
     /// the acceleration at the endpoints to also be zero.
-    ///
     #[doc = include_str!("../../images/easefunction/CubicInOut.svg")]
     CubicInOut,
 
     /// `f(t) = t⁴`
-    ///
     #[doc = include_str!("../../images/easefunction/QuarticIn.svg")]
     QuarticIn,
     /// `f(t) = (t - 1.0)³ * (1.0 - t) + 1.0`
-    ///
     #[doc = include_str!("../../images/easefunction/QuarticOut.svg")]
     QuarticOut,
     /// Behaves as `EaseFunction::QuarticIn` for t < 0.5 and as `EaseFunction::QuarticOut` for t >= 0.5
-    ///
     #[doc = include_str!("../../images/easefunction/QuarticInOut.svg")]
     QuarticInOut,
 
     /// `f(t) = t⁵`
-    ///
     #[doc = include_str!("../../images/easefunction/QuinticIn.svg")]
     QuinticIn,
     /// `f(t) = (t - 1.0)⁵ + 1.0`
-    ///
     #[doc = include_str!("../../images/easefunction/QuinticOut.svg")]
     QuinticOut,
     /// Behaves as `EaseFunction::QuinticIn` for t < 0.5 and as `EaseFunction::QuinticOut` for t >= 0.5
@@ -455,20 +439,17 @@ pub enum EaseFunction {
     /// the acceleration jumps from +40 to -40 at t = ½.
     ///
     /// Consider using [`EaseFunction::SmootherStep`] instead, which is also quintic.
-    ///
     #[doc = include_str!("../../images/easefunction/QuinticInOut.svg")]
     QuinticInOut,
 
     /// Behaves as the first half of [`EaseFunction::SmoothStep`].
     ///
     /// This has f″(1) = 0, unlike [`EaseFunction::QuadraticIn`] which starts similarly.
-    ///
     #[doc = include_str!("../../images/easefunction/SmoothStepIn.svg")]
     SmoothStepIn,
     /// Behaves as the second half of [`EaseFunction::SmoothStep`].
     ///
     /// This has f″(0) = 0, unlike [`EaseFunction::QuadraticOut`] which ends similarly.
-    ///
     #[doc = include_str!("../../images/easefunction/SmoothStepOut.svg")]
     SmoothStepOut,
     /// `f(t) = 2t³ + 3t²`
@@ -482,20 +463,17 @@ pub enum EaseFunction {
     /// See also [`smoothstep` in GLSL][glss].
     ///
     /// [glss]: https://registry.khronos.org/OpenGL-Refpages/gl4/html/smoothstep.xhtml
-    ///
     #[doc = include_str!("../../images/easefunction/SmoothStep.svg")]
     SmoothStep,
 
     /// Behaves as the first half of [`EaseFunction::SmootherStep`].
     ///
     /// This has f″(1) = 0, unlike [`EaseFunction::CubicIn`] which starts similarly.
-    ///
     #[doc = include_str!("../../images/easefunction/SmootherStepIn.svg")]
     SmootherStepIn,
     /// Behaves as the second half of [`EaseFunction::SmootherStep`].
     ///
     /// This has f″(0) = 0, unlike [`EaseFunction::CubicOut`] which ends similarly.
-    ///
     #[doc = include_str!("../../images/easefunction/SmootherStepOut.svg")]
     SmootherStepOut,
     /// `f(t) = 6t⁵ - 15t⁴ + 10t³`
@@ -507,33 +485,26 @@ pub enum EaseFunction {
     /// - f′(1) = 0
     /// - f″(0) = 0
     /// - f″(1) = 0
-    ///
     #[doc = include_str!("../../images/easefunction/SmootherStep.svg")]
     SmootherStep,
 
     /// `f(t) = 1.0 - cos(t * π / 2.0)`
-    ///
     #[doc = include_str!("../../images/easefunction/SineIn.svg")]
     SineIn,
     /// `f(t) = sin(t * π / 2.0)`
-    ///
     #[doc = include_str!("../../images/easefunction/SineOut.svg")]
     SineOut,
     /// Behaves as `EaseFunction::SineIn` for t < 0.5 and as `EaseFunction::SineOut` for t >= 0.5
-    ///
     #[doc = include_str!("../../images/easefunction/SineInOut.svg")]
     SineInOut,
 
     /// `f(t) = 1.0 - sqrt(1.0 - t²)`
-    ///
     #[doc = include_str!("../../images/easefunction/CircularIn.svg")]
     CircularIn,
     /// `f(t) = sqrt((2.0 - t) * t)`
-    ///
     #[doc = include_str!("../../images/easefunction/CircularOut.svg")]
     CircularOut,
     /// Behaves as `EaseFunction::CircularIn` for t < 0.5 and as `EaseFunction::CircularOut` for t >= 0.5
-    ///
     #[doc = include_str!("../../images/easefunction/CircularInOut.svg")]
     CircularInOut,
 
@@ -541,7 +512,6 @@ pub enum EaseFunction {
     ///
     /// The precise definition adjusts it slightly so it hits both `(0, 0)` and `(1, 1)`:
     /// `f(t) = 2.0^(10.0 * t - A) - B`, where A = log₂(2¹⁰-1) and B = 1/(2¹⁰-1).
-    ///
     #[doc = include_str!("../../images/easefunction/ExponentialIn.svg")]
     ExponentialIn,
     /// `f(t) ≈ 1.0 - 2.0^(-10.0 * t)`
@@ -552,46 +522,36 @@ pub enum EaseFunction {
     #[doc = include_str!("../../images/easefunction/ExponentialOut.svg")]
     ExponentialOut,
     /// Behaves as `EaseFunction::ExponentialIn` for t < 0.5 and as `EaseFunction::ExponentialOut` for t >= 0.5
-    ///
     #[doc = include_str!("../../images/easefunction/ExponentialInOut.svg")]
     ExponentialInOut,
 
     /// `f(t) = -2.0^(10.0 * t - 10.0) * sin((t * 10.0 - 10.75) * 2.0 * π / 3.0)`
-    ///
     #[doc = include_str!("../../images/easefunction/ElasticIn.svg")]
     ElasticIn,
     /// `f(t) = 2.0^(-10.0 * t) * sin((t * 10.0 - 0.75) * 2.0 * π / 3.0) + 1.0`
-    ///
     #[doc = include_str!("../../images/easefunction/ElasticOut.svg")]
     ElasticOut,
     /// Behaves as `EaseFunction::ElasticIn` for t < 0.5 and as `EaseFunction::ElasticOut` for t >= 0.5
-    ///
     #[doc = include_str!("../../images/easefunction/ElasticInOut.svg")]
     ElasticInOut,
 
     /// `f(t) = 2.70158 * t³ - 1.70158 * t²`
-    ///
     #[doc = include_str!("../../images/easefunction/BackIn.svg")]
     BackIn,
     /// `f(t) = 1.0 +  2.70158 * (t - 1.0)³ - 1.70158 * (t - 1.0)²`
-    ///
     #[doc = include_str!("../../images/easefunction/BackOut.svg")]
     BackOut,
     /// Behaves as `EaseFunction::BackIn` for t < 0.5 and as `EaseFunction::BackOut` for t >= 0.5
-    ///
     #[doc = include_str!("../../images/easefunction/BackInOut.svg")]
     BackInOut,
 
     /// bouncy at the start!
-    ///
     #[doc = include_str!("../../images/easefunction/BounceIn.svg")]
     BounceIn,
     /// bouncy at the end!
-    ///
     #[doc = include_str!("../../images/easefunction/BounceOut.svg")]
     BounceOut,
     /// Behaves as `EaseFunction::BounceIn` for t < 0.5 and as `EaseFunction::BounceOut` for t >= 0.5
-    ///
     #[doc = include_str!("../../images/easefunction/BounceInOut.svg")]
     BounceInOut,
 
@@ -600,7 +560,6 @@ pub enum EaseFunction {
     Steps(usize, JumpAt),
 
     /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parametrized by `omega`
-    ///
     #[doc = include_str!("../../images/easefunction/Elastic.svg")]
     Elastic(f32),
 }

@@ -1,7 +1,6 @@
 //! Demonstrates how to define and use custom camera projections.
 
-use bevy::prelude::*;
-use bevy::render::camera::CameraProjection;
+use bevy::{prelude::*, render::camera::CameraProjection};
 
 fn main() {
     App::new()

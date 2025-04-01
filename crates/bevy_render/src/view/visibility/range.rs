@@ -26,13 +26,13 @@ use nonmax::NonMaxU16;
 use wgpu::{BufferBindingType, BufferUsages};
 
 use super::{VisibilitySystems, check_visibility};
-use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     camera::Camera,
     primitives::Aabb,
     render_resource::BufferVec,
     renderer::{RenderDevice, RenderQueue},
+    sync_world::{MainEntity, MainEntityHashMap},
 };
 
 /// We need at least 4 storage buffer bindings available to enable the

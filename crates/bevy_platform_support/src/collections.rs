@@ -18,12 +18,10 @@ pub mod hash_map {
     use hashbrown::hash_map as hb;
 
     // Re-exports to match `std::collections::hash_map`
-    pub use {
-        crate::hash::{DefaultHasher, RandomState},
-        hb::{
-            Drain, IntoIter, IntoKeys, IntoValues, Iter, IterMut, Keys, OccupiedEntry, VacantEntry,
-            Values, ValuesMut,
-        },
+    pub use crate::hash::{DefaultHasher, RandomState};
+    pub use hb::{
+        Drain, IntoIter, IntoKeys, IntoValues, Iter, IterMut, Keys, OccupiedEntry, VacantEntry,
+        Values, ValuesMut,
     };
 
     // Additional items from `hashbrown`

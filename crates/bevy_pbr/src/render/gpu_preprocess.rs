@@ -26,17 +26,14 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, lifetimeless::Read},
     world::{FromWorld, World},
 };
-use bevy_render::batching::gpu_preprocessing::{
-    IndirectParametersGpuMetadata, UntypedPhaseIndirectParametersBuffers,
-};
 use bevy_render::{
     Render, RenderApp, RenderSet,
     batching::gpu_preprocessing::{
         BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingSupport,
         IndirectBatchSet, IndirectParametersBuffers, IndirectParametersCpuMetadata,
-        IndirectParametersIndexed, IndirectParametersNonIndexed,
+        IndirectParametersGpuMetadata, IndirectParametersIndexed, IndirectParametersNonIndexed,
         LatePreprocessWorkItemIndirectParameters, PreprocessWorkItem, PreprocessWorkItemBuffers,
-        UntypedPhaseBatchedInstanceBuffers,
+        UntypedPhaseBatchedInstanceBuffers, UntypedPhaseIndirectParametersBuffers,
     },
     experimental::occlusion_culling::OcclusionCulling,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
@@ -1296,7 +1293,7 @@ impl FromWorld for PreprocessPipelines {
         let gpu_early_occlusion_culling_bind_group_layout_entries =
             gpu_occlusion_culling_bind_group_layout_entries().extend_with_indices(((
                 11,
-                storage_buffer::<PreprocessWorkItem>(/*has_dynamic_offset=*/ false),
+                storage_buffer::<PreprocessWorkItem>(/* has_dynamic_offset= */ false),
             ),));
         let gpu_late_occlusion_culling_bind_group_layout_entries =
             gpu_occlusion_culling_bind_group_layout_entries();
@@ -1448,7 +1445,8 @@ fn gpu_culling_bind_group_layout_entries() -> DynamicBindGroupLayoutEntries {
         (
             7,
             storage_buffer_read_only::<IndirectParametersCpuMetadata>(
-                /* has_dynamic_offset= */ false,
+                // has_dynamic_offset=
+                false,
             ),
         ),
         // `indirect_parameters_gpu_metadata`
@@ -1468,7 +1466,7 @@ fn gpu_occlusion_culling_bind_group_layout_entries() -> DynamicBindGroupLayoutEn
     gpu_culling_bind_group_layout_entries().extend_with_indices((
         (
             2,
-            uniform_buffer::<PreviousViewData>(/*has_dynamic_offset=*/ false),
+            uniform_buffer::<PreviousViewData>(/* has_dynamic_offset= */ false),
         ),
         (
             10,
@@ -1477,7 +1475,8 @@ fn gpu_occlusion_culling_bind_group_layout_entries() -> DynamicBindGroupLayoutEn
         (
             12,
             storage_buffer::<LatePreprocessWorkItemIndirectParameters>(
-                /*has_dynamic_offset=*/ false,
+                // has_dynamic_offset=
+                false,
             ),
         ),
     ))

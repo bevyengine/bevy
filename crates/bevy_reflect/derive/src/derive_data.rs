@@ -15,9 +15,11 @@ use crate::{
 use quote::{ToTokens, format_ident, quote};
 use syn::token::Comma;
 
-use crate::enum_utility::{EnumVariantOutputData, ReflectCloneVariantBuilder, VariantBuilder};
-use crate::field_attributes::CloneBehavior;
-use crate::generics::generate_generics;
+use crate::{
+    enum_utility::{EnumVariantOutputData, ReflectCloneVariantBuilder, VariantBuilder},
+    field_attributes::CloneBehavior,
+    generics::generate_generics,
+};
 use bevy_macro_utils::fq_std::{FQClone, FQOption, FQResult};
 use syn::{
     Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, LitStr, Member, Meta, Path,

@@ -336,8 +336,7 @@ pub enum RelationshipHookMode {
 
 #[cfg(test)]
 mod tests {
-    use crate::world::World;
-    use crate::{component::Component, entity::Entity};
+    use crate::{component::Component, entity::Entity, world::World};
     use alloc::vec::Vec;
 
     #[test]

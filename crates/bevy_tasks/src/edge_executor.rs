@@ -481,8 +481,10 @@ impl<const C: usize> State<C> {
 mod different_executor_tests {
     use core::cell::Cell;
 
-    use futures_lite::future::{block_on, pending, poll_once};
-    use futures_lite::pin;
+    use futures_lite::{
+        future::{block_on, pending, poll_once},
+        pin,
+    };
 
     use super::LocalExecutor;
 
@@ -520,9 +522,11 @@ mod different_executor_tests {
 #[cfg(test)]
 mod drop_tests {
     use alloc::string::String;
-    use core::mem;
-    use core::sync::atomic::{AtomicUsize, Ordering};
-    use core::task::{Poll, Waker};
+    use core::{
+        mem,
+        sync::atomic::{AtomicUsize, Ordering},
+        task::{Poll, Waker},
+    };
     use std::sync::Mutex;
 
     use bevy_platform_support::sync::LazyLock;

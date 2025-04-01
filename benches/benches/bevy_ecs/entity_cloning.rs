@@ -1,12 +1,14 @@
 use core::hint::black_box;
 
 use benches::bench;
-use bevy_ecs::bundle::Bundle;
-use bevy_ecs::component::ComponentCloneBehavior;
-use bevy_ecs::entity::EntityCloner;
-use bevy_ecs::hierarchy::ChildOf;
-use bevy_ecs::reflect::AppTypeRegistry;
-use bevy_ecs::{component::Component, world::World};
+use bevy_ecs::{
+    bundle::Bundle,
+    component::{Component, ComponentCloneBehavior},
+    entity::EntityCloner,
+    hierarchy::ChildOf,
+    reflect::AppTypeRegistry,
+    world::World,
+};
 use bevy_math::Mat4;
 use bevy_reflect::{GetTypeRegistration, Reflect};
 use criterion::{Bencher, Criterion, Throughput, criterion_group};

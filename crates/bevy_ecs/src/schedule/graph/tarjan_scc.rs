@@ -1,8 +1,6 @@
-use super::DiGraph;
-use super::NodeId;
+use super::{DiGraph, NodeId};
 use alloc::vec::Vec;
-use core::hash::BuildHasher;
-use core::num::NonZeroUsize;
+use core::{hash::BuildHasher, num::NonZeroUsize};
 use smallvec::SmallVec;
 
 /// Create an iterator over *strongly connected components* using Algorithm 3 in
@@ -37,7 +35,7 @@ pub(crate) fn new_tarjan_scc<S: BuildHasher>(
         graph,
         unchecked_nodes,
         index: 1,                    // Invariant: index < component_count at all times.
-        component_count: usize::MAX, // Will hold if component_count is initialized to number of nodes - 1 or higher.
+        component_count: usize::MAX, /* Will hold if component_count is initialized to number of nodes - 1 or higher. */
         nodes,
         stack: Vec::new(),
         visitation_stack: Vec::new(),

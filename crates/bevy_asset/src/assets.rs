@@ -1,5 +1,7 @@
-use crate::asset_changed::AssetChanges;
-use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
+use crate::{
+    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle,
+    asset_changed::AssetChanges,
+};
 use alloc::{sync::Arc, vec::Vec};
 use bevy_ecs::{
     prelude::EventWriter,

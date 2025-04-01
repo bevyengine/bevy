@@ -217,8 +217,8 @@ use alloc::{
     vec::Vec,
 };
 use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
-use bevy_ecs::prelude::Component;
 use bevy_ecs::{
+    prelude::Component,
     reflect::AppTypeRegistry,
     schedule::{IntoScheduleConfigs, SystemSet},
     world::FromWorld,

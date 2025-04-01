@@ -547,8 +547,7 @@ impl CircularSegment {
 
 #[cfg(test)]
 mod arc_tests {
-    use core::f32::consts::FRAC_PI_4;
-    use core::f32::consts::SQRT_2;
+    use core::f32::consts::{FRAC_PI_4, SQRT_2};
 
     use approx::assert_abs_diff_eq;
 

@@ -15,21 +15,19 @@ use async_channel::{Receiver, Sender};
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::{
     change_detection::ResMut,
     entity::Entity,
     event::Event,
     prelude::{Component, Resource, World},
+    schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
 use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
-use encase::ShaderType;
-use encase::internal::ReadFrom;
-use encase::private::Reader;
+use encase::{ShaderType, internal::ReadFrom, private::Reader};
 use tracing::warn;
 
 /// A plugin that enables reading back gpu buffers and textures to the cpu.

@@ -6,8 +6,7 @@ use bevy_math::{Rect, UVec2, Vec2, Vec4Swizzles, vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    view::Visibility,
-    view::VisibilityClass,
+    view::{Visibility, VisibilityClass},
 };
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;

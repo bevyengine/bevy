@@ -47,15 +47,14 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{Parallel, TypeIdMap, default};
-use core::any::TypeId;
-use core::mem::size_of;
+use core::{any::TypeId, mem::size_of};
 use material_bind_groups::MaterialBindingId;
 use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
-use crate::environment_map::EnvironmentMapLight;
-use crate::irradiance_volume::IrradianceVolume;
 use crate::{
+    environment_map::EnvironmentMapLight,
+    irradiance_volume::IrradianceVolume,
     render::{
         morph::{
             MorphIndices, MorphUniforms, extract_morphs, no_automatic_morph_batching,
@@ -65,17 +64,20 @@ use crate::{
     },
     *,
 };
-use bevy_core_pipeline::core_3d::Camera3d;
-use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
-use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
-use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
-use bevy_ecs::component::Tick;
-use bevy_ecs::system::SystemChangeTick;
-use bevy_render::RenderSet::PrepareAssets;
-use bevy_render::camera::TemporalJitter;
-use bevy_render::prelude::Msaa;
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
-use bevy_render::view::ExtractedView;
+use bevy_core_pipeline::{
+    core_3d::Camera3d,
+    oit::OrderIndependentTransparencySettings,
+    prepass::{DeferredPrepass, DepthPrepass, NormalPrepass},
+    tonemapping::{DebandDither, Tonemapping},
+};
+use bevy_ecs::{component::Tick, system::SystemChangeTick};
+use bevy_render::{
+    RenderSet::PrepareAssets,
+    camera::TemporalJitter,
+    prelude::Msaa,
+    sync_world::{MainEntity, MainEntityHashMap},
+    view::ExtractedView,
+};
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{SmallVec, smallvec};

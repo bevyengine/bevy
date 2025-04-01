@@ -192,10 +192,9 @@ mod tests {
     use alloc::borrow::Cow;
 
     use super::*;
-    use crate::func::args::ArgCount;
     use crate::{
         TypePath,
-        func::args::{ArgError, ArgList, Ownership},
+        func::args::{ArgCount, ArgError, ArgList, Ownership},
     };
 
     #[test]

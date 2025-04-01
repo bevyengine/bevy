@@ -1,7 +1,7 @@
-use crate::func::signature::ArgumentSignature;
 use crate::func::{
     Return,
     args::{ArgCount, ArgError},
+    signature::ArgumentSignature,
 };
 use alloc::borrow::Cow;
 use bevy_platform_support::collections::HashSet;

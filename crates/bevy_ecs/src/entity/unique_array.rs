@@ -85,7 +85,6 @@ impl<T: EntityEquivalent, const N: usize> UniqueEntityArray<N, T> {
     }
 
     // Constructs a `Rc<UniqueEntityArray>` from a [`Rc<[T; N]>`] unsafely.
-    ///
     /// # Safety
     ///
     /// `slice` must contain only unique elements.

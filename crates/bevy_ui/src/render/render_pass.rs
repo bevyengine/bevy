@@ -7,13 +7,13 @@ use bevy_ecs::{
     system::{SystemParamItem, lifetimeless::*},
 };
 use bevy_math::FloatOrd;
-use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::*,
     render_phase::*,
     render_resource::{CachedRenderPipelineId, RenderPassDescriptor},
     renderer::*,
+    sync_world::MainEntity,
     view::*,
 };
 use tracing::error;

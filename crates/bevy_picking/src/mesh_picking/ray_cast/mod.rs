@@ -14,7 +14,10 @@ use intersections::*;
 pub use intersections::{RayMeshHit, ray_aabb_intersection_3d, ray_mesh_intersection};
 
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{prelude::*, system::SystemParam, system::lifetimeless::Read};
+use bevy_ecs::{
+    prelude::*,
+    system::{SystemParam, lifetimeless::Read},
+};
 use bevy_math::FloatOrd;
 use bevy_render::{prelude::*, primitives::Aabb};
 use bevy_transform::components::GlobalTransform;

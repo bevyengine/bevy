@@ -6,8 +6,7 @@ use argh::FromArgs;
 use bevy::remote::{
     BrpRequest,
     builtin_methods::{BRP_QUERY_METHOD, BrpQuery, BrpQueryFilter, BrpQueryParams},
-    http::DEFAULT_ADDR,
-    http::DEFAULT_PORT,
+    http::{DEFAULT_ADDR, DEFAULT_PORT},
 };
 
 /// Struct containing the command-line arguments that can be passed to this example.

@@ -1,5 +1,4 @@
-use bevy_ecs::prelude::*;
-use bevy_ecs::system::SystemState;
+use bevy_ecs::{prelude::*, system::SystemState};
 use core::hint::black_box;
 use criterion::*;
 use glam::*;

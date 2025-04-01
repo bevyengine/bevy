@@ -2588,8 +2588,7 @@ mod tests {
         Typed, VariantInfo, VariantType,
     };
     use alloc::{collections::BTreeMap, string::String, vec};
-    use bevy_platform_support::collections::HashMap;
-    use bevy_platform_support::time::Instant;
+    use bevy_platform_support::{collections::HashMap, time::Instant};
     use core::{
         f32::consts::{PI, TAU},
         time::Duration,

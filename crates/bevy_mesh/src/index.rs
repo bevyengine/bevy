@@ -1,6 +1,5 @@
 use bevy_reflect::Reflect;
-use core::iter;
-use core::iter::FusedIterator;
+use core::{iter, iter::FusedIterator};
 use thiserror::Error;
 use wgpu_types::IndexFormat;
 

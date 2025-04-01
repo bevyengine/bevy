@@ -673,8 +673,8 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 ///    "method": "bevy/list",
 ///    "id": 0,
 ///    "params": null
-///}
-///```
+/// }
+/// ```
 ///
 /// In Rust:
 /// ```ignore

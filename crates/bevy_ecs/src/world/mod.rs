@@ -3742,7 +3742,7 @@ unsafe impl Sync for World {}
 /// - any enum where one variant has the attribute `#[from_world]`
 ///
 /// ```rs
-///
+/// 
 /// #[derive(Default)]
 /// struct A;
 ///

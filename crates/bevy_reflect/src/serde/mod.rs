@@ -187,18 +187,26 @@ mod tests {
 
     mod type_data {
         use super::*;
-        use crate::from_reflect::FromReflect;
-        use crate::serde::{DeserializeWithRegistry, ReflectDeserializeWithRegistry};
-        use crate::serde::{ReflectSerializeWithRegistry, SerializeWithRegistry};
-        use crate::{ReflectFromReflect, TypePath};
+        use crate::{
+            ReflectFromReflect, TypePath,
+            from_reflect::FromReflect,
+            serde::{
+                DeserializeWithRegistry, ReflectDeserializeWithRegistry,
+                ReflectSerializeWithRegistry, SerializeWithRegistry,
+            },
+        };
         use alloc::{format, string::String, vec, vec::Vec};
         use bevy_platform_support::sync::Arc;
         use bevy_reflect_derive::reflect_trait;
-        use core::any::TypeId;
-        use core::fmt::{Debug, Formatter};
-        use serde::de::{SeqAccess, Visitor};
-        use serde::ser::SerializeSeq;
-        use serde::{Deserializer, Serialize, Serializer};
+        use core::{
+            any::TypeId,
+            fmt::{Debug, Formatter},
+        };
+        use serde::{
+            Deserializer, Serialize, Serializer,
+            de::{SeqAccess, Visitor},
+            ser::SerializeSeq,
+        };
 
         #[reflect_trait]
         trait Enemy: Reflect + Debug {

@@ -31,8 +31,10 @@ mod tests {
         vec::Vec,
     };
     use core::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
-    use serde::{Deserialize, de::DeserializeSeed};
-    use serde::{Deserializer, de::IgnoredAny};
+    use serde::{
+        Deserialize, Deserializer,
+        de::{DeserializeSeed, IgnoredAny},
+    };
 
     use bevy_platform_support::collections::{HashMap, HashSet};
 

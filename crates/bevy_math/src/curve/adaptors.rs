@@ -1,13 +1,13 @@
 //! Adaptors used by the Curve API for transforming and combining curves together.
 
-use super::Curve;
-use super::interval::*;
+use super::{Curve, interval::*};
 
-use crate::VectorSpace;
-use crate::ops;
-use core::any::type_name;
-use core::fmt::{self, Debug};
-use core::marker::PhantomData;
+use crate::{VectorSpace, ops};
+use core::{
+    any::type_name,
+    fmt::{self, Debug},
+    marker::PhantomData,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use {

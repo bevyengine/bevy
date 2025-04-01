@@ -2,8 +2,7 @@ use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 
 use bevy_platform_support::collections::HashMap;
 
-use crate::system::IntoSystem;
-use crate::world::World;
+use crate::{system::IntoSystem, world::World};
 
 use super::{
     ApplyDeferred, DiGraph, Direction, NodeId, ReportCycles, ScheduleBuildError, ScheduleBuildPass,

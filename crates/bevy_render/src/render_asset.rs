@@ -12,8 +12,10 @@ use bevy_ecs::{
     world::{FromWorld, Mut},
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
-use core::marker::PhantomData;
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::{
+    marker::PhantomData,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 use thiserror::Error;
 use tracing::{debug, error};
 

@@ -9,8 +9,7 @@ use thiserror::Error;
 use tracing::{debug, error, warn};
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
-use crate::{Image, TextureFormatPixelInfo};
-use crate::{TextureAtlasLayout, TextureAtlasSources};
+use crate::{Image, TextureAtlasLayout, TextureAtlasSources, TextureFormatPixelInfo};
 
 #[derive(Debug, Error)]
 pub enum TextureAtlasBuilderError {

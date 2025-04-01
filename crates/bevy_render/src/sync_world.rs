@@ -1,9 +1,8 @@
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHash;
 use bevy_ecs::{
     component::Component,
-    entity::{ContainsEntity, Entity, EntityEquivalent},
+    entity::{ContainsEntity, Entity, EntityEquivalent, EntityHash},
     observer::Trigger,
     query::With,
     reflect::ReflectComponent,
@@ -66,7 +65,6 @@ use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 /// | ID: 3v1  | MainEntity(ID: 1V1)  |
 /// | ID: 5v1  | MainEntity(ID: 18V1) |
 /// |---------------------------------|
-///
 /// ```
 ///
 /// Note that this effectively establishes a link between the main world entity and the render world entity.

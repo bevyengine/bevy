@@ -1,17 +1,15 @@
-use crate::pipeline::CosmicFontSystem;
 use crate::{
     ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBounds,
     TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter, YAxisOrientation,
+    TextSpanAccess, TextWriter, YAxisOrientation, pipeline::CosmicFontSystem,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::Component,
-    entity::Entity,
+    entity::{Entity, EntityHashSet},
     prelude::{ReflectComponent, With},
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
@@ -19,18 +17,16 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, prelude::ReflectDefault};
-use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_render::view::{self, Visibility, VisibilityClass};
 use bevy_render::{
     Extract,
     primitives::Aabb,
-    view::{NoFrustumCulling, ViewVisibility},
+    sync_world::TemporaryRenderEntity,
+    view::{self, NoFrustumCulling, ViewVisibility, Visibility, VisibilityClass},
 };
 use bevy_sprite::{
     Anchor, ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSprites, Sprite,
 };
-use bevy_transform::components::Transform;
-use bevy_transform::prelude::GlobalTransform;
+use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use bevy_window::{PrimaryWindow, Window};
 
 /// The top-level 2D text component.

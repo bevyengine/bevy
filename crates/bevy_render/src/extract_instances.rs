@@ -15,8 +15,9 @@ use bevy_ecs::{
     system::{Query, ResMut},
 };
 
-use crate::sync_world::MainEntityHashMap;
-use crate::{Extract, ExtractSchedule, RenderApp, prelude::ViewVisibility};
+use crate::{
+    Extract, ExtractSchedule, RenderApp, prelude::ViewVisibility, sync_world::MainEntityHashMap,
+};
 
 /// Describes how to extract data needed for rendering from a component or
 /// components.

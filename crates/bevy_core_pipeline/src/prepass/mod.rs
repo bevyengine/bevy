@@ -34,18 +34,17 @@ use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::{Reflect, std_traits::ReflectDefault};
-use bevy_render::mesh::allocator::SlabId;
-use bevy_render::render_phase::PhaseItemBatchSetKey;
-use bevy_render::sync_world::MainEntity;
 use bevy_render::{
+    mesh::allocator::SlabId,
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem,
-        PhaseItemExtraIndex,
+        PhaseItemBatchSetKey, PhaseItemExtraIndex,
     },
     render_resource::{
         CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d,
         ShaderType, TextureFormat, TextureView,
     },
+    sync_world::MainEntity,
     texture::ColorAttachment,
 };
 

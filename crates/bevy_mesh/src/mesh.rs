@@ -1249,11 +1249,12 @@ pub struct MergeMeshError {
 #[cfg(test)]
 mod tests {
     use super::Mesh;
-    use crate::PrimitiveTopology;
-    use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
+    use crate::{
+        PrimitiveTopology,
+        mesh::{Indices, MeshWindingInvertError, VertexAttributeValues},
+    };
     use bevy_asset::RenderAssetUsages;
-    use bevy_math::Vec3;
-    use bevy_math::primitives::Triangle3d;
+    use bevy_math::{Vec3, primitives::Triangle3d};
     use bevy_transform::components::Transform;
 
     #[test]

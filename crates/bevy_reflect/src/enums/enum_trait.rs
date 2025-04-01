@@ -1,12 +1,11 @@
-use crate::generics::impl_generic_info_methods;
 use crate::{
     DynamicEnum, Generics, PartialReflect, Type, TypePath, VariantInfo, VariantType,
     attributes::{CustomAttributes, impl_custom_attribute_methods},
+    generics::impl_generic_info_methods,
     type_info::impl_type_methods,
 };
 use alloc::{boxed::Box, format, string::String};
-use bevy_platform_support::collections::HashMap;
-use bevy_platform_support::sync::Arc;
+use bevy_platform_support::{collections::HashMap, sync::Arc};
 use core::slice::Iter;
 
 /// A trait used to power [enum-like] operations via [reflection].

@@ -1,6 +1,8 @@
-use crate::func::args::ArgCount;
-use crate::func::signature::{ArgListSignature, ArgumentSignature};
-use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionOverloadError};
+use crate::func::{
+    ArgList, FunctionError, FunctionInfo, FunctionOverloadError,
+    args::ArgCount,
+    signature::{ArgListSignature, ArgumentSignature},
+};
 use alloc::{borrow::Cow, vec, vec::Vec};
 use bevy_platform_support::collections::HashMap;
 use core::fmt::{Debug, Formatter};
@@ -185,8 +187,10 @@ impl<F> Debug for DynamicFunctionInternal<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Type;
-    use crate::func::{FunctionInfo, SignatureInfo};
+    use crate::{
+        Type,
+        func::{FunctionInfo, SignatureInfo},
+    };
 
     #[test]
     fn should_merge_single_into_single() {

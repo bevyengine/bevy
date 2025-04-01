@@ -5,8 +5,7 @@
 use core::{
     cmp::Ordering,
     fmt::{self, Debug, Formatter},
-    hash::BuildHasher,
-    hash::{Hash, Hasher},
+    hash::{BuildHasher, Hash, Hasher},
     iter::FusedIterator,
     marker::PhantomData,
     ops::{

@@ -1,27 +1,17 @@
-use crate::CalculatedClip;
-use crate::ComputedNode;
-use crate::ui_node::ComputedNodeTarget;
+use crate::{CalculatedClip, ComputedNode, ui_node::ComputedNodeTarget};
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
-use bevy_ecs::entity::Entity;
-use bevy_ecs::resource::Resource;
-use bevy_ecs::system::Commands;
-use bevy_ecs::system::Query;
-use bevy_ecs::system::Res;
-use bevy_ecs::system::ResMut;
-use bevy_math::Rect;
-use bevy_math::Vec2;
-use bevy_render::Extract;
-use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_render::view::InheritedVisibility;
+use bevy_ecs::{
+    entity::Entity,
+    resource::Resource,
+    system::{Commands, Query, Res, ResMut},
+};
+use bevy_math::{Rect, Vec2};
+use bevy_render::{Extract, sync_world::TemporaryRenderEntity, view::InheritedVisibility};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
 
-use super::ExtractedUiItem;
-use super::ExtractedUiNode;
-use super::ExtractedUiNodes;
-use super::NodeType;
-use super::UiCameraMap;
+use super::{ExtractedUiItem, ExtractedUiNode, ExtractedUiNodes, NodeType, UiCameraMap};
 
 /// Configuration for the UI debug overlay
 #[derive(Resource)]

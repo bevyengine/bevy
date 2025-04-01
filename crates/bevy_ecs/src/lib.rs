@@ -2188,7 +2188,7 @@ mod tests {
         assert!(world.entity(e).contains::<Z>());
         assert!(world.entity(e).contains::<V>());
 
-        //check that `remove` works as expected
+        // check that `remove` works as expected
         world.entity_mut(e).remove::<X>();
         assert!(!world.entity(e).contains::<X>());
         assert!(world.entity(e).contains::<Y>());
@@ -2201,7 +2201,7 @@ mod tests {
         assert!(world.entity(e).contains::<Z>());
         assert!(world.entity(e).contains::<V>());
 
-        //remove `X` again and ensure that `Y` and `Z` was removed too
+        // remove `X` again and ensure that `Y` and `Z` was removed too
         world.entity_mut(e).remove_with_requires::<X>();
         assert!(!world.entity(e).contains::<X>());
         assert!(!world.entity(e).contains::<Y>());
@@ -2233,7 +2233,7 @@ mod tests {
         assert!(world.entity(e).contains::<Z>());
         assert!(world.entity(e).contains::<V>());
 
-        //check that `remove` works as expected
+        // check that `remove` works as expected
         world.entity_mut(e).remove::<X>();
         assert!(!world.entity(e).contains::<X>());
         assert!(world.entity(e).contains::<Y>());
@@ -2246,7 +2246,7 @@ mod tests {
         assert!(world.entity(e).contains::<Z>());
         assert!(world.entity(e).contains::<V>());
 
-        //remove `X` again and ensure that `Y` and `Z` was removed too
+        // remove `X` again and ensure that `Y` and `Z` was removed too
         world.entity_mut(e).remove_with_requires::<X>();
         assert!(!world.entity(e).contains::<X>());
         assert!(!world.entity(e).contains::<Y>());

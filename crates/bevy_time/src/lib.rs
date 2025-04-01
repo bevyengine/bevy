@@ -187,8 +187,7 @@ mod tests {
         resource::Resource,
         system::{Local, Res, ResMut},
     };
-    use core::error::Error;
-    use core::time::Duration;
+    use core::{error::Error, time::Duration};
     use std::println;
 
     #[derive(Event)]

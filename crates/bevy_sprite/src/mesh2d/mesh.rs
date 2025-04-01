@@ -2,28 +2,25 @@ use bevy_app::Plugin;
 use bevy_asset::{AssetId, Handle, load_internal_asset, weak_handle};
 
 use crate::{Material2dBindGroupId, tonemapping_pipeline_key};
-use bevy_core_pipeline::tonemapping::DebandDither;
 use bevy_core_pipeline::{
     core_2d::{AlphaMask2d, CORE_2D_DEPTH_FORMAT, Camera2d, Opaque2d, Transparent2d},
     tonemapping::{
-        Tonemapping, TonemappingLuts, get_lut_bind_group_layout_entries, get_lut_bindings,
+        DebandDither, Tonemapping, TonemappingLuts, get_lut_bind_group_layout_entries,
+        get_lut_bindings,
     },
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
-use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
+    component::Tick,
     prelude::*,
     query::ROQueryItem,
-    system::{SystemParamItem, SystemState, lifetimeless::*},
+    system::{SystemChangeTick, SystemParamItem, SystemState, lifetimeless::*},
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Vec4};
-use bevy_render::RenderSet::PrepareAssets;
-use bevy_render::mesh::MeshTag;
-use bevy_render::prelude::Msaa;
 use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    RenderSet::PrepareAssets,
     batching::{
         GetBatchData, GetFullBatchData, NoAutomaticBatching,
         gpu_preprocessing::IndirectParametersCpuMetadata,
@@ -34,9 +31,10 @@ use bevy_render::{
     },
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
-        Mesh, Mesh2d, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
+        Mesh, Mesh2d, MeshTag, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
         allocator::MeshAllocator,
     },
+    prelude::Msaa,
     render_asset::RenderAssets,
     render_phase::{
         PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult, TrackedRenderPass,

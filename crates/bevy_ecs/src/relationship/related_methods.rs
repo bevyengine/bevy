@@ -164,7 +164,6 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// Panics when debug assertions are enabled and any invariants are broken.
-    ///
     // TODO: Consider making these iterators so users aren't required to allocate a separate buffers for the different slices.
     pub fn replace_related_with_difference<R: Relationship>(
         &mut self,

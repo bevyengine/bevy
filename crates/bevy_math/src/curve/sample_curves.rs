@@ -1,13 +1,17 @@
 //! Sample-interpolated curves constructed using the [`Curve`] API.
 
-use super::cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
-use super::{Curve, Interval};
+use super::{
+    Curve, Interval,
+    cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError},
+};
 
 use crate::StableInterpolate;
 #[cfg(feature = "bevy_reflect")]
 use alloc::format;
-use core::any::type_name;
-use core::fmt::{self, Debug};
+use core::{
+    any::type_name,
+    fmt::{self, Debug},
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{Reflect, TypePath, utility::GenericTypePathCell};

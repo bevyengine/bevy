@@ -1,8 +1,7 @@
 use crate::derive_data::ReflectMeta;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::punctuated::Punctuated;
-use syn::{GenericParam, Token};
+use syn::{GenericParam, Token, punctuated::Punctuated};
 
 /// Creates a `TokenStream` for generating an expression that creates a `Generics` instance.
 ///

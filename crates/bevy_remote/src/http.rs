@@ -15,8 +15,7 @@ use anyhow::Result as AnyhowResult;
 use async_channel::{Receiver, Sender};
 use async_io::Async;
 use bevy_app::{App, Plugin, Startup};
-use bevy_ecs::resource::Resource;
-use bevy_ecs::system::Res;
+use bevy_ecs::{resource::Resource, system::Res};
 use bevy_tasks::{IoTaskPool, futures_lite::StreamExt};
 use core::{
     convert::Infallible,
@@ -51,7 +50,6 @@ pub const DEFAULT_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 ///
 /// This struct is used to store a set of HTTP headers as key-value pairs, where the keys are
 /// of type [`HeaderName`] and the values are of type [`HeaderValue`].
-///
 #[derive(Debug, Resource, Clone)]
 pub struct Headers {
     headers: HashMap<HeaderName, HeaderValue>,
@@ -96,7 +94,6 @@ impl Default for Headers {
 /// The defaults are:
 /// - [`DEFAULT_ADDR`] : 127.0.0.1.
 /// - [`DEFAULT_PORT`] : 15702.
-///
 pub struct RemoteHttpPlugin {
     /// The address that Bevy will bind to.
     address: IpAddr,
@@ -143,7 +140,7 @@ impl RemoteHttpPlugin {
     /// ////// /// # Example
     ///
     /// ```ignore
-    ///
+    /// 
     /// // Create CORS headers
     /// let cors_headers = Headers::new()
     ///        .insert("Access-Control-Allow-Origin", "*")
@@ -191,7 +188,6 @@ pub struct HostAddress(pub IpAddr);
 pub struct HostPort(pub u16);
 
 /// A resource containing the headers that Bevy will include in its HTTP responses.
-///
 #[derive(Debug, Resource)]
 struct HostHeaders(pub Headers);
 

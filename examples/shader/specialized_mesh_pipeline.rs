@@ -38,8 +38,10 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
-        view::NoIndirectDrawing,
-        view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilityClass},
+        view::{
+            self, ExtractedView, NoIndirectDrawing, RenderVisibleEntities, ViewTarget,
+            VisibilityClass,
+        },
     },
 };
 

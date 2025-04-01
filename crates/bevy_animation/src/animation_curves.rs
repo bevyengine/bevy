@@ -393,11 +393,11 @@ where
 
 impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.combine(graph_node, /*additive=*/ false)
+        self.evaluator.combine(graph_node, /* additive= */ false)
     }
 
     fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.combine(graph_node, /*additive=*/ true)
+        self.evaluator.combine(graph_node, /* additive= */ true)
     }
 
     fn push_blend_register(
@@ -575,11 +575,11 @@ impl WeightsCurveEvaluator {
 
 impl AnimationCurveEvaluator for WeightsCurveEvaluator {
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.combine(graph_node, /*additive=*/ false)
+        self.combine(graph_node, /* additive= */ false)
     }
 
     fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.combine(graph_node, /*additive=*/ true)
+        self.combine(graph_node, /* additive= */ true)
     }
 
     fn push_blend_register(
@@ -814,7 +814,6 @@ pub enum EvaluatorId<'a> {
     /// Corresponds to a specific field on a specific component type.
     /// The `TypeId` should correspond to the component type, and the `usize`
     /// should correspond to the Reflect-ed field index of the field.
-    //
     // IMPLEMENTATION NOTE: The Hashed<(TypeId, usize) is intentionally cheap to clone, as it will be cloned per frame by the evaluator
     // Switching the field index `usize` for something like a field name `String` would probably be too expensive to justify
     ComponentField(&'a Hashed<(TypeId, usize)>),

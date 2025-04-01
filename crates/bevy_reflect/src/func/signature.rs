@@ -11,15 +11,18 @@
 //!
 //! [`FunctionInfo`]: crate::func::info::FunctionInfo
 
-use crate::Type;
-use crate::func::args::ArgInfo;
-use crate::func::{ArgList, SignatureInfo};
+use crate::{
+    Type,
+    func::{ArgList, SignatureInfo, args::ArgInfo},
+};
 use alloc::boxed::Box;
 use bevy_platform_support::collections::Equivalent;
-use core::borrow::Borrow;
-use core::fmt::{Debug, Formatter};
-use core::hash::{Hash, Hasher};
-use core::ops::{Deref, DerefMut};
+use core::{
+    borrow::Borrow,
+    fmt::{Debug, Formatter},
+    hash::{Hash, Hasher},
+    ops::{Deref, DerefMut},
+};
 
 /// The signature of a function.
 ///
