@@ -609,7 +609,7 @@ impl Parse for Require {
             // This is a "value style" tuple-struct-like require
             let content;
             parenthesized!(content in input);
-            let content = content.parse_terminated(Expr::parse, Token![,])?;
+            let content = content.parse::<TokenStream2>()?;
             is_constructor_call = last_segment_is_lower;
             Some(quote!(|| #path (#content)))
         } else if is_enum {
