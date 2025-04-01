@@ -69,7 +69,7 @@ portable-atomic = { version = "1", default-features = false, features = [
   "fallback",
 ] }
 spin = { version = "0.10.0", default-features = false, features = [
-  "portable_atomic",
+  "portable-atomic",
 ] }
 
 [target.'cfg(not(target_has_atomic = "ptr"))'.dependencies]
