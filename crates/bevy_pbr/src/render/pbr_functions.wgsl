@@ -358,7 +358,6 @@ fn compute_pbr_lighting(
         in,
         clusterable_object_index_ranges,
         view_z,
-        diffuse_color,
         diffuse_transmissive_color,
         F0, F_ab
     );
@@ -384,30 +383,6 @@ fn compute_pbr_lighting(
 
     return computed_light;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 fn compute_direct_light(
     in: pbr_types::PbrInput,
@@ -556,37 +531,17 @@ fn compute_direct_light(
     return direct_light;
 }
 
-
-
 fn compute_transmitted_direct_light(
     in: pbr_types::PbrInput,
     clusterable_object_index_ranges: clustering::ClusterableObjectIndexRanges,
     view_z: f32,
-    diffuse_color: vec3<f32>,
     diffuse_transmissive_color: vec3<f32>,
     F0: vec3<f32>,
     F_ab: vec2<f32>,
 ) -> vec3<f32> {
     var transmitted_light: vec3<f32> = vec3(0.);
 
-    // calculate non-linear roughness from linear perceptualRoughness
-    let metallic = in.material.metallic;
-    let perceptual_roughness = in.material.perceptual_roughness;
-    let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
-    let ior = in.material.ior;
     let thickness = in.material.thickness;
-    let reflectance = in.material.reflectance;
-    let diffuse_transmission = in.material.diffuse_transmission;
-    let specular_transmission = in.material.specular_transmission;
-
-    let specular_transmissive_color = specular_transmission * in.material.base_color.rgb;
-
-    let diffuse_occlusion = in.diffuse_occlusion;
-    let specular_occlusion = in.specular_occlusion;
-
-    // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-    let NdotV = max(dot(in.N, in.V), 0.0001);
-    let R = reflect(-in.V, in.N);
 
     // Calculate the world position of the second Lambertian lobe used for diffuse transmission, by subtracting material thickness
     let diffuse_transmissive_lobe_world_position = in.world_position - vec4<f32>(in.world_normal, 0.0) * thickness;
@@ -954,24 +909,6 @@ fn compute_emissive_light(
 
     return emissive_light;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 fn apply_pbr_lighting(
     in: pbr_types::PbrInput,
