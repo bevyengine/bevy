@@ -142,6 +142,7 @@ impl SubApp {
     /// Runs the default schedule and updates internal component trackers.
     pub fn update(&mut self) {
         self.run_default_schedule();
+        self.world.entities().queue_remote_pending_to_be_flushed();
         self.world.clear_trackers();
     }
 

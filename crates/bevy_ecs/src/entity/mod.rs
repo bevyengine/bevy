@@ -777,6 +777,17 @@ impl Entities {
         }
     }
 
+    /// Entities reserved via [`RemoteEntities::reserve`] may or may not be flushed naturally.
+    /// Before using an entity reserved remotely, either set its location manually (usually though [`flush_entity`](crate::world::World::flush_entity)),
+    /// or call this method to queue remotely reserved entities to be flushed with the rest.
+    pub fn queue_remote_pending_to_be_flushed(&self) {
+        #[cfg(feature = "std")]
+        {
+            let remote = self.pending.remote.pending.try_iter();
+            self.pending.local.scope(|pending| pending.extend(remote));
+        }
+    }
+
     /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
     /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the supplied function.
     ///
