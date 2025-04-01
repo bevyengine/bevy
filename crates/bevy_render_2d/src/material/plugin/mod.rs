@@ -17,12 +17,10 @@ use bevy_render::{
 
 use super::{
     commands::DrawMaterial2d,
-    instances::RenderMaterial2dInstances,
     pipeline::Material2dPipeline,
-    prepared_asset::PreparedMaterial2d,
-    specialization::{
-        EntitiesNeedingSpecialization, EntitySpecializationTicks,
-        SpecializedMaterial2dPipelineCache,
+    render::{
+        EntitiesNeedingSpecialization, EntitySpecializationTicks, PreparedMaterial2d,
+        RenderMaterial2dInstances, SpecializedMaterial2dPipelineCache,
     },
     Material2d, MeshMaterial2d,
 };

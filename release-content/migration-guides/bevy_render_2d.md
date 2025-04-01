@@ -15,7 +15,6 @@ new crate `bevy_render_2d`. New locations for symbols are as follows:
 Struct | `0.16` Path | `0.17` Path
 --- | --- | ---
 `MeshMaterial2d` | | `bevy_render_2d::material`
-`AlphaMode2d` | | `bevy_render_2d::material`
 `Material2dKey` | | `bevy_render_2d::material::key`
 `DrawMesh2d` | | `bevy_render_2d::mesh_pipeline::commands`
 `SetMesh2dBindGroup` | | `bevy_render_2d::mesh_pipeline::commands`
@@ -33,6 +32,12 @@ Struct | `0.16` Path | `0.17` Path
 `RenderMesh2dInstances` | | `bevy_render_2d::mesh_pipeline::render`
 `ViewKeyCache` | | `bevy_render_2d::mesh_pipeline::render`
 `ViewSpecializationTicks` | | `bevy_render_2d::mesh_pipeline::render`
+
+### Enum
+
+Enum | `0.16` Path | `0.17` Path
+--- | --- | ---
+`AlphaMode2d` | | `bevy_render_2d::material`
 
 ### Traits
 
@@ -56,6 +61,7 @@ tonemapping_pipeline_key | | `bevy_render_2d::mesh_pipeline::key`
 ## Prelude
 
 `bevy_render_2d`'s prelude contains:
+
 * `Material2d`
 * `MeshMaterial2d`
 * `AlphaMode2d`

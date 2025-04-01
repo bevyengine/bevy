@@ -10,7 +10,10 @@ use bevy_render::{
 
 use crate::mesh_pipeline::commands::{DrawMesh2d, SetMesh2dBindGroup, SetMesh2dViewBindGroup};
 
-use super::{instances::RenderMaterial2dInstances, prepared_asset::PreparedMaterial2d, Material2d};
+use super::{
+    render::{PreparedMaterial2d, RenderMaterial2dInstances},
+    Material2d,
+};
 
 pub type DrawMaterial2d<M> = (
     SetItemPipeline,

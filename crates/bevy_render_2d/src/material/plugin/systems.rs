@@ -27,13 +27,11 @@ use bevy_utils::Parallel;
 
 use crate::{
     material::{
-        instances::RenderMaterial2dInstances,
         key::Material2dKey,
         pipeline::Material2dPipeline,
-        prepared_asset::PreparedMaterial2d,
-        specialization::{
-            EntitiesNeedingSpecialization, EntitySpecializationTicks,
-            SpecializedMaterial2dPipelineCache,
+        render::{
+            EntitiesNeedingSpecialization, EntitySpecializationTicks, PreparedMaterial2d,
+            RenderMaterial2dInstances, SpecializedMaterial2dPipelineCache,
         },
         AlphaMode2d, Material2d, MeshMaterial2d,
     },

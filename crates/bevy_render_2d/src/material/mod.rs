@@ -1,17 +1,15 @@
 //! Provides functionality for creating 2d materials
 
-mod alpha_mode;
 mod commands;
-mod components;
-mod instances;
 pub mod key;
 mod pipeline;
 pub mod plugin;
-mod prepared_asset;
-mod properties;
-mod specialization;
+mod render;
 
-use bevy_asset::Asset;
+use bevy_asset::{AsAssetId, Asset, AssetId, Handle};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef,
     render_resource::{
@@ -19,8 +17,8 @@ use bevy_render::{
     },
 };
 
+use derive_more::derive::From;
 use key::Material2dKey;
-pub use {alpha_mode::AlphaMode2d, components::MeshMaterial2d};
 
 /// Materials are used alongside [`Material2dPlugin`](plugin::Material2dPlugin),
 /// [`Mesh2d`](bevy_render::mesh::Mesh2d), and [`MeshMaterial2d`]
@@ -130,4 +128,108 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
+}
+
+/// A [material](Material2d) used for rendering a [`Mesh2d`](bevy_render::mesh::Mesh2d).
+///
+/// See [`Material2d`] for general information about 2D materials and how to implement your own materials.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_render::{mesh::{Mesh, Mesh2d}, render_resource::AsBindGroup};
+/// # use bevy_render_2d::material::{MeshMaterial2d, Material2d, AlphaMode2d};
+/// # use bevy_color::{Color, palettes::basic::RED};
+/// # use bevy_asset::{Asset, Assets};
+/// # use bevy_math::primitives::Circle;
+/// # use bevy_reflect::Reflect;
+/// #
+/// # // Defining locally so that there is no need to depend on `bevy_sprite`
+/// # #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
+/// # struct ColorMaterial {}
+/// # impl ColorMaterial {
+/// #   pub fn from_color(_color: impl Into<Color>) -> Self { Self {} }
+/// # }
+/// # impl Material2d for ColorMaterial {
+/// #     fn alpha_mode(&self) -> AlphaMode2d {
+/// #         AlphaMode2d::Opaque
+/// #     }
+/// # }
+/// // Spawn an entity with a mesh using `ColorMaterial`.
+/// fn setup(
+///     mut commands: Commands,
+///     mut meshes: ResMut<Assets<Mesh>>,
+///     mut materials: ResMut<Assets<ColorMaterial>>,
+/// ) {
+///     commands.spawn((
+///         Mesh2d(meshes.add(Circle::new(50.0))),
+///         MeshMaterial2d(materials.add(ColorMaterial::from_color(RED))),
+///     ));
+/// }
+/// ```
+///
+/// [`MeshMaterial2d`]: crate::material::MeshMaterial2d
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, From)]
+#[reflect(Component, Default, Clone)]
+pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
+
+impl<M: Material2d> Default for MeshMaterial2d<M> {
+    fn default() -> Self {
+        Self(Handle::default())
+    }
+}
+
+impl<M: Material2d> PartialEq for MeshMaterial2d<M> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<M: Material2d> Eq for MeshMaterial2d<M> {}
+
+impl<M: Material2d> From<MeshMaterial2d<M>> for AssetId<M> {
+    fn from(material: MeshMaterial2d<M>) -> Self {
+        material.id()
+    }
+}
+
+impl<M: Material2d> From<&MeshMaterial2d<M>> for AssetId<M> {
+    fn from(material: &MeshMaterial2d<M>) -> Self {
+        material.id()
+    }
+}
+
+impl<M: Material2d> AsAssetId for MeshMaterial2d<M> {
+    type Asset = M;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.id()
+    }
+}
+
+/// Sets how a 2d material's base color alpha channel is used for transparency.
+/// Currently, this only works with [`Mesh2d`](bevy_render::mesh::Mesh2d). Sprites are always transparent.
+///
+/// This is very similar to [`AlphaMode`](bevy_render::alpha::AlphaMode) but this only applies to 2d meshes.
+/// We use a separate type because 2d doesn't support all the transparency modes that 3d does.
+#[derive(Debug, Default, Reflect, Copy, Clone, PartialEq)]
+#[reflect(Default, Debug, Clone)]
+pub enum AlphaMode2d {
+    /// Base color alpha values are overridden to be fully opaque (1.0).
+    #[default]
+    Opaque,
+    /// Reduce transparency to fully opaque or fully transparent
+    /// based on a threshold.
+    ///
+    /// Compares the base color alpha value to the specified threshold.
+    /// If the value is below the threshold,
+    /// considers the color to be fully transparent (alpha is set to 0.0).
+    /// If it is equal to or above the threshold,
+    /// considers the color to be fully opaque (alpha is set to 1.0).
+    Mask(f32),
+    /// The base color alpha value defines the opacity of the color.
+    /// Standard alpha-blending is used to blend the fragment's color
+    /// with the color behind it.
+    Blend,
 }
