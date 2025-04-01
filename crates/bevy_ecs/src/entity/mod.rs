@@ -733,7 +733,9 @@ impl Entities {
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if let Some(meta) = self.meta.get(entity.index() as usize) {
-            if meta.generation != entity.generation {
+            if meta.generation != entity.generation
+                || meta.location.archetype_id == ArchetypeId::INVALID
+            {
                 return None;
             }
             Some(meta.location)
