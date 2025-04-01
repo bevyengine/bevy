@@ -48,7 +48,8 @@ impl Node for CameraDriverNode {
                 {
                     camera_windows.insert(window_entity);
                 } else {
-                    // The window doesn't exist anymore or zero-sized so we don't need to run the graph
+                    // The window doesn't exist anymore or zero-sized so we don't need to run the
+                    // graph
                     run_graph = false;
                 }
             }
@@ -59,8 +60,9 @@ impl Node for CameraDriverNode {
 
         let clear_color_global = world.resource::<ClearColor>();
 
-        // wgpu (and some backends) require doing work for swap chains if you call `get_current_texture()` and `present()`
-        // This ensures that Bevy doesn't crash, even when there are no cameras (and therefore no work submitted).
+        // wgpu (and some backends) require doing work for swap chains if you call
+        // `get_current_texture()` and `present()` This ensures that Bevy doesn't crash,
+        // even when there are no cameras (and therefore no work submitted).
         for (id, window) in world.resource::<ExtractedWindows>().iter() {
             if camera_windows.contains(id) {
                 continue;

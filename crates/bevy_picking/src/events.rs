@@ -3,8 +3,9 @@
 //!
 //! # Usage
 //!
-//! To receive events from this module, you must use an [`Observer`] or [`EventReader`] with [`Pointer<E>`] events.
-//! The simplest example, registering a callback when an entity is hovered over by a pointer, looks like this:
+//! To receive events from this module, you must use an [`Observer`] or [`EventReader`] with
+//! [`Pointer<E>`] events. The simplest example, registering a callback when an entity is hovered
+//! over by a pointer, looks like this:
 //!
 //! ```rust
 //! # use bevy_ecs::prelude::*;
@@ -23,8 +24,8 @@
 //!
 //! The order in which interaction events are received is extremely important, and you can read more
 //! about it on the docs for the dispatcher system: [`pointer_events`]. This system runs in
-//! [`PreUpdate`](bevy_app::PreUpdate) in [`PickSet::Hover`](crate::PickSet::Hover). All pointer-event
-//! observers resolve during the sync point between [`pointer_events`] and
+//! [`PreUpdate`](bevy_app::PreUpdate) in [`PickSet::Hover`](crate::PickSet::Hover). All
+//! pointer-event observers resolve during the sync point between [`pointer_events`] and
 //! [`update_interactions`](crate::hover::update_interactions).
 //!
 //! # Events Types
@@ -32,10 +33,11 @@
 //! The events this module defines fall into a few broad categories:
 //! + Hovering and movement: [`Over`], [`Move`], and [`Out`].
 //! + Clicking and pressing: [`Pressed`], [`Released`], and [`Click`].
-//! + Dragging and dropping: [`DragStart`], [`Drag`], [`DragEnd`], [`DragEnter`], [`DragOver`], [`DragDrop`], [`DragLeave`].
+//! + Dragging and dropping: [`DragStart`], [`Drag`], [`DragEnd`], [`DragEnter`], [`DragOver`],
+//!   [`DragDrop`], [`DragLeave`].
 //!
-//! When received by an observer, these events will always be wrapped by the [`Pointer`] type, which contains
-//! general metadata about the pointer event.
+//! When received by an observer, these events will always be wrapped by the [`Pointer`] type, which
+//! contains general metadata about the pointer event.
 
 use core::{fmt::Debug, time::Duration};
 
@@ -67,8 +69,8 @@ pub struct Pointer<E: Debug + Clone + Reflect> {
     pub pointer_id: PointerId,
     /// The location of the pointer during this event
     pub pointer_location: Location,
-    /// Additional event-specific data. [`DragDrop`] for example, has an additional field to describe
-    /// the `Entity` that is being dropped on the target.
+    /// Additional event-specific data. [`DragDrop`] for example, has an additional field to
+    /// describe the `Entity` that is being dropped on the target.
     pub event: E,
 }
 
@@ -187,8 +189,8 @@ pub struct Released {
     pub hit: HitData,
 }
 
-/// Fires when a pointer sends a pointer pressed event followed by a pointer released event, with the same
-/// `target` entity for both events.
+/// Fires when a pointer sends a pointer pressed event followed by a pointer released event, with
+/// the same `target` entity for both events.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Click {
@@ -210,7 +212,8 @@ pub struct Move {
     pub delta: Vec2,
 }
 
-/// Fires when the `target` entity receives a pointer pressed event followed by a pointer move event.
+/// Fires when the `target` entity receives a pointer pressed event followed by a pointer move
+/// event.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct DragStart {
@@ -318,9 +321,11 @@ pub struct Scroll {
 /// about pointer button presses.
 #[derive(Debug, Clone, Default)]
 pub struct PointerButtonState {
-    /// Stores the press location and start time for each button currently being pressed by the pointer.
+    /// Stores the press location and start time for each button currently being pressed by the
+    /// pointer.
     pub pressing: HashMap<Entity, (Location, Instant, HitData)>,
-    /// Stores the starting and current locations for each entity currently being dragged by the pointer.
+    /// Stores the starting and current locations for each entity currently being dragged by the
+    /// pointer.
     pub dragging: HashMap<Entity, DragEntry>,
     /// Stores  the hit data for each entity currently being dragged over by the pointer.
     pub dragging_over: HashMap<Entity, HitData>,
@@ -339,7 +344,8 @@ impl PointerState {
         self.pointer_buttons.get(&(pointer_id, button))
     }
 
-    /// Provides write access to the state of a pointer and button, creating it if it does not yet exist.
+    /// Provides write access to the state of a pointer and button, creating it if it does not yet
+    /// exist.
     pub fn get_mut(
         &mut self,
         pointer_id: PointerId,
@@ -350,7 +356,8 @@ impl PointerState {
             .or_default()
     }
 
-    /// Clears all the data associated with all of the buttons on a pointer. Does not free the underlying memory.
+    /// Clears all the data associated with all of the buttons on a pointer. Does not free the
+    /// underlying memory.
     pub fn clear(&mut self, pointer_id: PointerId) {
         for button in PointerButton::iter() {
             if let Some(state) = self.pointer_buttons.get_mut(&(pointer_id, button)) {
@@ -389,21 +396,18 @@ pub struct PickingEventWriters<'w> {
 /// + [`DragEnter`] → [`Over`].
 /// + Any number of any of the following:
 ///   + For each movement: [`DragStart`] → [`Drag`] → [`DragOver`] → [`Move`].
-///   + For each button press: [`Pressed`] or [`Click`] → [`Released`] → [`DragDrop`] → [`DragEnd`] → [`DragLeave`].
+///   + For each button press: [`Pressed`] or [`Click`] → [`Released`] → [`DragDrop`] → [`DragEnd`]
+///     → [`DragLeave`].
 ///   + For each pointer cancellation: [`Cancel`].
 ///
 /// Additionally, across multiple frames, the following are also strictly
 /// ordered by the interaction state machine:
-/// + When a pointer moves over the target:
-///   [`Over`], [`Move`], [`Out`].
-/// + When a pointer presses buttons on the target:
-///   [`Pressed`], [`Click`], [`Released`].
-/// + When a pointer drags the target:
-///   [`DragStart`], [`Drag`], [`DragEnd`].
-/// + When a pointer drags something over the target:
-///   [`DragEnter`], [`DragOver`], [`DragDrop`], [`DragLeave`].
-/// + When a pointer is canceled:
-///   No other events will follow the [`Cancel`] event for that pointer.
+/// + When a pointer moves over the target: [`Over`], [`Move`], [`Out`].
+/// + When a pointer presses buttons on the target: [`Pressed`], [`Click`], [`Released`].
+/// + When a pointer drags the target: [`DragStart`], [`Drag`], [`DragEnd`].
+/// + When a pointer drags something over the target: [`DragEnter`], [`DragOver`], [`DragDrop`],
+///   [`DragLeave`].
+/// + When a pointer is canceled: No other events will follow the [`Cancel`] event for that pointer.
 ///
 /// Two events -- [`Over`] and [`Out`] -- are driven only by the [`HoverMap`].
 /// The rest rely on additional data from the [`PointerInput`] event stream. To

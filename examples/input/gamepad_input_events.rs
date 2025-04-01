@@ -19,7 +19,8 @@ fn gamepad_events(
     mut connection_events: EventReader<GamepadConnectionEvent>,
     // Handles the continuous measure of an axis, equivalent to GamepadAxes::get.
     mut axis_changed_events: EventReader<GamepadAxisChangedEvent>,
-    // Handles the continuous measure of how far a button has been pressed down, equivalent to `GamepadButtons::get`.
+    // Handles the continuous measure of how far a button has been pressed down, equivalent to
+    // `GamepadButtons::get`.
     mut button_changed_events: EventReader<GamepadButtonChangedEvent>,
     // Handles the boolean measure of whether a button is considered pressed or unpressed, as
     // defined by the thresholds in `GamepadSettings::button_settings`.

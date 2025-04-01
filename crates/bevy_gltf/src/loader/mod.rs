@@ -142,14 +142,14 @@ pub struct GltfLoader {
     pub supported_compressed_formats: CompressedImageFormats,
     /// Custom vertex attributes that will be recognized when loading a glTF file.
     ///
-    /// Keys must be the attribute names as found in the glTF data, which must start with an underscore.
-    /// See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
+    /// Keys must be the attribute names as found in the glTF data, which must start with an
+    /// underscore. See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
     /// for additional details on custom attributes.
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
 }
 
-/// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
-/// the gltf will be loaded.
+/// Specifies optional settings for processing gltfs at load time. By default, all recognized
+/// contents of the gltf will be loaded.
 ///
 /// # Example
 ///
@@ -506,8 +506,9 @@ async fn load_gltf<'a, 'b, 'c>(
         (animations, named_animations, animation_roots)
     };
 
-    // We collect handles to ensure loaded images from paths are not unloaded before they are used elsewhere
-    // in the loader. This prevents "reloads", but it also prevents dropping the is_srgb context on reload.
+    // We collect handles to ensure loaded images from paths are not unloaded before they are used
+    // elsewhere in the loader. This prevents "reloads", but it also prevents dropping the
+    // is_srgb context on reload.
     //
     // In theory we could store a mapping between texture.index() and handle to use
     // later in the loader when looking up handles for materials. However this would mean
@@ -561,9 +562,11 @@ async fn load_gltf<'a, 'b, 'c>(
 
     let mut materials = vec![];
     let mut named_materials = <HashMap<_, _>>::default();
-    // Only include materials in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_materials flag
+    // Only include materials in the output if they're set to be retained in the MAIN_WORLD and/or
+    // RENDER_WORLD by the load_materials flag
     if !settings.load_materials.is_empty() {
-        // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
+        // NOTE: materials must be loaded after textures because image load() calls will happen
+        // before load_with_settings, preventing is_srgb from being set properly
         for material in gltf.materials() {
             let handle = load_material(&material, load_context, &gltf.document, false);
             if let Some(name) = material.name() {
@@ -1074,7 +1077,8 @@ fn load_material(
             .map(|info| uv_channel(material, "occlusion", info.tex_coord()))
             .unwrap_or_default();
         let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
-            // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+            // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion
+            // strength)
             texture_handle(&occlusion_texture.texture(), load_context)
         });
 
@@ -1084,7 +1088,8 @@ fn load_material(
             .map(|info| uv_channel(material, "emissive", info.tex_coord()))
             .unwrap_or_default();
         let emissive_texture = material.emissive_texture().map(|info| {
-            // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+            // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion
+            // strength)
             warn_on_differing_texture_transforms(material, &info, uv_transform, "emissive");
             texture_handle(&info.texture(), load_context)
         });
@@ -1373,7 +1378,8 @@ fn load_node(
     let mut morph_weights = None;
 
     node.with_children(|parent| {
-        // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
+        // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or
+        // RENDER_WORLD by the load_meshes flag
         if !settings.load_meshes.is_empty() {
             if let Some(mesh) = gltf_node.mesh() {
                 // append primitives
@@ -1381,10 +1387,11 @@ fn load_node(
                     let material = primitive.material();
                     let material_label = material_label(&material, is_scale_inverted).to_string();
 
-                    // This will make sure we load the default material now since it would not have been
-                    // added when iterating over all the gltf materials (since the default material is
-                    // not explicitly listed in the gltf).
-                    // It also ensures an inverted scale copy is instantiated if required.
+                    // This will make sure we load the default material now since it would not have
+                    // been added when iterating over all the gltf materials
+                    // (since the default material is not explicitly listed in
+                    // the gltf). It also ensures an inverted scale copy is
+                    // instantiated if required.
                     if !root_load_context.has_labeled_asset(&material_label)
                         && !load_context.has_labeled_asset(&material_label)
                     {
@@ -1483,8 +1490,9 @@ fn load_node(
                     gltf::khr_lights_punctual::Kind::Point => {
                         let mut entity = parent.spawn(PointLight {
                             color: Color::srgb_from_array(light.color()),
-                            // NOTE: KHR_punctual_lights defines the intensity units for point lights in
-                            // candela (lm/sr) which is luminous intensity and we need luminous power.
+                            // NOTE: KHR_punctual_lights defines the intensity units for point
+                            // lights in candela (lm/sr) which is
+                            // luminous intensity and we need luminous power.
                             // For a point light, luminous power = 4 * pi * luminous intensity
                             intensity: light.intensity() * core::f32::consts::PI * 4.0,
                             range: light.range().unwrap_or(20.0),
@@ -1506,9 +1514,10 @@ fn load_node(
                     } => {
                         let mut entity = parent.spawn(SpotLight {
                             color: Color::srgb_from_array(light.color()),
-                            // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
-                            // candela (lm/sr) which is luminous intensity and we need luminous power.
-                            // For a spot light, we map luminous power = 4 * pi * luminous intensity
+                            // NOTE: KHR_punctual_lights defines the intensity units for spot lights
+                            // in candela (lm/sr) which is luminous
+                            // intensity and we need luminous power. For
+                            // a spot light, we map luminous power = 4 * pi * luminous intensity
                             intensity: light.intensity() * core::f32::consts::PI * 4.0,
                             range: light.range().unwrap_or(20.0),
                             radius: light.range().unwrap_or(0.0),
@@ -1553,7 +1562,8 @@ fn load_node(
         }
     });
 
-    // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
+    // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or
+    // RENDER_WORLD by the load_meshes flag
     if !settings.load_meshes.is_empty() {
         if let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights) {
             let primitive_label = mesh.primitives().next().map(|p| GltfAssetLabel::Primitive {

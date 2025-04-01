@@ -4,7 +4,8 @@ use bevy::{prelude::*, render::camera::RenderTarget, window::WindowRef};
 
 fn main() {
     App::new()
-        // By default, a primary window gets spawned by `WindowPlugin`, contained in `DefaultPlugins`
+        // By default, a primary window gets spawned by `WindowPlugin`, contained in
+        // `DefaultPlugins`
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup_scene)
         .run();
@@ -57,7 +58,8 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             node.clone(),
-            // Since we are using multiple cameras, we need to specify which camera UI should be rendered to
+            // Since we are using multiple cameras, we need to specify which camera UI should be
+            // rendered to
             UiTargetCamera(first_window_camera),
         ))
         .with_child((Text::new("First window"), TextShadow::default()));

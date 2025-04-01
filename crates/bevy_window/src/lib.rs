@@ -67,8 +67,8 @@ impl Default for WindowPlugin {
 pub struct WindowPlugin {
     /// Settings for the primary window.
     ///
-    /// `Some(custom_window)` will spawn an entity with `custom_window` and [`PrimaryWindow`] as components.
-    /// `None` will not spawn a primary window.
+    /// `Some(custom_window)` will spawn an entity with `custom_window` and [`PrimaryWindow`] as
+    /// components. `None` will not spawn a primary window.
     ///
     /// Defaults to `Some(Window::default())`.
     ///

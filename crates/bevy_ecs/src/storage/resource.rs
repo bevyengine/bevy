@@ -63,7 +63,8 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// Validates the access to `!Send` resources is only done on the thread they were created from.
     ///
     /// # Panics
-    /// If `SEND` is false, this will panic if called from a different thread than the one it was inserted from.
+    /// If `SEND` is false, this will panic if called from a different thread than the one it was
+    /// inserted from.
     #[inline]
     fn validate_access(&self) {
         if SEND {
@@ -123,8 +124,8 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// Returns a reference to the resource's change ticks, if it exists.
     #[inline]
     pub fn get_ticks(&self) -> Option<ComponentTicks> {
-        // SAFETY: This is being fetched through a read-only reference to Self, so no other mutable references
-        // to the ticks can exist.
+        // SAFETY: This is being fetched through a read-only reference to Self, so no other mutable
+        // references to the ticks can exist.
         unsafe {
             self.is_present().then(|| ComponentTicks {
                 added: self.added_ticks.read(),
@@ -149,7 +150,8 @@ impl<const SEND: bool> ResourceData<SEND> {
         self.is_present().then(|| {
             self.validate_access();
             (
-                // SAFETY: We've already checked if a value is present, and there should only be one.
+                // SAFETY: We've already checked if a value is present, and there should only be
+                // one.
                 unsafe { self.data.get_unchecked(Self::ROW) },
                 TickCells {
                     added: &self.added_ticks,
@@ -195,9 +197,9 @@ impl<const SEND: bool> ResourceData<SEND> {
     ) {
         if self.is_present() {
             self.validate_access();
-            // SAFETY: The caller ensures that the provided value is valid for the underlying type and
-            // is properly initialized. We've ensured that a value is already present and previously
-            // initialized.
+            // SAFETY: The caller ensures that the provided value is valid for the underlying type
+            // and is properly initialized. We've ensured that a value is already
+            // present and previously initialized.
             unsafe {
                 self.data.replace_unchecked(Self::ROW, value);
             }
@@ -235,9 +237,9 @@ impl<const SEND: bool> ResourceData<SEND> {
     ) {
         if self.is_present() {
             self.validate_access();
-            // SAFETY: The caller ensures that the provided value is valid for the underlying type and
-            // is properly initialized. We've ensured that a value is already present and previously
-            // initialized.
+            // SAFETY: The caller ensures that the provided value is valid for the underlying type
+            // and is properly initialized. We've ensured that a value is already
+            // present and previously initialized.
             unsafe {
                 self.data.replace_unchecked(Self::ROW, value);
             }
@@ -279,8 +281,8 @@ impl<const SEND: bool> ResourceData<SEND> {
             // SAFETY: This function is being called through an exclusive mutable reference to Self
             .map(|changed_by| unsafe { *changed_by.deref_mut() });
 
-        // SAFETY: This function is being called through an exclusive mutable reference to Self, which
-        // makes it sound to read these ticks.
+        // SAFETY: This function is being called through an exclusive mutable reference to Self,
+        // which makes it sound to read these ticks.
         unsafe {
             Some((
                 res,
@@ -366,7 +368,8 @@ impl<const SEND: bool> Resources<SEND> {
     ///
     /// # Panics
     /// Will panic if `component_id` is not valid for the provided `components`
-    /// If `SEND` is true, this will panic if `component_id`'s `ComponentInfo` is not registered as being `Send` + `Sync`.
+    /// If `SEND` is true, this will panic if `component_id`'s `ComponentInfo` is not registered as
+    /// being `Send` + `Sync`.
     pub(crate) fn initialize_with(
         &mut self,
         component_id: ComponentId,

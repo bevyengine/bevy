@@ -71,8 +71,8 @@ pub struct FileAssetWriter {
 }
 
 impl FileAssetWriter {
-    /// Creates a new [`FileAssetWriter`] at a path relative to the executable's directory, optionally
-    /// watching for changes.
+    /// Creates a new [`FileAssetWriter`] at a path relative to the executable's directory,
+    /// optionally watching for changes.
     pub fn new<P: AsRef<Path> + core::fmt::Debug>(path: P, create_root: bool) -> Self {
         let root_path = get_base_path().join(path.as_ref());
         if create_root {

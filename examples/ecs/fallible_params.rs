@@ -2,16 +2,22 @@
 //! from running if their acquiry conditions aren't met.
 //!
 //! Fallible system parameters include:
-//! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist, and the [`GLOBAL_ERROR_HANDLER`] will be called if it doesn't.
-//! - [`Single<D, F>`] - There must be exactly one matching entity, but the system will be silently skipped otherwise.
-//! - [`Option<Single<D, F>>`] - There must be zero or one matching entity. The system will be silently skipped if there are more.
-//! - [`Populated<D, F>`] - There must be at least one matching entity, but the system will be silently skipped otherwise.
+//! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist, and the [`GLOBAL_ERROR_HANDLER`] will be
+//!   called if it doesn't.
+//! - [`Single<D, F>`] - There must be exactly one matching entity, but the system will be silently
+//!   skipped otherwise.
+//! - [`Option<Single<D, F>>`] - There must be zero or one matching entity. The system will be
+//!   silently skipped if there are more.
+//! - [`Populated<D, F>`] - There must be at least one matching entity, but the system will be
+//!   silently skipped otherwise.
 //!
-//! Other system parameters, such as [`Query`], will never fail validation: returning a query with no matching entities is valid.
+//! Other system parameters, such as [`Query`], will never fail validation: returning a query with
+//! no matching entities is valid.
 //!
-//! The result of failed system parameter validation is determined by the [`SystemParamValidationError`] returned
-//! by [`SystemParam::validate_param`] for each system parameter.
-//! Each system will pass if all of its parameters are valid, or else return [`SystemParamValidationError`] for the first failing parameter.
+//! The result of failed system parameter validation is determined by the
+//! [`SystemParamValidationError`] returned by [`SystemParam::validate_param`] for each system
+//! parameter. Each system will pass if all of its parameters are valid, or else return
+//! [`SystemParamValidationError`] for the first failing parameter.
 //!
 //! To learn more about setting the fallback behavior for [`SystemParamValidationError`] failures,
 //! please see the `error_handling.rs` example.
@@ -43,7 +49,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (user_input, move_targets, track_targets).chain())
-        // This system will always fail validation, because we never create an entity with both `Player` and `Enemy` components.
+        // This system will always fail validation, because we never create an entity with both
+        // `Player` and `Enemy` components.
         .add_systems(Update, do_nothing_fail_validation)
         .run();
 }

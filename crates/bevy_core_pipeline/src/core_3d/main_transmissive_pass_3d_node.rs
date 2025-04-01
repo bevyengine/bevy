@@ -70,18 +70,21 @@ impl ViewNode for MainTransmissivePass3dNode {
                 let transmission =
                     transmission.expect("`ViewTransmissionTexture` should exist at this point");
 
-                // `transmissive_phase.items` are depth sorted, so we split them into N = `screen_space_specular_transmission_steps`
-                // ranges, rendering them back-to-front in multiple steps, allowing multiple levels of transparency.
+                // `transmissive_phase.items` are depth sorted, so we split them into N =
+                // `screen_space_specular_transmission_steps` ranges, rendering them
+                // back-to-front in multiple steps, allowing multiple levels of transparency.
                 //
-                // Note: For the sake of simplicity, we currently split items evenly among steps. In the future, we
-                // might want to use a more sophisticated heuristic (e.g. based on view bounds, or with an exponential
-                // falloff so that nearby objects have more levels of transparency available to them)
+                // Note: For the sake of simplicity, we currently split items evenly among steps. In
+                // the future, we might want to use a more sophisticated heuristic
+                // (e.g. based on view bounds, or with an exponential falloff so
+                // that nearby objects have more levels of transparency available to them)
                 for range in split_range(
                     0..transmissive_phase.items.len(),
                     screen_space_specular_transmission_steps,
                 ) {
-                    // Copy the main texture to the transmission texture, allowing to use the color output of the
-                    // previous step (or of the `Opaque3d` phase, for the first step) as a transmissive color input
+                    // Copy the main texture to the transmission texture, allowing to use the color
+                    // output of the previous step (or of the `Opaque3d` phase,
+                    // for the first step) as a transmissive color input
                     render_context.command_encoder().copy_texture_to_texture(
                         target.main_texture().as_image_copy(),
                         transmission.texture.as_image_copy(),

@@ -33,30 +33,33 @@ pub struct Camera3d {
     pub depth_load_op: Camera3dDepthLoadOp,
     /// The texture usages for the depth texture created for the main 3d pass.
     pub depth_texture_usages: Camera3dDepthTextureUsage,
-    /// How many individual steps should be performed in the [`Transmissive3d`](crate::core_3d::Transmissive3d) pass.
+    /// How many individual steps should be performed in the
+    /// [`Transmissive3d`](crate::core_3d::Transmissive3d) pass.
     ///
     /// Roughly corresponds to how many “layers of transparency” are rendered for screen space
     /// specular transmissive objects. Each step requires making one additional
-    /// texture copy, so it's recommended to keep this number to a reasonably low value. Defaults to `1`.
+    /// texture copy, so it's recommended to keep this number to a reasonably low value. Defaults
+    /// to `1`.
     ///
     /// ### Notes
     ///
-    /// - No copies will be performed if there are no transmissive materials currently being rendered,
-    ///   regardless of this setting.
-    /// - Setting this to `0` disables the screen-space refraction effect entirely, and falls
-    ///   back to refracting only the environment map light's texture.
-    /// - If set to more than `0`, any opaque [`clear_color`](Camera::clear_color) will obscure the environment
-    ///   map light's texture, preventing it from being visible “through” transmissive materials. If you'd like
-    ///   to still have the environment map show up in your refractions, you can set the clear color's alpha to `0.0`.
-    ///   Keep in mind that depending on the platform and your window settings, this may cause the window to become
-    ///   transparent.
+    /// - No copies will be performed if there are no transmissive materials currently being
+    ///   rendered, regardless of this setting.
+    /// - Setting this to `0` disables the screen-space refraction effect entirely, and falls back
+    ///   to refracting only the environment map light's texture.
+    /// - If set to more than `0`, any opaque [`clear_color`](Camera::clear_color) will obscure the
+    ///   environment map light's texture, preventing it from being visible “through” transmissive
+    ///   materials. If you'd like to still have the environment map show up in your refractions,
+    ///   you can set the clear color's alpha to `0.0`. Keep in mind that depending on the platform
+    ///   and your window settings, this may cause the window to become transparent.
     pub screen_space_specular_transmission_steps: usize,
-    /// The quality of the screen space specular transmission blur effect, applied to whatever's “behind” transmissive
-    /// objects when their `roughness` is greater than `0.0`.
+    /// The quality of the screen space specular transmission blur effect, applied to whatever's
+    /// “behind” transmissive objects when their `roughness` is greater than `0.0`.
     ///
     /// Higher qualities are more GPU-intensive.
     ///
-    /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: `TemporalAntiAliasPlugin`
+    /// **Note:** You can get better-looking results at any quality level by enabling TAA. See:
+    /// `TemporalAntiAliasPlugin`
     pub screen_space_specular_transmission_quality: ScreenSpaceTransmissionQuality,
 }
 
@@ -112,12 +115,13 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
     }
 }
 
-/// The quality of the screen space transmission blur effect, applied to whatever's “behind” transmissive
-/// objects when their `roughness` is greater than `0.0`.
+/// The quality of the screen space transmission blur effect, applied to whatever's “behind”
+/// transmissive objects when their `roughness` is greater than `0.0`.
 ///
 /// Higher qualities are more GPU-intensive.
 ///
-/// **Note:** You can get better-looking results at any quality level by enabling TAA. See: `TemporalAntiAliasPlugin`
+/// **Note:** You can get better-looking results at any quality level by enabling TAA. See:
+/// `TemporalAntiAliasPlugin`
 #[derive(Resource, Default, Clone, Copy, Reflect, PartialEq, PartialOrd, Debug)]
 #[reflect(Resource, Default, Clone, Debug, PartialEq)]
 pub enum ScreenSpaceTransmissionQuality {
@@ -137,7 +141,8 @@ pub enum ScreenSpaceTransmissionQuality {
     /// `num_taps` = 16
     High,
 
-    /// The highest quality, suitable for non-realtime rendering. (e.g. Pre-rendered cinematics and photo mode)
+    /// The highest quality, suitable for non-realtime rendering. (e.g. Pre-rendered cinematics and
+    /// photo mode)
     ///
     /// `num_taps` = 32
     Ultra,

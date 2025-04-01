@@ -97,7 +97,8 @@ impl ProcessorTransactionLog {
         match async_fs::remove_file(&path).await {
             Ok(_) => { /* successfully removed file */ }
             Err(err) => {
-                // if the log file is not found, we assume we are starting in a fresh (or good) state
+                // if the log file is not found, we assume we are starting in a fresh (or good)
+                // state
                 if err.kind() != futures_io::ErrorKind::NotFound {
                     error!("Failed to remove previous log file {}", err);
                 }
@@ -177,8 +178,9 @@ impl ProcessorTransactionLog {
         Ok(())
     }
 
-    /// Logs the start of an asset being processed. If this is not followed at some point in the log by a closing [`ProcessorTransactionLog::end_processing`],
-    /// in the next run of the processor the asset processing will be considered "incomplete" and it will be reprocessed.
+    /// Logs the start of an asset being processed. If this is not followed at some point in the log
+    /// by a closing [`ProcessorTransactionLog::end_processing`], in the next run of the
+    /// processor the asset processing will be considered "incomplete" and it will be reprocessed.
     pub(crate) async fn begin_processing(
         &mut self,
         path: &AssetPath<'_>,
@@ -191,7 +193,8 @@ impl ProcessorTransactionLog {
             })
     }
 
-    /// Logs the end of an asset being successfully processed. See [`ProcessorTransactionLog::begin_processing`].
+    /// Logs the end of an asset being successfully processed. See
+    /// [`ProcessorTransactionLog::begin_processing`].
     pub(crate) async fn end_processing(
         &mut self,
         path: &AssetPath<'_>,
@@ -204,8 +207,9 @@ impl ProcessorTransactionLog {
             })
     }
 
-    /// Logs an unrecoverable error. On the next run of the processor, all assets will be regenerated. This should only be used as a last resort.
-    /// Every call to this should be considered with scrutiny and ideally replaced with something more granular.
+    /// Logs an unrecoverable error. On the next run of the processor, all assets will be
+    /// regenerated. This should only be used as a last resort. Every call to this should be
+    /// considered with scrutiny and ideally replaced with something more granular.
     pub(crate) async fn unrecoverable(&mut self) -> Result<(), WriteLogError> {
         self.write(UNRECOVERABLE_ERROR)
             .await

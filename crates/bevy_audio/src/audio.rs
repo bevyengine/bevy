@@ -55,7 +55,8 @@ pub struct PlaybackSettings {
     /// features. Spatial audio is implemented via simple left-right stereo panning.
     pub spatial: bool,
     /// Optional scale factor applied to the positions of this audio source and the listener,
-    /// overriding the default value configured on [`AudioPlugin::default_spatial_scale`](crate::AudioPlugin::default_spatial_scale).
+    /// overriding the default value configured on
+    /// [`AudioPlugin::default_spatial_scale`](crate::AudioPlugin::default_spatial_scale).
     pub spatial_scale: Option<SpatialScale>,
 }
 
@@ -239,8 +240,8 @@ impl AudioPlayer<AudioSource> {
     /// Creates a new [`AudioPlayer`] with the given [`Handle<AudioSource>`].
     ///
     /// For convenience reasons, this hard-codes the [`AudioSource`] type. If you want to
-    /// initialize an [`AudioPlayer`] with a different type, just initialize it directly using normal
-    /// tuple struct syntax.
+    /// initialize an [`AudioPlayer`] with a different type, just initialize it directly using
+    /// normal tuple struct syntax.
     pub fn new(source: Handle<AudioSource>) -> Self {
         Self(source)
     }

@@ -26,16 +26,13 @@ pub struct NoAutomaticBatching;
 /// Data necessary to be equal for two draw commands to be mergeable
 ///
 /// This is based on the following assumptions:
-/// - Only entities with prepared assets (pipelines, materials, meshes) are
-///   queued to phases
-/// - View bindings are constant across a phase for a given draw function as
-///   phases are per-view
-/// - `batch_and_prepare_render_phase` is the only system that performs this
-///   batching and has sole responsibility for preparing the per-object data.
-///   As such the mesh binding and dynamic offsets are assumed to only be
-///   variable as a result of the `batch_and_prepare_render_phase` system, e.g.
-///   due to having to split data across separate uniform bindings within the
-///   same buffer due to the maximum uniform buffer binding size.
+/// - Only entities with prepared assets (pipelines, materials, meshes) are queued to phases
+/// - View bindings are constant across a phase for a given draw function as phases are per-view
+/// - `batch_and_prepare_render_phase` is the only system that performs this batching and has sole
+///   responsibility for preparing the per-object data. As such the mesh binding and dynamic offsets
+///   are assumed to only be variable as a result of the `batch_and_prepare_render_phase` system,
+///   e.g. due to having to split data across separate uniform bindings within the same buffer due
+///   to the maximum uniform buffer binding size.
 #[derive(PartialEq)]
 struct BatchMeta<T: PartialEq> {
     /// The pipeline id encompasses all pipeline configuration including vertex
@@ -157,18 +154,15 @@ pub trait GetFullBatchData: GetBatchData {
     ///
     /// * `indexed` is true if the mesh is indexed or false if it's non-indexed.
     ///
-    /// * `base_output_index` is the index of the first mesh instance in this
-    ///   batch in the `MeshUniform` output buffer.
+    /// * `base_output_index` is the index of the first mesh instance in this batch in the
+    ///   `MeshUniform` output buffer.
     ///
     /// * `batch_set_index` is the index of the batch set in the
-    ///   [`gpu_preprocessing::IndirectBatchSet`] buffer, if this batch belongs to
-    ///   a batch set.
+    ///   [`gpu_preprocessing::IndirectBatchSet`] buffer, if this batch belongs to a batch set.
     ///
-    /// * `indirect_parameters_buffers` is the buffer in which to write the
-    ///   metadata.
+    /// * `indirect_parameters_buffers` is the buffer in which to write the metadata.
     ///
-    /// * `indirect_parameters_offset` is the index in that buffer at which to
-    ///   write the metadata.
+    /// * `indirect_parameters_offset` is the index in that buffer at which to write the metadata.
     fn write_batch_indirect_parameters_metadata(
         indexed: bool,
         base_output_index: u32,

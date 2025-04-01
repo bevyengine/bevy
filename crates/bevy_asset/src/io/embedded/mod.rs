@@ -19,9 +19,10 @@ use alloc::borrow::ToOwned;
 /// as stored in the [`AssetSourceBuilders`] resource.
 pub const EMBEDDED: &str = "embedded";
 
-/// A [`Resource`] that manages "rust source files" in a virtual in memory [`Dir`], which is intended
-/// to be shared with a [`MemoryAssetReader`].
-/// Generally this should not be interacted with directly. The [`embedded_asset`] will populate this.
+/// A [`Resource`] that manages "rust source files" in a virtual in memory [`Dir`], which is
+/// intended to be shared with a [`MemoryAssetReader`].
+/// Generally this should not be interacted with directly. The [`embedded_asset`] will populate
+/// this.
 ///
 /// [`embedded_asset`]: crate::embedded_asset
 #[derive(Resource, Default)]
@@ -34,9 +35,10 @@ pub struct EmbeddedAssetRegistry {
 }
 
 impl EmbeddedAssetRegistry {
-    /// Inserts a new asset. `full_path` is the full path (as [`file`] would return for that file, if it was capable of
-    /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
-    /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
+    /// Inserts a new asset. `full_path` is the full path (as [`file`] would return for that file,
+    /// if it was capable of running in a non-rust file). `asset_path` is the path that will be
+    /// used to identify the asset in the `embedded` [`AssetSource`]. `value` is the bytes that
+    /// will be returned for the asset. This can be _either_ a `&'static [u8]`
     /// or a [`Vec<u8>`](alloc::vec::Vec).
     #[cfg_attr(
         not(feature = "embedded_watcher"),
@@ -53,9 +55,10 @@ impl EmbeddedAssetRegistry {
         self.dir.insert_asset(asset_path, value);
     }
 
-    /// Inserts new asset metadata. `full_path` is the full path (as [`file`] would return for that file, if it was capable of
-    /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
-    /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
+    /// Inserts new asset metadata. `full_path` is the full path (as [`file`] would return for that
+    /// file, if it was capable of running in a non-rust file). `asset_path` is the path that
+    /// will be used to identify the asset in the `embedded` [`AssetSource`]. `value` is the
+    /// bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
     /// or a [`Vec<u8>`](alloc::vec::Vec).
     #[cfg_attr(
         not(feature = "embedded_watcher"),
@@ -72,9 +75,10 @@ impl EmbeddedAssetRegistry {
         self.dir.insert_meta(asset_path, value);
     }
 
-    /// Removes an asset stored using `full_path` (the full path as [`file`] would return for that file, if it was capable of
-    /// running in a non-rust file). If no asset is stored with at `full_path` its a no-op.
-    /// It returning `Option` contains the originally stored `Data` or `None`.
+    /// Removes an asset stored using `full_path` (the full path as [`file`] would return for that
+    /// file, if it was capable of running in a non-rust file). If no asset is stored with at
+    /// `full_path` its a no-op. It returning `Option` contains the originally stored `Data` or
+    /// `None`.
     pub fn remove_asset(&self, full_path: &Path) -> Option<super::memory::Data> {
         self.dir.remove_asset(full_path)
     }
@@ -183,15 +187,16 @@ pub fn _embedded_asset_path(
 /// Creates a new `embedded` asset by embedding the bytes of the given path into the current binary
 /// and registering those bytes with the `embedded` [`AssetSource`].
 ///
-/// This accepts the current [`App`](bevy_app::App) as the first parameter and a path `&str` (relative to the current file) as the second.
+/// This accepts the current [`App`](bevy_app::App) as the first parameter and a path `&str`
+/// (relative to the current file) as the second.
 ///
 /// By default this will generate an [`AssetPath`] using the following rules:
 ///
 /// 1. Search for the first `$crate_name/src/` in the path and trim to the path past that point.
 /// 2. Re-add the current `$crate_name` to the front of the path
 ///
-/// For example, consider the following file structure in the theoretical `bevy_rock` crate, which provides a Bevy [`Plugin`](bevy_app::Plugin)
-/// that renders fancy rocks for scenes.
+/// For example, consider the following file structure in the theoretical `bevy_rock` crate, which
+/// provides a Bevy [`Plugin`](bevy_app::Plugin) that renders fancy rocks for scenes.
 ///
 /// ```text
 /// bevy_rock
@@ -203,12 +208,13 @@ pub fn _embedded_asset_path(
 /// └── Cargo.toml
 /// ```
 ///
-/// `rock.wgsl` is a WGSL shader asset that the `bevy_rock` plugin author wants to bundle with their crate. They invoke the following
-/// in `bevy_rock/src/render/mod.rs`:
+/// `rock.wgsl` is a WGSL shader asset that the `bevy_rock` plugin author wants to bundle with their
+/// crate. They invoke the following in `bevy_rock/src/render/mod.rs`:
 ///
 /// `embedded_asset!(app, "rock.wgsl")`
 ///
-/// `rock.wgsl` can now be loaded by the [`AssetServer`](crate::AssetServer) with the following path:
+/// `rock.wgsl` can now be loaded by the [`AssetServer`](crate::AssetServer) with the following
+/// path:
 ///
 /// ```no_run
 /// # use bevy_asset::{Asset, AssetServer};
@@ -223,17 +229,19 @@ pub fn _embedded_asset_path(
 /// 1. The non-default `embedded://` [`AssetSource`]
 /// 2. `src` is trimmed from the path
 ///
-/// The default behavior also works for cargo workspaces. Pretend the `bevy_rock` crate now exists in a larger workspace in
-/// `$SOME_WORKSPACE/crates/bevy_rock`. The asset path would remain the same, because [`embedded_asset`] searches for the
-/// _first instance_ of `bevy_rock/src` in the path.
+/// The default behavior also works for cargo workspaces. Pretend the `bevy_rock` crate now exists
+/// in a larger workspace in `$SOME_WORKSPACE/crates/bevy_rock`. The asset path would remain the
+/// same, because [`embedded_asset`] searches for the _first instance_ of `bevy_rock/src` in the
+/// path.
 ///
-/// For most "standard crate structures" the default works just fine. But for some niche cases (such as cargo examples),
-/// the `src` path will not be present. You can override this behavior by adding it as the second argument to [`embedded_asset`]:
+/// For most "standard crate structures" the default works just fine. But for some niche cases (such
+/// as cargo examples), the `src` path will not be present. You can override this behavior by adding
+/// it as the second argument to [`embedded_asset`]:
 ///
 /// `embedded_asset!(app, "/examples/rock_stuff/", "rock.wgsl")`
 ///
-/// When there are three arguments, the second argument will replace the default `/src/` value. Note that these two are
-/// equivalent:
+/// When there are three arguments, the second argument will replace the default `/src/` value. Note
+/// that these two are equivalent:
 ///
 /// `embedded_asset!(app, "rock.wgsl")`
 /// `embedded_asset!(app, "/src/", "rock.wgsl")`
@@ -278,7 +286,8 @@ pub fn watched_path(_source_file_path: &'static str, _asset_path: &'static str) 
     PathBuf::from("")
 }
 
-/// Loads an "internal" asset by embedding the string stored in the given `path_str` and associates it with the given handle.
+/// Loads an "internal" asset by embedding the string stored in the given `path_str` and associates
+/// it with the given handle.
 #[macro_export]
 macro_rules! load_internal_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
@@ -307,7 +316,8 @@ macro_rules! load_internal_asset {
     }};
 }
 
-/// Loads an "internal" binary asset by embedding the bytes stored in the given `path_str` and associates it with the given handle.
+/// Loads an "internal" binary asset by embedding the bytes stored in the given `path_str` and
+/// associates it with the given handle.
 #[macro_export]
 macro_rules! load_internal_binary_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{

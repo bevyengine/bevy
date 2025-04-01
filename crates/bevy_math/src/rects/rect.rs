@@ -304,7 +304,8 @@ impl Rect {
     ///
     /// A positive expansion value produces a larger rectangle,
     /// while a negative expansion value produces a smaller rectangle.
-    /// If this would result in zero or negative width or height, [`Rect::EMPTY`] is returned instead.
+    /// If this would result in zero or negative width or height, [`Rect::EMPTY`] is returned
+    /// instead.
     ///
     /// # Examples
     ///

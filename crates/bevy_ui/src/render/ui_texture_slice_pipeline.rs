@@ -169,7 +169,8 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
                 VertexFormat::Float32x4,
                 // normalized target slicing lines (left, top, right, bottom)
                 VertexFormat::Float32x4,
-                // repeat values (horizontal side, vertical side, horizontal center, vertical center)
+                // repeat values (horizontal side, vertical side, horizontal center, vertical
+                // center)
                 VertexFormat::Float32x4,
                 // normalized texture atlas rect (left, top, right, bottom)
                 VertexFormat::Float32x4,
@@ -509,7 +510,8 @@ pub fn prepare_ui_slices(
                         .map(|pos| (texture_slices.transform * (pos * rect_size).extend(1.)).xyz());
 
                     // Calculate the effect of clipping
-                    // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
+                    // Note: this won't work with rotation/scaling, but that's much more complex
+                    // (may need more that 2 quads)
                     let positions_diff = if let Some(clip) = texture_slices.clip {
                         [
                             Vec2::new(
@@ -545,8 +547,8 @@ pub fn prepare_ui_slices(
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
-                    // In those two cases, the culling check can proceed normally as corners will be on
-                    // horizontal / vertical lines
+                    // In those two cases, the culling check can proceed normally as corners will be
+                    // on horizontal / vertical lines
                     // For all other angles, bypass the culling check
                     // This does not properly handles all rotations on all axis
                     if texture_slices.transform.x_axis[1] == 0.0 {
@@ -774,8 +776,9 @@ fn compute_texture_slices(
             let target_side_width = target_size.x * (border[2] - border[0]);
             let target_side_height = target_size.y * (border[3] - border[1]);
 
-            // compute the number of times to repeat the side and center slices when tiling along each axis
-            // if the returned value is `1.` the slice will be stretched to fill the axis.
+            // compute the number of times to repeat the side and center slices when tiling along
+            // each axis if the returned value is `1.` the slice will be stretched to
+            // fill the axis.
             let repeat_side_x =
                 compute_tiled_subaxis(image_side_width, target_side_width, sides_scale_mode);
             let repeat_side_y =

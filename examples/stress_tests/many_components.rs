@@ -32,8 +32,8 @@ use rand_chacha::ChaCha8Rng;
 use std::{alloc::Layout, mem::ManuallyDrop, num::Wrapping};
 
 #[expect(unsafe_code, reason = "Reading dynamic components requires unsafe")]
-// A simple system that matches against several components and does some menial calculation to create
-// some non-trivial load.
+// A simple system that matches against several components and does some menial calculation to
+// create some non-trivial load.
 fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<FilteredEntityMut>) {
     #[cfg(feature = "trace")]
     let _span = tracing::info_span!("base_system", components = ?access_components.0, count = query.iter().len()).entered();

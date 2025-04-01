@@ -174,8 +174,9 @@ where
 
         if no_prepass_plugin_loaded {
             app.insert_resource(AnyPrepassPluginLoaded)
-                // At the start of each frame, last frame's GlobalTransforms become this frame's PreviousGlobalTransforms
-                // and last frame's view projection matrices become this frame's PreviousViewProjections
+                // At the start of each frame, last frame's GlobalTransforms become this frame's
+                // PreviousGlobalTransforms and last frame's view projection
+                // matrices become this frame's PreviousViewProjections
                 .add_systems(
                     PreUpdate,
                     (
@@ -224,7 +225,8 @@ where
                     queue_prepass_material_meshes::<M>
                         .in_set(RenderSet::QueueMeshes)
                         .after(prepare_assets::<PreparedMaterial<M>>)
-                        // queue_material_meshes only writes to `material_bind_group_id`, which `queue_prepass_material_meshes` doesn't read
+                        // queue_material_meshes only writes to `material_bind_group_id`, which
+                        // `queue_prepass_material_meshes` doesn't read
                         .ambiguous_with(queue_material_meshes::<StandardMaterial>),
                 ),
             );
@@ -436,7 +438,8 @@ where
 
         // This is a bit risky because it's possible to change something that would
         // break the prepass but be fine in the main pass.
-        // Since this api is pretty low-level it doesn't matter that much, but it is a potential issue.
+        // Since this api is pretty low-level it doesn't matter that much, but it is a potential
+        // issue.
         M::specialize(&self.material_pipeline, &mut descriptor, layout, key)?;
 
         Ok(descriptor)
@@ -465,8 +468,9 @@ impl PrepassPipelineInternal {
         // since that's the only time it gets called from a prepass pipeline.)
         shader_defs.push("PREPASS_PIPELINE".into());
 
-        // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
-        // The main limitation right now is that bind group order is hardcoded in shaders.
+        // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by
+        // the Material. The main limitation right now is that bind group order is hardcoded
+        // in shaders.
         bind_group_layouts.push(self.material_layout.clone());
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
@@ -488,8 +492,9 @@ impl PrepassPipelineInternal {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
-        // For directional light shadow map views, use unclipped depth via either the native GPU feature,
-        // or emulated by setting depth in the fragment shader for GPUs that don't support it natively.
+        // For directional light shadow map views, use unclipped depth via either the native GPU
+        // feature, or emulated by setting depth in the fragment shader for GPUs that don't
+        // support it natively.
         let emulate_unclipped_depth = mesh_key.contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
             && !self.depth_clip_control_supported;
         if emulate_unclipped_depth {
@@ -584,7 +589,8 @@ impl PrepassPipelineInternal {
         );
         bind_group_layouts.insert(1, bind_group);
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
-        // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
+        // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion
+        // vectors in slot 1
         let mut targets = prepass_target_descriptors(
             mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS),
             mesh_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS),
@@ -592,8 +598,9 @@ impl PrepassPipelineInternal {
         );
 
         if targets.iter().all(Option::is_none) {
-            // if no targets are required then clear the list, so that no fragment shader is required
-            // (though one may still be used for discarding depth buffer writes)
+            // if no targets are required then clear the list, so that no fragment shader is
+            // required (though one may still be used for discarding depth buffer
+            // writes)
             targets.clear();
         }
 
@@ -983,8 +990,9 @@ pub fn specialize_prepass_material_meshes<M>(
             }
 
             if material.properties.reads_view_transmission_texture {
-                // No-op: Materials reading from `ViewTransmissionTexture` are not rendered in the `Opaque3d`
-                // phase, and are therefore also excluded from the prepass much like alpha-blended materials.
+                // No-op: Materials reading from `ViewTransmissionTexture` are not rendered in the
+                // `Opaque3d` phase, and are therefore also excluded from the
+                // prepass much like alpha-blended materials.
                 continue;
             }
 

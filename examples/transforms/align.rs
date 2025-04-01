@@ -1,4 +1,5 @@
-//! This example shows how to align the orientations of objects in 3D space along two axes using the `Transform::align` API.
+//! This example shows how to align the orientations of objects in 3D space along two axes using the
+//! `Transform::align` API.
 
 use bevy::{
     color::palettes::basic::{GRAY, RED, WHITE},
@@ -220,7 +221,8 @@ fn arrow_ends(transform: &Transform, axis: Vec3, length: f32) -> (Vec3, Vec3) {
 }
 
 // This is where `Transform::align` is actually used!
-// Note that the choice of `Vec3::X` and `Vec3::Y` here matches the use of those in `draw_ship_axes`.
+// Note that the choice of `Vec3::X` and `Vec3::Y` here matches the use of those in
+// `draw_ship_axes`.
 fn random_axes_target_alignment(random_axes: &RandomAxes) -> Transform {
     let RandomAxes(first, second) = random_axes;
     Transform::IDENTITY.aligned_by(Vec3::NEG_Z, *first, Vec3::X, *second)

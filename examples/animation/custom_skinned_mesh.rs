@@ -161,10 +161,12 @@ fn setup(
         // Set joint_1 as a child of joint_0.
         commands.entity(joint_0).add_children(&[joint_1]);
 
-        // Each joint in this vector corresponds to each inverse bindpose matrix in `SkinnedMeshInverseBindposes`.
+        // Each joint in this vector corresponds to each inverse bindpose matrix in
+        // `SkinnedMeshInverseBindposes`.
         let joint_entities = vec![joint_0, joint_1];
 
-        // Create skinned mesh renderer. Note that its transform doesn't affect the position of the mesh.
+        // Create skinned mesh renderer. Note that its transform doesn't affect the position of the
+        // mesh.
         commands.spawn((
             Mesh3d(mesh.clone()),
             MeshMaterial3d(materials.add(StandardMaterial {

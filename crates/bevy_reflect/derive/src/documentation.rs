@@ -17,7 +17,8 @@ pub(crate) struct Documentation {
 impl Documentation {
     /// Create a new [`Documentation`] from a type's attributes.
     ///
-    /// This will collect all `#[doc = "..."]` attributes, including the ones generated via `///` and `//!`.
+    /// This will collect all `#[doc = "..."]` attributes, including the ones generated via `///`
+    /// and `//!`.
     pub fn from_attributes<'a>(attributes: impl IntoIterator<Item = &'a Attribute>) -> Self {
         let docs = attributes
             .into_iter()

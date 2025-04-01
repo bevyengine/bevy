@@ -24,7 +24,8 @@ use tracing::trace;
 struct DrawState {
     pipeline: Option<RenderPipelineId>,
     bind_groups: Vec<(Option<BindGroupId>, Vec<u32>)>,
-    /// List of vertex buffers by [`BufferId`], offset, and size. See [`DrawState::buffer_slice_key`]
+    /// List of vertex buffers by [`BufferId`], offset, and size. See
+    /// [`DrawState::buffer_slice_key`]
     vertex_buffers: Vec<Option<(BufferId, u64, u64)>>,
     index_buffer: Option<(BufferId, u64, IndexFormat)>,
 
@@ -181,7 +182,8 @@ impl<'a> TrackedRenderPass<'a> {
     /// this bind group.
     ///
     /// If the bind group have dynamic offsets, provide them in binding order.
-    /// These offsets have to be aligned to [`WgpuLimits::min_uniform_buffer_offset_alignment`](crate::settings::WgpuLimits::min_uniform_buffer_offset_alignment)
+    /// These offsets have to be aligned to
+    /// [`WgpuLimits::min_uniform_buffer_offset_alignment`](crate::settings::WgpuLimits::min_uniform_buffer_offset_alignment)
     /// or [`WgpuLimits::min_storage_buffer_offset_alignment`](crate::settings::WgpuLimits::min_storage_buffer_offset_alignment) appropriately.
     pub fn set_bind_group(
         &mut self,

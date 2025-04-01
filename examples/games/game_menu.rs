@@ -50,9 +50,11 @@ mod splash {
 
     use super::{GameState, despawn_screen};
 
-    // This plugin will display a splash screen with Bevy logo for 1 second before switching to the menu
+    // This plugin will display a splash screen with Bevy logo for 1 second before switching to the
+    // menu
     pub fn splash_plugin(app: &mut App) {
-        // As this plugin is managing the splash screen, it will focus on the state `GameState::Splash`
+        // As this plugin is managing the splash screen, it will focus on the state
+        // `GameState::Splash`
         app
             // When entering the state, spawn everything needed for this screen
             .add_systems(OnEnter(GameState::Splash), splash_setup)
@@ -729,7 +731,8 @@ mod menu {
     }
 }
 
-// Generic system that takes a component as a parameter, and will despawn all entities with that component
+// Generic system that takes a component as a parameter, and will despawn all entities with that
+// component
 fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
     for entity in &to_despawn {
         commands.entity(entity).despawn();

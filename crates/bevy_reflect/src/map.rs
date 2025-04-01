@@ -22,8 +22,8 @@ use alloc::{boxed::Box, format, vec::Vec};
 /// comparable using [`PartialReflect::reflect_partial_eq`].
 /// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding
 /// `#[reflect(Hash, PartialEq)]` to the entire struct or enum.
-/// The ordering is expected to be total, that is as if the reflected type implements the [`Eq`] trait.
-/// This is true even for manual implementors who do not hash or compare values,
+/// The ordering is expected to be total, that is as if the reflected type implements the [`Eq`]
+/// trait. This is true even for manual implementors who do not hash or compare values,
 /// as it is still relied on by [`DynamicMap`].
 ///
 /// # Example
@@ -59,7 +59,8 @@ pub trait Map: PartialReflect {
     /// Returns the key-value pair at `index` by reference, or `None` if out of bounds.
     fn get_at(&self, index: usize) -> Option<(&dyn PartialReflect, &dyn PartialReflect)>;
 
-    /// Returns the key-value pair at `index` by reference where the value is a mutable reference, or `None` if out of bounds.
+    /// Returns the key-value pair at `index` by reference where the value is a mutable reference,
+    /// or `None` if out of bounds.
     fn get_at_mut(
         &mut self,
         index: usize,
@@ -211,7 +212,8 @@ macro_rules! hash_error {
             match (*$key).get_represented_type_info() {
                 // Handle dynamic types that do not represent a type (i.e a plain `DynamicStruct`):
                 None => format!("the dynamic type `{}` does not support hashing", type_path),
-                // Handle dynamic types that do represent a type (i.e. a `DynamicStruct` proxying `Foo`):
+                // Handle dynamic types that do represent a type (i.e. a `DynamicStruct` proxying
+                // `Foo`):
                 Some(s) => format!(
                     "the dynamic type `{}` (representing `{}`) does not support hashing",
                     type_path,
@@ -219,7 +221,7 @@ macro_rules! hash_error {
                 ),
             }
         }
-    }}
+    }};
 }
 
 /// An ordered mapping between reflected values.
@@ -532,8 +534,8 @@ impl<'a> ExactSizeIterator for MapIter<'a> {}
 /// Returns true if and only if all of the following are true:
 /// - `b` is a map;
 /// - `b` is the same length as `a`;
-/// - For each key-value pair in `a`, `b` contains a value for the given key,
-///   and [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two values.
+/// - For each key-value pair in `a`, `b` contains a value for the given key, and
+///   [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]

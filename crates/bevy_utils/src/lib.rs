@@ -139,7 +139,8 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
             unsafe_code,
             reason = "Taking from a ManuallyDrop requires unsafe code."
         )]
-        // SAFETY: We may move out of `self`, since this instance can never be observed after it's dropped.
+        // SAFETY: We may move out of `self`, since this instance can never be observed after it's
+        // dropped.
         let callback = unsafe { ManuallyDrop::take(&mut self.callback) };
         callback();
     }

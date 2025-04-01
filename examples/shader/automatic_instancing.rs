@@ -1,6 +1,6 @@
 //! Shows that multiple instances of a cube are automatically instanced in one draw call
-//! Try running this example in a graphics profiler and all the cubes should be only a single draw call.
-//! Also demonstrates how to use `MeshTag` to use external data in a custom material.
+//! Try running this example in a graphics profiler and all the cubes should be only a single draw
+//! call. Also demonstrates how to use `MeshTag` to use external data in a custom material.
 
 use bevy::{
     prelude::*,
@@ -33,7 +33,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
-    // We will use this image as our external data for our material to sample from in the vertex shader
+    // We will use this image as our external data for our material to sample from in the vertex
+    // shader
     let image = assets.load("branding/icon.png");
 
     // Our single mesh handle that will be instanced
@@ -64,7 +65,8 @@ fn setup(
             // use the same mesh handle and material handle for each instance
             Mesh3d(mesh_handle.clone()),
             MeshMaterial3d(material_handle.clone()),
-            // This is an optional component that can be used to help tie external data to a mesh instance
+            // This is an optional component that can be used to help tie external data to a mesh
+            // instance
             MeshTag(index),
             Transform::from_xyz(world_x, world_y, 0.0),
         ));

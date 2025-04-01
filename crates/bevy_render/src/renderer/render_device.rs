@@ -66,8 +66,9 @@ impl RenderDevice {
                     .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
             {
                 // SAFETY:
-                // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behavior.
-                // No attempt is made to ensure that data is valid SPIR-V.
+                // This call passes binary data to the backend as-is and can potentially result in a
+                // driver crash or bogus behavior. No attempt is made to ensure that
+                // data is valid SPIR-V.
                 unsafe {
                     self.device
                         .create_shader_module_spirv(&wgpu::ShaderModuleDescriptorSpirV {
@@ -78,8 +79,9 @@ impl RenderDevice {
             }
             // SAFETY:
             //
-            // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behavior.
-            // No attempt is made to ensure that data is valid SPIR-V.
+            // This call passes binary data to the backend as-is and can potentially result in a
+            // driver crash or bogus behavior. No attempt is made to ensure that data is
+            // valid SPIR-V.
             _ => unsafe {
                 self.device
                     .create_shader_module_trusted(desc, wgpu::ShaderRuntimeChecks::unchecked())
@@ -93,9 +95,11 @@ impl RenderDevice {
         }
     }
 
-    /// Creates and validates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
+    /// Creates and validates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL
+    /// source code.
     ///
-    /// See [`ValidateShader`](bevy_render::render_resource::ValidateShader) for more information on the tradeoffs involved with shader validation.
+    /// See [`ValidateShader`](bevy_render::render_resource::ValidateShader) for more information on
+    /// the tradeoffs involved with shader validation.
     #[inline]
     pub fn create_and_validate_shader_module(
         &self,

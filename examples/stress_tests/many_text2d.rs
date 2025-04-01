@@ -35,7 +35,8 @@ struct Args {
     #[argh(switch)]
     many_glyphs: bool,
 
-    /// whether to use many different font sizes to increase the amount of font atlas textures used.
+    /// whether to use many different font sizes to increase the amount of font atlas textures
+    /// used.
     #[argh(switch)]
     many_font_sizes: bool,
 

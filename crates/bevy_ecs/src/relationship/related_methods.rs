@@ -13,7 +13,8 @@ use core::{marker::PhantomData, mem};
 use super::OrderedRelationshipSourceCollection;
 
 impl<'w> EntityWorldMut<'w> {
-    /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
+    /// Spawns entities related to this entity (with the `R` relationship) by taking a function that
+    /// operates on a [`RelatedSpawner`].
     pub fn with_related<R: Relationship>(
         &mut self,
         func: impl FnOnce(&mut RelatedSpawner<R>),
@@ -38,10 +39,11 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Relates the given entities to this entity with the relation `R`, starting at this particular index.
+    /// Relates the given entities to this entity with the relation `R`, starting at this particular
+    /// index.
     ///
-    /// If the `related` has duplicates, a related entity will take the index of its last occurrence in `related`.
-    /// If the indices go out of bounds, they will be clamped into bounds.
+    /// If the `related` has duplicates, a related entity will take the index of its last occurrence
+    /// in `related`. If the indices go out of bounds, they will be clamped into bounds.
     /// This will not re-order existing related entities unless they are in `related`.
     ///
     /// # Example
@@ -111,8 +113,9 @@ impl<'w> EntityWorldMut<'w> {
             return self.add_related::<R>(related);
         };
 
-        // We take the collection here so we can modify it without taking the component itself (this would create archetype move).
-        // SAFETY: We eventually return the correctly initialized collection into the target.
+        // We take the collection here so we can modify it without taking the component itself (this
+        // would create archetype move). SAFETY: We eventually return the correctly
+        // initialized collection into the target.
         let mut existing_relations = mem::replace(
             existing_relations.collection_mut_risky(),
             Collection::<R>::with_capacity(0),
@@ -129,14 +132,16 @@ impl<'w> EntityWorldMut<'w> {
             }
 
             for related in potential_relations {
-                // SAFETY: We'll manually be adjusting the contents of the parent to fit the final state.
+                // SAFETY: We'll manually be adjusting the contents of the parent to fit the final
+                // state.
                 world
                     .entity_mut(related)
                     .insert_with_relationship_hook_mode(R::from(id), RelationshipHookMode::Skip);
             }
         });
 
-        // SAFETY: The entities we're inserting will be the entities that were either already there or entities that we've just inserted.
+        // SAFETY: The entities we're inserting will be the entities that were either already there
+        // or entities that we've just inserted.
         existing_relations.clear();
         existing_relations.extend_from_iter(related.iter().copied());
         self.insert(R::RelationshipTarget::from_collection_risky(
@@ -152,9 +157,11 @@ impl<'w> EntityWorldMut<'w> {
     /// The passed in arguments must adhere to these invariants:
     /// - `entities_to_unrelate`: A slice of entities to remove from the relationship source.
     ///   Entities need not be related to this entity, but must not appear in `entities_to_relate`
-    /// - `entities_to_relate`: A slice of entities to relate to this entity.
-    ///   This must contain all entities that will remain related (i.e. not those in `entities_to_unrelate`) plus the newly related entities.
-    /// - `newly_related_entities`: A subset of `entities_to_relate` containing only entities not already related to this entity.
+    /// - `entities_to_relate`: A slice of entities to relate to this entity. This must contain all
+    ///   entities that will remain related (i.e. not those in `entities_to_unrelate`) plus the
+    ///   newly related entities.
+    /// - `newly_related_entities`: A subset of `entities_to_relate` containing only entities not
+    ///   already related to this entity.
     /// - Slices **must not** contain any duplicates
     ///
     /// # Warning
@@ -164,7 +171,8 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// Panics when debug assertions are enabled and any invariants are broken.
-    // TODO: Consider making these iterators so users aren't required to allocate a separate buffers for the different slices.
+    // TODO: Consider making these iterators so users aren't required to allocate a separate buffers
+    // for the different slices.
     pub fn replace_related_with_difference<R: Relationship>(
         &mut self,
         entities_to_unrelate: &[Entity],
@@ -231,7 +239,8 @@ impl<'w> EntityWorldMut<'w> {
 
         if !entities_to_relate.is_empty() {
             if let Some(mut target) = self.get_mut::<R::RelationshipTarget>() {
-                // SAFETY: The invariants expected by this function mean we'll only be inserting entities that are already related.
+                // SAFETY: The invariants expected by this function mean we'll only be inserting
+                // entities that are already related.
                 let collection = target.collection_mut_risky();
                 collection.clear();
 
@@ -243,7 +252,8 @@ impl<'w> EntityWorldMut<'w> {
                     );
                 empty.extend_from_iter(entities_to_relate.iter().copied());
 
-                // SAFETY: We've just initialized this collection and we know there's no `RelationshipTarget` on `self`
+                // SAFETY: We've just initialized this collection and we know there's no
+                // `RelationshipTarget` on `self`
                 self.insert(R::RelationshipTarget::from_collection_risky(empty));
             }
         }
@@ -301,8 +311,8 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Removes a component or bundle of components of type `B` from the entity and all related entities,
-    /// traversing the relationship tracked in `S` in a breadth-first manner.
+    /// Removes a component or bundle of components of type `B` from the entity and all related
+    /// entities, traversing the relationship tracked in `S` in a breadth-first manner.
     ///
     /// # Warning
     ///
@@ -324,7 +334,8 @@ impl<'w> EntityWorldMut<'w> {
 }
 
 impl<'a> EntityCommands<'a> {
-    /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
+    /// Spawns entities related to this entity (with the `R` relationship) by taking a function that
+    /// operates on a [`RelatedSpawner`].
     pub fn with_related<R: Relationship>(
         &mut self,
         func: impl FnOnce(&mut RelatedSpawnerCommands<R>),
@@ -371,12 +382,14 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Warning
     ///
-    /// Failing to maintain the functions invariants may lead to erratic engine behavior including random crashes.
-    /// Refer to [`EntityWorldMut::replace_related_with_difference`] for a list of these invariants.
+    /// Failing to maintain the functions invariants may lead to erratic engine behavior including
+    /// random crashes. Refer to [`EntityWorldMut::replace_related_with_difference`] for a list
+    /// of these invariants.
     ///
     /// # Panics
     ///
-    /// Panics when debug assertions are enable, an invariant is are broken and the command is executed.
+    /// Panics when debug assertions are enable, an invariant is are broken and the command is
+    /// executed.
     pub fn replace_related_with_difference<R: Relationship>(
         &mut self,
         entities_to_unrelate: &[Entity],
@@ -427,8 +440,8 @@ impl<'a> EntityCommands<'a> {
         self
     }
 
-    /// Removes a component or bundle of components of type `B` from the entity and all related entities,
-    /// traversing the relationship tracked in `S` in a breadth-first manner.
+    /// Removes a component or bundle of components of type `B` from the entity and all related
+    /// entities, traversing the relationship tracked in `S` in a breadth-first manner.
     ///
     /// # Warning
     ///

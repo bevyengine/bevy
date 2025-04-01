@@ -5,7 +5,8 @@ use bevy_ecs::schedule::{IntoScheduleConfigs, SystemSet};
 /// Set enum for the systems relating to transform propagation
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum TransformSystem {
-    /// Propagates changes in transform to children's [`GlobalTransform`](crate::components::GlobalTransform)
+    /// Propagates changes in transform to children's
+    /// [`GlobalTransform`](crate::components::GlobalTransform)
     TransformPropagate,
 }
 
@@ -37,7 +38,8 @@ impl Plugin for TransformPlugin {
                 (
                     mark_dirty_trees,
                     propagate_parent_transforms,
-                    // TODO: Adjust the internal parallel queries to make this system more efficiently share and fill CPU time.
+                    // TODO: Adjust the internal parallel queries to make this system more
+                    // efficiently share and fill CPU time.
                     sync_simple_transforms,
                 )
                     .chain()

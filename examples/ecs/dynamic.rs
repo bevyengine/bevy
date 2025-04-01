@@ -3,8 +3,8 @@
     reason = "Unsafe code is needed to work with dynamic components"
 )]
 
-//! This example show how you can create components dynamically, spawn entities with those components
-//! as well as query for entities with those components.
+//! This example show how you can create components dynamically, spawn entities with those
+//! components as well as query for entities with those components.
 
 use std::{alloc::Layout, collections::HashMap, io::Write, ptr::NonNull};
 
@@ -122,7 +122,8 @@ fn main() {
                         return;
                     };
 
-                    // Calculate the length for the array based on the layout created for this component id
+                    // Calculate the length for the array based on the layout created for this
+                    // component id
                     let info = world.components().get_info(id).unwrap();
                     let len = info.layout().size() / size_of::<u64>();
                     let mut values: Vec<u64> = component
@@ -196,7 +197,8 @@ fn main() {
 }
 
 // Constructs `OwningPtr` for each item in `components`
-// By sharing the lifetime of `components` with the resulting ptrs we ensure we don't drop the data before use
+// By sharing the lifetime of `components` with the resulting ptrs we ensure we don't drop the data
+// before use
 fn to_owning_ptrs(components: &mut [Vec<u64>]) -> Vec<OwningPtr<Aligned>> {
     components
         .iter_mut()

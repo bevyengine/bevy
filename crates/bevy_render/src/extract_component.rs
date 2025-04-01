@@ -52,8 +52,8 @@ pub trait ExtractComponent: Component {
     /// This can be useful for example if only a subset of the fields are useful
     /// in the render world.
     ///
-    /// `Out` has a [`Bundle`] trait bound instead of a [`Component`] trait bound in order to allow use cases
-    /// such as tuples of components as output.
+    /// `Out` has a [`Bundle`] trait bound instead of a [`Component`] trait bound in order to allow
+    /// use cases such as tuples of components as output.
     type Out: Bundle<Effect: NoBundleEffect>;
 
     // TODO: https://github.com/rust-lang/rust/issues/29661
@@ -197,7 +197,8 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     }
 }
 
-/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
+/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that
+/// are synced via [`crate::sync_world::SyncToRenderWorld`].
 fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
@@ -215,7 +216,8 @@ fn extract_components<C: ExtractComponent>(
     commands.try_insert_batch(values);
 }
 
-/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
+/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that
+/// are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,

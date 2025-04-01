@@ -26,8 +26,8 @@ impl TextureSlice {
     ///
     /// # Arguments
     ///
-    /// * `stretch_value` - The slice will repeat when the ratio between the *drawing dimensions* of texture and the
-    ///   *original texture size* (rect) are above `stretch_value`.
+    /// * `stretch_value` - The slice will repeat when the ratio between the *drawing dimensions* of
+    ///   texture and the *original texture size* (rect) are above `stretch_value`.
     /// * `tile_x` - should the slice be tiled horizontally
     /// * `tile_y` - should the slice be tiled vertically
     #[must_use]

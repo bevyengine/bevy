@@ -21,20 +21,26 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 
 /// A mesh that has been pre-processed into multiple small clusters of triangles called meshlets.
 ///
-/// A [`bevy_render::mesh::Mesh`] can be converted to a [`MeshletMesh`] using `MeshletMesh::from_mesh` when the `meshlet_processor` cargo feature is enabled.
-/// The conversion step is very slow, and is meant to be ran once ahead of time, and not during runtime. This type of mesh is not suitable for
-/// dynamically generated geometry.
+/// A [`bevy_render::mesh::Mesh`] can be converted to a [`MeshletMesh`] using
+/// `MeshletMesh::from_mesh` when the `meshlet_processor` cargo feature is enabled. The conversion
+/// step is very slow, and is meant to be ran once ahead of time, and not during runtime. This type
+/// of mesh is not suitable for dynamically generated geometry.
 ///
-/// There are restrictions on the [`crate::Material`] functionality that can be used with this type of mesh.
+/// There are restrictions on the [`crate::Material`] functionality that can be used with this type
+/// of mesh.
 /// * Materials have no control over the vertex shader or vertex attributes.
-/// * Materials must be opaque. Transparent, alpha masked, and transmissive materials are not supported.
-/// * Do not use normal maps baked from higher-poly geometry. Use the high-poly geometry directly and skip the normal map.
+/// * Materials must be opaque. Transparent, alpha masked, and transmissive materials are not
+///   supported.
+/// * Do not use normal maps baked from higher-poly geometry. Use the high-poly geometry directly
+///   and skip the normal map.
 ///   * If additional detail is needed, a smaller tiling normal map not baked from a mesh is ok.
 /// * Material shaders must not use builtin functions that automatically calculate derivatives <https://gpuweb.github.io/gpuweb/wgsl/#derivatives>.
-///   * Performing manual arithmetic on texture coordinates (UVs) is forbidden. Use the chain-rule version of arithmetic functions instead (TODO: not yet implemented).
+///   * Performing manual arithmetic on texture coordinates (UVs) is forbidden. Use the chain-rule
+///     version of arithmetic functions instead (TODO: not yet implemented).
 /// * Limited control over [`bevy_render::render_resource::RenderPipelineDescriptor`] attributes.
-/// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similar variants for prepass/deferred shaders)
-///   which requires certain shader patterns that differ from the regular material shaders.
+/// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similar
+///   variants for prepass/deferred shaders) which requires certain shader patterns that differ from
+///   the regular material shaders.
 ///
 /// See also [`super::MeshletMesh3d`] and [`super::MeshletPlugin`].
 #[derive(Asset, TypePath, Clone)]
@@ -59,12 +65,15 @@ pub struct MeshletMesh {
 #[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct Meshlet {
-    /// The bit offset within the parent mesh's [`MeshletMesh::vertex_positions`] buffer where the vertex positions for this meshlet begin.
+    /// The bit offset within the parent mesh's [`MeshletMesh::vertex_positions`] buffer where the
+    /// vertex positions for this meshlet begin.
     pub start_vertex_position_bit: u32,
-    /// The offset within the parent mesh's [`MeshletMesh::vertex_normals`] and [`MeshletMesh::vertex_uvs`] buffers
-    /// where non-position vertex attributes for this meshlet begin.
+    /// The offset within the parent mesh's [`MeshletMesh::vertex_normals`] and
+    /// [`MeshletMesh::vertex_uvs`] buffers where non-position vertex attributes for this
+    /// meshlet begin.
     pub start_vertex_attribute_id: u32,
-    /// The offset within the parent mesh's [`MeshletMesh::indices`] buffer where the indices for this meshlet begin.
+    /// The offset within the parent mesh's [`MeshletMesh::indices`] buffer where the indices for
+    /// this meshlet begin.
     pub start_index_id: u32,
     /// The amount of vertices in this meshlet.
     pub vertex_count: u8,
@@ -94,9 +103,11 @@ pub struct Meshlet {
 pub struct MeshletBoundingSpheres {
     /// Bounding sphere used for frustum and occlusion culling for this meshlet.
     pub culling_sphere: MeshletBoundingSphere,
-    /// Bounding sphere used for determining if this meshlet's group is at the correct level of detail for a given view.
+    /// Bounding sphere used for determining if this meshlet's group is at the correct level of
+    /// detail for a given view.
     pub lod_group_sphere: MeshletBoundingSphere,
-    /// Bounding sphere used for determining if this meshlet's parent group is at the correct level of detail for a given view.
+    /// Bounding sphere used for determining if this meshlet's parent group is at the correct level
+    /// of detail for a given view.
     pub lod_parent_group_sphere: MeshletBoundingSphere,
 }
 
@@ -112,9 +123,11 @@ pub struct MeshletBoundingSphere {
 #[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct MeshletSimplificationError {
-    /// Simplification error used for determining if this meshlet's group is at the correct level of detail for a given view.
+    /// Simplification error used for determining if this meshlet's group is at the correct level
+    /// of detail for a given view.
     pub group_error: f16,
-    /// Simplification error used for determining if this meshlet's parent group is at the correct level of detail for a given view.
+    /// Simplification error used for determining if this meshlet's parent group is at the correct
+    /// level of detail for a given view.
     pub parent_group_error: f16,
 }
 

@@ -64,7 +64,8 @@ pub struct ReflectResourceFns {
     /// Function pointer implementing [`ReflectResource::reflect_unchecked_mut()`].
     ///
     /// # Safety
-    /// The function may only be called with an [`UnsafeWorldCell`] that can be used to mutably access the relevant resource.
+    /// The function may only be called with an [`UnsafeWorldCell`] that can be used to mutably
+    /// access the relevant resource.
     pub reflect_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>) -> Option<Mut<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectResource::copy()`].
     pub copy: fn(&World, &mut World, &TypeRegistry),
@@ -103,7 +104,8 @@ impl ReflectResource {
         (self.0.apply)(world, resource);
     }
 
-    /// Uses reflection to set the value of this [`Resource`] type in the world to the given value or insert a new one if it does not exist.
+    /// Uses reflection to set the value of this [`Resource`] type in the world to the given value
+    /// or insert a new one if it does not exist.
     pub fn apply_or_insert(
         &self,
         world: &mut World,
@@ -141,7 +143,8 @@ impl ReflectResource {
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
     /// violating Rust's aliasing rules. To avoid this:
-    /// * Only call this method with an [`UnsafeWorldCell`] which can be used to mutably access the resource.
+    /// * Only call this method with an [`UnsafeWorldCell`] which can be used to mutably access the
+    ///   resource.
     /// * Don't call this method more than once in the same scope for a given [`Resource`].
     pub unsafe fn reflect_unchecked_mut<'w>(
         &self,
@@ -151,7 +154,8 @@ impl ReflectResource {
         unsafe { (self.0.reflect_unchecked_mut)(world) }
     }
 
-    /// Gets the value of this [`Resource`] type from `source_world` and [applies](Self::apply()) it to the value of this [`Resource`] type in `destination_world`.
+    /// Gets the value of this [`Resource`] type from `source_world` and [applies](Self::apply()) it
+    /// to the value of this [`Resource`] type in `destination_world`.
     ///
     /// # Panics
     ///
@@ -236,8 +240,9 @@ impl<R: Resource + FromReflect + TypePath> FromType<R> for ReflectResource {
                     .map(|res| res.map_unchanged(|value| value as &mut dyn Reflect))
             },
             reflect_unchecked_mut: |world| {
-                // SAFETY: all usages of `reflect_unchecked_mut` guarantee that there is either a single mutable
-                // reference or multiple immutable ones alive at any given point
+                // SAFETY: all usages of `reflect_unchecked_mut` guarantee that there is either a
+                // single mutable reference or multiple immutable ones alive at any
+                // given point
                 let res = unsafe { world.get_resource_mut::<R>() };
                 res.map(|res| res.map_unchanged(|value| value as &mut dyn Reflect))
             },

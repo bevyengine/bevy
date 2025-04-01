@@ -36,22 +36,23 @@
 //!
 //! ## Default query filters
 //!
-//! In Bevy, entity disabling is implemented through the construction of a global "default query filter".
-//! Queries which do not explicitly mention the disabled component will not include entities with that component.
-//! If an entity has multiple disabling components, it will only be included in queries that mention all of them.
+//! In Bevy, entity disabling is implemented through the construction of a global "default query
+//! filter". Queries which do not explicitly mention the disabled component will not include
+//! entities with that component. If an entity has multiple disabling components, it will only be
+//! included in queries that mention all of them.
 //!
 //! For example, `Query<&Position>` will not include entities with the [`Disabled`] component,
 //! even if they have a `Position` component,
 //! but `Query<&Position, With<Disabled>>` or `Query<(&Position, Has<Disabled>)>` will see them.
 //!
-//! Entities with disabling components are still present in the [`World`] and can be accessed directly,
-//! using methods on [`World`] or [`Commands`](crate::prelude::Commands).
+//! Entities with disabling components are still present in the [`World`] and can be accessed
+//! directly, using methods on [`World`] or [`Commands`](crate::prelude::Commands).
 //!
 //! ### Warnings
 //!
-//! Currently, only queries for which the cache is built after enabling a default query filter will have entities
-//! with those components filtered. As a result, they should generally only be modified before the
-//! app starts.
+//! Currently, only queries for which the cache is built after enabling a default query filter will
+//! have entities with those components filtered. As a result, they should generally only be
+//! modified before the app starts.
 //!
 //! Because filters are applied to all queries they can have performance implication for
 //! the enire [`World`], especially when they cause queries to mix sparse and table components.
@@ -60,7 +61,8 @@
 //! Custom disabling components can cause significant interoperability issues within the ecosystem,
 //! as users must be aware of each disabling component in use.
 //! Libraries should think carefully about whether they need to use a new disabling component,
-//! and clearly communicate their presence to their users to avoid the new for library compatibility flags.
+//! and clearly communicate their presence to their users to avoid the new for library compatibility
+//! flags.
 //!
 //! [`With`]: crate::prelude::With
 //! [`Has`]: crate::prelude::Has
@@ -83,12 +85,13 @@ use {
 
 /// A marker component for disabled entities.
 ///
-/// Semantically, this component is used to mark entities that are temporarily disabled (typically for gameplay reasons),
-/// but will likely be re-enabled at some point.
+/// Semantically, this component is used to mark entities that are temporarily disabled (typically
+/// for gameplay reasons), but will likely be re-enabled at some point.
 ///
 /// Like all disabling components, this only disables the entity itself,
 /// not its children or other entities that reference it.
-/// To disable an entire tree of entities, use [`EntityCommands::insert_recursive`](crate::prelude::EntityCommands::insert_recursive).
+/// To disable an entire tree of entities, use
+/// [`EntityCommands::insert_recursive`](crate::prelude::EntityCommands::insert_recursive).
 ///
 /// Every [`World`] has a default query filter that excludes entities with this component,
 /// registered in the [`DefaultQueryFilters`] resource.
@@ -107,15 +110,17 @@ pub struct Disabled;
 
 /// Default query filters work by excluding entities with certain components from most queries.
 ///
-/// If a query does not explicitly mention a given disabling component, it will not include entities with that component.
-/// To be more precise, this checks if the query's [`FilteredAccess`] contains the component,
-/// and if it does not, adds a [`Without`](crate::prelude::Without) filter for that component to the query.
+/// If a query does not explicitly mention a given disabling component, it will not include entities
+/// with that component. To be more precise, this checks if the query's [`FilteredAccess`] contains
+/// the component, and if it does not, adds a [`Without`](crate::prelude::Without) filter for that
+/// component to the query.
 ///
 /// This resource is initialized in the [`World`] whenever a new world is created,
 /// with the [`Disabled`] component as a disabling component.
 ///
-/// Note that you can remove default query filters by overwriting the [`DefaultQueryFilters`] resource.
-/// This can be useful as a last resort escape hatch, but is liable to break compatibility with other libraries.
+/// Note that you can remove default query filters by overwriting the [`DefaultQueryFilters`]
+/// resource. This can be useful as a last resort escape hatch, but is liable to break compatibility
+/// with other libraries.
 ///
 /// See the [module docs](crate::entity_disabling) for more info.
 ///
@@ -133,8 +138,8 @@ pub struct Disabled;
 #[derive(Resource, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct DefaultQueryFilters {
-    // We only expect a few components per application to act as disabling components, so we use a SmallVec here
-    // to avoid heap allocation in most cases.
+    // We only expect a few components per application to act as disabling components, so we use a
+    // SmallVec here to avoid heap allocation in most cases.
     disabling: SmallVec<[ComponentId; 4]>,
 }
 
@@ -150,8 +155,8 @@ impl FromWorld for DefaultQueryFilters {
 impl DefaultQueryFilters {
     /// Creates a new, completely empty [`DefaultQueryFilters`].
     ///
-    /// This is provided as an escape hatch; in most cases you should initialize this using [`FromWorld`],
-    /// which is automatically called when creating a new [`World`].
+    /// This is provided as an escape hatch; in most cases you should initialize this using
+    /// [`FromWorld`], which is automatically called when creating a new [`World`].
     #[must_use]
     pub fn empty() -> Self {
         DefaultQueryFilters {
@@ -169,8 +174,9 @@ impl DefaultQueryFilters {
     /// This method should only be called before the app starts, as it will not affect queries
     /// initialized before it is called.
     ///
-    /// As discussed in the [module docs](crate::entity_disabling), this can have performance implications,
-    /// as well as create interoperability issues, and should be used with caution.
+    /// As discussed in the [module docs](crate::entity_disabling), this can have performance
+    /// implications, as well as create interoperability issues, and should be used with
+    /// caution.
     pub fn register_disabling_component(&mut self, component_id: ComponentId) {
         if !self.disabling.contains(&component_id) {
             self.disabling.push(component_id);
@@ -182,7 +188,8 @@ impl DefaultQueryFilters {
         self.disabling.iter().copied()
     }
 
-    /// Modifies the provided [`FilteredAccess`] to include the filters from this [`DefaultQueryFilters`].
+    /// Modifies the provided [`FilteredAccess`] to include the filters from this
+    /// [`DefaultQueryFilters`].
     pub(super) fn modify_access(&self, component_access: &mut FilteredAccess<ComponentId>) {
         for component_id in self.disabling_ids() {
             if !component_access.contains(component_id) {

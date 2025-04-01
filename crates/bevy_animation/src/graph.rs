@@ -129,7 +129,8 @@ pub struct AnimationGraph {
     pub mask_groups: HashMap<AnimationTargetId, AnimationMask>,
 }
 
-/// A [`Handle`] to the [`AnimationGraph`] to be used by the [`AnimationPlayer`](crate::AnimationPlayer) on the same entity.
+/// A [`Handle`] to the [`AnimationGraph`] to be used by the
+/// [`AnimationPlayer`](crate::AnimationPlayer) on the same entity.
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Clone)]
 pub struct AnimationGraphHandle(pub Handle<AnimationGraph>);

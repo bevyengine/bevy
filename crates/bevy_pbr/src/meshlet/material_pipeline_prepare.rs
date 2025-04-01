@@ -23,12 +23,13 @@ use bevy_render::{
 };
 use core::hash::Hash;
 
-/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletMainOpaquePass3dNode`].
+/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in
+/// [`super::MeshletMainOpaquePass3dNode`].
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsMainOpaquePass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
-/// Prepare [`Material`] pipelines for [`super::MeshletMesh`] entities for use in [`super::MeshletMainOpaquePass3dNode`],
-/// and register the material with [`InstanceManager`].
+/// Prepare [`Material`] pipelines for [`super::MeshletMesh`] entities for use in
+/// [`super::MeshletMainOpaquePass3dNode`], and register the material with [`InstanceManager`].
 pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     resource_manager: ResMut<ResourceManager>,
     mut instance_manager: ResMut<InstanceManager>,
@@ -237,18 +238,21 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     }
 }
 
-/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletPrepassNode`].
+/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in
+/// [`super::MeshletPrepassNode`].
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsPrepass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
-/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletDeferredGBufferPrepassNode`].
+/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in
+/// [`super::MeshletDeferredGBufferPrepassNode`].
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsDeferredGBufferPrepass(
     pub Vec<(u32, CachedRenderPipelineId, BindGroup)>,
 );
 
-/// Prepare [`Material`] pipelines for [`super::MeshletMesh`] entities for use in [`super::MeshletPrepassNode`],
-/// and [`super::MeshletDeferredGBufferPrepassNode`] and register the material with [`InstanceManager`].
+/// Prepare [`Material`] pipelines for [`super::MeshletMesh`] entities for use in
+/// [`super::MeshletPrepassNode`], and [`super::MeshletDeferredGBufferPrepassNode`] and register the
+/// material with [`InstanceManager`].
 pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     resource_manager: ResMut<ResourceManager>,
     mut instance_manager: ResMut<InstanceManager>,
@@ -416,7 +420,8 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     }
 }
 
-// Meshlet materials don't use a traditional vertex buffer, but the material specialization requires one.
+// Meshlet materials don't use a traditional vertex buffer, but the material specialization requires
+// one.
 fn fake_vertex_buffer_layout(layouts: &mut MeshVertexBufferLayouts) -> MeshVertexBufferLayoutRef {
     layouts.insert(MeshVertexBufferLayout::new(
         vec![

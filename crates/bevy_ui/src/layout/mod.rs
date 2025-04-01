@@ -68,7 +68,8 @@ pub enum LayoutError {
     TaffyError(taffy::TaffyError),
 }
 
-/// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
+/// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and
+/// transforms of all the UI nodes.
 pub fn ui_layout_system(
     mut commands: Commands,
     mut ui_surface: ResMut<UiSurface>,
@@ -96,7 +97,8 @@ pub fn ui_layout_system(
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
-    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    // When a `ContentSize` component is removed from an entity, we need to remove the measure from
+    // the corresponding taffy node.
     for entity in removed_content_sizes.read() {
         ui_surface.try_remove_node_context(entity);
     }
@@ -130,8 +132,9 @@ pub fn ui_layout_system(
         .for_each(|(entity, maybe_child_of)| {
             if let Some(child_of) = maybe_child_of {
                 // Note: This does not cover the case where a parent's Node component was removed.
-                // Users are responsible for fixing hierarchies if they do that (it is not recommended).
-                // Detecting it here would be a permanent perf burden on the hot path.
+                // Users are responsible for fixing hierarchies if they do that (it is not
+                // recommended). Detecting it here would be a permanent perf burden
+                // on the hot path.
                 if child_of.is_changed() && !ui_children.is_ui_node(child_of.parent) {
                     warn!(
                         "Node ({entity}) is in a non-UI entity hierarchy. You are using an entity \
@@ -145,14 +148,16 @@ with UI components as a child of an entity without UI components, your UI layout
             }
         });
 
-    // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
+    // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key
+    // used)
     ui_surface.remove_entities(
         removed_nodes
             .read()
             .filter(|entity| !node_query.contains(*entity)),
     );
 
-    // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
+    // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as
+    // a child of another node
     computed_node_query.iter().for_each(|(entity, _)| {
         if ui_children.is_changed(entity) {
             ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
@@ -403,7 +408,8 @@ mod tests {
         let mut ui_schedule = Schedule::default();
         ui_schedule.add_systems(
             (
-                // UI is driven by calculated camera target info, so we need to run the camera system first
+                // UI is driven by calculated camera target info, so we need to run the camera
+                // system first
                 bevy_render::camera::camera_system,
                 update_ui_context_system,
                 ApplyDeferred,
@@ -487,7 +493,8 @@ mod tests {
 
         let ui_entity = world.spawn(Node::default()).id();
 
-        // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to `ui_entity`
+        // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to
+        // `ui_entity`
         ui_schedule.run(&mut world);
 
         // retrieve the ui node corresponding to `ui_entity` from ui surface
@@ -512,7 +519,8 @@ mod tests {
 
         let ui_parent_entity = world.spawn(Node::default()).id();
 
-        // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to `ui_entity`
+        // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to
+        // `ui_entity`
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();
@@ -548,7 +556,8 @@ mod tests {
                 .map(|child_entity| (*child_entity, ui_surface.entity_to_taffy[child_entity])),
         );
 
-        // the children should have a corresponding ui node and that ui node's parent should be `ui_parent_node`
+        // the children should have a corresponding ui node and that ui node's parent should be
+        // `ui_parent_node`
         for node in child_node_map.values() {
             assert_eq!(ui_surface.taffy.parent(node.id), Some(ui_parent_node.id));
         }
@@ -834,7 +843,8 @@ mod tests {
 
         let pos_inc = Vec2::splat(1.);
         let total_cameras = world.query::<&Camera>().iter(&world).len();
-        // add total cameras - 1 (the assumed default) to get an idea for how many nodes we should expect
+        // add total cameras - 1 (the assumed default) to get an idea for how many nodes we should
+        // expect
         let expected_max_taffy_node_count = get_taffy_node_count(&world) + total_cameras - 1;
 
         world.run_system_once(update_camera_viewports).unwrap();
@@ -928,7 +938,8 @@ mod tests {
         // a node without a content size should not have taffy context
         assert!(ui_surface.taffy.get_node_context(ui_node.id).is_none());
 
-        // Without a content size, the node has no width or height constraints so the length of both dimensions is 0.
+        // Without a content size, the node has no width or height constraints so the length of both
+        // dimensions is 0.
         let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
         assert_eq!(layout.size.width, 0.);
         assert_eq!(layout.size.height, 0.);
@@ -1013,7 +1024,8 @@ mod tests {
         let mut ui_schedule = Schedule::default();
         ui_schedule.add_systems(
             (
-                // UI is driven by calculated camera target info, so we need to run the camera system first
+                // UI is driven by calculated camera target info, so we need to run the camera
+                // system first
                 bevy_render::camera::camera_system,
                 update_ui_context_system,
                 ApplyDeferred,
@@ -1124,8 +1136,9 @@ mod tests {
 
         ui_schedule.run(&mut world);
 
-        // There are two UI root entities. Each root taffy node is given it's own viewport node parent,
-        // so a total of four taffy nodes are added to the `TaffyTree` by the UI schedule.
+        // There are two UI root entities. Each root taffy node is given it's own viewport node
+        // parent, so a total of four taffy nodes are added to the `TaffyTree` by the UI
+        // schedule.
         assert_eq!(
             world.resource_mut::<UiSurface>().taffy.total_node_count(),
             4

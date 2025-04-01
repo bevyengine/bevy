@@ -32,9 +32,13 @@ fn setup_camera_fog(mut commands: Commands) {
             directional_light_color: Color::srgba(1.0, 0.95, 0.85, 0.5),
             directional_light_exponent: 30.0,
             falloff: FogFalloff::from_visibility_colors(
-                15.0, // distance in world units up to which objects retain visibility (>= 5% contrast)
-                Color::srgb(0.35, 0.5, 0.66), // atmospheric extinction color (after light is lost due to absorption by atmospheric particles)
-                Color::srgb(0.8, 0.844, 1.0), // atmospheric inscattering color (light gained due to scattering from the sun)
+                15.0, /* distance in world units up to which objects retain visibility (>= 5%
+                       * contrast) */
+                Color::srgb(0.35, 0.5, 0.66), /* atmospheric extinction color (after light is
+                                               * lost due to absorption by atmospheric
+                                               * particles) */
+                Color::srgb(0.8, 0.844, 1.0), /* atmospheric inscattering color (light gained
+                                               * due to scattering from the sun) */
             ),
         },
     ));
@@ -46,7 +50,8 @@ fn setup_terrain_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
+    // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh
+    // units are in km)
     let cascade_shadow_config = CascadeShadowConfigBuilder {
         first_cascade_far_bound: 0.3,
         maximum_distance: 3.0,

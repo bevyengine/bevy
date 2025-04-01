@@ -176,11 +176,12 @@ where
             input,
             // SAFETY: The world accesses for both underlying systems have been registered,
             // so the caller will guarantee that no other systems will conflict with `a` or `b`.
-            // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
-            // Since these closures are `!Send + !Sync + !'static`, they can never be called
-            // in parallel, so their world accesses will not conflict with each other.
-            // Additionally, `update_archetype_component_access` has been called,
-            // which forwards to the implementations for `self.a` and `self.b`.
+            // If either system has `is_exclusive()`, then the combined system also has
+            // `is_exclusive`. Since these closures are `!Send + !Sync + !'static`,
+            // they can never be called in parallel, so their world accesses will not
+            // conflict with each other. Additionally,
+            // `update_archetype_component_access` has been called, which forwards to
+            // the implementations for `self.a` and `self.b`.
             |input| unsafe { self.a.run_unsafe(input, world) },
             // SAFETY: See the comment above.
             |input| unsafe { self.b.run_unsafe(input, world) },
@@ -246,7 +247,8 @@ where
     }
 }
 
-/// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
+/// SAFETY: Both systems are read-only, so any system created by combining them will only read from
+/// the world.
 unsafe impl<Func, A, B> ReadOnlySystem for CombinatorSystem<Func, A, B>
 where
     Func: Combine<A, B> + 'static,
@@ -302,10 +304,11 @@ where
 
 /// A [`System`] created by piping the output of the first system into the input of the second.
 ///
-/// This can be repeated indefinitely, but system pipes cannot branch: the output is consumed by the receiving system.
+/// This can be repeated indefinitely, but system pipes cannot branch: the output is consumed by the
+/// receiving system.
 ///
-/// Given two systems `A` and `B`, A may be piped into `B` as `A.pipe(B)` if the output type of `A` is
-/// equal to the input type of `B`.
+/// Given two systems `A` and `B`, A may be piped into `B` as `A.pipe(B)` if the output type of `A`
+/// is equal to the input type of `B`.
 ///
 /// Note that for [`FunctionSystem`](crate::system::FunctionSystem)s the output is the return value
 /// of the function and the input is the first [`SystemParam`](crate::system::SystemParam) if it is
@@ -469,7 +472,8 @@ where
     }
 }
 
-/// SAFETY: Both systems are read-only, so any system created by piping them will only read from the world.
+/// SAFETY: Both systems are read-only, so any system created by piping them will only read from the
+/// world.
 unsafe impl<A, B> ReadOnlySystem for PipeSystem<A, B>
 where
     A: ReadOnlySystem,

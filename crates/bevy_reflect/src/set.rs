@@ -20,12 +20,12 @@ use crate::{
 ///
 /// # Hashing and equality
 ///
-/// All values are expected to return a valid hash value from [`PartialReflect::reflect_hash`] and be
-/// comparable using [`PartialReflect::reflect_partial_eq`].
+/// All values are expected to return a valid hash value from [`PartialReflect::reflect_hash`] and
+/// be comparable using [`PartialReflect::reflect_partial_eq`].
 /// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding
 /// `#[reflect(Hash, PartialEq)]` to the entire struct or enum.
-/// The ordering is expected to be total, that is as if the reflected type implements the [`Eq`] trait.
-/// This is true even for manual implementors who do not hash or compare values,
+/// The ordering is expected to be total, that is as if the reflected type implements the [`Eq`]
+/// trait. This is true even for manual implementors who do not hash or compare values,
 /// as it is still relied on by [`DynamicSet`].
 ///
 /// # Example
@@ -393,8 +393,8 @@ impl<'a> IntoIterator for &'a DynamicSet {
 /// Returns true if and only if all of the following are true:
 /// - `b` is a set;
 /// - `b` is the same length as `a`;
-/// - For each value pair in `a`, `b` contains the value too,
-///   and [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two values.
+/// - For each value pair in `a`, `b` contains the value too, and
+///   [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]

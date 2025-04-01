@@ -35,7 +35,8 @@ use crate::{
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(InheritedVisibility, ViewVisibility)]
 pub enum Visibility {
-    /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`ChildOf`] target.
+    /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`ChildOf`]
+    /// target.
     ///
     /// A root-level entity that is set to `Inherited` will be visible.
     #[default]
@@ -152,13 +153,16 @@ impl InheritedVisibility {
 #[reflect(Component, Default, Clone)]
 pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 
-/// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
+/// Algorithmically-computed indication of whether an entity is visible and should be extracted for
+/// rendering.
 ///
-/// Each frame, this will be reset to `false` during [`VisibilityPropagate`] systems in [`PostUpdate`].
-/// Later in the frame, systems in [`CheckVisibility`] will mark any visible entities using [`ViewVisibility::set`].
-/// Because of this, values of this type will be marked as changed every frame, even when they do not change.
+/// Each frame, this will be reset to `false` during [`VisibilityPropagate`] systems in
+/// [`PostUpdate`]. Later in the frame, systems in [`CheckVisibility`] will mark any visible
+/// entities using [`ViewVisibility::set`]. Because of this, values of this type will be marked as
+/// changed every frame, even when they do not change.
 ///
-/// If you wish to add custom visibility system that sets this value, make sure you add it to the [`CheckVisibility`] set.
+/// If you wish to add custom visibility system that sets this value, make sure you add it to the
+/// [`CheckVisibility`] set.
 ///
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
@@ -180,8 +184,8 @@ impl ViewVisibility {
     /// Sets the visibility to `true`. This should not be considered reversible for a given frame,
     /// as this component tracks whether or not the entity visible in _any_ view.
     ///
-    /// This will be automatically reset to `false` every frame in [`VisibilityPropagate`] and then set
-    /// to the proper value in [`CheckVisibility`].
+    /// This will be automatically reset to `false` every frame in [`VisibilityPropagate`] and then
+    /// set to the proper value in [`CheckVisibility`].
     ///
     /// You should only manually set this if you are defining a custom visibility system,
     /// in which case the system should be placed in the [`CheckVisibility`] set.
@@ -200,8 +204,8 @@ impl ViewVisibility {
 ///
 /// It can be used for example:
 /// - when a [`Mesh`] is updated but its [`Aabb`] is not, which might happen with animations,
-/// - when using some light effects, like wanting a [`Mesh`] out of the [`Frustum`]
-///   to appear in the reflection of a [`Mesh`] within.
+/// - when using some light effects, like wanting a [`Mesh`] out of the [`Frustum`] to appear in the
+///   reflection of a [`Mesh`] within.
 #[derive(Debug, Component, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct NoFrustumCulling;
@@ -209,9 +213,10 @@ pub struct NoFrustumCulling;
 /// Collection of entities visible from the current view.
 ///
 /// This component contains all entities which are visible from the currently
-/// rendered view. The collection is updated automatically by the [`VisibilitySystems::CheckVisibility`]
-/// system set. Renderers can use the equivalent [`RenderVisibleEntities`] to optimize rendering of
-/// a particular view, to prevent drawing items not visible from that view.
+/// rendered view. The collection is updated automatically by the
+/// [`VisibilitySystems::CheckVisibility`] system set. Renderers can use the equivalent
+/// [`RenderVisibleEntities`] to optimize rendering of a particular view, to prevent drawing items
+/// not visible from that view.
 ///
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
@@ -307,10 +312,11 @@ impl RenderVisibleEntities {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
-    /// Label for the [`calculate_bounds`], `calculate_bounds_2d` and `calculate_bounds_text2d` systems,
-    /// calculating and inserting an [`Aabb`] to relevant entities.
+    /// Label for the [`calculate_bounds`], `calculate_bounds_2d` and `calculate_bounds_text2d`
+    /// systems, calculating and inserting an [`Aabb`] to relevant entities.
     CalculateBounds,
-    /// Label for [`update_frusta`] in [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
+    /// Label for [`update_frusta`] in
+    /// [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
     UpdateFrusta,
     /// Label for the system propagating the [`InheritedVisibility`] in a
     /// [`ChildOf`] / [`Children`] hierarchy.

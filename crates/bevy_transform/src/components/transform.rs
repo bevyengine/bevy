@@ -172,10 +172,12 @@ impl Transform {
     /// Returns this [`Transform`] with a new rotation so that [`Transform::forward`]
     /// points towards the `target` position and [`Transform::up`] points towards `up`.
     ///
-    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in
+    /// those cases:
     /// * if `target` is the same as the transform translation, `Vec3::Z` is used instead
     /// * if `up` fails converting to `Dir3` (e.g if it is `Vec3::ZERO`), `Dir3::Y` is used instead
-    /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as the "right" direction
+    /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as
+    ///   the "right" direction
     #[inline]
     #[must_use]
     pub fn looking_at(mut self, target: Vec3, up: impl TryInto<Dir3>) -> Self {
@@ -186,10 +188,13 @@ impl Transform {
     /// Returns this [`Transform`] with a new rotation so that [`Transform::forward`]
     /// points in the given `direction` and [`Transform::up`] points towards `up`.
     ///
-    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
-    /// * if `direction` fails converting to `Dir3` (e.g if it is `Vec3::ZERO`), `Dir3::Z` is used instead
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in
+    /// those cases:
+    /// * if `direction` fails converting to `Dir3` (e.g if it is `Vec3::ZERO`), `Dir3::Z` is used
+    ///   instead
     /// * if `up` fails converting to `Dir3`, `Dir3::Y` is used instead
-    /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right" direction
+    /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right"
+    ///   direction
     #[inline]
     #[must_use]
     pub fn looking_to(mut self, direction: impl TryInto<Dir3>, up: impl TryInto<Dir3>) -> Self {
@@ -197,19 +202,21 @@ impl Transform {
         self
     }
 
-    /// Rotates this [`Transform`] so that the `main_axis` vector, reinterpreted in local coordinates, points
-    /// in the given `main_direction`, while `secondary_axis` points towards `secondary_direction`.
-    /// For example, if a spaceship model has its nose pointing in the X-direction in its own local coordinates
-    /// and its dorsal fin pointing in the Y-direction, then `align(Dir3::X, v, Dir3::Y, w)` will make the spaceship's
-    /// nose point in the direction of `v`, while the dorsal fin does its best to point in the direction `w`.
+    /// Rotates this [`Transform`] so that the `main_axis` vector, reinterpreted in local
+    /// coordinates, points in the given `main_direction`, while `secondary_axis` points towards
+    /// `secondary_direction`. For example, if a spaceship model has its nose pointing in the
+    /// X-direction in its own local coordinates and its dorsal fin pointing in the Y-direction,
+    /// then `align(Dir3::X, v, Dir3::Y, w)` will make the spaceship's nose point in the
+    /// direction of `v`, while the dorsal fin does its best to point in the direction `w`.
     ///
     ///
     /// In some cases a rotation cannot be constructed. Another axis will be picked in those cases:
-    /// * if `main_axis` or `main_direction` fail converting to `Dir3` (e.g are zero), `Dir3::X` takes their place
+    /// * if `main_axis` or `main_direction` fail converting to `Dir3` (e.g are zero), `Dir3::X`
+    ///   takes their place
     /// * if `secondary_axis` or `secondary_direction` fail converting, `Dir3::Y` takes their place
-    /// * if `main_axis` is parallel with `secondary_axis` or `main_direction` is parallel with `secondary_direction`,
-    ///   a rotation is constructed which takes `main_axis` to `main_direction` along a great circle, ignoring the secondary
-    ///   counterparts
+    /// * if `main_axis` is parallel with `secondary_axis` or `main_direction` is parallel with
+    ///   `secondary_direction`, a rotation is constructed which takes `main_axis` to
+    ///   `main_direction` along a great circle, ignoring the secondary counterparts
     ///
     /// See [`Transform::align`] for additional details.
     #[inline]
@@ -327,7 +334,8 @@ impl Transform {
 
     /// Rotates this [`Transform`] by the given rotation.
     ///
-    /// If this [`Transform`] has a parent, the `rotation` is relative to the rotation of the parent.
+    /// If this [`Transform`] has a parent, the `rotation` is relative to the rotation of the
+    /// parent.
     ///
     /// # Examples
     ///
@@ -345,10 +353,11 @@ impl Transform {
     ///
     /// # Warning
     ///
-    /// If you pass in an `axis` based on the current rotation (e.g. obtained via [`Transform::local_x`]),
-    /// floating point errors can accumulate exponentially when applying rotations repeatedly this way. This will
-    /// result in a denormalized rotation. In this case, it is recommended to normalize the [`Transform::rotation`] after
-    /// each call to this method.
+    /// If you pass in an `axis` based on the current rotation (e.g. obtained via
+    /// [`Transform::local_x`]), floating point errors can accumulate exponentially when
+    /// applying rotations repeatedly this way. This will result in a denormalized rotation. In
+    /// this case, it is recommended to normalize the [`Transform::rotation`] after each call to
+    /// this method.
     #[inline]
     pub fn rotate_axis(&mut self, axis: Dir3, angle: f32) {
         #[cfg(debug_assertions)]
@@ -396,10 +405,11 @@ impl Transform {
     ///
     /// # Warning
     ///
-    /// If you pass in an `axis` based on the current rotation (e.g. obtained via [`Transform::local_x`]),
-    /// floating point errors can accumulate exponentially when applying rotations repeatedly this way. This will
-    /// result in a denormalized rotation. In this case, it is recommended to normalize the [`Transform::rotation`] after
-    /// each call to this method.
+    /// If you pass in an `axis` based on the current rotation (e.g. obtained via
+    /// [`Transform::local_x`]), floating point errors can accumulate exponentially when
+    /// applying rotations repeatedly this way. This will result in a denormalized rotation. In
+    /// this case, it is recommended to normalize the [`Transform::rotation`] after each call to
+    /// this method.
     #[inline]
     pub fn rotate_local_axis(&mut self, axis: Dir3, angle: f32) {
         #[cfg(debug_assertions)]
@@ -431,7 +441,8 @@ impl Transform {
 
     /// Translates this [`Transform`] around a `point` in space.
     ///
-    /// If this [`Transform`] has a parent, the `point` is relative to the [`Transform`] of the parent.
+    /// If this [`Transform`] has a parent, the `point` is relative to the [`Transform`] of the
+    /// parent.
     #[inline]
     pub fn translate_around(&mut self, point: Vec3, rotation: Quat) {
         self.translation = point + rotation * (self.translation - point);
@@ -439,20 +450,23 @@ impl Transform {
 
     /// Rotates this [`Transform`] around a `point` in space.
     ///
-    /// If this [`Transform`] has a parent, the `point` is relative to the [`Transform`] of the parent.
+    /// If this [`Transform`] has a parent, the `point` is relative to the [`Transform`] of the
+    /// parent.
     #[inline]
     pub fn rotate_around(&mut self, point: Vec3, rotation: Quat) {
         self.translate_around(point, rotation);
         self.rotate(rotation);
     }
 
-    /// Rotates this [`Transform`] so that [`Transform::forward`] points towards the `target` position,
-    /// and [`Transform::up`] points towards `up`.
+    /// Rotates this [`Transform`] so that [`Transform::forward`] points towards the `target`
+    /// position, and [`Transform::up`] points towards `up`.
     ///
-    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in
+    /// those cases:
     /// * if `target` is the same as the transform translation, `Vec3::Z` is used instead
     /// * if `up` fails converting to `Dir3` (e.g if it is `Vec3::ZERO`), `Dir3::Y` is used instead
-    /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as the "right" direction
+    /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as
+    ///   the "right" direction
     #[inline]
     pub fn look_at(&mut self, target: Vec3, up: impl TryInto<Dir3>) {
         self.look_to(target - self.translation, up);
@@ -461,10 +475,13 @@ impl Transform {
     /// Rotates this [`Transform`] so that [`Transform::forward`] points in the given `direction`
     /// and [`Transform::up`] points towards `up`.
     ///
-    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
-    /// * if `direction` fails converting to `Dir3` (e.g if it is `Vec3::ZERO`), `Dir3::NEG_Z` is used instead
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in
+    /// those cases:
+    /// * if `direction` fails converting to `Dir3` (e.g if it is `Vec3::ZERO`), `Dir3::NEG_Z` is
+    ///   used instead
     /// * if `up` fails converting to `Dir3`, `Dir3::Y` is used instead
-    /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right" direction
+    /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right"
+    ///   direction
     #[inline]
     pub fn look_to(&mut self, direction: impl TryInto<Dir3>, up: impl TryInto<Dir3>) {
         let back = -direction.try_into().unwrap_or(Dir3::NEG_Z);
@@ -477,28 +494,33 @@ impl Transform {
         self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, back.into()));
     }
 
-    /// Rotates this [`Transform`] so that the `main_axis` vector, reinterpreted in local coordinates, points
-    /// in the given `main_direction`, while `secondary_axis` points towards `secondary_direction`.
+    /// Rotates this [`Transform`] so that the `main_axis` vector, reinterpreted in local
+    /// coordinates, points in the given `main_direction`, while `secondary_axis` points towards
+    /// `secondary_direction`.
     ///
-    /// For example, if a spaceship model has its nose pointing in the X-direction in its own local coordinates
-    /// and its dorsal fin pointing in the Y-direction, then `align(Dir3::X, v, Dir3::Y, w)` will make the spaceship's
-    /// nose point in the direction of `v`, while the dorsal fin does its best to point in the direction `w`.
+    /// For example, if a spaceship model has its nose pointing in the X-direction in its own local
+    /// coordinates and its dorsal fin pointing in the Y-direction, then `align(Dir3::X, v,
+    /// Dir3::Y, w)` will make the spaceship's nose point in the direction of `v`, while the
+    /// dorsal fin does its best to point in the direction `w`.
     ///
     /// More precisely, the [`Transform::rotation`] produced will be such that:
     /// * applying it to `main_axis` results in `main_direction`
-    /// * applying it to `secondary_axis` produces a vector that lies in the half-plane generated by `main_direction` and
-    ///   `secondary_direction` (with positive contribution by `secondary_direction`)
+    /// * applying it to `secondary_axis` produces a vector that lies in the half-plane generated by
+    ///   `main_direction` and `secondary_direction` (with positive contribution by
+    ///   `secondary_direction`)
     ///
-    /// [`Transform::look_to`] is recovered, for instance, when `main_axis` is `Dir3::NEG_Z` (the [`Transform::forward`]
-    /// direction in the default orientation) and `secondary_axis` is `Dir3::Y` (the [`Transform::up`] direction in the default
-    /// orientation). (Failure cases may differ somewhat.)
+    /// [`Transform::look_to`] is recovered, for instance, when `main_axis` is `Dir3::NEG_Z` (the
+    /// [`Transform::forward`] direction in the default orientation) and `secondary_axis` is
+    /// `Dir3::Y` (the [`Transform::up`] direction in the default orientation). (Failure cases
+    /// may differ somewhat.)
     ///
     /// In some cases a rotation cannot be constructed. Another axis will be picked in those cases:
-    /// * if `main_axis` or `main_direction` fail converting to `Dir3` (e.g are zero), `Dir3::X` takes their place
+    /// * if `main_axis` or `main_direction` fail converting to `Dir3` (e.g are zero), `Dir3::X`
+    ///   takes their place
     /// * if `secondary_axis` or `secondary_direction` fail converting, `Dir3::Y` takes their place
-    /// * if `main_axis` is parallel with `secondary_axis` or `main_direction` is parallel with `secondary_direction`,
-    ///   a rotation is constructed which takes `main_axis` to `main_direction` along a great circle, ignoring the secondary
-    ///   counterparts
+    /// * if `main_axis` is parallel with `secondary_axis` or `main_direction` is parallel with
+    ///   `secondary_direction`, a rotation is constructed which takes `main_axis` to
+    ///   `main_direction` along a great circle, ignoring the secondary counterparts
     ///
     /// Example
     /// ```
@@ -536,9 +558,10 @@ impl Transform {
         // First, we start with a rotation that takes `main_axis` to `main_direction`.
         let first_rotation = Quat::from_rotation_arc(main_axis.into(), main_direction.into());
 
-        // Let's follow by rotating about the `main_direction` axis so that the image of `secondary_axis`
-        // is taken to something that lies in the plane of `main_direction` and `secondary_direction`. Since
-        // `main_direction` is fixed by this rotation, the first criterion is still satisfied.
+        // Let's follow by rotating about the `main_direction` axis so that the image of
+        // `secondary_axis` is taken to something that lies in the plane of `main_direction`
+        // and `secondary_direction`. Since `main_direction` is fixed by this rotation, the
+        // first criterion is still satisfied.
         let secondary_image = first_rotation * secondary_axis;
         let secondary_image_ortho = secondary_image
             .reject_from_normalized(main_direction.into())
@@ -547,7 +570,8 @@ impl Transform {
             .reject_from_normalized(main_direction.into())
             .try_normalize();
 
-        // If one of the two weak vectors was parallel to `main_direction`, then we just do the first part
+        // If one of the two weak vectors was parallel to `main_direction`, then we just do the
+        // first part
         self.rotation = match (secondary_image_ortho, secondary_direction_ortho) {
             (Some(secondary_img_ortho), Some(secondary_dir_ortho)) => {
                 let second_rotation =

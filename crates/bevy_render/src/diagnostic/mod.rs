@@ -22,25 +22,22 @@ use super::{RenderDevice, RenderQueue};
 /// Enables collecting render diagnostics, such as CPU/GPU elapsed time per render pass,
 /// as well as pipeline statistics (number of primitives, number of shader invocations, etc).
 ///
-/// To access the diagnostics, you can use the [`DiagnosticsStore`](bevy_diagnostic::DiagnosticsStore) resource,
-/// add [`LogDiagnosticsPlugin`](bevy_diagnostic::LogDiagnosticsPlugin), or use [Tracy](https://github.com/bevyengine/bevy/blob/main/docs/profiling.md#tracy-renderqueue).
+/// To access the diagnostics, you can use the
+/// [`DiagnosticsStore`](bevy_diagnostic::DiagnosticsStore) resource, add [`LogDiagnosticsPlugin`](bevy_diagnostic::LogDiagnosticsPlugin), or use [Tracy](https://github.com/bevyengine/bevy/blob/main/docs/profiling.md#tracy-renderqueue).
 ///
 /// To record diagnostics in your own passes:
-///  1. First, obtain the diagnostic recorder using [`RenderContext::diagnostic_recorder`](crate::renderer::RenderContext::diagnostic_recorder).
+///  1. First, obtain the diagnostic recorder using
+///     [`RenderContext::diagnostic_recorder`](crate::renderer::RenderContext::diagnostic_recorder).
 ///
 ///     It won't do anything unless [`RenderDiagnosticsPlugin`] is present,
 ///     so you're free to omit `#[cfg]` clauses.
 ///     ```ignore
 ///     let diagnostics = render_context.diagnostic_recorder();
 ///     ```
-///  2. Begin the span inside a command encoder, or a render/compute pass encoder.
-///     ```ignore
-///     let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
-///     ```
-///  3. End the span, providing the same encoder.
-///     ```ignore
-///     time_span.end(render_context.command_encoder());
-///     ```
+///  2. Begin the span inside a command encoder, or a render/compute pass encoder. ```ignore let
+///     time_span = diagnostics.time_span(render_context.command_encoder(), "shadows"); ```
+///  3. End the span, providing the same encoder. ```ignore
+///     time_span.end(render_context.command_encoder()); ```
 ///
 /// # Supported platforms
 /// Timestamp queries and pipeline statistics are currently supported only on Vulkan and DX12.

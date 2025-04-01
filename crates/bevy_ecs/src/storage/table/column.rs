@@ -8,9 +8,11 @@ use alloc::vec::Vec;
 use bevy_ptr::PtrMut;
 use core::panic::Location;
 
-/// Very similar to a normal [`Column`], but with the capacities and lengths cut out for performance reasons.
+/// Very similar to a normal [`Column`], but with the capacities and lengths cut out for performance
+/// reasons.
 ///
-/// This type is used by [`Table`], because all of the capacities and lengths of the [`Table`]'s columns must match.
+/// This type is used by [`Table`], because all of the capacities and lengths of the [`Table`]'s
+/// columns must match.
 ///
 /// Like many other low-level storage types, [`ThinColumn`] has a limited and highly unsafe
 /// interface. It's highly advised to use higher level types and their safe abstractions
@@ -26,7 +28,8 @@ impl ThinColumn {
     /// Create a new [`ThinColumn`] with the given `capacity`.
     pub fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
         Self {
-            // SAFETY: The components stored in this columns will match the information in `component_info`
+            // SAFETY: The components stored in this columns will match the information in
+            // `component_info`
             data: unsafe {
                 BlobArray::with_capacity(component_info.layout(), component_info.drop(), capacity)
             },
@@ -36,13 +39,15 @@ impl ThinColumn {
         }
     }
 
-    /// Swap-remove and drop the removed element, but the component at `row` must not be the last element.
+    /// Swap-remove and drop the removed element, but the component at `row` must not be the last
+    /// element.
     ///
     /// # Safety
     /// - `row.as_usize()` < `len`
     /// - `last_element_index` = `len - 1`
     /// - `last_element_index` != `row.as_usize()`
-    /// -   The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
+    /// - The caller should update the `len` to `len - 1`, or immediately initialize another element
+    ///   in the `last_element_index`
     pub(crate) unsafe fn swap_remove_and_drop_unchecked_nonoverlapping(
         &mut self,
         last_element_index: usize,
@@ -62,9 +67,10 @@ impl ThinColumn {
     /// Swap-remove and drop the removed element.
     ///
     /// # Safety
-    /// - `last_element_index` must be the index of the last element—stored in the highest place in memory.
+    /// - `last_element_index` must be the index of the last element—stored in the highest place in
+    ///   memory.
     /// - `row.as_usize()` <= `last_element_index`
-    /// -   The caller should update the their saved length to reflect the change (decrement it by 1).
+    /// - The caller should update the their saved length to reflect the change (decrement it by 1).
     pub(crate) unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
         last_element_index: usize,
@@ -84,9 +90,10 @@ impl ThinColumn {
     /// Swap-remove and forget the removed element.
     ///
     /// # Safety
-    /// - `last_element_index` must be the index of the last element—stored in the highest place in memory.
+    /// - `last_element_index` must be the index of the last element—stored in the highest place in
+    ///   memory.
     /// - `row.as_usize()` <= `last_element_index`
-    /// -   The caller should update the their saved length to reflect the change (decrement it by 1).
+    /// - The caller should update the their saved length to reflect the change (decrement it by 1).
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         last_element_index: usize,
@@ -104,11 +111,14 @@ impl ThinColumn {
             .map(|changed_by| changed_by.swap_remove_unchecked(row.as_usize(), last_element_index));
     }
 
-    /// Call [`realloc`](std::alloc::realloc) to expand / shrink the memory allocation for this [`ThinColumn`]
+    /// Call [`realloc`](std::alloc::realloc) to expand / shrink the memory allocation for this
+    /// [`ThinColumn`]
     ///
     /// # Safety
-    /// - `current_capacity` must be the current capacity of this column (the capacity of `self.data`, `self.added_ticks`, `self.changed_tick`)
-    /// -   The caller should make sure their saved `capacity` value is updated to `new_capacity` after this operation.
+    /// - `current_capacity` must be the current capacity of this column (the capacity of
+    ///   `self.data`, `self.added_ticks`, `self.changed_tick`)
+    /// - The caller should make sure their saved `capacity` value is updated to `new_capacity`
+    ///   after this operation.
     pub(crate) unsafe fn realloc(
         &mut self,
         current_capacity: NonZeroUsize,
@@ -123,7 +133,8 @@ impl ThinColumn {
     }
 
     /// Call [`alloc`](std::alloc::alloc) to allocate memory for this [`ThinColumn`]
-    /// The caller should make sure their saved `capacity` value is updated to `new_capacity` after this operation.
+    /// The caller should make sure their saved `capacity` value is updated to `new_capacity` after
+    /// this operation.
     pub(crate) fn alloc(&mut self, new_capacity: NonZeroUsize) {
         self.data.alloc(new_capacity);
         self.added_ticks.alloc(new_capacity);
@@ -160,7 +171,8 @@ impl ThinColumn {
             .assign(caller);
     }
 
-    /// Writes component data to the column at given row. Assumes the slot is initialized, drops the previous value.
+    /// Writes component data to the column at given row. Assumes the slot is initialized, drops the
+    /// previous value.
     ///
     /// # Safety
     /// - `row.as_usize()` must be in bounds.
@@ -255,7 +267,8 @@ impl ThinColumn {
     ///
     /// # Safety
     /// - `len` must match the actual length of the column
-    /// -   The caller must not use the elements this column's data until [`initializing`](Self::initialize) it again (set `len` to 0).
+    /// - The caller must not use the elements this column's data until
+    ///   [`initializing`](Self::initialize) it again (set `len` to 0).
     pub(crate) unsafe fn clear(&mut self, len: usize) {
         self.added_ticks.clear_elements(len);
         self.changed_ticks.clear_elements(len);
@@ -285,7 +298,8 @@ impl ThinColumn {
     ///
     /// # Safety
     /// - `last_element_index` is indeed the index of the last element
-    /// - the data stored in `last_element_index` will never be used unless properly initialized again.
+    /// - the data stored in `last_element_index` will never be used unless properly initialized
+    ///   again.
     pub(crate) unsafe fn drop_last_component(&mut self, last_element_index: usize) {
         core::ptr::drop_in_place(self.added_ticks.get_unchecked_raw(last_element_index));
         core::ptr::drop_in_place(self.changed_ticks.get_unchecked_raw(last_element_index));
@@ -339,7 +353,8 @@ impl ThinColumn {
 /// Conceptually, a [`Column`] is very similar to a type-erased `Vec<T>`.
 /// It also stores the change detection ticks for its components, kept in two separate
 /// contiguous buffers internally. An element shares its data across these buffers by using the
-/// same index (i.e. the entity at row 3 has it's data at index 3 and its change detection ticks at index 3).
+/// same index (i.e. the entity at row 3 has it's data at index 3 and its change detection ticks at
+/// index 3).
 ///
 /// Like many other low-level storage types, [`Column`] has a limited and highly unsafe
 /// interface. It's highly advised to use higher level types and their safe abstractions
@@ -607,8 +622,8 @@ impl Column {
         }
     }
 
-    /// Fetches the "added" change detection tick for the value at `row`. Unlike [`Column::get_added_tick`]
-    /// this function does not do any bounds checking.
+    /// Fetches the "added" change detection tick for the value at `row`. Unlike
+    /// [`Column::get_added_tick`] this function does not do any bounds checking.
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
@@ -618,8 +633,8 @@ impl Column {
         self.added_ticks.get_unchecked(row.as_usize())
     }
 
-    /// Fetches the "changed" change detection tick for the value at `row`. Unlike [`Column::get_changed_tick`]
-    /// this function does not do any bounds checking.
+    /// Fetches the "changed" change detection tick for the value at `row`. Unlike
+    /// [`Column::get_changed_tick`] this function does not do any bounds checking.
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.

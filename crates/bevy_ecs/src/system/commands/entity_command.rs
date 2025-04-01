@@ -203,8 +203,9 @@ pub fn retain<T: Bundle>() -> impl EntityCommand {
 ///
 /// # Note
 ///
-/// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget)
-/// that is configured to despawn descendants.
+/// This will also despawn the entities in any
+/// [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured to despawn
+/// descendants.
 ///
 /// For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
 #[track_caller]
@@ -229,7 +230,8 @@ pub fn observe<E: Event, B: Bundle, M>(
 
 /// An [`EntityCommand`] that sends a [`Trigger`](crate::observer::Trigger) targeting an entity.
 ///
-/// This will run any [`Observer`](crate::observer::Observer) of the given [`Event`] watching the entity.
+/// This will run any [`Observer`](crate::observer::Observer) of the given [`Event`] watching the
+/// entity.
 #[track_caller]
 pub fn trigger(event: impl Event) -> impl EntityCommand {
     let caller = MaybeLocation::caller();

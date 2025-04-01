@@ -90,12 +90,12 @@ pub struct Bloom {
     /// * 1.0 - maximum scattering angle is 90 degrees
     pub high_pass_frequency: f32,
 
-    /// Controls the threshold filter used for extracting the brightest regions from the input image
-    /// before blurring them and compositing back onto the original image.
+    /// Controls the threshold filter used for extracting the brightest regions from the input
+    /// image before blurring them and compositing back onto the original image.
     ///
     /// Changing these settings creates a physically inaccurate image and makes it easy to make
-    /// the final result look worse. However, they can be useful when emulating the 1990s-2000s game look.
-    /// See [`BloomPrefilter`] for more information.
+    /// the final result look worse. However, they can be useful when emulating the 1990s-2000s
+    /// game look. See [`BloomPrefilter`] for more information.
     pub prefilter: BloomPrefilter,
 
     /// Controls whether bloom textures
@@ -109,8 +109,8 @@ pub struct Bloom {
     /// otherwise set to [`BloomCompositeMode::EnergyConserving`].
     pub composite_mode: BloomCompositeMode,
 
-    /// Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
-    /// Only tweak if you are seeing visual artifacts.
+    /// Maximum size of each dimension for the largest mipchain texture used in
+    /// downscaling/upscaling. Only tweak if you are seeing visual artifacts.
     pub max_mip_dimension: u32,
 
     /// Amount to stretch the bloom on each axis. Artistic control, can be used to emulate
@@ -191,7 +191,8 @@ impl Default for Bloom {
 /// # Considerations
 /// * Changing these settings creates a physically inaccurate image
 /// * Changing these settings makes it easy to make the final result look worse
-/// * Non-default prefilter settings should be used in conjunction with [`BloomCompositeMode::Additive`]
+/// * Non-default prefilter settings should be used in conjunction with
+///   [`BloomCompositeMode::Additive`]
 #[derive(Default, Clone, Reflect)]
 #[reflect(Clone, Default)]
 pub struct BloomPrefilter {
@@ -200,7 +201,8 @@ pub struct BloomPrefilter {
     /// RGB values under the threshold curve will not contribute to the effect.
     pub threshold: f32,
 
-    /// Controls how much to blend between the thresholded and non-thresholded colors (default: 0.0).
+    /// Controls how much to blend between the thresholded and non-thresholded colors (default:
+    /// 0.0).
     ///
     /// 0.0 = Abrupt threshold, no blending
     /// 1.0 = Fully soft threshold

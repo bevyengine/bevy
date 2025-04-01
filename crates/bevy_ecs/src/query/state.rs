@@ -27,33 +27,35 @@ use super::{
 
 /// An ID for either a table or an archetype. Used for Query iteration.
 ///
-/// Query iteration is exclusively dense (over tables) or archetypal (over archetypes) based on whether
-/// the query filters are dense or not. This is represented by the [`QueryState::is_dense`] field.
+/// Query iteration is exclusively dense (over tables) or archetypal (over archetypes) based on
+/// whether the query filters are dense or not. This is represented by the [`QueryState::is_dense`]
+/// field.
 ///
 /// Note that `D::IS_DENSE` and `F::IS_DENSE` have no relationship with `QueryState::is_dense` and
 /// any combination of their values can happen.
 ///
-/// This is a union instead of an enum as the usage is determined at compile time, as all [`StorageId`]s for
-/// a [`QueryState`] will be all [`TableId`]s or all [`ArchetypeId`]s, and not a mixture of both. This
-/// removes the need for discriminator to minimize memory usage and branching during iteration, but requires
-/// a safety invariant be verified when disambiguating them.
+/// This is a union instead of an enum as the usage is determined at compile time, as all
+/// [`StorageId`]s for a [`QueryState`] will be all [`TableId`]s or all [`ArchetypeId`]s, and not a
+/// mixture of both. This removes the need for discriminator to minimize memory usage and branching
+/// during iteration, but requires a safety invariant be verified when disambiguating them.
 ///
 /// # Safety
-/// Must be initialized and accessed as a [`TableId`], if both generic parameters to the query are dense.
-/// Must be initialized and accessed as an [`ArchetypeId`] otherwise.
+/// Must be initialized and accessed as a [`TableId`], if both generic parameters to the query are
+/// dense. Must be initialized and accessed as an [`ArchetypeId`] otherwise.
 #[derive(Clone, Copy)]
 pub(super) union StorageId {
     pub(super) table_id: TableId,
     pub(super) archetype_id: ArchetypeId,
 }
 
-/// Provides scoped access to a [`World`] state according to a given [`QueryData`] and [`QueryFilter`].
+/// Provides scoped access to a [`World`] state according to a given [`QueryData`] and
+/// [`QueryFilter`].
 ///
 /// This data is cached between system runs, and is used to:
-/// - store metadata about which [`Table`] or [`Archetype`] are matched by the query. "Matched" means
-///   that the query will iterate over the data in the matched table/archetype.
-/// - cache the [`State`] needed to compute the [`Fetch`] struct used to retrieve data
-///   from a specific [`Table`] or [`Archetype`]
+/// - store metadata about which [`Table`] or [`Archetype`] are matched by the query. "Matched"
+///   means that the query will iterate over the data in the matched table/archetype.
+/// - cache the [`State`] needed to compute the [`Fetch`] struct used to retrieve data from a
+///   specific [`Table`] or [`Archetype`]
 /// - build iterators that can iterate over the query results
 ///
 /// [`State`]: crate::query::world_query::WorldQuery::State
@@ -70,8 +72,8 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) matched_tables: FixedBitSet,
     /// Metadata about the [`Archetype`]s matched by this query.
     pub(crate) matched_archetypes: FixedBitSet,
-    /// [`FilteredAccess`] computed by combining the `D` and `F` access. Used to check which other queries
-    /// this query can run in parallel with.
+    /// [`FilteredAccess`] computed by combining the `D` and `F` access. Used to check which other
+    /// queries this query can run in parallel with.
     /// Note that because we do a zero-cost reference conversion in `Query::as_readonly`,
     /// the access for a read-only query may include accesses for the original mutable version,
     /// but the `Query` does not have exclusive access to those components.
@@ -107,10 +109,12 @@ impl<D: QueryData, F: QueryFilter> FromWorld for QueryState<D, F> {
 }
 
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
-    /// Converts this `QueryState` reference to a `QueryState` that does not access anything mutably.
+    /// Converts this `QueryState` reference to a `QueryState` that does not access anything
+    /// mutably.
     pub fn as_readonly(&self) -> &QueryState<D::ReadOnly, F> {
         // SAFETY: invariant on `WorldQuery` trait upholds that `D::ReadOnly` and `F::ReadOnly`
-        // have a subset of the access, and match the exact same archetypes/tables as `D`/`F` respectively.
+        // have a subset of the access, and match the exact same archetypes/tables as `D`/`F`
+        // respectively.
         unsafe { self.as_transmuted_state::<D::ReadOnly, F>() }
     }
 
@@ -132,8 +136,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// # Safety
     ///
-    /// `NewD` must have a subset of the access that `D` does and match the exact same archetypes/tables
-    /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
+    /// `NewD` must have a subset of the access that `D` does and match the exact same
+    /// archetypes/tables `NewF` must have a subset of the access that `F` does and match the
+    /// exact same archetypes/tables
     pub(crate) unsafe fn as_transmuted_state<
         NewD: ReadOnlyQueryData<State = D::State>,
         NewF: QueryFilter<State = F::State>,
@@ -165,7 +170,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         state
     }
 
-    /// Creates a new [`QueryState`] from an immutable [`World`] reference and inherits the result of `world.id()`.
+    /// Creates a new [`QueryState`] from an immutable [`World`] reference and inherits the result
+    /// of `world.id()`.
     ///
     /// This function may fail if, for example,
     /// the components that make up this query have not been registered into the world.
@@ -182,8 +188,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) -> Self {
         let mut state = Self::new_uninitialized(world);
         for archetype in world.archetypes.iter() {
-            // SAFETY: The state was just initialized from the `world` above, and the archetypes being added
-            // come directly from the same world.
+            // SAFETY: The state was just initialized from the `world` above, and the archetypes
+            // being added come directly from the same world.
             unsafe {
                 if state.new_archetype_internal(archetype) {
                     state.update_archetype_component_access(archetype, access);
@@ -209,7 +215,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         state
     }
 
-    /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
+    /// Creates a new [`QueryState`] but does not populate it with the matched results from the
+    /// World yet
     ///
     /// `new_archetype` and its variants must be called on all of the World's archetypes before the
     /// state can return valid query results.
@@ -219,7 +226,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         Self::from_states_uninitialized(world, fetch_state, filter_state)
     }
 
-    /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
+    /// Creates a new [`QueryState`] but does not populate it with the matched results from the
+    /// World yet
     ///
     /// `new_archetype` and its variants must be called on all of the World's archetypes before the
     /// state can return valid query results.
@@ -233,7 +241,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         ))
     }
 
-    /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
+    /// Creates a new [`QueryState`] but does not populate it with the matched results from the
+    /// World yet
     ///
     /// `new_archetype` and its variants must be called on all of the World's archetypes before the
     /// state can return valid query results.
@@ -245,18 +254,20 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut component_access = FilteredAccess::default();
         D::update_component_access(&fetch_state, &mut component_access);
 
-        // Use a temporary empty FilteredAccess for filters. This prevents them from conflicting with the
-        // main Query's `fetch_state` access. Filters are allowed to conflict with the main query fetch
-        // because they are evaluated *before* a specific reference is constructed.
+        // Use a temporary empty FilteredAccess for filters. This prevents them from conflicting
+        // with the main Query's `fetch_state` access. Filters are allowed to conflict with
+        // the main query fetch because they are evaluated *before* a specific reference is
+        // constructed.
         let mut filter_component_access = FilteredAccess::default();
         F::update_component_access(&filter_state, &mut filter_component_access);
 
-        // Merge the temporary filter access with the main access. This ensures that filter access is
-        // properly considered in a global "cross-query" context (both within systems and across systems).
+        // Merge the temporary filter access with the main access. This ensures that filter access
+        // is properly considered in a global "cross-query" context (both within systems and
+        // across systems).
         component_access.extend(&filter_component_access);
 
-        // For queries without dynamic filters the dense-ness of the query is equal to the dense-ness
-        // of its static type parameters.
+        // For queries without dynamic filters the dense-ness of the query is equal to the
+        // dense-ness of its static type parameters.
         let mut is_dense = D::IS_DENSE && F::IS_DENSE;
 
         if let Some(default_filters) = world.get_resource::<DefaultQueryFilters>() {
@@ -283,7 +294,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
-    /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits its [`FilteredAccess`].
+    /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits its
+    /// [`FilteredAccess`].
     pub fn from_builder(builder: &mut QueryBuilder<D, F>) -> Self {
         let mut fetch_state = D::init_state(builder.world_mut());
         let filter_state = F::init_state(builder.world_mut());
@@ -331,18 +343,19 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
     ///
     /// This method is slightly more efficient than [`QueryState::query`] in some situations, since
-    /// it does not update this instance's internal cache. The resulting query may skip an entity that
-    /// belongs to an archetype that has not been cached.
+    /// it does not update this instance's internal cache. The resulting query may skip an entity
+    /// that belongs to an archetype that has not been cached.
     ///
-    /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this method.
-    /// The cache is also updated in [`QueryState::new`], [`QueryState::get`], or any method with mutable
-    /// access to `self`.
+    /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this
+    /// method. The cache is also updated in [`QueryState::new`], [`QueryState::get`], or any
+    /// method with mutable access to `self`.
     ///
     /// This will create read-only queries, see [`Self::query_mut`] for mutable queries.
     pub fn query_manual<'w, 's>(&'s self, world: &'w World) -> Query<'w, 's, D::ReadOnly, F> {
         self.validate_world(world.id());
         // SAFETY:
-        // - We have read access to the entire world, and we call `as_readonly()` so the query only performs read access.
+        // - We have read access to the entire world, and we call `as_readonly()` so the query only
+        //   performs read access.
         // - We called `validate_world`.
         unsafe {
             self.as_readonly()
@@ -375,13 +388,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
     ///
-    /// This method is slightly more efficient than [`QueryState::query_unchecked`] in some situations, since
-    /// it does not update this instance's internal cache. The resulting query may skip an entity that
-    /// belongs to an archetype that has not been cached.
+    /// This method is slightly more efficient than [`QueryState::query_unchecked`] in some
+    /// situations, since it does not update this instance's internal cache. The resulting query
+    /// may skip an entity that belongs to an archetype that has not been cached.
     ///
-    /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this method.
-    /// The cache is also updated in [`QueryState::new`], [`QueryState::get`], or any method with mutable
-    /// access to `self`.
+    /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this
+    /// method. The cache is also updated in [`QueryState::new`], [`QueryState::get`], or any
+    /// method with mutable access to `self`.
     ///
     /// # Safety
     ///
@@ -422,13 +435,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
     ///
-    /// This method is slightly more efficient than [`QueryState::query_unchecked_with_ticks`] in some situations, since
-    /// it does not update this instance's internal cache. The resulting query may skip an entity that
-    /// belongs to an archetype that has not been cached.
+    /// This method is slightly more efficient than [`QueryState::query_unchecked_with_ticks`] in
+    /// some situations, since it does not update this instance's internal cache. The resulting
+    /// query may skip an entity that belongs to an archetype that has not been cached.
     ///
-    /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this method.
-    /// The cache is also updated in [`QueryState::new`], [`QueryState::get`], or any method with mutable
-    /// access to `self`.
+    /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this
+    /// method. The cache is also updated in [`QueryState::new`], [`QueryState::get`], or any
+    /// method with mutable access to `self`.
     ///
     /// # Safety
     ///
@@ -448,12 +461,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         unsafe { Query::new(world, self, last_run, this_run) }
     }
 
-    /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
+    /// Checks if the query is empty for the given [`World`], where the last change and current tick
+    /// are given.
     ///
-    /// This is equivalent to `self.iter().next().is_none()`, and thus the worst case runtime will be `O(n)`
-    /// where `n` is the number of *potential* matches. This can be notably expensive for queries that rely
-    /// on non-archetypal filters such as [`Added`] or [`Changed`] which must individually check each query
-    /// result for a match.
+    /// This is equivalent to `self.iter().next().is_none()`, and thus the worst case runtime will
+    /// be `O(n)` where `n` is the number of *potential* matches. This can be notably expensive
+    /// for queries that rely on non-archetypal filters such as [`Added`] or [`Changed`] which
+    /// must individually check each query result for a match.
     ///
     /// # Panics
     ///
@@ -496,14 +510,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         .contains(entity)
     }
 
-    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before querying data,
-    /// the results may not accurately reflect what is in the `world`.
+    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called
+    /// before querying data, the results may not accurately reflect what is in the `world`.
     ///
-    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called, and it only needs to
-    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
-    /// non-`manual` methods such as [`QueryState::get`] do not need to call this as it will be automatically called for them.
+    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called,
+    /// and it only needs to be called if the `world` has been structurally mutated (i.e.
+    /// added/removed a component or resource). Users using non-`manual` methods such as
+    /// [`QueryState::get`] do not need to call this as it will be automatically called for them.
     ///
-    /// If you have an [`UnsafeWorldCell`] instead of `&World`, consider using [`QueryState::update_archetypes_unsafe_world_cell`].
+    /// If you have an [`UnsafeWorldCell`] instead of `&World`, consider using
+    /// [`QueryState::update_archetypes_unsafe_world_cell`].
     ///
     /// # Panics
     ///
@@ -513,12 +529,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.update_archetypes_unsafe_world_cell(world.as_unsafe_world_cell_readonly());
     }
 
-    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before querying data,
-    /// the results may not accurately reflect what is in the `world`.
+    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before
+    /// querying data, the results may not accurately reflect what is in the `world`.
     ///
-    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called, and it only needs to
-    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
-    /// non-`manual` methods such as [`QueryState::get`] do not need to call this as it will be automatically called for them.
+    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called,
+    /// and it only needs to be called if the `world` has been structurally mutated (i.e.
+    /// added/removed a component or resource). Users using non-`manual` methods such as
+    /// [`QueryState::get`] do not need to call this as it will be automatically called for them.
     ///
     /// # Note
     ///
@@ -546,8 +563,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             if self.archetype_generation == world.archetypes().generation() {
                 return;
             }
-            // if there are required components, we can optimize by only iterating through archetypes
-            // that contain at least one of the required components
+            // if there are required components, we can optimize by only iterating through
+            // archetypes that contain at least one of the required components
             let potential_archetypes = self
                 .component_access
                 .required
@@ -568,10 +585,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     if archetype_id < &self.archetype_generation.0 {
                         continue;
                     }
-                    // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
+                    // SAFETY: get_potential_archetypes only returns archetype ids that are valid
+                    // for the world
                     let archetype = &world.archetypes()[*archetype_id];
-                    // SAFETY: The validate_world call ensures that the world is the same the QueryState
-                    // was initialized from.
+                    // SAFETY: The validate_world call ensures that the world is the same the
+                    // QueryState was initialized from.
                     unsafe {
                         self.new_archetype_internal(archetype);
                     }
@@ -585,8 +603,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// If `world_id` does not match the [`World`] used to call `QueryState::new` for this instance.
     ///
-    /// Many unsafe query methods require the world to match for soundness. This function is the easiest
-    /// way of ensuring that it matches.
+    /// Many unsafe query methods require the world to match for soundness. This function is the
+    /// easiest way of ensuring that it matches.
     #[inline]
     #[track_caller]
     pub fn validate_world(&self, world_id: WorldId) {
@@ -605,9 +623,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Update the current [`QueryState`] with information from the provided [`Archetype`]
-    /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`QueryState`]).
+    /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current
+    /// [`QueryState`]).
     ///
-    /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
+    /// The passed in `access` will be updated with any new accesses introduced by the new
+    /// archetype.
     ///
     /// # Safety
     /// `archetype` must be from the `World` this state was initialized from.
@@ -616,16 +636,18 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
-        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from.
+        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized
+        // from.
         let matches = unsafe { self.new_archetype_internal(archetype) };
         if matches {
-            // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from.
+            // SAFETY: The caller ensures that `archetype` is from the World the state was
+            // initialized from.
             unsafe { self.update_archetype_component_access(archetype, access) };
         }
     }
 
-    /// Process the given [`Archetype`] to update internal metadata about the [`Table`](crate::storage::Table)s
-    /// and [`Archetype`]s that are matched by this query.
+    /// Process the given [`Archetype`] to update internal metadata about the
+    /// [`Table`](crate::storage::Table)s and [`Archetype`]s that are matched by this query.
     ///
     /// Returns `true` if the given `archetype` matches the query. Otherwise, returns `false`.
     /// If there is no match, then there is no need to update the query's [`FilteredAccess`].
@@ -674,9 +696,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         })
     }
 
-    /// For the given `archetype`, adds any component accessed used by this query's underlying [`FilteredAccess`] to `access`.
+    /// For the given `archetype`, adds any component accessed used by this query's underlying
+    /// [`FilteredAccess`] to `access`.
     ///
-    /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
+    /// The passed in `access` will be updated with any new accesses introduced by the new
+    /// archetype.
     ///
     /// # Safety
     /// `archetype` must be from the `World` this state was initialized from.
@@ -729,10 +753,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This can be useful for passing to another function that might take the more general form.
     /// See [`Query::transmute_lens`](crate::system::Query::transmute_lens) for more details.
     ///
-    /// You should not call [`update_archetypes`](Self::update_archetypes) on the returned [`QueryState`] as the result will be unpredictable.
-    /// You might end up with a mix of archetypes that only matched the original query + archetypes that only match
-    /// the new [`QueryState`]. Most of the safe methods on [`QueryState`] call [`QueryState::update_archetypes`] internally, so this
-    /// best used through a [`Query`]
+    /// You should not call [`update_archetypes`](Self::update_archetypes) on the returned
+    /// [`QueryState`] as the result will be unpredictable. You might end up with a mix of
+    /// archetypes that only matched the original query + archetypes that only match
+    /// the new [`QueryState`]. Most of the safe methods on [`QueryState`] call
+    /// [`QueryState::update_archetypes`] internally, so this best used through a [`Query`]
     pub fn transmute<'a, NewD: QueryData>(
         &self,
         world: impl Into<UnsafeWorldCell<'a>>,
@@ -740,8 +765,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.transmute_filtered::<NewD, ()>(world.into())
     }
 
-    /// Creates a new [`QueryState`] with the same underlying [`FilteredAccess`], matched tables and archetypes
-    /// as self but with a new type signature.
+    /// Creates a new [`QueryState`] with the same underlying [`FilteredAccess`], matched tables and
+    /// archetypes as self but with a new type signature.
     ///
     /// Panics if `NewD` or `NewF` require accesses that this query does not have.
     pub fn transmute_filtered<'a, NewD: QueryData, NewF: QueryFilter>(
@@ -814,9 +839,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// ## Performance
     ///
-    /// This will have similar performance as constructing a new `QueryState` since much of internal state
-    /// needs to be reconstructed. But it will be a little faster as it only needs to compare the intersection
-    /// of matching archetypes rather than iterating over all archetypes.
+    /// This will have similar performance as constructing a new `QueryState` since much of internal
+    /// state needs to be reconstructed. But it will be a little faster as it only needs to
+    /// compare the intersection of matching archetypes rather than iterating over all
+    /// archetypes.
     ///
     /// ## Panics
     ///
@@ -968,7 +994,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
     /// returned instead.
     ///
-    /// Note that the unlike [`QueryState::get_many_mut`], the entities passed in do not need to be unique.
+    /// Note that the unlike [`QueryState::get_many_mut`], the entities passed in do not need to be
+    /// unique.
     ///
     /// # Examples
     ///
@@ -1149,12 +1176,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Gets the query result for the given [`World`] and [`Entity`].
     ///
     /// This method is slightly more efficient than [`QueryState::get`] in some situations, since
-    /// it does not update this instance's internal cache. This method will return an error if `entity`
-    /// belongs to an archetype that has not been cached.
+    /// it does not update this instance's internal cache. This method will return an error if
+    /// `entity` belongs to an archetype that has not been cached.
     ///
-    /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this method.
-    /// The cache is also updated in [`QueryState::new`], `QueryState::get`, or any method with mutable
-    /// access to `self`.
+    /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this
+    /// method. The cache is also updated in [`QueryState::new`], `QueryState::get`, or any
+    /// method with mutable access to `self`.
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for mutable queries.
     ///
@@ -1195,18 +1222,19 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
     ///
-    /// This iterator is always guaranteed to return results from each matching entity once and only once.
-    /// Iteration order is not guaranteed.
+    /// This iterator is always guaranteed to return results from each matching entity once and only
+    /// once. Iteration order is not guaranteed.
     #[inline]
     pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, D, F> {
         self.query_mut(world).into_iter()
     }
 
-    /// Returns an [`Iterator`] over the query results for the given [`World`] without updating the query's archetypes.
-    /// Archetypes must be manually updated before by using [`Self::update_archetypes`].
+    /// Returns an [`Iterator`] over the query results for the given [`World`] without updating the
+    /// query's archetypes. Archetypes must be manually updated before by using
+    /// [`Self::update_archetypes`].
     ///
-    /// This iterator is always guaranteed to return results from each matching entity once and only once.
-    /// Iteration order is not guaranteed.
+    /// This iterator is always guaranteed to return results from each matching entity once and only
+    /// once. Iteration order is not guaranteed.
     ///
     /// This can only be called for read-only queries.
     #[inline]
@@ -1214,16 +1242,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.query_manual(world).into_iter()
     }
 
-    /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
-    /// This can only be called for read-only queries.
+    /// Returns an [`Iterator`] over all possible combinations of `K` query results without
+    /// repetition. This can only be called for read-only queries.
     ///
     /// A combination is an arrangement of a collection of items where order does not matter.
     ///
-    /// `K` is the number of items that make up each subset, and the number of items returned by the iterator.
-    /// `N` is the number of total entities output by query.
+    /// `K` is the number of items that make up each subset, and the number of items returned by the
+    /// iterator. `N` is the number of total entities output by query.
     ///
-    /// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats are
-    /// [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
+    /// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats
+    /// are [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
     /// And in this case, `N` would be defined as 4 since the size of the input list is 4.
     ///
     ///  For combinations of size `K` of query taking `N` inputs, you will get:
@@ -1233,8 +1261,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// The `iter_combinations` method does not guarantee order of iteration.
     ///
-    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
-    /// Iteration order is not guaranteed.
+    /// This iterator is always guaranteed to return results from each unique pair of matching
+    /// entities. Iteration order is not guaranteed.
     ///
     /// This can only be called for read-only queries, see [`Self::iter_combinations_mut`] for
     /// write-queries.
@@ -1246,15 +1274,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.query(world).iter_combinations_inner()
     }
 
-    /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
+    /// Returns an [`Iterator`] over all possible combinations of `K` query results without
+    /// repetition.
     ///
     /// A combination is an arrangement of a collection of items where order does not matter.
     ///
-    /// `K` is the number of items that make up each subset, and the number of items returned by the iterator.
-    /// `N` is the number of total entities output by query.
+    /// `K` is the number of items that make up each subset, and the number of items returned by the
+    /// iterator. `N` is the number of total entities output by query.
     ///
-    /// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats are
-    /// [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
+    /// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats
+    /// are [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
     /// And in this case, `N` would be defined as 4 since the size of the input list is 4.
     ///
     ///  For combinations of size `K` of query taking `N` inputs, you will get:
@@ -1324,7 +1353,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.query_mut(world).iter_many_inner(entities)
     }
 
-    /// Returns an [`Iterator`] over the unique read-only query items generated from an [`EntitySet`].
+    /// Returns an [`Iterator`] over the unique read-only query items generated from an
+    /// [`EntitySet`].
     ///
     /// Items are returned in the order of the list of entities.
     /// Entities that don't match the query are skipped.
@@ -1341,7 +1371,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.query(world).iter_many_unique_inner(entities)
     }
 
-    /// Returns an [`Iterator`] over the unique read-only query items generated from an [`EntitySet`].
+    /// Returns an [`Iterator`] over the unique read-only query items generated from an
+    /// [`EntitySet`].
     ///
     /// Items are returned in the order of the list of entities.
     /// Entities that don't match the query are skipped.
@@ -1379,8 +1410,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
     /// Returns an [`Iterator`] over the query results for the given [`World`].
     ///
-    /// This iterator is always guaranteed to return results from each matching entity once and only once.
-    /// Iteration order is not guaranteed.
+    /// This iterator is always guaranteed to return results from each matching entity once and only
+    /// once. Iteration order is not guaranteed.
     ///
     /// # Safety
     ///
@@ -1398,8 +1429,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// given [`World`] without repetition.
     /// This can only be called for read-only queries.
     ///
-    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
-    /// Iteration order is not guaranteed.
+    /// This iterator is always guaranteed to return results from each unique pair of matching
+    /// entities. Iteration order is not guaranteed.
     ///
     /// # Safety
     ///
@@ -1478,8 +1509,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.query_mut(world).par_iter_inner()
     }
 
-    /// Runs `func` on each query result in parallel for the given [`World`], where the last change and
-    /// the current change tick are given. This is faster than the equivalent
+    /// Runs `func` on each query result in parallel for the given [`World`], where the last change
+    /// and the current change tick are given. This is faster than the equivalent
     /// `iter()` method, but cannot be chained like a normal [`Iterator`].
     ///
     /// # Panics
@@ -1507,13 +1538,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
-        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual,
-        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
+        // NOTE: If you are changing query iteration code, remember to update the following places,
+        // where relevant: QueryIter, QueryIterationCursor, QueryManyIter,
+        // QueryCombinationIter,QueryState::par_fold_init_unchecked_manual,
+        // QueryState::par_many_fold_init_unchecked_manual,
+        // QueryState::par_many_unique_fold_init_unchecked_manual
         use arrayvec::ArrayVec;
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
-            // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
+            // SAFETY: We only access table data that has been registered in
+            // `self.archetype_component_access`.
             let tables = unsafe { &world.storages().tables };
             let archetypes = world.archetypes();
             let mut batch_queue = ArrayVec::new();
@@ -1623,9 +1657,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         INIT: Fn() -> T + Sync + Send + Clone,
         E: EntityEquivalent + Sync,
     {
-        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
-        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
+        // NOTE: If you are changing query iteration code, remember to update the following places,
+        // where relevant: QueryIter, QueryIterationCursor, QueryManyIter,
+        // QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
+        // QueryState::par_many_fold_init_unchecked_manual,
+        // QueryState::par_many_unique_fold_init_unchecked_manual
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             let chunks = entity_list.chunks_exact(batch_size);
@@ -1656,8 +1692,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
 impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
     /// Runs `func` on each read-only query result in parallel for the given [`Entity`] list,
-    /// where the last change and the current change tick are given. This is faster than the equivalent
-    /// `iter_many()` method, but cannot be chained like a normal [`Iterator`].
+    /// where the last change and the current change tick are given. This is faster than the
+    /// equivalent `iter_many()` method, but cannot be chained like a normal [`Iterator`].
     ///
     /// # Panics
     /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
@@ -1686,9 +1722,11 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
         INIT: Fn() -> T + Sync + Send + Clone,
         E: EntityEquivalent + Sync,
     {
-        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::par_fold_init_unchecked_manual
-        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
+        // NOTE: If you are changing query iteration code, remember to update the following places,
+        // where relevant: QueryIter, QueryIterationCursor, QueryManyIter,
+        // QueryCombinationIter, QueryState::par_fold_init_unchecked_manual
+        // QueryState::par_many_fold_init_unchecked_manual,
+        // QueryState::par_many_unique_fold_init_unchecked_manual
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             let chunks = entity_list.chunks_exact(batch_size);
@@ -1789,8 +1827,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This allows you to globally control how errors are handled in your application,
     /// by setting up a custom error handler.
     /// See the [`bevy_ecs::error`] module docs for more information!
-    /// Commonly, you might want to panic on an error during development, but log the error and continue
-    /// execution in production.
+    /// Commonly, you might want to panic on an error during development, but log the error and
+    /// continue execution in production.
     ///
     /// Simply unwrapping the [`Result`] also works, but should generally be reserved for tests.
     #[inline]
@@ -1954,7 +1992,8 @@ mod tests {
 
         let query_state = world.query_filtered::<(&A, &B), Without<C>>();
         let mut new_query_state = query_state.transmute::<&A>(&world);
-        // even though we change the query to not have Without<C>, we do not get the component with C.
+        // even though we change the query to not have Without<C>, we do not get the component with
+        // C.
         let a = new_query_state.single(&world).unwrap();
 
         assert_eq!(a.0, 0);

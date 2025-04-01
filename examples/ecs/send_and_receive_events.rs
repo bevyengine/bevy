@@ -1,21 +1,23 @@
-//! From time to time, you may find that you want to both send and receive an event of the same type in a single system.
+//! From time to time, you may find that you want to both send and receive an event of the same type
+//! in a single system.
 //!
 //! Of course, this results in an error: the borrows of [`EventWriter`] and [`EventReader`] overlap,
 //! if and only if the [`Event`] type is the same.
-//! One system parameter borrows the [`Events`] resource mutably, and another system parameter borrows the [`Events`] resource immutably.
-//! If Bevy allowed this, this would violate Rust's rules against aliased mutability.
-//! In other words, this would be Undefined Behavior (UB)!
+//! One system parameter borrows the [`Events`] resource mutably, and another system parameter
+//! borrows the [`Events`] resource immutably. If Bevy allowed this, this would violate Rust's rules
+//! against aliased mutability. In other words, this would be Undefined Behavior (UB)!
 //!
 //! There are two ways to solve this problem:
 //!
 //! 1. Use [`ParamSet`] to check out the [`EventWriter`] and [`EventReader`] one at a time.
-//! 2. Use a [`Local`] [`EventCursor`] instead of an [`EventReader`], and use [`ResMut`] to access [`Events`].
+//! 2. Use a [`Local`] [`EventCursor`] instead of an [`EventReader`], and use [`ResMut`] to access
+//!    [`Events`].
 //!
-//! In the first case, you're being careful to only check out only one of the [`EventWriter`] or [`EventReader`] at a time.
-//! By "temporally" separating them, you avoid the overlap.
+//! In the first case, you're being careful to only check out only one of the [`EventWriter`] or
+//! [`EventReader`] at a time. By "temporally" separating them, you avoid the overlap.
 //!
-//! In the second case, you only ever have one access to the underlying  [`Events`] resource at a time.
-//! But in exchange, you have to manually keep track of which events you've already read.
+//! In the second case, you only ever have one access to the underlying  [`Events`] resource at a
+//! time. But in exchange, you have to manually keep track of which events you've already read.
 //!
 //! Let's look at an example of each.
 
@@ -42,7 +44,8 @@ fn main() {
         );
     // We're just going to run a few frames, so we can see and understand the output.
     app.update();
-    // By running for longer than one frame, we can see that we're caching our cursor in the event queue properly.
+    // By running for longer than one frame, we can see that we're caching our cursor in the event
+    // queue properly.
     app.update();
 }
 
@@ -114,7 +117,8 @@ fn send_and_receive_param_set(
         frame_count.0
     );
 
-    // We must collect the events to resend, because we can't access the writer while we're iterating over the reader.
+    // We must collect the events to resend, because we can't access the writer while we're
+    // iterating over the reader.
     let mut events_to_resend = Vec::new();
 
     // This is p0, as the first parameter in the `ParamSet` is the reader.
@@ -134,9 +138,11 @@ fn send_and_receive_param_set(
 /// A system that both sends and receives events using a [`Local`] [`EventCursor`].
 fn send_and_receive_manual_event_reader(
     // The `Local` `SystemParam` stores state inside the system itself, rather than in the world.
-    // `EventCursor<T>` is the internal state of `EventReader<T>`, which tracks which events have been seen.
+    // `EventCursor<T>` is the internal state of `EventReader<T>`, which tracks which events have
+    // been seen.
     mut local_event_reader: Local<EventCursor<DebugEvent>>,
-    // We can access the `Events` resource mutably, allowing us to both read and write its contents.
+    // We can access the `Events` resource mutably, allowing us to both read and write its
+    // contents.
     mut events: ResMut<Events<DebugEvent>>,
     frame_count: Res<FrameCount>,
 ) {
@@ -145,7 +151,8 @@ fn send_and_receive_manual_event_reader(
         frame_count.0
     );
 
-    // We must collect the events to resend, because we can't mutate events while we're iterating over the events.
+    // We must collect the events to resend, because we can't mutate events while we're iterating
+    // over the events.
     let mut events_to_resend = Vec::new();
 
     for event in local_event_reader.read(&events) {

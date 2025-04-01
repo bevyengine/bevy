@@ -311,7 +311,8 @@ struct BloomTexture {
         feature = "webgpu"
     ))]
     texture: CachedTexture,
-    // WebGL does not support binding specific mip levels for sampling, fallback to separate textures instead
+    // WebGL does not support binding specific mip levels for sampling, fallback to separate
+    // textures instead
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     texture: Vec<CachedTexture>,
     mip_count: u32,
@@ -475,7 +476,8 @@ fn prepare_bloom_bind_groups(
 /// actual highest frequency level).
 ///
 /// Parameters:
-/// * `mip` - the index of the lower frequency pyramid level (0 - `max_mip`, where 0 indicates highest frequency mip but not the highest frequency image).
+/// * `mip` - the index of the lower frequency pyramid level (0 - `max_mip`, where 0 indicates
+///   highest frequency mip but not the highest frequency image).
 /// * `max_mip` - the index of the lowest frequency pyramid level.
 ///
 /// This function can be visually previewed for all values of *mip* (normalized) with tweakable

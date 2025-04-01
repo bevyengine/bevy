@@ -72,8 +72,8 @@ impl MeshBuilder for ConeMeshBuilder {
     fn build(&self) -> Mesh {
         let half_height = self.cone.height / 2.0;
 
-        // `resolution` vertices for the base, `resolution` vertices for the bottom of the lateral surface,
-        // and one vertex for the tip.
+        // `resolution` vertices for the base, `resolution` vertices for the bottom of the lateral
+        // surface, and one vertex for the tip.
         let num_vertices = self.resolution as usize * 2 + 1;
         let num_indices = self.resolution as usize * 6 - 6;
 
@@ -94,8 +94,9 @@ impl MeshBuilder for ConeMeshBuilder {
         // as that would make the entire triangle invalid and make the cone appear as black.
         normals.push([0.0, 0.0, 0.0]);
 
-        // The UVs of the cone are in polar coordinates, so it's like projecting a circle texture from above.
-        // The center of the texture is at the center of the lateral surface, at the tip of the cone.
+        // The UVs of the cone are in polar coordinates, so it's like projecting a circle texture
+        // from above. The center of the texture is at the center of the lateral surface, at
+        // the tip of the cone.
         uvs.push([0.5, 0.5]);
 
         // Now we build the lateral surface, the side of the cone.
@@ -131,7 +132,8 @@ impl MeshBuilder for ConeMeshBuilder {
             indices.extend_from_slice(&[0, j + 1, j]);
         }
 
-        // Close the surface with a triangle between the tip, first base vertex, and last base vertex.
+        // Close the surface with a triangle between the tip, first base vertex, and last base
+        // vertex.
         indices.extend_from_slice(&[0, 1, self.resolution]);
 
         // Now we build the actual base of the cone.

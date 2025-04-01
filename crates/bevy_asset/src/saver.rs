@@ -9,10 +9,12 @@ use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::{borrow::Borrow, hash::Hash, ops::Deref};
 use serde::{Deserialize, Serialize};
 
-/// Saves an [`Asset`] of a given [`AssetSaver::Asset`] type. [`AssetSaver::OutputLoader`] will then be used to load the saved asset
-/// in the final deployed application. The saver should produce asset bytes in a format that [`AssetSaver::OutputLoader`] can read.
+/// Saves an [`Asset`] of a given [`AssetSaver::Asset`] type. [`AssetSaver::OutputLoader`] will then
+/// be used to load the saved asset in the final deployed application. The saver should produce
+/// asset bytes in a format that [`AssetSaver::OutputLoader`] can read.
 ///
-/// This trait is generally used in concert with [`AssetWriter`](crate::io::AssetWriter) to write assets as bytes.
+/// This trait is generally used in concert with [`AssetWriter`](crate::io::AssetWriter) to write
+/// assets as bytes.
 ///
 /// For a complementary version of this trait that can load assets, see [`AssetLoader`].
 pub trait AssetSaver: Send + Sync + 'static {
@@ -25,8 +27,8 @@ pub trait AssetSaver: Send + Sync + 'static {
     /// The type of [error](`std::error::Error`) which could be encountered by this saver.
     type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
 
-    /// Saves the given runtime [`Asset`] by writing it to a byte format using `writer`. The passed in `settings` can influence how the
-    /// `asset` is saved.
+    /// Saves the given runtime [`Asset`] by writing it to a byte format using `writer`. The passed
+    /// in `settings` can influence how the `asset` is saved.
     fn save(
         &self,
         writer: &mut Writer,
@@ -37,10 +39,11 @@ pub trait AssetSaver: Send + Sync + 'static {
     >;
 }
 
-/// A type-erased dynamic variant of [`AssetSaver`] that allows callers to save assets without knowing the actual type of the [`AssetSaver`].
+/// A type-erased dynamic variant of [`AssetSaver`] that allows callers to save assets without
+/// knowing the actual type of the [`AssetSaver`].
 pub trait ErasedAssetSaver: Send + Sync + 'static {
-    /// Saves the given runtime [`ErasedLoadedAsset`] by writing it to a byte format using `writer`. The passed in `settings` can influence how the
-    /// `asset` is saved.
+    /// Saves the given runtime [`ErasedLoadedAsset`] by writing it to a byte format using `writer`.
+    /// The passed in `settings` can influence how the `asset` is saved.
     fn save<'a>(
         &'a self,
         writer: &'a mut Writer,
@@ -147,7 +150,8 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
         Some(labeled.handle.clone())
     }
 
-    /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is an asset of type `B`
+    /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is
+    /// an asset of type `B`
     pub fn get_handle<Q, B: Asset>(&self, label: &Q) -> Option<Handle<B>>
     where
         CowArc<'static, str>: Borrow<Q>,

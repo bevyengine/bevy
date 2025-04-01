@@ -16,8 +16,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-/// A generational runtime-only identifier for a specific [`Asset`] stored in [`Assets`]. This is optimized for efficient runtime
-/// usage and is not suitable for identifying assets across app runs.
+/// A generational runtime-only identifier for a specific [`Asset`] stored in [`Assets`]. This is
+/// optimized for efficient runtime usage and is not suitable for identifying assets across app
+/// runs.
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Reflect, Serialize, Deserialize,
 )]
@@ -27,15 +28,18 @@ pub struct AssetIndex {
 }
 
 impl AssetIndex {
-    /// Convert the [`AssetIndex`] into an opaque blob of bits to transport it in circumstances where carrying a strongly typed index isn't possible.
+    /// Convert the [`AssetIndex`] into an opaque blob of bits to transport it in circumstances
+    /// where carrying a strongly typed index isn't possible.
     ///
-    /// The result of this function should not be relied upon for anything except putting it back into [`AssetIndex::from_bits`] to recover the index.
+    /// The result of this function should not be relied upon for anything except putting it back
+    /// into [`AssetIndex::from_bits`] to recover the index.
     pub fn to_bits(self) -> u64 {
         let Self { generation, index } = self;
         ((generation as u64) << 32) | index as u64
     }
-    /// Convert an opaque `u64` acquired from [`AssetIndex::to_bits`] back into an [`AssetIndex`]. This should not be used with any inputs other than those
-    /// derived from [`AssetIndex::to_bits`], as there are no guarantees for what will happen with such inputs.
+    /// Convert an opaque `u64` acquired from [`AssetIndex::to_bits`] back into an [`AssetIndex`].
+    /// This should not be used with any inputs other than those derived from
+    /// [`AssetIndex::to_bits`], as there are no guarantees for what will happen with such inputs.
     pub fn from_bits(bits: u64) -> Self {
         let index = ((bits << 32) >> 32) as u32;
         let generation = (bits >> 32) as u32;
@@ -48,7 +52,8 @@ pub(crate) struct AssetIndexAllocator {
     /// A monotonically increasing index.
     next_index: AtomicU32,
     recycled_queue_sender: Sender<AssetIndex>,
-    /// This receives every recycled [`AssetIndex`]. It serves as a buffer/queue to store indices ready for reuse.
+    /// This receives every recycled [`AssetIndex`]. It serves as a buffer/queue to store indices
+    /// ready for reuse.
     recycled_queue_receiver: Receiver<AssetIndex>,
     recycled_sender: Sender<AssetIndex>,
     recycled_receiver: Receiver<AssetIndex>,
@@ -69,8 +74,9 @@ impl Default for AssetIndexAllocator {
 }
 
 impl AssetIndexAllocator {
-    /// Reserves a new [`AssetIndex`], either by reusing a recycled index (with an incremented generation), or by creating a new index
-    /// by incrementing the index counter for a given asset type `A`.
+    /// Reserves a new [`AssetIndex`], either by reusing a recycled index (with an incremented
+    /// generation), or by creating a new index by incrementing the index counter for a given
+    /// asset type `A`.
     pub fn reserve(&self) -> AssetIndex {
         if let Ok(mut recycled) = self.recycled_queue_receiver.try_recv() {
             recycled.generation += 1;
@@ -86,7 +92,8 @@ impl AssetIndexAllocator {
         }
     }
 
-    /// Queues the given `index` for reuse. This should only be done if the `index` is no longer being used.
+    /// Queues the given `index` for reuse. This should only be done if the `index` is no longer
+    /// being used.
     pub fn recycle(&self, index: AssetIndex) {
         self.recycled_queue_sender.send(index).unwrap();
     }
@@ -140,7 +147,8 @@ impl<A: Asset> DenseAssetStorage<A> {
         self.len == 0
     }
 
-    /// Insert the value at the given index. Returns true if a value already exists (and was replaced)
+    /// Insert the value at the given index. Returns true if a value already exists (and was
+    /// replaced)
     pub(crate) fn insert(
         &mut self,
         index: AssetIndex,
@@ -167,8 +175,8 @@ impl<A: Asset> DenseAssetStorage<A> {
         }
     }
 
-    /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
-    /// This will recycle the id and allow new entries to be inserted.
+    /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset
+    /// exists). This will recycle the id and allow new entries to be inserted.
     pub(crate) fn remove_dropped(&mut self, index: AssetIndex) -> Option<A> {
         self.remove_internal(index, |dense_storage| {
             dense_storage.storage[index.index as usize] = Entry::None;
@@ -176,9 +184,10 @@ impl<A: Asset> DenseAssetStorage<A> {
         })
     }
 
-    /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
-    /// This will _not_ recycle the id. New values with the current ID can still be inserted. The ID will
-    /// not be reused until [`DenseAssetStorage::remove_dropped`] is called.
+    /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset
+    /// exists). This will _not_ recycle the id. New values with the current ID can still be
+    /// inserted. The ID will not be reused until [`DenseAssetStorage::remove_dropped`] is
+    /// called.
     pub(crate) fn remove_still_alive(&mut self, index: AssetIndex) -> Option<A> {
         self.remove_internal(index, |_| {})
     }
@@ -276,15 +285,17 @@ impl<A: Asset> DenseAssetStorage<A> {
 
 /// Stores [`Asset`] values identified by their [`AssetId`].
 ///
-/// Assets identified by [`AssetId::Index`] will be stored in a "dense" vec-like storage. This is more efficient, but it means that
-/// the assets can only be identified at runtime. This is the default behavior.
+/// Assets identified by [`AssetId::Index`] will be stored in a "dense" vec-like storage. This is
+/// more efficient, but it means that the assets can only be identified at runtime. This is the
+/// default behavior.
 ///
-/// Assets identified by [`AssetId::Uuid`] will be stored in a hashmap. This is less efficient, but it means that the assets can be referenced
-/// at compile time.
+/// Assets identified by [`AssetId::Uuid`] will be stored in a hashmap. This is less efficient, but
+/// it means that the assets can be referenced at compile time.
 ///
 /// This tracks (and queues) [`AssetEvent`] events whenever changes to the collection occur.
-/// To check whether the asset used by a given component has changed (due to a change in the handle or the underlying asset)
-/// use the [`AssetChanged`](crate::asset_changed::AssetChanged) query filter.
+/// To check whether the asset used by a given component has changed (due to a change in the handle
+/// or the underlying asset) use the [`AssetChanged`](crate::asset_changed::AssetChanged) query
+/// filter.
 #[derive(Resource)]
 pub struct Assets<A: Asset> {
     dense_storage: DenseAssetStorage<A>,
@@ -312,8 +323,8 @@ impl<A: Asset> Default for Assets<A> {
 }
 
 impl<A: Asset> Assets<A> {
-    /// Retrieves an [`AssetHandleProvider`] capable of reserving new [`Handle`] values for assets that will be stored in this
-    /// collection.
+    /// Retrieves an [`AssetHandleProvider`] capable of reserving new [`Handle`] values for assets
+    /// that will be stored in this collection.
     pub fn get_handle_provider(&self) -> AssetHandleProvider {
         self.handle_provider.clone()
     }
@@ -323,7 +334,8 @@ impl<A: Asset> Assets<A> {
         self.handle_provider.reserve_handle().typed::<A>()
     }
 
-    /// Inserts the given `asset`, identified by the given `id`. If an asset already exists for `id`, it will be replaced.
+    /// Inserts the given `asset`, identified by the given `id`. If an asset already exists for
+    /// `id`, it will be replaced.
     pub fn insert(&mut self, id: impl Into<AssetId<A>>, asset: A) {
         match id.into() {
             AssetId::Index { index, .. } => {
@@ -335,7 +347,8 @@ impl<A: Asset> Assets<A> {
         }
     }
 
-    /// Retrieves an [`Asset`] stored for the given `id` if it exists. If it does not exist, it will be inserted using `insert_fn`.
+    /// Retrieves an [`Asset`] stored for the given `id` if it exists. If it does not exist, it will
+    /// be inserted using `insert_fn`.
     // PERF: Optimize this or remove it
     pub fn get_or_insert_with(
         &mut self,
@@ -415,7 +428,8 @@ impl<A: Asset> Assets<A> {
     }
 
     /// Retrieves a reference to the [`Asset`] with the given `id`, if it exists.
-    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes
+    /// [`Handle`] and [`AssetId`].
     #[inline]
     pub fn get(&self, id: impl Into<AssetId<A>>) -> Option<&A> {
         match id.into() {
@@ -425,7 +439,8 @@ impl<A: Asset> Assets<A> {
     }
 
     /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
-    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes
+    /// [`Handle`] and [`AssetId`].
     #[inline]
     pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
         let id: AssetId<A> = id.into();
@@ -440,7 +455,8 @@ impl<A: Asset> Assets<A> {
     }
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists.
-    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes
+    /// [`Handle`] and [`AssetId`].
     pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
         let result = self.remove_untracked(id);
@@ -450,8 +466,9 @@ impl<A: Asset> Assets<A> {
         result
     }
 
-    /// Removes (and returns) the [`Asset`] with the given `id`, if it exists. This skips emitting [`AssetEvent::Removed`].
-    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    /// Removes (and returns) the [`Asset`] with the given `id`, if it exists. This skips emitting
+    /// [`AssetEvent::Removed`]. Note that this supports anything that implements
+    /// `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
         self.duplicate_handles.remove(&id);
@@ -502,7 +519,8 @@ impl<A: Asset> Assets<A> {
             .chain(self.hash_map.keys().map(|uuid| AssetId::from(*uuid)))
     }
 
-    /// Returns an iterator over the [`AssetId`] and [`Asset`] ref of every asset in this collection.
+    /// Returns an iterator over the [`AssetId`] and [`Asset`] ref of every asset in this
+    /// collection.
     // PERF: this could be accelerated if we implement a skip list. Consider the cost/benefits
     pub fn iter(&self) -> impl Iterator<Item = (AssetId<A>, &A)> {
         self.dense_storage
@@ -529,7 +547,8 @@ impl<A: Asset> Assets<A> {
             )
     }
 
-    /// Returns an iterator over the [`AssetId`] and mutable [`Asset`] ref of every asset in this collection.
+    /// Returns an iterator over the [`AssetId`] and mutable [`Asset`] ref of every asset in this
+    /// collection.
     // PERF: this could be accelerated if we implement a skip list. Consider the cost/benefits
     pub fn iter_mut(&mut self) -> AssetsMutIterator<'_, A> {
         AssetsMutIterator {
@@ -539,8 +558,8 @@ impl<A: Asset> Assets<A> {
         }
     }
 
-    /// A system that synchronizes the state of assets in this collection with the [`AssetServer`]. This manages
-    /// [`Handle`] drop events.
+    /// A system that synchronizes the state of assets in this collection with the [`AssetServer`].
+    /// This manages [`Handle`] drop events.
     pub fn track_assets(mut assets: ResMut<Self>, asset_server: Res<AssetServer>) {
         let assets = &mut *assets;
         // note that we must hold this lock for the entire duration of this function to ensure
@@ -554,7 +573,8 @@ impl<A: Asset> Assets<A> {
             if drop_event.asset_server_managed {
                 let untyped_id = id.untyped();
 
-                // the process_handle_drop call checks whether new handles have been created since the drop event was fired, before removing the asset
+                // the process_handle_drop call checks whether new handles have been created since
+                // the drop event was fired, before removing the asset
                 if !infos.process_handle_drop(untyped_id) {
                     // a new handle has been created, or the asset doesn't exist
                     continue;

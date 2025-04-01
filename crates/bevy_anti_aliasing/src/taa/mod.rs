@@ -100,9 +100,11 @@ impl Plugin for TemporalAntiAliasPlugin {
 /// # Tradeoffs
 ///
 /// Pros:
-/// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels (specular aliasing)
+/// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels
+///   (specular aliasing)
 /// * Cost scales with screen/view resolution, unlike MSAA which scales with number of triangles
-/// * Greatly increases the quality of stochastic rendering techniques such as SSAO, certain shadow map sampling methods, etc
+/// * Greatly increases the quality of stochastic rendering techniques such as SSAO, certain shadow
+///   map sampling methods, etc
 ///
 /// Cons:
 /// * Chance of "ghosting" - ghostly trails left behind moving objects
@@ -120,7 +122,8 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// [Currently](https://github.com/bevyengine/bevy/issues/8423), TAA cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
-/// TAA also does not work well with alpha-blended meshes, as it requires depth writing to determine motion.
+/// TAA also does not work well with alpha-blended meshes, as it requires depth writing to determine
+/// motion.
 ///
 /// It is very important that correct motion vectors are written for everything on screen.
 /// Failure to do so will lead to ghosting artifacts. For instance, if particle effects
@@ -371,7 +374,8 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
             // TODO: needs better strategy for cleaning up
             entity_commands.remove::<(
                 TemporalAntiAliasing,
-                // components added in prepare systems (because `TemporalAntiAliasNode` does not query extracted components)
+                // components added in prepare systems (because `TemporalAntiAliasNode` does not
+                // query extracted components)
                 TemporalAntiAliasHistoryTextures,
                 TemporalAntiAliasPipelineId,
             )>();

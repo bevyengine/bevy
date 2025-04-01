@@ -4,17 +4,19 @@
 //! - The game will start in a `Menu` state, which we can return to with `Esc`
 //! - From there, we can enter the game - where our bevy symbol moves around and changes color
 //! - While in game, we can pause and unpause the game using `Space`
-//! - We can also toggle "Turbo Mode" with the `T` key - where the movement and color changes are all faster. This
-//!   is retained between pauses, but not if we exit to the main menu.
+//! - We can also toggle "Turbo Mode" with the `T` key - where the movement and color changes are
+//!   all faster. This is retained between pauses, but not if we exit to the main menu.
 //!
-//! In addition, we want to enable a "tutorial" mode, which will involve it's own state that is toggled in the main menu.
-//! This will display instructions about movement and turbo mode when in game and unpaused, and instructions on how to unpause when paused.
+//! In addition, we want to enable a "tutorial" mode, which will involve it's own state that is
+//! toggled in the main menu. This will display instructions about movement and turbo mode when in
+//! game and unpaused, and instructions on how to unpause when paused.
 //!
 //! To implement this, we will create 2 root-level states: [`AppState`] and [`TutorialState`].
-//! We will then create some computed states that derive from [`AppState`]: [`InGame`] and [`TurboMode`] are marker states implemented
-//! as Zero-Sized Structs (ZSTs), while [`IsPaused`] is an enum with 2 distinct states.
-//! And lastly, we'll add [`Tutorial`], a computed state deriving from [`TutorialState`], [`InGame`] and [`IsPaused`], with 2 distinct
-//! states to display the 2 tutorial texts.
+//! We will then create some computed states that derive from [`AppState`]: [`InGame`] and
+//! [`TurboMode`] are marker states implemented as Zero-Sized Structs (ZSTs), while [`IsPaused`] is
+//! an enum with 2 distinct states. And lastly, we'll add [`Tutorial`], a computed state deriving
+//! from [`TutorialState`], [`InGame`] and [`IsPaused`], with 2 distinct states to display the 2
+//! tutorial texts.
 
 use bevy::{dev_tools::states::*, prelude::*};
 
@@ -56,10 +58,12 @@ impl ComputedStates for InGame {
 
     // The compute function takes in the `SourceStates`
     fn compute(sources: AppState) -> Option<Self> {
-        // You might notice that InGame has no values - instead, in this case, the `State<InGame>` resource only exists
-        // if the `compute` function would return `Some` - so only when we are in game.
+        // You might notice that InGame has no values - instead, in this case, the `State<InGame>`
+        // resource only exists if the `compute` function would return `Some` - so only when
+        // we are in game.
         match sources {
-            // No matter what the value of `paused` or `turbo` is, we're still in the game rather than a menu
+            // No matter what the value of `paused` or `turbo` is, we're still in the game rather
+            // than a menu
             AppState::InGame { .. } => Some(Self),
             _ => None,
         }
@@ -68,8 +72,9 @@ impl ComputedStates for InGame {
 
 // Similarly, we want to have the TurboMode state - so we'll define that now.
 //
-// Having it separate from [`InGame`] and [`AppState`] like this allows us to check each of them separately, rather than
-// needing to compare against every version of the AppState that could involve them.
+// Having it separate from [`InGame`] and [`AppState`] like this allows us to check each of them
+// separately, rather than needing to compare against every version of the AppState that could
+// involve them.
 //
 // In addition, it allows us to still maintain a strict type representation - you can't Turbo
 // if you aren't in game, for example - while still having the
@@ -89,11 +94,11 @@ impl ComputedStates for TurboMode {
     }
 }
 
-// For the [`IsPaused`] state, we'll actually use an `enum` - because the difference between `Paused` and `NotPaused`
-// involve activating different systems.
+// For the [`IsPaused`] state, we'll actually use an `enum` - because the difference between
+// `Paused` and `NotPaused` involve activating different systems.
 //
-// To clarify the difference, `InGame` and `TurboMode` both activate systems if they exist, and there is
-// no variation within them. So we defined them as Zero-Sized Structs.
+// To clarify the difference, `InGame` and `TurboMode` both activate systems if they exist, and
+// there is no variation within them. So we defined them as Zero-Sized Structs.
 //
 // In contrast, pausing actually involve 3 distinct potential situations:
 // - it doesn't exist - this is when being paused is meaningless, like in the menu.
@@ -121,9 +126,10 @@ impl ComputedStates for IsPaused {
 
 // Lastly, we have our tutorial, which actually has a more complex derivation.
 //
-// Like `IsPaused`, the tutorial has a few fully distinct possible states, so we want to represent them
-// as an Enum. However - in this case they are all dependent on multiple states: the root [`TutorialState`],
-// and both [`InGame`] and [`IsPaused`] - which are in turn derived from [`AppState`].
+// Like `IsPaused`, the tutorial has a few fully distinct possible states, so we want to represent
+// them as an Enum. However - in this case they are all dependent on multiple states: the root
+// [`TutorialState`], and both [`InGame`] and [`IsPaused`] - which are in turn derived from
+// [`AppState`].
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum Tutorial {
     MovementInstructions,
@@ -170,7 +176,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_state::<AppState>()
         .init_state::<TutorialState>()
-        // After initializing the normal states, we'll use `.add_computed_state::<CS>()` to initialize our `ComputedStates`
+        // After initializing the normal states, we'll use `.add_computed_state::<CS>()` to
+        // initialize our `ComputedStates`
         .add_computed_state::<InGame>()
         .add_computed_state::<IsPaused>()
         .add_computed_state::<TurboMode>()
@@ -181,14 +188,14 @@ fn main() {
         .add_systems(OnEnter(AppState::Menu), setup_menu)
         .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
-        // We only want to run the [`setup_game`] function when we enter the [`AppState::InGame`] state, regardless
-        // of whether the game is paused or not.
+        // We only want to run the [`setup_game`] function when we enter the [`AppState::InGame`]
+        // state, regardless of whether the game is paused or not.
         .add_systems(OnEnter(InGame), setup_game)
-        // And we only want to run the [`clear_game`] function when we leave the [`AppState::InGame`] state, regardless
-        // of whether we're paused.
+        // And we only want to run the [`clear_game`] function when we leave the
+        // [`AppState::InGame`] state, regardless of whether we're paused.
         .enable_state_scoped_entities::<InGame>()
-        // We want the color change, toggle_pause and quit_to_menu systems to ignore the paused condition, so we can use the [`InGame`] derived
-        // state here as well.
+        // We want the color change, toggle_pause and quit_to_menu systems to ignore the paused
+        // condition, so we can use the [`InGame`] derived state here as well.
         .add_systems(
             Update,
             (toggle_pause, change_color, quit_to_menu).run_if(in_state(InGame)),
@@ -198,7 +205,8 @@ fn main() {
             Update,
             (toggle_turbo, movement).run_if(in_state(IsPaused::NotPaused)),
         )
-        // We can continue setting things up, following all the same patterns used above and in the `states` example.
+        // We can continue setting things up, following all the same patterns used above and in the
+        // `states` example.
         .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
         .enable_state_scoped_entities::<IsPaused>()
         .add_systems(OnEnter(TurboMode), setup_turbo_text)

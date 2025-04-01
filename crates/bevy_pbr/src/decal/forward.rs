@@ -55,17 +55,19 @@ impl Plugin for ForwardDecalPlugin {
     }
 }
 
-/// A decal that renders via a 1x1 transparent quad mesh, smoothly alpha-blending with the underlying
-/// geometry towards the edges.
+/// A decal that renders via a 1x1 transparent quad mesh, smoothly alpha-blending with the
+/// underlying geometry towards the edges.
 ///
 /// Because forward decals are meshes, you can use arbitrary materials to control their appearance.
 ///
 /// # Usage Notes
 ///
-/// * Spawn this component on an entity with a [`crate::MeshMaterial3d`] component holding a [`ForwardDecalMaterial`].
-/// * Any camera rendering a forward decal must have the [`bevy_core_pipeline::prepass::DepthPrepass`] component.
-/// * Looking at forward decals at a steep angle can cause distortion. This can be mitigated by padding your decal's
-///   texture with extra transparent pixels on the edges.
+/// * Spawn this component on an entity with a [`crate::MeshMaterial3d`] component holding a
+///   [`ForwardDecalMaterial`].
+/// * Any camera rendering a forward decal must have the
+///   [`bevy_core_pipeline::prepass::DepthPrepass`] component.
+/// * Looking at forward decals at a steep angle can cause distortion. This can be mitigated by
+///   padding your decal's texture with extra transparent pixels on the edges.
 #[derive(Component, Reflect)]
 #[require(Mesh3d(FORWARD_DECAL_MESH_HANDLE))]
 pub struct ForwardDecal;
@@ -87,7 +89,8 @@ pub type ForwardDecalMaterial<B: Material> = ExtendedMaterial<B, ForwardDecalMat
 /// the forward decal code behind an ifdef.
 #[derive(Asset, AsBindGroup, TypePath, Clone, Debug)]
 pub struct ForwardDecalMaterialExt {
-    /// Controls how far away a surface must be before the decal will stop blending with it, and instead render as opaque.
+    /// Controls how far away a surface must be before the decal will stop blending with it, and
+    /// instead render as opaque.
     ///
     /// Decreasing this value will cause the decal to blend only to surfaces closer to it.
     ///

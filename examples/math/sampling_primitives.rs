@@ -656,7 +656,8 @@ fn animate_despawning(
 
     for (entity, mut transform, mut point) in samples.iter_mut() {
         point.progress += dt / ANIMATION_TIME;
-        // If the point is already smaller than expected, jump ahead with the despawning progress to avoid sudden jumps in size
+        // If the point is already smaller than expected, jump ahead with the despawning progress to
+        // avoid sudden jumps in size
         point.progress = f32::max(point.progress, 1.0 - transform.scale.x);
         transform.scale = Vec3::splat((1.0 - point.progress).max(0.0));
         if point.progress >= 1.0 {

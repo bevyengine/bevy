@@ -40,7 +40,8 @@ use super::CurveExt;
 
 /// A curve with a constant value over its domain.
 ///
-/// This is a curve that holds an inner value and always produces a clone of that value when sampled.
+/// This is a curve that holds an inner value and always produces a clone of that value when
+/// sampled.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -77,8 +78,8 @@ where
 
 /// A curve defined by a function together with a fixed domain.
 ///
-/// This is a curve that holds an inner function `f` which takes numbers (`f32`) as input and produces
-/// output of type `T`. The value of this curve when sampled at time `t` is just `f(t)`.
+/// This is a curve that holds an inner function `f` which takes numbers (`f32`) as input and
+/// produces output of type `T`. The value of this curve when sampled at time `t` is just `f(t)`.
 #[derive(Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -405,7 +406,8 @@ where
 }
 
 /// A curve that has been reparametrized by another curve, using that curve to transform the
-/// sample times before sampling. Curves of this type are produced by [`CurveExt::reparametrize_by_curve`].
+/// sample times before sampling. Curves of this type are produced by
+/// [`CurveExt::reparametrize_by_curve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(

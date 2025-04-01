@@ -1,5 +1,5 @@
-//! Shows how to render a polygonal [`Mesh`], generated from a [`Rectangle`] primitive, in a 2D scene.
-//! Adds a texture and colored vertices, giving per-vertex tinting.
+//! Shows how to render a polygonal [`Mesh`], generated from a [`Rectangle`] primitive, in a 2D
+//! scene. Adds a texture and colored vertices, giving per-vertex tinting.
 
 use bevy::prelude::*;
 

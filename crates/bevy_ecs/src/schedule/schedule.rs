@@ -39,7 +39,8 @@ use crate::{query::AccessConflicts, storage::SparseSetIndex};
 use Direction::{Incoming, Outgoing};
 pub use stepping::Stepping;
 
-/// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s excluding the current running [`Schedule`].
+/// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s excluding the current running
+/// [`Schedule`].
 #[derive(Default, Resource)]
 pub struct Schedules {
     inner: HashMap<InternedScheduleLabel, Schedule>,
@@ -66,7 +67,8 @@ impl Schedules {
         self.inner.remove(&label.intern())
     }
 
-    /// Removes the (schedule, label) pair corresponding to the `label` from the map, returning it if it existed.
+    /// Removes the (schedule, label) pair corresponding to the `label` from the map, returning it
+    /// if it existed.
     pub fn remove_entry(
         &mut self,
         label: impl ScheduleLabel,
@@ -89,7 +91,8 @@ impl Schedules {
         self.inner.get_mut(&label.intern())
     }
 
-    /// Returns a mutable reference to the schedules associated with `label`, creating one if it doesn't already exist.
+    /// Returns a mutable reference to the schedules associated with `label`, creating one if it
+    /// doesn't already exist.
     pub fn entry(&mut self, label: impl ScheduleLabel) -> &mut Schedule {
         self.inner
             .entry(label.intern())
@@ -181,7 +184,8 @@ impl Schedules {
         self
     }
 
-    /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
+    /// Configures a collection of system sets in the provided schedule, adding any sets that do not
+    /// exist.
     #[track_caller]
     pub fn configure_sets<M>(
         &mut self,
@@ -423,9 +427,9 @@ impl Schedule {
         self
     }
 
-    /// Set whether the schedule applies deferred system buffers on final time or not. This is a catch-all
-    /// in case a system uses commands but was not explicitly ordered before an instance of
-    /// [`ApplyDeferred`]. By default this
+    /// Set whether the schedule applies deferred system buffers on final time or not. This is a
+    /// catch-all in case a system uses commands but was not explicitly ordered before an
+    /// instance of [`ApplyDeferred`]. By default this
     /// setting is true, but may be disabled if needed.
     pub fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) -> &mut Self {
         self.executor.set_apply_final_deferred(apply_final_deferred);
@@ -530,14 +534,16 @@ impl Schedule {
         }
     }
 
-    /// Directly applies any accumulated [`Deferred`](crate::system::Deferred) system parameters (like [`Commands`](crate::prelude::Commands)) to the `world`.
+    /// Directly applies any accumulated [`Deferred`](crate::system::Deferred) system parameters
+    /// (like [`Commands`](crate::prelude::Commands)) to the `world`.
     ///
-    /// Like always, deferred system parameters are applied in the "topological sort order" of the schedule graph.
-    /// As a result, buffers from one system are only guaranteed to be applied before those of other systems
-    /// if there is an explicit system ordering between the two systems.
+    /// Like always, deferred system parameters are applied in the "topological sort order" of the
+    /// schedule graph. As a result, buffers from one system are only guaranteed to be applied
+    /// before those of other systems if there is an explicit system ordering between the two
+    /// systems.
     ///
-    /// This is used in rendering to extract data from the main world, storing the data in system buffers,
-    /// before applying their buffers in a different world.
+    /// This is used in rendering to extract data from the main world, storing the data in system
+    /// buffers, before applying their buffers in a different world.
     pub fn apply_deferred(&mut self, world: &mut World) {
         for system in &mut self.executable.systems {
             system.apply_deferred(world);
@@ -669,12 +675,14 @@ pub struct ScheduleGraph {
     system_set_conditions: Vec<Vec<BoxedCondition>>,
     /// Map from system set to node id
     system_set_ids: HashMap<InternedSystemSet, NodeId>,
-    /// Systems that have not been initialized yet; for system sets, we store the index of the first uninitialized condition
-    /// (all the conditions after that index still need to be initialized)
+    /// Systems that have not been initialized yet; for system sets, we store the index of the
+    /// first uninitialized condition (all the conditions after that index still need to be
+    /// initialized)
     uninit: Vec<(NodeId, usize)>,
     /// Directed acyclic graph of the hierarchy (which systems/sets are children of which sets)
     hierarchy: Dag,
-    /// Directed acyclic graph of the dependency (which systems/sets have to run before which other systems/sets)
+    /// Directed acyclic graph of the dependency (which systems/sets have to run before which other
+    /// systems/sets)
     dependency: Dag,
     ambiguous_with: UnGraph,
     /// Nodes that are allowed to have ambiguous ordering relationship with any other systems.
@@ -772,7 +780,8 @@ impl ScheduleGraph {
             .unwrap()
     }
 
-    /// Returns an iterator over all systems in this schedule, along with the conditions for each system.
+    /// Returns an iterator over all systems in this schedule, along with the conditions for each
+    /// system.
     pub fn systems(&self) -> impl Iterator<Item = (NodeId, &ScheduleSystem, &[BoxedCondition])> {
         self.systems
             .iter()
@@ -784,8 +793,8 @@ impl ScheduleGraph {
             })
     }
 
-    /// Returns an iterator over all system sets in this schedule, along with the conditions for each
-    /// system set.
+    /// Returns an iterator over all system sets in this schedule, along with the conditions for
+    /// each system set.
     pub fn system_sets(&self) -> impl Iterator<Item = (NodeId, &dyn SystemSet, &[BoxedCondition])> {
         self.system_set_ids.iter().map(|(_, &node_id)| {
             let set_node = &self.system_sets[node_id.index()];
@@ -811,7 +820,8 @@ impl ScheduleGraph {
         &self.dependency
     }
 
-    /// Returns the list of systems that conflict with each other, i.e. have ambiguities in their access.
+    /// Returns the list of systems that conflict with each other, i.e. have ambiguities in their
+    /// access.
     ///
     /// If the `Vec<ComponentId>` is empty, the systems conflict on [`World`] access.
     /// Must be called after [`ScheduleGraph::build_schedule`] to be non-empty.
@@ -859,12 +869,14 @@ impl ScheduleGraph {
 
     /// Adds the config nodes to the graph.
     ///
-    /// `collect_nodes` controls whether the `NodeId`s of the processed config nodes are stored in the returned [`ProcessConfigsResult`].
-    /// `process_config` is the function which processes each individual config node and returns a corresponding `NodeId`.
+    /// `collect_nodes` controls whether the `NodeId`s of the processed config nodes are stored in
+    /// the returned [`ProcessConfigsResult`]. `process_config` is the function which processes
+    /// each individual config node and returns a corresponding `NodeId`.
     ///
     /// The fields on the returned [`ProcessConfigsResult`] are:
     /// - `nodes`: a vector of all node ids contained in the nested `ScheduleConfigs`
-    /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
+    /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with
+    ///   successive `after` orderings) in the order they are defined
     #[track_caller]
     fn process_configs<
         T: ProcessScheduleConfig + Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>,
@@ -905,13 +917,15 @@ impl ScheduleGraph {
                     densely_chained &= current_result.densely_chained;
 
                     if let Chain::Chained(chain_options) = &metadata {
-                        // if the current result is densely chained, we only need to chain the first node
+                        // if the current result is densely chained, we only need to chain the first
+                        // node
                         let current_nodes = if current_result.densely_chained {
                             &current_result.nodes[..1]
                         } else {
                             &current_result.nodes
                         };
-                        // if the previous result was densely chained, we only need to chain the last node
+                        // if the previous result was densely chained, we only need to chain the
+                        // last node
                         let previous_nodes = if previous_result.densely_chained {
                             &previous_result.nodes[previous_result.nodes.len() - 1..]
                         } else {
@@ -1082,7 +1096,8 @@ impl ScheduleGraph {
         Ok(())
     }
 
-    /// Update the internal graphs (hierarchy, dependency, ambiguity) by adding a single [`GraphInfo`]
+    /// Update the internal graphs (hierarchy, dependency, ambiguity) by adding a single
+    /// [`GraphInfo`]
     fn update_graphs(
         &mut self,
         id: NodeId,
@@ -1144,7 +1159,8 @@ impl ScheduleGraph {
         Ok(())
     }
 
-    /// Initializes any newly-added systems and conditions by calling [`System::initialize`](crate::system::System)
+    /// Initializes any newly-added systems and conditions by calling
+    /// [`System::initialize`](crate::system::System)
     pub fn initialize(&mut self, world: &mut World) {
         for (id, i) in self.uninit.drain(..) {
             match id {
@@ -1240,9 +1256,9 @@ impl ScheduleGraph {
         Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
     }
 
-    /// Return a map from system set `NodeId` to a list of system `NodeId`s that are included in the set.
-    /// Also return a map from system set `NodeId` to a `FixedBitSet` of system `NodeId`s that are included in the set,
-    /// where the bitset order is the same as `self.systems`
+    /// Return a map from system set `NodeId` to a list of system `NodeId`s that are included in the
+    /// set. Also return a map from system set `NodeId` to a `FixedBitSet` of system `NodeId`s
+    /// that are included in the set, where the bitset order is the same as `self.systems`
     fn map_sets_to_systems(
         &self,
         hierarchy_topsort: &[NodeId],
@@ -1385,8 +1401,9 @@ impl ScheduleGraph {
                             }
                         }
                         AccessConflicts::All => {
-                            // there is no specific component conflicting, but the systems are overall incompatible
-                            // for example 2 systems with `Query<EntityMut>`
+                            // there is no specific component conflicting, but the systems are
+                            // overall incompatible for example 2
+                            // systems with `Query<EntityMut>`
                             conflicting_systems.push((a, b, Vec::new()));
                         }
                     }
@@ -1630,7 +1647,8 @@ impl ScheduleGraph {
             self.hierarchy
                 .graph
                 .edges_directed(*id, Outgoing)
-                // never get the sets of the members or this will infinite recurse when the report_sets setting is on.
+                // never get the sets of the members or this will infinite recurse when the
+                // report_sets setting is on.
                 .map(|(_, member_id)| self.get_node_name_inner(&member_id, false))
                 .reduce(|a, b| format!("{a}, {b}"))
                 .unwrap_or_default()
@@ -1849,7 +1867,8 @@ impl ScheduleGraph {
         Ok(())
     }
 
-    /// if [`ScheduleBuildSettings::ambiguity_detection`] is [`LogLevel::Ignore`], this check is skipped
+    /// if [`ScheduleBuildSettings::ambiguity_detection`] is [`LogLevel::Ignore`], this check is
+    /// skipped
     fn optionally_check_conflicts(
         &self,
         conflicts: &[(NodeId, NodeId, Vec<ComponentId>)],
@@ -2004,24 +2023,25 @@ pub enum LogLevel {
 /// Specifies miscellaneous settings for schedule construction.
 #[derive(Clone, Debug)]
 pub struct ScheduleBuildSettings {
-    /// Determines whether the presence of ambiguities (systems with conflicting access but indeterminate order)
-    /// is only logged or also results in an [`Ambiguity`](ScheduleBuildError::Ambiguity) error.
+    /// Determines whether the presence of ambiguities (systems with conflicting access but
+    /// indeterminate order) is only logged or also results in an
+    /// [`Ambiguity`](ScheduleBuildError::Ambiguity) error.
     ///
     /// Defaults to [`LogLevel::Ignore`].
     pub ambiguity_detection: LogLevel,
     /// Determines whether the presence of redundant edges in the hierarchy of system sets is only
-    /// logged or also results in a [`HierarchyRedundancy`](ScheduleBuildError::HierarchyRedundancy)
-    /// error.
+    /// logged or also results in a
+    /// [`HierarchyRedundancy`](ScheduleBuildError::HierarchyRedundancy) error.
     ///
     /// Defaults to [`LogLevel::Warn`].
     pub hierarchy_detection: LogLevel,
     /// Auto insert [`ApplyDeferred`] systems into the schedule,
     /// when there are [`Deferred`](crate::prelude::Deferred)
-    /// in one system and there are ordering dependencies on that system. [`Commands`](crate::system::Commands) is one
-    /// such deferred buffer.
+    /// in one system and there are ordering dependencies on that system.
+    /// [`Commands`](crate::system::Commands) is one such deferred buffer.
     ///
-    /// You may want to disable this if you only want to sync deferred params at the end of the schedule,
-    /// or want to manually insert all your sync points.
+    /// You may want to disable this if you only want to sync deferred params at the end of the
+    /// schedule, or want to manually insert all your sync points.
     ///
     /// Defaults to `true`
     pub auto_insert_apply_deferred: bool,
@@ -2275,15 +2295,18 @@ mod tests {
     fn do_not_consider_ignore_deferred_before_exclusive_system() {
         let mut schedule = Schedule::default();
         let mut world = World::default();
-        // chain_ignore_deferred adds no sync points usually but an exception is made for exclusive systems
+        // chain_ignore_deferred adds no sync points usually but an exception is made for exclusive
+        // systems
         schedule.add_systems(
             (
                 |_: Commands| {},
                 // <- no sync point is added here because the following system is not exclusive
                 |mut commands: Commands| commands.insert_resource(Resource1),
-                // <- sync point is added here because the following system is exclusive which expects to see all commands to that point
+                // <- sync point is added here because the following system is exclusive which
+                // expects to see all commands to that point
                 |world: &mut World| assert!(world.contains_resource::<Resource1>()),
-                // <- no sync point is added here because the previous system has no deferred parameters
+                // <- no sync point is added here because the previous system has no deferred
+                // parameters
                 |_: &mut World| {},
                 // <- no sync point is added here because the following system is not exclusive
                 |_: Commands| {},
@@ -2315,13 +2338,15 @@ mod tests {
                 // the third system would panic if the command of the first system was not applied
                 |_: Res<Resource1>| {},
             )
-                // the third system is chained after the first two, possibly with a sync point in between
+                // the third system is chained after the first two, possibly with a sync point in
+                // between
                 .chain(),
         );
 
-        // To add a sync point between the second and third system despite the second having no commands,
-        // the first system has to signal the second system that there are unapplied commands.
-        // With that the second system will add a sync point after it so the third system will find the resource.
+        // To add a sync point between the second and third system despite the second having no
+        // commands, the first system has to signal the second system that there are
+        // unapplied commands. With that the second system will add a sync point after it so
+        // the third system will find the resource.
 
         schedule.run(&mut world);
 

@@ -57,9 +57,9 @@ pub(super) enum LinearMapError {
 }
 
 impl Interval {
-    /// Create a new [`Interval`] with the specified `start` and `end`. The interval can be unbounded
-    /// but cannot be empty (so `start` must be less than `end`) and neither endpoint can be NaN; invalid
-    /// parameters will result in an error.
+    /// Create a new [`Interval`] with the specified `start` and `end`. The interval can be
+    /// unbounded but cannot be empty (so `start` must be less than `end`) and neither endpoint
+    /// can be NaN; invalid parameters will result in an error.
     #[inline]
     pub fn new(start: f32, end: f32) -> Result<Self, InvalidIntervalError> {
         if start >= end || start.is_nan() || end.is_nan() {
@@ -170,8 +170,8 @@ impl Interval {
         Ok(Either::Right(iter))
     }
 
-    /// Get the linear function which maps this interval onto the `other` one. Returns an error if either
-    /// interval is unbounded.
+    /// Get the linear function which maps this interval onto the `other` one. Returns an error if
+    /// either interval is unbounded.
     #[inline]
     pub(super) fn linear_map_to(self, other: Self) -> Result<impl Fn(f32) -> f32, LinearMapError> {
         if !self.is_bounded() {

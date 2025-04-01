@@ -16,7 +16,8 @@ use bevy_macro_utils::{BevyManifest, derive_label};
 use proc_macro::TokenStream;
 use quote::format_ident;
 
-/// Implements [`Deref`] for structs. This is especially useful when utilizing the [newtype] pattern.
+/// Implements [`Deref`] for structs. This is especially useful when utilizing the [newtype]
+/// pattern.
 ///
 /// For single-field structs, the implementation automatically uses that field.
 /// For multi-field structs, you must specify which field to use with the `#[deref]` attribute.
@@ -100,7 +101,8 @@ pub fn derive_deref(input: TokenStream) -> TokenStream {
     derefs::derive_deref(input)
 }
 
-/// Implements [`DerefMut`] for structs. This is especially useful when utilizing the [newtype] pattern.
+/// Implements [`DerefMut`] for structs. This is especially useful when utilizing the [newtype]
+/// pattern.
 ///
 /// For single-field structs, the implementation automatically uses that field.
 /// For multi-field structs, you must specify which field to use with the `#[deref]` attribute.

@@ -5,12 +5,12 @@
 //! store, load, and manipulate data outside of a purely code-driven context.
 //!
 //! This example also shows how to do the following:
-//! * Register your custom types for reflection, which allows them to be serialized,
-//!   deserialized, and manipulated dynamically.
-//! * Skip serialization of fields you don't want stored in your scene files (like
-//!   runtime values that should always be computed dynamically).
-//! * Save a new scene to disk to show how it can be updated compared to the original
-//!   scene file (and how that updated scene file might then be used later on).
+//! * Register your custom types for reflection, which allows them to be serialized, deserialized,
+//!   and manipulated dynamically.
+//! * Skip serialization of fields you don't want stored in your scene files (like runtime values
+//!   that should always be computed dynamically).
+//! * Save a new scene to disk to show how it can be updated compared to the original scene file
+//!   (and how that updated scene file might then be used later on).
 //!
 //! The example proceeds by creating components and resources, registering their types,
 //! loading a scene from a file, logging when changes are detected, and finally saving
@@ -162,9 +162,9 @@ fn save_scene_system(world: &mut World) {
     // For demonstration purposes, we'll create a new one.
     let mut scene_world = World::new();
 
-    // The `TypeRegistry` resource contains information about all registered types (including components).
-    // This is used to construct scenes, so we'll want to ensure that our previous type registrations
-    // exist in this new scene world as well.
+    // The `TypeRegistry` resource contains information about all registered types (including
+    // components). This is used to construct scenes, so we'll want to ensure that our previous
+    // type registrations exist in this new scene world as well.
     // To do this, we can simply clone the `AppTypeRegistry` resource.
     let type_registry = world.resource::<AppTypeRegistry>().clone();
     scene_world.insert_resource(type_registry);
@@ -180,8 +180,8 @@ fn save_scene_system(world: &mut World) {
     scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
     scene_world.insert_resource(ResourceA { score: 1 });
 
-    // With our sample world ready to go, we can now create our scene using DynamicScene or DynamicSceneBuilder.
-    // For simplicity, we will create our scene using DynamicScene:
+    // With our sample world ready to go, we can now create our scene using DynamicScene or
+    // DynamicSceneBuilder. For simplicity, we will create our scene using DynamicScene:
     let scene = DynamicScene::from_world(&scene_world);
 
     // Scenes can be serialized like this:
@@ -192,8 +192,8 @@ fn save_scene_system(world: &mut World) {
     // Showing the scene in the console
     info!("{}", serialized_scene);
 
-    // Writing the scene to a new file. Using a task to avoid calling the filesystem APIs in a system
-    // as they are blocking.
+    // Writing the scene to a new file. Using a task to avoid calling the filesystem APIs in a
+    // system as they are blocking.
     //
     // This can't work in Wasm as there is no filesystem access.
     #[cfg(not(target_arch = "wasm32"))]

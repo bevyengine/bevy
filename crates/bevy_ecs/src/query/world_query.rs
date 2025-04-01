@@ -13,22 +13,35 @@ use variadics_please::all_tuples;
 /// # Safety
 ///
 /// Implementor must ensure that
-/// [`update_component_access`], [`matches_component_set`], [`QueryData::fetch`], [`QueryFilter::filter_fetch`] and [`init_fetch`]
-/// obey the following:
+/// [`update_component_access`], [`matches_component_set`], [`QueryData::fetch`],
+/// [`QueryFilter::filter_fetch`] and [`init_fetch`] obey the following:
 ///
-/// - For each component mutably accessed by [`QueryData::fetch`], [`update_component_access`] should add write access unless read or write access has already been added, in which case it should panic.
-/// - For each component readonly accessed by [`QueryData::fetch`] or [`QueryFilter::filter_fetch`], [`update_component_access`] should add read access unless write access has already been added, in which case it should panic.
-/// - If `fetch` mutably accesses the same component twice, [`update_component_access`] should panic.
-/// - [`update_component_access`] may not add a `Without` filter for a component unless [`matches_component_set`] always returns `false` when the component set contains that component.
-/// - [`update_component_access`] may not add a `With` filter for a component unless [`matches_component_set`] always returns `false` when the component set doesn't contain that component.
-/// - In cases where the query represents a disjunction (such as an `Or` filter) where each element is a valid [`WorldQuery`], the following rules must be obeyed:
+/// - For each component mutably accessed by [`QueryData::fetch`], [`update_component_access`]
+///   should add write access unless read or write access has already been added, in which case it
+///   should panic.
+/// - For each component readonly accessed by [`QueryData::fetch`] or [`QueryFilter::filter_fetch`],
+///   [`update_component_access`] should add read access unless write access has already been added,
+///   in which case it should panic.
+/// - If `fetch` mutably accesses the same component twice, [`update_component_access`] should
+///   panic.
+/// - [`update_component_access`] may not add a `Without` filter for a component unless
+///   [`matches_component_set`] always returns `false` when the component set contains that
+///   component.
+/// - [`update_component_access`] may not add a `With` filter for a component unless
+///   [`matches_component_set`] always returns `false` when the component set doesn't contain that
+///   component.
+/// - In cases where the query represents a disjunction (such as an `Or` filter) where each element
+///   is a valid [`WorldQuery`], the following rules must be obeyed:
 ///     - [`matches_component_set`] must be a disjunction of the element's implementations
 ///     - [`update_component_access`] must replace the filters with a disjunction of filters
-///     - Each filter in that disjunction must be a conjunction of the corresponding element's filter with the previous `access`
-/// - For each resource readonly accessed by [`init_fetch`], [`update_component_access`] should add read access.
+///     - Each filter in that disjunction must be a conjunction of the corresponding element's
+///       filter with the previous `access`
+/// - For each resource readonly accessed by [`init_fetch`], [`update_component_access`] should add
+///   read access.
 /// - Mutable resource access is not allowed.
 ///
-/// When implementing [`update_component_access`], note that `add_read` and `add_write` both also add a `With` filter, whereas `extend_access` does not change the filters.
+/// When implementing [`update_component_access`], note that `add_read` and `add_write` both also
+/// add a `With` filter, whereas `extend_access` does not change the filters.
 ///
 /// [`QueryData::fetch`]: crate::query::QueryData::fetch
 /// [`QueryFilter::filter_fetch`]: crate::query::QueryFilter::filter_fetch
@@ -39,12 +52,14 @@ use variadics_please::all_tuples;
 /// [`QueryData`]: crate::query::QueryData
 /// [`QueryFilter`]: crate::query::QueryFilter
 pub unsafe trait WorldQuery {
-    /// Per archetype/table state retrieved by this [`WorldQuery`] to compute [`Self::Item`](crate::query::QueryData::Item) for each entity.
+    /// Per archetype/table state retrieved by this [`WorldQuery`] to compute
+    /// [`Self::Item`](crate::query::QueryData::Item) for each entity.
     type Fetch<'a>: Clone;
 
-    /// State used to construct a [`Self::Fetch`](WorldQuery::Fetch). This will be cached inside [`QueryState`](crate::query::QueryState),
-    /// so it is best to move as much data / computation here as possible to reduce the cost of
-    /// constructing [`Self::Fetch`](WorldQuery::Fetch).
+    /// State used to construct a [`Self::Fetch`](WorldQuery::Fetch). This will be cached inside
+    /// [`QueryState`](crate::query::QueryState), so it is best to move as much data /
+    /// computation here as possible to reduce the cost of constructing
+    /// [`Self::Fetch`](WorldQuery::Fetch).
     type State: Send + Sync + Sized;
 
     /// This function manually implements subtyping for the query fetches.
@@ -56,10 +71,12 @@ pub unsafe trait WorldQuery {
     ///
     /// # Safety
     ///
-    /// - `state` must have been initialized (via [`WorldQuery::init_state`]) using the same `world` passed
-    ///   in to this function.
-    /// - `world` must have the **right** to access any access registered in `update_component_access`.
-    /// - There must not be simultaneous resource access conflicting with readonly resource access registered in [`WorldQuery::update_component_access`].
+    /// - `state` must have been initialized (via [`WorldQuery::init_state`]) using the same `world`
+    ///   passed in to this function.
+    /// - `world` must have the **right** to access any access registered in
+    ///   `update_component_access`.
+    /// - There must not be simultaneous resource access conflicting with readonly resource access
+    ///   registered in [`WorldQuery::update_component_access`].
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         state: &Self::State,
@@ -72,9 +89,9 @@ pub unsafe trait WorldQuery {
     ///
     /// This is used to select a more efficient "table iterator"
     /// for "dense" queries. If this returns true, [`WorldQuery::set_table`] must be used before
-    /// [`QueryData::fetch`](crate::query::QueryData::fetch) can be called for iterators. If this returns false,
-    /// [`WorldQuery::set_archetype`] must be used before [`QueryData::fetch`](crate::query::QueryData::fetch) can be called for
-    /// iterators.
+    /// [`QueryData::fetch`](crate::query::QueryData::fetch) can be called for iterators. If this
+    /// returns false, [`WorldQuery::set_archetype`] must be used before
+    /// [`QueryData::fetch`](crate::query::QueryData::fetch) can be called for iterators.
     const IS_DENSE: bool;
 
     /// Adjusts internal state to account for the next [`Archetype`]. This will always be called on
@@ -82,7 +99,8 @@ pub unsafe trait WorldQuery {
     ///
     /// # Safety
     ///
-    /// - `archetype` and `tables` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
+    /// - `archetype` and `tables` must be from the same [`World`] that [`WorldQuery::init_state`]
+    ///   was called on.
     /// - `table` must correspond to `archetype`.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_archetype<'w>(
@@ -92,8 +110,8 @@ pub unsafe trait WorldQuery {
         table: &'w Table,
     );
 
-    /// Adjusts internal state to account for the next [`Table`]. This will always be called on tables
-    /// that match this [`WorldQuery`].
+    /// Adjusts internal state to account for the next [`Table`]. This will always be called on
+    /// tables that match this [`WorldQuery`].
     ///
     /// # Safety
     ///
@@ -101,10 +119,12 @@ pub unsafe trait WorldQuery {
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
 
-    /// Sets available accesses for implementors with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
+    /// Sets available accesses for implementors with dynamic access such as
+    /// [`FilteredEntityRef`](crate::world::FilteredEntityRef)
     /// or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
     ///
-    /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
+    /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling
+    /// [`QueryState::from_builder`](super::QueryState::from_builder)
     fn set_access(_state: &mut Self::State, _access: &FilteredAccess<ComponentId>) {}
 
     /// Adds any component accesses used by this [`WorldQuery`] to `access`.
@@ -117,8 +137,8 @@ pub unsafe trait WorldQuery {
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
     fn init_state(world: &mut World) -> Self::State;
 
-    /// Attempts to initialize a [`State`](WorldQuery::State) for this [`WorldQuery`] type using read-only
-    /// access to [`Components`].
+    /// Attempts to initialize a [`State`](WorldQuery::State) for this [`WorldQuery`] type using
+    /// read-only access to [`Components`].
     fn get_state(components: &Components) -> Option<Self::State>;
 
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.

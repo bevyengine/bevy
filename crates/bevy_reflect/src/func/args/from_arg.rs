@@ -3,7 +3,8 @@ use crate::func::args::{Arg, ArgError};
 /// A trait for types that can be created from an [`Arg`].
 ///
 /// This trait exists so that types can be automatically converted into an [`Arg`]
-/// so they can be put into an [`ArgList`] and passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
+/// so they can be put into an [`ArgList`] and passed to a [`DynamicFunction`] or
+/// [`DynamicFunctionMut`].
 ///
 /// This trait is used instead of a blanket [`From`] implementation due to coherence issues:
 /// we can't implement `From<T>` for both `T` and `&T`/`&mut T`.

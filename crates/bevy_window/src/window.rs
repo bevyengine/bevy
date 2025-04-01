@@ -119,8 +119,8 @@ impl ContainsEntity for NormalizedWindowRef {
 /// The defining [`Component`] for window entities,
 /// storing information about how it should appear and behave.
 ///
-/// Each window corresponds to an entity, and is uniquely identified by the value of their [`Entity`].
-/// When the [`Window`] component is added to an entity, a new window will be opened.
+/// Each window corresponds to an entity, and is uniquely identified by the value of their
+/// [`Entity`]. When the [`Window`] component is added to an entity, a new window will be opened.
 /// When it is removed or the entity is despawned, the window will close.
 ///
 /// The primary window entity (and the corresponding window) is spawned by default
@@ -172,7 +172,8 @@ pub struct Window {
     pub resolution: WindowResolution,
     /// Stores the title of the window.
     pub title: String,
-    /// Stores the application ID (on **`Wayland`**), `WM_CLASS` (on **`X11`**) or window class name (on **`Windows`**) of the window.
+    /// Stores the application ID (on **`Wayland`**), `WM_CLASS` (on **`X11`**) or window class
+    /// name (on **`Windows`**) of the window.
     ///
     /// For details about application ID conventions, see the [Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html#desktop-file-id).
     /// For details about `WM_CLASS`, see the [X11 Manual Pages](https://www.x.org/releases/current/doc/man/man3/XAllocClassHint.3.xhtml).
@@ -180,8 +181,10 @@ pub struct Window {
     ///
     /// ## Platform-specific
     ///
-    /// - **`Windows`**: Can only be set while building the window, setting the window's window class name.
-    /// - **`Wayland`**: Can only be set while building the window, setting the window's application ID.
+    /// - **`Windows`**: Can only be set while building the window, setting the window's window
+    ///   class name.
+    /// - **`Wayland`**: Can only be set while building the window, setting the window's
+    ///   application ID.
     /// - **`X11`**: Can only be set while building the window, setting the window's `WM_CLASS`.
     /// - **`macOS`**, **`iOS`**, **`Android`**, and **`Web`**: not applicable.
     ///
@@ -222,7 +225,8 @@ pub struct Window {
     /// - macOS: Not working as expected.
     ///
     /// macOS transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>.
-    /// You should also set the window `composite_alpha_mode` to `CompositeAlphaMode::PostMultiplied`.
+    /// You should also set the window `composite_alpha_mode` to
+    /// `CompositeAlphaMode::PostMultiplied`.
     pub transparent: bool,
     /// Get/set whether the window is focused.
     pub focused: bool,
@@ -242,9 +246,10 @@ pub struct Window {
     pub canvas: Option<String>,
     /// Whether or not to fit the canvas element's size to its parent element's size.
     ///
-    /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
-    /// children. This creates a "feedback loop" that will result in the canvas growing on each resize. When using this
-    /// feature, ensure the parent's size is not affected by its children.
+    /// **Warning**: this will not behave as expected for parents that set their size according to
+    /// the size of their children. This creates a "feedback loop" that will result in the
+    /// canvas growing on each resize. When using this feature, ensure the parent's size is not
+    /// affected by its children.
     ///
     /// This value has no effect on non-web platforms.
     pub fit_canvas_to_parent: bool,
@@ -262,7 +267,8 @@ pub struct Window {
     /// If enabled, the window will receive [`Ime`](crate::Ime) events instead of
     /// `KeyboardInput` from `bevy_input`.
     ///
-    /// IME should be enabled during text input, but not when you expect to get the exact key pressed.
+    /// IME should be enabled during text input, but not when you expect to get the exact key
+    /// pressed.
     ///
     ///  ## Platform-specific
     ///
@@ -284,8 +290,8 @@ pub struct Window {
     pub window_theme: Option<WindowTheme>,
     /// Sets the window's visibility.
     ///
-    /// If `false`, this will hide the window completely, it won't appear on the screen or in the task bar.
-    /// If `true`, this will show the window.
+    /// If `false`, this will hide the window completely, it won't appear on the screen or in the
+    /// task bar. If `true`, this will show the window.
     /// Note that this doesn't change its focused or minimized state.
     ///
     /// ## Platform-specific
@@ -312,7 +318,8 @@ pub struct Window {
     ///
     /// - Only supported on Windows.
     pub clip_children: bool,
-    /// Optional hint given to the rendering API regarding the maximum number of queued frames admissible on the GPU.
+    /// Optional hint given to the rendering API regarding the maximum number of queued frames
+    /// admissible on the GPU.
     ///
     /// Given values are usually within the 1-3 range. If not provided, this will default to 2.
     ///
@@ -723,8 +730,9 @@ pub struct CursorOptions {
     ///
     /// ## Platform-specific
     ///
-    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window.
-    ///   To stop the cursor from leaving the window, change [`CursorOptions::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
+    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the
+    ///   window. To stop the cursor from leaving the window, change [`CursorOptions::grab_mode`]
+    ///   to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
     /// - **`macOS`**: The cursor is hidden only when the window is focused.
     /// - **`iOS`** and **`Android`** do not have cursors
     pub visible: bool,
@@ -737,10 +745,12 @@ pub struct CursorOptions {
     /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
     /// - **`iOS/Android`** don't have cursors.
     ///
-    /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
+    /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set
+    /// the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
     pub grab_mode: CursorGrabMode,
 
-    /// Set whether or not mouse events within *this* window are captured or fall through to the Window below.
+    /// Set whether or not mouse events within *this* window are captured or fall through to the
+    /// Window below.
     ///
     /// ## Platform-specific
     ///
@@ -772,7 +782,8 @@ impl Default for CursorOptions {
 )]
 pub enum WindowPosition {
     /// Position will be set by the window manager.
-    /// Bevy will delegate this decision to the window manager and no guarantees can be made about where the window will be placed.
+    /// Bevy will delegate this decision to the window manager and no guarantees can be made about
+    /// where the window will be placed.
     ///
     /// Used at creation but will be changed to [`At`](WindowPosition::At).
     #[default]
@@ -783,7 +794,8 @@ pub enum WindowPosition {
     ///
     /// Used at creation or for update but will be changed to [`At`](WindowPosition::At)
     Centered(MonitorSelection),
-    /// The window's top-left corner should be placed at the specified position (in physical pixels).
+    /// The window's top-left corner should be placed at the specified position (in physical
+    /// pixels).
     ///
     /// (0,0) represents top-left corner of screen space.
     At(IVec2),
@@ -811,15 +823,12 @@ impl WindowPosition {
 /// ## Physical, logical and requested sizes
 ///
 /// There are three sizes associated with a window:
-/// - the physical size,
-///   which represents the actual height and width in physical pixels
-///   the window occupies on the monitor,
-/// - the logical size,
-///   which represents the size that should be used to scale elements
-///   inside the window, measured in logical pixels,
-/// - the requested size,
-///   measured in logical pixels, which is the value submitted
-///   to the API when creating the window, or requesting that it be resized.
+/// - the physical size, which represents the actual height and width in physical pixels the window
+///   occupies on the monitor,
+/// - the logical size, which represents the size that should be used to scale elements inside the
+///   window, measured in logical pixels,
+/// - the requested size, measured in logical pixels, which is the value submitted to the API when
+///   creating the window, or requesting that it be resized.
 ///
 /// ## Scale factor
 ///
@@ -1050,7 +1059,8 @@ impl From<DVec2> for WindowResolution {
 /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
 /// - **`iOS/Android`** don't have cursors.
 ///
-/// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
+/// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the
+/// grab mode that was asked for. If it doesn't work then use the alternate grab mode.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -1087,7 +1097,8 @@ pub enum CursorGrabMode {
 pub struct InternalWindowState {
     /// If this is true then next frame we will ask to minimize the window.
     minimize_request: Option<bool>,
-    /// If this is true then next frame we will ask to maximize/un-maximize the window depending on `maximized`.
+    /// If this is true then next frame we will ask to maximize/un-maximize the window depending on
+    /// `maximized`.
     maximize_request: Option<bool>,
     /// If this is true then next frame we will ask to drag-move the window.
     drag_move_request: bool,
@@ -1098,22 +1109,26 @@ pub struct InternalWindowState {
 }
 
 impl InternalWindowState {
-    /// Consumes the current maximize request, if it exists. This should only be called by window backends.
+    /// Consumes the current maximize request, if it exists. This should only be called by window
+    /// backends.
     pub fn take_maximize_request(&mut self) -> Option<bool> {
         self.maximize_request.take()
     }
 
-    /// Consumes the current minimize request, if it exists. This should only be called by window backends.
+    /// Consumes the current minimize request, if it exists. This should only be called by window
+    /// backends.
     pub fn take_minimize_request(&mut self) -> Option<bool> {
         self.minimize_request.take()
     }
 
-    /// Consumes the current move request, if it exists. This should only be called by window backends.
+    /// Consumes the current move request, if it exists. This should only be called by window
+    /// backends.
     pub fn take_move_request(&mut self) -> bool {
         core::mem::take(&mut self.drag_move_request)
     }
 
-    /// Consumes the current resize request, if it exists. This should only be called by window backends.
+    /// Consumes the current resize request, if it exists. This should only be called by window
+    /// backends.
     pub fn take_resize_request(&mut self) -> Option<CompassOctant> {
         self.drag_resize_request.take()
     }
@@ -1136,8 +1151,9 @@ impl InternalWindowState {
 pub enum MonitorSelection {
     /// Uses the current monitor of the window.
     ///
-    /// If [`WindowPosition::Centered(MonitorSelection::Current)`](WindowPosition::Centered) is used when creating a window,
-    /// the window doesn't have a monitor yet, this will fall back to [`WindowPosition::Automatic`].
+    /// If [`WindowPosition::Centered(MonitorSelection::Current)`](WindowPosition::Centered) is used
+    /// when creating a window, the window doesn't have a monitor yet, this will fall back to
+    /// [`WindowPosition::Automatic`].
     Current,
     /// Uses the primary monitor of the system.
     Primary,
@@ -1202,7 +1218,8 @@ pub enum PresentMode {
     ///
     /// Because of the fallback behavior, it is supported everywhere.
     AutoVsync = 0, // NOTE: The explicit ordinal values mirror wgpu.
-    /// Chooses [`Immediate`](Self::Immediate) -> [`Mailbox`](Self::Mailbox) -> [`Fifo`](Self::Fifo) (on web) based on availability.
+    /// Chooses [`Immediate`](Self::Immediate) -> [`Mailbox`](Self::Mailbox) -> [`Fifo`](Self::Fifo)
+    /// (on web) based on availability.
     ///
     /// Because of the fallback behavior, it is supported everywhere.
     AutoNoVsync = 1,
@@ -1219,7 +1236,8 @@ pub enum PresentMode {
     ///
     /// Supported on all platforms.
     ///
-    /// If you don't know what mode to choose, choose this mode. This is traditionally called "Vsync On".
+    /// If you don't know what mode to choose, choose this mode. This is traditionally called "Vsync
+    /// On".
     #[default]
     Fifo = 2,
     /// Presentation frames are kept in a First-In-First-Out queue approximately 3 frames
@@ -1264,7 +1282,8 @@ pub enum PresentMode {
     Mailbox = 5,
 }
 
-/// Specifies how the alpha channel of the textures should be handled during compositing, for a [`Window`].
+/// Specifies how the alpha channel of the textures should be handled during compositing, for a
+/// [`Window`].
 #[repr(C)]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(
@@ -1278,8 +1297,9 @@ pub enum PresentMode {
     reflect(Serialize, Deserialize)
 )]
 pub enum CompositeAlphaMode {
-    /// Chooses either [`Opaque`](CompositeAlphaMode::Opaque) or [`Inherit`](CompositeAlphaMode::Inherit)
-    /// automatically, depending on the `alpha_mode` that the current surface can support.
+    /// Chooses either [`Opaque`](CompositeAlphaMode::Opaque) or
+    /// [`Inherit`](CompositeAlphaMode::Inherit) automatically, depending on the `alpha_mode`
+    /// that the current surface can support.
     #[default]
     Auto = 0,
     /// The alpha channel, if it exists, of the textures is ignored in the
@@ -1329,21 +1349,28 @@ pub enum WindowMode {
     ///
     /// Note: As this mode respects the scale factor provided by the operating system,
     /// the window's logical size may be different from its physical size.
-    /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
-    /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
+    /// If you want to avoid that behavior, you can use the
+    /// [`WindowResolution::set_scale_factor_override`] function
+    /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale
+    /// factor to 1.0.
     BorderlessFullscreen(MonitorSelection),
-    /// The window should be in "true"/"legacy"/"exclusive" Fullscreen mode on the given [`MonitorSelection`].
+    /// The window should be in "true"/"legacy"/"exclusive" Fullscreen mode on the given
+    /// [`MonitorSelection`].
     ///
-    /// The resolution, refresh rate, and bit depth are selected based on the given [`VideoModeSelection`].
+    /// The resolution, refresh rate, and bit depth are selected based on the given
+    /// [`VideoModeSelection`].
     ///
     /// Note: As this mode respects the scale factor provided by the operating system,
     /// the window's logical size may be different from its physical size.
-    /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
-    /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
+    /// If you want to avoid that behavior, you can use the
+    /// [`WindowResolution::set_scale_factor_override`] function
+    /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale
+    /// factor to 1.0.
     Fullscreen(MonitorSelection, VideoModeSelection),
 }
 
-/// Specifies where a [`Window`] should appear relative to other overlapping windows (on top or under) .
+/// Specifies where a [`Window`] should appear relative to other overlapping windows (on top or
+/// under) .
 ///
 /// Levels are groups of windows with respect to their z-position.
 ///
@@ -1365,14 +1392,16 @@ pub enum WindowMode {
     reflect(Serialize, Deserialize)
 )]
 pub enum WindowLevel {
-    /// The window will always be below [`WindowLevel::Normal`] and [`WindowLevel::AlwaysOnTop`] windows.
+    /// The window will always be below [`WindowLevel::Normal`] and [`WindowLevel::AlwaysOnTop`]
+    /// windows.
     ///
     /// This is useful for a widget-based app.
     AlwaysOnBottom,
     /// The default group.
     #[default]
     Normal,
-    /// The window will always be on top of [`WindowLevel::Normal`] and [`WindowLevel::AlwaysOnBottom`] windows.
+    /// The window will always be on top of [`WindowLevel::Normal`] and
+    /// [`WindowLevel::AlwaysOnBottom`] windows.
     AlwaysOnTop,
 }
 

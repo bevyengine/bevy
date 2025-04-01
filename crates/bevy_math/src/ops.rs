@@ -83,7 +83,8 @@ mod std_ops {
     }
 
     /// Compute the distance between the origin and a point `(x, y)` on the Euclidean plane.
-    /// Equivalently, compute the length of the hypotenuse of a right-angle triangle with other sides having length `x.abs()` and `y.abs()`.
+    /// Equivalently, compute the length of the hypotenuse of a right-angle triangle with other
+    /// sides having length `x.abs()` and `y.abs()`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
@@ -295,7 +296,8 @@ mod libm_ops {
 
     /// Compute the distance between the origin and a point `(x, y)` on the Euclidean plane.
     ///
-    /// Equivalently, compute the length of the hypotenuse of a right-angle triangle with other sides having length `x.abs()` and `y.abs()`.
+    /// Equivalently, compute the length of the hypotenuse of a right-angle triangle with other
+    /// sides having length `x.abs()` and `y.abs()`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
@@ -490,7 +492,8 @@ mod libm_ops_for_no_std {
         libm::copysignf(x, y)
     }
 
-    /// Returns the nearest integer to `x`. If a value is half-way between two integers, round away from `0.0`.
+    /// Returns the nearest integer to `x`. If a value is half-way between two integers, round away
+    /// from `0.0`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
@@ -569,7 +572,8 @@ mod std_ops_for_no_std {
         f32::copysign(x, y)
     }
 
-    /// Returns the nearest integer to `x`. If a value is half-way between two integers, round away from `0.0`.
+    /// Returns the nearest integer to `x`. If a value is half-way between two integers, round away
+    /// from `0.0`.
     ///
     /// This function always returns the precise result.
     #[inline(always)]

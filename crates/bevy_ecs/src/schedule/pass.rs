@@ -15,8 +15,9 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
     fn add_dependency(&mut self, from: NodeId, to: NodeId, options: Option<&Self::EdgeOptions>);
 
     /// Called while flattening the dependency graph. For each `set`, this method is called
-    /// with the `systems` associated with the set as well as an immutable reference to the current graph.
-    /// Instead of modifying the graph directly, this method should return an iterator of edges to add to the graph.
+    /// with the `systems` associated with the set as well as an immutable reference to the current
+    /// graph. Instead of modifying the graph directly, this method should return an iterator of
+    /// edges to add to the graph.
     fn collapse_set(
         &mut self,
         set: NodeId,

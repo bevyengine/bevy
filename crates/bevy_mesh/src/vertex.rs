@@ -341,9 +341,10 @@ pub struct VertexBufferLayout {
 
 impl VertexBufferLayout {
     /// Creates a new densely packed [`VertexBufferLayout`] from an iterator of vertex formats.
-    /// Iteration order determines the `shader_location` and `offset` of the [`VertexAttributes`](VertexAttribute).
-    /// The first iterated item will have a `shader_location` and `offset` of zero.
-    /// The `array_stride` is the sum of the size of the iterated [`VertexFormats`](VertexFormat) (in bytes).
+    /// Iteration order determines the `shader_location` and `offset` of the
+    /// [`VertexAttributes`](VertexAttribute). The first iterated item will have a
+    /// `shader_location` and `offset` of zero. The `array_stride` is the sum of the size of the
+    /// iterated [`VertexFormats`](VertexFormat) (in bytes).
     pub fn from_vertex_formats<T: IntoIterator<Item = VertexFormat>>(
         step_mode: VertexStepMode,
         vertex_formats: T,

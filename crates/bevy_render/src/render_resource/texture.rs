@@ -8,7 +8,8 @@ define_atomic_id!(TextureId);
 /// A GPU-accessible texture.
 ///
 /// May be converted from and dereferences to a wgpu [`Texture`](wgpu::Texture).
-/// Can be created via [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture).
+/// Can be created via
+/// [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture).
 ///
 /// Other options for storing GPU-accessible data are:
 /// * [`BufferVec`](crate::render_resource::BufferVec)
@@ -57,7 +58,8 @@ impl Deref for Texture {
 
 define_atomic_id!(TextureViewId);
 
-/// Describes a [`Texture`] with its associated metadata required by a pipeline or [`BindGroup`](super::BindGroup).
+/// Describes a [`Texture`] with its associated metadata required by a pipeline or
+/// [`BindGroup`](super::BindGroup).
 #[derive(Clone, Debug)]
 pub struct TextureView {
     id: TextureViewId,
@@ -120,10 +122,12 @@ impl Deref for SurfaceTexture {
 define_atomic_id!(SamplerId);
 
 /// A Sampler defines how a pipeline will sample from a [`TextureView`].
-/// They define image filters (including anisotropy) and address (wrapping) modes, among other things.
+/// They define image filters (including anisotropy) and address (wrapping) modes, among other
+/// things.
 ///
 /// May be converted from and dereferences to a wgpu [`Sampler`](wgpu::Sampler).
-/// Can be created via [`RenderDevice::create_sampler`](crate::renderer::RenderDevice::create_sampler).
+/// Can be created via
+/// [`RenderDevice::create_sampler`](crate::renderer::RenderDevice::create_sampler).
 #[derive(Clone, Debug)]
 pub struct Sampler {
     id: SamplerId,
@@ -159,7 +163,7 @@ impl Deref for Sampler {
 /// A rendering resource for the default image sampler which is set during renderer
 /// initialization.
 ///
-/// The [`ImagePlugin`](crate::texture::ImagePlugin) can be set during app initialization to change the default
-/// image sampler.
+/// The [`ImagePlugin`](crate::texture::ImagePlugin) can be set during app initialization to change
+/// the default image sampler.
 #[derive(Resource, Debug, Clone, Deref, DerefMut)]
 pub struct DefaultImageSampler(pub(crate) Sampler);

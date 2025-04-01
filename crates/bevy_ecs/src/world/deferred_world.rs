@@ -21,7 +21,8 @@ use super::{Mut, ON_INSERT, ON_REPLACE, World, unsafe_world_cell::UnsafeWorldCel
 /// A [`World`] reference that disallows structural ECS changes.
 /// This includes initializing resources, registering components or spawning entities.
 ///
-/// This means that in order to add entities, for example, you will need to use commands instead of the world directly.
+/// This means that in order to add entities, for example, you will need to use commands instead of
+/// the world directly.
 pub struct DeferredWorld<'w> {
     // SAFETY: Implementors must not use this reference to make structural changes
     world: UnsafeWorldCell<'w>,
@@ -98,7 +99,8 @@ impl<'w> DeferredWorld<'w> {
         entity: Entity,
         f: impl FnOnce(&mut T) -> R,
     ) -> Result<Option<R>, EntityMutableFetchError> {
-        // If the component is not registered, then it doesn't exist on this entity, so no action required.
+        // If the component is not registered, then it doesn't exist on this entity, so no action
+        // required.
         let Some(component_id) = self.component_id::<T>() else {
             return Ok(None);
         };
@@ -141,8 +143,7 @@ impl<'w> DeferredWorld<'w> {
         let archetype = &raw const *entity_cell.archetype();
 
         // SAFETY:
-        // - DeferredWorld ensures archetype pointer will remain valid as no
-        //   relocations will occur.
+        // - DeferredWorld ensures archetype pointer will remain valid as no relocations will occur.
         // - component_id exists on this world and this entity
         // - ON_REPLACE is able to accept ZST events
         unsafe {
@@ -181,8 +182,7 @@ impl<'w> DeferredWorld<'w> {
         *component.ticks.added = *component.ticks.changed;
 
         // SAFETY:
-        // - DeferredWorld ensures archetype pointer will remain valid as no
-        //   relocations will occur.
+        // - DeferredWorld ensures archetype pointer will remain valid as no relocations will occur.
         // - component_id exists on this world and this entity
         // - ON_REPLACE is able to accept ZST events
         unsafe {
@@ -224,9 +224,11 @@ impl<'w> DeferredWorld<'w> {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
+    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do
+    ///   not exist in the world.
     ///     - Only the first entity found to be missing will be returned.
-    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested
+    ///   multiple times.
     ///
     /// # Examples
     ///
@@ -408,7 +410,8 @@ impl<'w> DeferredWorld<'w> {
     /// ```
     pub fn entities_and_commands(&mut self) -> (EntityFetcher, Commands) {
         let cell = self.as_unsafe_world_cell();
-        // SAFETY: `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
+        // SAFETY: `&mut self` gives mutable access to the entire world, and prevents simultaneous
+        // access.
         let fetcher = unsafe { EntityFetcher::new(cell) };
         // SAFETY:
         // - `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
@@ -439,7 +442,8 @@ impl<'w> DeferredWorld<'w> {
     /// # Panics
     ///
     /// Panics if the resource does not exist.
-    /// Use [`get_resource_mut`](DeferredWorld::get_resource_mut) instead if you want to handle this case.
+    /// Use [`get_resource_mut`](DeferredWorld::get_resource_mut) instead if you want to handle this
+    /// case.
     #[inline]
     #[track_caller]
     pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
@@ -467,9 +471,11 @@ impl<'w> DeferredWorld<'w> {
     /// # Panics
     ///
     /// Panics if the resource does not exist.
-    /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to handle this case.
+    /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to
+    /// handle this case.
     ///
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was
+    /// inserted from.
     #[inline]
     #[track_caller]
     pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
@@ -488,7 +494,8 @@ impl<'w> DeferredWorld<'w> {
     /// Otherwise returns `None`.
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was
+    /// inserted from.
     #[inline]
     pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
@@ -549,15 +556,17 @@ impl<'w> DeferredWorld<'w> {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was
+    /// inserted from.
     #[inline]
     pub fn get_non_send_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
         unsafe { self.world.get_non_send_resource_mut_by_id(component_id) }
     }
 
-    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
-    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
+    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given
+    /// [`ComponentId`]. Returns `None` if the `entity` does not have a [`Component`] of the
+    /// given type.
     ///
     /// **You should prefer to use the typed API [`World::get_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**

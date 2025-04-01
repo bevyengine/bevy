@@ -58,7 +58,8 @@ fn setup_terrain_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
+    // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh
+    // units are in km)
     let cascade_shadow_config = CascadeShadowConfigBuilder {
         first_cascade_far_bound: 0.3,
         maximum_distance: 3.0,

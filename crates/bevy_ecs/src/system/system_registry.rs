@@ -13,7 +13,8 @@ use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use core::marker::PhantomData;
 use thiserror::Error;
 
-/// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
+/// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been
+/// initialized.
 #[derive(Component)]
 #[require(SystemIdMarker)]
 pub(crate) struct RegisteredSystem<I, O> {
@@ -143,15 +144,16 @@ impl<S> CachedSystemId<S> {
 }
 
 impl World {
-    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+    /// Registers a system and returns a [`SystemId`] so it can later be called by
+    /// [`World::run_system`].
     ///
     /// It's possible to register multiple copies of the same system by calling this function
-    /// multiple times. If that's not what you want, consider using [`World::register_system_cached`]
-    /// instead.
+    /// multiple times. If that's not what you want, consider using
+    /// [`World::register_system_cached`] instead.
     ///
     /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
-    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
-    /// This allows for running systems in a pushed-based fashion.
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the
+    /// associated system. This allows for running systems in a pushed-based fashion.
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
     pub fn register_system<I, O, M>(
@@ -179,8 +181,9 @@ impl World {
     }
 
     /// Removes a registered system and returns the system, if it exists.
-    /// After removing a system, the [`SystemId`] becomes invalid and attempting to use it afterwards will result in errors.
-    /// Re-adding the removed system will register it on a new [`SystemId`].
+    /// After removing a system, the [`SystemId`] becomes invalid and attempting to use it
+    /// afterwards will result in errors. Re-adding the removed system will register it on a new
+    /// [`SystemId`].
     ///
     /// If no system corresponds to the given [`SystemId`], this method returns an error.
     /// Systems are also not allowed to remove themselves, this returns an error too.
@@ -210,7 +213,8 @@ impl World {
     /// Run stored systems by their [`SystemId`].
     /// Before running a system, it must first be registered.
     /// The method [`World::register_system`] stores a given system and returns a [`SystemId`].
-    /// This is different from [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once),
+    /// This is different from
+    /// [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once),
     /// because it keeps local state between calls and change detection works correctly.
     ///
     /// Also runs any queued-up commands.

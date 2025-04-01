@@ -19,7 +19,8 @@ use variadics_please::all_tuples;
 /// using the [`TypedFunction`] trait, and manually constructed otherwise.
 ///
 /// It is compromised of one or more [`SignatureInfo`] structs,
-/// allowing it to represent functions with multiple sets of arguments (i.e. "overloaded functions").
+/// allowing it to represent functions with multiple sets of arguments (i.e. "overloaded
+/// functions").
 ///
 /// [`DynamicFunction`]: crate::func::DynamicFunction
 /// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
@@ -101,10 +102,10 @@ impl FunctionInfo {
 
     /// The name of the function.
     ///
-    /// For [`DynamicFunctions`] created using [`IntoFunction`] or [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
-    /// unless the function is a closure, anonymous function, or function pointer,
-    /// in which case the name will be `None`.
+    /// For [`DynamicFunctions`] created using [`IntoFunction`] or [`DynamicFunctionMuts`] created
+    /// using [`IntoFunctionMut`], the default name will always be the full path to the function
+    /// as returned by [`std::any::type_name`], unless the function is a closure, anonymous
+    /// function, or function pointer, in which case the name will be `None`.
     ///
     /// For overloaded functions, this will be the name of the base signature,
     /// unless manually overwritten using [`Self::with_name`].
@@ -161,7 +162,8 @@ impl FunctionInfo {
         &self.signatures
     }
 
-    /// Returns a wrapper around this info that implements [`Debug`] for pretty-printing the function.
+    /// Returns a wrapper around this info that implements [`Debug`] for pretty-printing the
+    /// function.
     ///
     /// This can be useful for more readable debugging and logging.
     ///
@@ -276,8 +278,8 @@ impl SignatureInfo {
 
     /// Push an argument onto the function's argument list.
     ///
-    /// The order in which this method is called matters as it will determine the index of the argument
-    /// based on the current number of arguments.
+    /// The order in which this method is called matters as it will determine the index of the
+    /// argument based on the current number of arguments.
     pub fn with_arg<T: TypePath + GetOwnership>(
         mut self,
         name: impl Into<Cow<'static, str>>,
@@ -324,10 +326,10 @@ impl SignatureInfo {
 
     /// The name of the function.
     ///
-    /// For [`DynamicFunctions`] created using [`IntoFunction`] or [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
-    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
-    /// unless the function is a closure, anonymous function, or function pointer,
-    /// in which case the name will be `None`.
+    /// For [`DynamicFunctions`] created using [`IntoFunction`] or [`DynamicFunctionMuts`] created
+    /// using [`IntoFunctionMut`], the default name will always be the full path to the function
+    /// as returned by [`core::any::type_name`], unless the function is a closure, anonymous
+    /// function, or function pointer, in which case the name will be `None`.
     ///
     /// [`DynamicFunctions`]: crate::func::DynamicFunction
     /// [`IntoFunction`]: crate::func::IntoFunction
@@ -380,7 +382,8 @@ impl ReturnInfo {
     }
 }
 
-/// A wrapper around [`FunctionInfo`] that implements [`Debug`] for pretty-printing function information.
+/// A wrapper around [`FunctionInfo`] that implements [`Debug`] for pretty-printing function
+/// information.
 ///
 /// # Example
 ///
@@ -455,7 +458,8 @@ impl<'a> Debug for PrettyPrintFunctionInfo<'a> {
     }
 }
 
-/// A wrapper around [`SignatureInfo`] that implements [`Debug`] for pretty-printing function signature information.
+/// A wrapper around [`SignatureInfo`] that implements [`Debug`] for pretty-printing function
+/// signature information.
 ///
 /// # Example
 ///
@@ -552,7 +556,8 @@ impl<'a> Debug for PrettyPrintSignatureInfo<'a> {
 /// For each of the above cases, the function signature may only have up to 15 arguments,
 /// not including an optional receiver argument (often `&self` or `&mut self`).
 /// This optional receiver argument may be either a mutable or immutable reference to a type.
-/// If the return type is also a reference, its lifetime will be bound to the lifetime of this receiver.
+/// If the return type is also a reference, its lifetime will be bound to the lifetime of this
+/// receiver.
 ///
 /// See the [module-level documentation] for more information on valid signatures.
 ///
@@ -596,7 +601,8 @@ pub trait TypedFunction<Marker> {
 
 /// Helper macro for implementing [`TypedFunction`] on Rust functions.
 ///
-/// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
+/// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`,
+/// or `&mut T`):
 /// - `FnMut(arg0, arg1, ..., argN) -> R`
 /// - `FnMut(&Receiver, arg0, arg1, ..., argN) -> &R`
 /// - `FnMut(&mut Receiver, arg0, arg1, ..., argN) -> &mut R`

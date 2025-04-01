@@ -1,4 +1,5 @@
-//! Demonstrates using a custom extension to the `StandardMaterial` to modify the results of the builtin pbr shader.
+//! Demonstrates using a custom extension to the `StandardMaterial` to modify the results of the
+//! builtin pbr shader.
 
 use bevy::{
     color::palettes::basic::RED,
@@ -34,11 +35,13 @@ fn setup(
                 base_color: RED.into(),
                 // can be used in forward or deferred mode
                 opaque_render_method: OpaqueRendererMethod::Auto,
-                // in deferred mode, only the PbrInput can be modified (uvs, color and other material properties),
-                // in forward mode, the output can also be modified after lighting is applied.
-                // see the fragment shader `extended_material.wgsl` for more info.
-                // Note: to run in deferred mode, you must also add a `DeferredPrepass` component to the camera and either
-                // change the above to `OpaqueRendererMethod::Deferred` or add the `DefaultOpaqueRendererMethod` resource.
+                // in deferred mode, only the PbrInput can be modified (uvs, color and other
+                // material properties), in forward mode, the output can also be
+                // modified after lighting is applied. see the fragment shader
+                // `extended_material.wgsl` for more info. Note: to run in deferred
+                // mode, you must also add a `DeferredPrepass` component to the camera and either
+                // change the above to `OpaqueRendererMethod::Deferred` or add the
+                // `DefaultOpaqueRendererMethod` resource.
                 ..Default::default()
             },
             extension: MyExtension { quantize_steps: 3 },

@@ -22,8 +22,8 @@
 //!
 //! For instance, let's imagine that we want to use the `Vec3` output
 //! from our curve to animate the [translation component of a `Transform`]. For this, there is
-//! the adaptor [`AnimatableCurve`], which wraps any [`Curve`] and [`AnimatableProperty`] and turns it into an
-//! [`AnimationCurve`] that will use the given curve to animate the entity's property:
+//! the adaptor [`AnimatableCurve`], which wraps any [`Curve`] and [`AnimatableProperty`] and turns
+//! it into an [`AnimationCurve`] that will use the given curve to animate the entity's property:
 //!
 //!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_math::vec3;
@@ -33,22 +33,23 @@
 //!     #     Interval::UNIT,
 //!     #     |t| vec3(t.cos(), 0.0, 0.0)
 //!     # );
-//!     let wobble_animation = AnimatableCurve::new(animated_field!(Transform::translation), wobble_curve);
+//!     let wobble_animation = AnimatableCurve::new(animated_field!(Transform::translation),
+//! wobble_curve);
 //!
 //! And finally, this [`AnimationCurve`] needs to be added to an [`AnimationClip`] in order to
 //! actually animate something. This is what that looks like:
 //!
 //!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
-//!     # use bevy_animation::{AnimationClip, AnimationTargetId, animated_field, animation_curves::*};
-//!     # use bevy_transform::components::Transform;
+//!     # use bevy_animation::{AnimationClip, AnimationTargetId, animated_field,
+//! animation_curves::*};     # use bevy_transform::components::Transform;
 //!     # use bevy_ecs::name::Name;
 //!     # use bevy_math::vec3;
 //!     # let wobble_curve = FunctionCurve::new(
 //!     #     Interval::UNIT,
 //!     #     |t| { vec3(t.cos(), 0.0, 0.0) },
 //!     # );
-//!     # let wobble_animation = AnimatableCurve::new(animated_field!(Transform::translation), wobble_curve);
-//!     # let animation_target_id = AnimationTargetId::from(&Name::new("Test"));
+//!     # let wobble_animation = AnimatableCurve::new(animated_field!(Transform::translation),
+//! wobble_curve);     # let animation_target_id = AnimationTargetId::from(&Name::new("Test"));
 //!     let mut animation_clip = AnimationClip::default();
 //!     animation_clip.add_curve_to_target(
 //!         animation_target_id,
@@ -63,10 +64,11 @@
 //!
 //! ## Animated Fields
 //!
-//! The [`animated_field`] macro (which returns an [`AnimatedField`]), in combination with [`AnimatableCurve`]
-//! is the easiest way to make an animation curve (see the example above).
+//! The [`animated_field`] macro (which returns an [`AnimatedField`]), in combination with
+//! [`AnimatableCurve`] is the easiest way to make an animation curve (see the example above).
 //!
-//! This will select a field on a component and pass it to a [`Curve`] with a type that matches the field.
+//! This will select a field on a component and pass it to a [`Curve`] with a type that matches the
+//! field.
 //!
 //! ## Animatable Properties
 //!
@@ -116,7 +118,8 @@ use downcast_rs::{Downcast, impl_downcast};
 /// Here, `AnimatableProperty` is used to animate a value inside an `Option`,
 /// returning an error if the option is `None`.
 ///
-///     # use bevy_animation::{prelude::AnimatableProperty, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
+///     # use bevy_animation::{prelude::AnimatableProperty, AnimationEntityMut,
+/// AnimationEvaluationError, animation_curves::EvaluatorId};
 ///     # use bevy_ecs::component::Component;
 ///     # use std::any::TypeId;
 ///     #[derive(Component)]
@@ -152,10 +155,10 @@ use downcast_rs::{Downcast, impl_downcast};
 ///
 /// You can then create an [`AnimatableCurve`] to animate this property like so:
 ///
-///     # use bevy_animation::{VariableCurve, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
-///     # use bevy_animation::prelude::{AnimatableProperty, AnimatableKeyframeCurve, AnimatableCurve};
-///     # use bevy_ecs::{name::Name, component::Component};
-///     # use std::any::TypeId;
+///     # use bevy_animation::{VariableCurve, AnimationEntityMut, AnimationEvaluationError,
+/// animation_curves::EvaluatorId};     # use bevy_animation::prelude::{AnimatableProperty,
+/// AnimatableKeyframeCurve, AnimatableCurve};     # use bevy_ecs::{name::Name,
+/// component::Component};     # use std::any::TypeId;
 ///     # #[derive(Component)]
 ///     # struct ExampleComponent { power_level: Option<f32> }
 ///     # #[derive(Clone)]
@@ -197,24 +200,27 @@ pub trait AnimatableProperty: Send + Sync + 'static {
         entity: &'a mut AnimationEntityMut,
     ) -> Result<&'a mut Self::Property, AnimationEvaluationError>;
 
-    /// The [`EvaluatorId`] used to look up the [`AnimationCurveEvaluator`] for this [`AnimatableProperty`].
-    /// For a given animated property, this ID should always be the same to allow things like animation blending to occur.
+    /// The [`EvaluatorId`] used to look up the [`AnimationCurveEvaluator`] for this
+    /// [`AnimatableProperty`]. For a given animated property, this ID should always be the same
+    /// to allow things like animation blending to occur.
     fn evaluator_id(&self) -> EvaluatorId;
 }
 
-/// A [`Component`] field that can be animated, defined by a function that reads the component and returns
-/// the accessed field / property.
+/// A [`Component`] field that can be animated, defined by a function that reads the component and
+/// returns the accessed field / property.
 ///
 /// The best way to create an instance of this type is via the [`animated_field`] macro.
 ///
-/// `C` is the component being animated, `A` is the type of the [`Animatable`] field on the component, and `F` is an accessor
-/// function that accepts a reference to `C` and retrieves the field `A`.
+/// `C` is the component being animated, `A` is the type of the [`Animatable`] field on the
+/// component, and `F` is an accessor function that accepts a reference to `C` and retrieves the
+/// field `A`.
 ///
 /// [`animated_field`]: crate::animated_field
 #[derive(Clone)]
 pub struct AnimatedField<C, A, F: Fn(&mut C) -> &mut A> {
     func: F,
-    /// A pre-hashed (component-type-id, reflected-field-index) pair, uniquely identifying a component field
+    /// A pre-hashed (component-type-id, reflected-field-index) pair, uniquely identifying a
+    /// component field
     evaluator_id: Hashed<(TypeId, usize)>,
     marker: PhantomData<(C, A)>,
 }
@@ -807,15 +813,17 @@ pub trait AnimationCurve: Debug + Send + Sync + 'static {
     ) -> Result<(), AnimationEvaluationError>;
 }
 
-/// The [`EvaluatorId`] is used to look up the [`AnimationCurveEvaluator`] for an [`AnimatableProperty`].
-/// For a given animated property, this ID should always be the same to allow things like animation blending to occur.
+/// The [`EvaluatorId`] is used to look up the [`AnimationCurveEvaluator`] for an
+/// [`AnimatableProperty`]. For a given animated property, this ID should always be the same to
+/// allow things like animation blending to occur.
 #[derive(Clone)]
 pub enum EvaluatorId<'a> {
     /// Corresponds to a specific field on a specific component type.
     /// The `TypeId` should correspond to the component type, and the `usize`
     /// should correspond to the Reflect-ed field index of the field.
-    // IMPLEMENTATION NOTE: The Hashed<(TypeId, usize) is intentionally cheap to clone, as it will be cloned per frame by the evaluator
-    // Switching the field index `usize` for something like a field name `String` would probably be too expensive to justify
+    // IMPLEMENTATION NOTE: The Hashed<(TypeId, usize) is intentionally cheap to clone, as it will
+    // be cloned per frame by the evaluator Switching the field index `usize` for something
+    // like a field name `String` would probably be too expensive to justify
     ComponentField(&'a Hashed<(TypeId, usize)>),
     /// Corresponds to a custom property of a given type. This should be the [`TypeId`]
     /// of the custom [`AnimatableProperty`].
@@ -848,16 +856,15 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     ///
     /// The semantics of this method are as follows:
     ///
-    /// 1. Pop the top element of the stack. Call its value vₘ and its weight
-    ///    wₘ. If the stack was empty, return success.
+    /// 1. Pop the top element of the stack. Call its value vₘ and its weight wₘ. If the stack was
+    ///    empty, return success.
     ///
-    /// 2. If the blend register is empty, set the blend register value to vₘ
-    ///    and the blend register weight to wₘ; then, return success.
+    /// 2. If the blend register is empty, set the blend register value to vₘ and the blend register
+    ///    weight to wₘ; then, return success.
     ///
-    /// 3. If the blend register is nonempty, call its current value vₙ and its
-    ///    current weight wₙ. Then, set the value of the blend register to
-    ///    `interpolate(vₙ, vₘ, wₘ / (wₘ + wₙ))`, and set the weight of the blend
-    ///    register to wₘ + wₙ.
+    /// 3. If the blend register is nonempty, call its current value vₙ and its current weight wₙ.
+    ///    Then, set the value of the blend register to `interpolate(vₙ, vₘ, wₘ / (wₘ + wₙ))`, and
+    ///    set the weight of the blend register to wₘ + wₙ.
     ///
     /// 4. Return success.
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError>;
@@ -866,14 +873,14 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     ///
     /// The semantics of this method are as follows:
     ///
-    /// 1. Pop the top element of the stack. Call its value vₘ and its weight
-    ///    wₘ. If the stack was empty, return success.
+    /// 1. Pop the top element of the stack. Call its value vₘ and its weight wₘ. If the stack was
+    ///    empty, return success.
     ///
-    /// 2. If the blend register is empty, set the blend register value to vₘ
-    ///    and the blend register weight to wₘ; then, return success.
+    /// 2. If the blend register is empty, set the blend register value to vₘ and the blend register
+    ///    weight to wₘ; then, return success.
     ///
-    /// 3. If the blend register is nonempty, call its current value vₙ.
-    ///    Then, set the value of the blend register to vₙ + vₘwₘ.
+    /// 3. If the blend register is nonempty, call its current value vₙ. Then, set the value of the
+    ///    blend register to vₙ + vₘwₘ.
     ///
     /// 4. Return success.
     fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError>;

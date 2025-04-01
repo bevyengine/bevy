@@ -60,9 +60,8 @@ impl<'a> PathParser<'a> {
         let (ident, remaining) = to_parse.split_at(ident_len.unwrap_or(to_parse.len()));
         // SAFETY: This relies on `self.remaining` always remaining valid UTF8:
         // - self.remaining is a slice derived from self.path (valid &str)
-        // - The slice's end is either the same as the valid &str or
-        //   the last byte before an ASCII utf-8 character (ie: it is a char
-        //   boundary).
+        // - The slice's end is either the same as the valid &str or the last byte before an ASCII
+        //   utf-8 character (ie: it is a char boundary).
         // - The slice always starts after a symbol ie: an ASCII character's boundary.
         #[expect(
             unsafe_code,

@@ -1,4 +1,5 @@
-//! Demonstrates how the `AlignItems` and `JustifyContent` properties can be composed to layout text.
+//! Demonstrates how the `AlignItems` and `JustifyContent` properties can be composed to layout
+//! text.
 use bevy::prelude::*;
 
 const ALIGN_ITEMS_COLOR: Color = Color::srgb(1., 0.066, 0.349);
@@ -68,7 +69,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|builder| {
-                    // spawn one child node for each combination of `AlignItems` and `JustifyContent`
+                    // spawn one child node for each combination of `AlignItems` and
+                    // `JustifyContent`
                     let justifications = [
                         JustifyContent::FlexStart,
                         JustifyContent::Center,
@@ -132,7 +134,8 @@ fn spawn_child_node(
                 (format!("{justify_content:?}"), JUSTIFY_CONTENT_COLOR, 3.),
             ];
             for (text, color, top_margin) in labels {
-                // We nest the text within a parent node because margins and padding can't be directly applied to text nodes currently.
+                // We nest the text within a parent node because margins and padding can't be
+                // directly applied to text nodes currently.
                 spawn_nested_text_bundle(
                     builder,
                     font.clone(),

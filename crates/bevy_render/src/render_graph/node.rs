@@ -348,7 +348,8 @@ impl Node for RunGraphOnViewNode {
     }
 }
 
-/// This trait should be used instead of the [`Node`] trait when making a render node that runs on a view.
+/// This trait should be used instead of the [`Node`] trait when making a render node that runs on a
+/// view.
 ///
 /// It is intended to be used with [`ViewNodeRunner`]
 pub trait ViewNode {

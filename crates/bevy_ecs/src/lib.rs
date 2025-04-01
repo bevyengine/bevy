@@ -2400,7 +2400,8 @@ mod tests {
 
     #[test]
     fn runtime_required_components_override_2() {
-        // Same as `runtime_required_components_override_1` test but with different registration order
+        // Same as `runtime_required_components_override_1` test but with different registration
+        // order
 
         #[derive(Component)]
         struct X;
@@ -2551,8 +2552,8 @@ mod tests {
 
         let mut world = World::new();
 
-        // Registering required components after the archetype has already been created should panic.
-        // This may change in the future.
+        // Registering required components after the archetype has already been created should
+        // panic. This may change in the future.
         world.spawn(X);
         assert!(matches!(
             world.try_register_required_components::<X, Y>(),
@@ -2571,7 +2572,8 @@ mod tests {
 
         let mut world = World::new();
 
-        // This should fail: Tried to register Y as a requirement for X, but the requirement already exists.
+        // This should fail: Tried to register Y as a requirement for X, but the requirement already
+        // exists.
         assert!(matches!(
             world.try_register_required_components::<X, Y>(),
             Err(RequiredComponentsError::DuplicateRegistration(_, _))

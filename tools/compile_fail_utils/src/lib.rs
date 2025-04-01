@@ -67,7 +67,9 @@ fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> ui_test::Result<Co
     config.stderr_filter(r"\/home\/[\pL\pN_@#\-\. ]+", "$HOME");
     // Paths in .stderr seem to always be normalized to use /. Handle both anyway.
     config.stderr_filter(
-        r"[a-zA-Z]:(?:\\|\/)users(?:\\|\/)[\pL\pN_@#\-\. ]+", // NOTE: [\pL\pN_@#\-\. ] is a poor attempt at handling usernames
+        r"[a-zA-Z]:(?:\\|\/)users(?:\\|\/)[\pL\pN_@#\-\. ]+", /* NOTE: [\pL\pN_@#\-\. ] is a
+                                                               * poor attempt at handling
+                                                               * usernames */
         "$HOME",
     );
 

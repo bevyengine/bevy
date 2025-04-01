@@ -98,15 +98,15 @@ fn setup(
 
 /// Fades the alpha channel of all materials between 0 and 1 over time.
 /// Each blend mode responds differently to this:
-/// - [`Opaque`](AlphaMode::Opaque): Ignores alpha channel altogether, these materials stay completely opaque.
-/// - [`Mask(f32)`](AlphaMode::Mask): Object appears when the alpha value goes above the mask's threshold, disappears
-///   when the alpha value goes back below the threshold.
+/// - [`Opaque`](AlphaMode::Opaque): Ignores alpha channel altogether, these materials stay
+///   completely opaque.
+/// - [`Mask(f32)`](AlphaMode::Mask): Object appears when the alpha value goes above the mask's
+///   threshold, disappears when the alpha value goes back below the threshold.
 /// - [`Blend`](AlphaMode::Blend): Object fades in and out smoothly.
-/// - [`AlphaToCoverage`](AlphaMode::AlphaToCoverage): Object fades in and out
-///   in steps corresponding to the number of multisample antialiasing (MSAA)
-///   samples in use. For example, assuming 8xMSAA, the object will be
-///   completely opaque, then will be 7/8 opaque (1/8 transparent), then will be
-///   6/8 opaque, then 5/8, etc.
+/// - [`AlphaToCoverage`](AlphaMode::AlphaToCoverage): Object fades in and out in steps
+///   corresponding to the number of multisample antialiasing (MSAA) samples in use. For example,
+///   assuming 8xMSAA, the object will be completely opaque, then will be 7/8 opaque (1/8
+///   transparent), then will be 6/8 opaque, then 5/8, etc.
 pub fn fade_transparency(time: Res<Time>, mut materials: ResMut<Assets<StandardMaterial>>) {
     let alpha = (ops::sin(time.elapsed_secs()) / 2.0) + 0.5;
     for (_, material) in materials.iter_mut() {

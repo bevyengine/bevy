@@ -15,19 +15,21 @@ use notify_debouncer_full::{
 use std::path::{Path, PathBuf};
 use tracing::error;
 
-/// An [`AssetWatcher`] that watches the filesystem for changes to asset files in a given root folder and emits [`AssetSourceEvent`]
-/// for each relevant change.
+/// An [`AssetWatcher`] that watches the filesystem for changes to asset files in a given root
+/// folder and emits [`AssetSourceEvent`] for each relevant change.
 ///
 /// This uses [`notify_debouncer_full`] to retrieve "debounced" filesystem events.
-/// "Debouncing" defines a time window to hold on to events and then removes duplicate events that fall into this window.
-/// This introduces a small delay in processing events, but it helps reduce event duplicates. A small delay is also necessary
-/// on some systems to avoid processing a change event before it has actually been applied.
+/// "Debouncing" defines a time window to hold on to events and then removes duplicate events that
+/// fall into this window. This introduces a small delay in processing events, but it helps reduce
+/// event duplicates. A small delay is also necessary on some systems to avoid processing a change
+/// event before it has actually been applied.
 pub struct FileWatcher {
     _watcher: Debouncer<RecommendedWatcher, RecommendedCache>,
 }
 
 impl FileWatcher {
-    /// Creates a new [`FileWatcher`] that watches for changes to the asset files in the given `path`.
+    /// Creates a new [`FileWatcher`] that watches for changes to the asset files in the given
+    /// `path`.
     pub fn new(
         path: PathBuf,
         sender: Sender<AssetSourceEvent>,
@@ -66,9 +68,10 @@ pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> (PathBuf, boo
     (asset_path, is_meta)
 }
 
-/// This is a bit more abstracted than it normally would be because we want to try _very hard_ not to duplicate this
-/// event management logic across filesystem-driven [`AssetWatcher`] impls. Each operating system / platform behaves
-/// a little differently and this is the result of a delicate balancing act that we should only perform once.
+/// This is a bit more abstracted than it normally would be because we want to try _very hard_ not
+/// to duplicate this event management logic across filesystem-driven [`AssetWatcher`] impls. Each
+/// operating system / platform behaves a little differently and this is the result of a delicate
+/// balancing act that we should only perform once.
 pub(crate) fn new_asset_event_debouncer(
     root: PathBuf,
     debounce_wait_time: Duration,
@@ -120,9 +123,12 @@ pub(crate) fn new_asset_event_debouncer(
                                     }
                                 }
                             }
-                            // Because this is debounced over a reasonable period of time, Modify(ModifyKind::Name(RenameMode::From)
-                            // events are assumed to be "dangling" without a follow up "To" event. Without debouncing, "From" -> "To" -> "Both"
-                            // events are emitted for renames. If a From is dangling, it is assumed to be "removed" from the context of the asset
+                            // Because this is debounced over a reasonable period of time,
+                            // Modify(ModifyKind::Name(RenameMode::From)
+                            // events are assumed to be "dangling" without a follow up "To" event.
+                            // Without debouncing, "From" -> "To" -> "Both"
+                            // events are emitted for renames. If a From is dangling, it is assumed
+                            // to be "removed" from the context of the asset
                             // system.
                             notify::EventKind::Remove(RemoveKind::Any)
                             | notify::EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
@@ -275,8 +281,8 @@ impl FilesystemEventHandler for FileEventHandler {
 pub(crate) trait FilesystemEventHandler: Send + Sync + 'static {
     /// Called each time a set of debounced events is processed
     fn begin(&mut self);
-    /// Returns an actual asset path (if one exists for the given `absolute_path`), as well as a [`bool`] that is
-    /// true if the `absolute_path` corresponds to a meta file.
+    /// Returns an actual asset path (if one exists for the given `absolute_path`), as well as a
+    /// [`bool`] that is true if the `absolute_path` corresponds to a meta file.
     fn get_path(&self, absolute_path: &Path) -> Option<(PathBuf, bool)>;
     /// Handle the given event
     fn handle(&mut self, absolute_paths: &[PathBuf], event: AssetSourceEvent);

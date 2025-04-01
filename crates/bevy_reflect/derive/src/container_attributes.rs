@@ -88,7 +88,8 @@ pub(crate) struct FromReflectAttrs {
 }
 
 impl FromReflectAttrs {
-    /// Returns true if `FromReflect` should be automatically derived as part of the `Reflect` derive.
+    /// Returns true if `FromReflect` should be automatically derived as part of the `Reflect`
+    /// derive.
     pub fn should_auto_derive(&self) -> bool {
         self.auto_derive.as_ref().is_none_or(LitBool::value)
     }
@@ -127,13 +128,12 @@ impl TypePathAttrs {
 /// * `PartialEq`
 ///
 /// When registering a trait, there are a few things to keep in mind:
-/// * Traits must have a valid `Reflect{}` struct in scope. For example, `Default`
-///   needs `bevy_reflect::prelude::ReflectDefault` in scope.
-/// * Traits must be single path identifiers. This means you _must_ use `Default`
-///   instead of `std::default::Default` (otherwise it will try to register `Reflectstd`!)
-/// * A custom function may be supplied in place of an actual implementation
-///   for the special traits (but still follows the same single-path identifier
-///   rules as normal).
+/// * Traits must have a valid `Reflect{}` struct in scope. For example, `Default` needs
+///   `bevy_reflect::prelude::ReflectDefault` in scope.
+/// * Traits must be single path identifiers. This means you _must_ use `Default` instead of
+///   `std::default::Default` (otherwise it will try to register `Reflectstd`!)
+/// * A custom function may be supplied in place of an actual implementation for the special traits
+///   (but still follows the same single-path identifier rules as normal).
 ///
 /// # Example
 ///

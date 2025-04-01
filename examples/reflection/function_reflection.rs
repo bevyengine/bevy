@@ -1,10 +1,12 @@
 //! This example demonstrates how functions can be called dynamically using reflection.
 //!
 //! Function reflection is useful for calling regular Rust functions in a dynamic context,
-//! where the types of arguments, return values, and even the function itself aren't known at compile time.
+//! where the types of arguments, return values, and even the function itself aren't known at
+//! compile time.
 //!
 //! This can be used for things like adding scripting support to your application,
-//! processing deserialized reflection data, or even just storing type-erased versions of your functions.
+//! processing deserialized reflection data, or even just storing type-erased versions of your
+//! functions.
 
 use bevy::reflect::{
     PartialReflect, Reflect,
@@ -34,16 +36,16 @@ fn main() {
     let result = fn_trait_object(2, 2);
     assert_eq!(result, 4);
 
-    // However, you'll notice that we have to know the types of the arguments and return value at compile time.
-    // This means there's not really a way to store or call these functions dynamically at runtime.
-    // Luckily, Bevy's reflection crate comes with a set of tools for doing just that!
-    // We do this by first converting our function into the reflection-based `DynamicFunction` type
-    // using the `IntoFunction` trait.
+    // However, you'll notice that we have to know the types of the arguments and return value at
+    // compile time. This means there's not really a way to store or call these functions
+    // dynamically at runtime. Luckily, Bevy's reflection crate comes with a set of tools for
+    // doing just that! We do this by first converting our function into the reflection-based
+    // `DynamicFunction` type using the `IntoFunction` trait.
     let function: DynamicFunction<'static> = dbg!(add.into_function());
 
-    // This time, you'll notice that `DynamicFunction` doesn't take any information about the function's arguments or return value.
-    // This is because `DynamicFunction` checks the types of the arguments and return value at runtime.
-    // Now we can generate a list of arguments:
+    // This time, you'll notice that `DynamicFunction` doesn't take any information about the
+    // function's arguments or return value. This is because `DynamicFunction` checks the types
+    // of the arguments and return value at runtime. Now we can generate a list of arguments:
     let args: ArgList = dbg!(ArgList::new().with_owned(2_i32).with_owned(2_i32));
 
     // And finally, we can call the function.
@@ -53,7 +55,8 @@ fn main() {
     let return_value: Return = dbg!(function.call(args).unwrap());
 
     // The `Return` value can be pattern matched or unwrapped to get the underlying reflection data.
-    // For the sake of brevity, we'll just unwrap it here and downcast it to the expected type of `i32`.
+    // For the sake of brevity, we'll just unwrap it here and downcast it to the expected type of
+    // `i32`.
     let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<i32>().unwrap(), 4);
 
@@ -79,7 +82,8 @@ fn main() {
 
     // Because `DynamicFunctionMut` mutably borrows `total`,
     // it will need to be dropped before `total` can be accessed again.
-    // This can be done manually with `drop(closure)` or by using the `DynamicFunctionMut::call_once` method.
+    // This can be done manually with `drop(closure)` or by using the
+    // `DynamicFunctionMut::call_once` method.
     dbg!(closure.call_once(args).unwrap());
     assert_eq!(count, 5);
 
@@ -128,9 +132,10 @@ fn main() {
 
     // As stated earlier, `IntoFunction` works for many kinds of simple functions.
     // Functions with non-reflectable arguments or return values may not be able to be converted.
-    // Generic functions are also not supported (unless manually monomorphized like `foo::<i32>.into_function()`).
-    // Additionally, the lifetime of the return value is tied to the lifetime of the first argument.
-    // However, this means that many methods (i.e. functions with a `self` parameter) are also supported:
+    // Generic functions are also not supported (unless manually monomorphized like
+    // `foo::<i32>.into_function()`). Additionally, the lifetime of the return value is tied to
+    // the lifetime of the first argument. However, this means that many methods (i.e. functions
+    // with a `self` parameter) are also supported:
     #[derive(Reflect, Default)]
     struct Data {
         value: String,

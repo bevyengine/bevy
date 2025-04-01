@@ -21,28 +21,33 @@ pub trait AppExtStates {
     ///
     /// This method is idempotent: it has no effect when called again using the same generic type.
     ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`](crate::state::OnEnter),
-    /// [`OnTransition`](crate::state::OnTransition) and [`OnExit`](crate::state::OnExit) schedules.
-    /// These schedules are triggered before [`Update`](bevy_app::Update) and at startup.
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the
+    /// [`OnEnter`](crate::state::OnEnter), [`OnTransition`](crate::state::OnTransition) and
+    /// [`OnExit`](crate::state::OnExit) schedules. These schedules are triggered before
+    /// [`Update`](bevy_app::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`](crate::condition::in_state) [`Condition`](bevy_ecs::prelude::Condition).
+    /// emulate this behavior using the [`in_state`](crate::condition::in_state)
+    /// [`Condition`](bevy_ecs::prelude::Condition).
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by triggering the [`StateTransition`](struct@StateTransition) schedule manually.
     ///
-    /// The use of any states requires the presence of [`StatesPlugin`] (which is included in `DefaultPlugins`).
+    /// The use of any states requires the presence of [`StatesPlugin`] (which is included in
+    /// `DefaultPlugins`).
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self;
 
     /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
     /// added of the same type.
     ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`](crate::state::OnEnter),
-    /// [`OnTransition`](crate::state::OnTransition) and [`OnExit`](crate::state::OnExit) schedules.
-    /// These schedules are triggered before [`Update`](bevy_app::Update) and at startup.
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the
+    /// [`OnEnter`](crate::state::OnEnter), [`OnTransition`](crate::state::OnTransition) and
+    /// [`OnExit`](crate::state::OnExit) schedules. These schedules are triggered before
+    /// [`Update`](bevy_app::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`](crate::condition::in_state) [`Condition`](bevy_ecs::prelude::Condition).
+    /// emulate this behavior using the [`in_state`](crate::condition::in_state)
+    /// [`Condition`](bevy_ecs::prelude::Condition).
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by triggering the [`StateTransition`](struct@StateTransition) schedule manually.
@@ -68,19 +73,23 @@ pub trait AppExtStates {
 
     #[cfg(feature = "bevy_reflect")]
     /// Registers the state type `T` using [`App::register_type`],
-    /// and adds [`ReflectState`](crate::reflect::ReflectState) type data to `T` in the type registry.
+    /// and adds [`ReflectState`](crate::reflect::ReflectState) type data to `T` in the type
+    /// registry.
     ///
-    /// This enables reflection code to access the state. For detailed information, see the docs on [`crate::reflect::ReflectState`] .
+    /// This enables reflection code to access the state. For detailed information, see the docs on
+    /// [`crate::reflect::ReflectState`] .
     fn register_type_state<S>(&mut self) -> &mut Self
     where
         S: States + FromReflect + GetTypeRegistration + Typed;
 
     #[cfg(feature = "bevy_reflect")]
     /// Registers the state type `T` using [`App::register_type`],
-    /// and adds [`crate::reflect::ReflectState`] and [`crate::reflect::ReflectFreelyMutableState`] type data to `T` in the type registry.
+    /// and adds [`crate::reflect::ReflectState`] and [`crate::reflect::ReflectFreelyMutableState`]
+    /// type data to `T` in the type registry.
     ///
     /// This enables reflection code to access and modify the state.
-    /// For detailed information, see the docs on [`crate::reflect::ReflectState`] and [`crate::reflect::ReflectFreelyMutableState`].
+    /// For detailed information, see the docs on [`crate::reflect::ReflectState`] and
+    /// [`crate::reflect::ReflectFreelyMutableState`].
     fn register_type_mutable_state<S>(&mut self) -> &mut Self
     where
         S: FreelyMutableState + FromReflect + GetTypeRegistration + Typed;
@@ -226,8 +235,9 @@ impl AppExtStates for SubApp {
                 name
             );
         }
-        // We work with [`StateTransition`] in set [`StateTransitionSteps::ExitSchedules`] as opposed to [`OnExit`],
-        // because [`OnExit`] only runs for one specific variant of the state.
+        // We work with [`StateTransition`] in set [`StateTransitionSteps::ExitSchedules`] as
+        // opposed to [`OnExit`], because [`OnExit`] only runs for one specific variant of
+        // the state.
         self.add_systems(
             StateTransition,
             clear_state_scoped_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
@@ -304,7 +314,8 @@ impl AppExtStates for App {
     }
 }
 
-/// Registers the [`StateTransition`] schedule in the [`MainScheduleOrder`] to enable state processing.
+/// Registers the [`StateTransition`] schedule in the [`MainScheduleOrder`] to enable state
+/// processing.
 #[derive(Default)]
 pub struct StatesPlugin;
 

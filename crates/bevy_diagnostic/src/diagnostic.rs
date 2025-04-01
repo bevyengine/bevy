@@ -347,9 +347,9 @@ pub struct Diagnostics<'w, 's> {
 }
 
 impl<'w, 's> Diagnostics<'w, 's> {
-    /// Add a measurement to an enabled [`Diagnostic`]. The measurement is passed as a function so that
-    /// it will be evaluated only if the [`Diagnostic`] is enabled. This can be useful if the value is
-    /// costly to calculate.
+    /// Add a measurement to an enabled [`Diagnostic`]. The measurement is passed as a function so
+    /// that it will be evaluated only if the [`Diagnostic`] is enabled. This can be useful if
+    /// the value is costly to calculate.
     pub fn add_measurement<F>(&mut self, path: &DiagnosticPath, value: F)
     where
         F: FnOnce() -> f64,

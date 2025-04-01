@@ -33,29 +33,29 @@ impl Default for ObserverState {
 }
 
 impl ObserverState {
-    /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
-    /// is triggered.
+    /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with
+    /// the given [`ComponentId`] is triggered.
     pub fn with_event(mut self, event: ComponentId) -> Self {
         self.descriptor.events.push(event);
         self
     }
 
-    /// Observe the given event list. This will cause the [`Observer`] to run whenever an event with any of the given [`ComponentId`]s
-    /// is triggered.
+    /// Observe the given event list. This will cause the [`Observer`] to run whenever an event with
+    /// any of the given [`ComponentId`]s is triggered.
     pub fn with_events(mut self, events: impl IntoIterator<Item = ComponentId>) -> Self {
         self.descriptor.events.extend(events);
         self
     }
 
-    /// Observe the given [`Entity`] list. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
-    /// for any [`Entity`] target in the list.
+    /// Observe the given [`Entity`] list. This will cause the [`Observer`] to run whenever the
+    /// [`Event`] is triggered for any [`Entity`] target in the list.
     pub fn with_entities(mut self, entities: impl IntoIterator<Item = Entity>) -> Self {
         self.descriptor.entities.extend(entities);
         self
     }
 
-    /// Observe the given [`ComponentId`] list. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
-    /// for any [`ComponentId`] target in the list.
+    /// Observe the given [`ComponentId`] list. This will cause the [`Observer`] to run whenever the
+    /// [`Event`] is triggered for any [`ComponentId`] target in the list.
     pub fn with_components(mut self, components: impl IntoIterator<Item = ComponentId>) -> Self {
         self.descriptor.components.extend(components);
         self
@@ -93,16 +93,17 @@ impl Component for ObserverState {
 
 /// Type for function that is run when an observer is triggered.
 ///
-/// Typically refers to the default runner that runs the system stored in the associated [`Observer`] component,
-/// but can be overridden for custom behavior.
+/// Typically refers to the default runner that runs the system stored in the associated
+/// [`Observer`] component, but can be overridden for custom behavior.
 pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: &mut bool);
 
 /// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to turn it into an "observer".
 ///
-/// Observers listen for a "trigger" of a specific [`Event`]. Events are triggered by calling [`World::trigger`] or [`World::trigger_targets`].
+/// Observers listen for a "trigger" of a specific [`Event`]. Events are triggered by calling
+/// [`World::trigger`] or [`World::trigger_targets`].
 ///
-/// Note that "buffered" events sent using [`EventReader`] and [`EventWriter`] are _not_ automatically triggered. They must be triggered at a specific
-/// point in the schedule.
+/// Note that "buffered" events sent using [`EventReader`] and [`EventWriter`] are _not_
+/// automatically triggered. They must be triggered at a specific point in the schedule.
 ///
 /// # Usage
 ///
@@ -130,7 +131,8 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// });
 /// ```
 ///
-/// Notice that we used [`World::add_observer`]. This is just a shorthand for spawning an [`Observer`] manually:
+/// Notice that we used [`World::add_observer`]. This is just a shorthand for spawning an
+/// [`Observer`] manually:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -160,7 +162,8 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 ///
 /// Note that [`Trigger`] must always be the first parameter.
 ///
-/// You can also add [`Commands`], which means you can spawn new entities, insert new components, etc:
+/// You can also add [`Commands`], which means you can spawn new entities, insert new components,
+/// etc:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -244,11 +247,11 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// });
 /// ```
 ///
-/// If all entities watched by a given [`Observer`] are despawned, the [`Observer`] entity will also be despawned.
-/// This protects against observer "garbage" building up over time.
+/// If all entities watched by a given [`Observer`] are despawned, the [`Observer`] entity will also
+/// be despawned. This protects against observer "garbage" building up over time.
 ///
-/// The examples above calling [`EntityWorldMut::observe`] to add entity-specific observer logic are (once again)
-/// just shorthand for spawning an [`Observer`] directly:
+/// The examples above calling [`EntityWorldMut::observe`] to add entity-specific observer logic are
+/// (once again) just shorthand for spawning an [`Observer`] directly:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -261,12 +264,14 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// world.spawn(observer);
 /// ```
 ///
-/// Note that the [`Observer`] component is not added to the entity it is observing. Observers should always be their own entities!
+/// Note that the [`Observer`] component is not added to the entity it is observing. Observers
+/// should always be their own entities!
 ///
-/// You can call [`Observer::watch_entity`] more than once, which allows you to watch multiple entities with the same [`Observer`].
+/// You can call [`Observer::watch_entity`] more than once, which allows you to watch multiple
+/// entities with the same [`Observer`].
 ///
-/// When first added, [`Observer`] will also create an [`ObserverState`] component, which registers the observer with the [`World`] and
-/// serves as the "source of truth" of the observer.
+/// When first added, [`Observer`] will also create an [`ObserverState`] component, which registers
+/// the observer with the [`World`] and serves as the "source of truth" of the observer.
 ///
 /// [`SystemParam`]: crate::system::SystemParam
 pub struct Observer {
@@ -277,8 +282,8 @@ pub struct Observer {
 }
 
 impl Observer {
-    /// Creates a new [`Observer`], which defaults to a "global" observer. This means it will run whenever the event `E` is triggered
-    /// for _any_ entity (or no entity).
+    /// Creates a new [`Observer`], which defaults to a "global" observer. This means it will run
+    /// whenever the event `E` is triggered for _any_ entity (or no entity).
     pub fn new<E: Event, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(system: I) -> Self {
         Self {
             system: Box::new(IntoObserverSystem::into_system(system)),
@@ -288,29 +293,29 @@ impl Observer {
         }
     }
 
-    /// Observe the given `entity`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
-    /// for the `entity`.
+    /// Observe the given `entity`. This will cause the [`Observer`] to run whenever the [`Event`]
+    /// is triggered for the `entity`.
     pub fn with_entity(mut self, entity: Entity) -> Self {
         self.descriptor.entities.push(entity);
         self
     }
 
-    /// Observe the given `entity`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
-    /// for the `entity`.
+    /// Observe the given `entity`. This will cause the [`Observer`] to run whenever the [`Event`]
+    /// is triggered for the `entity`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn watch_entity(&mut self, entity: Entity) {
         self.descriptor.entities.push(entity);
     }
 
-    /// Observe the given `component`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
-    /// with the given component target.
+    /// Observe the given `component`. This will cause the [`Observer`] to run whenever the
+    /// [`Event`] is triggered with the given component target.
     pub fn with_component(mut self, component: ComponentId) -> Self {
         self.descriptor.components.push(component);
         self
     }
 
-    /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
-    /// is triggered.
+    /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with
+    /// the given [`ComponentId`] is triggered.
     /// # Safety
     /// The type of the `event` [`ComponentId`] _must_ match the actual value
     /// of the event passed into the observer system.
@@ -434,10 +439,11 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     }
 }
 
-/// A [`ComponentHook`] used by [`Observer`] to handle its [`on-add`](`crate::component::ComponentHooks::on_add`).
+/// A [`ComponentHook`] used by [`Observer`] to handle its
+/// [`on-add`](`crate::component::ComponentHooks::on_add`).
 ///
-/// This function exists separate from [`Observer`] to allow [`Observer`] to have its type parameters
-/// erased.
+/// This function exists separate from [`Observer`] to allow [`Observer`] to have its type
+/// parameters erased.
 ///
 /// The type parameters of this function _must_ match those used to create the [`Observer`].
 /// As such, it is recommended to only use this function within the [`Observer::new`] method to
@@ -472,7 +478,8 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             } else {
                 return;
             };
-        // SAFETY: World reference is exclusive and initialize does not touch system, so references do not alias
+        // SAFETY: World reference is exclusive and initialize does not touch system, so references
+        // do not alias
         unsafe {
             (*system).initialize(world);
         }

@@ -8,8 +8,8 @@ use std::io::Cursor;
 pub struct AudioSource {
     /// Raw data of the audio source.
     ///
-    /// The data must be one of the file formats supported by Bevy (`wav`, `ogg`, `flac`, or `mp3`).
-    /// However, support for these file formats is not part of Bevy's [`default feature set`](https://docs.rs/bevy/latest/bevy/index.html#default-features).
+    /// The data must be one of the file formats supported by Bevy (`wav`, `ogg`, `flac`, or
+    /// `mp3`). However, support for these file formats is not part of Bevy's [`default feature set`](https://docs.rs/bevy/latest/bevy/index.html#default-features).
     /// In order to be able to use these file formats, you will have to enable the appropriate [`optional features`](https://docs.rs/bevy/latest/bevy/index.html#optional-features).
     ///
     /// It is decoded using [`rodio::decoder::Decoder`](https://docs.rs/rodio/latest/rodio/decoder/struct.Decoder.html).
@@ -76,8 +76,8 @@ impl AssetLoader for AudioLoader {
 /// A type implementing this trait can be converted to a [`rodio::Source`] type.
 ///
 /// It must be [`Send`] and [`Sync`] in order to be registered.
-/// Types that implement this trait usually contain raw sound data that can be converted into an iterator of samples.
-/// This trait is implemented for [`AudioSource`].
+/// Types that implement this trait usually contain raw sound data that can be converted into an
+/// iterator of samples. This trait is implemented for [`AudioSource`].
 /// Check the example [`decodable`](https://github.com/bevyengine/bevy/blob/latest/examples/audio/decodable.rs) for how to implement this trait on a custom type.
 pub trait Decodable: Send + Sync + 'static {
     /// The type of the audio samples.
@@ -87,7 +87,8 @@ pub trait Decodable: Send + Sync + 'static {
 
     /// The type of the iterator of the audio samples,
     /// which iterates over samples of type [`Self::DecoderItem`].
-    /// Must be a [`rodio::Source`] so that it can provide information on the audio it is iterating over.
+    /// Must be a [`rodio::Source`] so that it can provide information on the audio it is iterating
+    /// over.
     type Decoder: rodio::Source + Send + Iterator<Item = Self::DecoderItem>;
 
     /// Build and return a [`Self::Decoder`] of the implementing type
@@ -111,7 +112,8 @@ pub trait AddAudioSource {
     /// so that it can be converted to a [`rodio::Source`] type,
     /// and [`Asset`], so that it can be registered as an asset.
     /// To use this method on [`App`][bevy_app::App],
-    /// the [audio][super::AudioPlugin] and [asset][bevy_asset::AssetPlugin] plugins must be added first.
+    /// the [audio][super::AudioPlugin] and [asset][bevy_asset::AssetPlugin] plugins must be added
+    /// first.
     fn add_audio_source<T>(&mut self) -> &mut Self
     where
         T: Decodable + Asset,

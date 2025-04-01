@@ -31,7 +31,8 @@ impl StringExpr {
         Self::Const(lit.to_token_stream())
     }
 
-    /// Creates a [constant] [`StringExpr`] by interpreting a [string slice][str] as a [`struct@LitStr`].
+    /// Creates a [constant] [`StringExpr`] by interpreting a [string slice][str] as a
+    /// [`struct@LitStr`].
     ///
     /// [constant]: StringExpr::Const
     pub fn from_str(string: &str) -> Self {

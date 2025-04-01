@@ -33,8 +33,8 @@ use super::ReflectDeserializerProcessor;
 ///
 /// This deserializer will return a [`Box<dyn Reflect>`] containing the deserialized data.
 ///
-/// For opaque types (i.e. [`ReflectKind::Opaque`]) or types that register [`ReflectDeserialize`] type data,
-/// this `Box` will contain the expected type.
+/// For opaque types (i.e. [`ReflectKind::Opaque`]) or types that register [`ReflectDeserialize`]
+/// type data, this `Box` will contain the expected type.
 /// For example, deserializing an `i32` will return a `Box<i32>` (as a `Box<dyn Reflect>`).
 ///
 /// Otherwise, this `Box` will contain the dynamic equivalent.
@@ -201,8 +201,8 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 ///
 /// This deserializer will return a [`Box<dyn Reflect>`] containing the deserialized data.
 ///
-/// For opaque types (i.e. [`ReflectKind::Opaque`]) or types that register [`ReflectDeserialize`] type data,
-/// this `Box` will contain the expected type.
+/// For opaque types (i.e. [`ReflectKind::Opaque`]) or types that register [`ReflectDeserialize`]
+/// type data, this `Box` will contain the expected type.
 /// For example, deserializing an `i32` will return a `Box<i32>` (as a `Box<dyn Reflect>`).
 ///
 /// Otherwise, this `Box` will contain the dynamic equivalent.

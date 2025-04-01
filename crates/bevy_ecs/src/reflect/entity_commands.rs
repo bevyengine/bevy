@@ -21,7 +21,8 @@ pub trait ReflectCommandExt {
     /// - If the entity doesn't exist.
     /// - If [`AppTypeRegistry`] does not have the reflection data for the given
     ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
-    /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
+    /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further
+    ///   details.
     /// - If [`AppTypeRegistry`] is not present in the [`World`].
     ///
     /// # Note
@@ -87,8 +88,8 @@ pub trait ReflectCommandExt {
     /// ```
     fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self;
 
-    /// Same as [`insert_reflect`](ReflectCommandExt::insert_reflect), but using the `T` resource as type registry instead of
-    /// `AppTypeRegistry`.
+    /// Same as [`insert_reflect`](ReflectCommandExt::insert_reflect), but using the `T` resource as
+    /// type registry instead of `AppTypeRegistry`.
     ///
     /// # Panics
     ///
@@ -102,20 +103,21 @@ pub trait ReflectCommandExt {
         component: Box<dyn PartialReflect>,
     ) -> &mut Self;
 
-    /// Removes from the entity the component or bundle with the given type name registered in [`AppTypeRegistry`].
+    /// Removes from the entity the component or bundle with the given type name registered in
+    /// [`AppTypeRegistry`].
     ///
-    /// If the type is a bundle, it will remove any components in that bundle regardless if the entity
-    /// contains all the components.
+    /// If the type is a bundle, it will remove any components in that bundle regardless if the
+    /// entity contains all the components.
     ///
-    /// Does nothing if the type is a component and the entity does not have a component of the same type,
-    /// if the type is a bundle and the entity does not contain any of the components in the bundle,
-    /// if [`AppTypeRegistry`] does not contain the reflection data for the given component,
-    /// or if the entity does not exist.
+    /// Does nothing if the type is a component and the entity does not have a component of the same
+    /// type, if the type is a bundle and the entity does not contain any of the components in
+    /// the bundle, if [`AppTypeRegistry`] does not contain the reflection data for the given
+    /// component, or if the entity does not exist.
     ///
     /// # Note
     ///
-    /// Prefer to use the typed [`EntityCommands::remove`] if possible. Removing a reflected component
-    /// is much slower.
+    /// Prefer to use the typed [`EntityCommands::remove`] if possible. Removing a reflected
+    /// component is much slower.
     ///
     /// # Example
     ///
@@ -160,8 +162,8 @@ pub trait ReflectCommandExt {
     /// }
     /// ```
     fn remove_reflect(&mut self, component_type_name: impl Into<Cow<'static, str>>) -> &mut Self;
-    /// Same as [`remove_reflect`](ReflectCommandExt::remove_reflect), but using the `T` resource as type registry instead of
-    /// `AppTypeRegistry`.
+    /// Same as [`remove_reflect`](ReflectCommandExt::remove_reflect), but using the `T` resource as
+    /// type registry instead of `AppTypeRegistry`.
     fn remove_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
         component_type_name: impl Into<Cow<'static, str>>,
@@ -213,7 +215,8 @@ impl<'w> EntityWorldMut<'w> {
     /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If [`AppTypeRegistry`] does not have the reflection data for the given
     ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
-    /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
+    /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further
+    ///   details.
     /// - If [`AppTypeRegistry`] is not present in the [`World`].
     ///
     /// # Note
@@ -244,7 +247,8 @@ impl<'w> EntityWorldMut<'w> {
     /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If the given [`Resource`] does not have the reflection data for the given
     ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
-    /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
+    /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further
+    ///   details.
     /// - If the given [`Resource`] is not present in the [`World`].
     pub fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
@@ -263,14 +267,16 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Removes from the entity the component or bundle with the given type name registered in [`AppTypeRegistry`].
+    /// Removes from the entity the component or bundle with the given type name registered in
+    /// [`AppTypeRegistry`].
     ///
-    /// If the type is a bundle, it will remove any components in that bundle regardless if the entity
-    /// contains all the components.
+    /// If the type is a bundle, it will remove any components in that bundle regardless if the
+    /// entity contains all the components.
     ///
-    /// Does nothing if the type is a component and the entity does not have a component of the same type,
-    /// if the type is a bundle and the entity does not contain any of the components in the bundle,
-    /// or if [`AppTypeRegistry`] does not contain the reflection data for the given component.
+    /// Does nothing if the type is a component and the entity does not have a component of the same
+    /// type, if the type is a bundle and the entity does not contain any of the components in
+    /// the bundle, or if [`AppTypeRegistry`] does not contain the reflection data for the given
+    /// component.
     ///
     /// # Panics
     ///
@@ -279,8 +285,8 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Note
     ///
-    /// Prefer to use the typed [`EntityCommands::remove`] if possible. Removing a reflected component
-    /// is much slower.
+    /// Prefer to use the typed [`EntityCommands::remove`] if possible. Removing a reflected
+    /// component is much slower.
     pub fn remove_reflect(&mut self, component_type_path: Cow<'static, str>) -> &mut Self {
         self.assert_not_despawned();
         let entity_id = self.id();
@@ -303,12 +309,13 @@ impl<'w> EntityWorldMut<'w> {
     /// Same as [`remove_reflect`](EntityWorldMut::remove_reflect), but using
     /// the `T` resource as type registry instead of `AppTypeRegistry`.
     ///
-    /// If the given type is a bundle, it will remove any components in that bundle regardless if the entity
-    /// contains all the components.
+    /// If the given type is a bundle, it will remove any components in that bundle regardless if
+    /// the entity contains all the components.
     ///
-    /// Does nothing if the type is a component and the entity does not have a component of the same type,
-    /// if the type is a bundle and the entity does not contain any of the components in the bundle,
-    /// or if [`AppTypeRegistry`] does not contain the reflection data for the given component.
+    /// Does nothing if the type is a component and the entity does not have a component of the same
+    /// type, if the type is a bundle and the entity does not contain any of the components in
+    /// the bundle, or if [`AppTypeRegistry`] does not contain the reflection data for the given
+    /// component.
     ///
     /// # Panics
     ///

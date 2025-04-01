@@ -35,7 +35,8 @@ pub(crate) fn new_tarjan_scc<S: BuildHasher>(
         graph,
         unchecked_nodes,
         index: 1,                    // Invariant: index < component_count at all times.
-        component_count: usize::MAX, /* Will hold if component_count is initialized to number of nodes - 1 or higher. */
+        component_count: usize::MAX, /* Will hold if component_count is initialized to number of
+                                      * nodes - 1 or higher. */
         nodes,
         stack: Vec::new(),
         visitation_stack: Vec::new(),
@@ -87,8 +88,8 @@ impl<'graph, S: BuildHasher, A: Iterator<Item = NodeId>, N: Iterator<Item = Node
     TarjanScc<'graph, S, A, N>
 {
     /// Compute the next *strongly connected component* using Algorithm 3 in
-    /// [A Space-Efficient Algorithm for Finding Strongly Connected Components][1] by David J. Pierce,
-    /// which is a memory-efficient variation of [Tarjan's algorithm][2].
+    /// [A Space-Efficient Algorithm for Finding Strongly Connected Components][1] by David J.
+    /// Pierce, which is a memory-efficient variation of [Tarjan's algorithm][2].
     ///
     ///
     /// [1]: https://homepages.ecs.vuw.ac.nz/~djp/files/P05.pdf
@@ -125,8 +126,8 @@ impl<'graph, S: BuildHasher, A: Iterator<Item = NodeId>, N: Iterator<Item = Node
 
             let visited = self.nodes[self.graph.to_index(node)].root_index.is_some();
 
-            // If this node hasn't already been visited (e.g., it was the neighbor of a previously checked node)
-            // add it to the visitation stack.
+            // If this node hasn't already been visited (e.g., it was the neighbor of a previously
+            // checked node) add it to the visitation stack.
             if !visited {
                 self.visitation_stack.push((node, true));
             }

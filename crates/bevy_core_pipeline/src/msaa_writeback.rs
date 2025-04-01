@@ -15,8 +15,9 @@ use bevy_render::{
     view::{Msaa, ViewTarget},
 };
 
-/// This enables "msaa writeback" support for the `core_2d` and `core_3d` pipelines, which can be enabled on cameras
-/// using [`bevy_render::camera::Camera::msaa_writeback`]. See the docs on that field for more information.
+/// This enables "msaa writeback" support for the `core_2d` and `core_3d` pipelines, which can be
+/// enabled on cameras using [`bevy_render::camera::Camera::msaa_writeback`]. See the docs on that
+/// field for more information.
 pub struct MsaaWritebackPlugin;
 
 impl Plugin for MsaaWritebackPlugin {
@@ -74,9 +75,9 @@ impl ViewNode for MsaaWritebackNode {
             return Ok(());
         };
 
-        // The current "main texture" needs to be bound as an input resource, and we need the "other"
-        // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
-        // as a post process write!
+        // The current "main texture" needs to be bound as an input resource, and we need the
+        // "other" unused target to be the "resolve target" for the MSAA write. Therefore
+        // this is the same as a post process write!
         let post_process = target.post_process_write();
 
         let pass_descriptor = RenderPassDescriptor {
@@ -127,8 +128,8 @@ fn prepare_msaa_writeback_pipelines(
     view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &Msaa)>,
 ) {
     for (entity, view_target, camera, msaa) in view_targets.iter() {
-        // only do writeback if writeback is enabled for the camera and this isn't the first camera in the target,
-        // as there is nothing to write back for the first camera.
+        // only do writeback if writeback is enabled for the camera and this isn't the first camera
+        // in the target, as there is nothing to write back for the first camera.
         if msaa.samples() > 1 && camera.msaa_writeback && camera.sorted_camera_index_for_target > 0
         {
             let key = BlitPipelineKey {
@@ -142,8 +143,8 @@ fn prepare_msaa_writeback_pipelines(
                 .entity(entity)
                 .insert(MsaaWritebackBlitPipeline(pipeline));
         } else {
-            // This isn't strictly necessary now, but if we move to retained render entity state I don't
-            // want this to silently break
+            // This isn't strictly necessary now, but if we move to retained render entity state I
+            // don't want this to silently break
             commands
                 .entity(entity)
                 .remove::<MsaaWritebackBlitPipeline>();

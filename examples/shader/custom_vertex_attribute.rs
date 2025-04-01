@@ -23,8 +23,8 @@ fn main() {
         .run();
 }
 
-// A "high" random id should be used for custom attributes to ensure consistent sorting and avoid collisions with other attributes.
-// See the MeshVertexAttribute docs for more info.
+// A "high" random id should be used for custom attributes to ensure consistent sorting and avoid
+// collisions with other attributes. See the MeshVertexAttribute docs for more info.
 const ATTRIBUTE_BLEND_COLOR: MeshVertexAttribute =
     MeshVertexAttribute::new("BlendColor", 988540917, VertexFormat::Float32x4);
 
@@ -38,7 +38,8 @@ fn setup(
         // Sets the custom attribute
         .with_inserted_attribute(
             ATTRIBUTE_BLEND_COLOR,
-            // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one BlendColor for each
+            // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one
+            // BlendColor for each
             vec![[1.0, 0.0, 0.0, 1.0]; 24],
         );
 

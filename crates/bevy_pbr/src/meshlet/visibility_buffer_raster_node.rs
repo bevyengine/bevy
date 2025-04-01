@@ -19,7 +19,8 @@ use bevy_render::{
 };
 use core::sync::atomic::Ordering;
 
-/// Rasterize meshlets into a depth buffer, and optional visibility buffer + material depth buffer for shading passes.
+/// Rasterize meshlets into a depth buffer, and optional visibility buffer + material depth buffer
+/// for shading passes.
 pub struct MeshletVisibilityBufferRasterPassNode {
     main_view_query: QueryState<(
         &'static ExtractedCamera,

@@ -113,7 +113,8 @@ pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In>
     /// # app.run(&mut world);
     /// ```
     ///
-    /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
+    /// Note that in this case, it's better to just use the run condition
+    /// [`resource_exists_and_equals`].
     ///
     /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
     fn and<M, C: Condition<M, In>>(self, and: C) -> And<Self::System, C::System> {
@@ -986,7 +987,8 @@ pub mod common_conditions {
 
     /// Generates a [`Condition`] that returns true when the passed one changes.
     ///
-    /// The first time this is called, the passed condition is assumed to have been previously false.
+    /// The first time this is called, the passed condition is assumed to have been previously
+    /// false.
     ///
     /// # Example
     ///
@@ -1037,7 +1039,8 @@ pub mod common_conditions {
     /// Generates a [`Condition`] that returns true when the result of
     /// the passed one went from false to true since the last time this was called.
     ///
-    /// The first time this is called, the passed condition is assumed to have been previously false.
+    /// The first time this is called, the passed condition is assumed to have been previously
+    /// false.
     ///
     /// # Example
     ///

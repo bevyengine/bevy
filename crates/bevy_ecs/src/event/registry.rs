@@ -17,13 +17,14 @@ struct RegisteredEvent {
     update: unsafe fn(MutUntyped),
 }
 
-/// A registry of all of the [`Events`] in the [`World`], used by [`event_update_system`](crate::event::update::event_update_system)
-/// to update all of the events.
+/// A registry of all of the [`Events`] in the [`World`], used by
+/// [`event_update_system`](crate::event::update::event_update_system) to update all of the events.
 #[derive(Resource, Default)]
 pub struct EventRegistry {
     /// Should the events be updated?
     ///
-    /// This field is generally automatically updated by the [`signal_event_update_system`](crate::event::update::signal_event_update_system).
+    /// This field is generally automatically updated by the
+    /// [`signal_event_update_system`](crate::event::update::signal_event_update_system).
     pub should_update: ShouldUpdateEvents,
     event_updates: Vec<RegisteredEvent>,
 }
@@ -36,15 +37,16 @@ pub enum ShouldUpdateEvents {
     Always,
     /// We need to wait until at least one pass of the fixed update schedules to update the events.
     Waiting,
-    /// At least one pass of the fixed update schedules has occurred, and the events are ready to be updated.
+    /// At least one pass of the fixed update schedules has occurred, and the events are ready to be
+    /// updated.
     Ready,
 }
 
 impl EventRegistry {
     /// Registers an event type to be updated in a given [`World`]
     ///
-    /// If no instance of the [`EventRegistry`] exists in the world, this will add one - otherwise it will use
-    /// the existing instance.
+    /// If no instance of the [`EventRegistry`] exists in the world, this will add one - otherwise
+    /// it will use the existing instance.
     pub fn register_event<T: Event>(world: &mut World) {
         // By initializing the resource here, we can be sure that it is present,
         // and receive the correct, up-to-date `ComponentId` even if it was previously removed.
@@ -72,8 +74,8 @@ impl EventRegistry {
                     // SAFETY: The update function pointer is called with the resource
                     // fetched from the same component ID.
                     unsafe { (registered_event.update)(events) };
-                    // Always set to true if the events have changed, otherwise disable running on the second invocation
-                    // to wait for more changes.
+                    // Always set to true if the events have changed, otherwise disable running on
+                    // the second invocation to wait for more changes.
                     registered_event.previously_updated =
                         has_changed || !registered_event.previously_updated;
                 }

@@ -23,7 +23,8 @@ pub struct RunSubGraph {
 /// passing them onto the next node.
 ///
 /// Sub graphs can be queued for running by adding a [`RunSubGraph`] command to the context.
-/// After the node has finished running the graph runner is responsible for executing the sub graphs.
+/// After the node has finished running the graph runner is responsible for executing the sub
+/// graphs.
 pub struct RenderGraphContext<'a> {
     graph: &'a RenderGraph,
     node: &'a NodeState,

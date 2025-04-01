@@ -1,4 +1,5 @@
-//! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin`] for more details.
+//! Order Independent Transparency (OIT) for 3d rendering. See
+//! [`OrderIndependentTransparencyPlugin`] for more details.
 
 use bevy_app::prelude::*;
 use bevy_asset::{Handle, load_internal_asset, weak_handle};
@@ -47,7 +48,8 @@ pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> =
 pub struct OrderIndependentTransparencySettings {
     /// Controls how many layers will be used to compute the blending.
     /// The more layers you use the more memory it will use but it will also give better results.
-    /// 8 is generally recommended, going above 32 is probably not worth it in the vast majority of cases
+    /// 8 is generally recommended, going above 32 is probably not worth it in the vast majority of
+    /// cases
     pub layer_count: i32,
     /// Threshold for which fragments will be added to the blending layers.
     /// This can be tweaked to optimize quality / layers count. Higher values will
@@ -89,22 +91,25 @@ impl Component for OrderIndependentTransparencySettings {
 }
 
 /// A plugin that adds support for Order Independent Transparency (OIT).
-/// This can correctly render some scenes that would otherwise have artifacts due to alpha blending, but uses more memory.
+/// This can correctly render some scenes that would otherwise have artifacts due to alpha blending,
+/// but uses more memory.
 ///
-/// To enable OIT for a camera you need to add the [`OrderIndependentTransparencySettings`] component to it.
+/// To enable OIT for a camera you need to add the [`OrderIndependentTransparencySettings`]
+/// component to it.
 ///
-/// If you want to use OIT for your custom material you need to call `oit_draw(position, color)` in your fragment shader.
-/// You also need to make sure that your fragment shader doesn't output any colors.
+/// If you want to use OIT for your custom material you need to call `oit_draw(position, color)` in
+/// your fragment shader. You also need to make sure that your fragment shader doesn't output any
+/// colors.
 ///
 /// # Implementation details
 /// This implementation uses 2 passes.
 ///
 /// The first pass writes the depth and color of all the fragments to a big buffer.
-/// The buffer contains N layers for each pixel, where N can be set with [`OrderIndependentTransparencySettings::layer_count`].
-/// This pass is essentially a forward pass.
+/// The buffer contains N layers for each pixel, where N can be set with
+/// [`OrderIndependentTransparencySettings::layer_count`]. This pass is essentially a forward pass.
 ///
-/// The second pass is a single fullscreen triangle pass that sorts all the fragments then blends them together
-/// and outputs the result to the screen.
+/// The second pass is a single fullscreen triangle pass that sorts all the fragments then blends
+/// them together and outputs the result to the screen.
 pub struct OrderIndependentTransparencyPlugin;
 impl Plugin for OrderIndependentTransparencyPlugin {
     fn build(&self, app: &mut App) {
@@ -153,9 +158,10 @@ impl Plugin for OrderIndependentTransparencyPlugin {
     }
 }
 
-// WARN This should only happen for cameras with the [`OrderIndependentTransparencySettings`] component
-// but when multiple cameras are present on the same window
-// bevy reuses the same depth texture so we need to set this on all cameras with the same render target.
+// WARN This should only happen for cameras with the [`OrderIndependentTransparencySettings`]
+// component but when multiple cameras are present on the same window
+// bevy reuses the same depth texture so we need to set this on all cameras with the same render
+// target.
 fn configure_depth_texture_usages(
     p: Query<Entity, With<PrimaryWindow>>,
     cameras: Query<(&Camera, Has<OrderIndependentTransparencySettings>)>,
@@ -241,7 +247,8 @@ pub struct OrderIndependentTransparencySettingsOffset {
 
 /// This creates or resizes the oit buffers for each camera.
 /// It will always create one big buffer that's as big as the biggest buffer needed.
-/// Cameras with smaller viewports or less layers will simply use the big buffer and ignore the rest.
+/// Cameras with smaller viewports or less layers will simply use the big buffer and ignore the
+/// rest.
 pub fn prepare_oit_buffers(
     mut commands: Commands,
     render_device: Res<RenderDevice>,

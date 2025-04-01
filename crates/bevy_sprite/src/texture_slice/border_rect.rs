@@ -33,7 +33,8 @@ impl BorderRect {
         }
     }
 
-    /// Creates a new border with the `left` and `right` extents equal to `horizontal`, and `top` and `bottom` extents equal to `vertical`.
+    /// Creates a new border with the `left` and `right` extents equal to `horizontal`, and `top`
+    /// and `bottom` extents equal to `vertical`.
     #[must_use]
     #[inline]
     pub const fn axes(horizontal: f32, vertical: f32) -> Self {

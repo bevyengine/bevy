@@ -188,12 +188,14 @@ pub struct JsonSchemaBevyType {
     pub reflect_types: Vec<String>,
     /// Bevy specific field, [`TypeInfo`] type mapping.
     pub kind: SchemaKind,
-    /// Bevy specific field, provided when [`SchemaKind`] `kind` field is equal to [`SchemaKind::Map`].
+    /// Bevy specific field, provided when [`SchemaKind`] `kind` field is equal to
+    /// [`SchemaKind::Map`].
     ///
     /// It contains type info of key of the Map.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub key_type: Option<Value>,
-    /// Bevy specific field, provided when [`SchemaKind`] `kind` field is equal to [`SchemaKind::Map`].
+    /// Bevy specific field, provided when [`SchemaKind`] `kind` field is equal to
+    /// [`SchemaKind::Map`].
     ///
     /// It contains type info of value of the Map.
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -204,7 +206,8 @@ pub struct JsonSchemaBevyType {
     /// The behavior of this keyword depends on the presence and annotation results of "properties"
     /// and "patternProperties" within the same schema object.
     /// Validation with "additionalProperties" applies only to the child
-    /// values of instance names that do not appear in the annotation results of either "properties" or "patternProperties".
+    /// values of instance names that do not appear in the annotation results of either
+    /// "properties" or "patternProperties".
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub additional_properties: Option<bool>,
     /// Validation succeeds if, for each name that appears in both the instance and as a name
@@ -212,13 +215,18 @@ pub struct JsonSchemaBevyType {
     /// against the corresponding schema.
     #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     pub properties: HashMap<String, Value>,
-    /// An object instance is valid against this keyword if every item in the array is the name of a property in the instance.
+    /// An object instance is valid against this keyword if every item in the array is the name of
+    /// a property in the instance.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub required: Vec<String>,
-    /// An instance validates successfully against this keyword if it validates successfully against exactly one schema defined by this keyword's value.
+    /// An instance validates successfully against this keyword if it validates successfully
+    /// against exactly one schema defined by this keyword's value.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub one_of: Vec<Value>,
-    /// Validation succeeds if each element of the instance validates against the schema at the same position, if any. This keyword does not constrain the length of the array. If the array is longer than this keyword's value, this keyword validates only the prefix of matching length.
+    /// Validation succeeds if each element of the instance validates against the schema at the
+    /// same position, if any. This keyword does not constrain the length of the array. If the
+    /// array is longer than this keyword's value, this keyword validates only the prefix of
+    /// matching length.
     ///
     /// This keyword produces an annotation value which is the largest index to which this keyword
     /// applied a subschema. The value MAY be a boolean true if a subschema was applied to every

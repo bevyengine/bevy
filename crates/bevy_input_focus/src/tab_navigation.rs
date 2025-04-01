@@ -2,27 +2,29 @@
 //!
 //! The rules of tabbing are derived from the HTML specification, and are as follows:
 //!
-//! * An index >= 0 means that the entity is tabbable via sequential navigation.
-//!   The order of tabbing is determined by the index, with lower indices being tabbed first.
-//!   If two entities have the same index, then the order is determined by the order of
-//!   the entities in the ECS hierarchy (as determined by Parent/Child).
-//! * An index < 0 means that the entity is not focusable via sequential navigation, but
-//!   can still be focused via direct selection.
+//! * An index >= 0 means that the entity is tabbable via sequential navigation. The order of
+//!   tabbing is determined by the index, with lower indices being tabbed first. If two entities
+//!   have the same index, then the order is determined by the order of the entities in the ECS
+//!   hierarchy (as determined by Parent/Child).
+//! * An index < 0 means that the entity is not focusable via sequential navigation, but can still
+//!   be focused via direct selection.
 //!
 //! Tabbable entities must be descendants of a [`TabGroup`] entity, which is a component that
 //! marks a tree of entities as containing tabbable elements. The order of tab groups
-//! is determined by the [`TabGroup::order`] field, with lower orders being tabbed first. Modal tab groups
-//! are used for ui elements that should only tab within themselves, such as modal dialog boxes.
+//! is determined by the [`TabGroup::order`] field, with lower orders being tabbed first. Modal tab
+//! groups are used for ui elements that should only tab within themselves, such as modal dialog
+//! boxes.
 //!
 //! To enable automatic tabbing, add the
 //! [`TabNavigationPlugin`] and [`InputDispatchPlugin`](crate::InputDispatchPlugin) to your app.
 //! This will install a keyboard event observer on the primary window which automatically handles
 //! tab navigation for you.
 //!
-//! Alternatively, if you want to have more control over tab navigation, or are using an input-action-mapping framework,
-//! you can use the [`TabNavigation`] system parameter directly instead.
-//! This object can be injected into your systems, and provides a [`navigate`](`TabNavigation::navigate`) method which can be
-//! used to navigate between focusable entities.
+//! Alternatively, if you want to have more control over tab navigation, or are using an
+//! input-action-mapping framework, you can use the [`TabNavigation`] system parameter directly
+//! instead. This object can be injected into your systems, and provides a
+//! [`navigate`](`TabNavigation::navigate`) method which can be used to navigate between focusable
+//! entities.
 
 use alloc::vec::Vec;
 use bevy_app::{App, Plugin, Startup};

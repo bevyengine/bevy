@@ -86,7 +86,8 @@ impl ReflectBundle {
         (self.0.apply)(entity.into(), bundle, registry);
     }
 
-    /// Uses reflection to set the value of this [`Bundle`] type in the entity to the given value or insert a new one if it does not exist.
+    /// Uses reflection to set the value of this [`Bundle`] type in the entity to the given value or
+    /// insert a new one if it does not exist.
     pub fn apply_or_insert_mapped(
         &self,
         entity: &mut EntityWorldMut,
@@ -106,7 +107,8 @@ impl ReflectBundle {
 
     /// Removes all components in the [`Bundle`] from the entity and returns their previous values.
     ///
-    /// **Note:** If the entity does not have every component in the bundle, this method will not remove any of them.
+    /// **Note:** If the entity does not have every component in the bundle, this method will not
+    /// remove any of them.
     #[must_use]
     pub fn take(&self, entity: &mut EntityWorldMut) -> Option<Box<dyn Reflect>> {
         (self.0.take)(entity)

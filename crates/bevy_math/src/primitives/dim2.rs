@@ -59,8 +59,8 @@ impl Circle {
 
     /// Finds the point on the circle that is closest to the given `point`.
     ///
-    /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
-    /// Otherwise, it will be inside the circle and returned as is.
+    /// If the point is outside the circle, the returned point will be on the perimeter of the
+    /// circle. Otherwise, it will be inside the circle and returned as is.
     #[inline(always)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         let distance_squared = point.length_squared();
@@ -104,8 +104,8 @@ impl Measured2d for Circle {
 /// either side. The center of the circle is the origin [`Vec2::ZERO`]. Note that this
 /// means that the origin may not be within the `Arc2d`'s convex hull.
 ///
-/// **Warning:** Arcs with negative angle or radius, or with angle greater than an entire circle, are not officially supported.
-/// It is recommended to normalize arcs to have an angle in [0, 2π].
+/// **Warning:** Arcs with negative angle or radius, or with angle greater than an entire circle,
+/// are not officially supported. It is recommended to normalize arcs to have an angle in [0, 2π].
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[doc(alias("CircularArc", "CircleArc"))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -227,14 +227,16 @@ impl Arc2d {
     }
 
     /// Get the length of the apothem of this arc, that is,
-    /// the distance from the center of the circle to the midpoint of the chord, in the direction of the midpoint of the arc.
-    /// Equivalently, the [`radius`](Self::radius) minus the [`sagitta`](Self::sagitta).
+    /// the distance from the center of the circle to the midpoint of the chord, in the direction of
+    /// the midpoint of the arc. Equivalently, the [`radius`](Self::radius) minus the
+    /// [`sagitta`](Self::sagitta).
     ///
     /// Note that for a [`major`](Self::is_major) arc, the apothem will be negative.
     #[inline(always)]
-    // Naming note: Various sources are inconsistent as to whether the apothem is the segment between the center and the
-    // midpoint of a chord, or the length of that segment. Given this confusion, we've opted for the definition
-    // used by Wolfram MathWorld, which is the distance rather than the segment.
+    // Naming note: Various sources are inconsistent as to whether the apothem is the segment
+    // between the center and the midpoint of a chord, or the length of that segment. Given this
+    // confusion, we've opted for the definition used by Wolfram MathWorld, which is the
+    // distance rather than the segment.
     pub fn apothem(&self) -> f32 {
         let sign = if self.is_minor() { 1.0 } else { -1.0 };
         sign * ops::sqrt(self.radius.squared() - self.half_chord_length().squared())
@@ -242,16 +244,19 @@ impl Arc2d {
 
     /// Get the length of the sagitta of this arc, that is,
     /// the length of the line between the midpoints of the arc and its chord.
-    /// Equivalently, the height of the triangle whose base is the chord and whose apex is the midpoint of the arc.
+    /// Equivalently, the height of the triangle whose base is the chord and whose apex is the
+    /// midpoint of the arc.
     ///
-    /// The sagitta is also the sum of the [`radius`](Self::radius) and the [`apothem`](Self::apothem).
+    /// The sagitta is also the sum of the [`radius`](Self::radius) and the
+    /// [`apothem`](Self::apothem).
     pub fn sagitta(&self) -> f32 {
         self.radius - self.apothem()
     }
 
     /// Produces true if the arc is at most half a circle.
     ///
-    /// **Note:** This is not the negation of [`is_major`](Self::is_major): an exact semicircle is both major and minor.
+    /// **Note:** This is not the negation of [`is_major`](Self::is_major): an exact semicircle is
+    /// both major and minor.
     #[inline(always)]
     pub fn is_minor(&self) -> bool {
         self.half_angle <= FRAC_PI_2
@@ -259,7 +264,8 @@ impl Arc2d {
 
     /// Produces true if the arc is at least half a circle.
     ///
-    /// **Note:** This is not the negation of [`is_minor`](Self::is_minor): an exact semicircle is both major and minor.
+    /// **Note:** This is not the negation of [`is_minor`](Self::is_minor): an exact semicircle is
+    /// both major and minor.
     #[inline(always)]
     pub fn is_major(&self) -> bool {
         self.half_angle >= FRAC_PI_2
@@ -272,8 +278,9 @@ impl Arc2d {
 /// To orient the sector differently, apply a rotation.
 /// The sector is drawn with the center of its circle at the origin [`Vec2::ZERO`].
 ///
-/// **Warning:** Circular sectors with negative angle or radius, or with angle greater than an entire circle, are not officially supported.
-/// We recommend normalizing circular sectors to have an angle in [0, 2π].
+/// **Warning:** Circular sectors with negative angle or radius, or with angle greater than an
+/// entire circle, are not officially supported. We recommend normalizing circular sectors to have
+/// an angle in [0, 2π].
 #[derive(Clone, Copy, Debug, PartialEq, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -415,8 +422,9 @@ impl CircularSector {
 /// The segment is drawn with the center of its circle at the origin [`Vec2::ZERO`].
 /// When positioning a segment, the [`apothem`](Self::apothem) function may be particularly useful.
 ///
-/// **Warning:** Circular segments with negative angle or radius, or with angle greater than an entire circle, are not officially supported.
-/// We recommend normalizing circular segments to have an angle in [0, 2π].
+/// **Warning:** Circular segments with negative angle or radius, or with angle greater than an
+/// entire circle, are not officially supported. We recommend normalizing circular segments to have
+/// an angle in [0, 2π].
 #[derive(Clone, Copy, Debug, PartialEq, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -823,7 +831,8 @@ impl Ellipse {
     /// Returns the [eccentricity](https://en.wikipedia.org/wiki/Eccentricity_(mathematics)) of the ellipse.
     /// It can be thought of as a measure of how "stretched" or elongated the ellipse is.
     ///
-    /// The value should be in the range [0, 1), where 0 represents a circle, and 1 represents a parabola.
+    /// The value should be in the range [0, 1), where 0 represents a circle, and 1 represents a
+    /// parabola.
     pub fn eccentricity(&self) -> f32 {
         let a = self.semi_major();
         let b = self.semi_minor();
@@ -832,9 +841,11 @@ impl Ellipse {
     }
 
     #[inline(always)]
-    /// Get the focal length of the ellipse. This corresponds to the distance between one of the foci and the center of the ellipse.
+    /// Get the focal length of the ellipse. This corresponds to the distance between one of the
+    /// foci and the center of the ellipse.
     ///
-    /// The focal length of an ellipse is related to its eccentricity by `eccentricity = focal_length / semi_major`
+    /// The focal length of an ellipse is related to its eccentricity by `eccentricity =
+    /// focal_length / semi_major`
     pub fn focal_length(&self) -> f32 {
         let a = self.semi_major();
         let b = self.semi_minor();
@@ -842,13 +853,15 @@ impl Ellipse {
         ops::sqrt(a * a - b * b)
     }
 
-    /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
+    /// Returns the length of the semi-major axis. This corresponds to the longest radius of the
+    /// ellipse.
     #[inline(always)]
     pub fn semi_major(&self) -> f32 {
         self.half_size.max_element()
     }
 
-    /// Returns the length of the semi-minor axis. This corresponds to the shortest radius of the ellipse.
+    /// Returns the length of the semi-minor axis. This corresponds to the shortest radius of the
+    /// ellipse.
     #[inline(always)]
     pub fn semi_minor(&self) -> f32 {
         self.half_size.min_element()
@@ -865,7 +878,8 @@ impl Measured2d for Ellipse {
     #[inline(always)]
     /// Get an approximation for the perimeter or circumference of the ellipse.
     ///
-    /// The approximation is reasonably precise with a relative error less than 0.007%, getting more precise as the eccentricity of the ellipse decreases.
+    /// The approximation is reasonably precise with a relative error less than 0.007%, getting more
+    /// precise as the eccentricity of the ellipse decreases.
     fn perimeter(&self) -> f32 {
         let a = self.semi_major();
         let b = self.semi_minor();
@@ -881,8 +895,9 @@ impl Measured2d for Ellipse {
         };
 
         // These values are  the result of (0.5 choose n)^2 where n is the index in the array
-        // They could be calculated on the fly but hardcoding them yields more accurate and faster results
-        // because the actual calculation for these values involves factorials and numbers > 10^23
+        // They could be calculated on the fly but hardcoding them yields more accurate and faster
+        // results because the actual calculation for these values involves factorials and
+        // numbers > 10^23
         const BINOMIAL_COEFFICIENTS: [f32; 21] = [
             1.,
             0.25,
@@ -907,8 +922,8 @@ impl Measured2d for Ellipse {
             0.000010333865,
         ];
 
-        // The algorithm used here is the Gauss-Kummer infinite series expansion of the elliptic integral expression for the perimeter of ellipses
-        // For more information see https://www.wolframalpha.com/input/?i=gauss-kummer+series
+        // The algorithm used here is the Gauss-Kummer infinite series expansion of the elliptic
+        // integral expression for the perimeter of ellipses For more information see https://www.wolframalpha.com/input/?i=gauss-kummer+series
         // We only use the terms up to `i == 20` for this approximation
         let h = ((a - b) / (a + b)).squared();
 
@@ -974,8 +989,10 @@ impl Annulus {
 
     /// Finds the point on the annulus that is closest to the given `point`:
     ///
-    /// - If the point is outside of the annulus completely, the returned point will be on the outer perimeter.
-    /// - If the point is inside of the inner circle (hole) of the annulus, the returned point will be on the inner perimeter.
+    /// - If the point is outside of the annulus completely, the returned point will be on the outer
+    ///   perimeter.
+    /// - If the point is inside of the inner circle (hole) of the annulus, the returned point will
+    ///   be on the inner perimeter.
     /// - Otherwise, the returned point is overlapping the annulus and returned as is.
     #[inline(always)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
@@ -1100,8 +1117,8 @@ impl Rhombus {
 
     /// Finds the point on the rhombus that is closest to the given `point`.
     ///
-    /// If the point is outside the rhombus, the returned point will be on the perimeter of the rhombus.
-    /// Otherwise, it will be inside the rhombus and returned as is.
+    /// If the point is outside the rhombus, the returned point will be on the perimeter of the
+    /// rhombus. Otherwise, it will be inside the rhombus and returned as is.
     #[inline(always)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         // Fold the problem into the positive quadrant
@@ -1320,7 +1337,8 @@ impl Segment2d {
     ///
     /// # Panics
     ///
-    /// Panics if a valid direction could not be computed, for example when the endpoints are coincident, NaN, or infinite.
+    /// Panics if a valid direction could not be computed, for example when the endpoints are
+    /// coincident, NaN, or infinite.
     #[inline(always)]
     pub fn direction(&self) -> Dir2 {
         self.try_direction().unwrap_or_else(|err| {
@@ -1328,10 +1346,11 @@ impl Segment2d {
         })
     }
 
-    /// Try to compute the normalized direction pointing from the first endpoint to the second endpoint.
+    /// Try to compute the normalized direction pointing from the first endpoint to the second
+    /// endpoint.
     ///
-    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if a valid direction could not be computed,
-    /// for example when the endpoints are coincident, NaN, or infinite.
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if a valid direction could not
+    /// be computed, for example when the endpoints are coincident, NaN, or infinite.
     #[inline(always)]
     pub fn try_direction(&self) -> Result<Dir2, InvalidDirectionError> {
         Dir2::new(self.scaled_direction())
@@ -1349,7 +1368,8 @@ impl Segment2d {
     ///
     /// # Panics
     ///
-    /// Panics if a valid normal could not be computed, for example when the endpoints are coincident, NaN, or infinite.
+    /// Panics if a valid normal could not be computed, for example when the endpoints are
+    /// coincident, NaN, or infinite.
     #[inline(always)]
     pub fn left_normal(&self) -> Dir2 {
         self.try_left_normal().unwrap_or_else(|err| {
@@ -1357,16 +1377,18 @@ impl Segment2d {
         })
     }
 
-    /// Try to compute the normalized counterclockwise normal on the left-hand side of the line segment.
+    /// Try to compute the normalized counterclockwise normal on the left-hand side of the line
+    /// segment.
     ///
-    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if a valid normal could not be computed,
-    /// for example when the endpoints are coincident, NaN, or infinite.
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if a valid normal could not be
+    /// computed, for example when the endpoints are coincident, NaN, or infinite.
     #[inline(always)]
     pub fn try_left_normal(&self) -> Result<Dir2, InvalidDirectionError> {
         Dir2::new(self.scaled_left_normal())
     }
 
-    /// Compute the non-normalized counterclockwise normal on the left-hand side of the line segment.
+    /// Compute the non-normalized counterclockwise normal on the left-hand side of the line
+    /// segment.
     ///
     /// The length of the normal is the distance between the endpoints.
     #[inline(always)]
@@ -1381,7 +1403,8 @@ impl Segment2d {
     ///
     /// # Panics
     ///
-    /// Panics if a valid normal could not be computed, for example when the endpoints are coincident, NaN, or infinite.
+    /// Panics if a valid normal could not be computed, for example when the endpoints are
+    /// coincident, NaN, or infinite.
     #[inline(always)]
     pub fn right_normal(&self) -> Dir2 {
         self.try_right_normal().unwrap_or_else(|err| {
@@ -1391,8 +1414,8 @@ impl Segment2d {
 
     /// Try to compute the normalized clockwise normal on the right-hand side of the line segment.
     ///
-    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if a valid normal could not be computed,
-    /// for example when the endpoints are coincident, NaN, or infinite.
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if a valid normal could not be
+    /// computed, for example when the endpoints are coincident, NaN, or infinite.
     #[inline(always)]
     pub fn try_right_normal(&self) -> Result<Dir2, InvalidDirectionError> {
         Dir2::new(self.scaled_right_normal())
@@ -1432,7 +1455,8 @@ impl Segment2d {
     /// Compute the segment rotated around the given point by the given rotation.
     #[inline(always)]
     pub fn rotated_around(&self, rotation: Rot2, point: Vec2) -> Segment2d {
-        // We offset our segment so that our segment is rotated as if from the origin, then we can apply the offset back
+        // We offset our segment so that our segment is rotated as if from the origin, then we can
+        // apply the offset back
         let offset = self.translated(-point);
         let rotated = offset.rotated(rotation);
         rotated.translated(point)
@@ -1582,7 +1606,8 @@ pub struct Triangle2d {
 impl Primitive2d for Triangle2d {}
 
 impl Default for Triangle2d {
-    /// Returns the default [`Triangle2d`] with the vertices `[0.0, 0.5]`, `[-0.5, -0.5]`, and `[0.5, -0.5]`.
+    /// Returns the default [`Triangle2d`] with the vertices `[0.0, 0.5]`, `[-0.5, -0.5]`, and
+    /// `[0.5, -0.5]`.
     fn default() -> Self {
         Self {
             vertices: [Vec2::Y * 0.5, Vec2::new(-0.5, -0.5), Vec2::new(0.5, -0.5)],
@@ -1617,7 +1642,8 @@ impl Triangle2d {
     /// Compute the circle passing through all three vertices of the triangle.
     /// The vector in the returned tuple is the circumcenter.
     pub fn circumcircle(&self) -> (Circle, Vec2) {
-        // We treat the triangle as translated so that vertex A is at the origin. This simplifies calculations.
+        // We treat the triangle as translated so that vertex A is at the origin. This simplifies
+        // calculations.
         //
         //     A = (0, 0)
         //        *
@@ -1651,8 +1677,8 @@ impl Triangle2d {
 
     /// Checks if the triangle is degenerate, meaning it has zero area.
     ///
-    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `10e-7`.
-    /// This indicates that the three vertices are collinear or nearly collinear.
+    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less
+    /// than `10e-7`. This indicates that the three vertices are collinear or nearly collinear.
     #[inline(always)]
     pub fn is_degenerate(&self) -> bool {
         let [a, b, c] = self.vertices;
@@ -1802,8 +1828,8 @@ impl Rectangle {
 
     /// Finds the point on the rectangle that is closest to the given `point`.
     ///
-    /// If the point is outside the rectangle, the returned point will be on the perimeter of the rectangle.
-    /// Otherwise, it will be inside the rectangle and returned as is.
+    /// If the point is outside the rectangle, the returned point will be on the perimeter of the
+    /// rectangle. Otherwise, it will be inside the rectangle and returned as is.
     #[inline(always)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         // Clamp point coordinates to the rectangle
@@ -1866,7 +1892,8 @@ impl<const N: usize> Polygon<N> {
     /// Tests if the polygon is simple.
     ///
     /// A polygon is simple if it is not self intersecting and not self tangent.
-    /// As such, no two edges of the polygon may cross each other and each vertex must not lie on another edge.
+    /// As such, no two edges of the polygon may cross each other and each vertex must not lie on
+    /// another edge.
     #[cfg(feature = "alloc")]
     pub fn is_simple(&self) -> bool {
         is_polygon_simple(&self.vertices)
@@ -1995,7 +2022,8 @@ impl BoxedPolygon {
     /// Tests if the polygon is simple.
     ///
     /// A polygon is simple if it is not self intersecting and not self tangent.
-    /// As such, no two edges of the polygon may cross each other and each vertex must not lie on another edge.
+    /// As such, no two edges of the polygon may cross each other and each vertex must not lie on
+    /// another edge.
     pub fn is_simple(&self) -> bool {
         is_polygon_simple(&self.vertices)
     }
@@ -2022,7 +2050,8 @@ pub struct RegularPolygon {
 impl Primitive2d for RegularPolygon {}
 
 impl Default for RegularPolygon {
-    /// Returns the default [`RegularPolygon`] with six sides (a hexagon) and a circumradius of `0.5`.
+    /// Returns the default [`RegularPolygon`] with six sides (a hexagon) and a circumradius of
+    /// `0.5`.
     fn default() -> Self {
         Self {
             circumcircle: Circle { radius: 0.5 },
@@ -2147,7 +2176,8 @@ impl Measured2d for RegularPolygon {
 
 /// A 2D capsule primitive, also known as a stadium or pill shape.
 ///
-/// A two-dimensional capsule is defined as a neighborhood of points at a distance (radius) from a line
+/// A two-dimensional capsule is defined as a neighborhood of points at a distance (radius) from a
+/// line
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(

@@ -25,15 +25,19 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
         }
     }
 
-    /// Extends the `where` clause for a type with additional bounds needed for the reflection impls.
+    /// Extends the `where` clause for a type with additional bounds needed for the reflection
+    /// impls.
     ///
     /// The default bounds added are as follows:
     /// - `Self` has the bounds `Any + Send + Sync`
-    /// - Type parameters have the bound `TypePath` unless `#[reflect(type_path = false)]` is present
-    /// - Active fields have the bounds `TypePath` and either `PartialReflect` if `#[reflect(from_reflect = false)]` is present
-    ///   or `FromReflect` otherwise (or no bounds at all if `#[reflect(no_field_bounds)]` is present)
+    /// - Type parameters have the bound `TypePath` unless `#[reflect(type_path = false)]` is
+    ///   present
+    /// - Active fields have the bounds `TypePath` and either `PartialReflect` if
+    ///   `#[reflect(from_reflect = false)]` is present or `FromReflect` otherwise (or no bounds at
+    ///   all if `#[reflect(no_field_bounds)]` is present)
     ///
-    /// When the derive is used with `#[reflect(where)]`, the bounds specified in the attribute are added as well.
+    /// When the derive is used with `#[reflect(where)]`, the bounds specified in the attribute are
+    /// added as well.
     ///
     /// # Example
     ///
@@ -87,8 +91,9 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     ///   T: MyTrait,
     /// ```
     pub fn extend_where_clause(&self, where_clause: Option<&WhereClause>) -> TokenStream {
-        // We would normally just use `Self`, but that won't work for generating things like assertion functions
-        // and trait impls for a type's reference (e.g. `impl FromArg for &MyType`)
+        // We would normally just use `Self`, but that won't work for generating things like
+        // assertion functions and trait impls for a type's reference (e.g. `impl FromArg
+        // for &MyType`)
         let this = self.meta.type_path().true_type();
 
         let required_bounds = self.required_bounds();
@@ -170,7 +175,8 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
         }
     }
 
-    /// The `PartialReflect` or `FromReflect` bound to use based on `#[reflect(from_reflect = false)]`.
+    /// The `PartialReflect` or `FromReflect` bound to use based on `#[reflect(from_reflect =
+    /// false)]`.
     fn reflect_bound(&self) -> TokenStream {
         let bevy_reflect_path = self.meta.bevy_reflect_path();
 

@@ -55,8 +55,9 @@ impl Debug for TypeRegistryArc {
 /// A trait which allows a type to generate its [`TypeRegistration`]
 /// for registration into the [`TypeRegistry`].
 ///
-/// This trait is automatically implemented for items using [`#[derive(Reflect)]`](derive@crate::Reflect).
-/// The macro also allows [`TypeData`] to be more easily registered.
+/// This trait is automatically implemented for items using
+/// [`#[derive(Reflect)]`](derive@crate::Reflect). The macro also allows [`TypeData`] to be more
+/// easily registered.
 ///
 /// If you need to use this trait as a generic bound along with other reflection traits,
 /// for your convenience, consider using [`Reflectable`] instead.
@@ -75,7 +76,8 @@ pub trait GetTypeRegistration: 'static {
     /// Registers other types needed by this type.
     ///
     /// This method is called by [`TypeRegistry::register`] to register any other required types.
-    /// Often, this is done for fields of structs and enum variants to ensure all types are properly registered.
+    /// Often, this is done for fields of structs and enum variants to ensure all types are properly
+    /// registered.
     fn register_type_dependencies(_registry: &mut TypeRegistry) {}
 }
 
@@ -121,14 +123,17 @@ impl TypeRegistry {
 
     /// Attempts to register the type `T` if it has not yet been registered already.
     ///
-    /// This will also recursively register any type dependencies as specified by [`GetTypeRegistration::register_type_dependencies`].
-    /// When deriving `Reflect`, this will generally be all the fields of the struct or enum variant.
-    /// As with any type registration, these type dependencies will not be registered more than once.
+    /// This will also recursively register any type dependencies as specified by
+    /// [`GetTypeRegistration::register_type_dependencies`]. When deriving `Reflect`, this will
+    /// generally be all the fields of the struct or enum variant. As with any type
+    /// registration, these type dependencies will not be registered more than once.
     ///
-    /// If the registration for type `T` already exists, it will not be registered again and neither will its type dependencies.
-    /// To register the type, overwriting any existing registration, use [register](Self::overwrite_registration) instead.
+    /// If the registration for type `T` already exists, it will not be registered again and neither
+    /// will its type dependencies. To register the type, overwriting any existing registration,
+    /// use [register](Self::overwrite_registration) instead.
     ///
-    /// Additionally, this will add any reflect [type data](TypeData) as specified in the [`Reflect`] derive.
+    /// Additionally, this will add any reflect [type data](TypeData) as specified in the
+    /// [`Reflect`] derive.
     ///
     /// # Example
     ///
@@ -223,7 +228,8 @@ impl TypeRegistry {
     /// If the registration for the type already exists, it will be overwritten.
     ///
     /// To avoid overwriting existing registrations, it's recommended to use the
-    /// [`register`](Self::register) or [`add_registration`](Self::add_registration) methods instead.
+    /// [`register`](Self::register) or [`add_registration`](Self::add_registration) methods
+    /// instead.
     ///
     /// This method will _not_ register type dependencies.
     /// Use [`register`](Self::register) to register a type with its dependencies.
@@ -243,8 +249,8 @@ impl TypeRegistry {
     /// By using this method, we are able to reduce the number of `TypeId` hashes and lookups needed
     /// to register a type.
     ///
-    /// This method is internal to prevent users from accidentally registering a type with a `TypeId`
-    /// that does not match the type in the `TypeRegistration`.
+    /// This method is internal to prevent users from accidentally registering a type with a
+    /// `TypeId` that does not match the type in the `TypeRegistration`.
     fn register_internal(
         &mut self,
         type_id: TypeId,
@@ -288,10 +294,12 @@ impl TypeRegistry {
 
     /// Registers the type data `D` for type `T`.
     ///
-    /// Most of the time [`TypeRegistry::register`] can be used instead to register a type you derived [`Reflect`] for.
-    /// However, in cases where you want to add a piece of type data that was not included in the list of `#[reflect(...)]` type data in the derive,
-    /// or where the type is generic and cannot register e.g. [`ReflectSerialize`] unconditionally without knowing the specific type parameters,
-    /// this method can be used to insert additional type data.
+    /// Most of the time [`TypeRegistry::register`] can be used instead to register a type you
+    /// derived [`Reflect`] for. However, in cases where you want to add a piece of type data
+    /// that was not included in the list of `#[reflect(...)]` type data in the derive, or where
+    /// the type is generic and cannot register e.g. [`ReflectSerialize`] unconditionally without
+    /// knowing the specific type parameters, this method can be used to insert additional type
+    /// data.
     ///
     /// # Example
     /// ```
@@ -388,7 +396,8 @@ impl TypeRegistry {
             .and_then(|id| self.registrations.get_mut(id))
     }
 
-    /// Returns `true` if the given [short type path] is ambiguous, that is, it matches multiple registered types.
+    /// Returns `true` if the given [short type path] is ambiguous, that is, it matches multiple
+    /// registered types.
     ///
     /// # Example
     /// ```
@@ -428,7 +437,8 @@ impl TypeRegistry {
             .and_then(|registration| registration.data::<T>())
     }
 
-    /// Returns a mutable reference to the [`TypeData`] of type `T` associated with the given [`TypeId`].
+    /// Returns a mutable reference to the [`TypeData`] of type `T` associated with the given
+    /// [`TypeId`].
     ///
     /// If the specified type has not been registered, or if `T` is not present
     /// in its type registration, returns `None`.
@@ -457,7 +467,8 @@ impl TypeRegistry {
     }
 
     /// Checks to see if the [`TypeData`] of type `T` is associated with each registered type,
-    /// returning a ([`TypeRegistration`], [`TypeData`]) iterator for all entries where data of that type was found.
+    /// returning a ([`TypeRegistration`], [`TypeData`]) iterator for all entries where data of that
+    /// type was found.
     pub fn iter_with_data<T: TypeData>(&self) -> impl Iterator<Item = (&TypeRegistration, &T)> {
         self.registrations.values().filter_map(|item| {
             let type_data = item.data::<T>();
@@ -483,8 +494,8 @@ impl TypeRegistryArc {
 /// Runtime storage for type metadata, registered into the [`TypeRegistry`].
 ///
 /// An instance of `TypeRegistration` can be created using the [`TypeRegistration::of`] method,
-/// but is more often automatically generated using [`#[derive(Reflect)]`](derive@crate::Reflect) which itself generates
-/// an implementation of the [`GetTypeRegistration`] trait.
+/// but is more often automatically generated using [`#[derive(Reflect)]`](derive@crate::Reflect)
+/// which itself generates an implementation of the [`GetTypeRegistration`] trait.
 ///
 /// Along with the type's [`TypeInfo`],
 /// this struct also contains a type's registered [`TypeData`].
@@ -678,7 +689,8 @@ impl Clone for TypeRegistration {
 ///
 /// While type data is often generated using the [`#[reflect_trait]`](crate::reflect_trait) macro,
 /// almost any type that implements [`Clone`] can be considered "type data".
-/// This is because it has a blanket implementation over all `T` where `T: Clone + Send + Sync + 'static`.
+/// This is because it has a blanket implementation over all `T` where `T: Clone + Send + Sync +
+/// 'static`.
 ///
 /// See the [crate-level documentation] for more information on type data and type registration.
 ///
@@ -779,9 +791,9 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// are not known at runtime. In such situations you might have access to a `*const ()` pointer
 /// that you know implements [`Reflect`], but have no way of turning it into a `&dyn Reflect`.
 ///
-/// This is where [`ReflectFromPtr`] comes in, when creating a [`ReflectFromPtr`] for a given type `T: Reflect`.
-/// Internally, this saves a concrete function `*const T -> const dyn Reflect` which lets you create a trait object of [`Reflect`]
-/// from a pointer.
+/// This is where [`ReflectFromPtr`] comes in, when creating a [`ReflectFromPtr`] for a given type
+/// `T: Reflect`. Internally, this saves a concrete function `*const T -> const dyn Reflect` which
+/// lets you create a trait object of [`Reflect`] from a pointer.
 ///
 /// # Example
 /// ```
@@ -826,8 +838,9 @@ impl ReflectFromPtr {
     ///
     /// # Safety
     ///
-    /// `val` must be a pointer to value of the type that the [`ReflectFromPtr`] was constructed for.
-    /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
+    /// `val` must be a pointer to value of the type that the [`ReflectFromPtr`] was constructed
+    /// for. This can be verified by checking that the type id returned by
+    /// [`ReflectFromPtr::type_id`] is the expected one.
     pub unsafe fn as_reflect<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
         // SAFETY: contract uphold by the caller.
         unsafe { (self.from_ptr)(val) }
@@ -837,8 +850,9 @@ impl ReflectFromPtr {
     ///
     /// # Safety
     ///
-    /// `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed for
-    /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
+    /// `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed
+    /// for This can be verified by checking that the type id returned by
+    /// [`ReflectFromPtr::type_id`] is the expected one.
     pub unsafe fn as_reflect_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
         // SAFETY: contract uphold by the caller.
         unsafe { (self.from_ptr_mut)(val) }
@@ -849,8 +863,7 @@ impl ReflectFromPtr {
     /// # Safety
     ///
     /// When calling the unsafe function returned by this method you must ensure that:
-    /// - The input `Ptr` points to the `Reflect` type this `ReflectFromPtr`
-    ///   was constructed for.
+    /// - The input `Ptr` points to the `Reflect` type this `ReflectFromPtr` was constructed for.
     pub fn from_ptr(&self) -> unsafe fn(Ptr) -> &dyn Reflect {
         self.from_ptr
     }
@@ -860,8 +873,7 @@ impl ReflectFromPtr {
     /// # Safety
     ///
     /// When calling the unsafe function returned by this method you must ensure that:
-    /// - The input `PtrMut` points to the `Reflect` type this `ReflectFromPtr`
-    ///   was constructed for.
+    /// - The input `PtrMut` points to the `Reflect` type this `ReflectFromPtr` was constructed for.
     pub fn from_ptr_mut(&self) -> unsafe fn(PtrMut) -> &mut dyn Reflect {
         self.from_ptr_mut
     }

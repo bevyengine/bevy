@@ -31,13 +31,13 @@ pub trait ContainsEntity {
 
 /// A trait for types that represent an [`Entity`].
 ///
-/// Comparison trait behavior between an [`EntityEquivalent`] type and its underlying entity will match.
-/// This property includes [`PartialEq`], [`Eq`], [`PartialOrd`], [`Ord`] and [`Hash`],
+/// Comparison trait behavior between an [`EntityEquivalent`] type and its underlying entity will
+/// match. This property includes [`PartialEq`], [`Eq`], [`PartialOrd`], [`Ord`] and [`Hash`],
 /// and remains even after [`Clone`] and/or [`Borrow`] calls.
 ///
 /// # Safety
-/// Any [`PartialEq`], [`Eq`], [`PartialOrd`], and [`Ord`] impls must evaluate the same for `Self` and
-/// its underlying entity.
+/// Any [`PartialEq`], [`Eq`], [`PartialOrd`], and [`Ord`] impls must evaluate the same for `Self`
+/// and its underlying entity.
 /// `x.entity() == y.entity()` must be equivalent to `x == y`.
 ///
 /// The above equivalence must also hold through and between calls to any [`Clone`] and
@@ -49,16 +49,16 @@ pub trait ContainsEntity {
 /// and comparison trait behavior.
 ///
 /// All [`Hash`] impls except that for [`Entity`] must delegate to the [`Hash`] impl of
-/// another [`EntityEquivalent`] type. All conversions to the delegatee within the [`Hash`] impl must
-/// follow [`entity()`] equivalence.
+/// another [`EntityEquivalent`] type. All conversions to the delegatee within the [`Hash`] impl
+/// must follow [`entity()`] equivalence.
 ///
-/// It should be noted that [`Hash`] is *not* a comparison trait, and with [`Hash::hash`] being forcibly
-/// generic over all [`Hasher`]s, **cannot** guarantee determinism or uniqueness of any final hash values
-/// on its own.
+/// It should be noted that [`Hash`] is *not* a comparison trait, and with [`Hash::hash`] being
+/// forcibly generic over all [`Hasher`]s, **cannot** guarantee determinism or uniqueness of any
+/// final hash values on its own.
 /// To obtain hash values forming the same total order as [`Entity`], any [`Hasher`] used must be
 /// deterministic and concerning [`Entity`], collisionless.
-/// Standard library hash collections handle collisions with an [`Eq`] fallback, but do not account for
-/// determinism when [`BuildHasher`] is unspecified,.
+/// Standard library hash collections handle collisions with an [`Eq`] fallback, but do not account
+/// for determinism when [`BuildHasher`] is unspecified,.
 ///
 /// [`Hash`]: core::hash::Hash
 /// [`Hasher`]: core::hash::Hasher
@@ -139,8 +139,9 @@ unsafe impl<T: EntityEquivalent> EntityEquivalent for Arc<T> {}
 
 /// A set of unique entities.
 ///
-/// Any element returned by [`Self::IntoIter`] will compare non-equal to every other element in the iterator.
-/// As a consequence, [`into_iter()`] on `EntitySet` will always produce another `EntitySet`.
+/// Any element returned by [`Self::IntoIter`] will compare non-equal to every other element in the
+/// iterator. As a consequence, [`into_iter()`] on `EntitySet` will always produce another
+/// `EntitySet`.
 ///
 /// Implementing this trait allows for unique query iteration over a list of entities.
 /// See [`iter_many_unique`] and [`iter_many_unique_mut`]
@@ -170,11 +171,12 @@ impl<T: IntoIterator<IntoIter: EntitySetIterator>> EntitySet for T {}
 pub unsafe trait EntitySetIterator: Iterator<Item: EntityEquivalent> {
     /// Transforms an `EntitySetIterator` into a collection.
     ///
-    /// This is a specialized form of [`collect`], for collections which benefit from the uniqueness guarantee.
-    /// When present, this should always be preferred over [`collect`].
+    /// This is a specialized form of [`collect`], for collections which benefit from the uniqueness
+    /// guarantee. When present, this should always be preferred over [`collect`].
     ///
     /// [`collect`]: Iterator::collect
-    //  FIXME: When subtrait item shadowing stabilizes, this should be renamed and shadow `Iterator::collect`
+    //  FIXME: When subtrait item shadowing stabilizes, this should be renamed and shadow
+    // `Iterator::collect`
     fn collect_set<B: FromEntitySetIterator<Self::Item>>(self) -> B
     where
         Self: Sized,
@@ -272,7 +274,8 @@ unsafe impl<I: EntitySetIterator + ?Sized> EntitySetIterator for &mut I {}
 // SAFETY: Boxing an iterator has no effect on its elements.
 unsafe impl<I: EntitySetIterator + ?Sized> EntitySetIterator for Box<I> {}
 
-// SAFETY: EntityEquivalent ensures that Copy does not affect equality, via its restrictions on Clone.
+// SAFETY: EntityEquivalent ensures that Copy does not affect equality, via its restrictions on
+// Clone.
 unsafe impl<'a, T: 'a + EntityEquivalent + Copy, I: EntitySetIterator<Item = &'a T>>
     EntitySetIterator for iter::Copied<I>
 {
@@ -290,7 +293,8 @@ unsafe impl<I: EntitySetIterator, P: FnMut(&<I as Iterator>::Item) -> bool> Enti
 {
 }
 
-// SAFETY: Yielding only `None` after yielding it once can only remove elements, which maintains uniqueness.
+// SAFETY: Yielding only `None` after yielding it once can only remove elements, which maintains
+// uniqueness.
 unsafe impl<I: EntitySetIterator> EntitySetIterator for iter::Fuse<I> {}
 
 // SAFETY:
@@ -329,11 +333,12 @@ unsafe impl<I: EntitySetIterator> EntitySetIterator for iter::StepBy<I> {}
 ///
 /// Some collections, while they can be constructed from plain iterators,
 /// benefit strongly from the additional uniqueness guarantee [`EntitySetIterator`] offers.
-/// Mirroring [`Iterator::collect`]/[`FromIterator::from_iter`], [`EntitySetIterator::collect_set`] and
-/// `FromEntitySetIterator::from_entity_set_iter` can be used for construction.
+/// Mirroring [`Iterator::collect`]/[`FromIterator::from_iter`], [`EntitySetIterator::collect_set`]
+/// and `FromEntitySetIterator::from_entity_set_iter` can be used for construction.
 ///
 /// See also: [`EntitySet`].
-// FIXME: When subtrait item shadowing stabilizes, this should be renamed and shadow `FromIterator::from_iter`
+// FIXME: When subtrait item shadowing stabilizes, this should be renamed and shadow
+// `FromIterator::from_iter`
 pub trait FromEntitySetIterator<A: EntityEquivalent>: FromIterator<A> {
     /// Creates a value from an [`EntitySetIterator`].
     fn from_entity_set_iter<T: EntitySet<Item = A>>(set_iter: T) -> Self;
@@ -357,7 +362,8 @@ impl<T: EntityEquivalent + Hash, S: BuildHasher + Default> FromEntitySetIterator
 
 /// An iterator that yields unique entities.
 ///
-/// This wrapper can provide an [`EntitySetIterator`] implementation when an instance of `I` is known to uphold uniqueness.
+/// This wrapper can provide an [`EntitySetIterator`] implementation when an instance of `I` is
+/// known to uphold uniqueness.
 pub struct UniqueEntityIter<I: Iterator<Item: EntityEquivalent>> {
     iter: I,
 }
@@ -523,7 +529,8 @@ mod tests {
             .step_by(2)
             .cloned();
 
-        // With `iter_many_mut` collecting is not possible, because you need to drop each `Mut`/`&mut` before the next is retrieved.
+        // With `iter_many_mut` collecting is not possible, because you need to drop each
+        // `Mut`/`&mut` before the next is retrieved.
         let _results: Vec<Mut<Thing>> =
             query.iter_many_unique_mut(&mut world, entity_set).collect();
     }

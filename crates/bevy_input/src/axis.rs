@@ -70,7 +70,8 @@ where
         self.axis_data.get(&input_device.into()).copied()
     }
 
-    /// Removes the position data of the `input_device`, returning the position data if the input device was previously set.
+    /// Removes the position data of the `input_device`, returning the position data if the input
+    /// device was previously set.
     pub fn remove(&mut self, input_device: impl Into<T>) -> Option<f32> {
         self.axis_data.remove(&input_device.into())
     }

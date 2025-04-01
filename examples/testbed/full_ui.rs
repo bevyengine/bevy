@@ -328,7 +328,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ))
                         .with_children(|parent| {
                             // alt text
-                            // This UI node takes up no space in the layout and the `Text` component is used by the accessibility module
+                            // This UI node takes up no space in the layout and the `Text` component
+                            // is used by the accessibility module
                             // and is not rendered.
                             parent.spawn((
                                 Node {
@@ -365,7 +366,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             Node {
-                                // The height will be chosen automatically to preserve the image's aspect ratio
+                                // The height will be chosen automatically to preserve the image's
+                                // aspect ratio
                                 width: Val::Px(75.),
                                 ..default()
                             },

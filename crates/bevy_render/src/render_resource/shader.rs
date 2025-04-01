@@ -45,8 +45,9 @@ pub enum ValidateShader {
     Enabled,
 }
 
-/// A shader, as defined by its [`ShaderSource`](wgpu::ShaderSource) and [`ShaderStage`](naga::ShaderStage)
-/// This is an "unprocessed" shader. It can contain preprocessor directives.
+/// A shader, as defined by its [`ShaderSource`](wgpu::ShaderSource) and
+/// [`ShaderStage`](naga::ShaderStage) This is an "unprocessed" shader. It can contain preprocessor
+/// directives.
 #[derive(Asset, TypePath, Debug, Clone)]
 pub struct Shader {
     pub path: String,

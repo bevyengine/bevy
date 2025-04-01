@@ -158,8 +158,8 @@ impl CubicRotationCurve {
     /// - `times`: `[t_0, t_1]`
     /// - `values`: `[a_0, v_0, b_0, a_1, v_1, b_1]`
     ///
-    /// To sample quaternions from this curve, the resulting interpolated `Vec4` output is normalized
-    /// and interpreted as a quaternion.
+    /// To sample quaternions from this curve, the resulting interpolated `Vec4` output is
+    /// normalized and interpreted as a quaternion.
     pub fn new(
         times: impl IntoIterator<Item = f32>,
         values: impl IntoIterator<Item = Vec4>,
@@ -211,8 +211,8 @@ impl<T> WideLinearKeyframeCurve<T> {
     /// Create a new [`WideLinearKeyframeCurve`]. An error will be returned if:
     /// - `values` has length zero.
     /// - `times` has less than `2` unique valid entries.
-    /// - The length of `values` is not divisible by that of `times` (once sorted, filtered,
-    ///   and deduplicated).
+    /// - The length of `values` is not divisible by that of `times` (once sorted, filtered, and
+    ///   deduplicated).
     #[inline]
     pub fn new(
         times: impl IntoIterator<Item = f32>,
@@ -268,8 +268,8 @@ impl<T> WideSteppedKeyframeCurve<T> {
     /// Create a new [`WideSteppedKeyframeCurve`]. An error will be returned if:
     /// - `values` has length zero.
     /// - `times` has less than `2` unique valid entries.
-    /// - The length of `values` is not divisible by that of `times` (once sorted, filtered,
-    ///   and deduplicated).
+    /// - The length of `values` is not divisible by that of `times` (once sorted, filtered, and
+    ///   deduplicated).
     #[inline]
     pub fn new(
         times: impl IntoIterator<Item = f32>,
@@ -302,8 +302,8 @@ where
             InterpolationDatum::Exact((_, v))
             | InterpolationDatum::LeftTail((_, v))
             | InterpolationDatum::RightTail((_, v)) => {
-                // Pick out the part of this that actually represents the position (instead of tangents),
-                // which is the middle third.
+                // Pick out the part of this that actually represents the position (instead of
+                // tangents), which is the middle third.
                 let width = self.core.width();
                 Either::Left(v[width..(width * 2)].iter().copied())
             }

@@ -52,7 +52,8 @@ struct CustomMaterial {
 }
 
 /// The Material2d trait is very configurable, but comes with sensible defaults for all methods.
-/// You only need to implement functions for features that need non-default behavior. See the Material2d api docs for details!
+/// You only need to implement functions for features that need non-default behavior. See the
+/// Material2d api docs for details!
 impl Material2d for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()

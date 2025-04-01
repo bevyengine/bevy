@@ -121,7 +121,8 @@ fn setup(
 
     // Create a circle mesh. We will reuse this mesh for all our circles.
     let circle = meshes.add(Circle { radius: 1.0 });
-    // Create the different materials we will use for each part of the eyes. For this demo they are basic [`ColorMaterial`]s.
+    // Create the different materials we will use for each part of the eyes. For this demo they are
+    // basic [`ColorMaterial`]s.
     let outline_material = materials.add(Color::BLACK);
     let sclera_material = materials.add(Color::WHITE);
     let pupil_material = materials.add(Color::srgb(0.2, 0.2, 0.2));
@@ -228,12 +229,14 @@ fn update_cursor_hit_test(
         return;
     }
 
-    // If the cursor is not within the window we don't need to update whether the window is clickable or not
+    // If the cursor is not within the window we don't need to update whether the window is
+    // clickable or not
     let Some(cursor_world_pos) = cursor_world_pos.0 else {
         return;
     };
 
-    // If the cursor is within the radius of the Bevy logo make the window clickable otherwise the window is not clickable
+    // If the cursor is within the radius of the Bevy logo make the window clickable otherwise the
+    // window is not clickable
     primary_window.cursor_options.hit_test = bevy_logo_transform
         .translation
         .truncate()
@@ -255,7 +258,8 @@ fn start_drag(
     // Get the offset from the cursor to the Bevy logo sprite
     let drag_offset = bevy_logo_transform.translation.truncate() - cursor_world_pos;
 
-    // If the cursor is within the Bevy logo radius start the drag operation and remember the offset of the cursor from the origin
+    // If the cursor is within the Bevy logo radius start the drag operation and remember the offset
+    // of the cursor from the origin
     if drag_offset.length() < BEVY_LOGO_RADIUS {
         commands.insert_resource(DragOperation(drag_offset));
     }
@@ -290,8 +294,8 @@ fn drag(
     bevy_transform.translation = new_translation.extend(bevy_transform.translation.z);
 
     // Add the cursor drag velocity in the opposite direction to each pupil.
-    // Remember pupils are using local coordinates to move. So when the Bevy logo moves right they need to move left to
-    // simulate inertia, otherwise they will move fixed to the parent.
+    // Remember pupils are using local coordinates to move. So when the Bevy logo moves right they
+    // need to move left to simulate inertia, otherwise they will move fixed to the parent.
     for mut pupil in &mut q_pupils {
         pupil.velocity -= drag_velocity;
     }
@@ -338,8 +342,9 @@ fn toggle_transparency(
         };
     }
 
-    // Remove the primary window's decorations (e.g. borders), make it always on top of other desktop windows, and set the clear color to transparent
-    // only if window transparency is enabled
+    // Remove the primary window's decorations (e.g. borders), make it always on top of other
+    // desktop windows, and set the clear color to transparent only if window transparency is
+    // enabled
     let clear_color;
     (
         primary_window.decorations,
@@ -368,8 +373,9 @@ fn move_pupils(time: Res<Time>, mut q_pupils: Query<(&mut Pupil, &mut Transform)
         pupil.velocity *= ops::powf(0.04f32, time.delta_secs());
         // Move the pupil
         translation += pupil.velocity * time.delta_secs();
-        // If the pupil hit the outside border of the eye, limit the translation to be within the wiggle radius and invert the velocity.
-        // This is not physically accurate but it's good enough for the googly eyes effect.
+        // If the pupil hit the outside border of the eye, limit the translation to be within the
+        // wiggle radius and invert the velocity. This is not physically accurate but it's
+        // good enough for the googly eyes effect.
         if translation.length() > wiggle_radius {
             translation = translation.normalize() * wiggle_radius;
             // Invert and decrease the velocity of the pupil when it bounces

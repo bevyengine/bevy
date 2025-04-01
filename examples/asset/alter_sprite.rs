@@ -62,10 +62,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // `RENDER_WORLD` is necessary to render the image, `MAIN_WORLD` is necessary to inspect
         // and modify the image (via `ResMut<Assets<Image>>`).
         //
-        // Since most games will not need to modify textures at runtime, many developers opt to pass
-        // only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the image in
-        // RAM. For this example however, this would not work, as we need to inspect and modify the
-        // image at runtime.
+        // Since most games will not need to modify textures at runtime, many developers opt to
+        // pass only `RENDER_WORLD`. This is more memory efficient, as we don't need to
+        // keep the image in RAM. For this example however, this would not work, as we need
+        // to inspect and modify the image at runtime.
         |settings: &mut ImageLoaderSettings| settings.asset_usage = RenderAssetUsages::all(),
     );
 

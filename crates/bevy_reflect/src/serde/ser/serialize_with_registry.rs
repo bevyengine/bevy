@@ -45,7 +45,8 @@ pub trait SerializeWithRegistry {
         S: Serializer;
 }
 
-/// Type data used to serialize a [`Reflect`] type with a custom [`SerializeWithRegistry`] implementation.
+/// Type data used to serialize a [`Reflect`] type with a custom [`SerializeWithRegistry`]
+/// implementation.
 #[derive(Clone)]
 pub struct ReflectSerializeWithRegistry {
     serialize: for<'a> fn(
@@ -55,7 +56,8 @@ pub struct ReflectSerializeWithRegistry {
 }
 
 impl ReflectSerializeWithRegistry {
-    /// Serialize a [`Reflect`] type with this type data's custom [`SerializeWithRegistry`] implementation.
+    /// Serialize a [`Reflect`] type with this type data's custom [`SerializeWithRegistry`]
+    /// implementation.
     pub fn serialize<S>(
         &self,
         value: &dyn Reflect,

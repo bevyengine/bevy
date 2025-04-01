@@ -192,7 +192,8 @@ impl IRect {
     ///
     /// # Rounding Behavior
     ///
-    /// If the full size contains odd numbers they will be rounded down to the nearest whole number when calculating the half size.
+    /// If the full size contains odd numbers they will be rounded down to the nearest whole number
+    /// when calculating the half size.
     ///
     /// # Examples
     ///
@@ -210,7 +211,8 @@ impl IRect {
     ///
     /// # Rounding Behavior
     ///
-    /// If the (min + max) contains odd numbers they will be rounded down to the nearest whole number when calculating the center.
+    /// If the (min + max) contains odd numbers they will be rounded down to the nearest whole
+    /// number when calculating the center.
     ///
     /// # Examples
     ///
@@ -316,7 +318,8 @@ impl IRect {
     ///
     /// A positive expansion value produces a larger rectangle,
     /// while a negative expansion value produces a smaller rectangle.
-    /// If this would result in zero or negative width or height, [`IRect::EMPTY`] is returned instead.
+    /// If this would result in zero or negative width or height, [`IRect::EMPTY`] is returned
+    /// instead.
     ///
     /// # Examples
     ///

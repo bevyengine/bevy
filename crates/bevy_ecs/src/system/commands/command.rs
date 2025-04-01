@@ -49,8 +49,9 @@ pub trait Command<Out = ()>: Send + 'static {
     /// Applies this command, causing it to mutate the provided `world`.
     ///
     /// This method is used to define what a command "does" when it is ultimately applied.
-    /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
-    /// This data is set by the system or other source of the command, and then ultimately read in this method.
+    /// Because this method takes `self`, you can store data or settings on the type that implements
+    /// this trait. This data is set by the system or other source of the command, and then
+    /// ultimately read in this method.
     fn apply(self, world: &mut World) -> Out;
 }
 
@@ -78,7 +79,8 @@ where
     }
 }
 
-/// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
+/// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of
+/// entities.
 ///
 /// If any entities do not exist in the world, this command will return a
 /// [`TryInsertBatchError`](crate::world::error::TryInsertBatchError).

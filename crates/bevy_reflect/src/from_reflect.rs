@@ -55,9 +55,9 @@ pub trait FromReflect: Reflect + Sized {
 
 /// Type data that represents the [`FromReflect`] trait and allows it to be used dynamically.
 ///
-/// `FromReflect` allows dynamic types (e.g. [`DynamicStruct`], [`DynamicEnum`], etc.) to be converted
-/// to their full, concrete types. This is most important when it comes to deserialization where it isn't
-/// guaranteed that every field exists when trying to construct the final output.
+/// `FromReflect` allows dynamic types (e.g. [`DynamicStruct`], [`DynamicEnum`], etc.) to be
+/// converted to their full, concrete types. This is most important when it comes to deserialization
+/// where it isn't guaranteed that every field exists when trying to construct the final output.
 ///
 /// However, to do this, you normally need to specify the exact concrete type:
 ///
@@ -75,9 +75,9 @@ pub trait FromReflect: Reflect + Sized {
 /// assert_eq!(Foo(123), concrete);
 /// ```
 ///
-/// In a dynamic context where the type might not be known at compile-time, this is nearly impossible to do.
-/// That is why this type data struct exists— it allows us to construct the full type without knowing
-/// what the actual type is.
+/// In a dynamic context where the type might not be known at compile-time, this is nearly
+/// impossible to do. That is why this type data struct exists— it allows us to construct the full
+/// type without knowing what the actual type is.
 ///
 /// # Example
 ///

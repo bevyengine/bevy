@@ -23,8 +23,8 @@ impl Parse for TraitInfo {
 
 /// A trait attribute macro that allows a reflected type to be downcast to a trait object.
 ///
-/// This generates a struct that takes the form `ReflectMyTrait`. An instance of this struct can then be
-/// used to perform the conversion.
+/// This generates a struct that takes the form `ReflectMyTrait`. An instance of this struct can
+/// then be used to perform the conversion.
 pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStream {
     let trait_info = parse_macro_input!(input as TraitInfo);
     let item_trait = &trait_info.item_trait;

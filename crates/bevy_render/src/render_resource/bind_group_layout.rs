@@ -6,11 +6,13 @@ define_atomic_id!(BindGroupLayoutId);
 /// Bind group layouts define the interface of resources (e.g. buffers, textures, samplers)
 /// for a shader. The actual resource binding is done via a [`BindGroup`](super::BindGroup).
 ///
-/// This is a lightweight thread-safe wrapper around wgpu's own [`BindGroupLayout`](wgpu::BindGroupLayout),
-/// which can be cloned as needed to workaround lifetime management issues. It may be converted
-/// from and dereferences to wgpu's [`BindGroupLayout`](wgpu::BindGroupLayout).
+/// This is a lightweight thread-safe wrapper around wgpu's own
+/// [`BindGroupLayout`](wgpu::BindGroupLayout), which can be cloned as needed to workaround lifetime
+/// management issues. It may be converted from and dereferences to wgpu's
+/// [`BindGroupLayout`](wgpu::BindGroupLayout).
 ///
-/// Can be created via [`RenderDevice::create_bind_group_layout`](crate::RenderDevice::create_bind_group_layout).
+/// Can be created via
+/// [`RenderDevice::create_bind_group_layout`](crate::RenderDevice::create_bind_group_layout).
 #[derive(Clone, Debug)]
 pub struct BindGroupLayout {
     id: BindGroupLayoutId,

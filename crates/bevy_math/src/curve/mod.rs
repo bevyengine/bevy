@@ -8,19 +8,19 @@
 //! time, as in animation; on the other hand, it could represent something like displacement or
 //! distance, as in graphs, gradients, and curves in space.
 //!
-//! The trait itself has two fundamental components: a curve must have a [domain], which is a nonempty
-//! range of `f32` values, and it must be able to be [sampled] on every one of those values, producing
-//! output of some fixed type.
+//! The trait itself has two fundamental components: a curve must have a [domain], which is a
+//! nonempty range of `f32` values, and it must be able to be [sampled] on every one of those
+//! values, producing output of some fixed type.
 //!
 //! A primary goal of the trait is to allow interfaces to simply accept `impl Curve<T>` as input
 //! rather than requiring for input curves to be defined in data in any particular way. This is
-//! supported by a number of interface methods which allow [changing parametrizations], [mapping output],
-//! and [rasterization].
+//! supported by a number of interface methods which allow [changing parametrizations], [mapping
+//! output], and [rasterization].
 //!
 //! ## Analogy with `Iterator`
 //!
-//! The `Curve` API behaves, in many ways, like a continuous counterpart to [`Iterator`]. The analogy
-//! looks something like this with some of the common methods:
+//! The `Curve` API behaves, in many ways, like a continuous counterpart to [`Iterator`]. The
+//! analogy looks something like this with some of the common methods:
 //!
 //! |    Iterators     |     Curves      |
 //! | :--------------- | :-------------- |
@@ -34,8 +34,8 @@
 //!
 //! Of course, there are very important differences, as well. For instance, the continuous nature of
 //! curves means that many iterator methods make little sense in the context of curves, or at least
-//! require numerical techniques. For example, the analogue of `sum` would be an integral, approximated
-//! by something like Riemann summation.
+//! require numerical techniques. For example, the analogue of `sum` would be an integral,
+//! approximated by something like Riemann summation.
 //!
 //! Furthermore, the two also differ greatly in their orientation to borrowing and mutation:
 //! iterators are mutated by being iterated, and by contrast, all curve methods are immutable. More
@@ -49,10 +49,10 @@
 //! - using [splines];
 //! - using [easings].
 //!
-//! Among these, the first is the most versatile[^footnote]: the domain and the sampling output are just
-//! specified directly in the construction. For this reason, function curves are a reliable go-to for
-//! simple one-off constructions and procedural uses, where flexibility is desirable. For example:
-//! ```rust
+//! Among these, the first is the most versatile[^footnote]: the domain and the sampling output are
+//! just specified directly in the construction. For this reason, function curves are a reliable
+//! go-to for simple one-off constructions and procedural uses, where flexibility is desirable. For
+//! example: ```rust
 //! # use bevy_math::vec3;
 //! # use bevy_math::curve::*;
 //! // A sinusoid:
@@ -65,10 +65,10 @@
 //! let helix_curve = FunctionCurve::new(Interval::EVERYWHERE, |theta| vec3(theta.sin(), theta, theta.cos()));
 //! ```
 //!
-//! Sample-interpolated curves commonly arises in both rasterization and in animation, and this library
-//! has support for producing them in both fashions. See [below](self#Resampling-and-rasterization) for
-//! more information about rasterization. Here is what an explicit sample-interpolated curve might look like:
-//! ```rust
+//! Sample-interpolated curves commonly arises in both rasterization and in animation, and this
+//! library has support for producing them in both fashions. See
+//! [below](self#Resampling-and-rasterization) for more information about rasterization. Here is
+//! what an explicit sample-interpolated curve might look like: ```rust
 //! # use bevy_math::prelude::*;
 //! # use std::f32::consts::FRAC_PI_2;
 //! // A list of angles that we want to traverse:
@@ -89,10 +89,10 @@
 //!
 //! For more information on [spline curves] and [easing curves], see their respective modules.
 //!
-//! And, of course, you are also free to define curve types yourself, implementing the trait directly.
-//! For custom sample-interpolated curves, the [`cores`] submodule provides machinery to avoid having to
-//! reimplement interpolation logic yourself. In many other cases, implementing the trait directly is
-//! often quite straightforward:
+//! And, of course, you are also free to define curve types yourself, implementing the trait
+//! directly. For custom sample-interpolated curves, the [`cores`] submodule provides machinery to
+//! avoid having to reimplement interpolation logic yourself. In many other cases, implementing the
+//! trait directly is often quite straightforward:
 //! ```rust
 //! # use bevy_math::prelude::*;
 //! struct ExponentialCurve {
@@ -114,15 +114,15 @@
 //!
 //! ## Transforming curves
 //!
-//! The API provides a few key ways of transforming one curve into another. These are often useful when
-//! you would like to make use of an interface that requires a curve that bears some logical relationship
-//! to one that you already have access to, but with different requirements or expectations. For example,
-//! the output type of the curves may differ, or the domain may be expected to be different. The `map`
-//! and `reparametrize` methods can help address this.
+//! The API provides a few key ways of transforming one curve into another. These are often useful
+//! when you would like to make use of an interface that requires a curve that bears some logical
+//! relationship to one that you already have access to, but with different requirements or
+//! expectations. For example, the output type of the curves may differ, or the domain may be
+//! expected to be different. The `map` and `reparametrize` methods can help address this.
 //!
 //! As a simple example of the kind of thing that arises in practice, let's imagine that we have a
-//! `Curve<Vec2>` that we want to use to describe the motion of some object over time, but the interface
-//! for animation expects a `Curve<Vec3>`, since the object will move in three dimensions:
+//! `Curve<Vec2>` that we want to use to describe the motion of some object over time, but the
+//! interface for animation expects a `Curve<Vec3>`, since the object will move in three dimensions:
 //! ```rust
 //! # use bevy_math::{vec2, prelude::*};
 //! # use std::f32::consts::TAU;
@@ -147,9 +147,9 @@
 //! let final_curve = ellipse_motion_curve.reparametrize_linear(Interval::UNIT).unwrap();
 //! ```
 //!
-//! Of course, there are many other ways of using these methods. In general, `map` is used for transforming
-//! the output and using it to drive something else, while `reparametrize` preserves the curve's shape but
-//! changes the speed and direction in which it is traversed. For instance:
+//! Of course, there are many other ways of using these methods. In general, `map` is used for
+//! transforming the output and using it to drive something else, while `reparametrize` preserves
+//! the curve's shape but changes the speed and direction in which it is traversed. For instance:
 //! ```rust
 //! # use bevy_math::{vec2, prelude::*};
 //! // A line segment curve connecting two points in the plane:
@@ -211,13 +211,13 @@
 //!
 //! ## <a name="Resampling-and-rasterization"></a>Resampling and rasterization
 //!
-//! Sometimes, for reasons of portability, performance, or otherwise, it can be useful to ensure that
-//! curves of various provenance all actually share the same concrete type. This is the purpose of the
-//! [`resample`] family of functions: they allow a curve to be replaced by an approximate version of
-//! itself defined by interpolation over samples from the original curve.
+//! Sometimes, for reasons of portability, performance, or otherwise, it can be useful to ensure
+//! that curves of various provenance all actually share the same concrete type. This is the purpose
+//! of the [`resample`] family of functions: they allow a curve to be replaced by an approximate
+//! version of itself defined by interpolation over samples from the original curve.
 //!
-//! In effect, this allows very different curves to be rasterized and treated uniformly. For example:
-//! ```rust
+//! In effect, this allows very different curves to be rasterized and treated uniformly. For
+//! example: ```rust
 //! # use bevy_math::{vec2, prelude::*};
 //! // A curve that is not easily transported because it relies on evaluating a function:
 //! let interesting_curve = FunctionCurve::new(Interval::UNIT, |t| vec2(t * 3.0, t.exp()));
@@ -233,19 +233,19 @@
 //!
 //! ## <a name="Ownership-and-borrowing"></a>Ownership and borrowing
 //!
-//! It can be easy to get tripped up by how curves specifically interact with Rust's ownership semantics.
-//! First of all, it's worth noting that the API never uses `&mut self` — every method either takes
-//! ownership of the original curve or uses a shared reference.
+//! It can be easy to get tripped up by how curves specifically interact with Rust's ownership
+//! semantics. First of all, it's worth noting that the API never uses `&mut self` — every method
+//! either takes ownership of the original curve or uses a shared reference.
 //!
 //! Because of the methods that take ownership, it is useful to be aware of the following:
 //! - If `curve` is a curve, then `&curve` is also a curve with the same output. For convenience,
 //!   `&curve` can be written as `curve.by_ref()` for use in method chaining.
 //! - However, `&curve` cannot outlive `curve`. In general, it is not `'static`.
 //!
-//! In other words, `&curve` can be used to perform temporary operations without consuming `curve` (for
-//! example, to effectively pass `curve` into an API which expects an `impl Curve<T>`), but it *cannot*
-//! be used in situations where persistence is necessary (e.g. when the curve itself must be stored
-//! for later use).
+//! In other words, `&curve` can be used to perform temporary operations without consuming `curve`
+//! (for example, to effectively pass `curve` into an API which expects an `impl Curve<T>`), but it
+//! *cannot* be used in situations where persistence is necessary (e.g. when the curve itself must
+//! be stored for later use).
 //!
 //! Here is a demonstration:
 //! ```rust
@@ -331,8 +331,8 @@ pub trait Curve<T> {
     /// is already known to lie within the curve's domain.
     ///
     /// Values sampled from outside of a curve's domain are generally considered invalid; data which
-    /// is nonsensical or otherwise useless may be returned in such a circumstance, and extrapolation
-    /// beyond a curve's domain should not be relied upon.
+    /// is nonsensical or otherwise useless may be returned in such a circumstance, and
+    /// extrapolation beyond a curve's domain should not be relied upon.
     fn sample_unchecked(&self, t: f32) -> T;
 
     /// Sample a point on this curve at the parameter value `t`, returning `None` if the point is
@@ -446,7 +446,8 @@ pub trait CurveExt<T>: Curve<T> + Sized {
     /// let scaled_curve = my_curve.reparametrize(interval(0.0, 2.0).unwrap(), |t| t / 2.0);
     /// ```
     /// This kind of linear remapping is provided by the convenience method
-    /// [`CurveExt::reparametrize_linear`], which requires only the desired domain for the new curve.
+    /// [`CurveExt::reparametrize_linear`], which requires only the desired domain for the new
+    /// curve.
     ///
     /// # Examples
     /// ```
@@ -502,9 +503,9 @@ pub trait CurveExt<T>: Curve<T> + Sized {
 
     /// Reparametrize this [`Curve`] by sampling from another curve.
     ///
-    /// The resulting curve samples at time `t` by first sampling `other` at time `t`, which produces
-    /// another sample time `s` which is then used to sample this curve. The domain of the resulting
-    /// curve is the domain of `other`.
+    /// The resulting curve samples at time `t` by first sampling `other` at time `t`, which
+    /// produces another sample time `s` which is then used to sample this curve. The domain of
+    /// the resulting curve is the domain of `other`.
     #[must_use]
     fn reparametrize_by_curve<C>(self, other: C) -> CurveReparamCurve<T, Self, C>
     where
@@ -521,8 +522,8 @@ pub trait CurveExt<T>: Curve<T> + Sized {
     /// time as part of a tuple.
     ///
     /// For example, if this curve outputs `x` at time `t`, then the produced curve will produce
-    /// `(t, x)` at time `t`. In particular, if this curve is a `Curve<T>`, the output of this method
-    /// is a `Curve<(f32, T)>`.
+    /// `(t, x)` at time `t`. In particular, if this curve is a `Curve<T>`, the output of this
+    /// method is a `Curve<(f32, T)>`.
     #[must_use]
     fn graph(self) -> GraphCurve<T, Self> {
         GraphCurve {
@@ -553,9 +554,9 @@ pub trait CurveExt<T>: Curve<T> + Sized {
         })
     }
 
-    /// Create a new [`Curve`] by composing this curve end-to-start with another, producing another curve
-    /// with outputs of the same type. The domain of the other curve is translated so that its start
-    /// coincides with where this curve ends.
+    /// Create a new [`Curve`] by composing this curve end-to-start with another, producing another
+    /// curve with outputs of the same type. The domain of the other curve is translated so that
+    /// its start coincides with where this curve ends.
     ///
     /// # Errors
     ///
@@ -604,8 +605,8 @@ pub trait CurveExt<T>: Curve<T> + Sized {
     /// - this doesn't guarantee a smooth transition from one occurrence of the curve to its next
     ///   iteration. The curve will make a jump if `self.domain().start() != self.domain().end()`!
     /// - for `count == 0` the output of this adaptor is basically identical to the previous curve
-    /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
-    ///   value at `domain.end()` in the original curve
+    /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is
+    ///   the value at `domain.end()` in the original curve
     ///
     /// # Errors
     ///
@@ -614,8 +615,9 @@ pub trait CurveExt<T>: Curve<T> + Sized {
         self.domain()
             .is_bounded()
             .then(|| {
-                // This unwrap always succeeds because `curve` has a valid Interval as its domain and the
-                // length of `curve` cannot be NAN. It's still fine if it's infinity.
+                // This unwrap always succeeds because `curve` has a valid Interval as its domain
+                // and the length of `curve` cannot be NAN. It's still fine if it's
+                // infinity.
                 let domain = Interval::new(
                     self.domain().start(),
                     self.domain().end() + self.domain().length() * count as f32,
@@ -637,8 +639,8 @@ pub trait CurveExt<T>: Curve<T> + Sized {
     ///
     /// - this doesn't guarantee a smooth transition from one occurrence of the curve to its next
     ///   iteration. The curve will make a jump if `self.domain().start() != self.domain().end()`!
-    /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
-    ///   value at `domain.end()` in the original curve
+    /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is
+    ///   the value at `domain.end()` in the original curve
     ///
     /// # Errors
     ///
@@ -776,10 +778,10 @@ impl<C, T> CurveExt<T> for C where C: Curve<T> {}
 #[cfg(feature = "alloc")]
 pub trait CurveResampleExt<T>: Curve<T> {
     /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
-    /// spaced sample values, using the provided `interpolation` to interpolate between adjacent samples.
-    /// The curve is interpolated on `segments` segments between samples. For example, if `segments` is 1,
-    /// only the start and end points of the curve are used as samples; if `segments` is 2, a sample at
-    /// the midpoint is taken as well, and so on.
+    /// spaced sample values, using the provided `interpolation` to interpolate between adjacent
+    /// samples. The curve is interpolated on `segments` segments between samples. For example,
+    /// if `segments` is 1, only the start and end points of the curve are used as samples; if
+    /// `segments` is 2, a sample at the midpoint is taken as well, and so on.
     ///
     /// The interpolation takes two values by reference together with a scalar parameter and
     /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
@@ -817,14 +819,15 @@ pub trait CurveResampleExt<T>: Curve<T> {
     }
 
     /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
-    /// spaced sample values, using [automatic interpolation] to interpolate between adjacent samples.
-    /// The curve is interpolated on `segments` segments between samples. For example, if `segments` is 1,
-    /// only the start and end points of the curve are used as samples; if `segments` is 2, a sample at
-    /// the midpoint is taken as well, and so on.
+    /// spaced sample values, using [automatic interpolation] to interpolate between adjacent
+    /// samples. The curve is interpolated on `segments` segments between samples. For example,
+    /// if `segments` is 1, only the start and end points of the curve are used as samples; if
+    /// `segments` is 2, a sample at the midpoint is taken as well, and so on.
     ///
     /// # Errors
     ///
-    /// If `segments` is zero or if this curve has unbounded domain, a [`ResamplingError`] is returned.
+    /// If `segments` is zero or if this curve has unbounded domain, a [`ResamplingError`] is
+    /// returned.
     ///
     /// [automatic interpolation]: crate::common_traits::StableInterpolate
     fn resample_auto(&self, segments: usize) -> Result<SampleAutoCurve<T>, ResamplingError>
@@ -885,9 +888,9 @@ pub trait CurveResampleExt<T>: Curve<T> {
         })
     }
 
-    /// Resample this [`Curve`] to produce a new one that is defined by [automatic interpolation] over
-    /// samples taken at the given set of times. The given `sample_times` are expected to contain at least
-    /// two valid times within the curve's domain interval.
+    /// Resample this [`Curve`] to produce a new one that is defined by [automatic interpolation]
+    /// over samples taken at the given set of times. The given `sample_times` are expected to
+    /// contain at least two valid times within the curve's domain interval.
     ///
     /// Redundant sample times, non-finite sample times, and sample times outside of the domain
     /// are simply filtered out. With an insufficient quantity of data, a [`ResamplingError`] is

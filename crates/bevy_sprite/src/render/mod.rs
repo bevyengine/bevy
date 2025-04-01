@@ -335,7 +335,8 @@ pub struct ExtractedSprite {
     pub color: LinearRgba,
     /// Change the on-screen size of the sprite
     /// Asset ID of the [`Image`] of this sprite
-    /// PERF: storing an `AssetId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
+    /// PERF: storing an `AssetId` instead of `Handle<Image>` enables some optimizations
+    /// (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
     pub image_handle_id: AssetId<Image>,
     pub flip_x: bool,
     pub flip_y: bool,
@@ -440,7 +441,8 @@ pub fn extract_sprites(
                 }
             };
 
-            // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
+            // PERF: we don't check in this function that the `Image` asset is ready, since it
+            // should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.push(ExtractedSprite {
                 main_entity,
                 render_entity,

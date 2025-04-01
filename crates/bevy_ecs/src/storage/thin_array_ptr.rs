@@ -47,7 +47,8 @@ impl<T> ThinArrayPtr<T> {
         }
     }
 
-    /// Create a new [`ThinArrayPtr`] with a given capacity. If the `capacity` is 0, this will no allocate any memory.
+    /// Create a new [`ThinArrayPtr`] with a given capacity. If the `capacity` is 0, this will no
+    /// allocate any memory.
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         let mut arr = Self::empty();
@@ -59,8 +60,9 @@ impl<T> ThinArrayPtr<T> {
         arr
     }
 
-    /// Allocate memory for the array, this should only be used if not previous allocation has been made (capacity = 0)
-    /// The caller should update their saved `capacity` value to reflect the fact that it was changed
+    /// Allocate memory for the array, this should only be used if not previous allocation has been
+    /// made (capacity = 0) The caller should update their saved `capacity` value to reflect the
+    /// fact that it was changed
     ///
     /// # Panics
     /// - Panics if the new capacity overflows `usize`
@@ -77,14 +79,16 @@ impl<T> ThinArrayPtr<T> {
         }
     }
 
-    /// Reallocate memory for the array, this should only be used if a previous allocation for this array has been made (capacity > 0).
+    /// Reallocate memory for the array, this should only be used if a previous allocation for this
+    /// array has been made (capacity > 0).
     ///
     /// # Panics
     /// - Panics if the new capacity overflows `usize`
     ///
     /// # Safety
     /// - The current capacity is indeed greater than 0
-    /// - The caller should update their saved `capacity` value to reflect the fact that it was changed
+    /// - The caller should update their saved `capacity` value to reflect the fact that it was
+    ///   changed
     pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
         #[cfg(debug_assertions)]
         assert_eq!(self.capacity, current_capacity.get());
@@ -96,13 +100,15 @@ impl<T> ThinArrayPtr<T> {
             // - ptr was be allocated via this allocator
             // - the layout of the array is the same as `Layout::array::<T>(current_capacity)`
             // - the size of `T` is non 0, and `new_capacity` > 0
-            // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
+            // - "new_size, when rounded up to the nearest multiple of layout.align(), must not
+            //   overflow (i.e., the rounded value must be less than usize::MAX)",
             // since the item size is always a multiple of its align, the rounding cannot happen
             // here and the overflow is handled in `Layout::array`
             self.data = NonNull::new(unsafe {
                 realloc(
                     self.data.cast().as_ptr(),
-                    // We can use `unwrap_unchecked` because this is the Layout of the current allocation, it must be valid
+                    // We can use `unwrap_unchecked` because this is the Layout of the current
+                    // allocation, it must be valid
                     Layout::array::<T>(current_capacity.get()).debug_checked_unwrap(),
                     new_layout.size(),
                 )
@@ -116,12 +122,14 @@ impl<T> ThinArrayPtr<T> {
     ///
     /// # Safety
     /// `index` must be in bounds i.e. within the `capacity`.
-    /// if `index` = `len` the caller should update their saved `len` value to reflect the fact that it was changed
+    /// if `index` = `len` the caller should update their saved `len` value to reflect the fact that
+    /// it was changed
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: T) {
         // SAFETY: `index` is in bounds
         let ptr = unsafe { self.get_unchecked_raw(index) };
-        // SAFETY: `index` is in bounds, therefore the pointer to that location in the array is valid, and aligned.
+        // SAFETY: `index` is in bounds, therefore the pointer to that location in the array is
+        // valid, and aligned.
         unsafe { ptr::write(ptr, value) };
     }
 
@@ -133,7 +141,8 @@ impl<T> ThinArrayPtr<T> {
     pub unsafe fn get_unchecked_raw(&mut self, index: usize) -> *mut T {
         // SAFETY:
         // - `self.data` and the resulting pointer are in the same allocated object
-        // - the memory address of the last element doesn't overflow `isize`, so if `index` is in bounds, it won't overflow either
+        // - the memory address of the last element doesn't overflow `isize`, so if `index` is in
+        //   bounds, it won't overflow either
         unsafe { self.data.as_ptr().add(index) }
     }
 
@@ -145,7 +154,8 @@ impl<T> ThinArrayPtr<T> {
     pub unsafe fn get_unchecked(&self, index: usize) -> &'_ T {
         // SAFETY:
         // - `self.data` and the resulting pointer are in the same allocated object
-        // - the memory address of the last element doesn't overflow `isize`, so if `index` is in bounds, it won't overflow either
+        // - the memory address of the last element doesn't overflow `isize`, so if `index` is in
+        //   bounds, it won't overflow either
         let ptr = unsafe { self.data.as_ptr().add(index) };
         // SAFETY:
         // - The pointer is properly aligned
@@ -159,7 +169,8 @@ impl<T> ThinArrayPtr<T> {
         }
     }
 
-    /// Get a mutable reference to the element at `index`. This method doesn't do any bounds checking.
+    /// Get a mutable reference to the element at `index`. This method doesn't do any bounds
+    /// checking.
     ///
     /// # Safety
     /// - `index` must be safe to write to.
@@ -167,7 +178,8 @@ impl<T> ThinArrayPtr<T> {
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &'_ mut T {
         // SAFETY:
         // - `self.data` and the resulting pointer are in the same allocated object
-        // - the memory address of the last element doesn't overflow `isize`, so if `index` is in bounds, it won't overflow either
+        // - the memory address of the last element doesn't overflow `isize`, so if `index` is in
+        //   bounds, it won't overflow either
         let ptr = unsafe { self.data.as_ptr().add(index) };
         // SAFETY:
         // - The pointer is properly aligned
@@ -187,7 +199,8 @@ impl<T> ThinArrayPtr<T> {
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` != `index_to_keep`
-    /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
+    /// - The caller should address the inconsistent state of the array that has occurred after the
+    ///   swap, either:
     ///     1) initialize a different value in `index_to_keep`
     ///     2) update the saved length of the array if `index_to_keep` was the last element.
     #[inline]
@@ -218,7 +231,8 @@ impl<T> ThinArrayPtr<T> {
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` != `index_to_keep`
-    /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
+    /// - The caller should address the inconsistent state of the array that has occurred after the
+    ///   swap, either:
     ///     1) initialize a different value in `index_to_keep`
     ///     2) update the saved length of the array if `index_to_keep` was the last element.
     #[inline]
@@ -239,7 +253,8 @@ impl<T> ThinArrayPtr<T> {
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` != `index_to_keep`
-    /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
+    /// - The caller should address the inconsistent state of the array that has occurred after the
+    ///   swap, either:
     ///     1) initialize a different value in `index_to_keep`
     ///     2) update the saved length of the array if `index_to_keep` was the last element.
     #[inline]
@@ -261,11 +276,12 @@ impl<T> ThinArrayPtr<T> {
         (current_len != 0).then_some(self.data.as_ptr().add(current_len - 1))
     }
 
-    /// Clears the array, removing (and dropping) Note that this method has no effect on the allocated capacity of the vector.
+    /// Clears the array, removing (and dropping) Note that this method has no effect on the
+    /// allocated capacity of the vector.
     ///
     /// # Safety
     /// - `current_len` is indeed the length of the array
-    /// -   The caller should update their saved length value
+    /// - The caller should update their saved length value
     pub unsafe fn clear_elements(&mut self, mut current_len: usize) {
         if needs_drop::<T>() {
             while let Some(to_drop) = self.last_element(current_len) {

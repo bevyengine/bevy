@@ -11,16 +11,20 @@ use crate::{FontSmoothing, GlyphAtlasLocation, TextError};
 
 /// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
 ///
-/// A `FontAtlas` contains one or more textures, each of which contains one or more glyphs packed into them.
+/// A `FontAtlas` contains one or more textures, each of which contains one or more glyphs packed
+/// into them.
 ///
-/// A [`FontAtlasSet`](crate::FontAtlasSet) contains a `FontAtlas` for each font size in the same font face.
+/// A [`FontAtlasSet`](crate::FontAtlasSet) contains a `FontAtlas` for each font size in the same
+/// font face.
 ///
-/// For the same font face and font size, a glyph will be rasterized differently for different subpixel offsets.
-/// In practice, ranges of subpixel offsets are grouped into subpixel bins to limit the number of rasterized glyphs,
-/// providing a trade-off between visual quality and performance.
+/// For the same font face and font size, a glyph will be rasterized differently for different
+/// subpixel offsets. In practice, ranges of subpixel offsets are grouped into subpixel bins to
+/// limit the number of rasterized glyphs, providing a trade-off between visual quality and
+/// performance.
 ///
-/// A [`CacheKey`](cosmic_text::CacheKey) encodes all of the information of a subpixel-offset glyph and is used to
-/// find that glyphs raster in a [`TextureAtlas`] through its corresponding [`GlyphAtlasLocation`].
+/// A [`CacheKey`](cosmic_text::CacheKey) encodes all of the information of a subpixel-offset glyph
+/// and is used to find that glyphs raster in a [`TextureAtlas`] through its corresponding
+/// [`GlyphAtlasLocation`].
 pub struct FontAtlas {
     /// Used to update the [`TextureAtlasLayout`].
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
@@ -33,7 +37,8 @@ pub struct FontAtlas {
 }
 
 impl FontAtlas {
-    /// Create a new [`FontAtlas`] with the given size, adding it to the appropriate asset collections.
+    /// Create a new [`FontAtlas`] with the given size, adding it to the appropriate asset
+    /// collections.
     pub fn new(
         textures: &mut Assets<Image>,
         texture_atlases_layout: &mut Assets<TextureAtlasLayout>,
@@ -83,8 +88,8 @@ impl FontAtlas {
     ///
     /// # Returns
     ///
-    /// Returns `()` if the glyph is successfully added, or [`TextError::FailedToAddGlyph`] otherwise.
-    /// In that case, neither the atlas texture nor the atlas layout are
+    /// Returns `()` if the glyph is successfully added, or [`TextError::FailedToAddGlyph`]
+    /// otherwise. In that case, neither the atlas texture nor the atlas layout are
     /// modified.
     pub fn add_glyph(
         &mut self,

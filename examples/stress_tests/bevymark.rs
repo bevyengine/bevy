@@ -64,7 +64,8 @@ struct Args {
     #[argh(switch)]
     vary_per_instance: bool,
 
-    /// the number of different textures from which to randomly select the material color. 0 means no textures.
+    /// the number of different textures from which to randomly select the material color. 0 means
+    /// no textures.
     #[argh(option, default = "1")]
     material_texture_count: usize,
 
@@ -245,7 +246,8 @@ fn setup(
         materials,
         quad: meshes.add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32))),
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
-        // This isn't strictly required in practical use unless you need your app to be deterministic.
+        // This isn't strictly required in practical use unless you need your app to be
+        // deterministic.
         color_rng: ChaCha8Rng::seed_from_u64(42),
         material_rng: ChaCha8Rng::seed_from_u64(42),
         velocity_rng: ChaCha8Rng::seed_from_u64(42),
@@ -339,7 +341,8 @@ fn mouse_handler(
 
     if rng.is_none() {
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
-        // This isn't strictly required in practical use unless you need your app to be deterministic.
+        // This isn't strictly required in practical use unless you need your app to be
+        // deterministic.
         *rng = Some(ChaCha8Rng::seed_from_u64(42));
     }
     let rng = rng.as_mut().unwrap();
@@ -374,8 +377,8 @@ fn bird_velocity_transform(
     let mut velocity = Vec3::new(MAX_VELOCITY * (velocity_rng.r#gen::<f32>() - 0.5), 0., 0.);
 
     if let Some(waves) = waves {
-        // Step the movement and handle collisions as if the wave had been spawned at fixed time intervals
-        // and with dt-spaced frames of simulation
+        // Step the movement and handle collisions as if the wave had been spawned at fixed time
+        // intervals and with dt-spaced frames of simulation
         for _ in 0..(waves * (FIXED_TIMESTEP / dt).round() as usize) {
             step_movement(&mut translation, &mut velocity, dt);
             handle_collision(half_extents, &translation, &mut velocity);

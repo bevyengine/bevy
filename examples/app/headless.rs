@@ -39,8 +39,8 @@ fn main() {
                     1.0 / 60.0,
                 )))
                 // The log and ctrl+c plugin can only be registered once globally,
-                // which means we need to disable it here, because it was already registered with the
-                // app that runs once.
+                // which means we need to disable it here, because it was already registered with
+                // the app that runs once.
                 .disable::<LogPlugin>(),
         )
         .add_systems(Update, counter)

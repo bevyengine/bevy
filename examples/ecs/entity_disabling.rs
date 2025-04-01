@@ -1,4 +1,5 @@
-//! Disabling entities is a powerful feature that allows you to hide entities from the ECS without deleting them.
+//! Disabling entities is a powerful feature that allows you to hide entities from the ECS without
+//! deleting them.
 //!
 //! This can be useful for implementing features like "sleeping" objects that are offscreen
 //! or managing networked entities.

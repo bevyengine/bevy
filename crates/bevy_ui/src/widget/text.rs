@@ -50,10 +50,12 @@ impl Default for TextNodeFlags {
 ///
 /// Adding [`Text`] to an entity will pull in required components for setting up a UI text node.
 ///
-/// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
+/// The string in this component is the first 'text span' in a hierarchy of text spans that are
+/// collected into a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component
+/// used by children of entities with [`Text`].
 ///
-/// Note that [`Transform`](bevy_transform::components::Transform) on this entity is managed automatically by the UI layout system.
+/// Note that [`Transform`](bevy_transform::components::Transform) on this entity is managed
+/// automatically by the UI layout system.
 ///
 ///
 /// ```
@@ -221,7 +223,8 @@ fn create_text_measure<'a>(
                 content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
             }
 
-            // Text measure func created successfully, so set `TextNodeFlags` to schedule a recompute
+            // Text measure func created successfully, so set `TextNodeFlags` to schedule a
+            // recompute
             text_flags.needs_measure_fn = false;
             text_flags.needs_recompute = true;
         }
@@ -241,9 +244,10 @@ fn create_text_measure<'a>(
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 ///
 /// * Measures are regenerated on changes to either [`ComputedTextBlock`] or [`ComputedNodeTarget`].
-/// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system
-///   is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
-///   color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
+/// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system is
+///   only able to detect that a `Text` component has changed and will regenerate the `Measure` on
+///   color changes. This can be expensive, particularly for large blocks of text, and the
+///   [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///   method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
     fonts: Res<Assets<Font>>,
@@ -348,14 +352,15 @@ fn queue_text(
     }
 }
 
-/// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
-/// or when the `needs_recompute` field of [`TextNodeFlags`] is set to true.
+/// Updates the layout and size information for a UI text node on changes to the size value of its
+/// [`Node`] component, or when the `needs_recompute` field of [`TextNodeFlags`] is set to true.
 /// This information is computed by the [`TextPipeline`] and then stored in [`TextLayoutInfo`].
 ///
 /// ## World Resources
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
-/// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
+/// It does not modify or observe existing ones. The exception is when adding new glyphs to a
+/// [`bevy_text::FontAtlas`].
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,

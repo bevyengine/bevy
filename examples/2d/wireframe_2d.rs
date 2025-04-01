@@ -36,11 +36,12 @@ fn main() {
         // Wireframes can be configured with this resource. This can be changed at runtime.
         .insert_resource(Wireframe2dConfig {
             // The global wireframe config enables drawing of wireframes on every mesh,
-            // except those with `NoWireframe2d`. Meshes with `Wireframe2d` will always have a wireframe,
-            // regardless of the global configuration.
+            // except those with `NoWireframe2d`. Meshes with `Wireframe2d` will always have a
+            // wireframe, regardless of the global configuration.
             global: true,
-            // Controls the default color of all wireframes. Used as the default color for global wireframes.
-            // Can be changed per mesh using the `Wireframe2dColor` component.
+            // Controls the default color of all wireframes. Used as the default color for global
+            // wireframes. Can be changed per mesh using the `Wireframe2dColor`
+            // component.
             default_color: WHITE.into(),
         })
         .add_systems(Startup, setup)

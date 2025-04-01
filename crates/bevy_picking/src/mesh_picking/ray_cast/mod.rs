@@ -44,8 +44,8 @@ pub struct MeshRayCastSettings<'a> {
     /// A predicate that is applied for every entity that ray casts are performed against.
     /// Only entities that return `true` will be considered.
     pub filter: &'a dyn Fn(Entity) -> bool,
-    /// A function that is run every time a hit is found. Ray casting will continue to check for hits
-    /// along the ray as long as this returns `false`.
+    /// A function that is run every time a hit is found. Ray casting will continue to check for
+    /// hits along the ray as long as this returns `false`.
     pub early_exit_test: &'a dyn Fn(Entity) -> bool,
 }
 
@@ -124,8 +124,8 @@ type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
 ///
 /// ## Usage
 ///
-/// The following system casts a ray into the world with the ray positioned at the origin, pointing in
-/// the X-direction, and returns a list of intersections:
+/// The following system casts a ray into the world with the ray positioned at the origin, pointing
+/// in the X-direction, and returns a list of intersections:
 ///
 /// ```
 /// # use bevy_math::prelude::*;
@@ -138,9 +138,9 @@ type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
 ///
 /// ## Configuration
 ///
-/// You can specify the behavior of the ray cast using [`MeshRayCastSettings`]. This allows you to filter out
-/// entities, configure early-out behavior, and set whether the [`Visibility`] of an entity should be
-/// considered.
+/// You can specify the behavior of the ray cast using [`MeshRayCastSettings`]. This allows you to
+/// filter out entities, configure early-out behavior, and set whether the [`Visibility`] of an
+/// entity should be considered.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -264,7 +264,8 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                     return;
                 };
 
-                // Get the underlying mesh handle. One of these will always be `Some` because of the query filters.
+                // Get the underlying mesh handle. One of these will always be `Some` because of the
+                // query filters.
                 let Some(mesh_handle) = simplified_mesh
                     .map(|m| &m.0)
                     .or(mesh3d.map(|m| &m.0).or(mesh2d.map(|m| &m.0)))

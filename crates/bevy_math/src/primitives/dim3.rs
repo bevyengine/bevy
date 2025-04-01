@@ -87,7 +87,8 @@ impl Measured3d for Sphere {
     }
 }
 
-/// A bounded plane in 3D space. It forms a surface starting from the origin with a defined height and width.
+/// A bounded plane in 3D space. It forms a surface starting from the origin with a defined height
+/// and width.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -108,7 +109,8 @@ pub struct Plane3d {
 impl Primitive3d for Plane3d {}
 
 impl Default for Plane3d {
-    /// Returns the default [`Plane3d`] with a normal pointing in the `+Y` direction, width and height of `1.0`.
+    /// Returns the default [`Plane3d`] with a normal pointing in the `+Y` direction, width and
+    /// height of `1.0`.
     fn default() -> Self {
         Self {
             normal: Dir3::Y,
@@ -247,17 +249,16 @@ impl InfinitePlane3d {
     /// * the transformation is a [congruence] meaning it will preserve all distances and angles of
     ///   the transformed geometry
     /// * uses the least rotation possible to transform the geometry
-    /// * if two geometries are transformed with the same isometry, then the relations between
-    ///   them, like distances, are also preserved
+    /// * if two geometries are transformed with the same isometry, then the relations between them,
+    ///   like distances, are also preserved
     /// * compared to projections, the transformation is lossless (up to floating point errors)
     ///   reversible
     ///
     /// ## Non-Guarantees
     ///
     /// * the rotation used is generally not unique
-    /// * the orientation of the transformed geometry in the XY plane might be arbitrary, to
-    ///   enforce some kind of alignment the user has to use an extra transformation ontop of this
-    ///   one
+    /// * the orientation of the transformed geometry in the XY plane might be arbitrary, to enforce
+    ///   some kind of alignment the user has to use an extra transformation ontop of this one
     ///
     /// See [`isometries_xy`] for example usescases.
     ///
@@ -278,17 +279,16 @@ impl InfinitePlane3d {
     /// * the transformation is a [congruence] meaning it will preserve all distances and angles of
     ///   the transformed geometry
     /// * uses the least rotation possible to transform the geometry
-    /// * if two geometries are transformed with the same isometry, then the relations between
-    ///   them, like distances, are also preserved
+    /// * if two geometries are transformed with the same isometry, then the relations between them,
+    ///   like distances, are also preserved
     /// * compared to projections, the transformation is lossless (up to floating point errors)
     ///   reversible
     ///
     /// ## Non-Guarantees
     ///
     /// * the rotation used is generally not unique
-    /// * the orientation of the transformed geometry in the XY plane might be arbitrary, to
-    ///   enforce some kind of alignment the user has to use an extra transformation ontop of this
-    ///   one
+    /// * the orientation of the transformed geometry in the XY plane might be arbitrary, to enforce
+    ///   some kind of alignment the user has to use an extra transformation ontop of this one
     ///
     /// See [`isometries_xy`] for example usescases.
     ///
@@ -459,7 +459,8 @@ impl Segment3d {
     ///
     /// # Panics
     ///
-    /// Panics if a valid direction could not be computed, for example when the endpoints are coincident, NaN, or infinite.
+    /// Panics if a valid direction could not be computed, for example when the endpoints are
+    /// coincident, NaN, or infinite.
     #[inline(always)]
     pub fn direction(&self) -> Dir3 {
         self.try_direction().unwrap_or_else(|err| {
@@ -467,10 +468,11 @@ impl Segment3d {
         })
     }
 
-    /// Try to compute the normalized direction pointing from the first endpoint to the second endpoint.
+    /// Try to compute the normalized direction pointing from the first endpoint to the second
+    /// endpoint.
     ///
-    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if a valid direction could not be computed,
-    /// for example when the endpoints are coincident, NaN, or infinite.
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if a valid direction could not
+    /// be computed, for example when the endpoints are coincident, NaN, or infinite.
     #[inline(always)]
     pub fn try_direction(&self) -> Result<Dir3, InvalidDirectionError> {
         Dir3::new(self.scaled_direction())
@@ -507,7 +509,8 @@ impl Segment3d {
     /// Compute the segment rotated around the given point by the given rotation.
     #[inline(always)]
     pub fn rotated_around(&self, rotation: Quat, point: Vec3) -> Segment3d {
-        // We offset our segment so that our segment is rotated as if from the origin, then we can apply the offset back
+        // We offset our segment so that our segment is rotated as if from the origin, then we can
+        // apply the offset back
         let offset = self.translated(-point);
         let rotated = offset.rotated(rotation);
         rotated.translated(point)
@@ -877,7 +880,8 @@ impl Measured3d for Capsule3d {
     }
 }
 
-/// A cone primitive centered on the midpoint between the tip of the cone and the center of its base.
+/// A cone primitive centered on the midpoint between the tip of the cone and the center of its
+/// base.
 ///
 /// The cone is oriented with its tip pointing towards the Y axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -984,7 +988,8 @@ pub struct ConicalFrustum {
 impl Primitive3d for ConicalFrustum {}
 
 impl Default for ConicalFrustum {
-    /// Returns the default [`ConicalFrustum`] with a top radius of `0.25`, bottom radius of `0.5`, and a height of `0.5`.
+    /// Returns the default [`ConicalFrustum`] with a top radius of `0.25`, bottom radius of `0.5`,
+    /// and a height of `0.5`.
     fn default() -> Self {
         Self {
             radius_top: 0.25,
@@ -1144,7 +1149,8 @@ pub struct Triangle3d {
 impl Primitive3d for Triangle3d {}
 
 impl Default for Triangle3d {
-    /// Returns the default [`Triangle3d`] with the vertices `[0.0, 0.5, 0.0]`, `[-0.5, -0.5, 0.0]`, and `[0.5, -0.5, 0.0]`.
+    /// Returns the default [`Triangle3d`] with the vertices `[0.0, 0.5, 0.0]`, `[-0.5, -0.5, 0.0]`,
+    /// and `[0.5, -0.5, 0.0]`.
     fn default() -> Self {
         Self {
             vertices: [
@@ -1184,8 +1190,8 @@ impl Triangle3d {
 
     /// Checks if the triangle is degenerate, meaning it has zero area.
     ///
-    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `10e-7`.
-    /// This indicates that the three vertices are collinear or nearly collinear.
+    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less
+    /// than `10e-7`. This indicates that the three vertices are collinear or nearly collinear.
     #[inline(always)]
     pub fn is_degenerate(&self) -> bool {
         let [a, b, c] = self.vertices;

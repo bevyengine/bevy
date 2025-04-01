@@ -63,8 +63,8 @@ impl AnimationInfo {
         // Create a curve that animates font color. Note that this should have
         // the same time duration as the previous curve.
         //
-        // This time we use a "custom property", which in this case animates TextColor under the assumption
-        // that it is in the "srgba" format.
+        // This time we use a "custom property", which in this case animates TextColor under the
+        // assumption that it is in the "srgba" format.
         animation_clip.add_curve_to_target(
             animation_target_id,
             AnimatableCurve::new(

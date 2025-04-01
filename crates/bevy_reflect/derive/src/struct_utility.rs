@@ -2,8 +2,8 @@ use crate::ReflectStruct;
 
 /// A helper struct for creating remote-aware field accessors.
 ///
-/// These are "remote-aware" because when a field is a remote field, it uses a [`transmute`] internally
-/// to access the field.
+/// These are "remote-aware" because when a field is a remote field, it uses a [`transmute`]
+/// internally to access the field.
 ///
 /// [`transmute`]: std::mem::transmute
 pub(crate) struct FieldAccessors {

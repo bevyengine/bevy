@@ -1,5 +1,6 @@
-//! This example is used to test how transforms interact with alpha modes for [`Mesh2d`] entities with a [`MeshMaterial2d`].
-//! This makes sure the depth buffer is correctly being used for opaque and transparent 2d meshes
+//! This example is used to test how transforms interact with alpha modes for [`Mesh2d`] entities
+//! with a [`MeshMaterial2d`]. This makes sure the depth buffer is correctly being used for opaque
+//! and transparent 2d meshes
 
 use bevy::{
     color::palettes::css::{BLUE, GREEN, WHITE},

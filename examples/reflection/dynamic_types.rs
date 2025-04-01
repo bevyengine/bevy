@@ -39,12 +39,14 @@ fn main() {
     // but now we've hidden that information from the compiler.
     let reflected: Box<dyn Reflect> = Box::new(player);
 
-    // Because it's the same type under the hood, we can still downcast it back to the original type.
+    // Because it's the same type under the hood, we can still downcast it back to the original
+    // type.
     assert!(reflected.downcast_ref::<Player>().is_some());
 
     // We can attempt to clone our value using `PartialReflect::reflect_clone`.
     // This will recursively call `PartialReflect::reflect_clone` on all fields of the type.
-    // Or, if we had registered `ReflectClone` using `#[reflect(Clone)]`, it would simply call `Clone::clone` directly.
+    // Or, if we had registered `ReflectClone` using `#[reflect(Clone)]`, it would simply call
+    // `Clone::clone` directly.
     let cloned: Box<dyn Reflect> = reflected.reflect_clone().unwrap();
     assert_eq!(cloned.downcast_ref::<Player>(), Some(&Player { id: 123 }));
 
@@ -130,8 +132,8 @@ fn main() {
         let value: Player = Player::from_reflect(deserialized.as_ref()).unwrap();
         assert_eq!(value.id, 123);
 
-        // If you don't know the type at compile time, you can use the `ReflectFromReflect` type data
-        // to perform the conversion dynamically.
+        // If you don't know the type at compile time, you can use the `ReflectFromReflect` type
+        // data to perform the conversion dynamically.
         let reflect_from_reflect = registration
             .data::<ReflectFromReflect>()
             .expect("`ReflectFromReflect` should be registered");

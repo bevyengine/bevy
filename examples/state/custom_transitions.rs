@@ -5,7 +5,8 @@
 //! but additionally trigger if the state changed into itself.
 //!
 //! While identity transitions exist internally in [`StateTransitionEvent`]s,
-//! the default schedules intentionally ignore them, as this behavior is not commonly needed or expected.
+//! the default schedules intentionally ignore them, as this behavior is not commonly needed or
+//! expected.
 //!
 //! While this example displays identity transitions for a single state,
 //! identity transitions are propagated through the entire state graph,
@@ -55,8 +56,8 @@ mod custom_transitions {
     /// The plugin registers the transitions for one specific state.
     /// If you use this for multiple states consider:
     /// - installing the plugin multiple times,
-    /// - create an [`App`] extension method that inserts
-    ///   those transitions during state installation.
+    /// - create an [`App`] extension method that inserts those transitions during state
+    ///   installation.
     #[derive(Default)]
     pub struct IdentityTransitionsPlugin<S: States>(PhantomData<S>);
 
@@ -64,14 +65,14 @@ mod custom_transitions {
         fn build(&self, app: &mut App) {
             app.add_systems(
                 StateTransition,
-                // The internals can generate at most one transition event of specific type per frame.
-                // We take the latest one and clear the queue.
+                // The internals can generate at most one transition event of specific type per
+                // frame. We take the latest one and clear the queue.
                 last_transition::<S>
                     // We insert the optional event into our schedule runner.
                     .pipe(run_reenter::<S>)
                     // State transitions are handled in three ordered steps, exposed as system sets.
-                    // We can add our systems to them, which will run the corresponding schedules when they're evaluated.
-                    // These are:
+                    // We can add our systems to them, which will run the corresponding schedules
+                    // when they're evaluated. These are:
                     // - [`ExitSchedules`] - Ran from leaf-states to root-states,
                     // - [`TransitionSchedules`] - Ran in arbitrary order,
                     // - [`EnterSchedules`] - Ran from root-states to leaf-states.
@@ -212,8 +213,9 @@ fn trigger_game_restart(
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     if input.just_pressed(KeyCode::KeyR) {
-        // Although we are already in this state setting it again will generate an identity transition.
-        // While default schedules ignore those kinds of transitions, our custom schedules will react to them.
+        // Although we are already in this state setting it again will generate an identity
+        // transition. While default schedules ignore those kinds of transitions, our custom
+        // schedules will react to them.
         next_state.set(AppState::InGame);
     }
 }

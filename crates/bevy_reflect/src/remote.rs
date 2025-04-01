@@ -14,8 +14,9 @@ use crate::Reflect;
 /// - `Self` is a single-field tuple struct (i.e. a newtype) containing the remote type.
 /// - `Self` is `#[repr(transparent)]` over the remote type.
 ///
-/// Additionally, the macro will automatically generate [`Reflect`] and [`FromReflect`] implementations,
-/// along with compile-time assertions to validate that the safety requirements have been met.
+/// Additionally, the macro will automatically generate [`Reflect`] and [`FromReflect`]
+/// implementations, along with compile-time assertions to validate that the safety requirements
+/// have been met.
 ///
 /// # Example
 ///

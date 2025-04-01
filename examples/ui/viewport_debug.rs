@@ -1,9 +1,10 @@
 //! A simple example for debugging viewport coordinates
 //!
-//! This example creates two UI node trees, one using viewport coordinates and one using pixel coordinates,
-//! and then switches between them once per second using the `Display` style property.
-//! If there are no problems both layouts should be identical, except for the color of the margin changing which is used to signal that the displayed UI node tree has changed
-//! (red for viewport, yellow for pixel).
+//! This example creates two UI node trees, one using viewport coordinates and one using pixel
+//! coordinates, and then switches between them once per second using the `Display` style property.
+//! If there are no problems both layouts should be identical, except for the color of the margin
+//! changing which is used to signal that the displayed UI node tree has changed (red for viewport,
+//! yellow for pixel).
 use bevy::{color::palettes::css::*, prelude::*};
 
 const PALETTE: [Srgba; 10] = [

@@ -17,15 +17,16 @@ pub struct EventUpdates;
 
 /// Signals the [`event_update_system`] to run after `FixedUpdate` systems.
 ///
-/// This will change the behavior of the [`EventRegistry`] to only run after a fixed update cycle has passed.
-/// Normally, this will simply run every frame.
+/// This will change the behavior of the [`EventRegistry`] to only run after a fixed update cycle
+/// has passed. Normally, this will simply run every frame.
 pub fn signal_event_update_system(signal: Option<ResMut<EventRegistry>>) {
     if let Some(mut registry) = signal {
         registry.should_update = ShouldUpdateEvents::Ready;
     }
 }
 
-/// A system that calls [`Events::update`](super::Events::update) on all registered [`Events`][super::Events] in the world.
+/// A system that calls [`Events::update`](super::Events::update) on all registered
+/// [`Events`][super::Events] in the world.
 pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Tick>) {
     if world.contains_resource::<EventRegistry>() {
         world.resource_scope(|world, mut registry: Mut<EventRegistry>| {

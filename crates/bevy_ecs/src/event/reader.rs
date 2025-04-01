@@ -10,7 +10,8 @@ use bevy_ecs::{
 /// # Concurrency
 ///
 /// Unlike [`EventWriter<T>`], systems with `EventReader<T>` param can be executed concurrently
-/// (but not concurrently with `EventWriter<T>` or `EventMutator<T>` systems for the same event type).
+/// (but not concurrently with `EventWriter<T>` or `EventMutator<T>` systems for the same event
+/// type).
 ///
 /// [`EventWriter<T>`]: super::EventWriter
 #[derive(SystemParam, Debug)]
@@ -27,7 +28,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.read(&self.events)
     }
 
-    /// Like [`read`](Self::read), except also returning the [`EventId`](super::EventId) of the events.
+    /// Like [`read`](Self::read), except also returning the [`EventId`](super::EventId) of the
+    /// events.
     pub fn read_with_id(&mut self) -> EventIteratorWithId<'_, E> {
         self.reader.read_with_id(&self.events)
     }
@@ -72,7 +74,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.par_read(&self.events)
     }
 
-    /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
+    /// Determines the number of events available to be read from this [`EventReader`] without
+    /// consuming any.
     pub fn len(&self) -> usize {
         self.reader.len(&self.events)
     }
@@ -81,8 +84,9 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     ///
     /// # Example
     ///
-    /// The following example shows a useful pattern where some behavior is triggered if new events are available.
-    /// [`EventReader::clear()`] is used so the same events don't re-trigger the behavior the next time the system runs.
+    /// The following example shows a useful pattern where some behavior is triggered if new events
+    /// are available. [`EventReader::clear()`] is used so the same events don't re-trigger the
+    /// behavior the next time the system runs.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;

@@ -259,8 +259,8 @@ impl Rot2 {
 
     /// Returns `self` with a length of `1.0` if possible, and `None` otherwise.
     ///
-    /// `None` will be returned if the sine and cosine of `self` are both zero (or very close to zero),
-    /// or if either of them is NaN or infinite.
+    /// `None` will be returned if the sine and cosine of `self` are both zero (or very close to
+    /// zero), or if either of them is NaN or infinite.
     ///
     /// Note that [`Rot2`] should typically already be normalized by design.
     /// Manual normalization is only needed when successive operations result in
@@ -292,13 +292,15 @@ impl Rot2 {
         Self::from_sin_cos(self.sin * length_recip, self.cos * length_recip)
     }
 
-    /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
-    /// Useful for preventing numerical error accumulation.
-    /// See [`Dir3::fast_renormalize`](crate::Dir3::fast_renormalize) for an example of when such error accumulation might occur.
+    /// Returns `self` after an approximate normalization, assuming the value is already nearly
+    /// normalized. Useful for preventing numerical error accumulation.
+    /// See [`Dir3::fast_renormalize`](crate::Dir3::fast_renormalize) for an example of when such
+    /// error accumulation might occur.
     #[inline]
     pub fn fast_renormalize(self) -> Self {
         let length_squared = self.length_squared();
-        // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`](crate::Dir3::fast_renormalize) for more details.
+        // Based on a Taylor approximation of the inverse square root, see
+        // [`Dir3::fast_renormalize`](crate::Dir3::fast_renormalize) for more details.
         let length_recip_approx = 0.5 * (3.0 - length_squared);
         Rot2 {
             sin: self.sin * length_recip_approx,
@@ -365,7 +367,8 @@ impl Rot2 {
     /// when the difference between the two rotations is small. At larger differences,
     /// the result resembles a kind of ease-in-out effect.
     ///
-    /// If you would like the angular velocity to remain constant, consider using [`slerp`](Self::slerp) instead.
+    /// If you would like the angular velocity to remain constant, consider using
+    /// [`slerp`](Self::slerp) instead.
     ///
     /// # Details
     ///
@@ -563,7 +566,8 @@ mod tests {
         let rotation1 = Rot2::degrees(90.0);
         let rotation2 = Rot2::degrees(180.0);
 
-        // 90 deg + 180 deg becomes -90 deg after it wraps around to be within the `(-180, 180]` range
+        // 90 deg + 180 deg becomes -90 deg after it wraps around to be within the `(-180, 180]`
+        // range
         assert_eq!((rotation1 * rotation2).as_degrees(), -90.0);
     }
 

@@ -355,7 +355,8 @@ impl FromWorld for Mesh2dPipeline {
                 GpuArrayBuffer::<Mesh2dUniform>::binding_layout(render_device),
             ),
         );
-        // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
+        // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional
+        // StandardMaterial textures
         let dummy_white_gpu_image = {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);

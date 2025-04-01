@@ -2,9 +2,11 @@
 //!
 //! There may be cases where you may want to collect a reflected item's documentation.
 //! For example, you may want to generate schemas or other external documentation for scripting.
-//! Or perhaps you want your custom editor to display tooltips for certain properties that match the documentation.
+//! Or perhaps you want your custom editor to display tooltips for certain properties that match the
+//! documentation.
 //!
-//! These scenarios can readily be achieved by using `bevy_reflect` with the `documentation` feature.
+//! These scenarios can readily be achieved by using `bevy_reflect` with the `documentation`
+//! feature.
 
 #![expect(clippy::print_stdout, reason = "Allowed in examples.")]
 
@@ -13,8 +15,9 @@ use bevy_reflect::{Reflect, TypeInfo, Typed};
 fn main() {
     //! This function will simply demonstrate how you can access a type's documentation.
     //!
-    //! Please note that the code below uses a standard struct with named fields; however, this isn't
-    //! exclusive to them. It can work for all kinds of data types including tuple structs and enums too!
+    //! Please note that the code below uses a standard struct with named fields; however, this
+    //! isn't exclusive to them. It can work for all kinds of data types including tuple structs
+    //! and enums too!
 
     /// The struct that defines our player.
     ///

@@ -250,13 +250,16 @@ impl Bounded3d for ConicalFrustum {
         let half_height = 0.5 * self.height;
 
         // To compute the bounding sphere, we'll get the center and radius of the circumcircle
-        // passing through all four vertices of the trapezoidal cross-section of the conical frustum.
+        // passing through all four vertices of the trapezoidal cross-section of the conical
+        // frustum.
         //
         // If the circumcenter is inside the trapezoid, we can use that for the bounding sphere.
-        // Otherwise, we clamp it to the longer parallel side to get a more tightly fitting bounding sphere.
+        // Otherwise, we clamp it to the longer parallel side to get a more tightly fitting bounding
+        // sphere.
         //
         // The circumcenter is at the intersection of the bisectors perpendicular to the sides.
-        // For the isosceles trapezoid, the X coordinate is zero at the center, so a single bisector is enough.
+        // For the isosceles trapezoid, the X coordinate is zero at the center, so a single bisector
+        // is enough.
         //
         //       A
         //       *-------*
@@ -297,7 +300,8 @@ impl Bounded3d for ConicalFrustum {
             (Vec2::new(0.0, half_height), self.radius_top)
         } else {
             let circumcenter = Vec2::new(0.0, circumcenter_y);
-            // We can use the distance from an arbitrary vertex because they all lie on the circumcircle.
+            // We can use the distance from an arbitrary vertex because they all lie on the
+            // circumcircle.
             (circumcenter, a.distance(circumcenter))
         };
 
@@ -352,9 +356,9 @@ impl Bounded3d for Triangle3d {
 
     /// Get the bounding sphere of the triangle.
     ///
-    /// The [`Triangle3d`] implements the minimal bounding sphere calculation. For acute triangles, the circumcenter is used as
-    /// the center of the sphere. For the others, the bounding sphere is the minimal sphere
-    /// that contains the largest side of the triangle.
+    /// The [`Triangle3d`] implements the minimal bounding sphere calculation. For acute triangles,
+    /// the circumcenter is used as the center of the sphere. For the others, the bounding
+    /// sphere is the minimal sphere that contains the largest side of the triangle.
     fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
         let isometry = isometry.into();
 

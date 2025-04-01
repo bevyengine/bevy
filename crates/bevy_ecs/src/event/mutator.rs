@@ -32,12 +32,13 @@ use bevy_ecs::{
 ///
 /// # Clearing, Reading, and Peeking
 ///
-/// Events are stored in a double buffered queue that switches each frame. This switch also clears the previous
-/// frame's events. Events should be read each frame otherwise they may be lost. For manual control over this
-/// behavior, see [`Events`].
+/// Events are stored in a double buffered queue that switches each frame. This switch also clears
+/// the previous frame's events. Events should be read each frame otherwise they may be lost. For
+/// manual control over this behavior, see [`Events`].
 ///
-/// Most of the time systems will want to use [`EventMutator::read()`]. This function creates an iterator over
-/// all events that haven't been read yet by this system, marking the event as read in the process.
+/// Most of the time systems will want to use [`EventMutator::read()`]. This function creates an
+/// iterator over all events that haven't been read yet by this system, marking the event as read in
+/// the process.
 ///
 /// [`EventReader`]: super::EventReader
 /// [`EventWriter`]: super::EventWriter
@@ -55,7 +56,8 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
         self.reader.read_mut(&mut self.events)
     }
 
-    /// Like [`read`](Self::read), except also returning the [`EventId`](super::EventId) of the events.
+    /// Like [`read`](Self::read), except also returning the [`EventId`](super::EventId) of the
+    /// events.
     pub fn read_with_id(&mut self) -> EventMutIteratorWithId<'_, E> {
         self.reader.read_mut_with_id(&mut self.events)
     }
@@ -100,7 +102,8 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
         self.reader.par_read_mut(&mut self.events)
     }
 
-    /// Determines the number of events available to be read from this [`EventMutator`] without consuming any.
+    /// Determines the number of events available to be read from this [`EventMutator`] without
+    /// consuming any.
     pub fn len(&self) -> usize {
         self.reader.len(&self.events)
     }
@@ -109,8 +112,9 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     ///
     /// # Example
     ///
-    /// The following example shows a useful pattern where some behavior is triggered if new events are available.
-    /// [`EventMutator::clear()`] is used so the same events don't re-trigger the behavior the next time the system runs.
+    /// The following example shows a useful pattern where some behavior is triggered if new events
+    /// are available. [`EventMutator::clear()`] is used so the same events don't re-trigger the
+    /// behavior the next time the system runs.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;

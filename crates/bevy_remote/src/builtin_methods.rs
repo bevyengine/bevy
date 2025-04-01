@@ -357,8 +357,8 @@ pub struct BrpJsonSchemaQueryFilter {
     pub type_limit: JsonSchemaTypeLimit,
 }
 
-/// Additional [`BrpJsonSchemaQueryFilter`] constraints that can be placed on a query to include or exclude
-/// certain definitions.
+/// Additional [`BrpJsonSchemaQueryFilter`] constraints that can be placed on a query to include or
+/// exclude certain definitions.
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct JsonSchemaTypeLimit {
     /// Schema cannot have specified reflect types
@@ -1196,7 +1196,8 @@ pub fn process_remote_list_watching_request(
     }
 }
 
-/// Handles a `bevy/registry/schema` request (list all registry types in form of schema) coming from a client.
+/// Handles a `bevy/registry/schema` request (list all registry types in form of schema) coming from
+/// a client.
 pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> BrpResult {
     let filter: BrpJsonSchemaQueryFilter = match params {
         None => Default::default(),

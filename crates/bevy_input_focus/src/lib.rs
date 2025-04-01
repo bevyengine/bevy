@@ -12,10 +12,11 @@
 //! * [`InputFocus`], a resource for tracking which entity has input focus.
 //! * Methods for getting and setting input focus via [`InputFocus`] and [`IsFocusedHelper`].
 //! * A generic [`FocusedInput`] event for input events which bubble up from the focused entity.
-//! * Various navigation frameworks for moving input focus between entities based on user input, such as [`tab_navigation`] and [`directional_navigation`].
+//! * Various navigation frameworks for moving input focus between entities based on user input,
+//!   such as [`tab_navigation`] and [`directional_navigation`].
 //!
-//! This crate does *not* provide any integration with UI widgets: this is the responsibility of the widget crate,
-//! which should depend on [`bevy_input_focus`](crate).
+//! This crate does *not* provide any integration with UI widgets: this is the responsibility of the
+//! widget crate, which should depend on [`bevy_input_focus`](crate).
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -39,8 +40,9 @@ use core::fmt::Debug;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{Reflect, prelude::*};
 
-/// Resource representing which entity has input focus, if any. Input events (other than pointer-like inputs) will be
-/// dispatched to the current focus entity, or to the primary window if no entity has focus.
+/// Resource representing which entity has input focus, if any. Input events (other than
+/// pointer-like inputs) will be dispatched to the current focus entity, or to the primary window if
+/// no entity has focus.
 ///
 /// Changing the input focus is as easy as modifying this resource.
 ///
@@ -115,11 +117,13 @@ impl InputFocus {
 /// [`InputFocus`] may still be `Some` even if the focus indicator is not visible.
 ///
 /// The value of this resource should be set by your focus navigation solution.
-/// For a desktop/web style of user interface this would be set to true when the user presses the tab key,
-/// and set to false when the user clicks on a different element.
-/// By contrast, a console-style UI intended to be navigated with a gamepad may always have the focus indicator visible.
+/// For a desktop/web style of user interface this would be set to true when the user presses the
+/// tab key, and set to false when the user clicks on a different element.
+/// By contrast, a console-style UI intended to be navigated with a gamepad may always have the
+/// focus indicator visible.
 ///
-/// To easily access information about whether focus indicators should be shown for a given entity, use the [`IsFocused`] trait.
+/// To easily access information about whether focus indicators should be shown for a given entity,
+/// use the [`IsFocused`] trait.
 ///
 /// By default, this resource is set to `false`.
 #[derive(Clone, Debug, Resource, Default)]
@@ -135,7 +139,8 @@ pub struct InputFocusVisible(pub bool);
 /// This event is normally dispatched to the current input focus entity, if any.
 /// If no entity has input focus, then the event is dispatched to the main window.
 ///
-/// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
+/// To set up your own bubbling input event, add the
+/// [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
 /// in the [`InputFocusSet::Dispatch`] system set during [`PreUpdate`].
 #[derive(Clone, Debug, Component)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
@@ -177,10 +182,12 @@ impl<E: Event + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
     }
 }
 
-/// Plugin which sets up systems for dispatching bubbling keyboard and gamepad button events to the focused entity.
+/// Plugin which sets up systems for dispatching bubbling keyboard and gamepad button events to the
+/// focused entity.
 ///
-/// To add bubbling to your own input events, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
-/// as described in the docs for [`FocusedInput`].
+/// To add bubbling to your own input events, add the
+/// [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app, as described
+/// in the docs for [`FocusedInput`].
 pub struct InputDispatchPlugin;
 
 impl Plugin for InputDispatchPlugin {
@@ -210,7 +217,8 @@ impl Plugin for InputDispatchPlugin {
 /// These systems run in the [`PreUpdate`] schedule.
 #[derive(SystemSet, Debug, PartialEq, Eq, Hash, Clone)]
 pub enum InputFocusSet {
-    /// System which dispatches bubbled input events to the focused entity, or to the primary window.
+    /// System which dispatches bubbled input events to the focused entity, or to the primary
+    /// window.
     Dispatch,
 }
 

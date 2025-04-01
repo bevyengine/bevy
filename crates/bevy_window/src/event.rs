@@ -168,12 +168,14 @@ pub struct WindowDestroyed {
 /// An event reporting that the mouse cursor has moved inside a window.
 ///
 /// The event is sent only if the cursor is over one of the application's windows.
-/// It is the translated version of [`WindowEvent::CursorMoved`] from the `winit` crate with the addition of `delta`.
+/// It is the translated version of [`WindowEvent::CursorMoved`] from the `winit` crate with the
+/// addition of `delta`.
 ///
 /// Not to be confused with the `MouseMotion` event from `bevy_input`.
 ///
-/// Because the range of data is limited by the window area and it may have been transformed by the OS to implement certain effects like acceleration,
-/// you should not use it for non-cursor-like behavior such as 3D camera control. Please see `MouseMotion` instead.
+/// Because the range of data is limited by the window area and it may have been transformed by the
+/// OS to implement certain effects like acceleration, you should not use it for non-cursor-like
+/// behavior such as 3D camera control. Please see `MouseMotion` instead.
 ///
 /// [`WindowEvent::CursorMoved`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.CursorMoved
 #[derive(Event, Debug, Clone, PartialEq)]
@@ -238,7 +240,8 @@ pub struct CursorLeft {
 ///
 /// This event is the translated version of the `WindowEvent::Ime` from the `winit` crate.
 ///
-/// It is only sent if IME was enabled on the window with [`Window::ime_enabled`](crate::window::Window::ime_enabled).
+/// It is only sent if IME was enabled on the window with
+/// [`Window::ime_enabled`](crate::window::Window::ime_enabled).
 #[derive(Event, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -424,8 +427,10 @@ pub struct WindowMoved {
 
 /// An event sent when the system theme changes for a window.
 ///
-/// This event is only sent when the window is relying on the system theme to control its appearance.
-/// i.e. It is only sent when [`Window::window_theme`](crate::window::Window::window_theme) is `None` and the system theme changes.
+/// This event is only sent when the window is relying on the system theme to control its
+/// appearance. i.e. It is only sent when
+/// [`Window::window_theme`](crate::window::Window::window_theme) is `None` and the system theme
+/// changes.
 #[derive(Event, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",

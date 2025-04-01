@@ -1,4 +1,5 @@
-//! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
+//! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture
+//! formats
 
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;

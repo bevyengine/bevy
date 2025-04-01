@@ -7,8 +7,8 @@ use crate::state::{FreelyMutableState, NextState};
 pub trait CommandsStatesExt {
     /// Sets the next state the app should move to.
     ///
-    /// Internally this schedules a command that updates the [`NextState<S>`](crate::prelude::NextState)
-    /// resource with `state`.
+    /// Internally this schedules a command that updates the
+    /// [`NextState<S>`](crate::prelude::NextState) resource with `state`.
     ///
     /// Note that commands introduce sync points to the ECS schedule, so modifying `NextState`
     /// directly may be more efficient depending on your use-case.

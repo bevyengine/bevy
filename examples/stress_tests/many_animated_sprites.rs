@@ -1,7 +1,7 @@
 //! Renders a lot of animated sprites to allow performance testing.
 //!
-//! This example sets up many animated sprites in different sizes, rotations, and scales in the world.
-//! It also moves the camera over them to see how well frustum culling works.
+//! This example sets up many animated sprites in different sizes, rotations, and scales in the
+//! world. It also moves the camera over them to see how well frustum culling works.
 
 use std::time::Duration;
 

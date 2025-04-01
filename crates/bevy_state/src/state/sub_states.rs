@@ -4,10 +4,11 @@ use super::{freely_mutable_state::FreelyMutableState, state_set::StateSet, state
 pub use bevy_state_macros::SubStates;
 
 /// A sub-state is a state that exists only when the source state meet certain conditions,
-/// but unlike [`ComputedStates`](crate::state::ComputedStates) - while they exist they can be manually modified.
+/// but unlike [`ComputedStates`](crate::state::ComputedStates) - while they exist they can be
+/// manually modified.
 ///
-/// The default approach to creating [`SubStates`] is using the derive macro, and defining a single source state
-/// and value to determine it's existence.
+/// The default approach to creating [`SubStates`] is using the derive macro, and defining a single
+/// source state and value to determine it's existence.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -51,7 +52,8 @@ pub use bevy_state_macros::SubStates;
 ///         .add_sub_state::<GamePhase>();
 /// ```
 ///
-/// In more complex situations, the recommendation is to use an intermediary computed state, like so:
+/// In more complex situations, the recommendation is to use an intermediary computed state, like
+/// so:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -95,7 +97,8 @@ pub use bevy_state_macros::SubStates;
 /// }
 /// ```
 ///
-/// However, you can also manually implement them. If you do so, you'll also need to manually implement the `States` & `FreelyMutableState` traits.
+/// However, you can also manually implement them. If you do so, you'll also need to manually
+/// implement the `States` & `FreelyMutableState` traits.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -156,9 +159,9 @@ pub trait SubStates: States + FreelyMutableState {
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
     /// The result is used to determine the existence of [`State<Self>`](crate::state::State).
     ///
-    /// If the result is [`None`], the [`State<Self>`](crate::state::State) resource will be removed from the world,
-    /// otherwise if the [`State<Self>`](crate::state::State) resource doesn't exist
-    /// it will be created from the returned [`Some`] as the initial state.
+    /// If the result is [`None`], the [`State<Self>`](crate::state::State) resource will be removed
+    /// from the world, otherwise if the [`State<Self>`](crate::state::State) resource doesn't
+    /// exist it will be created from the returned [`Some`] as the initial state.
     ///
     /// Value within [`Some`] is ignored if the state already exists in the world
     /// and only symbolizes that the state should still exist.
@@ -166,9 +169,9 @@ pub trait SubStates: States + FreelyMutableState {
     /// Initial value can also be overwritten by [`NextState`](crate::state::NextState).
     fn should_exist(sources: Self::SourceStates) -> Option<Self>;
 
-    /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
-    /// change. It is called by `App::add_computed_state`, but can be called manually if `App` is not
-    /// used.
+    /// This function sets up systems that compute the state whenever one of the
+    /// [`SourceStates`](Self::SourceStates) change. It is called by `App::add_computed_state`,
+    /// but can be called manually if `App` is not used.
     fn register_sub_state_systems(schedule: &mut Schedule) {
         Self::SourceStates::register_sub_state_systems_in_schedule::<Self>(schedule);
     }

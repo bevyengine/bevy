@@ -19,10 +19,10 @@ use derive_more::derive::From;
 ///
 /// [`Color`] supports all the standard color operations, such as [mixing](Mix),
 /// [luminance](Luminance) and [hue](Hue) adjustment,
-/// and [diffing](EuclideanDistance). These operations delegate to the concrete color space contained
-/// by [`Color`], but will convert to [`Oklch`](Oklcha) for operations which aren't supported in the
-/// current space. After performing the operation, if a conversion was required, the result will be
-/// converted back into the original color space.
+/// and [diffing](EuclideanDistance). These operations delegate to the concrete color space
+/// contained by [`Color`], but will convert to [`Oklch`](Oklcha) for operations which aren't
+/// supported in the current space. After performing the operation, if a conversion was required,
+/// the result will be converted back into the original color space.
 ///
 /// ```rust
 /// # use bevy_color::{Hue, Color};
@@ -37,8 +37,8 @@ use derive_more::derive::From;
 /// red_srgb.hue();
 /// ```
 ///
-/// [`Oklch`](Oklcha) has been chosen as the intermediary space in cases where conversion is required
-/// due to its perceptual uniformity and broad support for Bevy's color operations.
+/// [`Oklch`](Oklcha) has been chosen as the intermediary space in cases where conversion is
+/// required due to its perceptual uniformity and broad support for Bevy's color operations.
 /// To avoid the cost of repeated conversion, and ensure consistent results where that is desired,
 /// first convert this [`Color`] into your desired color space.
 #[derive(Debug, Clone, Copy, PartialEq, From)]
@@ -121,7 +121,8 @@ impl Color {
         })
     }
 
-    /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
+    /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an
+    /// alpha of 1.0.
     ///
     /// # Arguments
     /// * `array` - Red, Green and Blue channels. Each channel is in the range [0.0, 1.0]
@@ -151,7 +152,8 @@ impl Color {
         })
     }
 
-    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of 1.0.
+    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of
+    /// 1.0.
     ///
     /// # Arguments
     ///

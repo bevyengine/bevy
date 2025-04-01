@@ -86,7 +86,8 @@
 //!
 //! The glTF loader let's you specify labels that let you target specific parts of the glTF.
 //!
-//! Be careful when using this feature, if you misspell a label it will simply ignore it without warning.
+//! Be careful when using this feature, if you misspell a label it will simply ignore it without
+//! warning.
 //!
 //! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
 
@@ -124,10 +125,11 @@ pub struct GltfPlugin {
 }
 
 impl GltfPlugin {
-    /// Register a custom vertex attribute so that it is recognized when loading a glTF file with the [`GltfLoader`].
+    /// Register a custom vertex attribute so that it is recognized when loading a glTF file with
+    /// the [`GltfLoader`].
     ///
-    /// `name` must be the attribute name as found in the glTF data, which must start with an underscore.
-    /// See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
+    /// `name` must be the attribute name as found in the glTF data, which must start with an
+    /// underscore. See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
     /// for additional details on custom attributes.
     pub fn add_custom_vertex_attribute(
         mut self,

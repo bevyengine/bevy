@@ -170,26 +170,27 @@ fn calculate_cascade_bounds(
 /// Builder for [`CascadeShadowConfig`].
 pub struct CascadeShadowConfigBuilder {
     /// The number of shadow cascades.
-    /// More cascades increases shadow quality by mitigating perspective aliasing - a phenomenon where areas
-    /// nearer the camera are covered by fewer shadow map texels than areas further from the camera, causing
-    /// blocky looking shadows.
+    /// More cascades increases shadow quality by mitigating perspective aliasing - a phenomenon
+    /// where areas nearer the camera are covered by fewer shadow map texels than areas further
+    /// from the camera, causing blocky looking shadows.
     ///
-    /// This does come at the cost increased rendering overhead, however this overhead is still less
-    /// than if you were to use fewer cascades and much larger shadow map textures to achieve the
-    /// same quality level.
+    /// This does come at the cost increased rendering overhead, however this overhead is still
+    /// less than if you were to use fewer cascades and much larger shadow map textures to
+    /// achieve the same quality level.
     ///
-    /// In case rendered geometry covers a relatively narrow and static depth relative to camera, it may
-    /// make more sense to use fewer cascades and a higher resolution shadow map texture as perspective aliasing
-    /// is not as much an issue. Be sure to adjust `minimum_distance` and `maximum_distance` appropriately.
+    /// In case rendered geometry covers a relatively narrow and static depth relative to camera,
+    /// it may make more sense to use fewer cascades and a higher resolution shadow map texture
+    /// as perspective aliasing is not as much an issue. Be sure to adjust `minimum_distance`
+    /// and `maximum_distance` appropriately.
     pub num_cascades: usize,
-    /// The minimum shadow distance, which can help improve the texel resolution of the first cascade.
-    /// Areas nearer to the camera than this will likely receive no shadows.
+    /// The minimum shadow distance, which can help improve the texel resolution of the first
+    /// cascade. Areas nearer to the camera than this will likely receive no shadows.
     ///
     /// NOTE: Due to implementation details, this usually does not impact shadow quality as much as
     /// `first_cascade_far_bound` and `maximum_distance`. At many view frustum field-of-views, the
-    /// texel resolution of the first cascade is dominated by the width / height of the view frustum plane
-    /// at `first_cascade_far_bound` rather than the depth of the frustum from `minimum_distance` to
-    /// `first_cascade_far_bound`.
+    /// texel resolution of the first cascade is dominated by the width / height of the view
+    /// frustum plane at `first_cascade_far_bound` rather than the depth of the frustum from
+    /// `minimum_distance` to `first_cascade_far_bound`.
     pub minimum_distance: f32,
     /// The maximum shadow distance.
     /// Areas further from the camera than this will likely receive no shadows.
@@ -290,8 +291,8 @@ pub struct Cascade {
     /// The orthographic projection for this cascade.
     pub(crate) clip_from_cascade: Mat4,
     /// The view-projection matrix for this cascade, converting world space into light clip space.
-    /// Importantly, this is derived and stored separately from `view_transform` and `projection` to
-    /// ensure shadow stability.
+    /// Importantly, this is derived and stored separately from `view_transform` and `projection`
+    /// to ensure shadow stability.
     pub(crate) clip_from_world: Mat4,
     /// Size of each shadow map texel in world units.
     pub(crate) texel_size: f32,
@@ -375,7 +376,8 @@ pub fn build_directional_light_cascades(
 /// Returns a [`Cascade`] for the frustum defined by `frustum_corners`.
 ///
 /// The corner vertices should be specified in the following order:
-/// first the bottom right, top right, top left, bottom left for the near plane, then similar for the far plane.
+/// first the bottom right, top right, top left, bottom left for the near plane, then similar for
+/// the far plane.
 fn calculate_cascade(
     frustum_corners: [Vec3A; 8],
     cascade_texture_size: f32,
@@ -390,21 +392,22 @@ fn calculate_cascade(
         max = max.max(corner_light_view);
     }
 
-    // NOTE: Use the larger of the frustum slice far plane diagonal and body diagonal lengths as this
-    //       will be the maximum possible projection size. Use the ceiling to get an integer which is
-    //       very important for floating point stability later. It is also important that these are
-    //       calculated using the original camera space corner positions for floating point precision
-    //       as even though the lengths using corner_light_view above should be the same, precision can
-    //       introduce small but significant differences.
-    // NOTE: The size remains the same unless the view frustum or cascade configuration is modified.
+    // NOTE: Use the larger of the frustum slice far plane diagonal and body diagonal lengths as
+    // this       will be the maximum possible projection size. Use the ceiling to get an
+    // integer which is       very important for floating point stability later. It is also
+    // important that these are       calculated using the original camera space corner
+    // positions for floating point precision       as even though the lengths using
+    // corner_light_view above should be the same, precision can       introduce small but
+    // significant differences. NOTE: The size remains the same unless the view frustum or
+    // cascade configuration is modified.
     let cascade_diameter = (frustum_corners[0] - frustum_corners[6])
         .length()
         .max((frustum_corners[4] - frustum_corners[6]).length())
         .ceil();
 
-    // NOTE: If we ensure that cascade_texture_size is a power of 2, then as we made cascade_diameter an
-    //       integer, cascade_texel_size is then an integer multiple of a power of 2 and can be
-    //       exactly represented in a floating point value.
+    // NOTE: If we ensure that cascade_texture_size is a power of 2, then as we made
+    // cascade_diameter an       integer, cascade_texel_size is then an integer multiple of a
+    // power of 2 and can be       exactly represented in a floating point value.
     let cascade_texel_size = cascade_diameter / cascade_texture_size;
     // NOTE: For shadow stability it is very important that the near_plane_center is at integer
     //       multiples of the texel size to be exactly representable in a floating point value.
@@ -456,11 +459,13 @@ pub struct NotShadowCaster;
 #[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowReceiver;
-/// Add this component to make a [`Mesh3d`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
+/// Add this component to make a [`Mesh3d`] using a PBR material with
+/// [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
 /// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
 ///
-/// Not enabled by default, as it requires carefully setting up [`thickness`](crate::pbr_material::StandardMaterial::thickness)
-/// (and potentially even baking a thickness texture!) to match the geometry of the mesh, in order to avoid self-shadow artifacts.
+/// Not enabled by default, as it requires carefully setting up
+/// [`thickness`](crate::pbr_material::StandardMaterial::thickness) (and potentially even baking a
+/// thickness texture!) to match the geometry of the mesh, in order to avoid self-shadow artifacts.
 ///
 /// **Note:** Using [`NotShadowReceiver`] overrides this component.
 #[derive(Debug, Component, Reflect, Default)]
@@ -517,8 +522,8 @@ pub enum SimulationLightSystems {
     UpdateDirectionalLightCascades,
     UpdateLightFrusta,
     /// System order ambiguities between systems in this set are ignored:
-    /// the order of systems within this set is irrelevant, as the various visibility-checking systems
-    /// assumes that their operations are irreversible during the frame.
+    /// the order of systems within this set is irrelevant, as the various visibility-checking
+    /// systems assumes that their operations are irreversible during the frame.
     CheckLightVisibility,
 }
 
@@ -776,7 +781,8 @@ pub fn check_dir_light_mesh_visibility(
                             .iter()
                             .zip(view_visible_entities_local_queue.iter_mut())
                         {
-                            // Disable near-plane culling, as a shadow caster could lie before the near plane.
+                            // Disable near-plane culling, as a shadow caster could lie before the
+                            // near plane.
                             if !has_no_frustum_culling
                                 && !frustum.intersects_obb(aabb, &transform.affine(), false, true)
                             {
@@ -820,8 +826,8 @@ pub fn check_dir_light_mesh_visibility(
         }
     }
 
-    // Defer marking view visibility so this system can run in parallel with check_point_light_mesh_visibility
-    // TODO: use resource to avoid unnecessary memory alloc
+    // Defer marking view visibility so this system can run in parallel with
+    // check_point_light_mesh_visibility TODO: use resource to avoid unnecessary memory alloc
     let mut defer_queue = core::mem::take(defer_visible_entities_queue.deref_mut());
     commands.queue(move |world: &mut World| {
         world.resource_scope::<PreviousVisibleEntities, _>(
@@ -905,7 +911,8 @@ pub fn check_point_light_mesh_visibility(
                     visible_entities.entities.clear();
                 }
 
-                // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
+                // NOTE: If shadow mapping is disabled for the light then it must have no visible
+                // entities
                 if !point_light.shadows_enabled {
                     continue;
                 }
@@ -947,7 +954,8 @@ pub fn check_point_light_mesh_visibility(
                         // If we have an aabb and transform, do frustum culling
                         if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                             let model_to_world = transform.affine();
-                            // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
+                            // Do a cheap sphere vs obb test to prune out most meshes outside the
+                            // sphere of the light
                             if !has_no_frustum_culling
                                 && !light_sphere.intersects_obb(aabb, &model_to_world)
                             {
@@ -1004,7 +1012,8 @@ pub fn check_point_light_mesh_visibility(
             {
                 visible_entities.clear();
 
-                // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
+                // NOTE: If shadow mapping is disabled for the light then it must have no visible
+                // entities
                 if !point_light.shadows_enabled {
                     continue;
                 }
@@ -1047,7 +1056,8 @@ pub fn check_point_light_mesh_visibility(
 
                         if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                             let model_to_world = transform.affine();
-                            // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
+                            // Do a cheap sphere vs obb test to prune out most meshes outside the
+                            // sphere of the light
                             if !has_no_frustum_culling
                                 && !light_sphere.intersects_obb(aabb, &model_to_world)
                             {

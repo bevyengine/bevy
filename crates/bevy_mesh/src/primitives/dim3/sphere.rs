@@ -14,9 +14,11 @@ pub enum IcosphereError {
         "Cannot create an icosphere of {subdivisions} subdivisions due to there being too many vertices being generated: {number_of_resulting_points}. (Limited to 65535 vertices or 79 subdivisions)"
     )]
     TooManyVertices {
-        /// The number of subdivisions used. 79 is the largest allowed value for a mesh to be generated.
+        /// The number of subdivisions used. 79 is the largest allowed value for a mesh to be
+        /// generated.
         subdivisions: u32,
-        /// The number of vertices generated. 65535 is the largest allowed value for a mesh to be generated.
+        /// The number of vertices generated. 65535 is the largest allowed value for a mesh to be
+        /// generated.
         number_of_resulting_points: u32,
     },
 }

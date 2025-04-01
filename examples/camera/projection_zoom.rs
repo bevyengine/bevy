@@ -23,10 +23,11 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(CameraSettings {
             orthographic_viewport_height: 5.,
-            // In orthographic projections, we specify camera scale relative to a default value of 1,
-            // in which one unit in world space corresponds to one pixel.
+            // In orthographic projections, we specify camera scale relative to a default value of
+            // 1, in which one unit in world space corresponds to one pixel.
             orthographic_zoom_range: 0.1..10.0,
-            // This value was hand-tuned to ensure that zooming in and out feels smooth but not slow.
+            // This value was hand-tuned to ensure that zooming in and out feels smooth but not
+            // slow.
             orthographic_zoom_speed: 0.2,
             // Perspective projections use field of view, expressed in radians. We would
             // normally not set it to more than π, which represents a 180° FOV.
@@ -51,13 +52,15 @@ fn setup(
         Name::new("Camera"),
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            // We can set the scaling mode to FixedVertical to keep the viewport height constant as its aspect ratio changes.
-            // The viewport height is the height of the camera's view in world units when the scale is 1.
+            // We can set the scaling mode to FixedVertical to keep the viewport height constant as
+            // its aspect ratio changes. The viewport height is the height of the
+            // camera's view in world units when the scale is 1.
             scaling_mode: ScalingMode::FixedVertical {
                 viewport_height: camera_settings.orthographic_viewport_height,
             },
             // This is the default value for scale for orthographic projections.
-            // To zoom in and out, change this value, rather than `ScalingMode` or the camera's position.
+            // To zoom in and out, change this value, rather than `ScalingMode` or the camera's
+            // position.
             scale: 1.,
             ..OrthographicProjection::default_3d()
         }),
@@ -144,8 +147,8 @@ fn zoom(
             let delta_zoom = -mouse_wheel_input.delta.y * camera_settings.orthographic_zoom_speed;
             // When changing scales, logarithmic changes are more intuitive.
             // To get this effect, we add 1 to the delta, so that a delta of 0
-            // results in no multiplicative effect, positive values result in a multiplicative increase,
-            // and negative values result in multiplicative decreases.
+            // results in no multiplicative effect, positive values result in a multiplicative
+            // increase, and negative values result in multiplicative decreases.
             let multiplicative_zoom = 1. + delta_zoom;
 
             orthographic.scale = (orthographic.scale * multiplicative_zoom).clamp(

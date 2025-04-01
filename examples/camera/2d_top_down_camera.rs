@@ -43,7 +43,9 @@ fn setup_scene(
     commands.spawn((
         Player,
         Mesh2d(meshes.add(Circle::new(25.))),
-        MeshMaterial2d(materials.add(Color::srgb(6.25, 9.4, 9.1))), // RGB values exceed 1 to achieve a bright color for the bloom effect
+        MeshMaterial2d(materials.add(Color::srgb(6.25, 9.4, 9.1))), /* RGB values exceed 1 to
+                                                                     * achieve a bright color
+                                                                     * for the bloom effect */
         Transform::from_xyz(0., 0., 2.),
     ));
 }
@@ -91,7 +93,8 @@ fn update_camera(
 /// Note that the approach used here is for demonstration purposes only,
 /// as the point of this example is to showcase the camera tracking feature.
 ///
-/// A more robust solution for player movement can be found in `examples/movement/physics_in_fixed_timestep.rs`.
+/// A more robust solution for player movement can be found in
+/// `examples/movement/physics_in_fixed_timestep.rs`.
 fn move_player(
     mut player: Single<&mut Transform, With<Player>>,
     time: Res<Time>,

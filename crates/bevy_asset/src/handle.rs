@@ -40,8 +40,9 @@ impl AssetHandleProvider {
         }
     }
 
-    /// Reserves a new strong [`UntypedHandle`] (with a new [`UntypedAssetId`]). The stored [`Asset`] [`TypeId`] in the
-    /// [`UntypedHandle`] will match the [`Asset`] [`TypeId`] assigned to this [`AssetHandleProvider`].
+    /// Reserves a new strong [`UntypedHandle`] (with a new [`UntypedAssetId`]). The stored
+    /// [`Asset`] [`TypeId`] in the [`UntypedHandle`] will match the [`Asset`] [`TypeId`]
+    /// assigned to this [`AssetHandleProvider`].
     pub fn reserve_handle(&self) -> UntypedHandle {
         let index = self.allocator.reserve();
         UntypedHandle::Strong(self.get_handle(InternalAssetId::Index(index), false, None, None))
@@ -79,8 +80,9 @@ impl AssetHandleProvider {
     }
 }
 
-/// The internal "strong" [`Asset`] handle storage for [`Handle::Strong`] and [`UntypedHandle::Strong`]. When this is dropped,
-/// the [`Asset`] will be freed. It also stores some asset metadata for easy access from handles.
+/// The internal "strong" [`Asset`] handle storage for [`Handle::Strong`] and
+/// [`UntypedHandle::Strong`]. When this is dropped, the [`Asset`] will be freed. It also stores
+/// some asset metadata for easy access from handles.
 #[derive(TypePath)]
 pub struct StrongHandle {
     pub(crate) id: UntypedAssetId,
@@ -118,24 +120,27 @@ impl core::fmt::Debug for StrongHandle {
 /// avoiding the need to store multiple copies of the same data.
 ///
 /// If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
-/// alive until the [`Handle`] is dropped. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
-/// nor will it keep assets alive.
+/// alive until the [`Handle`] is dropped. If a [`Handle`] is [`Handle::Weak`], it does not
+/// necessarily reference a live [`Asset`], nor will it keep assets alive.
 ///
 /// Modifying a *handle* will change which existing asset is referenced, but modifying the *asset*
-/// (by mutating the [`Assets`](crate::prelude::Assets) resource) will change the asset for all handles referencing it.
+/// (by mutating the [`Assets`](crate::prelude::Assets) resource) will change the asset for all
+/// handles referencing it.
 ///
-/// [`Handle`] can be cloned. If a [`Handle::Strong`] is cloned, the referenced [`Asset`] will not be freed until _all_ instances
-/// of the [`Handle`] are dropped.
+/// [`Handle`] can be cloned. If a [`Handle::Strong`] is cloned, the referenced [`Asset`] will not
+/// be freed until _all_ instances of the [`Handle`] are dropped.
 ///
-/// [`Handle::Strong`], via [`StrongHandle`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
+/// [`Handle::Strong`], via [`StrongHandle`] also provides access to useful [`Asset`] metadata, such
+/// as the [`AssetPath`] (if it exists).
 #[derive(Reflect)]
 #[reflect(Default, Debug, Hash, PartialEq, Clone)]
 pub enum Handle<A: Asset> {
-    /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
-    /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
+    /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is
+    /// [`Handle::Strong`], the [`Asset`] will be kept alive until the [`Handle`] is dropped.
+    /// Strong handles also provide access to additional asset metadata.
     Strong(Arc<StrongHandle>),
-    /// A "weak" reference to an [`Asset`]. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
-    /// nor will it keep assets alive.
+    /// A "weak" reference to an [`Asset`]. If a [`Handle`] is [`Handle::Weak`], it does not
+    /// necessarily reference a live [`Asset`], nor will it keep assets alive.
     Weak(AssetId<A>),
 }
 
@@ -187,7 +192,8 @@ impl<A: Asset> Handle<A> {
         matches!(self, Handle::Strong(_))
     }
 
-    /// Creates a [`Handle::Weak`] clone of this [`Handle`], which will not keep the referenced [`Asset`] alive.
+    /// Creates a [`Handle::Weak`] clone of this [`Handle`], which will not keep the referenced
+    /// [`Asset`] alive.
     #[inline]
     pub fn clone_weak(&self) -> Self {
         match self {
@@ -196,8 +202,9 @@ impl<A: Asset> Handle<A> {
         }
     }
 
-    /// Converts this [`Handle`] to an "untyped" / "generic-less" [`UntypedHandle`], which stores the [`Asset`] type information
-    /// _inside_ [`UntypedHandle`]. This will return [`UntypedHandle::Strong`] for [`Handle::Strong`] and [`UntypedHandle::Weak`] for
+    /// Converts this [`Handle`] to an "untyped" / "generic-less" [`UntypedHandle`], which stores
+    /// the [`Asset`] type information _inside_ [`UntypedHandle`]. This will return
+    /// [`UntypedHandle::Strong`] for [`Handle::Strong`] and [`UntypedHandle::Weak`] for
     /// [`Handle::Weak`].
     #[inline]
     pub fn untyped(self) -> UntypedHandle {
@@ -284,14 +291,15 @@ impl<A: Asset> From<&mut Handle<A>> for UntypedAssetId {
     }
 }
 
-/// An untyped variant of [`Handle`], which internally stores the [`Asset`] type information at runtime
-/// as a [`TypeId`] instead of encoding it in the compile-time type. This allows handles across [`Asset`] types
-/// to be stored together and compared.
+/// An untyped variant of [`Handle`], which internally stores the [`Asset`] type information at
+/// runtime as a [`TypeId`] instead of encoding it in the compile-time type. This allows handles
+/// across [`Asset`] types to be stored together and compared.
 ///
 /// See [`Handle`] for more information.
 #[derive(Clone)]
 pub enum UntypedHandle {
-    /// A strong handle, which will keep the referenced [`Asset`] alive until all strong handles are dropped.
+    /// A strong handle, which will keep the referenced [`Asset`] alive until all strong handles are
+    /// dropped.
     Strong(Arc<StrongHandle>),
     /// A weak handle, which does not keep the referenced [`Asset`] alive.
     Weak(UntypedAssetId),
@@ -316,7 +324,8 @@ impl UntypedHandle {
         }
     }
 
-    /// Creates an [`UntypedHandle::Weak`] clone of this [`UntypedHandle`], which will not keep the referenced [`Asset`] alive.
+    /// Creates an [`UntypedHandle::Weak`] clone of this [`UntypedHandle`], which will not keep the
+    /// referenced [`Asset`] alive.
     #[inline]
     pub fn clone_weak(&self) -> UntypedHandle {
         match self {
@@ -343,10 +352,10 @@ impl UntypedHandle {
         }
     }
 
-    /// Converts to a typed Handle. This will check the type when compiled with debug asserts, but it
-    ///  _will not check if the target Handle type matches in release builds_. Use this as an optimization
-    /// when you want some degree of validation at dev-time, but you are also very certain that the type
-    /// actually matches.
+    /// Converts to a typed Handle. This will check the type when compiled with debug asserts, but
+    /// it  _will not check if the target Handle type matches in release builds_. Use this as an
+    /// optimization when you want some degree of validation at dev-time, but you are also very
+    /// certain that the type actually matches.
     #[inline]
     pub fn typed_debug_checked<A: Asset>(self) -> Handle<A> {
         debug_assert_eq!(
@@ -360,7 +369,8 @@ impl UntypedHandle {
         }
     }
 
-    /// Converts to a typed Handle. This will panic if the internal [`TypeId`] does not match the given asset type `A`
+    /// Converts to a typed Handle. This will panic if the internal [`TypeId`] does not match the
+    /// given asset type `A`
     #[inline]
     pub fn typed<A: Asset>(self) -> Handle<A> {
         let Ok(handle) = self.try_typed() else {
@@ -373,14 +383,15 @@ impl UntypedHandle {
         handle
     }
 
-    /// Converts to a typed Handle. This will panic if the internal [`TypeId`] does not match the given asset type `A`
+    /// Converts to a typed Handle. This will panic if the internal [`TypeId`] does not match the
+    /// given asset type `A`
     #[inline]
     pub fn try_typed<A: Asset>(self) -> Result<Handle<A>, UntypedAssetConversionError> {
         Handle::try_from(self)
     }
 
-    /// The "meta transform" for the strong handle. This will only be [`Some`] if the handle is strong and there is a meta transform
-    /// associated with it.
+    /// The "meta transform" for the strong handle. This will only be [`Some`] if the handle is
+    /// strong and there is a meta transform associated with it.
     #[inline]
     pub fn meta_transform(&self) -> Option<&MetaTransform> {
         match self {
@@ -658,7 +669,8 @@ mod tests {
         assert_eq!(UntypedHandle::from(typed.clone()), untyped);
     }
 
-    /// `PartialReflect::reflect_clone`/`PartialReflect::to_dynamic` should increase the strong count of a strong handle
+    /// `PartialReflect::reflect_clone`/`PartialReflect::to_dynamic` should increase the strong
+    /// count of a strong handle
     #[test]
     fn strong_handle_reflect_clone() {
         use crate::{AssetApp, AssetPlugin, Assets, VisitAssetDependencies};

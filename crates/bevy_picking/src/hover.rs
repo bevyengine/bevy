@@ -200,7 +200,8 @@ pub enum PickingInteraction {
     None = 0,
 }
 
-/// Uses [`HoverMap`] changes to update [`PointerInteraction`] and [`PickingInteraction`] components.
+/// Uses [`HoverMap`] changes to update [`PointerInteraction`] and [`PickingInteraction`]
+/// components.
 pub fn update_interactions(
     // Input
     hover_map: Res<HoverMap>,

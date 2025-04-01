@@ -66,7 +66,8 @@ impl Plugin for MeshPlugin {
             .register_type::<skinning::SkinnedMesh>()
             .register_type::<Vec<Entity>>()
             .add_plugins(MeshBuildersPlugin)
-            // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
+            // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being
+            // ready
             .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
             .add_plugins(MeshAllocatorPlugin)
             .add_systems(

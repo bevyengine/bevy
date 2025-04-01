@@ -109,7 +109,8 @@ impl<F> DynamicFunctionInternal<F> {
         self.info.arg_count()
     }
 
-    /// Helper method for validating that a given set of arguments are _potentially_ valid for this function.
+    /// Helper method for validating that a given set of arguments are _potentially_ valid for this
+    /// function.
     ///
     /// Currently, this validates:
     /// - The number of arguments is within the expected range
@@ -132,12 +133,13 @@ impl<F> DynamicFunctionInternal<F> {
     /// If `other` contains any functions with the same signature as this one,
     /// an error will be returned along with the original, unchanged instance.
     ///
-    /// Therefore, this method should always return an overloaded function if the merge is successful.
+    /// Therefore, this method should always return an overloaded function if the merge is
+    /// successful.
     ///
     /// Additionally, if the merge succeeds, it should be guaranteed that the order
     /// of the functions in the map will be preserved.
-    /// For example, merging `[func_a, func_b]` (self) with `[func_c, func_d]` (other) should result in
-    /// `[func_a, func_b, func_c, func_d]`.
+    /// For example, merging `[func_a, func_b]` (self) with `[func_c, func_d]` (other) should result
+    /// in `[func_a, func_b, func_c, func_d]`.
     /// And merging `[func_c, func_d]` (self) with `[func_a, func_b]` (other) should result in
     /// `[func_c, func_d, func_a, func_b]`.
     pub fn merge(&mut self, mut other: Self) -> Result<(), FunctionOverloadError> {

@@ -12,8 +12,8 @@ use thiserror::Error;
 
 /// A static accessor to compile-time type information.
 ///
-/// This trait is automatically implemented by the [`#[derive(Reflect)]`](derive@crate::Reflect) macro
-/// and allows type information to be processed without an instance of that type.
+/// This trait is automatically implemented by the [`#[derive(Reflect)]`](derive@crate::Reflect)
+/// macro and allows type information to be processed without an instance of that type.
 ///
 /// If you need to use this trait as a generic bound along with other reflection traits,
 /// for your convenience, consider using [`Reflectable`] instead.
@@ -186,13 +186,13 @@ pub enum TypeInfoError {
 /// Each return a static reference to [`TypeInfo`], but they all have their own use cases.
 /// For example, if you know the type at compile time, [`Typed::type_info`] is probably
 /// the simplest. If you have a `dyn Reflect` you can use [`DynamicTyped::reflect_type_info`].
-/// If all you have is a `dyn PartialReflect`, you'll probably want [`PartialReflect::get_represented_type_info`].
-/// Lastly, if all you have is a [`TypeId`] or [type path], you will need to go through
-/// [`TypeRegistry::get_type_info`].
+/// If all you have is a `dyn PartialReflect`, you'll probably want
+/// [`PartialReflect::get_represented_type_info`]. Lastly, if all you have is a [`TypeId`] or [type
+/// path], you will need to go through [`TypeRegistry::get_type_info`].
 ///
-/// You may also opt to use [`TypeRegistry::get_type_info`] in place of the other methods simply because
-/// it can be more performant. This is because those other methods may require attaining a lock on
-/// the static [`TypeInfo`], while the registry simply checks a map.
+/// You may also opt to use [`TypeRegistry::get_type_info`] in place of the other methods simply
+/// because it can be more performant. This is because those other methods may require attaining a
+/// lock on the static [`TypeInfo`], while the registry simply checks a map.
 ///
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
 /// [`PartialReflect::get_represented_type_info`]: crate::PartialReflect::get_represented_type_info
@@ -543,9 +543,10 @@ pub(crate) use impl_type_methods;
 /// This typically represents a type which cannot be broken down any further. This is often
 /// due to technical reasons (or by definition), but it can also be a purposeful choice.
 ///
-/// For example, [`i32`] cannot be broken down any further, so it is represented by an [`OpaqueInfo`].
-/// And while [`String`] itself is a struct, its fields are private, so we don't really treat
-/// it _as_ a struct. It therefore makes more sense to represent it as an [`OpaqueInfo`].
+/// For example, [`i32`] cannot be broken down any further, so it is represented by an
+/// [`OpaqueInfo`]. And while [`String`] itself is a struct, its fields are private, so we don't
+/// really treat it _as_ a struct. It therefore makes more sense to represent it as an
+/// [`OpaqueInfo`].
 ///
 /// [`String`]: alloc::string::String
 #[derive(Debug, Clone)]

@@ -42,7 +42,8 @@
 //!
 //! A "function" is a callable that does not capture its environment.
 //! These are typically defined with the `fn` keyword, which are referred to as _named_ functions.
-//! But they are also _anonymous_ functions, which are unnamed and defined with anonymous function syntax.
+//! But they are also _anonymous_ functions, which are unnamed and defined with anonymous function
+//! syntax.
 //!
 //! ```rust
 //! // This is a named function:
@@ -73,7 +74,8 @@
 //!
 //! # Valid Signatures
 //!
-//! Many of the traits in this module have default blanket implementations over a specific set of function signatures.
+//! Many of the traits in this module have default blanket implementations over a specific set of
+//! function signatures.
 //!
 //! These signatures are:
 //! - `(...) -> R`
@@ -85,8 +87,8 @@
 //! The lifetime of any reference to the return type `R`, must be tied to a "receiver" argument
 //! (i.e. the first argument in the signature, normally `self`).
 //!
-//! Each trait will also have its own requirements for what traits are required for both arguments and return types,
-//! but a good rule-of-thumb is that all types should derive [`Reflect`].
+//! Each trait will also have its own requirements for what traits are required for both arguments
+//! and return types, but a good rule-of-thumb is that all types should derive [`Reflect`].
 //!
 //! The reason for such a small subset of valid signatures is due to limitations in Rust—
 //! namely the [lack of variadic generics] and certain [coherence issues].
@@ -97,7 +99,8 @@
 //! # Generic Functions
 //!
 //! In Rust, generic functions are [monomorphized] by the compiler,
-//! which means that a separate copy of the function is generated for each concrete set of type parameters.
+//! which means that a separate copy of the function is generated for each concrete set of type
+//! parameters.
 //!
 //! When converting a generic function to a [`DynamicFunction`] or [`DynamicFunctionMut`],
 //! the function must be manually monomorphized with concrete types.
@@ -105,15 +108,17 @@
 //! Instead, you will need to write `add::<i32>.into_function()`.
 //!
 //! This means that reflected functions cannot be generic themselves.
-//! To get around this limitation, you can consider [overloading] your function with multiple concrete types.
+//! To get around this limitation, you can consider [overloading] your function with multiple
+//! concrete types.
 //!
 //! # Overloading Functions
 //!
 //! Both [`DynamicFunction`] and [`DynamicFunctionMut`] support [function overloading].
 //!
 //! Function overloading allows one function to handle multiple types of arguments.
-//! This is useful for simulating generic functions by having an overload for each known concrete type.
-//! Additionally, it can also simulate [variadic functions]: functions that can be called with a variable number of arguments.
+//! This is useful for simulating generic functions by having an overload for each known concrete
+//! type. Additionally, it can also simulate [variadic functions]: functions that can be called with
+//! a variable number of arguments.
 //!
 //! Internally, this works by storing multiple functions in a map,
 //! where each function is associated with a specific argument signature.
@@ -122,8 +127,8 @@
 //!
 //! # Function Registration
 //!
-//! This module also provides a [`FunctionRegistry`] that can be used to register functions and closures
-//! by name so that they may be retrieved and called dynamically.
+//! This module also provides a [`FunctionRegistry`] that can be used to register functions and
+//! closures by name so that they may be retrieved and called dynamically.
 //!
 //! ```
 //! # use bevy_reflect::func::{ArgList, FunctionRegistry};

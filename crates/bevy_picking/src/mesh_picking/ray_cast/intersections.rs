@@ -10,7 +10,8 @@ use super::Backfaces;
 pub struct RayMeshHit {
     /// The point of intersection in world space.
     pub point: Vec3,
-    /// The normal vector of the triangle at the point of intersection. Not guaranteed to be normalized for scaled meshes.
+    /// The normal vector of the triangle at the point of intersection. Not guaranteed to be
+    /// normalized for scaled meshes.
     pub normal: Vec3,
     /// The barycentric coordinates of the intersection.
     pub barycentric_coords: Vec3,
@@ -249,8 +250,8 @@ fn ray_triangle_intersection(
 
 // TODO: It'd be nice to reuse `RayCast3d::aabb_intersection_at`, but it assumes a normalized ray.
 //       In our case, the ray is transformed to model space, which could involve scaling.
-/// Checks if the ray intersects with the AABB of a mesh, returning the distance to the point of intersection.
-/// The distance is zero if the ray starts inside the AABB.
+/// Checks if the ray intersects with the AABB of a mesh, returning the distance to the point of
+/// intersection. The distance is zero if the ray starts inside the AABB.
 pub fn ray_aabb_intersection_3d(ray: Ray3d, aabb: &Aabb3d, model_to_world: &Mat4) -> Option<f32> {
     // Transform the ray to model space
     let world_to_model = model_to_world.inverse();

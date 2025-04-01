@@ -42,13 +42,14 @@ impl Default for RunMode {
 ///
 /// [`ScheduleRunnerPlugin`] is *not* included in the
 /// [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group
-/// which assumes that the [`Schedule`](bevy_ecs::schedule::Schedule) will be executed by other means:
-/// typically, the `winit` event loop
+/// which assumes that the [`Schedule`](bevy_ecs::schedule::Schedule) will be executed by other
+/// means: typically, the `winit` event loop
 /// (see [`WinitPlugin`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html))
 /// executes the schedule making [`ScheduleRunnerPlugin`] unnecessary.
 #[derive(Default)]
 pub struct ScheduleRunnerPlugin {
-    /// Determines whether the [`Schedule`](bevy_ecs::schedule::Schedule) is run once or repeatedly.
+    /// Determines whether the [`Schedule`](bevy_ecs::schedule::Schedule) is run once or
+    /// repeatedly.
     pub run_mode: RunMode,
 }
 

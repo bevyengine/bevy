@@ -509,8 +509,7 @@ impl<'a> IntoIterator for &'a DynamicStruct {
 /// Returns true if and only if all of the following are true:
 /// - `b` is a struct;
 /// - For each field in `a`, `b` contains a field with the same name and
-///   [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two field
-///   values.
+///   [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two field values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]

@@ -296,7 +296,8 @@ pub enum AxisSettingsError {
     /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
     #[error("invalid livezone_upperbound {0}, expected value [0.0..=1.0]")]
     LiveZoneUpperBoundOutOfRange(f32),
-    /// Parameter `livezone_lowerbound` was not less than or equal to parameter `deadzone_lowerbound`.
+    /// Parameter `livezone_lowerbound` was not less than or equal to parameter
+    /// `deadzone_lowerbound`.
     #[error(
         "invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound",
         livezone_lowerbound,
@@ -308,7 +309,8 @@ pub enum AxisSettingsError {
         /// The value of the `deadzone_lowerbound` parameter.
         deadzone_lowerbound: f32,
     },
-    ///  Parameter `deadzone_upperbound` was not less than or equal to parameter `livezone_upperbound`.
+    ///  Parameter `deadzone_upperbound` was not less than or equal to parameter
+    /// `livezone_upperbound`.
     #[error(
         "invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound",
         livezone_upperbound,
@@ -348,7 +350,8 @@ pub enum ButtonSettingsError {
     },
 }
 
-/// Stores a connected gamepad's metadata such as the name and its [`GamepadButton`] and [`GamepadAxis`].
+/// Stores a connected gamepad's metadata such as the name and its [`GamepadButton`] and
+/// [`GamepadAxis`].
 ///
 /// An entity with this component is spawned automatically after [`GamepadConnectionEvent`]
 /// and updated by [`gamepad_event_processing_system`].
@@ -467,12 +470,14 @@ impl Gamepad {
 
     /// Returns `true` if the [`GamepadButton`] has been pressed during the current frame.
     ///
-    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_released`].
+    /// Note: This function does not imply information regarding the current state of
+    /// [`ButtonInput::pressed`] or [`ButtonInput::just_released`].
     pub fn just_pressed(&self, button_type: GamepadButton) -> bool {
         self.digital.just_pressed(button_type)
     }
 
-    /// Returns `true` if any item in the [`GamepadButton`] iterator has been pressed during the current frame.
+    /// Returns `true` if any item in the [`GamepadButton`] iterator has been pressed during the
+    /// current frame.
     pub fn any_just_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
         self.digital.any_just_pressed(button_inputs)
     }
@@ -484,7 +489,8 @@ impl Gamepad {
 
     /// Returns `true` if the [`GamepadButton`] has been released during the current frame.
     ///
-    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_pressed`].
+    /// Note: This function does not imply information regarding the current state of
+    /// [`ButtonInput::pressed`] or [`ButtonInput::just_pressed`].
     pub fn just_released(&self, button_type: GamepadButton) -> bool {
         self.digital.just_released(button_type)
     }
@@ -536,7 +542,8 @@ impl Gamepad {
         &self.digital
     }
 
-    /// Mutable [`ButtonInput`] of [`GamepadButton`] representing their digital state. Useful for mocking inputs.
+    /// Mutable [`ButtonInput`] of [`GamepadButton`] representing their digital state. Useful for
+    /// mocking inputs.
     pub fn digital_mut(&mut self) -> &mut ButtonInput<GamepadButton> {
         &mut self.digital
     }
@@ -546,7 +553,8 @@ impl Gamepad {
         &self.analog
     }
 
-    /// Mutable [`Axis`] of [`GamepadButton`] representing their analog state. Useful for mocking inputs.
+    /// Mutable [`Axis`] of [`GamepadButton`] representing their analog state. Useful for mocking
+    /// inputs.
     pub fn analog_mut(&mut self) -> &mut Axis<GamepadInput> {
         &mut self.analog
     }
@@ -575,8 +583,8 @@ impl Default for Gamepad {
 ///
 /// ## Usage
 ///
-/// This is used to determine which button has changed its value when receiving gamepad button events.
-/// It is also used in the [`Gamepad`] component.
+/// This is used to determine which button has changed its value when receiving gamepad button
+/// events. It is also used in the [`Gamepad`] component.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -632,7 +640,8 @@ pub enum GamepadButton {
     /// The right button of the D-Pad.
     DPadRight,
 
-    /// Miscellaneous buttons, considered non-standard (i.e. Extra buttons on a flight stick that do not have a gamepad equivalent).
+    /// Miscellaneous buttons, considered non-standard (i.e. Extra buttons on a flight stick that do
+    /// not have a gamepad equivalent).
     Other(u8),
 }
 
@@ -714,7 +723,8 @@ impl GamepadAxis {
 }
 
 /// Encapsulation over [`GamepadAxis`] and [`GamepadButton`].
-// This is done so Gamepad can share a single Axis<T> and simplifies the API by having only one get/get_unclamped method
+// This is done so Gamepad can share a single Axis<T> and simplifies the API by having only one
+// get/get_unclamped method
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq, From)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -732,9 +742,10 @@ pub enum GamepadInput {
 ///
 /// ## Usage
 ///
-/// It is used to create a `bevy` component that stores the settings of [`GamepadButton`] and [`GamepadAxis`] in [`Gamepad`].
-/// If no user defined [`ButtonSettings`], [`AxisSettings`], or [`ButtonAxisSettings`]
-/// are defined, the default settings of each are used as a fallback accordingly.
+/// It is used to create a `bevy` component that stores the settings of [`GamepadButton`] and
+/// [`GamepadAxis`] in [`Gamepad`]. If no user defined [`ButtonSettings`], [`AxisSettings`], or
+/// [`ButtonAxisSettings`] are defined, the default settings of each are used as a fallback
+/// accordingly.
 ///
 /// ## Note
 ///
@@ -765,7 +776,8 @@ pub struct GamepadSettings {
 impl GamepadSettings {
     /// Returns the [`ButtonSettings`] of the [`GamepadButton`].
     ///
-    /// If no user defined [`ButtonSettings`] are specified the default [`ButtonSettings`] get returned.
+    /// If no user defined [`ButtonSettings`] are specified the default [`ButtonSettings`] get
+    /// returned.
     ///
     /// # Examples
     ///
@@ -801,7 +813,8 @@ impl GamepadSettings {
 
     /// Returns the [`ButtonAxisSettings`] of the [`GamepadButton`].
     ///
-    /// If no user defined [`ButtonAxisSettings`] are specified the default [`ButtonAxisSettings`] get returned.
+    /// If no user defined [`ButtonAxisSettings`] are specified the default [`ButtonAxisSettings`]
+    /// get returned.
     ///
     /// # Examples
     ///
@@ -851,7 +864,8 @@ impl ButtonSettings {
     /// # Parameters
     ///
     /// + `press_threshold` is the button input value above which the button is considered pressed.
-    /// + `release_threshold` is the button input value below which the button is considered released.
+    /// + `release_threshold` is the button input value below which the button is considered
+    ///   released.
     ///
     /// Restrictions:
     /// + `0.0 <= ``release_threshold`` <= ``press_threshold`` <= 1.0`
@@ -891,14 +905,16 @@ impl ButtonSettings {
 
     /// Returns `true` if the button is pressed.
     ///
-    /// A button is considered pressed if the `value` passed is greater than or equal to the press threshold.
+    /// A button is considered pressed if the `value` passed is greater than or equal to the press
+    /// threshold.
     pub fn is_pressed(&self, value: f32) -> bool {
         value >= self.press_threshold
     }
 
     /// Returns `true` if the button is released.
     ///
-    /// A button is considered released if the `value` passed is lower than or equal to the release threshold.
+    /// A button is considered released if the `value` passed is lower than or equal to the release
+    /// threshold.
     pub fn is_released(&self, value: f32) -> bool {
         value <= self.release_threshold
     }
@@ -932,7 +948,8 @@ impl ButtonSettings {
     }
 
     /// Try to set the button input threshold above which the button is considered pressed.
-    /// If the value passed is outside the range [release threshold..=1.0], the value will not be changed.
+    /// If the value passed is outside the range [release threshold..=1.0], the value will not be
+    /// changed.
     ///
     /// Returns the new value of the press threshold.
     pub fn set_press_threshold(&mut self, value: f32) -> f32 {
@@ -984,9 +1001,10 @@ impl ButtonSettings {
 /// threshold for an axis.
 /// Values that are higher than `livezone_upperbound` will be rounded up to 1.0.
 /// Values that are lower than `livezone_lowerbound` will be rounded down to -1.0.
-/// Values that are in-between `deadzone_lowerbound` and `deadzone_upperbound` will be rounded to 0.0.
-/// Otherwise, values will be linearly rescaled to fit into the sensitivity range.
-/// For example, a value that is one fourth of the way from `deadzone_upperbound` to `livezone_upperbound` will be scaled to 0.25.
+/// Values that are in-between `deadzone_lowerbound` and `deadzone_upperbound` will be rounded to
+/// 0.0. Otherwise, values will be linearly rescaled to fit into the sensitivity range.
+/// For example, a value that is one fourth of the way from `deadzone_upperbound` to
+/// `livezone_upperbound` will be scaled to 0.25.
 ///
 /// The valid range is `[-1.0, 1.0]`.
 #[derive(Debug, Clone, PartialEq)]
@@ -1029,7 +1047,8 @@ impl AxisSettings {
     /// + `deadzone_lowerbound` - the value above which negative inputs will be rounded up to 0.0.
     /// + `deadzone_upperbound` - the value below which positive inputs will be rounded down to 0.0.
     /// + `livezone_upperbound` - the value above which inputs will be rounded up to 1.0.
-    /// + `threshold` - the minimum value by which input must change before the change is registered.
+    /// + `threshold` - the minimum value by which input must change before the change is
+    ///   registered.
     ///
     /// Restrictions:
     ///
@@ -1103,7 +1122,8 @@ impl AxisSettings {
     ///
     /// If the value passed is less than the deadzone upper bound,
     /// returns `AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound`.
-    /// If the value passed is not in range [0.0..=1.0], returns `AxisSettingsError::LiveZoneUpperBoundOutOfRange`.
+    /// If the value passed is not in range [0.0..=1.0], returns
+    /// `AxisSettingsError::LiveZoneUpperBoundOutOfRange`.
     pub fn try_set_livezone_upperbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
         if !(0.0..=1.0).contains(&value) {
             Err(AxisSettingsError::LiveZoneUpperBoundOutOfRange(value))
@@ -1141,7 +1161,8 @@ impl AxisSettings {
     ///
     /// If the value passed is greater than the live zone upper bound,
     /// returns `AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound`.
-    /// If the value passed is not in range [0.0..=1.0], returns `AxisSettingsError::DeadZoneUpperBoundOutOfRange`.
+    /// If the value passed is not in range [0.0..=1.0], returns
+    /// `AxisSettingsError::DeadZoneUpperBoundOutOfRange`.
     pub fn try_set_deadzone_upperbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
         if !(0.0..=1.0).contains(&value) {
             Err(AxisSettingsError::DeadZoneUpperBoundOutOfRange(value))
@@ -1179,7 +1200,8 @@ impl AxisSettings {
     ///
     /// If the value passed is less than the deadzone lower bound,
     /// returns `AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound`.
-    /// If the value passed is not in range [-1.0..=0.0], returns `AxisSettingsError::LiveZoneLowerBoundOutOfRange`.
+    /// If the value passed is not in range [-1.0..=0.0], returns
+    /// `AxisSettingsError::LiveZoneLowerBoundOutOfRange`.
     pub fn try_set_livezone_lowerbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
         if !(-1.0..=0.0).contains(&value) {
             Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(value))
@@ -1217,7 +1239,8 @@ impl AxisSettings {
     ///
     /// If the value passed is less than the live zone lower bound,
     /// returns `AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound`.
-    /// If the value passed is not in range [-1.0..=0.0], returns `AxisSettingsError::DeadZoneLowerBoundOutOfRange`.
+    /// If the value passed is not in range [-1.0..=0.0], returns
+    /// `AxisSettingsError::DeadZoneLowerBoundOutOfRange`.
     pub fn try_set_deadzone_lowerbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
         if !(-1.0..=0.0).contains(&value) {
             Err(AxisSettingsError::DeadZoneLowerBoundOutOfRange(value))
@@ -1253,7 +1276,8 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is not within [0.0..=2.0], returns `GamepadSettingsError::AxisThreshold`.
+    /// If the value passed is not within [0.0..=2.0], returns
+    /// `GamepadSettingsError::AxisThreshold`.
     pub fn try_set_threshold(&mut self, value: f32) -> Result<(), AxisSettingsError> {
         if !(0.0..=2.0).contains(&value) {
             Err(AxisSettingsError::Threshold(value))
@@ -1469,10 +1493,11 @@ impl ButtonAxisSettings {
         }
     }
 
-    /// Filters the `new_raw_value` based on the `old_raw_value`, according to the [`ButtonAxisSettings`].
+    /// Filters the `new_raw_value` based on the `old_raw_value`, according to the
+    /// [`ButtonAxisSettings`].
     ///
-    /// Returns the clamped and scaled `new_raw_value`, according to the [`ButtonAxisSettings`], if the change
-    /// exceeds the settings threshold, and `None` otherwise.
+    /// Returns the clamped and scaled `new_raw_value`, according to the [`ButtonAxisSettings`], if
+    /// the change exceeds the settings threshold, and `None` otherwise.
     fn filter(
         &self,
         new_raw_value: f32,
@@ -1509,11 +1534,13 @@ impl ButtonAxisSettings {
 ///
 /// On connection, adds the components representing a [`Gamepad`] to the entity.
 /// On disconnection, removes the [`Gamepad`] and other related components.
-/// Entities are left alive and might leave components like [`GamepadSettings`] to preserve state in the case of a reconnection.
+/// Entities are left alive and might leave components like [`GamepadSettings`] to preserve state in
+/// the case of a reconnection.
 ///
 /// ## Note
 ///
-/// Whenever a [`Gamepad`] connects or disconnects, an information gets printed to the console using the [`info!`] macro.
+/// Whenever a [`Gamepad`] connects or disconnects, an information gets printed to the console using
+/// the [`info!`] macro.
 pub fn gamepad_connection_system(
     mut commands: Commands,
     mut connection_events: EventReader<GamepadConnectionEvent>,
@@ -1548,9 +1575,10 @@ pub fn gamepad_connection_system(
                     );
                     continue;
                 };
-                // Gamepad entities are left alive to preserve their state (e.g. [`GamepadSettings`]).
-                // Instead of despawning, we remove Gamepad components that don't need to preserve state
-                // and re-add them if they ever reconnect.
+                // Gamepad entities are left alive to preserve their state (e.g.
+                // [`GamepadSettings`]). Instead of despawning, we remove Gamepad
+                // components that don't need to preserve state and re-add them if
+                // they ever reconnect.
                 gamepad.remove::<Gamepad>();
                 info!("Gamepad {} disconnected.", id);
             }
@@ -1593,8 +1621,9 @@ pub enum GamepadConnection {
     Disconnected,
 }
 
-/// Consumes [`RawGamepadEvent`] events, filters them using their [`GamepadSettings`] and if successful,
-/// updates the [`Gamepad`] and sends [`GamepadAxisChangedEvent`], [`GamepadButtonStateChangedEvent`], [`GamepadButtonChangedEvent`] events.
+/// Consumes [`RawGamepadEvent`] events, filters them using their [`GamepadSettings`] and if
+/// successful, updates the [`Gamepad`] and sends [`GamepadAxisChangedEvent`],
+/// [`GamepadButtonStateChangedEvent`], [`GamepadButtonChangedEvent`] events.
 pub fn gamepad_event_processing_system(
     mut gamepads: Query<(&mut Gamepad, &GamepadSettings)>,
     mut raw_events: EventReader<RawGamepadEvent>,
@@ -1610,7 +1639,8 @@ pub fn gamepad_event_processing_system(
 
     for event in raw_events.read() {
         match event {
-            // Connections require inserting/removing components so they are done in a separate system
+            // Connections require inserting/removing components so they are done in a separate
+            // system
             RawGamepadEvent::Connection(send_event) => {
                 processed_events.write(GamepadEvent::from(send_event.clone()));
             }
@@ -1925,8 +1955,8 @@ mod tests {
             (0.99, Some(1.0)),
             (0.96, Some(1.0)),
             (0.95, Some(1.0)),
-            // for the following, remember that 0.05 is the "low" value and 0.95 is the "high" value
-            // barely below the high value means barely below 1 after scaling
+            // for the following, remember that 0.05 is the "low" value and 0.95 is the "high"
+            // value barely below the high value means barely below 1 after scaling
             (0.9499, Some(0.9998889)), // scaled as: (0.9499 - 0.05) / (0.95 - 0.05)
             (0.84, Some(0.87777776)),  // scaled as: (0.84 - 0.05) / (0.95 - 0.05)
             (0.43, Some(0.42222223)),  // scaled as: (0.43 - 0.05) / (0.95 - 0.05)

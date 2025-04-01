@@ -419,8 +419,8 @@ pub fn array_apply<A: Array + ?Sized>(array: &mut A, reflect: &dyn PartialReflec
 /// # Errors
 ///
 /// * Returns an [`ApplyError::DifferentSize`] if the two arrays have differing lengths.
-/// * Returns an [`ApplyError::MismatchedKinds`] if the reflected value is not a
-///   [valid array](ReflectRef::Array).
+/// * Returns an [`ApplyError::MismatchedKinds`] if the reflected value is not a [valid
+///   array](ReflectRef::Array).
 /// * Returns any error that is generated while applying elements to each other.
 #[inline]
 pub fn array_try_apply<A: Array>(

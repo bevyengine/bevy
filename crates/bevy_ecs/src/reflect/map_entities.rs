@@ -1,10 +1,11 @@
 use crate::entity::{EntityMapper, MapEntities};
 use bevy_reflect::{FromReflect, FromType, PartialReflect};
 
-/// For a specific type of value, this maps any fields with values of type [`Entity`] to a new world.
+/// For a specific type of value, this maps any fields with values of type [`Entity`] to a new
+/// world.
 ///
-/// Since a given `Entity` ID is only valid for the world it came from, when performing deserialization
-/// any stored IDs need to be re-allocated in the destination world.
+/// Since a given `Entity` ID is only valid for the world it came from, when performing
+/// deserialization any stored IDs need to be re-allocated in the destination world.
 ///
 /// See [`EntityMapper`] and [`MapEntities`] for more information.
 ///

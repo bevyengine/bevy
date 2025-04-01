@@ -20,8 +20,9 @@ enum Endpoint {
 
 /// An event in the [`EventQueue`] is either the left or right vertex of an edge of the polygon.
 ///
-/// Events are ordered so that any event `e1` which is to the left of another event `e2` is less than that event.
-/// If `e1.position().x == e2.position().x` the events are ordered from bottom to top.
+/// Events are ordered so that any event `e1` which is to the left of another event `e2` is less
+/// than that event. If `e1.position().x == e2.position().x` the events are ordered from bottom to
+/// top.
 ///
 /// This is the order expected by the [`SweepLine`].
 #[derive(Debug, Clone, Copy)]
@@ -63,7 +64,8 @@ impl Ord for SweepLineEvent {
     }
 }
 
-/// Orders 2D points according to the order expected by the sweep line and event queue from -X to +X and then -Y to Y.
+/// Orders 2D points according to the order expected by the sweep line and event queue from -X to +X
+/// and then -Y to Y.
 #[cfg_attr(
     not(feature = "alloc"),
     allow(dead_code, reason = "this type is only used with the alloc feature")
@@ -72,7 +74,8 @@ fn xy_order(a: Vec2, b: Vec2) -> Ordering {
     a.x.total_cmp(&b.x).then_with(|| a.y.total_cmp(&b.y))
 }
 
-/// The event queue holds an ordered list of all events the [`SweepLine`] will encounter when checking the current polygon.
+/// The event queue holds an ordered list of all events the [`SweepLine`] will encounter when
+/// checking the current polygon.
 #[cfg(feature = "alloc")]
 #[derive(Debug, Clone)]
 struct EventQueue {
@@ -122,7 +125,8 @@ impl EventQueue {
 /// Represents a segment or rather an edge of the polygon in the [`SweepLine`].
 ///
 /// Segments are ordered from bottom to top based on their left vertices if possible.
-/// If their y values are identical, the segments are ordered based on the y values of their right vertices.
+/// If their y values are identical, the segments are ordered based on the y values of their right
+/// vertices.
 #[derive(Debug, Clone, Copy)]
 struct Segment {
     edge_index: usize,
@@ -163,8 +167,8 @@ struct SegmentOrder {
 
 /// A sweep line allows for an efficient search for intersections between [segments](`Segment`).
 ///
-/// It can be thought of as a vertical line sweeping from -X to +X across the polygon that keeps track of the order of the segments
-/// the sweep line is intersecting at any given moment.
+/// It can be thought of as a vertical line sweeping from -X to +X across the polygon that keeps
+/// track of the order of the segments the sweep line is intersecting at any given moment.
 #[cfg(feature = "alloc")]
 #[derive(Debug, Clone)]
 struct SweepLine<'a> {
@@ -204,7 +208,8 @@ impl<'a> SweepLine<'a> {
         let s21 = self.vertices[edge2];
         let s22 = *self.vertices.get(edge2 + 1).unwrap_or(&self.vertices[0]);
 
-        // When both points of the second edge are on the same side of the first edge, no intersection is possible.
+        // When both points of the second edge are on the same side of the first edge, no
+        // intersection is possible.
         if point_side(s11, s12, s21) * point_side(s11, s12, s22) > 0.0 {
             return false;
         }
@@ -261,7 +266,8 @@ impl<'a> SweepLine<'a> {
 
 /// Test what side of the line through `p1` and `p2` `q` is.
 ///
-/// The result will be `0` if the `q` is on the segment, negative for one side and positive for the other.
+/// The result will be `0` if the `q` is on the segment, negative for one side and positive for the
+/// other.
 #[cfg_attr(
     not(feature = "alloc"),
     expect(
@@ -278,12 +284,13 @@ fn point_side(p1: Vec2, p2: Vec2, q: Vec2) -> f32 {
 /// The last vertex must not be equal to the first vertex.
 ///
 /// A polygon is simple if it is not self intersecting and not self tangent.
-/// As such, no two edges of the polygon may cross each other and each vertex must not lie on another edge.
+/// As such, no two edges of the polygon may cross each other and each vertex must not lie on
+/// another edge.
 ///
 /// Any 'polygon' with less than three vertices is simple.
 ///
-/// The algorithm used is the Shamos-Hoey algorithm, a version of the Bentley-Ottman algorithm adapted to only detect whether any intersections exist.
-/// This function will run in O(n * log n)
+/// The algorithm used is the Shamos-Hoey algorithm, a version of the Bentley-Ottman algorithm
+/// adapted to only detect whether any intersections exist. This function will run in O(n * log n)
 #[cfg(feature = "alloc")]
 pub fn is_polygon_simple(vertices: &[Vec2]) -> bool {
     if vertices.len() < 3 {

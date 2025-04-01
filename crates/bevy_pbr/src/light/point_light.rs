@@ -33,12 +33,13 @@ pub struct PointLight {
     /// The color of this light source.
     pub color: Color,
 
-    /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
+    /// Luminous power in lumens, representing the amount of light emitted by this source in all
+    /// directions.
     pub intensity: f32,
 
-    /// Cut-off for the light's area-of-effect. Fragments outside this range will not be affected by
-    /// this light at all, so it's important to tune this together with `intensity` to prevent hard
-    /// lighting cut-offs.
+    /// Cut-off for the light's area-of-effect. Fragments outside this range will not be affected
+    /// by this light at all, so it's important to tune this together with `intensity` to
+    /// prevent hard lighting cut-offs.
     pub range: f32,
 
     /// Simulates a light source coming from a spherical volume with the given
@@ -86,8 +87,8 @@ pub struct PointLight {
     /// A bias used when sampling shadow maps to avoid "shadow-acne", or false shadow occlusions
     /// that happen as a result of shadow-map fragments not mapping 1:1 to screen-space fragments.
     /// Too high of a depth bias can lead to shadows detaching from their casters, or
-    /// "peter-panning". This bias can be tuned together with `shadow_normal_bias` to correct shadow
-    /// artifacts for a given scene.
+    /// "peter-panning". This bias can be tuned together with `shadow_normal_bias` to correct
+    /// shadow artifacts for a given scene.
     pub shadow_depth_bias: f32,
 
     /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
@@ -108,9 +109,9 @@ impl Default for PointLight {
     fn default() -> Self {
         PointLight {
             color: Color::WHITE,
-            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
-            // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
-            // this would be way too bright.
+            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at
+            // Bevy's default "very overcast day" exposure level. For "indoor lighting"
+            // with a lower exposure, this would be way too bright.
             intensity: 1_000_000.0,
             range: 20.0,
             radius: 0.0,

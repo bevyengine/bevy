@@ -1,4 +1,5 @@
-//! This example demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera.
+//! This example demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic
+//! viewport and camera.
 
 use bevy::{
     color::palettes::{
@@ -41,7 +42,8 @@ fn draw_cursor(
         return;
     };
 
-    // To test Camera::world_to_viewport, convert result back to viewport space and then back to world space.
+    // To test Camera::world_to_viewport, convert result back to viewport space and then back to
+    // world space.
     let Ok(viewport_check) = camera.world_to_viewport(camera_transform, world_pos.extend(0.0))
     else {
         return;

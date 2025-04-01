@@ -16,16 +16,18 @@ use core::{
     ptr::{self, NonNull},
 };
 
-/// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is aligned.
+/// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is
+/// aligned.
 #[derive(Debug, Copy, Clone)]
 pub struct Aligned;
 
-/// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is not aligned.
+/// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is
+/// not aligned.
 #[derive(Debug, Copy, Clone)]
 pub struct Unaligned;
 
-/// Trait that is only implemented for [`Aligned`] and [`Unaligned`] to work around the lack of ability
-/// to have const generics of an enum.
+/// Trait that is only implemented for [`Aligned`] and [`Unaligned`] to work around the lack of
+/// ability to have const generics of an enum.
 pub trait IsAligned: sealed::Sealed {}
 impl IsAligned for Aligned {}
 impl IsAligned for Unaligned {}
@@ -102,10 +104,10 @@ impl<T: ?Sized> ConstNonNull<T> {
     ///
     /// * The pointer must point to an initialized instance of `T`.
     ///
-    /// * You must enforce Rust's aliasing rules, since the returned lifetime `'a` is
-    ///   arbitrarily chosen and does not necessarily reflect the actual lifetime of the data.
-    ///   In particular, while this reference exists, the memory the pointer points to must
-    ///   not get mutated (except inside `UnsafeCell`).
+    /// * You must enforce Rust's aliasing rules, since the returned lifetime `'a` is arbitrarily
+    ///   chosen and does not necessarily reflect the actual lifetime of the data. In particular,
+    ///   while this reference exists, the memory the pointer points to must not get mutated (except
+    ///   inside `UnsafeCell`).
     ///
     /// This applies even if the result of this method is unused!
     /// (The part about being initialized is not yet fully decided, but until
@@ -166,8 +168,8 @@ pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>
 /// Type-erased mutable borrow of some unknown type chosen when constructing this type.
 ///
 /// This type tries to act "borrow-like" which means that:
-/// - Pointer is considered exclusive and mutable. It cannot be cloned as this would lead to
-///   aliased mutability.
+/// - Pointer is considered exclusive and mutable. It cannot be cloned as this would lead to aliased
+///   mutability.
 /// - It must always points to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
 /// - Must be sufficiently aligned for the unknown pointee type.
@@ -185,8 +187,8 @@ pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut 
 /// to a local in a function etc.
 ///
 /// This type tries to act "borrow-like" like which means that:
-/// - Pointer should be considered exclusive and mutable. It cannot be cloned as this would lead
-///   to aliased mutability and potentially use after free bugs.
+/// - Pointer should be considered exclusive and mutable. It cannot be cloned as this would lead to
+///   aliased mutability and potentially use after free bugs.
 /// - It must always points to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
 /// - Must be sufficiently aligned for the unknown pointee type.
@@ -219,16 +221,19 @@ macro_rules! impl_ptr {
             /// *See also: [`ptr::offset`][ptr_offset]*
             ///
             /// # Safety
-            /// - The offset cannot make the existing ptr null, or take it out of bounds for its allocation.
-            /// - If the `A` type parameter is [`Aligned`] then the offset must not make the resulting pointer
-            ///   be unaligned for the pointee type.
-            /// - The value pointed by the resulting pointer must outlive the lifetime of this pointer.
+            /// - The offset cannot make the existing ptr null, or take it out of bounds for its
+            ///   allocation.
+            /// - If the `A` type parameter is [`Aligned`] then the offset must not make the
+            ///   resulting pointer be unaligned for the pointee type.
+            /// - The value pointed by the resulting pointer must outlive the lifetime of this
+            ///   pointer.
             ///
             /// [ptr_offset]: https://doc.rust-lang.org/std/primitive.pointer.html#method.offset
             #[inline]
             pub unsafe fn byte_offset(self, count: isize) -> Self {
                 Self(
-                    // SAFETY: The caller upholds safety for `offset` and ensures the result is not null.
+                    // SAFETY: The caller upholds safety for `offset` and ensures the result is not
+                    // null.
                     unsafe { NonNull::new_unchecked(self.as_ptr().offset(count)) },
                     PhantomData,
                 )
@@ -241,16 +246,19 @@ macro_rules! impl_ptr {
             /// *See also: [`ptr::add`][ptr_add]*
             ///
             /// # Safety
-            /// - The offset cannot make the existing ptr null, or take it out of bounds for its allocation.
-            /// - If the `A` type parameter is [`Aligned`] then the offset must not make the resulting pointer
-            ///   be unaligned for the pointee type.
-            /// - The value pointed by the resulting pointer must outlive the lifetime of this pointer.
+            /// - The offset cannot make the existing ptr null, or take it out of bounds for its
+            ///   allocation.
+            /// - If the `A` type parameter is [`Aligned`] then the offset must not make the
+            ///   resulting pointer be unaligned for the pointee type.
+            /// - The value pointed by the resulting pointer must outlive the lifetime of this
+            ///   pointer.
             ///
             /// [ptr_add]: https://doc.rust-lang.org/std/primitive.pointer.html#method.add
             #[inline]
             pub unsafe fn byte_add(self, count: usize) -> Self {
                 Self(
-                    // SAFETY: The caller upholds safety for `add` and ensures the result is not null.
+                    // SAFETY: The caller upholds safety for `add` and ensures the result is not
+                    // null.
                     unsafe { NonNull::new_unchecked(self.as_ptr().add(count)) },
                     PhantomData,
                 )
@@ -288,7 +296,8 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of whatever the pointee type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the
+    ///   pointee type.
     /// - `inner` must have correct provenance to allow reads of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`Ptr`] will stay valid and nothing
     ///   can mutate the pointee while this [`Ptr`] is live except through an [`UnsafeCell`].
@@ -301,7 +310,8 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     ///
     /// # Safety
     /// * The data pointed to by this `Ptr` must be valid for writes.
-    /// * There must be no active references (mutable or otherwise) to the data underlying this `Ptr`.
+    /// * There must be no active references (mutable or otherwise) to the data underlying this
+    ///   `Ptr`.
     /// * Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
     #[inline]
     pub unsafe fn assert_unique(self) -> PtrMut<'a, A> {
@@ -317,7 +327,8 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
-        // SAFETY: The caller ensures the pointee is of type `T` and the pointer can be dereferenced.
+        // SAFETY: The caller ensures the pointee is of type `T` and the pointer can be
+        // dereferenced.
         unsafe { &*ptr }
     }
 
@@ -345,10 +356,11 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of whatever the pointee type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the
+    ///   pointee type.
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
-    /// - The lifetime `'a` must be constrained such that this [`PtrMut`] will stay valid and nothing
-    ///   else can read or mutate the pointee while this [`PtrMut`] is live.
+    /// - The lifetime `'a` must be constrained such that this [`PtrMut`] will stay valid and
+    ///   nothing else can read or mutate the pointee while this [`PtrMut`] is live.
     #[inline]
     pub unsafe fn new(inner: NonNull<u8>) -> Self {
         Self(inner, PhantomData)
@@ -372,7 +384,8 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
-        // SAFETY: The caller ensures the pointee is of type `T` and the pointer can be dereferenced.
+        // SAFETY: The caller ensures the pointee is of type `T` and the pointer can be
+        // dereferenced.
         unsafe { &mut *ptr }
     }
 
@@ -395,7 +408,8 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     /// Gets an immutable reference from this mutable reference
     #[inline]
     pub fn as_ref(&self) -> Ptr<'_, A> {
-        // SAFETY: The `PtrMut` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        // SAFETY: The `PtrMut` type's guarantees about the validity of this pointer are a superset
+        // of `Ptr` s guarantees
         unsafe { Ptr::new(self.0) }
     }
 }
@@ -421,7 +435,8 @@ impl<'a> OwningPtr<'a> {
         unsafe { PtrMut::from(&mut *temp).promote() }
     }
 
-    /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not happen.
+    /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not
+    /// happen.
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
         let mut val = ManuallyDrop::new(val);
@@ -436,10 +451,11 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of whatever the pointee type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the
+    ///   pointee type.
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
-    /// - The lifetime `'a` must be constrained such that this [`OwningPtr`] will stay valid and nothing
-    ///   else can read or mutate the pointee while this [`OwningPtr`] is live.
+    /// - The lifetime `'a` must be constrained such that this [`OwningPtr`] will stay valid and
+    ///   nothing else can read or mutate the pointee while this [`OwningPtr`] is live.
     #[inline]
     pub unsafe fn new(inner: NonNull<u8>) -> Self {
         Self(inner, PhantomData)
@@ -467,7 +483,8 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     #[inline]
     pub unsafe fn drop_as<T>(self) {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
-        // SAFETY: The caller ensure the pointee is of type `T` and uphold safety for `drop_in_place`.
+        // SAFETY: The caller ensure the pointee is of type `T` and uphold safety for
+        // `drop_in_place`.
         unsafe {
             ptr.drop_in_place();
         }
@@ -485,14 +502,16 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     /// Gets an immutable pointer from this owned pointer.
     #[inline]
     pub fn as_ref(&self) -> Ptr<'_, A> {
-        // SAFETY: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        // SAFETY: The `Owning` type's guarantees about the validity of this pointer are a superset
+        // of `Ptr` s guarantees
         unsafe { Ptr::new(self.0) }
     }
 
     /// Gets a mutable pointer from this owned pointer.
     #[inline]
     pub fn as_mut(&mut self) -> PtrMut<'_, A> {
-        // SAFETY: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        // SAFETY: The `Owning` type's guarantees about the validity of this pointer are a superset
+        // of `Ptr` s guarantees
         unsafe { PtrMut::new(self.0) }
     }
 }
@@ -504,7 +523,8 @@ impl<'a> OwningPtr<'a, Unaligned> {
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
     pub unsafe fn read_unaligned<T>(self) -> T {
         let ptr = self.as_ptr().cast::<T>();
-        // SAFETY: The caller ensure the pointee is of type `T` and uphold safety for `read_unaligned`.
+        // SAFETY: The caller ensure the pointee is of type `T` and uphold safety for
+        // `read_unaligned`.
         unsafe { ptr.read_unaligned() }
     }
 }
@@ -575,20 +595,28 @@ mod private {
 /// Extension trait for helper methods on [`UnsafeCell`]
 pub trait UnsafeCellDeref<'a, T>: private::SealedUnsafeCell {
     /// # Safety
-    /// - The returned value must be unique and not alias any mutable or immutable references to the contents of the [`UnsafeCell`].
-    /// - At all times, you must avoid data races. If multiple threads have access to the same [`UnsafeCell`], then any writes must have a proper happens-before relation to all other accesses or use atomics ([`UnsafeCell`] docs for reference).
+    /// - The returned value must be unique and not alias any mutable or immutable references to the
+    ///   contents of the [`UnsafeCell`].
+    /// - At all times, you must avoid data races. If multiple threads have access to the same
+    ///   [`UnsafeCell`], then any writes must have a proper happens-before relation to all other
+    ///   accesses or use atomics ([`UnsafeCell`] docs for reference).
     unsafe fn deref_mut(self) -> &'a mut T;
 
     /// # Safety
-    /// - For the lifetime `'a` of the returned value you must not construct a mutable reference to the contents of the [`UnsafeCell`].
-    /// - At all times, you must avoid data races. If multiple threads have access to the same [`UnsafeCell`], then any writes must have a proper happens-before relation to all other accesses or use atomics ([`UnsafeCell`] docs for reference).
+    /// - For the lifetime `'a` of the returned value you must not construct a mutable reference to
+    ///   the contents of the [`UnsafeCell`].
+    /// - At all times, you must avoid data races. If multiple threads have access to the same
+    ///   [`UnsafeCell`], then any writes must have a proper happens-before relation to all other
+    ///   accesses or use atomics ([`UnsafeCell`] docs for reference).
     unsafe fn deref(self) -> &'a T;
 
     /// Returns a copy of the contained value.
     ///
     /// # Safety
     /// - The [`UnsafeCell`] must not currently have a mutable reference to its content.
-    /// - At all times, you must avoid data races. If multiple threads have access to the same [`UnsafeCell`], then any writes must have a proper happens-before relation to all other accesses or use atomics ([`UnsafeCell`] docs for reference).
+    /// - At all times, you must avoid data races. If multiple threads have access to the same
+    ///   [`UnsafeCell`], then any writes must have a proper happens-before relation to all other
+    ///   accesses or use atomics ([`UnsafeCell`] docs for reference).
     unsafe fn read(self) -> T
     where
         T: Copy;

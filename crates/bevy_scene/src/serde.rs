@@ -151,9 +151,9 @@ impl<'a> Serialize for EntitySerializer<'a> {
 
 /// Handles serializing a list of values with a unique type as a map of type to value.
 ///
-/// Used to serialize scene resources in [`SceneSerializer`] and entity components in [`EntitySerializer`].
-/// Note that having several entries of the same type in `entries` will lead to an error when using the RON format and
-/// deserializing through [`SceneMapDeserializer`].
+/// Used to serialize scene resources in [`SceneSerializer`] and entity components in
+/// [`EntitySerializer`]. Note that having several entries of the same type in `entries` will lead
+/// to an error when using the RON format and deserializing through [`SceneMapDeserializer`].
 ///
 /// Note: The entries are sorted by type path before they're serialized.
 pub struct SceneMapSerializer<'a> {
@@ -209,7 +209,8 @@ enum EntityField {
 
 /// Handles scene deserialization.
 pub struct SceneDeserializer<'a> {
-    /// Type registry in which the components and resources types used in the scene to deserialize are registered.
+    /// Type registry in which the components and resources types used in the scene to deserialize
+    /// are registered.
     pub type_registry: &'a TypeRegistry,
 }
 
@@ -302,7 +303,8 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
 
 /// Handles deserialization for a collection of entities.
 pub struct SceneEntitiesDeserializer<'a> {
-    /// Type registry in which the component types used by the entities to deserialize are registered.
+    /// Type registry in which the component types used by the entities to deserialize are
+    /// registered.
     pub type_registry: &'a TypeRegistry,
 }
 
@@ -351,7 +353,8 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
 pub struct SceneEntityDeserializer<'a> {
     /// Id of the deserialized entity.
     pub entity: Entity,
-    /// Type registry in which the component types used by the entity to deserialize are registered.
+    /// Type registry in which the component types used by the entity to deserialize are
+    /// registered.
     pub type_registry: &'a TypeRegistry,
 }
 
@@ -964,7 +967,8 @@ mod tests {
         }
     }
 
-    /// These tests just verify that the [`assert_scene_eq`] function is working properly for our tests.
+    /// These tests just verify that the [`assert_scene_eq`] function is working properly for our
+    /// tests.
     mod assert_scene_eq_tests {
         use super::*;
 

@@ -37,7 +37,8 @@ impl<T: 'static> Task<T> {
     /// # Implementation
     ///
     /// When building for Wasm, it is not possible to cancel tasks, which means this is the same
-    /// as just awaiting the task. This method is only included for feature parity with other platforms.
+    /// as just awaiting the task. This method is only included for feature parity with other
+    /// platforms.
     pub async fn cancel(self) -> Option<T> {
         match self.0.await {
             Ok(Ok(value)) => Some(value),
@@ -58,8 +59,9 @@ impl<T> Future for Task<T> {
         match Pin::new(&mut self.0).poll(cx) {
             Poll::Ready(Ok(Ok(value))) => Poll::Ready(value),
             // NOTE: Propagating the panic here sorta has parity with the async_executor behavior.
-            // For those tasks, polling them after a panic returns a `None` which gets `unwrap`ed, so
-            // using `resume_unwind` here is essentially keeping the same behavior while adding more information.
+            // For those tasks, polling them after a panic returns a `None` which gets `unwrap`ed,
+            // so using `resume_unwind` here is essentially keeping the same behavior
+            // while adding more information.
             #[cfg(feature = "std")]
             Poll::Ready(Ok(Err(panic))) => std::panic::resume_unwind(panic),
             #[cfg(not(feature = "std"))]

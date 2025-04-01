@@ -375,14 +375,15 @@ pub(crate) fn assign_objects_to_clusters(
         };
         let first_slice_depth = match (is_orthographic, requested_cluster_dimensions.z) {
             (true, _) => {
-                // NOTE: Based on glam's Mat4::orthographic_rh(), as used to calculate the orthographic projection
-                // matrix, we can calculate the projection's view-space near plane as follows:
-                // component 3,2 = r * near and 2,2 = r where r = 1.0 / (near - far)
-                // There is a caveat here that when calculating the projection matrix, near and far were swapped to give
+                // NOTE: Based on glam's Mat4::orthographic_rh(), as used to calculate the
+                // orthographic projection matrix, we can calculate the projection's
+                // view-space near plane as follows: component 3,2 = r * near and
+                // 2,2 = r where r = 1.0 / (near - far) There is a caveat here that
+                // when calculating the projection matrix, near and far were swapped to give
                 // reversed z, consistent with the perspective projection. So,
                 // 3,2 = r * far and 2,2 = r where r = 1.0 / (far - near)
-                // rearranging r = 1.0 / (far - near), r * (far - near) = 1.0, r * far - 1.0 = r * near, near = (r * far - 1.0) / r
-                // = (3,2 - 1.0) / 2,2
+                // rearranging r = 1.0 / (far - near), r * (far - near) = 1.0, r * far - 1.0 = r *
+                // near, near = (r * far - 1.0) / r = (3,2 - 1.0) / 2,2
                 (camera.clip_from_view().w_axis.z - 1.0) / camera.clip_from_view().z_axis.z
             }
             (false, 1) => config.first_slice_depth().max(far_z),
@@ -390,7 +391,8 @@ pub(crate) fn assign_objects_to_clusters(
         };
         let first_slice_depth = first_slice_depth * view_from_world_scale.z;
 
-        // NOTE: Ensure the far_z is at least as far as the first_depth_slice to avoid clustering problems.
+        // NOTE: Ensure the far_z is at least as far as the first_depth_slice to avoid clustering
+        // problems.
         let far_z = far_z.max(first_slice_depth);
         let cluster_factors = crate::calculate_cluster_factors(
             first_slice_depth,
@@ -409,9 +411,10 @@ pub(crate) fn assign_objects_to_clusters(
                     continue;
                 }
 
-                // calculate a conservative aabb estimate of number of clusters affected by this light
-                // this overestimates index counts by at most 50% (and typically much less) when the whole light range is in view
-                // it can overestimate more significantly when light ranges are only partially in view
+                // calculate a conservative aabb estimate of number of clusters affected by this
+                // light this overestimates index counts by at most 50% (and
+                // typically much less) when the whole light range is in view it can
+                // overestimate more significantly when light ranges are only partially in view
                 let (clusterable_object_aabb_min, clusterable_object_aabb_max) =
                     cluster_space_clusterable_object_aabb(
                         view_from_world,
@@ -420,7 +423,8 @@ pub(crate) fn assign_objects_to_clusters(
                         &clusterable_object_sphere,
                     );
 
-                // since we won't adjust z slices we can calculate exact number of slices required in z dimension
+                // since we won't adjust z slices we can calculate exact number of slices required
+                // in z dimension
                 let z_cluster_min = view_z_to_z_slice(
                     cluster_factors,
                     requested_cluster_dimensions.z,
@@ -436,10 +440,12 @@ pub(crate) fn assign_objects_to_clusters(
                 let z_count =
                     z_cluster_min.max(z_cluster_max) - z_cluster_min.min(z_cluster_max) + 1;
 
-                // calculate x/y count using floats to avoid overestimating counts due to large initial tile sizes
+                // calculate x/y count using floats to avoid overestimating counts due to large
+                // initial tile sizes
                 let xy_min = clusterable_object_aabb_min.xy();
                 let xy_max = clusterable_object_aabb_max.xy();
-                // multiply by 0.5 to move from [-1,1] to [-0.5, 0.5], max extent of 1 in each dimension
+                // multiply by 0.5 to move from [-1,1] to [-0.5, 0.5], max extent of 1 in each
+                // dimension
                 let xy_count = (xy_max - xy_min)
                     * 0.5
                     * Vec2::new(
@@ -938,7 +944,8 @@ fn compute_aabb_for_cluster(
             -z_near * ops::powf(z_far_over_z_near, ijk.z / (cluster_dimensions.z - 1) as f32)
         };
 
-        // Calculate the four intersection points of the min and max points with the cluster near and far planes
+        // Calculate the four intersection points of the min and max points with the cluster near
+        // and far planes
         let p_min_near = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_near);
         let p_min_far = line_intersection_to_z_plane(Vec3::ZERO, p_min.xyz(), cluster_far);
         let p_max_near = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_near);
@@ -1014,11 +1021,12 @@ fn cluster_space_clusterable_object_aabb(
 
     // Constrain view z to be negative - i.e. in front of the camera
     // When view z is >= 0.0 and we're using a perspective projection, bad things happen.
-    // At view z == 0.0, ndc x,y are mathematically undefined. At view z > 0.0, i.e. behind the camera,
-    // the perspective projection flips the directions of the axes. This breaks assumptions about
-    // use of min/max operations as something that was to the left in view space is now returning a
-    // coordinate that for view z in front of the camera would be on the right, but at view z behind the
-    // camera is on the left. So, we just constrain view z to be < 0.0 and necessarily in front of the camera.
+    // At view z == 0.0, ndc x,y are mathematically undefined. At view z > 0.0, i.e. behind the
+    // camera, the perspective projection flips the directions of the axes. This breaks
+    // assumptions about use of min/max operations as something that was to the left in view
+    // space is now returning a coordinate that for view z in front of the camera would be on
+    // the right, but at view z behind the camera is on the left. So, we just constrain view z
+    // to be < 0.0 and necessarily in front of the camera.
     clusterable_object_aabb_view_min.z = clusterable_object_aabb_view_min.z.min(-f32::MIN_POSITIVE);
     clusterable_object_aabb_view_max.z = clusterable_object_aabb_view_max.z.min(-f32::MIN_POSITIVE);
 

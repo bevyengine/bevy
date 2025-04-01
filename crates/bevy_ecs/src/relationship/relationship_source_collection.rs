@@ -2,16 +2,19 @@ use crate::entity::{Entity, hash_set::EntityHashSet};
 use alloc::vec::Vec;
 use smallvec::SmallVec;
 
-/// The internal [`Entity`] collection used by a [`RelationshipTarget`](crate::relationship::RelationshipTarget) component.
-/// This is not intended to be modified directly by users, as it could invalidate the correctness of relationships.
+/// The internal [`Entity`] collection used by a
+/// [`RelationshipTarget`](crate::relationship::RelationshipTarget) component. This is not intended
+/// to be modified directly by users, as it could invalidate the correctness of relationships.
 pub trait RelationshipSourceCollection {
     /// The type of iterator returned by the `iter` method.
     ///
-    /// This is an associated type (rather than using a method that returns an opaque return-position impl trait)
-    /// to ensure that all methods and traits (like [`DoubleEndedIterator`]) of the underlying collection's iterator
-    /// are available to the user when implemented without unduly restricting the possible collections.
+    /// This is an associated type (rather than using a method that returns an opaque
+    /// return-position impl trait) to ensure that all methods and traits (like
+    /// [`DoubleEndedIterator`]) of the underlying collection's iterator are available to the
+    /// user when implemented without unduly restricting the possible collections.
     ///
-    /// The [`SourceIter`](super::SourceIter) type alias can be helpful to reduce confusion when working with this associated type.
+    /// The [`SourceIter`](super::SourceIter) type alias can be helpful to reduce confusion when
+    /// working with this associated type.
     type SourceIter<'a>: Iterator<Item = Entity>
     where
         Self: 'a;

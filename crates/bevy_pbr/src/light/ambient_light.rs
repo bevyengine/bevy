@@ -4,7 +4,8 @@ use super::*;
 ///
 /// This resource is inserted by the [`PbrPlugin`] and by default it is set to a low ambient light.
 ///
-/// It can also be added to a camera to override the resource (or default) ambient for that camera only.
+/// It can also be added to a camera to override the resource (or default) ambient for that camera
+/// only.
 ///
 /// # Examples
 ///

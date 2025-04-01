@@ -2,8 +2,8 @@
 //!
 //! Adding the [`RemotePlugin`] to your [`App`] will setup everything needed without
 //! starting any transports. To start accepting remote connections you will need to
-//! add a second plugin like the [`RemoteHttpPlugin`](http::RemoteHttpPlugin) to enable communication
-//! over HTTP. These *remote clients* can inspect and alter the state of the
+//! add a second plugin like the [`RemoteHttpPlugin`](http::RemoteHttpPlugin) to enable
+//! communication over HTTP. These *remote clients* can inspect and alter the state of the
 //! entity-component system.
 //!
 //! The Bevy Remote Protocol is based on the JSON-RPC 2.0 protocol.
@@ -28,14 +28,13 @@
 //! The `id` and `method` fields are required. The `params` field may be omitted
 //! for certain methods:
 //!
-//! * `id` is arbitrary JSON data. The server completely ignores its contents,
-//!   and the client may use it for any purpose. It will be copied via
-//!   serialization and deserialization (so object property order, etc. can't be
-//!   relied upon to be identical) and sent back to the client as part of the
-//!   response.
+//! * `id` is arbitrary JSON data. The server completely ignores its contents, and the client may
+//!   use it for any purpose. It will be copied via serialization and deserialization (so object
+//!   property order, etc. can't be relied upon to be identical) and sent back to the client as part
+//!   of the response.
 //!
-//! * `method` is a string that specifies one of the possible [`BrpRequest`]
-//!   variants: `bevy/query`, `bevy/get`, `bevy/insert`, etc. It's case-sensitive.
+//! * `method` is a string that specifies one of the possible [`BrpRequest`] variants: `bevy/query`,
+//!   `bevy/get`, `bevy/insert`, etc. It's case-sensitive.
 //!
 //! * `params` is parameter data specific to the request.
 //!
@@ -65,16 +64,15 @@
 //! The `id` field will always be present. The `result` field will be present if the
 //! request was successful. Otherwise, an `error` field will replace it.
 //!
-//! * `id` is the arbitrary JSON data that was sent as part of the request. It
-//!   will be identical to the `id` data sent during the request, modulo
-//!   serialization and deserialization. If there's an error reading the `id` field,
-//!   it will be `null`.
+//! * `id` is the arbitrary JSON data that was sent as part of the request. It will be identical to
+//!   the `id` data sent during the request, modulo serialization and deserialization. If there's an
+//!   error reading the `id` field, it will be `null`.
 //!
-//! * `result` will be present if the request succeeded and will contain the response
-//!   specific to the request.
+//! * `result` will be present if the request succeeded and will contain the response specific to
+//!   the request.
 //!
-//! * `error` will be present if the request failed and will contain an error object
-//!   with more information about the cause of failure.
+//! * `error` will be present if the request failed and will contain an error object with more
+//!   information about the cause of failure.
 //!
 //! ## Error objects
 //!
@@ -94,7 +92,8 @@
 //!
 //! * `message` is a short, one-sentence human-readable description of the error.
 //!
-//! * `data` is an optional field of arbitrary type containing additional information about the error.
+//! * `data` is an optional field of arbitrary type containing additional information about the
+//!   error.
 //!
 //! ## Built-in methods
 //!
@@ -109,15 +108,15 @@
 //! `params`:
 //! - `entity`: The ID of the entity whose components will be fetched.
 //! - `components`: An array of [fully-qualified type names] of components to fetch.
-//! - `strict` (optional): A flag to enable strict mode which will fail if any one of the
-//!   components is not present or can not be reflected. Defaults to false.
+//! - `strict` (optional): A flag to enable strict mode which will fail if any one of the components
+//!   is not present or can not be reflected. Defaults to false.
 //!
 //! If `strict` is false:
 //!
 //! `result`:
 //! - `components`: A map associating each type name to its value on the requested entity.
-//! - `errors`: A map associating each type name with an error if it was not on the entity
-//!   or could not be reflected.
+//! - `errors`: A map associating each type name with an error if it was not on the entity or could
+//!   not be reflected.
 //!
 //! If `strict` is true:
 //!
@@ -135,23 +134,25 @@
 //! - `data`:
 //!   - `components` (optional): An array of [fully-qualified type names] of components to fetch,
 //!     see _below_ example for a query to list all the type names in **your** project.
-//!   - `option` (optional): An array of fully-qualified type names of components to fetch optionally.
-//!   - `has` (optional): An array of fully-qualified type names of components whose presence will be
-//!     reported as boolean values.
+//!   - `option` (optional): An array of fully-qualified type names of components to fetch
+//!     optionally.
+//!   - `has` (optional): An array of fully-qualified type names of components whose presence will
+//!     be reported as boolean values.
 //! - `filter` (optional):
 //!   - `with` (optional): An array of fully-qualified type names of components that must be present
 //!     on entities in order for them to be included in results.
-//!   - `without` (optional): An array of fully-qualified type names of components that must *not* be
-//!     present on entities in order for them to be included in results.
+//!   - `without` (optional): An array of fully-qualified type names of components that must *not*
+//!     be present on entities in order for them to be included in results.
 //!   - `strict` (optional): A flag to enable strict mode which will fail if any one of the
 //!     components is not present or can not be reflected. Defaults to false.
 //!
 //! `result`: An array, each of which is an object containing:
 //! - `entity`: The ID of a query-matching entity.
-//! - `components`: A map associating each type name from `components`/`option` to its value on the matching
-//!   entity if the component is present.
-//! - `has`: A map associating each type name from `has` to a boolean value indicating whether or not the
-//!   entity has that component. If `has` was empty or omitted, this key will be omitted in the response.
+//! - `components`: A map associating each type name from `components`/`option` to its value on the
+//!   matching entity if the component is present.
+//! - `has`: A map associating each type name from `has` to a boolean value indicating whether or
+//!   not the entity has that component. If `has` was empty or omitted, this key will be omitted in
+//!   the response.
 //!
 //!
 //!
@@ -237,26 +238,26 @@
 //! `params`:
 //! - `entity`: The ID of the entity whose components will be fetched.
 //! - `components`: An array of [fully-qualified type names] of components to fetch.
-//! - `strict` (optional): A flag to enable strict mode which will fail if any one of the
-//!   components is not present or can not be reflected. Defaults to false.
+//! - `strict` (optional): A flag to enable strict mode which will fail if any one of the components
+//!   is not present or can not be reflected. Defaults to false.
 //!
 //! If `strict` is false:
 //!
 //! `result`:
-//! - `components`: A map of components added or changed in the last tick associating each type
-//!   name to its value on the requested entity.
-//! - `removed`: An array of fully-qualified type names of components removed from the entity
-//!   in the last tick.
-//! - `errors`: A map associating each type name with an error if it was not on the entity
-//!   or could not be reflected.
+//! - `components`: A map of components added or changed in the last tick associating each type name
+//!   to its value on the requested entity.
+//! - `removed`: An array of fully-qualified type names of components removed from the entity in the
+//!   last tick.
+//! - `errors`: A map associating each type name with an error if it was not on the entity or could
+//!   not be reflected.
 //!
 //! If `strict` is true:
 //!
 //! `result`:
-//! - `components`: A map of components added or changed in the last tick associating each type
-//!   name to its value on the requested entity.
-//! - `removed`: An array of fully-qualified type names of components removed from the entity
-//!   in the last tick.
+//! - `components`: A map of components added or changed in the last tick associating each type name
+//!   to its value on the requested entity.
+//! - `removed`: An array of fully-qualified type names of components removed from the entity in the
+//!   last tick.
 //!
 //! ### `bevy/list+watch`
 //!
@@ -269,10 +270,10 @@
 //! - `entity`: The ID of the entity whose components will be listed.
 //!
 //! `result`:
-//! - `added`: An array of fully-qualified type names of components added to the entity in the
+//! - `added`: An array of fully-qualified type names of components added to the entity in the last
+//!   tick.
+//! - `removed`: An array of fully-qualified type names of components removed from the entity in the
 //!   last tick.
-//! - `removed`: An array of fully-qualified type names of components removed from the entity
-//!   in the last tick.
 //!
 //! ### `bevy/get_resource`
 //!
@@ -346,8 +347,8 @@
 //! ```
 //!
 //! The handler is expected to be a system-convertible function which takes optional JSON parameters
-//! as input and returns a [`BrpResult`]. This means that it should have a type signature which looks
-//! something like this:
+//! as input and returns a [`BrpResult`]. This means that it should have a type signature which
+//! looks something like this:
 //! ```
 //! # use serde_json::Value;
 //! # use bevy_ecs::prelude::{In, World};
@@ -581,7 +582,8 @@ pub enum RemoteMethodHandler {
     Watching(Box<dyn System<In = In<Option<Value>>, Out = BrpResult<Option<Value>>>>),
 }
 
-/// The [`SystemId`] of a function that implements a remote instant method (`bevy/get`, `bevy/query`, etc.)
+/// The [`SystemId`] of a function that implements a remote instant method (`bevy/get`,
+/// `bevy/query`, etc.)
 ///
 /// The first parameter is the JSON value of the `params`. Typically, an
 /// implementation will deserialize these as the first thing they do.
@@ -590,7 +592,8 @@ pub enum RemoteMethodHandler {
 /// automatically populate the `id` field before sending.
 pub type RemoteInstantMethodSystemId = SystemId<In<Option<Value>>, BrpResult>;
 
-/// The [`SystemId`] of a function that implements a remote watching method (`bevy/get+watch`, `bevy/list+watch`, etc.)
+/// The [`SystemId`] of a function that implements a remote watching method (`bevy/get+watch`,
+/// `bevy/list+watch`, etc.)
 ///
 /// The first parameter is the JSON value of the `params`. Typically, an
 /// implementation will deserialize these as the first thing they do.

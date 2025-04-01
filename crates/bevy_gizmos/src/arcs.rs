@@ -187,7 +187,8 @@ where
         }
     }
 
-    /// Draws the shortest arc between two points (`from` and `to`) relative to a specified `center` point.
+    /// Draws the shortest arc between two points (`from` and `to`) relative to a specified `center`
+    /// point.
     ///
     /// # Arguments
     ///
@@ -234,7 +235,8 @@ where
         self.arc_from_to(center, from, to, color, |x| x)
     }
 
-    /// Draws the longest arc between two points (`from` and `to`) relative to a specified `center` point.
+    /// Draws the longest arc between two points (`from` and `to`) relative to a specified `center`
+    /// point.
     ///
     /// # Arguments
     /// - `center`: The center point around which the arc is drawn.
@@ -320,7 +322,8 @@ where
         }
     }
 
-    /// Draws the shortest arc between two points (`from` and `to`) relative to a specified `center` point.
+    /// Draws the shortest arc between two points (`from` and `to`) relative to a specified `center`
+    /// point.
     ///
     /// # Arguments
     ///
@@ -367,7 +370,8 @@ where
         self.arc_2d_from_to(center, from, to, color, core::convert::identity)
     }
 
-    /// Draws the longest arc between two points (`from` and `to`) relative to a specified `center` point.
+    /// Draws the longest arc between two points (`from` and `to`) relative to a specified `center`
+    /// point.
     ///
     /// # Arguments
     /// - `center`: The center point around which the arc is drawn.

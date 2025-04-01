@@ -32,8 +32,9 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// This ensures that hidden UI nodes are not interactable,
 /// and do not end up stuck in an active state if hidden at the wrong time.
 ///
-/// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
-/// which fully collapses it during layout calculations.
+/// Note that you can also control the visibility of a node using the
+/// [`Display`](crate::ui_node::Display) property, which fully collapses it during layout
+/// calculations.
 ///
 /// # See also
 ///
@@ -67,8 +68,9 @@ impl Default for Interaction {
     }
 }
 
-/// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
-/// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
+/// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left
+/// corner and (1., 1.) being the bottom-right If the mouse is not over the node, the value will go
+/// beyond the range of (0., 0.) to (1., 1.)
 ///
 /// It can be used alongside [`Interaction`] to get the position of the press.
 ///
@@ -227,7 +229,8 @@ pub fn ui_focus_system(
             if !inherited_visibility.get() {
                 // Reset their interaction to None to avoid strange stuck state
                 if let Some(mut interaction) = node.interaction {
-                    // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
+                    // We cannot simply set the interaction to None, as that will trigger change
+                    // detection repeatedly
                     interaction.set_if_neq(Interaction::None);
                 }
                 return None;
@@ -239,7 +242,8 @@ pub fn ui_focus_system(
                 node.node.size(),
             );
 
-            // Intersect with the calculated clip rect to find the bounds of the visible region of the node
+            // Intersect with the calculated clip rect to find the bounds of the visible region of
+            // the node
             let visible_rect = node
                 .calculated_clip
                 .map(|clip| node_rect.intersect(clip.clip))
@@ -251,15 +255,15 @@ pub fn ui_focus_system(
             // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
             // Coordinates are relative to the entire node, not just the visible region.
             let relative_cursor_position = cursor_position.and_then(|cursor_position| {
-                // ensure node size is non-zero in all dimensions, otherwise relative position will be
-                // +/-inf. if the node is hidden, the visible rect min/max will also be -inf leading to
-                // false positives for mouse_over (#12395)
+                // ensure node size is non-zero in all dimensions, otherwise relative position will
+                // be +/-inf. if the node is hidden, the visible rect min/max will
+                // also be -inf leading to false positives for mouse_over (#12395)
                 (node_rect.size().cmpgt(Vec2::ZERO).all())
                     .then_some((*cursor_position - node_rect.min) / node_rect.size())
             });
 
-            // If the current cursor position is within the bounds of the node's visible area, consider it for
-            // clicking
+            // If the current cursor position is within the bounds of the node's visible area,
+            // consider it for clicking
             let relative_cursor_position_component = RelativeCursorPosition {
                 normalized_visible_node_rect: visible_rect.normalize(node_rect),
                 normalized: relative_cursor_position,
@@ -295,8 +299,8 @@ pub fn ui_focus_system(
         .collect::<Vec<Entity>>()
         .into_iter();
 
-    // set Pressed or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
-    // the iteration will stop on it because it "captures" the interaction.
+    // set Pressed or Hovered on top nodes. as soon as a node with a `Block` focus policy is
+    // detected, the iteration will stop on it because it "captures" the interaction.
     let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
@@ -322,8 +326,8 @@ pub fn ui_focus_system(
             FocusPolicy::Pass => { /* allow the next node to be hovered/pressed */ }
         }
     }
-    // reset `Interaction` for the remaining lower nodes to `None`. those are the nodes that remain in
-    // `moused_over_nodes` after the previous loop is exited.
+    // reset `Interaction` for the remaining lower nodes to `None`. those are the nodes that remain
+    // in `moused_over_nodes` after the previous loop is exited.
     let mut iter = node_query.iter_many_mut(hovered_nodes);
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
@@ -335,8 +339,8 @@ pub fn ui_focus_system(
     }
 }
 
-// Returns true if `point` (relative to the rectangle's center) is within the bounds of a rounded rectangle with
-// the given size and border radius.
+// Returns true if `point` (relative to the rectangle's center) is within the bounds of a rounded
+// rectangle with the given size and border radius.
 //
 // Matches the sdf function in `ui.wgsl` that is used by the UI renderer to draw rounded rectangles.
 pub(crate) fn pick_rounded_rect(

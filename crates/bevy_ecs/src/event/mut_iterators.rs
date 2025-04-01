@@ -43,7 +43,8 @@ impl<'a, E: Event> ExactSizeIterator for EventMutIterator<'a, E> {
     }
 }
 
-/// An iterator that yields any unread events (and their IDs) from an [`EventMutator`] or [`EventCursor`].
+/// An iterator that yields any unread events (and their IDs) from an [`EventMutator`] or
+/// [`EventCursor`].
 ///
 /// [`EventMutator`]: super::EventMutator
 #[derive(Debug)]
@@ -190,22 +191,23 @@ impl<'a, E: Event> EventMutParIter<'a, E> {
     /// Unlike normal iteration, the event order is not guaranteed in any form.
     ///
     /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from an event reader that is being
-    /// initialized and run from the ECS scheduler, this should never panic.
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from an event reader that is
+    /// being initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     pub fn for_each<FN: Fn(&'a mut E) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_with_id(move |e, _| func(e));
     }
 
-    /// Runs the provided closure for each unread event in parallel, like [`for_each`](Self::for_each),
-    /// but additionally provides the `EventId` to the closure.
+    /// Runs the provided closure for each unread event in parallel, like
+    /// [`for_each`](Self::for_each), but additionally provides the `EventId` to the closure.
     ///
-    /// Note that the order of iteration is not guaranteed, but `EventId`s are ordered by send order.
+    /// Note that the order of iteration is not guaranteed, but `EventId`s are ordered by send
+    /// order.
     ///
     /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from an event reader that is being
-    /// initialized and run from the ECS scheduler, this should never panic.
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from an event reader that is
+    /// being initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[cfg_attr(

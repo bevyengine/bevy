@@ -1,4 +1,5 @@
-//! A module adding debug visualization of [`PointLight`]s, [`SpotLight`]s and [`DirectionalLight`]s.
+//! A module adding debug visualization of [`PointLight`]s, [`SpotLight`]s and
+//! [`DirectionalLight`]s.
 
 use core::f32::consts::PI;
 
@@ -47,8 +48,8 @@ fn point_light_gizmo(
         .resolution(32);
 }
 
-/// Draws a sphere for the radius, two cones for the inner and outer angles, plus two 3d arcs crossing the
-/// farthest point of effect of the spot light along its direction.
+/// Draws a sphere for the radius, two cones for the inner and outer angles, plus two 3d arcs
+/// crossing the farthest point of effect of the spot light along its direction.
 fn spot_light_gizmo(
     transform: &GlobalTransform,
     spot_light: &SpotLight,
@@ -157,15 +158,18 @@ pub struct LightGizmoConfigGroup {
     ///
     /// Defaults to [`LightGizmoColor::MatchLightColor`].
     pub color: LightGizmoColor,
-    /// [`Color`] to use for drawing a [`PointLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
+    /// [`Color`] to use for drawing a [`PointLight`] gizmo when [`LightGizmoColor::ByLightType`]
+    /// is used.
     ///
     /// Defaults to [`RED`].
     pub point_light_color: Color,
-    /// [`Color`] to use for drawing a [`SpotLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
+    /// [`Color`] to use for drawing a [`SpotLight`] gizmo when [`LightGizmoColor::ByLightType`] is
+    /// used.
     ///
     /// Defaults to [`GREEN`].
     pub spot_light_color: Color,
-    /// [`Color`] to use for drawing a [`DirectionalLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
+    /// [`Color`] to use for drawing a [`DirectionalLight`] gizmo when
+    /// [`LightGizmoColor::ByLightType`] is used.
     ///
     /// Defaults to [`BLUE`].
     pub directional_light_color: Color,
@@ -188,7 +192,8 @@ impl Default for LightGizmoConfigGroup {
 #[derive(Component, Reflect, Default, Debug)]
 #[reflect(Component, Default, Debug)]
 pub struct ShowLightGizmo {
-    /// Default color strategy for this light gizmo. if [`None`], use the one provided by [`LightGizmoConfigGroup`].
+    /// Default color strategy for this light gizmo. if [`None`], use the one provided by
+    /// [`LightGizmoConfigGroup`].
     ///
     /// Defaults to [`None`].
     pub color: Option<LightGizmoColor>,

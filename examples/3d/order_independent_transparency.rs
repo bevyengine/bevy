@@ -1,4 +1,5 @@
-//! A simple 3D scene showing how alpha blending can break and how order independent transparency (OIT) can fix it.
+//! A simple 3D scene showing how alpha blending can break and how order independent transparency
+//! (OIT) can fix it.
 //!
 //! See [`OrderIndependentTransparencyPlugin`] for the trade-offs of using OIT.
 //!
@@ -119,7 +120,8 @@ fn cycle_scenes(
 
 /// Spawns 3 overlapping spheres
 /// Technically, when using `alpha_to_coverage` with MSAA this particular example wouldn't break,
-/// but it breaks when disabling MSAA and is enough to show the difference between OIT enabled vs disabled.
+/// but it breaks when disabling MSAA and is enough to show the difference between OIT enabled vs
+/// disabled.
 fn spawn_spheres(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,

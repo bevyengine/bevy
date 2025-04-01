@@ -1,4 +1,5 @@
-//! This module contains [`GhostNode`] and utilities to flatten the UI hierarchy, traversing past ghost nodes.
+//! This module contains [`GhostNode`] and utilities to flatten the UI hierarchy, traversing past
+//! ghost nodes.
 
 use crate::Node;
 #[cfg(feature = "ghost_nodes")]
@@ -14,7 +15,8 @@ use bevy_transform::prelude::Transform;
 use smallvec::SmallVec;
 /// Marker component for entities that should be ignored within UI hierarchies.
 ///
-/// The UI systems will traverse past these and treat their first non-ghost descendants as direct children of their first non-ghost ancestor.
+/// The UI systems will traverse past these and treat their first non-ghost descendants as direct
+/// children of their first non-ghost ancestor.
 ///
 /// Any components necessary for transform and visibility propagation will be added automatically.
 #[cfg(feature = "ghost_nodes")]
@@ -84,7 +86,8 @@ impl<'w, 's> UiChildren<'w, 's> {
     ///
     /// # Performance
     ///
-    /// This iterator allocates if the `entity` node has more than 8 children (including ghost nodes).
+    /// This iterator allocates if the `entity` node has more than 8 children (including ghost
+    /// nodes).
     pub fn iter_ui_children(&'s self, entity: Entity) -> UiChildrenIter<'w, 's> {
         UiChildrenIter {
             stack: self
@@ -120,7 +123,8 @@ impl<'w, 's> UiChildren<'w, 's> {
         )
     }
 
-    /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if children has been added/removed or if the order has changed.
+    /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if
+    /// children has been added/removed or if the order has changed.
     pub fn is_changed(&'s self, entity: Entity) -> bool {
         self.changed_children_query.contains(entity)
             || self
@@ -153,7 +157,8 @@ impl<'w, 's> UiChildren<'w, 's> {
         self.parents_query.get(entity).ok().map(|p| p.parent)
     }
 
-    /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if children has been added/removed or if the order has changed.
+    /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if
+    /// children has been added/removed or if the order has changed.
     pub fn is_changed(&'s self, entity: Entity) -> bool {
         self.changed_children_query.contains(entity)
     }

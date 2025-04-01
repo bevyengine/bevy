@@ -210,11 +210,11 @@ pub struct Pickable {
     ///
     /// For example, if a pointer is over a UI element, as well as a 3d mesh, backends will report
     /// hits for both of these entities. Additionally, the hits will be sorted by the camera order,
-    /// so if the UI is drawing on top of the 3d mesh, the UI will be "above" the mesh. When hovering
-    /// is computed, the UI element will be checked first to see if it this field is set to block
-    /// lower entities. If it does (default), the hovering system will stop there, and only the UI
-    /// element will be marked as hovered. However, if this field is set to `false`, both the UI
-    /// element *and* the mesh will be marked as hovered.
+    /// so if the UI is drawing on top of the 3d mesh, the UI will be "above" the mesh. When
+    /// hovering is computed, the UI element will be checked first to see if it this field is
+    /// set to block lower entities. If it does (default), the hovering system will stop there,
+    /// and only the UI element will be marked as hovered. However, if this field is set to
+    /// `false`, both the UI element *and* the mesh will be marked as hovered.
     ///
     /// Entities without the [`Pickable`] component will block by default.
     pub should_block_lower: bool,
@@ -266,22 +266,24 @@ pub enum PickSet {
     ProcessInput,
     /// Reads inputs and produces [`backend::PointerHits`]s. In the [`PreUpdate`] schedule.
     Backend,
-    /// Reads [`backend::PointerHits`]s, and updates the hovermap, selection, and highlighting states. In
-    /// the [`PreUpdate`] schedule.
+    /// Reads [`backend::PointerHits`]s, and updates the hovermap, selection, and highlighting
+    /// states. In the [`PreUpdate`] schedule.
     Hover,
-    /// Runs after all the [`PickSet::Hover`] systems are done, before event listeners are triggered. In the
-    /// [`PreUpdate`] schedule.
+    /// Runs after all the [`PickSet::Hover`] systems are done, before event listeners are
+    /// triggered. In the [`PreUpdate`] schedule.
     PostHover,
     /// Runs after all other picking sets. In the [`PreUpdate`] schedule.
     Last,
 }
 
-/// One plugin that contains the [`PointerInputPlugin`](input::PointerInputPlugin), [`PickingPlugin`]
-/// and the [`InteractionPlugin`], this is probably the plugin that will be most used.
+/// One plugin that contains the [`PointerInputPlugin`](input::PointerInputPlugin),
+/// [`PickingPlugin`] and the [`InteractionPlugin`], this is probably the plugin that will be most
+/// used.
 ///
 /// Note: for any of these plugins to work, they require a picking backend to be active,
 /// The picking backend is responsible to turn an input, into a [`crate::backend::PointerHits`]
-/// that [`PickingPlugin`] and [`InteractionPlugin`] will refine into [`bevy_ecs::observer::Trigger`]s.
+/// that [`PickingPlugin`] and [`InteractionPlugin`] will refine into
+/// [`bevy_ecs::observer::Trigger`]s.
 #[derive(Default)]
 pub struct DefaultPickingPlugins;
 
@@ -294,11 +296,11 @@ impl PluginGroup for DefaultPickingPlugins {
     }
 }
 
-/// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
-/// types used by other picking plugins.
+/// This plugin sets up the core picking infrastructure. It receives input events, and provides the
+/// shared types used by other picking plugins.
 ///
-/// This plugin contains several settings, and is added to the world as a resource after initialization. You
-/// can configure picking settings at runtime through the resource.
+/// This plugin contains several settings, and is added to the world as a resource after
+/// initialization. You can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
 #[reflect(Resource, Default, Debug, Clone)]
 pub struct PickingPlugin {

@@ -1,8 +1,9 @@
-//! A test to confirm that `bevy` doesn't regress its system ambiguities count when using [`DefaultPlugins`].
-//! This is run in CI.
+//! A test to confirm that `bevy` doesn't regress its system ambiguities count when using
+//! [`DefaultPlugins`]. This is run in CI.
 //!
 //! Note that because this test requires rendering, it isn't actually an integration test!
-//! Instead, it's secretly an example: you can run this test manually using `cargo run --example ambiguity_detection`.
+//! Instead, it's secretly an example: you can run this test manually using `cargo run --example
+//! ambiguity_detection`.
 
 use bevy::{
     ecs::schedule::{InternedScheduleLabel, LogLevel, ScheduleBuildSettings},
@@ -60,7 +61,8 @@ fn configure_ambiguity_detection(sub_app: &mut SubApp) {
     let mut schedules = sub_app.world_mut().resource_mut::<Schedules>();
     for (_, schedule) in schedules.iter_mut() {
         schedule.set_build_settings(ScheduleBuildSettings {
-            // NOTE: you can change this to `LogLevel::Ignore` to easily see the current number of ambiguities.
+            // NOTE: you can change this to `LogLevel::Ignore` to easily see the current number of
+            // ambiguities.
             ambiguity_detection: LogLevel::Warn,
             use_shortnames: false,
             ..default()

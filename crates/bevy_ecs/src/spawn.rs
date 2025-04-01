@@ -1,5 +1,6 @@
-//! Entity spawning abstractions, largely focused on spawning related hierarchies of entities. See [`related`](crate::related) and [`SpawnRelated`]
-//! for the best entry points into these APIs and examples of how to use them.
+//! Entity spawning abstractions, largely focused on spawning related hierarchies of entities. See
+//! [`related`](crate::related) and [`SpawnRelated`] for the best entry points into these APIs and
+//! examples of how to use them.
 
 use crate::{
     bundle::{Bundle, BundleEffect, DynamicBundle, NoBundleEffect},
@@ -12,9 +13,11 @@ use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
 /// A wrapper over a [`Bundle`] indicating that an entity should be spawned with that [`Bundle`].
-/// This is intended to be used for hierarchical spawning via traits like [`SpawnableList`] and [`SpawnRelated`].
+/// This is intended to be used for hierarchical spawning via traits like [`SpawnableList`] and
+/// [`SpawnRelated`].
 ///
-/// Also see the [`children`](crate::children) and [`related`](crate::related) macros that abstract over the [`Spawn`] API.
+/// Also see the [`children`](crate::children) and [`related`](crate::related) macros that abstract
+/// over the [`Spawn`] API.
 ///
 /// ```
 /// # use bevy_ecs::hierarchy::Children;
@@ -35,14 +38,15 @@ use variadics_please::all_tuples;
 /// ```
 pub struct Spawn<B: Bundle>(pub B);
 
-/// A spawn-able list of changes to a given [`World`] and relative to a given [`Entity`]. This is generally used
-/// for spawning "related" entities, such as children.
+/// A spawn-able list of changes to a given [`World`] and relative to a given [`Entity`]. This is
+/// generally used for spawning "related" entities, such as children.
 pub trait SpawnableList<R> {
-    /// Spawn this list of changes in a given [`World`] and relative to a given [`Entity`]. This is generally used
-    /// for spawning "related" entities, such as children.
+    /// Spawn this list of changes in a given [`World`] and relative to a given [`Entity`]. This is
+    /// generally used for spawning "related" entities, such as children.
     fn spawn(self, world: &mut World, entity: Entity);
-    /// Returns a size hint, which is used to reserve space for this list in a [`RelationshipTarget`]. This should be
-    /// less than or equal to the actual size of the list. When in doubt, just use 0.
+    /// Returns a size hint, which is used to reserve space for this list in a
+    /// [`RelationshipTarget`]. This should be less than or equal to the actual size of the
+    /// list. When in doubt, just use 0.
     fn size_hint(&self) -> usize;
 }
 
@@ -99,7 +103,8 @@ impl<R: Relationship, I: Iterator<Item = B> + Send + Sync + 'static, B: Bundle> 
     }
 }
 
-/// A [`SpawnableList`] that spawns entities using a [`FnOnce`] with a [`RelatedSpawner`] as an argument:
+/// A [`SpawnableList`] that spawns entities using a [`FnOnce`] with a [`RelatedSpawner`] as an
+/// argument:
 ///
 /// ```
 /// # use bevy_ecs::hierarchy::{Children, ChildOf};
@@ -164,7 +169,8 @@ macro_rules! spawnable_list_impl {
 all_tuples!(spawnable_list_impl, 0, 12, P);
 
 /// A [`Bundle`] that:
-/// 1. Contains a [`RelationshipTarget`] component (associated with the given [`Relationship`]). This reserves space for the [`SpawnableList`].
+/// 1. Contains a [`RelationshipTarget`] component (associated with the given [`Relationship`]).
+///    This reserves space for the [`SpawnableList`].
 /// 2. Spawns a [`SpawnableList`] of related entities with a given [`Relationship`].
 ///
 /// This is intended to be created using [`SpawnRelated`].
@@ -224,8 +230,10 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
 }
 
 /// A [`Bundle`] that:
-/// 1. Contains a [`RelationshipTarget`] component (associated with the given [`Relationship`]). This reserves space for a single entity.
-/// 2. Spawns a single related entity containing the given `B` [`Bundle`] and the given [`Relationship`].
+/// 1. Contains a [`RelationshipTarget`] component (associated with the given [`Relationship`]).
+///    This reserves space for a single entity.
+/// 2. Spawns a single related entity containing the given `B` [`Bundle`] and the given
+///    [`Relationship`].
 ///
 /// This is intended to be created using [`SpawnRelated`].
 pub struct SpawnOneRelated<R: Relationship, B: Bundle> {
@@ -282,18 +290,23 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
 
 /// [`RelationshipTarget`] methods that create a [`Bundle`] with a [`DynamicBundle::Effect`] that:
 ///
-/// 1. Contains the [`RelationshipTarget`] component, pre-allocated with the necessary space for spawned entities.
-/// 2. Spawns an entity (or a list of entities) that relate to the entity the [`Bundle`] is added to via the [`RelationshipTarget::Relationship`].
+/// 1. Contains the [`RelationshipTarget`] component, pre-allocated with the necessary space for
+///    spawned entities.
+/// 2. Spawns an entity (or a list of entities) that relate to the entity the [`Bundle`] is added to
+///    via the [`RelationshipTarget::Relationship`].
 pub trait SpawnRelated: RelationshipTarget {
-    /// Returns a [`Bundle`] containing this [`RelationshipTarget`] component. It also spawns a [`SpawnableList`] of entities, each related to the bundle's entity
-    /// via [`RelationshipTarget::Relationship`]. The [`RelationshipTarget`] (when possible) will pre-allocate space for the related entities.
+    /// Returns a [`Bundle`] containing this [`RelationshipTarget`] component. It also spawns a
+    /// [`SpawnableList`] of entities, each related to the bundle's entity
+    /// via [`RelationshipTarget::Relationship`]. The [`RelationshipTarget`] (when possible) will
+    /// pre-allocate space for the related entities.
     ///
     /// See [`Spawn`], [`SpawnIter`], and [`SpawnWith`] for usage examples.
     fn spawn<L: SpawnableList<Self::Relationship>>(
         list: L,
     ) -> SpawnRelatedBundle<Self::Relationship, L>;
 
-    /// Returns a [`Bundle`] containing this [`RelationshipTarget`] component. It also spawns a single entity containing [`Bundle`] that is related to the bundle's entity
+    /// Returns a [`Bundle`] containing this [`RelationshipTarget`] component. It also spawns a
+    /// single entity containing [`Bundle`] that is related to the bundle's entity
     /// via [`RelationshipTarget::Relationship`].
     ///
     /// ```
@@ -328,12 +341,16 @@ impl<T: RelationshipTarget> SpawnRelated for T {
     }
 }
 
-/// Returns a [`SpawnRelatedBundle`] that will insert the given [`RelationshipTarget`], spawn a [`SpawnableList`] of entities with given bundles that
-/// relate to the [`RelationshipTarget`] entity via the [`RelationshipTarget::Relationship`] component, and reserve space in the [`RelationshipTarget`] for each spawned entity.
+/// Returns a [`SpawnRelatedBundle`] that will insert the given [`RelationshipTarget`], spawn a
+/// [`SpawnableList`] of entities with given bundles that relate to the [`RelationshipTarget`]
+/// entity via the [`RelationshipTarget::Relationship`] component, and reserve space in the
+/// [`RelationshipTarget`] for each spawned entity.
 ///
-/// The first argument is the [`RelationshipTarget`] type. Any additional arguments will be interpreted as bundles to be spawned.
+/// The first argument is the [`RelationshipTarget`] type. Any additional arguments will be
+/// interpreted as bundles to be spawned.
 ///
-/// Also see [`children`](crate::children) for a [`Children`](crate::hierarchy::Children)-specific equivalent.
+/// Also see [`children`](crate::children) for a [`Children`](crate::hierarchy::Children)-specific
+/// equivalent.
 ///
 /// ```
 /// # use bevy_ecs::hierarchy::Children;

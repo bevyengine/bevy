@@ -7,12 +7,13 @@
 //! to `true` and add [`MeshPickingCamera`] and [`Pickable`] components to the desired camera and
 //! target entities.
 //!
-//! To manually perform mesh ray casts independent of picking, use the [`MeshRayCast`] system parameter.
+//! To manually perform mesh ray casts independent of picking, use the [`MeshRayCast`] system
+//! parameter.
 //!
 //! ## Implementation Notes
 //!
-//! - The `position` reported in `HitData` is in world space. The `normal` is a vector pointing
-//!   away from the face, it is not guaranteed to be normalized for scaled meshes.
+//! - The `position` reported in `HitData` is in world space. The `normal` is a vector pointing away
+//!   from the face, it is not guaranteed to be normalized for scaled meshes.
 
 pub mod ray_cast;
 
@@ -45,11 +46,12 @@ pub struct MeshPickingSettings {
     /// should be used by the mesh picking backend at runtime.
     pub require_markers: bool,
 
-    /// Determines how mesh picking should consider [`Visibility`]. When set to [`RayCastVisibility::Any`],
-    /// ray casts can be performed against both visible and hidden entities.
+    /// Determines how mesh picking should consider [`Visibility`]. When set to
+    /// [`RayCastVisibility::Any`], ray casts can be performed against both visible and hidden
+    /// entities.
     ///
-    /// Defaults to [`RayCastVisibility::VisibleInView`], only performing picking against visible entities
-    /// that are in the view of a camera.
+    /// Defaults to [`RayCastVisibility::VisibleInView`], only performing picking against visible
+    /// entities that are in the view of a camera.
     pub ray_cast_visibility: RayCastVisibility,
 }
 

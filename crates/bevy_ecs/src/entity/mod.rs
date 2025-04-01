@@ -1,11 +1,13 @@
 //! Entity handling types.
 //!
-//! An **entity** exclusively owns zero or more [component] instances, all of different types, and can dynamically acquire or lose them over its lifetime.
+//! An **entity** exclusively owns zero or more [component] instances, all of different types, and
+//! can dynamically acquire or lose them over its lifetime.
 //!
 //! **empty entity**: Entity with zero components.
-//! **pending entity**: Entity reserved, but not flushed yet (see [`Entities::flush`] docs for reference).
-//! **reserved entity**: same as **pending entity**.
-//! **invalid entity**: **pending entity** flushed with invalid (see [`Entities::flush_as_invalid`] docs for reference).
+//! **pending entity**: Entity reserved, but not flushed yet (see [`Entities::flush`] docs for
+//! reference). **reserved entity**: same as **pending entity**.
+//! **invalid entity**: **pending entity** flushed with invalid (see [`Entities::flush_as_invalid`]
+//! docs for reference).
 //!
 //! See [`Entity`] to learn more.
 //!
@@ -13,8 +15,9 @@
 //!
 //! # Usage
 //!
-//! Operations involving entities and their components are performed either from a system by submitting commands,
-//! or from the outside (or from an exclusive system) by directly using [`World`] methods:
+//! Operations involving entities and their components are performed either from a system by
+//! submitting commands, or from the outside (or from an exclusive system) by directly using
+//! [`World`] methods:
 //!
 //! |Operation|Command|Method|
 //! |:---:|:---:|:---:|
@@ -105,29 +108,33 @@ type IdCursor = isize;
 
 /// Lightweight identifier of an [entity](crate::entity).
 ///
-/// The identifier is implemented using a [generational index]: a combination of an index and a generation.
-/// This allows fast insertion after data removal in an array while minimizing loss of spatial locality.
+/// The identifier is implemented using a [generational index]: a combination of an index and a
+/// generation. This allows fast insertion after data removal in an array while minimizing loss of
+/// spatial locality.
 ///
-/// These identifiers are only valid on the [`World`] it's sourced from. Attempting to use an `Entity` to
-/// fetch entity components or metadata from a different world will either fail or return unexpected results.
+/// These identifiers are only valid on the [`World`] it's sourced from. Attempting to use an
+/// `Entity` to fetch entity components or metadata from a different world will either fail or
+/// return unexpected results.
 ///
 /// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
 ///
 /// # Stability warning
-/// For all intents and purposes, `Entity` should be treated as an opaque identifier. The internal bit
-/// representation is liable to change from release to release as are the behaviors or performance
-/// characteristics of any of its trait implementations (i.e. `Ord`, `Hash`, etc.). This means that changes in
-/// `Entity`'s representation, though made readable through various functions on the type, are not considered
-/// breaking changes under [SemVer].
+/// For all intents and purposes, `Entity` should be treated as an opaque identifier. The internal
+/// bit representation is liable to change from release to release as are the behaviors or
+/// performance characteristics of any of its trait implementations (i.e. `Ord`, `Hash`, etc.). This
+/// means that changes in `Entity`'s representation, though made readable through various functions
+/// on the type, are not considered breaking changes under [SemVer].
 ///
-/// In particular, directly serializing with `Serialize` and `Deserialize` make zero guarantee of long
-/// term wire format compatibility. Changes in behavior will cause serialized `Entity` values persisted
-/// to long term storage (i.e. disk, databases, etc.) will fail to deserialize upon being updated.
+/// In particular, directly serializing with `Serialize` and `Deserialize` make zero guarantee of
+/// long term wire format compatibility. Changes in behavior will cause serialized `Entity` values
+/// persisted to long term storage (i.e. disk, databases, etc.) will fail to deserialize upon being
+/// updated.
 ///
 /// # Usage
 ///
-/// This data type is returned by iterating a `Query` that has `Entity` as part of its query fetch type parameter ([learn more]).
-/// It can also be obtained by calling [`EntityCommands::id`] or [`EntityWorldMut::id`].
+/// This data type is returned by iterating a `Query` that has `Entity` as part of its query fetch
+/// type parameter ([learn more]). It can also be obtained by calling [`EntityCommands::id`] or
+/// [`EntityWorldMut::id`].
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -147,7 +154,8 @@ type IdCursor = isize;
 /// # bevy_ecs::system::assert_is_system(exclusive_system);
 /// ```
 ///
-/// It can be used to refer to a specific entity to apply [`EntityCommands`], or to call [`Query::get`] (or similar methods) to access its components.
+/// It can be used to refer to a specific entity to apply [`EntityCommands`], or to call
+/// [`Query::get`] (or similar methods) to access its components.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -332,7 +340,8 @@ impl Entity {
     ///
     /// # Panics
     ///
-    /// This method will likely panic if given `u64` values that did not come from [`Entity::to_bits`].
+    /// This method will likely panic if given `u64` values that did not come from
+    /// [`Entity::to_bits`].
     #[inline]
     pub const fn from_bits(bits: u64) -> Self {
         // Construct an Identifier initially to extract the kind from.
@@ -367,9 +376,9 @@ impl Entity {
 
     /// Return a transiently unique identifier.
     ///
-    /// No two simultaneously-live entities share the same index, but dead entities' indices may collide
-    /// with both live and dead entities. Useful for compactly representing entities within a
-    /// specific snapshot of the world, such as when serializing.
+    /// No two simultaneously-live entities share the same index, but dead entities' indices may
+    /// collide with both live and dead entities. Useful for compactly representing entities
+    /// within a specific snapshot of the world, such as when serializing.
     #[inline]
     pub const fn index(self) -> u32 {
         self.index
@@ -545,8 +554,8 @@ pub struct Entities {
     ///   these over brand new IDs.
     ///
     /// - The `reserved` list of IDs that were once in the freelist, but got reserved by
-    ///   [`reserve_entities`] or [`reserve_entity`]. They are now waiting for [`flush`] to make them
-    ///   fully allocated.
+    ///   [`reserve_entities`] or [`reserve_entity`]. They are now waiting for [`flush`] to make
+    ///   them fully allocated.
     ///
     /// - The count of new IDs that do not yet exist in `self.meta`, but which we have handed out
     ///   and reserved. [`flush`] will allocate room for them in `self.meta`.
@@ -592,7 +601,8 @@ impl Entities {
 
     /// Reserve entity IDs concurrently.
     ///
-    /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
+    /// Storage for entity generation and location is lazily allocated by calling
+    /// [`flush`](Entities::flush).
     #[expect(
         clippy::allow_attributes,
         reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
@@ -906,16 +916,18 @@ impl Entities {
         *self.free_cursor.get_mut() != self.pending.len() as IdCursor
     }
 
-    /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
-    /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the supplied function.
+    /// Allocates space for entities previously reserved with
+    /// [`reserve_entity`](Entities::reserve_entity) or
+    /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the
+    /// supplied function.
     ///
     /// # Safety
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
     /// each time init is called. This _can_ be [`ArchetypeId::INVALID`], provided the [`Entity`]
     /// has not been assigned to an [`Archetype`][crate::archetype::Archetype].
     ///
-    /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
-    /// to be initialized with the invalid archetype.
+    /// Note: freshly-allocated entities (ones which don't come from the pending list) are
+    /// guaranteed to be initialized with the invalid archetype.
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
@@ -946,11 +958,12 @@ impl Entities {
         }
     }
 
-    /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
-    /// unless they are later populated with a valid archetype.
+    /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return
+    /// `None` unless they are later populated with a valid archetype.
     pub fn flush_as_invalid(&mut self) {
-        // SAFETY: as per `flush` safety docs, the archetype id can be set to [`ArchetypeId::INVALID`] if
-        // the [`Entity`] has not been assigned to an [`Archetype`][crate::archetype::Archetype], which is the case here
+        // SAFETY: as per `flush` safety docs, the archetype id can be set to
+        // [`ArchetypeId::INVALID`] if the [`Entity`] has not been assigned to an
+        // [`Archetype`][crate::archetype::Archetype], which is the case here
         unsafe {
             self.flush(|_entity, location| {
                 location.archetype_id = ArchetypeId::INVALID;
@@ -979,8 +992,9 @@ impl Entities {
         (self.meta.len() as isize - self.free_cursor.load(Ordering::Relaxed) as isize) as usize
     }
 
-    /// The count of all entities in the [`World`] that have ever been allocated or reserved, including those that are freed.
-    /// This is the value that [`Self::total_count()`] would return if [`Self::flush()`] were called right now.
+    /// The count of all entities in the [`World`] that have ever been allocated or reserved,
+    /// including those that are freed. This is the value that [`Self::total_count()`] would
+    /// return if [`Self::flush()`] were called right now.
     ///
     /// [`World`]: crate::world::World
     #[inline]

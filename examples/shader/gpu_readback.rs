@@ -1,5 +1,5 @@
-//! Simple example demonstrating the use of the [`Readback`] component to read back data from the GPU
-//! using both a storage buffer and texture.
+//! Simple example demonstrating the use of the [`Readback`] component to read back data from the
+//! GPU using both a storage buffer and texture.
 
 use bevy::{
     prelude::*,

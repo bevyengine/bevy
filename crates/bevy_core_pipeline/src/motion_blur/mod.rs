@@ -77,8 +77,8 @@ pub struct MotionBlur {
     ///     reproduce the look of film.
     ///   - Set the shutter angle greater than one. For example, to emulate the blur strength of
     ///     film while rendering at 60fps, you would set the shutter angle to `60/24 * 0.5 = 1.25`.
-    ///     Note that this will result in artifacts where the motion of objects will stretch further
-    ///     than they moved between frames; users may find this distracting.
+    ///     Note that this will result in artifacts where the motion of objects will stretch
+    ///     further than they moved between frames; users may find this distracting.
     pub shutter_angle: f32,
     /// The quality of motion blur, corresponding to the number of per-pixel samples taken in each
     /// direction during blur.

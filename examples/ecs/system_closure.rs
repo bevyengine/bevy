@@ -28,7 +28,8 @@ fn main() {
         .add_plugins(LogPlugin::default())
         // we can use a closure as a system
         .add_systems(Update, simple_closure)
-        // or we can use a more complex closure, and pass an argument to initialize a Local variable.
+        // or we can use a more complex closure, and pass an argument to initialize a Local
+        // variable.
         .add_systems(Update, complex_closure("foo".into()))
         // we can also inline a closure
         .add_systems(Update, || {

@@ -48,16 +48,17 @@ use derive_more::derive::From;
 use tracing::error;
 
 /// Materials are used alongside [`Material2dPlugin`], [`Mesh2d`], and [`MeshMaterial2d`]
-/// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
-/// way to render [`Mesh2d`] entities with custom shader logic.
+/// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy
+/// to use high level way to render [`Mesh2d`] entities with custom shader logic.
 ///
-/// Materials must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
-/// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
+/// Materials must implement [`AsBindGroup`] to define how data will be transferred to the GPU and
+/// bound in shaders. [`AsBindGroup`] can be derived, which makes generating bindings
+/// straightforward. See the [`AsBindGroup`] docs for details.
 ///
 /// # Example
 ///
-/// Here is a simple [`Material2d`] implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
-/// check out the [`AsBindGroup`] documentation.
+/// Here is a simple [`Material2d`] implementation. The [`AsBindGroup`] derive has many features. To
+/// see what else is available, check out the [`AsBindGroup`] documentation.
 ///
 /// ```
 /// # use bevy_sprite::{Material2d, MeshMaterial2d};
@@ -120,14 +121,14 @@ use tracing::error;
 /// @group(2) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
-    /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
-    /// will be used.
+    /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default
+    /// mesh vertex shader will be used.
     fn vertex_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the default mesh fragment shader
-    /// will be used.
+    /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the default
+    /// mesh fragment shader will be used.
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
@@ -159,7 +160,8 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 
 /// A [material](Material2d) used for rendering a [`Mesh2d`].
 ///
-/// See [`Material2d`] for general information about 2D materials and how to implement your own materials.
+/// See [`Material2d`] for general information about 2D materials and how to implement your own
+/// materials.
 ///
 /// # Example
 ///
@@ -226,8 +228,9 @@ impl<M: Material2d> AsAssetId for MeshMaterial2d<M> {
 /// Sets how a 2d material's base color alpha channel is used for transparency.
 /// Currently, this only works with [`Mesh2d`]. Sprites are always transparent.
 ///
-/// This is very similar to [`AlphaMode`](bevy_render::alpha::AlphaMode) but this only applies to 2d meshes.
-/// We use a separate type because 2d doesn't support all the transparency modes that 3d does.
+/// This is very similar to [`AlphaMode`](bevy_render::alpha::AlphaMode) but this only applies to 2d
+/// meshes. We use a separate type because 2d doesn't support all the transparency modes that 3d
+/// does.
 #[derive(Debug, Default, Reflect, Copy, Clone, PartialEq)]
 #[reflect(Default, Debug, Clone)]
 pub enum AlphaMode2d {
@@ -249,8 +252,8 @@ pub enum AlphaMode2d {
     Blend,
 }
 
-/// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material2d`]
-/// asset type (which includes [`Material2d`] types).
+/// Adds the necessary ECS resources and render logic to enable rendering entities using the given
+/// [`Material2d`] asset type (which includes [`Material2d`] types).
 pub struct Material2dPlugin<M: Material2d>(PhantomData<M>);
 
 impl<M: Material2d> Default for Material2dPlugin<M> {
@@ -889,10 +892,12 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         entity: (*render_entity, *visible_entity),
                         draw_function: material_2d.properties.draw_function_id,
                         pipeline: pipeline_id,
-                        // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
-                        // lowest sort key and getting closer should increase. As we have
-                        // -z in front of the camera, the largest distance is -far with values increasing toward the
-                        // camera. As such we can just use mesh_z as the distance
+                        // NOTE: Back-to-front ordering for transparent with ascending sort means
+                        // far should have the lowest sort key and getting
+                        // closer should increase. As we have -z in front of
+                        // the camera, the largest distance is -far with values increasing toward
+                        // the camera. As such we can just use mesh_z as the
+                        // distance
                         sort_key: FloatOrd(mesh_z + material_2d.properties.depth_bias),
                         // Batching is done in batch_and_prepare_render_phase
                         batch_range: 0..1,

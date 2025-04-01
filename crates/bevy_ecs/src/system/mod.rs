@@ -2,7 +2,8 @@
 //!
 //! Systems define how an ECS based application behaves.
 //! Systems are added to a [`Schedule`](crate::schedule::Schedule), which is then run.
-//! A system is usually written as a normal function, which is automatically converted into a system.
+//! A system is usually written as a normal function, which is automatically converted into a
+//! system.
 //!
 //! System functions can have parameters, through which one can query and mutate Bevy ECS state.
 //! Only types that implement [`SystemParam`] can be used, automatically fetching data from
@@ -45,8 +46,10 @@
 //! When this is not specified, a **system order ambiguity** exists in your schedule.
 //! You can **explicitly order** systems:
 //!
-//! - by calling the `.before(this_system)` or `.after(that_system)` methods when adding them to your schedule
-//! - by adding them to a [`SystemSet`], and then using `.configure_sets(ThisSet.before(ThatSet))` syntax to configure many systems at once
+//! - by calling the `.before(this_system)` or `.after(that_system)` methods when adding them to
+//!   your schedule
+//! - by adding them to a [`SystemSet`], and then using `.configure_sets(ThisSet.before(ThatSet))`
+//!   syntax to configure many systems at once
 //! - through the use of `.add_systems((system_a, system_b, system_c).chain())`
 //!
 //! [`SystemSet`]: crate::schedule::SystemSet
@@ -108,8 +111,8 @@
 //! - [`ParamSet`]
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
 //!
-//! In addition, the following parameters can be used when constructing a dynamic system with [`SystemParamBuilder`],
-//! but will only provide an empty value when used with an ordinary system:
+//! In addition, the following parameters can be used when constructing a dynamic system with
+//! [`SystemParamBuilder`], but will only provide an empty value when used with an ordinary system:
 //!
 //! - [`FilteredResources`](crate::world::FilteredResources)
 //! - [`FilteredResourcesMut`](crate::world::FilteredResourcesMut)
@@ -228,7 +231,8 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
         IntoAdapterSystem::new(f, self)
     }
 
-    /// Get the [`TypeId`] of the [`System`] produced after calling [`into_system`](`IntoSystem::into_system`).
+    /// Get the [`TypeId`] of the [`System`] produced after calling
+    /// [`into_system`](`IntoSystem::into_system`).
     #[inline]
     fn system_type_id(&self) -> TypeId {
         TypeId::of::<Self::System>()
@@ -986,7 +990,8 @@ mod tests {
         struct NSystems(usize);
         world.insert_resource(NSystems::default());
 
-        // First, check that removal detection is triggered if and only if we despawn an entity with the correct component
+        // First, check that removal detection is triggered if and only if we despawn an entity with
+        // the correct component
         world.entity_mut(entity_to_despawn).despawn();
         world.entity_mut(spurious_entity).despawn();
 
@@ -1215,8 +1220,8 @@ mod tests {
         let mut system_state: SystemState<(ResMut<A>, Option<Single<&mut B>>)> =
             SystemState::new(&mut world);
 
-        // The following line shouldn't compile because the parameters used are not ReadOnlySystemParam
-        // let (a, query) = system_state.get(&world);
+        // The following line shouldn't compile because the parameters used are not
+        // ReadOnlySystemParam let (a, query) = system_state.get(&world);
 
         let (a, query) = system_state.get_mut(&mut world);
         assert_eq!(*a, A(42), "returned resource matches initial value");

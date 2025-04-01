@@ -59,8 +59,8 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     fn build(&self, app: &mut App);
 
     /// Has the plugin finished its setup? This can be useful for plugins that need something
-    /// asynchronous to happen before they can finish their setup, like the initialization of a renderer.
-    /// Once the plugin is ready, [`finish`](Plugin::finish) should be called.
+    /// asynchronous to happen before they can finish their setup, like the initialization of a
+    /// renderer. Once the plugin is ready, [`finish`](Plugin::finish) should be called.
     fn ready(&self, _app: &App) -> bool {
         true
     }
@@ -72,8 +72,8 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     }
 
     /// Runs after all plugins are built and finished, but before the app schedule is executed.
-    /// This can be useful if you have some resource that other plugins need during their build step,
-    /// but after build you want to remove it and send it to another thread.
+    /// This can be useful if you have some resource that other plugins need during their build
+    /// step, but after build you want to remove it and send it to another thread.
     fn cleanup(&self, _app: &mut App) {
         // do nothing
     }

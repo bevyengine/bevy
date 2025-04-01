@@ -203,8 +203,8 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     }
 
     /// Iterates over the events this [`RemovedComponents`] has not seen yet. This updates the
-    /// [`RemovedComponents`]'s event counter, which means subsequent event reads will not include events
-    /// that happened before now.
+    /// [`RemovedComponents`]'s event counter, which means subsequent event reads will not include
+    /// events that happened before now.
     pub fn read(&mut self) -> RemovedIter<'_> {
         self.reader_mut_with_events()
             .map(|(reader, events)| reader.read(events).cloned())
@@ -222,7 +222,8 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
             .map(map_id_events)
     }
 
-    /// Determines the number of removal events available to be read from this [`RemovedComponents`] without consuming any.
+    /// Determines the number of removal events available to be read from this [`RemovedComponents`]
+    /// without consuming any.
     pub fn len(&self) -> usize {
         self.events()
             .map(|events| self.reader.len(events))
@@ -238,7 +239,8 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// Consumes all available events.
     ///
     /// This means these events will not appear in calls to [`RemovedComponents::read()`] or
-    /// [`RemovedComponents::read_with_id()`] and [`RemovedComponents::is_empty()`] will return `true`.
+    /// [`RemovedComponents::read_with_id()`] and [`RemovedComponents::is_empty()`] will return
+    /// `true`.
     pub fn clear(&mut self) {
         if let Some((reader, events)) = self.reader_mut_with_events() {
             reader.clear(events);

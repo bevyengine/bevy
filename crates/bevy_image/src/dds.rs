@@ -325,7 +325,8 @@ mod test {
 
     use super::dds_buffer_to_image;
 
-    /// `wgpu::create_texture_with_data` that reads from data structure but doesn't actually talk to your GPU
+    /// `wgpu::create_texture_with_data` that reads from data structure but doesn't actually talk to
+    /// your GPU
     fn fake_wgpu_create_texture_with_data(
         desc: &TextureDescriptor<Option<&'_ str>, &'_ [TextureFormat]>,
         data: &[u8],

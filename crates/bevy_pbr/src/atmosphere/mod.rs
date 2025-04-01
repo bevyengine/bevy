@@ -312,7 +312,8 @@ pub struct Atmosphere {
     ///
     /// domain: (-1, 1)
     /// units: N/A
-    pub mie_asymmetry: f32, /* the "asymmetry" value of the phase function, unitless. Domain: (-1, 1) */
+    pub mie_asymmetry: f32, /* the "asymmetry" value of the phase function, unitless. Domain:
+                             * (-1, 1) */
 
     /// The altitude at which the ozone layer is centered.
     ///

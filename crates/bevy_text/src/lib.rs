@@ -2,11 +2,13 @@
 //!
 //! # `Font`
 //!
-//! Fonts contain information for drawing glyphs, which are shapes that typically represent a single character,
-//! but in some cases part of a "character" (grapheme clusters) or more than one character (ligatures).
+//! Fonts contain information for drawing glyphs, which are shapes that typically represent a single
+//! character, but in some cases part of a "character" (grapheme clusters) or more than one
+//! character (ligatures).
 //!
 //! A font *face* is part of a font family,
-//! and is distinguished by its style (e.g. italic), its weight (e.g. bold) and its stretch (e.g. condensed).
+//! and is distinguished by its style (e.g. italic), its weight (e.g. bold) and its stretch (e.g.
+//! condensed).
 //!
 //! In Bevy, [`Font`]s are loaded by the [`FontLoader`] as [assets](bevy_asset::AssetPlugin).
 //!
@@ -14,20 +16,23 @@
 //!
 //! The [`TextPipeline`] resource does all of the heavy lifting for rendering text.
 //!
-//! UI `Text` is first measured by creating a [`TextMeasureInfo`] in [`TextPipeline::create_text_measure`],
-//! which is called by the `measure_text_system` system of `bevy_ui`.
+//! UI `Text` is first measured by creating a [`TextMeasureInfo`] in
+//! [`TextPipeline::create_text_measure`], which is called by the `measure_text_system` system of
+//! `bevy_ui`.
 //!
 //! Note that text measurement is only relevant in a UI context.
 //!
-//! With the actual text bounds defined, the `bevy_ui::widget::text::text_system` system (in a UI context)
-//! or [`text2d::update_text2d_layout`] system (in a 2d world space context)
+//! With the actual text bounds defined, the `bevy_ui::widget::text::text_system` system (in a UI
+//! context) or [`text2d::update_text2d_layout`] system (in a 2d world space context)
 //! passes it into [`TextPipeline::queue_text`], which:
 //!
-//! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlasSet`]s if necessary.
-//! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
-//!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
-//! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
-//!    which contains all the information that downstream systems need for rendering.
+//! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new
+//!    [`FontAtlasSet`]s if necessary.
+//! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a
+//!    [`PositionedGlyph`], retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if
+//!    necessary.
+//! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`], which contains all the information
+//!    that downstream systems need for rendering.
 
 extern crate alloc;
 
@@ -128,7 +133,8 @@ impl Plugin for TextPlugin {
                     detect_text_needs_rerender::<Text2d>,
                     update_text2d_layout
                         // Potential conflict: `Assets<Image>`
-                        // In practice, they run independently since `bevy_render::camera_update_system`
+                        // In practice, they run independently since
+                        // `bevy_render::camera_update_system`
                         // will only ever observe its own render target, and `update_text2d_layout`
                         // will never modify a pre-existing `Image` asset.
                         .ambiguous_with(CameraUpdateSystem),

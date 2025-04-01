@@ -11,7 +11,8 @@ use bevy_render::view::screenshot::trigger_screenshots;
 use bevy_time::TimeUpdateStrategy;
 use core::time::Duration;
 
-/// A plugin that instruments continuous integration testing by automatically executing user-defined actions.
+/// A plugin that instruments continuous integration testing by automatically executing user-defined
+/// actions.
 ///
 /// This plugin reads a [`ron`] file specified with the `CI_TESTING_CONFIG` environmental variable
 /// (`ci_testing_config.ron` by default) and executes its specified actions. For a reference of the

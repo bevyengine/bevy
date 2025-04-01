@@ -1,106 +1,127 @@
-//! In the context of game development, an "asset" is a piece of content that is loaded from disk and displayed in the game.
-//! Typically, these are authored by artists and designers (in contrast to code),
-//! are relatively large in size, and include everything from textures and models to sounds and music to levels and scripts.
+//! In the context of game development, an "asset" is a piece of content that is loaded from disk
+//! and displayed in the game. Typically, these are authored by artists and designers (in contrast
+//! to code), are relatively large in size, and include everything from textures and models to
+//! sounds and music to levels and scripts.
 //!
 //! This presents two main challenges:
-//! - Assets take up a lot of memory; simply storing a copy for each instance of an asset in the game would be prohibitively expensive.
+//! - Assets take up a lot of memory; simply storing a copy for each instance of an asset in the
+//!   game would be prohibitively expensive.
 //! - Loading assets from disk is slow, and can cause long load times and delays.
 //!
 //! These problems play into each other, for if assets are expensive to store in memory,
-//! then larger game worlds will need to load them from disk as needed, ideally without a loading screen.
+//! then larger game worlds will need to load them from disk as needed, ideally without a loading
+//! screen.
 //!
-//! As is common in Rust, non-blocking asset loading is done using `async`, with background tasks used to load assets while the game is running.
-//! Bevy coordinates these tasks using the [`AssetServer`] resource, storing each loaded asset in a strongly-typed [`Assets<T>`] collection (also a resource).
-//! [`Handle`]s serve as an id-based reference to entries in the [`Assets`] collection, allowing them to be cheaply shared between systems,
-//! and providing a way to initialize objects (generally entities) before the required assets are loaded.
+//! As is common in Rust, non-blocking asset loading is done using `async`, with background tasks
+//! used to load assets while the game is running. Bevy coordinates these tasks using the
+//! [`AssetServer`] resource, storing each loaded asset in a strongly-typed [`Assets<T>`] collection
+//! (also a resource). [`Handle`]s serve as an id-based reference to entries in the [`Assets`]
+//! collection, allowing them to be cheaply shared between systems, and providing a way to
+//! initialize objects (generally entities) before the required assets are loaded.
 //! In short: [`Handle`]s are not the assets themselves, they just tell how to look them up!
 //!
 //! ## Loading assets
 //!
 //! The [`AssetServer`] is the main entry point for loading assets.
-//! Typically, you'll use the [`AssetServer::load`] method to load an asset from disk, which returns a [`Handle`].
-//! Note that this method does not attempt to reload the asset if it has already been loaded: as long as at least one handle has not been dropped,
-//! calling [`AssetServer::load`] on the same path will return the same handle.
-//! The handle that's returned can be used to instantiate various [`Component`]s that require asset data to function,
-//! which will then be spawned into the world as part of an entity.
+//! Typically, you'll use the [`AssetServer::load`] method to load an asset from disk, which returns
+//! a [`Handle`]. Note that this method does not attempt to reload the asset if it has already been
+//! loaded: as long as at least one handle has not been dropped, calling [`AssetServer::load`] on
+//! the same path will return the same handle. The handle that's returned can be used to instantiate
+//! various [`Component`]s that require asset data to function, which will then be spawned into the
+//! world as part of an entity.
 //!
-//! To avoid assets "popping" into existence, you may want to check that all of the required assets are loaded before transitioning to a new scene.
-//! This can be done by checking the [`LoadState`] of the asset handle using [`AssetServer::is_loaded_with_dependencies`],
-//! which will be `true` when the asset is ready to use.
+//! To avoid assets "popping" into existence, you may want to check that all of the required assets
+//! are loaded before transitioning to a new scene. This can be done by checking the [`LoadState`]
+//! of the asset handle using [`AssetServer::is_loaded_with_dependencies`], which will be `true`
+//! when the asset is ready to use.
 //!
-//! Keep track of what you're waiting on by using a [`HashSet`] of asset handles or similar data structure,
-//! which iterate over and poll in your update loop, and transition to the new scene once all assets are loaded.
-//! Bevy's built-in states system can be very helpful for this!
+//! Keep track of what you're waiting on by using a [`HashSet`] of asset handles or similar data
+//! structure, which iterate over and poll in your update loop, and transition to the new scene once
+//! all assets are loaded. Bevy's built-in states system can be very helpful for this!
 //!
 //! # Modifying entities that use assets
 //!
-//! If we later want to change the asset data a given component uses (such as changing an entity's material), we have three options:
+//! If we later want to change the asset data a given component uses (such as changing an entity's
+//! material), we have three options:
 //!
 //! 1. Change the handle stored on the responsible component to the handle of a different asset
 //! 2. Despawn the entity and spawn a new one with the new asset data.
 //! 3. Use the [`Assets`] collection to directly modify the current handle's asset data
 //!
-//! The first option is the most common: just query for the component that holds the handle, and mutate it, pointing to the new asset.
-//! Check how the handle was passed in to the entity when it was spawned: if a mesh-related component required a handle to a mesh asset,
-//! you'll need to find that component via a query and change the handle to the new mesh asset.
-//! This is so commonly done that you should think about strategies for how to store and swap handles in your game.
+//! The first option is the most common: just query for the component that holds the handle, and
+//! mutate it, pointing to the new asset. Check how the handle was passed in to the entity when it
+//! was spawned: if a mesh-related component required a handle to a mesh asset, you'll need to find
+//! that component via a query and change the handle to the new mesh asset. This is so commonly done
+//! that you should think about strategies for how to store and swap handles in your game.
 //!
 //! The second option is the simplest, but can be slow if done frequently,
-//! and can lead to frustrating bugs as references to the old entity (such as what is targeting it) and other data on the entity are lost.
-//! Generally, this isn't a great strategy.
+//! and can lead to frustrating bugs as references to the old entity (such as what is targeting it)
+//! and other data on the entity are lost. Generally, this isn't a great strategy.
 //!
-//! The third option has different semantics: rather than modifying the asset data for a single entity, it modifies the asset data for *all* entities using this handle.
-//! While this might be what you want, it generally isn't!
+//! The third option has different semantics: rather than modifying the asset data for a single
+//! entity, it modifies the asset data for *all* entities using this handle. While this might be
+//! what you want, it generally isn't!
 //!
 //! # Hot reloading assets
 //!
-//! Bevy supports asset hot reloading, allowing you to change assets on disk and see the changes reflected in your game without restarting.
-//! When enabled, any changes to the underlying asset file will be detected by the [`AssetServer`], which will then reload the asset,
-//! mutating the asset data in the [`Assets`] collection and thus updating all entities that use the asset.
-//! While it has limited uses in published games, it is very useful when developing, as it allows you to iterate quickly.
+//! Bevy supports asset hot reloading, allowing you to change assets on disk and see the changes
+//! reflected in your game without restarting. When enabled, any changes to the underlying asset
+//! file will be detected by the [`AssetServer`], which will then reload the asset, mutating the
+//! asset data in the [`Assets`] collection and thus updating all entities that use the asset. While
+//! it has limited uses in published games, it is very useful when developing, as it allows you to
+//! iterate quickly.
 //!
-//! To enable asset hot reloading on desktop platforms, enable `bevy`'s `file_watcher` cargo feature.
-//! To toggle it at runtime, you can use the `watch_for_changes_override` field in the [`AssetPlugin`] to enable or disable hot reloading.
+//! To enable asset hot reloading on desktop platforms, enable `bevy`'s `file_watcher` cargo
+//! feature. To toggle it at runtime, you can use the `watch_for_changes_override` field in the
+//! [`AssetPlugin`] to enable or disable hot reloading.
 //!
 //! # Procedural asset creation
 //!
-//! Not all assets are loaded from disk: some are generated at runtime, such as procedural materials, sounds or even levels.
-//! After creating an item of a type that implements [`Asset`], you can add it to the [`Assets`] collection using [`Assets::add`].
-//! Once in the asset collection, this data can be operated on like any other asset.
+//! Not all assets are loaded from disk: some are generated at runtime, such as procedural
+//! materials, sounds or even levels. After creating an item of a type that implements [`Asset`],
+//! you can add it to the [`Assets`] collection using [`Assets::add`]. Once in the asset collection,
+//! this data can be operated on like any other asset.
 //!
-//! Note that, unlike assets loaded from a file path, no general mechanism currently exists to deduplicate procedural assets:
-//! calling [`Assets::add`] for every entity that needs the asset will create a new copy of the asset for each entity,
-//! quickly consuming memory.
+//! Note that, unlike assets loaded from a file path, no general mechanism currently exists to
+//! deduplicate procedural assets: calling [`Assets::add`] for every entity that needs the asset
+//! will create a new copy of the asset for each entity, quickly consuming memory.
 //!
 //! ## Handles and reference counting
 //!
-//! [`Handle`] (or their untyped counterpart [`UntypedHandle`]) are used to reference assets in the [`Assets`] collection,
-//! and are the primary way to interact with assets in Bevy.
+//! [`Handle`] (or their untyped counterpart [`UntypedHandle`]) are used to reference assets in the
+//! [`Assets`] collection, and are the primary way to interact with assets in Bevy.
 //! As a user, you'll be working with handles a lot!
 //!
-//! The most important thing to know about handles is that they are reference counted: when you clone a handle, you're incrementing a reference count.
-//! When the object holding the handle is dropped (generally because an entity was despawned), the reference count is decremented.
-//! When the reference count hits zero, the asset it references is removed from the [`Assets`] collection.
+//! The most important thing to know about handles is that they are reference counted: when you
+//! clone a handle, you're incrementing a reference count. When the object holding the handle is
+//! dropped (generally because an entity was despawned), the reference count is decremented.
+//! When the reference count hits zero, the asset it references is removed from the [`Assets`]
+//! collection.
 //!
-//! This reference counting is a simple, largely automatic way to avoid holding onto memory for game objects that are no longer in use.
-//! However, it can lead to surprising behavior if you're not careful!
+//! This reference counting is a simple, largely automatic way to avoid holding onto memory for game
+//! objects that are no longer in use. However, it can lead to surprising behavior if you're not
+//! careful!
 //!
 //! There are two categories of problems to watch out for:
 //! - never dropping a handle, causing the asset to never be removed from memory
-//! - dropping a handle too early, causing the asset to be removed from memory while it's still in use
+//! - dropping a handle too early, causing the asset to be removed from memory while it's still in
+//!   use
 //!
-//! The first problem is less critical for beginners, as for tiny games, you can often get away with simply storing all of the assets in memory at once,
-//! and loading them all at the start of the game.
-//! As your game grows, you'll need to be more careful about when you load and unload assets,
+//! The first problem is less critical for beginners, as for tiny games, you can often get away with
+//! simply storing all of the assets in memory at once, and loading them all at the start of the
+//! game. As your game grows, you'll need to be more careful about when you load and unload assets,
 //! segmenting them by level or area, and loading them on-demand.
-//! This problem generally arises when handles are stored in a persistent "collection" or "manifest" of possible objects (generally in a resource),
-//! which is convenient for easy access and zero-latency spawning, but can result in high but stable memory usage.
+//! This problem generally arises when handles are stored in a persistent "collection" or "manifest"
+//! of possible objects (generally in a resource), which is convenient for easy access and
+//! zero-latency spawning, but can result in high but stable memory usage.
 //!
-//! The second problem is more concerning, and looks like your models or textures suddenly disappearing from the game.
-//! Debugging reveals that the *entities* are still there, but nothing is rendering!
-//! This is because the assets were removed from memory while they were still in use.
-//! You were probably too aggressive with the use of weak handles (which don't increment the reference count of the asset): think through the lifecycle of your assets carefully!
-//! As soon as an asset is loaded, you must ensure that at least one strong handle is held to it until all matching entities are out of sight of the player.
+//! The second problem is more concerning, and looks like your models or textures suddenly
+//! disappearing from the game. Debugging reveals that the *entities* are still there, but nothing
+//! is rendering! This is because the assets were removed from memory while they were still in use.
+//! You were probably too aggressive with the use of weak handles (which don't increment the
+//! reference count of the asset): think through the lifecycle of your assets carefully! As soon as
+//! an asset is loaded, you must ensure that at least one strong handle is held to it until all
+//! matching entities are out of sight of the player.
 //!
 //! # Asset dependencies
 //!
@@ -110,33 +131,42 @@
 //!
 //! The assets that are required to load another asset are called "dependencies".
 //! An asset is only considered fully loaded when it and all of its dependencies are loaded.
-//! Asset dependencies can be declared when implementing the [`Asset`] trait by implementing the [`VisitAssetDependencies`] trait,
-//! and the `#[dependency]` attribute can be used to automatically derive this implementation.
+//! Asset dependencies can be declared when implementing the [`Asset`] trait by implementing the
+//! [`VisitAssetDependencies`] trait, and the `#[dependency]` attribute can be used to automatically
+//! derive this implementation.
 //!
 //! # Custom asset types
 //!
-//! While Bevy comes with implementations for a large number of common game-oriented asset types (often behind off-by-default feature flags!),
-//! implementing a custom asset type can be useful when dealing with unusual, game-specific, or proprietary formats.
+//! While Bevy comes with implementations for a large number of common game-oriented asset types
+//! (often behind off-by-default feature flags!), implementing a custom asset type can be useful
+//! when dealing with unusual, game-specific, or proprietary formats.
 //!
 //! Defining a new asset type is as simple as implementing the [`Asset`] trait.
 //! This requires [`TypePath`] for metadata about the asset type,
 //! and [`VisitAssetDependencies`] to track asset dependencies.
-//! In simple cases, you can derive [`Asset`] and [`Reflect`] and be done with it: the required supertraits will be implemented for you.
+//! In simple cases, you can derive [`Asset`] and [`Reflect`] and be done with it: the required
+//! supertraits will be implemented for you.
 //!
 //! With a new asset type in place, we now need to figure out how to load it.
-//! While [`AssetReader`](io::AssetReader) describes strategies to read asset bytes from various sources,
-//! [`AssetLoader`] is the trait that actually turns those into your desired in-memory format.
-//! Generally, (only) [`AssetLoader`] needs to be implemented for custom assets, as the [`AssetReader`](io::AssetReader) implementations are provided by Bevy.
+//! While [`AssetReader`](io::AssetReader) describes strategies to read asset bytes from various
+//! sources, [`AssetLoader`] is the trait that actually turns those into your desired in-memory
+//! format. Generally, (only) [`AssetLoader`] needs to be implemented for custom assets, as the
+//! [`AssetReader`](io::AssetReader) implementations are provided by Bevy.
 //!
-//! However, [`AssetLoader`] shouldn't be implemented for your asset type directly: instead, this is implemented for a "loader" type
-//! that can store settings and any additional data required to load your asset, while your asset type is used as the [`AssetLoader::Asset`] associated type.
-//! As the trait documentation explains, this allows various [`AssetLoader::Settings`] to be used to configure the loader.
+//! However, [`AssetLoader`] shouldn't be implemented for your asset type directly: instead, this is
+//! implemented for a "loader" type that can store settings and any additional data required to load
+//! your asset, while your asset type is used as the [`AssetLoader::Asset`] associated type.
+//! As the trait documentation explains, this allows various [`AssetLoader::Settings`] to be used to
+//! configure the loader.
 //!
-//! After the loader is implemented, it needs to be registered with the [`AssetServer`] using [`App::register_asset_loader`](AssetApp::register_asset_loader).
-//! Once your asset type is loaded, you can use it in your game like any other asset type!
+//! After the loader is implemented, it needs to be registered with the [`AssetServer`] using
+//! [`App::register_asset_loader`](AssetApp::register_asset_loader). Once your asset type is loaded,
+//! you can use it in your game like any other asset type!
 //!
-//! If you want to save your assets back to disk, you should implement [`AssetSaver`](saver::AssetSaver) as well.
-//! This trait mirrors [`AssetLoader`] in structure, and works in tandem with [`AssetWriter`](io::AssetWriter), which mirrors [`AssetReader`](io::AssetReader).
+//! If you want to save your assets back to disk, you should implement
+//! [`AssetSaver`](saver::AssetSaver) as well. This trait mirrors [`AssetLoader`] in structure, and
+//! works in tandem with [`AssetWriter`](io::AssetWriter), which mirrors
+//! [`AssetReader`](io::AssetReader).
 
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
@@ -235,8 +265,8 @@ compile_error!(
     Consider either disabling the \"file_watcher\" feature or enabling \"multi_threaded\""
 );
 
-/// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
-/// which can be something like a filesystem, a network, etc.
+/// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is
+/// loaded from an [`AssetSource`], which can be something like a filesystem, a network, etc.
 ///
 /// Supports flexible "modes", such as [`AssetMode::Processed`] and
 /// [`AssetMode::Unprocessed`] that enable using the asset workflow that best suits your project.
@@ -247,12 +277,13 @@ pub struct AssetPlugin {
     pub file_path: String,
     /// The default file path to use (relative to the project root) for processed assets.
     pub processed_file_path: String,
-    /// If set, will override the default "watch for changes" setting. By default "watch for changes" will be `false` unless
-    /// the `watch` cargo feature is set. `watch` can be enabled manually, or it will be automatically enabled if a specific watcher
+    /// If set, will override the default "watch for changes" setting. By default "watch for
+    /// changes" will be `false` unless the `watch` cargo feature is set. `watch` can be
+    /// enabled manually, or it will be automatically enabled if a specific watcher
     /// like `file_watcher` is enabled.
     ///
-    /// Most use cases should leave this set to [`None`] and enable a specific watcher feature such as `file_watcher` to enable
-    /// watching for dev-scenarios.
+    /// Most use cases should leave this set to [`None`] and enable a specific watcher feature such
+    /// as `file_watcher` to enable watching for dev-scenarios.
     pub watch_for_changes_override: Option<bool>,
     /// The [`AssetMode`] to use for this server.
     pub mode: AssetMode,
@@ -291,25 +322,32 @@ pub enum UnapprovedPathMode {
 ///
 /// This setting is controlled by setting [`AssetPlugin::mode`].
 ///
-/// When building on web, asset preprocessing can cause problems due to the lack of filesystem access.
-/// See [bevy#10157](https://github.com/bevyengine/bevy/issues/10157) for context.
+/// When building on web, asset preprocessing can cause problems due to the lack of filesystem
+/// access. See [bevy#10157](https://github.com/bevyengine/bevy/issues/10157) for context.
 #[derive(Debug)]
 pub enum AssetMode {
-    /// Loads assets from their [`AssetSource`]'s default [`AssetReader`] without any "preprocessing".
+    /// Loads assets from their [`AssetSource`]'s default [`AssetReader`] without any
+    /// "preprocessing".
     ///
     /// [`AssetReader`]: io::AssetReader
     /// [`AssetSource`]: io::AssetSource
     Unprocessed,
-    /// Assets will be "pre-processed". This enables assets to be imported / converted / optimized ahead of time.
+    /// Assets will be "pre-processed". This enables assets to be imported / converted / optimized
+    /// ahead of time.
     ///
-    /// Assets will be read from their unprocessed [`AssetSource`] (defaults to the `assets` folder),
-    /// processed according to their [`AssetMeta`], and written to their processed [`AssetSource`] (defaults to the `imported_assets/Default` folder).
+    /// Assets will be read from their unprocessed [`AssetSource`] (defaults to the `assets`
+    /// folder), processed according to their [`AssetMeta`], and written to their processed
+    /// [`AssetSource`] (defaults to the `imported_assets/Default` folder).
     ///
-    /// By default, this assumes the processor _has already been run_. It will load assets from their final processed [`AssetReader`].
+    /// By default, this assumes the processor _has already been run_. It will load assets from
+    /// their final processed [`AssetReader`].
     ///
-    /// When developing an app, you should enable the `asset_processor` cargo feature, which will run the asset processor at startup. This should generally
-    /// be used in combination with the `file_watcher` cargo feature, which enables hot-reloading of assets that have changed. When both features are enabled,
-    /// changes to "original/source assets" will be detected, the asset will be re-processed, and then the final processed asset will be hot-reloaded in the app.
+    /// When developing an app, you should enable the `asset_processor` cargo feature, which will
+    /// run the asset processor at startup. This should generally be used in combination with
+    /// the `file_watcher` cargo feature, which enables hot-reloading of assets that have changed.
+    /// When both features are enabled, changes to "original/source assets" will be detected,
+    /// the asset will be re-processed, and then the final processed asset will be hot-reloaded in
+    /// the app.
     ///
     /// [`AssetMeta`]: meta::AssetMeta
     /// [`AssetSource`]: io::AssetSource
@@ -317,16 +355,19 @@ pub enum AssetMode {
     Processed,
 }
 
-/// Configures how / if meta files will be checked. If an asset's meta file is not checked, the default meta for the asset
-/// will be used.
+/// Configures how / if meta files will be checked. If an asset's meta file is not checked, the
+/// default meta for the asset will be used.
 #[derive(Debug, Default, Clone)]
 pub enum AssetMetaCheck {
-    /// Always check if assets have meta files. If the meta does not exist, the default meta will be used.
+    /// Always check if assets have meta files. If the meta does not exist, the default meta will be
+    /// used.
     #[default]
     Always,
-    /// Only look up meta files for the provided paths. The default meta will be used for any paths not contained in this set.
+    /// Only look up meta files for the provided paths. The default meta will be used for any paths
+    /// not contained in this set.
     Paths(HashSet<AssetPath<'static>>),
-    /// Never check if assets have meta files and always use the default meta. If meta files exist, they will be ignored and the default meta will be used.
+    /// Never check if assets have meta files and always use the default meta. If meta files exist,
+    /// they will be ignored and the default meta will be used.
     Never,
 }
 
@@ -345,8 +386,9 @@ impl Default for AssetPlugin {
 
 impl AssetPlugin {
     const DEFAULT_UNPROCESSED_FILE_PATH: &'static str = "assets";
-    /// NOTE: this is in the Default sub-folder to make this forward compatible with "import profiles"
-    /// and to allow us to put the "processor transaction log" at `imported_assets/log`
+    /// NOTE: this is in the Default sub-folder to make this forward compatible with "import
+    /// profiles" and to allow us to put the "processor transaction log" at
+    /// `imported_assets/log`
     const DEFAULT_PROCESSED_FILE_PATH: &'static str = "imported_assets/Default";
 }
 
@@ -424,8 +466,9 @@ impl Plugin for AssetPlugin {
             .configure_sets(PreUpdate, TrackAssets.after(handle_internal_asset_events))
             // `handle_internal_asset_events` requires the use of `&mut World`,
             // and as a result has ambiguous system ordering with all other systems in `PreUpdate`.
-            // This is virtually never a real problem: asset loading is async and so anything that interacts directly with it
-            // needs to be robust to stochastic delays anyways.
+            // This is virtually never a real problem: asset loading is async and so anything that
+            // interacts directly with it needs to be robust to stochastic delays
+            // anyways.
             .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all())
             .register_type::<AssetPath>();
     }
@@ -434,10 +477,12 @@ impl Plugin for AssetPlugin {
 /// Declares that this type is an asset,
 /// which can be loaded and managed by the [`AssetServer`] and stored in [`Assets`] collections.
 ///
-/// Generally, assets are large, complex, and/or expensive to load from disk, and are often authored by artists or designers.
+/// Generally, assets are large, complex, and/or expensive to load from disk, and are often authored
+/// by artists or designers.
 ///
-/// [`TypePath`] is largely used for diagnostic purposes, and should almost always be implemented by deriving [`Reflect`] on your type.
-/// [`VisitAssetDependencies`] is used to track asset dependencies, and an implementation is automatically generated when deriving [`Asset`].
+/// [`TypePath`] is largely used for diagnostic purposes, and should almost always be implemented by
+/// deriving [`Reflect`] on your type. [`VisitAssetDependencies`] is used to track asset
+/// dependencies, and an implementation is automatically generated when deriving [`Asset`].
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Asset`",
     label = "invalid `Asset`",
@@ -514,8 +559,8 @@ pub trait AssetApp {
     fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self;
     /// Registers the given [`AssetSourceBuilder`] with the given `id`.
     ///
-    /// Note that asset sources must be registered before adding [`AssetPlugin`] to your application,
-    /// since registered asset sources are built at that point and not after.
+    /// Note that asset sources must be registered before adding [`AssetPlugin`] to your
+    /// application, since registered asset sources are built at that point and not after.
     fn register_asset_source(
         &mut self,
         id: impl Into<AssetSourceId<'static>>,
@@ -529,19 +574,21 @@ pub trait AssetApp {
     /// * Registering the [`Asset`] in the [`AssetServer`]
     /// * Initializing the [`AssetEvent`] resource for the [`Asset`]
     /// * Adding other relevant systems and resources for the [`Asset`]
-    /// * Ignoring schedule ambiguities in [`Assets`] resource. Any time a system takes
-    ///   mutable access to this resource this causes a conflict, but they rarely actually
-    ///   modify the same underlying asset.
+    /// * Ignoring schedule ambiguities in [`Assets`] resource. Any time a system takes mutable
+    ///   access to this resource this causes a conflict, but they rarely actually modify the same
+    ///   underlying asset.
     fn init_asset<A: Asset>(&mut self) -> &mut Self;
     /// Registers the asset type `T` using `[App::register]`,
-    /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
+    /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`]
+    /// in the type registry.
     ///
-    /// This enables reflection code to access assets. For detailed information, see the docs on [`ReflectAsset`] and [`ReflectHandle`].
+    /// This enables reflection code to access assets. For detailed information, see the docs on
+    /// [`ReflectAsset`] and [`ReflectHandle`].
     fn register_asset_reflect<A>(&mut self) -> &mut Self
     where
         A: Asset + Reflect + FromReflect + GetTypeRegistration;
-    /// Preregisters a loader for the given extensions, that will block asset loads until a real loader
-    /// is registered.
+    /// Preregisters a loader for the given extensions, that will block asset loads until a real
+    /// loader is registered.
     fn preregister_asset_loader<L: AssetLoader>(&mut self, extensions: &[&str]) -> &mut Self;
 }
 
@@ -655,7 +702,8 @@ impl AssetApp for App {
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub struct TrackAssets;
 
-/// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
+/// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`]
+/// resource.
 ///
 /// [`Events`]: bevy_ecs::event::Events
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -782,7 +830,8 @@ mod tests {
         }
     }
 
-    /// A dummy [`CoolText`] asset reader that only succeeds after `failure_count` times it's read from for each asset.
+    /// A dummy [`CoolText`] asset reader that only succeeds after `failure_count` times it's read
+    /// from for each asset.
     #[derive(Default, Clone)]
     pub struct UnstableMemoryAssetReader {
         pub attempt_counters: Arc<std::sync::Mutex<HashMap<Box<Path>, usize>>>,
@@ -890,7 +939,8 @@ mod tests {
 
     #[test]
     fn load_dependencies() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
+        // The particular usage of GatedReader in this test will cause deadlocking if running
+        // single-threaded
         #[cfg(not(feature = "multi_threaded"))]
         panic!(
             "This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded"
@@ -1144,7 +1194,8 @@ mod tests {
             "CoolText asset entities should be despawned when no more handles exist"
         );
         app.update();
-        // this requires a second update because the parent asset was freed in the previous app.update()
+        // this requires a second update because the parent asset was freed in the previous
+        // app.update()
         assert_eq!(
             app.world().resource::<Assets<SubText>>().len(),
             0,
@@ -1200,7 +1251,8 @@ mod tests {
 
     #[test]
     fn failure_load_states() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
+        // The particular usage of GatedReader in this test will cause deadlocking if running
+        // single-threaded
         #[cfg(not(feature = "multi_threaded"))]
         panic!(
             "This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded"
@@ -1337,7 +1389,8 @@ mod tests {
 
     #[test]
     fn dependency_load_states() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
+        // The particular usage of GatedReader in this test will cause deadlocking if running
+        // single-threaded
         #[cfg(not(feature = "multi_threaded"))]
         panic!(
             "This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded"
@@ -1478,7 +1531,8 @@ mod tests {
 
     #[test]
     fn manual_asset_management() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
+        // The particular usage of GatedReader in this test will cause deadlocking if running
+        // single-threaded
         #[cfg(not(feature = "multi_threaded"))]
         panic!(
             "This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded"
@@ -1542,7 +1596,8 @@ mod tests {
         let a = CoolText {
             text: "a".to_string(),
             embedded: empty,
-            // this dependency is behind a manual load gate, which should prevent 'a' from emitting a LoadedWithDependencies event
+            // this dependency is behind a manual load gate, which should prevent 'a' from emitting
+            // a LoadedWithDependencies event
             dependencies: vec![dep_handle.clone()],
             sub_texts: Vec::new(),
         };
@@ -1581,7 +1636,8 @@ mod tests {
 
     #[test]
     fn load_folder() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
+        // The particular usage of GatedReader in this test will cause deadlocking if running
+        // single-threaded
         #[cfg(not(feature = "multi_threaded"))]
         panic!(
             "This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded"
@@ -1675,7 +1731,8 @@ mod tests {
         });
     }
 
-    /// Tests that `AssetLoadFailedEvent<A>` events are emitted and can be used to retry failed assets.
+    /// Tests that `AssetLoadFailedEvent<A>` events are emitted and can be used to retry failed
+    /// assets.
     #[test]
     fn load_error_events() {
         #[derive(Resource, Default)]

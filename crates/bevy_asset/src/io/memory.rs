@@ -53,7 +53,8 @@ impl Dir {
         );
     }
 
-    /// Removes the stored asset at `path` and returns the `Data` stored if found and otherwise `None`.
+    /// Removes the stored asset at `path` and returns the `Data` stored if found and otherwise
+    /// `None`.
     pub fn remove_asset(&self, path: &Path) -> Option<Data> {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {

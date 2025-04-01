@@ -52,14 +52,16 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
         let mut access = FilteredAccess::default();
         D::update_component_access(&fetch_state, &mut access);
 
-        // Use a temporary empty FilteredAccess for filters. This prevents them from conflicting with the
-        // main Query's `fetch_state` access. Filters are allowed to conflict with the main query fetch
-        // because they are evaluated *before* a specific reference is constructed.
+        // Use a temporary empty FilteredAccess for filters. This prevents them from conflicting
+        // with the main Query's `fetch_state` access. Filters are allowed to conflict with
+        // the main query fetch because they are evaluated *before* a specific reference is
+        // constructed.
         let mut filter_access = FilteredAccess::default();
         F::update_component_access(&filter_state, &mut filter_access);
 
-        // Merge the temporary filter access with the main access. This ensures that filter access is
-        // properly considered in a global "cross-query" context (both within systems and across systems).
+        // Merge the temporary filter access with the main access. This ensures that filter access
+        // is properly considered in a global "cross-query" context (both within systems and
+        // across systems).
         access.extend(&filter_access);
 
         Self {
@@ -104,7 +106,8 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
         self.world
     }
 
-    /// Adds access to self's underlying [`FilteredAccess`] respecting [`Self::or`] and [`Self::and`]
+    /// Adds access to self's underlying [`FilteredAccess`] respecting [`Self::or`] and
+    /// [`Self::and`]
     pub fn extend_access(&mut self, mut access: FilteredAccess<ComponentId>) {
         if self.or {
             if self.first {
@@ -201,7 +204,8 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     }
 
     /// Takes a function over mutable access to a [`QueryBuilder`], calls that function
-    /// on an empty builder, all accesses added to that builder will become terms in an or expression.
+    /// on an empty builder, all accesses added to that builder will become terms in an or
+    /// expression.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;

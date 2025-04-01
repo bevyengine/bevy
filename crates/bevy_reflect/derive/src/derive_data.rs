@@ -599,7 +599,8 @@ impl<'a> ReflectStruct<'a> {
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     ///
-    /// Returns a specific implementation for structs and this method should be preferred over the generic [`get_type_registration`](ReflectMeta) method
+    /// Returns a specific implementation for structs and this method should be preferred over the
+    /// generic [`get_type_registration`](ReflectMeta) method
     pub fn get_type_registration(
         &self,
         where_clause_options: &WhereClauseOptions,
@@ -788,9 +789,11 @@ impl<'a> ReflectStruct<'a> {
     /// The mutability of the access can be controlled by the `is_mut` parameter.
     ///
     /// Generally, this just returns something like `&self.field`.
-    /// However, if the struct is a remote wrapper, this then becomes `&self.0.field` in order to access the field on the inner type.
+    /// However, if the struct is a remote wrapper, this then becomes `&self.0.field` in order to
+    /// access the field on the inner type.
     ///
-    /// If the field itself is a remote type, the above accessor is further wrapped in a call to `ReflectRemote::as_wrapper[_mut]`.
+    /// If the field itself is a remote type, the above accessor is further wrapped in a call to
+    /// `ReflectRemote::as_wrapper[_mut]`.
     pub fn access_for_field(
         &self,
         field: &StructField<'a>,
@@ -871,7 +874,8 @@ impl<'a> ReflectEnum<'a> {
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     ///
-    /// Returns a specific implementation for enums and this method should be preferred over the generic [`get_type_registration`](crate::ReflectMeta) method
+    /// Returns a specific implementation for enums and this method should be preferred over the
+    /// generic [`get_type_registration`](crate::ReflectMeta) method
     pub fn get_type_registration(
         &self,
         where_clause_options: &WhereClauseOptions,

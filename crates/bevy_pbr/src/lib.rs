@@ -14,11 +14,13 @@ pub mod wireframe;
 
 /// Experimental features that are not yet finished. Please report any issues you encounter!
 ///
-/// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
+/// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking
+/// changes.
 #[cfg(feature = "meshlet")]
 pub mod experimental {
     /// Render high-poly 3d meshes using an efficient GPU-driven method.
-    /// See [`MeshletPlugin`](meshlet::MeshletPlugin) and [`MeshletMesh`](meshlet::MeshletMesh) for details.
+    /// See [`MeshletPlugin`](meshlet::MeshletPlugin) and [`MeshletMesh`](meshlet::MeshletMesh) for
+    /// details.
     pub mod meshlet {
         pub use crate::meshlet::*;
     }
@@ -417,9 +419,9 @@ impl Plugin for PbrPlugin {
                         .after(VisibilitySystems::CheckVisibility)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::UpdateDirectionalLightCascades)
-                        // We assume that no entity will be both a directional light and a spot light,
-                        // so these systems will run independently of one another.
-                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                        // We assume that no entity will be both a directional light and a spot
+                        // light, so these systems will run independently of
+                        // one another. FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                         .ambiguous_with(update_spot_light_frusta),
                     update_point_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)

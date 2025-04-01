@@ -4,13 +4,14 @@ use core::{
     fmt::{Debug, Display},
 };
 
-/// The built in "universal" Bevy error type. This has a blanket [`From`] impl for any type that implements Rust's [`Error`],
-/// meaning it can be used as a "catch all" error.
+/// The built in "universal" Bevy error type. This has a blanket [`From`] impl for any type that
+/// implements Rust's [`Error`], meaning it can be used as a "catch all" error.
 ///
 /// # Backtraces
 ///
-/// When used with the `backtrace` Cargo feature, it will capture a backtrace when the error is constructed (generally in the [`From`] impl]).
-/// When printed, the backtrace will be displayed. By default, the backtrace will be trimmed down to filter out noise. To see the full backtrace,
+/// When used with the `backtrace` Cargo feature, it will capture a backtrace when the error is
+/// constructed (generally in the [`From`] impl]). When printed, the backtrace will be displayed. By
+/// default, the backtrace will be trimmed down to filter out noise. To see the full backtrace,
 /// set the `BEVY_BACKTRACE=full` environment variable.
 ///
 /// # Usage
@@ -90,11 +91,12 @@ impl BevyError {
     }
 }
 
-/// This type exists (rather than having a `BevyError(Box<dyn InnerBevyError)`) to make [`BevyError`] use a "thin pointer" instead of
-/// a "fat pointer", which reduces the size of our Result by a usize. This does introduce an extra indirection, but error handling is a "cold path".
-/// We don't need to optimize it to that degree.
-/// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but thats not a huge priority right now and the code simplicity
-/// of the current impl is nice.
+/// This type exists (rather than having a `BevyError(Box<dyn InnerBevyError)`) to make
+/// [`BevyError`] use a "thin pointer" instead of a "fat pointer", which reduces the size of our
+/// Result by a usize. This does introduce an extra indirection, but error handling is a "cold
+/// path". We don't need to optimize it to that degree.
+/// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but thats not
+/// a huge priority right now and the code simplicity of the current impl is nice.
 struct InnerBevyError {
     error: Box<dyn Error + Send + Sync + 'static>,
     #[cfg(feature = "backtrace")]
@@ -143,7 +145,8 @@ std::thread_local! {
         const { core::cell::Cell::new(false) };
 }
 
-/// When called, this will skip the currently configured panic hook when a [`BevyError`] backtrace has already been printed.
+/// When called, this will skip the currently configured panic hook when a [`BevyError`] backtrace
+/// has already been printed.
 #[cfg(feature = "backtrace")]
 #[expect(clippy::print_stdout, reason = "Allowed behind `std` feature gate.")]
 pub fn bevy_error_panic_hook(

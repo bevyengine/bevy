@@ -186,7 +186,8 @@ impl BoundingVolume for Aabb3d {
         b
     }
 
-    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a
+    /// translation.
     ///
     /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
     ///
@@ -203,7 +204,8 @@ impl BoundingVolume for Aabb3d {
         self
     }
 
-    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a
+    /// translation.
     ///
     /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
     ///

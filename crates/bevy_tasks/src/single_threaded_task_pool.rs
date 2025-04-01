@@ -143,16 +143,18 @@ impl TaskPool {
         // Any futures spawned with these references need to return before this function completes.
         // This is guaranteed because we drive all the futures spawned onto the Scope
         // to completion in this function. However, rust has no way of knowing this so we
-        // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
-        // Any usages of the references passed into `Scope` must be accessed through
+        // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate
+        // safety. Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
 
         let executor = &LocalExecutor::new();
-        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        // SAFETY: As above, all futures must complete in this function so we can change the
+        // lifetime
         let executor: &'env LocalExecutor<'env> = unsafe { mem::transmute(executor) };
 
         let results: RefCell<Vec<ScopeResult<T>>> = RefCell::new(Vec::new());
-        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        // SAFETY: As above, all futures must complete in this function so we can change the
+        // lifetime
         let results: &'env RefCell<Vec<ScopeResult<T>>> = unsafe { mem::transmute(&results) };
 
         let mut scope = Scope {
@@ -162,7 +164,8 @@ impl TaskPool {
             env: PhantomData,
         };
 
-        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        // SAFETY: As above, all futures must complete in this function so we can change the
+        // lifetime
         let scope_ref: &'env mut Scope<'_, 'env, T> = unsafe { mem::transmute(&mut scope) };
 
         f(scope_ref);
@@ -186,10 +189,10 @@ impl TaskPool {
             .collect()
     }
 
-    /// Spawns a static future onto the thread pool. The returned Task is a future, which can be polled
-    /// to retrieve the output of the original future. Dropping the task will attempt to cancel it.
-    /// It can also be "detached", allowing it to continue running without having to be polled by the
-    /// end-user.
+    /// Spawns a static future onto the thread pool. The returned Task is a future, which can be
+    /// polled to retrieve the output of the original future. Dropping the task will attempt to
+    /// cancel it. It can also be "detached", allowing it to continue running without having to
+    /// be polled by the end-user.
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
     pub fn spawn<T>(
@@ -222,7 +225,8 @@ impl TaskPool {
         }
     }
 
-    /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
+    /// Spawns a static future on the JS event loop. This is exactly the same as
+    /// [`TaskPool::spawn`].
     pub fn spawn_local<T>(
         &self,
         future: impl Future<Output = T> + 'static + MaybeSend + MaybeSync,

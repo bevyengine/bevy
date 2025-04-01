@@ -13,7 +13,8 @@ use bevy_ecs::{
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 
-/// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
+/// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the
+/// render world.
 ///
 /// All entities with the [`SyncToRenderWorld`] component are kept in sync. It
 /// is automatically added as a required component by [`ExtractComponentPlugin`]
@@ -23,23 +24,27 @@ use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 /// # Implementation
 ///
 /// Bevy's renderer is architected independently from the main app.
-/// It operates in its own separate ECS [`World`], so the renderer logic can run in parallel with the main world logic.
-/// This is called "Pipelined Rendering", see [`PipelinedRenderingPlugin`] for more information.
+/// It operates in its own separate ECS [`World`], so the renderer logic can run in parallel with
+/// the main world logic. This is called "Pipelined Rendering", see [`PipelinedRenderingPlugin`] for
+/// more information.
 ///
-/// [`SyncWorldPlugin`] is the first thing that runs every frame and it maintains an entity-to-entity mapping
-/// between the main world and the render world.
-/// It does so by spawning and despawning entities in the render world, to match spawned and despawned entities in the main world.
-/// The link between synced entities is maintained by the [`RenderEntity`] and [`MainEntity`] components.
+/// [`SyncWorldPlugin`] is the first thing that runs every frame and it maintains an
+/// entity-to-entity mapping between the main world and the render world.
+/// It does so by spawning and despawning entities in the render world, to match spawned and
+/// despawned entities in the main world. The link between synced entities is maintained by the
+/// [`RenderEntity`] and [`MainEntity`] components.
 ///
-/// The [`RenderEntity`] contains the corresponding render world entity of a main world entity, while [`MainEntity`] contains
-/// the corresponding main world entity of a render world entity.
-/// For convenience, [`QueryData`](bevy_ecs::query::QueryData) implementations are provided for both components:
-/// adding [`MainEntity`] to a query (without a `&`) will return the corresponding main world [`Entity`],
-/// and adding [`RenderEntity`] will return the corresponding render world [`Entity`].
-/// If you have access to the component itself, the underlying entities can be accessed by calling `.id()`.
+/// The [`RenderEntity`] contains the corresponding render world entity of a main world entity,
+/// while [`MainEntity`] contains the corresponding main world entity of a render world entity.
+/// For convenience, [`QueryData`](bevy_ecs::query::QueryData) implementations are provided for both
+/// components: adding [`MainEntity`] to a query (without a `&`) will return the corresponding main
+/// world [`Entity`], and adding [`RenderEntity`] will return the corresponding render world
+/// [`Entity`]. If you have access to the component itself, the underlying entities can be accessed
+/// by calling `.id()`.
 ///
-/// Synchronization is necessary preparation for extraction ([`ExtractSchedule`](crate::ExtractSchedule)), which copies over component data from the main
-/// to the render world for these entities.
+/// Synchronization is necessary preparation for extraction
+/// ([`ExtractSchedule`](crate::ExtractSchedule)), which copies over component data from the main to
+/// the render world for these entities.
 ///
 /// ```text
 /// |--------------------------------------------------------------------|
@@ -67,18 +72,19 @@ use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 /// |---------------------------------|
 /// ```
 ///
-/// Note that this effectively establishes a link between the main world entity and the render world entity.
-/// Not every entity needs to be synchronized, however; only entities with the [`SyncToRenderWorld`] component are synced.
-/// Adding [`SyncToRenderWorld`] to a main world component will establish such a link.
-/// Once a synchronized main entity is despawned, its corresponding render entity will be automatically
-/// despawned in the next `sync`.
+/// Note that this effectively establishes a link between the main world entity and the render world
+/// entity. Not every entity needs to be synchronized, however; only entities with the
+/// [`SyncToRenderWorld`] component are synced. Adding [`SyncToRenderWorld`] to a main world
+/// component will establish such a link. Once a synchronized main entity is despawned, its
+/// corresponding render entity will be automatically despawned in the next `sync`.
 ///
-/// The sync step does not copy any of component data between worlds, since its often not necessary to transfer over all
-/// the components of a main world entity.
+/// The sync step does not copy any of component data between worlds, since its often not necessary
+/// to transfer over all the components of a main world entity.
 /// The render world probably cares about a `Position` component, but not a `Velocity` component.
 /// The extraction happens in its own step, independently from, and after synchronization.
 ///
-/// Moreover, [`SyncWorldPlugin`] only synchronizes *entities*. [`RenderAsset`](crate::render_asset::RenderAsset)s like meshes and textures are handled
+/// Moreover, [`SyncWorldPlugin`] only synchronizes *entities*.
+/// [`RenderAsset`](crate::render_asset::RenderAsset)s like meshes and textures are handled
 /// differently.
 ///
 /// [`PipelinedRenderingPlugin`]: crate::pipelined_rendering::PipelinedRenderingPlugin
@@ -108,8 +114,8 @@ impl Plugin for SyncWorldPlugin {
 }
 /// Marker component that indicates that its entity needs to be synchronized to the render world.
 ///
-/// This component is automatically added as a required component by [`ExtractComponentPlugin`] and [`SyncComponentPlugin`].
-/// For more information see [`SyncWorldPlugin`].
+/// This component is automatically added as a required component by [`ExtractComponentPlugin`] and
+/// [`SyncComponentPlugin`]. For more information see [`SyncWorldPlugin`].
 ///
 /// NOTE: This component should persist throughout the entity's entire lifecycle.
 /// If this component is removed from its entity, the entity will be despawned.
@@ -121,7 +127,8 @@ impl Plugin for SyncWorldPlugin {
 #[component(storage = "SparseSet")]
 pub struct SyncToRenderWorld;
 
-/// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity.
+/// Component added on the main world entities that are synced to the Render World in order to keep
+/// track of the corresponding render world entity.
 ///
 /// Can also be used as a newtype wrapper for render world entities.
 #[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq)]
@@ -148,7 +155,8 @@ impl ContainsEntity for RenderEntity {
 // SAFETY: RenderEntity is a newtype around Entity that derives its comparison traits.
 unsafe impl EntityEquivalent for RenderEntity {}
 
-/// Component added on the render world entities to keep track of the corresponding main world entity.
+/// Component added on the render world entities to keep track of the corresponding main world
+/// entity.
 ///
 /// Can also be used as a newtype wrapper for main world entities.
 #[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
@@ -189,14 +197,14 @@ pub struct TemporaryRenderEntity;
 /// A record enum to what entities with [`SyncToRenderWorld`] have been added or removed.
 #[derive(Debug)]
 pub(crate) enum EntityRecord {
-    /// When an entity is spawned on the main world, notify the render world so that it can spawn a corresponding
-    /// entity. This contains the main world entity.
+    /// When an entity is spawned on the main world, notify the render world so that it can spawn a
+    /// corresponding entity. This contains the main world entity.
     Added(Entity),
-    /// When an entity is despawned on the main world, notify the render world so that the corresponding entity can be
-    /// despawned. This contains the render world entity.
+    /// When an entity is despawned on the main world, notify the render world so that the
+    /// corresponding entity can be despawned. This contains the render world entity.
     Removed(RenderEntity),
-    /// When a component is removed from an entity, notify the render world so that the corresponding component can be
-    /// removed. This contains the main world entity.
+    /// When a component is removed from an entity, notify the render world so that the
+    /// corresponding component can be removed. This contains the main world entity.
     ComponentRemoved(Entity),
 }
 

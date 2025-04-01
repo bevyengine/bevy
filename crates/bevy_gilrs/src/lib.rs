@@ -56,7 +56,8 @@ impl Gilrs {
     }
 }
 
-/// A [`resource`](Resource) with the mapping of connected [`gilrs::GamepadId`] and their [`Entity`].
+/// A [`resource`](Resource) with the mapping of connected [`gilrs::GamepadId`] and their
+/// [`Entity`].
 #[derive(Debug, Default, Resource)]
 pub(crate) struct GilrsGamepads {
     /// Mapping of [`Entity`] to [`gilrs::GamepadId`].

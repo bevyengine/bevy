@@ -32,12 +32,13 @@ pub const FPS_OVERLAY_ZINDEX: i32 = i32::MAX - 32;
 ///
 /// This plugin will add the [`FrameTimeDiagnosticsPlugin`] if it wasn't added before.
 ///
-/// Note: It is recommended to use native overlay of rendering statistics when possible for lower overhead and more accurate results.
-/// The correct way to do this will vary by platform:
+/// Note: It is recommended to use native overlay of rendering statistics when possible for lower
+/// overhead and more accurate results. The correct way to do this will vary by platform:
 /// - **Metal**: setting env variable `MTL_HUD_ENABLED=1`
 #[derive(Default)]
 pub struct FpsOverlayPlugin {
-    /// Starting configuration of overlay, this can be later be changed through [`FpsOverlayConfig`] resource.
+    /// Starting configuration of overlay, this can be later be changed through
+    /// [`FpsOverlayConfig`] resource.
     pub config: FpsOverlayConfig,
 }
 

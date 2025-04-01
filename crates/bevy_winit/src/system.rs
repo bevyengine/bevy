@@ -256,9 +256,10 @@ pub(crate) fn despawn_windows(
         if !window_entities.contains(window) {
             if let Some(window) = winit_windows.remove_window(window) {
                 // Keeping WindowWrapper that are dropped for one frame
-                // Otherwise the last `Arc` of the window could be in the rendering thread, and dropped there
-                // This would hang on macOS
-                // Keeping the wrapper and dropping it next frame in this system ensure its dropped in the main thread
+                // Otherwise the last `Arc` of the window could be in the rendering thread, and
+                // dropped there This would hang on macOS
+                // Keeping the wrapper and dropping it next frame in this system ensure its dropped
+                // in the main thread
                 windows_to_drop.push(window);
             }
             closed_events.write(WindowClosed { window });
@@ -275,7 +276,8 @@ pub(crate) fn despawn_windows(
     }
 }
 
-/// The cached state of the window so we can check which properties were changed from within the app.
+/// The cached state of the window so we can check which properties were changed from within the
+/// app.
 #[derive(Debug, Clone, Component)]
 pub struct CachedWindow {
     pub window: Window,
@@ -285,7 +287,8 @@ pub struct CachedWindow {
 ///
 /// # Notes
 ///
-/// - [`Window::present_mode`] and [`Window::composite_alpha_mode`] changes are handled by the `bevy_render` crate.
+/// - [`Window::present_mode`] and [`Window::composite_alpha_mode`] changes are handled by the
+///   `bevy_render` crate.
 /// - [`Window::transparent`] cannot be changed after the window is created.
 /// - [`Window::canvas`] cannot be changed after the window is created.
 /// - [`Window::focused`] cannot be manually changed to `false` after the window is created.
@@ -576,6 +579,7 @@ pub(crate) fn changed_windows(
 }
 
 /// This keeps track of which keys are pressed on each window.
-/// When a window is unfocused, this is used to send key release events for all the currently held keys.
+/// When a window is unfocused, this is used to send key release events for all the currently held
+/// keys.
 #[derive(Default, Component)]
 pub struct WinitWindowPressedKeys(pub(crate) HashMap<KeyCode, Key>);

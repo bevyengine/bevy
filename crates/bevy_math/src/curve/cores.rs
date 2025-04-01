@@ -203,10 +203,11 @@ impl<T> EvenCore<T> {
         }
     }
 
-    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might recover
-    /// a sample at time `t`. For example, when a [`Between`] value is returned, its contents can
-    /// be used to interpolate between the two contained values with the given parameter. The other
-    /// variants give additional context about where the value is relative to the family of samples.
+    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might
+    /// recover a sample at time `t`. For example, when a [`Between`] value is returned, its
+    /// contents can be used to interpolate between the two contained values with the given
+    /// parameter. The other variants give additional context about where the value is relative
+    /// to the family of samples.
     ///
     /// [`Between`]: `InterpolationDatum::Between`
     pub fn sample_interp(&self, t: f32) -> InterpolationDatum<&T> {
@@ -228,14 +229,15 @@ impl<T> EvenCore<T> {
     }
 }
 
-/// Given a domain and a number of samples taken over that interval, return an [`InterpolationDatum`]
-/// that governs how samples are extracted relative to the stored data.
+/// Given a domain and a number of samples taken over that interval, return an
+/// [`InterpolationDatum`] that governs how samples are extracted relative to the stored data.
 ///
 /// `domain` must be a bounded interval (i.e. `domain.is_bounded() == true`).
 ///
 /// `samples` must be at least 2.
 ///
-/// This function will never panic, but it may return invalid indices if its assumptions are violated.
+/// This function will never panic, but it may return invalid indices if its assumptions are
+/// violated.
 pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDatum<usize> {
     let subdivs = samples - 1;
     let step = domain.length() / subdivs as f32;
@@ -359,7 +361,8 @@ impl<T> UnevenCore<T> {
     /// sorted internally; if there are not at least 2 valid timed samples, an error will be
     /// returned.
     pub fn new(timed_samples: impl IntoIterator<Item = (f32, T)>) -> Result<Self, UnevenCoreError> {
-        // Filter out non-finite sample times first so they don't interfere with sorting/deduplication.
+        // Filter out non-finite sample times first so they don't interfere with
+        // sorting/deduplication.
         let mut timed_samples = timed_samples
             .into_iter()
             .filter(|(t, _)| t.is_finite())
@@ -413,10 +416,11 @@ impl<T> UnevenCore<T> {
         }
     }
 
-    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might recover
-    /// a sample at time `t`. For example, when a [`Between`] value is returned, its contents can
-    /// be used to interpolate between the two contained values with the given parameter. The other
-    /// variants give additional context about where the value is relative to the family of samples.
+    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might
+    /// recover a sample at time `t`. For example, when a [`Between`] value is returned, its
+    /// contents can be used to interpolate between the two contained values with the given
+    /// parameter. The other variants give additional context about where the value is relative
+    /// to the family of samples.
     ///
     /// [`Between`]: `InterpolationDatum::Between`
     pub fn sample_interp(&self, t: f32) -> InterpolationDatum<&T> {
@@ -473,7 +477,8 @@ pub struct ChunkedUnevenCore<T> {
     /// non-finite times.
     pub times: Vec<f32>,
 
-    /// The values that are used in sampling. Each width-worth of these correspond to a single sample.
+    /// The values that are used in sampling. Each width-worth of these correspond to a single
+    /// sample.
     ///
     /// # Invariants
     /// The length of this vector must always be some fixed integer multiple of that of `times`.
@@ -506,7 +511,8 @@ pub enum ChunkedUnevenCoreError {
         actual: usize,
     },
 
-    /// Tried to infer the width, but the ratio of lengths wasn't an integer, so no such length exists.
+    /// Tried to infer the width, but the ratio of lengths wasn't an integer, so no such length
+    /// exists.
     #[error(
         "The length of the list of values ({values_len}) was not divisible by that of the list of times ({times_len})"
     )]
@@ -567,8 +573,8 @@ impl<T> ChunkedUnevenCore<T> {
     /// Produces an error in any of the following circumstances:
     /// - `values` has length zero.
     /// - `times` has less than `2` unique valid entries.
-    /// - The length of `values` is not divisible by that of `times` (once sorted, filtered,
-    ///   and deduplicated).
+    /// - The length of `values` is not divisible by that of `times` (once sorted, filtered, and
+    ///   deduplicated).
     ///
     /// The [width] is implicitly taken to be the length of `values` divided by that of `times`
     /// (once sorted, filtered, and deduplicated).
@@ -622,10 +628,11 @@ impl<T> ChunkedUnevenCore<T> {
         self.values.len() / self.times.len()
     }
 
-    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might recover
-    /// a sample at time `t`. For example, when a [`Between`] value is returned, its contents can
-    /// be used to interpolate between the two contained values with the given parameter. The other
-    /// variants give additional context about where the value is relative to the family of samples.
+    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might
+    /// recover a sample at time `t`. For example, when a [`Between`] value is returned, its
+    /// contents can be used to interpolate between the two contained values with the given
+    /// parameter. The other variants give additional context about where the value is relative
+    /// to the family of samples.
     ///
     /// [`Between`]: `InterpolationDatum::Between`
     #[inline]

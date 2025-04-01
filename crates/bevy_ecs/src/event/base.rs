@@ -16,9 +16,11 @@ use core::{
 /// Something that "happens" and might be read / observed by app logic.
 ///
 /// Events can be stored in an [`Events<E>`] resource
-/// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
+/// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system
+/// parameter.
 ///
-/// Events can also be "triggered" on a [`World`], which will then cause any [`Observer`] of that trigger to run.
+/// Events can also be "triggered" on a [`World`], which will then cause any [`Observer`] of that
+/// trigger to run.
 ///
 /// Events must be thread-safe.
 ///
@@ -48,13 +50,14 @@ use core::{
     note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
 pub trait Event: Send + Sync + 'static {
-    /// The component that describes which Entity to propagate this event to next, when [propagation] is enabled.
+    /// The component that describes which Entity to propagate this event to next, when
+    /// [propagation] is enabled.
     ///
     /// [propagation]: crate::observer::Trigger::propagate
     type Traversal: Traversal<Self>;
 
-    /// When true, this event will always attempt to propagate when [triggered], without requiring a call
-    /// to [`Trigger::propagate`].
+    /// When true, this event will always attempt to propagate when [triggered], without requiring a
+    /// call to [`Trigger::propagate`].
     ///
     /// [triggered]: crate::system::Commands::trigger_targets
     /// [`Trigger::propagate`]: crate::observer::Trigger::propagate
@@ -85,7 +88,8 @@ pub trait Event: Send + Sync + 'static {
     /// # Warning
     ///
     /// This method should not be overridden by implementors,
-    /// and should always correspond to the implementation of [`register_component_id`](Event::register_component_id).
+    /// and should always correspond to the implementation of
+    /// [`register_component_id`](Event::register_component_id).
     fn component_id(world: &World) -> Option<ComponentId> {
         world.component_id::<EventWrapperComponent<Self>>()
     }
@@ -102,7 +106,8 @@ pub trait Event: Send + Sync + 'static {
 /// - Are compatible with dynamic event types, which aren't backed by a Rust type.
 ///
 /// This type is an implementation detail and should never be made public.
-// TODO: refactor events to store their metadata on distinct entities, rather than using `ComponentId`
+// TODO: refactor events to store their metadata on distinct entities, rather than using
+// `ComponentId`
 #[derive(Component)]
 struct EventWrapperComponent<E: Event + ?Sized>(PhantomData<E>);
 

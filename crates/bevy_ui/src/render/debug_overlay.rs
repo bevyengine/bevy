@@ -77,7 +77,8 @@ pub fn extract_debug_overlay(
         // Extract a border box to display an outline for every UI Node in the layout
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            // Add a large number to the UI node's stack index so that the overlay is always drawn on top
+            // Add a large number to the UI node's stack index so that the overlay is always drawn
+            // on top
             stack_index: uinode.stack_index + u32::MAX / 2,
             color: Hsla::sequential_dispersed(entity.index()).into(),
             rect: Rect {

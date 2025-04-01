@@ -14,8 +14,9 @@ use super::error::ResourceFetchError;
 /// Use [`FilteredResourcesMut`] if you need mutable access to some resources.
 ///
 /// To be useful as a [`SystemParam`](crate::system::SystemParam),
-/// this must be configured using a [`FilteredResourcesParamBuilder`](crate::system::FilteredResourcesParamBuilder)
-/// to build the system using a [`SystemParamBuilder`](crate::prelude::SystemParamBuilder).
+/// this must be configured using a
+/// [`FilteredResourcesParamBuilder`](crate::system::FilteredResourcesParamBuilder) to build the
+/// system using a [`SystemParamBuilder`](crate::prelude::SystemParamBuilder).
 ///
 /// # Examples
 ///
@@ -56,7 +57,8 @@ use super::error::ResourceFetchError;
 /// # world.run_system_once(system);
 /// ```
 ///
-/// This can be used alongside ordinary [`Res`](crate::system::Res) and [`ResMut`](crate::system::ResMut) parameters if they do not conflict.
+/// This can be used alongside ordinary [`Res`](crate::system::Res) and
+/// [`ResMut`](crate::system::ResMut) parameters if they do not conflict.
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, system::*};
@@ -125,7 +127,8 @@ pub struct FilteredResources<'w, 's> {
 impl<'w, 's> FilteredResources<'w, 's> {
     /// Creates a new [`FilteredResources`].
     /// # Safety
-    /// It is the callers responsibility to ensure that nothing else may access the any resources in the `world` in a way that conflicts with `access`.
+    /// It is the callers responsibility to ensure that nothing else may access the any resources in
+    /// the `world` in a way that conflicts with `access`.
     pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
         access: &'s Access<ComponentId>,
@@ -152,7 +155,8 @@ impl<'w, 's> FilteredResources<'w, 's> {
         component_id.is_some_and(|component_id| self.access.has_resource_read(component_id))
     }
 
-    /// Gets a reference to the resource of the given type if it exists and the `FilteredResources` has access to it.
+    /// Gets a reference to the resource of the given type if it exists and the `FilteredResources`
+    /// has access to it.
     pub fn get<R: Resource>(&self) -> Result<Ref<'w, R>, ResourceFetchError> {
         let component_id = self
             .world
@@ -177,7 +181,8 @@ impl<'w, 's> FilteredResources<'w, 's> {
         })
     }
 
-    /// Gets a pointer to the resource with the given [`ComponentId`] if it exists and the `FilteredResources` has access to it.
+    /// Gets a pointer to the resource with the given [`ComponentId`] if it exists and the
+    /// `FilteredResources` has access to it.
     pub fn get_by_id(&self, component_id: ComponentId) -> Result<Ptr<'w>, ResourceFetchError> {
         if !self.access.has_resource_read(component_id) {
             return Err(ResourceFetchError::NoResourceAccess(component_id));
@@ -191,7 +196,8 @@ impl<'w, 's> FilteredResources<'w, 's> {
 impl<'w, 's> From<FilteredResourcesMut<'w, 's>> for FilteredResources<'w, 's> {
     fn from(resources: FilteredResourcesMut<'w, 's>) -> Self {
         // SAFETY:
-        // - `FilteredResourcesMut` guarantees exclusive access to all resources in the new `FilteredResources`.
+        // - `FilteredResourcesMut` guarantees exclusive access to all resources in the new
+        //   `FilteredResources`.
         unsafe {
             FilteredResources::new(
                 resources.world,
@@ -206,7 +212,8 @@ impl<'w, 's> From<FilteredResourcesMut<'w, 's>> for FilteredResources<'w, 's> {
 impl<'w, 's> From<&'w FilteredResourcesMut<'_, 's>> for FilteredResources<'w, 's> {
     fn from(resources: &'w FilteredResourcesMut<'_, 's>) -> Self {
         // SAFETY:
-        // - `FilteredResourcesMut` guarantees exclusive access to all components in the new `FilteredResources`.
+        // - `FilteredResourcesMut` guarantees exclusive access to all components in the new
+        //   `FilteredResources`.
         unsafe {
             FilteredResources::new(
                 resources.world,
@@ -231,7 +238,8 @@ impl<'w> From<&'w World> for FilteredResources<'w, 'static> {
 
         let last_run = value.last_change_tick();
         let this_run = value.read_change_tick();
-        // SAFETY: We have a reference to the entire world, so nothing else can alias with read access to all resources.
+        // SAFETY: We have a reference to the entire world, so nothing else can alias with read
+        // access to all resources.
         unsafe {
             Self::new(
                 value.as_unsafe_world_cell_readonly(),
@@ -254,7 +262,8 @@ impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
 /// Use [`FilteredResources`] if you only need read-only access to resources.
 ///
 /// To be useful as a [`SystemParam`](crate::system::SystemParam),
-/// this must be configured using a [`FilteredResourcesMutParamBuilder`](crate::system::FilteredResourcesMutParamBuilder)
+/// this must be configured using a
+/// [`FilteredResourcesMutParamBuilder`](crate::system::FilteredResourcesMutParamBuilder)
 /// to build the system using a [`SystemParamBuilder`](crate::prelude::SystemParamBuilder).
 ///
 /// # Examples
@@ -306,7 +315,8 @@ impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
 /// # world.run_system_once(system);
 /// ```
 ///
-/// This can be used alongside ordinary [`Res`](crate::system::ResMut) and [`ResMut`](crate::system::ResMut) parameters if they do not conflict.
+/// This can be used alongside ordinary [`Res`](crate::system::ResMut) and
+/// [`ResMut`](crate::system::ResMut) parameters if they do not conflict.
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, system::*};
@@ -381,7 +391,8 @@ pub struct FilteredResourcesMut<'w, 's> {
 impl<'w, 's> FilteredResourcesMut<'w, 's> {
     /// Creates a new [`FilteredResources`].
     /// # Safety
-    /// It is the callers responsibility to ensure that nothing else may access the any resources in the `world` in a way that conflicts with `access`.
+    /// It is the callers responsibility to ensure that nothing else may access the any resources in
+    /// the `world` in a way that conflicts with `access`.
     pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
         access: &'s Access<ComponentId>,
@@ -404,7 +415,8 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     /// Returns a new instance with a shorter lifetime.
     /// This is useful if you have `&mut FilteredResourcesMut`, but you need `FilteredResourcesMut`.
     pub fn reborrow(&mut self) -> FilteredResourcesMut<'_, 's> {
-        // SAFETY: We have exclusive access to this access for the duration of `'_`, so there cannot be anything else that conflicts.
+        // SAFETY: We have exclusive access to this access for the duration of `'_`, so there cannot
+        // be anything else that conflicts.
         unsafe { Self::new(self.world, self.access, self.last_run, self.this_run) }
     }
 
@@ -427,49 +439,60 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
         component_id.is_some_and(|component_id| self.access.has_resource_write(component_id))
     }
 
-    /// Gets a reference to the resource of the given type if it exists and the `FilteredResources` has access to it.
+    /// Gets a reference to the resource of the given type if it exists and the `FilteredResources`
+    /// has access to it.
     pub fn get<R: Resource>(&self) -> Result<Ref<'_, R>, ResourceFetchError> {
         self.as_readonly().get()
     }
 
-    /// Gets a pointer to the resource with the given [`ComponentId`] if it exists and the `FilteredResources` has access to it.
+    /// Gets a pointer to the resource with the given [`ComponentId`] if it exists and the
+    /// `FilteredResources` has access to it.
     pub fn get_by_id(&self, component_id: ComponentId) -> Result<Ptr<'_>, ResourceFetchError> {
         self.as_readonly().get_by_id(component_id)
     }
 
-    /// Gets a mutable reference to the resource of the given type if it exists and the `FilteredResources` has access to it.
+    /// Gets a mutable reference to the resource of the given type if it exists and the
+    /// `FilteredResources` has access to it.
     pub fn get_mut<R: Resource>(&mut self) -> Result<Mut<'_, R>, ResourceFetchError> {
-        // SAFETY: We have exclusive access to the resources in `access` for `'_`, and we shorten the returned lifetime to that.
+        // SAFETY: We have exclusive access to the resources in `access` for `'_`, and we shorten
+        // the returned lifetime to that.
         unsafe { self.get_mut_unchecked() }
     }
 
-    /// Gets a mutable pointer to the resource with the given [`ComponentId`] if it exists and the `FilteredResources` has access to it.
+    /// Gets a mutable pointer to the resource with the given [`ComponentId`] if it exists and the
+    /// `FilteredResources` has access to it.
     pub fn get_mut_by_id(
         &mut self,
         component_id: ComponentId,
     ) -> Result<MutUntyped<'_>, ResourceFetchError> {
-        // SAFETY: We have exclusive access to the resources in `access` for `'_`, and we shorten the returned lifetime to that.
+        // SAFETY: We have exclusive access to the resources in `access` for `'_`, and we shorten
+        // the returned lifetime to that.
         unsafe { self.get_mut_by_id_unchecked(component_id) }
     }
 
-    /// Consumes self and gets mutable access to resource of the given type with the world `'w` lifetime if it exists and the `FilteredResources` has access to it.
+    /// Consumes self and gets mutable access to resource of the given type with the world `'w`
+    /// lifetime if it exists and the `FilteredResources` has access to it.
     pub fn into_mut<R: Resource>(mut self) -> Result<Mut<'w, R>, ResourceFetchError> {
-        // SAFETY: This consumes self, so we have exclusive access to the resources in `access` for the entirety of `'w`.
+        // SAFETY: This consumes self, so we have exclusive access to the resources in `access` for
+        // the entirety of `'w`.
         unsafe { self.get_mut_unchecked() }
     }
 
-    /// Consumes self and gets mutable access to resource with the given [`ComponentId`] with the world `'w` lifetime if it exists and the `FilteredResources` has access to it.
+    /// Consumes self and gets mutable access to resource with the given [`ComponentId`] with the
+    /// world `'w` lifetime if it exists and the `FilteredResources` has access to it.
     pub fn into_mut_by_id(
         mut self,
         component_id: ComponentId,
     ) -> Result<MutUntyped<'w>, ResourceFetchError> {
-        // SAFETY: This consumes self, so we have exclusive access to the resources in `access` for the entirety of `'w`.
+        // SAFETY: This consumes self, so we have exclusive access to the resources in `access` for
+        // the entirety of `'w`.
         unsafe { self.get_mut_by_id_unchecked(component_id) }
     }
 
-    /// Gets a mutable pointer to the resource of the given type if it exists and the `FilteredResources` has access to it.
-    /// # Safety
-    /// It is the callers responsibility to ensure that there are no conflicting borrows of anything in `access` for the duration of the returned value.
+    /// Gets a mutable pointer to the resource of the given type if it exists and the
+    /// `FilteredResources` has access to it. # Safety
+    /// It is the callers responsibility to ensure that there are no conflicting borrows of anything
+    /// in `access` for the duration of the returned value.
     unsafe fn get_mut_unchecked<R: Resource>(&mut self) -> Result<Mut<'w, R>, ResourceFetchError> {
         let component_id = self
             .world
@@ -482,9 +505,10 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
             .map(|ptr| unsafe { ptr.with_type::<R>() })
     }
 
-    /// Gets a mutable pointer to the resource with the given [`ComponentId`] if it exists and the `FilteredResources` has access to it.
-    /// # Safety
-    /// It is the callers responsibility to ensure that there are no conflicting borrows of anything in `access` for the duration of the returned value.
+    /// Gets a mutable pointer to the resource with the given [`ComponentId`] if it exists and the
+    /// `FilteredResources` has access to it. # Safety
+    /// It is the callers responsibility to ensure that there are no conflicting borrows of anything
+    /// in `access` for the duration of the returned value.
     unsafe fn get_mut_by_id_unchecked(
         &mut self,
         component_id: ComponentId,
@@ -521,7 +545,8 @@ impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
 
         let last_run = value.last_change_tick();
         let this_run = value.change_tick();
-        // SAFETY: We have a mutable reference to the entire world, so nothing else can alias with mutable access to all resources.
+        // SAFETY: We have a mutable reference to the entire world, so nothing else can alias with
+        // mutable access to all resources.
         unsafe {
             Self::new(
                 value.as_unsafe_world_cell_readonly(),
@@ -535,7 +560,8 @@ impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
 
 /// Builder struct to define the access for a [`FilteredResources`].
 ///
-/// This is passed to a callback in [`FilteredResourcesParamBuilder`](crate::system::FilteredResourcesParamBuilder).
+/// This is passed to a callback in
+/// [`FilteredResourcesParamBuilder`](crate::system::FilteredResourcesParamBuilder).
 pub struct FilteredResourcesBuilder<'w> {
     world: &'w mut World,
     access: Access<ComponentId>,
@@ -581,7 +607,8 @@ impl<'w> FilteredResourcesBuilder<'w> {
 
 /// Builder struct to define the access for a [`FilteredResourcesMut`].
 ///
-/// This is passed to a callback in [`FilteredResourcesMutParamBuilder`](crate::system::FilteredResourcesMutParamBuilder).
+/// This is passed to a callback in
+/// [`FilteredResourcesMutParamBuilder`](crate::system::FilteredResourcesMutParamBuilder).
 pub struct FilteredResourcesMutBuilder<'w> {
     world: &'w mut World,
     access: Access<ComponentId>,

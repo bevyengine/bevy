@@ -110,7 +110,8 @@ impl LinearRgba {
         }
     }
 
-    /// Construct a new [`LinearRgba`] color from (r, g, b) components, with the default alpha (1.0).
+    /// Construct a new [`LinearRgba`] color from (r, g, b) components, with the default alpha
+    /// (1.0).
     ///
     /// # Arguments
     ///
@@ -335,7 +336,8 @@ impl From<LinearRgba> for wgpu_types::Color {
 }
 
 // [`LinearRgba`] is intended to be used with shaders
-// So it's the only color type that implements [`ShaderType`] to make it easier to use inside shaders
+// So it's the only color type that implements [`ShaderType`] to make it easier to use inside
+// shaders
 #[cfg(feature = "encase")]
 impl encase::ShaderType for LinearRgba {
     type ExtraMetadata = ();

@@ -9,7 +9,8 @@ use bevy_reflect::Reflect;
 ///
 /// Contains information about how and where to render a glyph.
 ///
-/// Used in [`TextPipeline::queue_text`](crate::TextPipeline::queue_text) and [`crate::TextLayoutInfo`] for rendering glyphs.
+/// Used in [`TextPipeline::queue_text`](crate::TextPipeline::queue_text) and
+/// [`crate::TextLayoutInfo`] for rendering glyphs.
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Clone)]
 pub struct PositionedGlyph {
@@ -19,7 +20,8 @@ pub struct PositionedGlyph {
     pub size: Vec2,
     /// Information about the glyph's atlas.
     pub atlas_info: GlyphAtlasInfo,
-    /// The index of the glyph in the [`ComputedTextBlock`](crate::ComputedTextBlock)'s tracked spans.
+    /// The index of the glyph in the [`ComputedTextBlock`](crate::ComputedTextBlock)'s tracked
+    /// spans.
     pub span_index: usize,
     /// The index of the glyph's line.
     pub line_index: usize,

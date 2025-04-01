@@ -14,15 +14,16 @@ impl SerializationData {
     /// # Arguments
     ///
     /// * `skipped_iter`: The iterator of field indices to be skipped during (de)serialization.
-    ///   Indices are assigned only to reflected fields.
-    ///   Ignored fields (i.e. those marked `#[reflect(ignore)]`) are implicitly skipped
-    ///   and do not need to be included in this iterator.
+    ///   Indices are assigned only to reflected fields. Ignored fields (i.e. those marked
+    ///   `#[reflect(ignore)]`) are implicitly skipped and do not need to be included in this
+    ///   iterator.
     pub fn new<I: Iterator<Item = (usize, SkippedField)>>(skipped_iter: I) -> Self {
         Self {
             skipped_fields: skipped_iter.collect(),
         }
     }
-    /// Returns true if the given index corresponds to a field meant to be skipped during (de)serialization.
+    /// Returns true if the given index corresponds to a field meant to be skipped during
+    /// (de)serialization.
     ///
     /// # Example
     ///
@@ -107,7 +108,7 @@ impl SerializationData {
     ///
     /// Each item in the iterator is a tuple containing:
     /// 1. The reflected index of the field
-    /// 2. The (de)serialization metadata of the field  
+    /// 2. The (de)serialization metadata of the field
     pub fn iter_skipped(&self) -> Iter<'_, usize, SkippedField> {
         self.skipped_fields.iter()
     }

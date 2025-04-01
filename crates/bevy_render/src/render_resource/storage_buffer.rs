@@ -12,14 +12,16 @@ use super::IntoBinding;
 
 /// Stores data to be transferred to the GPU and made accessible to shaders as a storage buffer.
 ///
-/// Storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts of data.
-/// Note however that WebGL2 does not support storage buffers, so consider alternative options in this case.
+/// Storage buffers can be made available to shaders in some combination of read/write mode, and can
+/// store large amounts of data. Note however that WebGL2 does not support storage buffers, so
+/// consider alternative options in this case.
 ///
-/// Storage buffers can store runtime-sized arrays, but only if they are the last field in a structure.
+/// Storage buffers can store runtime-sized arrays, but only if they are the last field in a
+/// structure.
 ///
 /// The contained data is stored in system RAM. [`write_buffer`](StorageBuffer::write_buffer) queues
-/// copying of the data from system RAM to VRAM. Storage buffers must conform to [std430 alignment/padding requirements], which
-/// is automatically enforced by this structure.
+/// copying of the data from system RAM to VRAM. Storage buffers must conform to [std430
+/// alignment/padding requirements], which is automatically enforced by this structure.
 ///
 /// Other options for storing GPU-accessible data are:
 /// * [`BufferVec`](crate::render_resource::BufferVec)
@@ -114,7 +116,8 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     ///
     /// This method only allows addition of flags to the default usage flags.
     ///
-    /// The default values for buffer usage are `BufferUsages::COPY_DST` and `BufferUsages::STORAGE`.
+    /// The default values for buffer usage are `BufferUsages::COPY_DST` and
+    /// `BufferUsages::STORAGE`.
     pub fn add_usages(&mut self, usage: BufferUsages) {
         self.buffer_usage |= usage;
         self.changed = true;
@@ -123,8 +126,9 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
     /// and the provided [`RenderQueue`].
     ///
-    /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
-    /// allocated does not have enough capacity, a new GPU-side buffer is created.
+    /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side
+    /// buffer previously allocated does not have enough capacity, a new GPU-side buffer is
+    /// created.
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         self.scratch.write(&self.value).unwrap();
 
@@ -153,20 +157,22 @@ impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a StorageBuffer<T> {
     }
 }
 
-/// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic storage buffer.
+/// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic storage
+/// buffer.
 ///
 /// This is just a [`StorageBuffer`], but also allows you to set dynamic offsets.
 ///
-/// Dynamic storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts
-/// of data. Note however that WebGL2 does not support storage buffers, so consider alternative options in this case. Dynamic
-/// storage buffers support multiple separate bindings at dynamic byte offsets and so have a
-/// [`push`](DynamicStorageBuffer::push) method.
+/// Dynamic storage buffers can be made available to shaders in some combination of read/write mode,
+/// and can store large amounts of data. Note however that WebGL2 does not support storage buffers,
+/// so consider alternative options in this case. Dynamic storage buffers support multiple separate
+/// bindings at dynamic byte offsets and so have a [`push`](DynamicStorageBuffer::push) method.
 ///
 /// The contained data is stored in system RAM. [`write_buffer`](DynamicStorageBuffer::write_buffer)
-/// queues copying of the data from system RAM to VRAM. The data within a storage buffer binding must conform to
-/// [std430 alignment/padding requirements]. `DynamicStorageBuffer` takes care of serializing the inner type to conform to
-/// these requirements. Each item [`push`](DynamicStorageBuffer::push)ed into this structure
-/// will additionally be aligned to meet dynamic offset alignment requirements.
+/// queues copying of the data from system RAM to VRAM. The data within a storage buffer binding
+/// must conform to [std430 alignment/padding requirements]. `DynamicStorageBuffer` takes care of
+/// serializing the inner type to conform to these requirements. Each item
+/// [`push`](DynamicStorageBuffer::push)ed into this structure will additionally be aligned to meet
+/// dynamic offset alignment requirements.
 ///
 /// Other options for storing GPU-accessible data are:
 /// * [`BufferVec`](crate::render_resource::BufferVec)
@@ -245,7 +251,8 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     ///
     /// This method only allows addition of flags to the default usage flags.
     ///
-    /// The default values for buffer usage are `BufferUsages::COPY_DST` and `BufferUsages::STORAGE`.
+    /// The default values for buffer usage are `BufferUsages::COPY_DST` and
+    /// `BufferUsages::STORAGE`.
     pub fn add_usages(&mut self, usage: BufferUsages) {
         self.buffer_usage |= usage;
         self.changed = true;

@@ -13,24 +13,24 @@ use variadics_please::all_tuples;
 /// Types that filter the results of a [`Query`].
 ///
 /// There are many types that natively implement this trait:
-/// - **Component filters.**
-///   [`With`] and [`Without`] filters can be applied to check if the queried entity does or does not contain a particular component.
-/// - **Change detection filters.**
-///   [`Added`] and [`Changed`] filters can be applied to detect component changes to an entity.
-/// - **`QueryFilter` tuples.**
-///   If every element of a tuple implements `QueryFilter`, then the tuple itself also implements the same trait.
-///   This enables a single `Query` to filter over multiple conditions.
-///   Due to the current lack of variadic generics in Rust, the trait has been implemented for tuples from 0 to 15 elements,
-///   but nesting of tuples allows infinite `QueryFilter`s.
-/// - **Filter disjunction operator.**
-///   By default, tuples compose query filters in such a way that all conditions must be satisfied to generate a query item for a given entity.
-///   Wrapping a tuple inside an [`Or`] operator will relax the requirement to just one condition.
+/// - **Component filters.** [`With`] and [`Without`] filters can be applied to check if the queried
+///   entity does or does not contain a particular component.
+/// - **Change detection filters.** [`Added`] and [`Changed`] filters can be applied to detect
+///   component changes to an entity.
+/// - **`QueryFilter` tuples.** If every element of a tuple implements `QueryFilter`, then the tuple
+///   itself also implements the same trait. This enables a single `Query` to filter over multiple
+///   conditions. Due to the current lack of variadic generics in Rust, the trait has been
+///   implemented for tuples from 0 to 15 elements, but nesting of tuples allows infinite
+///   `QueryFilter`s.
+/// - **Filter disjunction operator.** By default, tuples compose query filters in such a way that
+///   all conditions must be satisfied to generate a query item for a given entity. Wrapping a tuple
+///   inside an [`Or`] operator will relax the requirement to just one condition.
 ///
 /// Implementing the trait manually can allow for a fundamentally new type of behavior.
 ///
 /// Query design can be easily structured by deriving `QueryFilter` for custom types.
-/// Despite the added complexity, this approach has several advantages over using `QueryFilter` tuples.
-/// The most relevant improvements are:
+/// Despite the added complexity, this approach has several advantages over using `QueryFilter`
+/// tuples. The most relevant improvements are:
 ///
 /// - Reusability across multiple systems.
 /// - Filters can be composed together to create a more complex filter.
@@ -87,19 +87,20 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// If this is `true`, then [`QueryFilter::filter_fetch`] must always return true.
     const IS_ARCHETYPAL: bool;
 
-    /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
-    /// If false, the entity will be skipped.
+    /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query
+    /// results. If false, the entity will be skipped.
     ///
-    /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
-    /// ones that are compatible with the Filter's access.
+    /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s
+    /// to the ones that are compatible with the Filter's access.
     ///
-    /// Implementors of this method will generally either have a trivial `true` body (required for archetypal filters),
-    /// or access the necessary data within this function to make the final decision on filter inclusion.
+    /// Implementors of this method will generally either have a trivial `true` body (required for
+    /// archetypal filters), or access the necessary data within this function to make the final
+    /// decision on filter inclusion.
     ///
     /// # Safety
     ///
-    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
-    /// `table_row` must be in the range of the current table and archetype.
+    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`].
+    /// `entity` and `table_row` must be in the range of the current table and archetype.
     unsafe fn filter_fetch(
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
@@ -240,7 +241,8 @@ pub struct Without<T>(PhantomData<T>);
 /// `update_component_access` does not add any accesses.
 /// This is sound because [`QueryFilter::filter_fetch`] does not access any components.
 /// `update_component_access` adds a `Without` filter for `T`.
-/// This is sound because `matches_component_set` returns whether the set does not contain the component.
+/// This is sound because `matches_component_set` returns whether the set does not contain the
+/// component.
 unsafe impl<T: Component> WorldQuery for Without<T> {
     type Fetch<'w> = ();
     type State = ComponentId;
@@ -647,8 +649,8 @@ impl<T: Component> Clone for AddedFetch<'_, T> {
 
 /// SAFETY:
 /// [`QueryFilter::filter_fetch`] accesses a single component in a readonly way.
-/// This is sound because `update_component_access` adds read access for that component and panics when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
+/// This is sound because `update_component_access` adds read access for that component and panics
+/// when appropriate. `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Added<T> {
     type Fetch<'w> = AddedFetch<'w, T>;
@@ -670,9 +672,11 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
                 || None,
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
-                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
-                    // Note that we do not actually access any components' ticks in this function, we just get a shared
-                    // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
+                    // which we are allowed to access since we registered it in
+                    // `update_archetype_component_access`. Note that we do not
+                    // actually access any components' ticks in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components' ticks in
+                    // `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
             ),
@@ -780,12 +784,13 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
     }
 }
 
-/// A filter on a component that only retains results the first time after they have been added or mutably dereferenced.
+/// A filter on a component that only retains results the first time after they have been added or
+/// mutably dereferenced.
 ///
 /// A common use for this filter is avoiding redundant work when values have not changed.
 ///
-/// **Note** that simply *mutably dereferencing* a component is considered a change ([`DerefMut`](std::ops::DerefMut)).
-/// Bevy does not compare components to their previous values.
+/// **Note** that simply *mutably dereferencing* a component is considered a change
+/// ([`DerefMut`](std::ops::DerefMut)). Bevy does not compare components to their previous values.
 ///
 /// To retain all results without filtering but still check whether they were changed after the
 /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
@@ -877,8 +882,8 @@ impl<T: Component> Clone for ChangedFetch<'_, T> {
 
 /// SAFETY:
 /// `fetch` accesses a single component in a readonly way.
-/// This is sound because `update_component_access` add read access for that component and panics when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
+/// This is sound because `update_component_access` add read access for that component and panics
+/// when appropriate. `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Changed<T> {
     type Fetch<'w> = ChangedFetch<'w, T>;
@@ -900,9 +905,11 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
                 || None,
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
-                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
-                    // Note that we do not actually access any components' ticks in this function, we just get a shared
-                    // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
+                    // which we are allowed to access since we registered it in
+                    // `update_archetype_component_access`. Note that we do not
+                    // actually access any components' ticks in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components' ticks in
+                    // `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
             ),
@@ -1016,10 +1023,10 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 /// This is needed to implement [`ExactSizeIterator`] for
 /// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
 ///
-/// The trait must only be implemented for filters where its corresponding [`QueryFilter::IS_ARCHETYPAL`]
-/// is [`prim@true`]. As such, only the [`With`] and [`Without`] filters can implement the trait.
-/// [Tuples](prim@tuple) and [`Or`] filters are automatically implemented with the trait only if its containing types
-/// also implement the same trait.
+/// The trait must only be implemented for filters where its corresponding
+/// [`QueryFilter::IS_ARCHETYPAL`] is [`prim@true`]. As such, only the [`With`] and [`Without`]
+/// filters can implement the trait. [Tuples](prim@tuple) and [`Or`] filters are automatically
+/// implemented with the trait only if its containing types also implement the same trait.
 ///
 /// [`Added`] and [`Changed`] works with entities, and therefore are not archetypal. As such
 /// they do not implement [`ArchetypeFilter`].

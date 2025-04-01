@@ -26,9 +26,10 @@ use core::{
 };
 use smallvec::SmallVec;
 
-/// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
-/// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
-/// contains event propagation information. See [`Trigger::propagate`] for more information.
+/// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This
+/// contains the [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes
+/// that as well. It also contains event propagation information. See [`Trigger::propagate`] for
+/// more information.
 pub struct Trigger<'w, E, B: Bundle = ()> {
     event: &'w mut E,
     propagate: &'w mut bool,
@@ -118,14 +119,17 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         self.trigger.observer
     }
 
-    /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
+    /// Enables or disables event propagation, allowing the same event to trigger observers on a
+    /// chain of different entities.
     ///
-    /// The path an event will propagate along is specified by its associated [`Traversal`] component. By default, events
-    /// use `()` which ends the path immediately and prevents propagation.
+    /// The path an event will propagate along is specified by its associated [`Traversal`]
+    /// component. By default, events use `()` which ends the path immediately and prevents
+    /// propagation.
     ///
     /// To enable propagation, you must:
     /// + Set [`Event::Traversal`] to the component you want to propagate along.
-    /// + Either call `propagate(true)` in the first observer or set [`Event::AUTO_PROPAGATE`] to `true`.
+    /// + Either call `propagate(true)` in the first observer or set [`Event::AUTO_PROPAGATE`] to
+    ///   `true`.
     ///
     /// You can prevent an event from propagating further using `propagate(false)`.
     ///
@@ -134,7 +138,8 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         *self.propagate = should_propagate;
     }
 
-    /// Returns the value of the flag that controls event propagation. See [`propagate`] for more information.
+    /// Returns the value of the flag that controls event propagation. See [`propagate`] for more
+    /// information.
     ///
     /// [`propagate`]: Trigger::propagate
     pub fn get_propagate(&self) -> bool {
@@ -172,10 +177,11 @@ impl<'w, E, B: Bundle> DerefMut for Trigger<'w, E, B> {
     }
 }
 
-/// Represents a collection of targets for a specific [`Trigger`] of an [`Event`]. Targets can be of type [`Entity`] or [`ComponentId`].
+/// Represents a collection of targets for a specific [`Trigger`] of an [`Event`]. Targets can be of
+/// type [`Entity`] or [`ComponentId`].
 ///
-/// When a trigger occurs for a given event and [`TriggerTargets`], any [`Observer`] that watches for that specific event-target combination
-/// will run.
+/// When a trigger occurs for a given event and [`TriggerTargets`], any [`Observer`] that watches
+/// for that specific event-target combination will run.
 pub trait TriggerTargets {
     /// The components the trigger should target.
     fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_;
@@ -363,7 +369,8 @@ impl ObserverTrigger {
 // Map between an observer entity and its runner
 type ObserverMap = EntityHashMap<ObserverRunner>;
 
-/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger targeted at a specific component.
+/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger targeted at
+/// a specific component.
 #[derive(Default, Debug)]
 pub struct CachedComponentObservers {
     // Observers listening to triggers targeting this component
@@ -419,7 +426,8 @@ impl Observers {
         }
     }
 
-    /// This will run the observers of the given `event_type`, targeting the given `entity` and `components`.
+    /// This will run the observers of the given `event_type`, targeting the given `entity` and
+    /// `components`.
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
         event_type: ComponentId,
@@ -587,7 +595,8 @@ impl World {
         }
     }
 
-    /// Triggers the given [`Event`] as a mutable reference, which will run any [`Observer`]s watching for it.
+    /// Triggers the given [`Event`] as a mutable reference, which will run any [`Observer`]s
+    /// watching for it.
     ///
     /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
@@ -598,11 +607,13 @@ impl World {
         unsafe { self.trigger_targets_dynamic_ref(event_id, event, ()) };
     }
 
-    /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
+    /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s
+    /// watching for it.
     ///
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
-    /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
+    /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`]
+    /// instead.
     #[track_caller]
     pub fn trigger_targets<E: Event>(&mut self, event: E, targets: impl TriggerTargets) {
         self.trigger_targets_with_caller(event, targets, MaybeLocation::caller());
@@ -624,8 +635,8 @@ impl World {
     /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
     /// which will run any [`Observer`]s watching for it.
     ///
-    /// Compared to [`World::trigger_targets`], this method is most useful when it's necessary to check
-    /// or use the event after it has been modified by observers.
+    /// Compared to [`World::trigger_targets`], this method is most useful when it's necessary to
+    /// check or use the event after it has been modified by observers.
     #[track_caller]
     pub fn trigger_targets_ref<E: Event>(&mut self, event: &mut E, targets: impl TriggerTargets) {
         let event_id = E::register_component_id(self);
@@ -633,11 +644,13 @@ impl World {
         unsafe { self.trigger_targets_dynamic_ref(event_id, event, targets) };
     }
 
-    /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
+    /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s
+    /// watching for it.
     ///
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
-    /// If you need to use the event after triggering it, use [`World::trigger_targets_dynamic_ref`] instead.
+    /// If you need to use the event after triggering it, use [`World::trigger_targets_dynamic_ref`]
+    /// instead.
     ///
     /// # Safety
     ///
@@ -658,8 +671,8 @@ impl World {
     /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
     /// which will run any [`Observer`]s watching for it.
     ///
-    /// Compared to [`World::trigger_targets_dynamic`], this method is most useful when it's necessary to check
-    /// or use the event after it has been modified by observers.
+    /// Compared to [`World::trigger_targets_dynamic`], this method is most useful when it's
+    /// necessary to check or use the event after it has been modified by observers.
     ///
     /// # Safety
     ///
@@ -786,7 +799,8 @@ impl World {
                 cache.map.remove(&entity);
             } else if descriptor.components.is_empty() {
                 for watched_entity in &descriptor.entities {
-                    // This check should be unnecessary since this observer hasn't been unregistered yet
+                    // This check should be unnecessary since this observer hasn't been unregistered
+                    // yet
                     let Some(observers) = cache.entity_observers.get_mut(watched_entity) else {
                         continue;
                     };

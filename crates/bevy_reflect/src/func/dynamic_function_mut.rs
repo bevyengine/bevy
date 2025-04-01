@@ -25,7 +25,8 @@ type BoxFnMut<'env> = Box<dyn for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> +
 /// See the [module-level documentation] for more information.
 ///
 /// You will generally not need to construct this manually.
-/// Instead, many functions and closures can be automatically converted using the [`IntoFunctionMut`] trait.
+/// Instead, many functions and closures can be automatically converted using the
+/// [`IntoFunctionMut`] trait.
 ///
 /// # Example
 ///
@@ -103,9 +104,9 @@ impl<'env> DynamicFunctionMut<'env> {
     /// Set the name of the function.
     ///
     /// For [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
-    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
-    /// unless the function is a closure, anonymous function, or function pointer,
-    /// in which case the name will be `None`.
+    /// the default name will always be the full path to the function as returned by
+    /// [`core::any::type_name`], unless the function is a closure, anonymous function, or
+    /// function pointer, in which case the name will be `None`.
     ///
     /// [`DynamicFunctionMuts`]: DynamicFunctionMut
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
@@ -115,22 +116,24 @@ impl<'env> DynamicFunctionMut<'env> {
 
     /// Add an overload to this function.
     ///
-    /// Overloads allow a single [`DynamicFunctionMut`] to represent multiple functions of different signatures.
+    /// Overloads allow a single [`DynamicFunctionMut`] to represent multiple functions of different
+    /// signatures.
     ///
     /// This can be used to handle multiple monomorphizations of a generic function
     /// or to allow functions with a variable number of arguments.
     ///
-    /// Any functions with the same [argument signature] will be overwritten by the one from the new function, `F`.
-    /// For example, if the existing function had the signature `(i32, i32) -> i32`,
-    /// and the new function, `F`, also had the signature `(i32, i32) -> i32`,
+    /// Any functions with the same [argument signature] will be overwritten by the one from the new
+    /// function, `F`. For example, if the existing function had the signature `(i32, i32) ->
+    /// i32`, and the new function, `F`, also had the signature `(i32, i32) -> i32`,
     /// the one from `F` would replace the one from the existing function.
     ///
     /// Overloaded functions retain the [name] of the original function.
     ///
-    /// Note that it may be impossible to overload closures that mutably borrow from their environment
-    /// due to Rust's borrowing rules.
-    /// However, it's still possible to overload functions that do not capture their environment mutably,
-    /// or those that maintain mutually exclusive mutable references to their environment.
+    /// Note that it may be impossible to overload closures that mutably borrow from their
+    /// environment due to Rust's borrowing rules.
+    /// However, it's still possible to overload functions that do not capture their environment
+    /// mutably, or those that maintain mutually exclusive mutable references to their
+    /// environment.
     ///
     /// # Panics
     ///
@@ -279,9 +282,9 @@ impl<'env> DynamicFunctionMut<'env> {
     /// The name of the function.
     ///
     /// For [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
-    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
-    /// unless the function is a closure, anonymous function, or function pointer,
-    /// in which case the name will be `None`.
+    /// the default name will always be the full path to the function as returned by
+    /// [`core::any::type_name`], unless the function is a closure, anonymous function, or
+    /// function pointer, in which case the name will be `None`.
     ///
     /// This can be overridden using [`with_name`].
     ///
@@ -336,12 +339,15 @@ impl<'env> DynamicFunctionMut<'env> {
 
 /// Outputs the function's signature.
 ///
-/// This takes the format: `DynamicFunctionMut(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
+/// This takes the format: `DynamicFunctionMut(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) ->
+/// {return_type})`.
 ///
-/// Names for arguments and the function itself are optional and will default to `_` if not provided.
+/// Names for arguments and the function itself are optional and will default to `_` if not
+/// provided.
 ///
-/// If the function is [overloaded], the output will include the signatures of all overloads as a set.
-/// For example, `DynamicFunctionMut(fn add{(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})`.
+/// If the function is [overloaded], the output will include the signatures of all overloads as a
+/// set. For example, `DynamicFunctionMut(fn add{(_: i32, _: i32) -> i32, (_: f32, _: f32) ->
+/// f32})`.
 ///
 /// [overloaded]: DynamicFunctionMut::with_overload
 impl<'env> Debug for DynamicFunctionMut<'env> {

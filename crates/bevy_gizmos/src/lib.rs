@@ -25,10 +25,12 @@ extern crate self as bevy_gizmos;
 /// System set label for the systems handling the rendering of gizmos.
 #[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum GizmoRenderSystem {
-    /// Adds gizmos to the [`Transparent2d`](bevy_core_pipeline::core_2d::Transparent2d) render phase
+    /// Adds gizmos to the [`Transparent2d`](bevy_core_pipeline::core_2d::Transparent2d) render
+    /// phase
     #[cfg(feature = "bevy_sprite")]
     QueueLineGizmos2d,
-    /// Adds gizmos to the [`Transparent3d`](bevy_core_pipeline::core_3d::Transparent3d) render phase
+    /// Adds gizmos to the [`Transparent3d`](bevy_core_pipeline::core_3d::Transparent3d) render
+    /// phase
     #[cfg(feature = "bevy_pbr")]
     QueueLineGizmos3d,
 }
@@ -148,7 +150,8 @@ const LINE_JOINT_SHADER_HANDLE: Handle<Shader> =
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 ///
-/// Requires to be loaded after [`PbrPlugin`](bevy_pbr::PbrPlugin) or [`SpritePlugin`](bevy_sprite::SpritePlugin).
+/// Requires to be loaded after [`PbrPlugin`](bevy_pbr::PbrPlugin) or
+/// [`SpritePlugin`](bevy_sprite::SpritePlugin).
 #[derive(Default)]
 pub struct GizmoPlugin;
 
@@ -170,7 +173,8 @@ impl Plugin for GizmoPlugin {
             .register_type::<GizmoConfigStore>()
             .init_asset::<GizmoAsset>()
             .init_resource::<GizmoHandles>()
-            // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
+            // We insert the Resource GizmoConfigStore into the world implicitly here if it does not
+            // exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>();
 
         #[cfg(feature = "bevy_render")]
@@ -236,14 +240,16 @@ impl Plugin for GizmoPlugin {
 
 /// A extension trait adding `App::init_gizmo_group` and `App::insert_gizmo_config`.
 pub trait AppGizmoBuilder {
-    /// Registers [`GizmoConfigGroup`] in the app enabling the use of [Gizmos&lt;Config&gt;](crate::gizmos::Gizmos).
+    /// Registers [`GizmoConfigGroup`] in the app enabling the use of
+    /// [Gizmos&lt;Config&gt;](crate::gizmos::Gizmos).
     ///
     /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
     fn init_gizmo_group<Config: GizmoConfigGroup>(&mut self) -> &mut Self;
 
     /// Insert a [`GizmoConfig`] into a specific [`GizmoConfigGroup`].
     ///
-    /// This method should be preferred over [`AppGizmoBuilder::init_gizmo_group`] if and only if you need to configure fields upon initialization.
+    /// This method should be preferred over [`AppGizmoBuilder::init_gizmo_group`] if and only if
+    /// you need to configure fields upon initialization.
     fn insert_gizmo_config<Config: GizmoConfigGroup>(
         &mut self,
         group: Config,
@@ -506,7 +512,8 @@ struct LineGizmoUniform {
     world_from_local: [Vec4; 3],
     line_width: f32,
     depth_bias: f32,
-    // Only used by gizmo line t if the current configs `line_joints` is set to `GizmoLineJoint::Round(_)`
+    // Only used by gizmo line t if the current configs `line_joints` is set to
+    // `GizmoLineJoint::Round(_)`
     joints_resolution: u32,
     // Only used if the current configs `line_style` is set to `GizmoLineStyle::Dashed{_}`
     gap_scale: f32,

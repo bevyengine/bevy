@@ -32,22 +32,27 @@ use log::warn;
 /// This relationship should be used for things like:
 ///
 /// 1. Organizing entities in a scene
-/// 2. Propagating configuration or data inherited from a parent, such as "visibility" or "world-space global transforms".
+/// 2. Propagating configuration or data inherited from a parent, such as "visibility" or
+///    "world-space global transforms".
 /// 3. Ensuring a hierarchy is despawned when an entity is despawned.
 ///
-/// [`ChildOf`] contains a single "target" [`Entity`]. When [`ChildOf`] is inserted on a "source" entity,
-/// the "target" entity will automatically (and immediately, via a component hook) have a [`Children`]
-/// component inserted, and the "source" entity will be added to that [`Children`] instance.
+/// [`ChildOf`] contains a single "target" [`Entity`]. When [`ChildOf`] is inserted on a "source"
+/// entity, the "target" entity will automatically (and immediately, via a component hook) have a
+/// [`Children`] component inserted, and the "source" entity will be added to that [`Children`]
+/// instance.
 ///
-/// If the [`ChildOf`] component is replaced with a different "target" entity, the old target's [`Children`]
-/// will be automatically (and immediately, via a component hook) be updated to reflect that change.
+/// If the [`ChildOf`] component is replaced with a different "target" entity, the old target's
+/// [`Children`] will be automatically (and immediately, via a component hook) be updated to reflect
+/// that change.
 ///
-/// Likewise, when the [`ChildOf`] component is removed, the "source" entity will be removed from the old
-/// target's [`Children`]. If this results in [`Children`] being empty, [`Children`] will be automatically removed.
+/// Likewise, when the [`ChildOf`] component is removed, the "source" entity will be removed from
+/// the old target's [`Children`]. If this results in [`Children`] being empty, [`Children`] will be
+/// automatically removed.
 ///
 /// When a parent is despawned, all children (and their descendants) will _also_ be despawned.
 ///
-/// You can create parent-child relationships in a variety of ways. The most direct way is to insert a [`ChildOf`] component:
+/// You can create parent-child relationships in a variety of ways. The most direct way is to insert
+/// a [`ChildOf`] component:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -69,7 +74,8 @@ use log::warn;
 /// assert!(world.get_entity(grandchild).is_err());
 /// ```
 ///
-/// However if you are spawning many children, you might want to use the [`EntityWorldMut::with_children`] helper instead:
+/// However if you are spawning many children, you might want to use the
+/// [`EntityWorldMut::with_children`] helper instead:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -118,13 +124,13 @@ impl FromWorld for ChildOf {
 /// A [`RelationshipTarget`] collection component that is populated
 /// with entities that "target" this entity with the [`ChildOf`] [`Relationship`] component.
 ///
-/// Together, these components form the "canonical parent-child hierarchy". See the [`ChildOf`] component for the full
-/// description of this relationship and instructions on how to use it.
+/// Together, these components form the "canonical parent-child hierarchy". See the [`ChildOf`]
+/// component for the full description of this relationship and instructions on how to use it.
 ///
 /// # Usage
 ///
-/// Like all [`RelationshipTarget`] components, this data should not be directly manipulated to avoid desynchronization.
-/// Instead, modify the [`ChildOf`] components on the "source" entities.
+/// Like all [`RelationshipTarget`] components, this data should not be directly manipulated to
+/// avoid desynchronization. Instead, modify the [`ChildOf`] components on the "source" entities.
 ///
 /// To access the children of an entity, you can iterate over the [`Children`] component,
 /// using the [`IntoIterator`] trait.
@@ -152,7 +158,8 @@ impl Children {
     ///
     /// For the unstable version, see [`sort_unstable_by`](Children::sort_unstable_by).
     ///
-    /// See also [`sort_by_key`](Children::sort_by_key), [`sort_by_cached_key`](Children::sort_by_cached_key).
+    /// See also [`sort_by_key`](Children::sort_by_key),
+    /// [`sort_by_cached_key`](Children::sort_by_cached_key).
     #[inline]
     pub fn sort_by<F>(&mut self, compare: F)
     where
@@ -168,7 +175,8 @@ impl Children {
     ///
     /// For the unstable version, see [`sort_unstable_by_key`](Children::sort_unstable_by_key).
     ///
-    /// See also [`sort_by`](Children::sort_by), [`sort_by_cached_key`](Children::sort_by_cached_key).
+    /// See also [`sort_by`](Children::sort_by),
+    /// [`sort_by_cached_key`](Children::sort_by_cached_key).
     #[inline]
     pub fn sort_by_key<K, F>(&mut self, compare: F)
     where
@@ -247,15 +255,17 @@ impl Deref for Children {
     }
 }
 
-/// A type alias over [`RelatedSpawner`] used to spawn child entities containing a [`ChildOf`] relationship.
+/// A type alias over [`RelatedSpawner`] used to spawn child entities containing a [`ChildOf`]
+/// relationship.
 pub type ChildSpawner<'w> = RelatedSpawner<'w, ChildOf>;
 
-/// A type alias over [`RelatedSpawnerCommands`] used to spawn child entities containing a [`ChildOf`] relationship.
+/// A type alias over [`RelatedSpawnerCommands`] used to spawn child entities containing a
+/// [`ChildOf`] relationship.
 pub type ChildSpawnerCommands<'w> = RelatedSpawnerCommands<'w, ChildOf>;
 
 impl<'w> EntityWorldMut<'w> {
-    /// Spawns children of this entity (with a [`ChildOf`] relationship) by taking a function that operates on a [`ChildSpawner`].
-    /// See also [`with_related`](Self::with_related).
+    /// Spawns children of this entity (with a [`ChildOf`] relationship) by taking a function that
+    /// operates on a [`ChildSpawner`]. See also [`with_related`](Self::with_related).
     pub fn with_children(&mut self, func: impl FnOnce(&mut ChildSpawner)) -> &mut Self {
         self.with_related(func);
         self
@@ -288,12 +298,14 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Warning
     ///
-    /// Failing to maintain the functions invariants may lead to erratic engine behavior including random crashes.
-    /// Refer to [`Self::replace_related_with_difference`] for a list of these invariants.
+    /// Failing to maintain the functions invariants may lead to erratic engine behavior including
+    /// random crashes. Refer to [`Self::replace_related_with_difference`] for a list of these
+    /// invariants.
     ///
     /// # Panics
     ///
-    /// Panics when debug assertions are enabled if an invariant is is broken and the command is executed.
+    /// Panics when debug assertions are enabled if an invariant is is broken and the command is
+    /// executed.
     pub fn replace_children_with_difference(
         &mut self,
         entities_to_unrelate: &[Entity],
@@ -339,7 +351,8 @@ impl<'w> EntityWorldMut<'w> {
 }
 
 impl<'a> EntityCommands<'a> {
-    /// Spawns children of this entity (with a [`ChildOf`] relationship) by taking a function that operates on a [`ChildSpawner`].
+    /// Spawns children of this entity (with a [`ChildOf`] relationship) by taking a function that
+    /// operates on a [`ChildSpawner`].
     pub fn with_children(
         &mut self,
         func: impl FnOnce(&mut RelatedSpawnerCommands<ChildOf>),
@@ -367,12 +380,14 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Warning
     ///
-    /// Failing to maintain the functions invariants may lead to erratic engine behavior including random crashes.
-    /// Refer to [`EntityWorldMut::replace_related_with_difference`] for a list of these invariants.
+    /// Failing to maintain the functions invariants may lead to erratic engine behavior including
+    /// random crashes. Refer to [`EntityWorldMut::replace_related_with_difference`] for a list
+    /// of these invariants.
     ///
     /// # Panics
     ///
-    /// Panics when debug assertions are enabled if an invariant is is broken and the command is executed.
+    /// Panics when debug assertions are enabled if an invariant is is broken and the command is
+    /// executed.
     pub fn replace_children_with_difference<R: Relationship>(
         &mut self,
         entities_to_unrelate: &[Entity],
@@ -444,12 +459,14 @@ pub fn validate_parent_has_component<C: Component>(
     }
 }
 
-/// Returns a [`SpawnRelatedBundle`] that will insert the [`Children`] component, spawn a [`SpawnableList`] of entities with given bundles that
-/// relate to the [`Children`] entity via the [`ChildOf`] component, and reserve space in the [`Children`] for each spawned entity.
+/// Returns a [`SpawnRelatedBundle`] that will insert the [`Children`] component, spawn a
+/// [`SpawnableList`] of entities with given bundles that relate to the [`Children`] entity via the
+/// [`ChildOf`] component, and reserve space in the [`Children`] for each spawned entity.
 ///
 /// Any additional arguments will be interpreted as bundles to be spawned.
 ///
-/// Also see [`related`](crate::related) for a version of this that works with any [`RelationshipTarget`] type.
+/// Also see [`related`](crate::related) for a version of this that works with any
+/// [`RelationshipTarget`] type.
 ///
 /// ```
 /// # use bevy_ecs::hierarchy::Children;

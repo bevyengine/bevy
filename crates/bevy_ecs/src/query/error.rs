@@ -5,13 +5,15 @@ use crate::{
     entity::{Entity, EntityDoesNotExistError},
 };
 
-/// An error that occurs when retrieving a specific [`Entity`]'s query result from [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState).
+/// An error that occurs when retrieving a specific [`Entity`]'s query result from
+/// [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState).
 // TODO: return the type_name as part of this error
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum QueryEntityError {
     /// The given [`Entity`]'s components do not match the query.
     ///
-    /// Either it does not have a requested component, or it has a component which the query filters out.
+    /// Either it does not have a requested component, or it has a component which the query filters
+    /// out.
     QueryDoesNotMatch(Entity, ArchetypeId),
     /// The given [`Entity`] does not exist.
     EntityDoesNotExist(EntityDoesNotExistError),
@@ -48,7 +50,8 @@ impl core::fmt::Display for QueryEntityError {
     }
 }
 
-/// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState) as a single expected result via
+/// An error that occurs when evaluating a [`Query`](crate::system::Query) or
+/// [`QueryState`](crate::query::QueryState) as a single expected result via
 /// [`single`](crate::system::Query::single) or [`single_mut`](crate::system::Query::single_mut).
 #[derive(Debug, Error)]
 pub enum QuerySingleError {

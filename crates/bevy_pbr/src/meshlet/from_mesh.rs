@@ -44,22 +44,30 @@ impl MeshletMesh {
     /// The input mesh must:
     /// 1. Use [`PrimitiveTopology::TriangleList`]
     /// 2. Use indices
-    /// 3. Have the exact following set of vertex attributes: `{POSITION, NORMAL, UV_0}` (tangents can be used in material shaders, but are calculated at runtime and are not stored in the mesh)
+    /// 3. Have the exact following set of vertex attributes: `{POSITION, NORMAL, UV_0}` (tangents
+    ///    can be used in material shaders, but are calculated at runtime and are not stored in the
+    ///    mesh)
     ///
     /// # Vertex precision
     ///
-    /// `vertex_position_quantization_factor` is the amount of precision to use when quantizing vertex positions.
+    /// `vertex_position_quantization_factor` is the amount of precision to use when quantizing
+    /// vertex positions.
     ///
-    /// Vertices are snapped to the nearest (1/2^x)th of a centimeter, where x = `vertex_position_quantization_factor`.
-    /// E.g. if x = 4, then vertices are snapped to the nearest 1/2^4 = 1/16th of a centimeter.
+    /// Vertices are snapped to the nearest (1/2^x)th of a centimeter, where x =
+    /// `vertex_position_quantization_factor`. E.g. if x = 4, then vertices are snapped to the
+    /// nearest 1/2^4 = 1/16th of a centimeter.
     ///
-    /// Use [`MESHLET_DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR`] as a default, adjusting lower to save memory and disk space, and higher to prevent artifacts if needed.
+    /// Use [`MESHLET_DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR`] as a default, adjusting lower to
+    /// save memory and disk space, and higher to prevent artifacts if needed.
     ///
-    /// To ensure that two different meshes do not have cracks between them when placed directly next to each other:
+    /// To ensure that two different meshes do not have cracks between them when placed directly
+    /// next to each other:
     ///   * Use the same quantization factor when converting each mesh to a meshlet mesh
-    ///   * Ensure that their [`bevy_transform::components::Transform::translation`]s are a multiple of 1/2^x centimeters (note that translations are in meters)
+    ///   * Ensure that their [`bevy_transform::components::Transform::translation`]s are a multiple
+    ///     of 1/2^x centimeters (note that translations are in meters)
     ///   * Ensure that their [`bevy_transform::components::Transform::scale`]s are the same
-    ///   * Ensure that their [`bevy_transform::components::Transform::rotation`]s are a multiple of 90 degrees
+    ///   * Ensure that their [`bevy_transform::components::Transform::rotation`]s are a multiple of
+    ///     90 degrees
     pub fn from_mesh(
         mesh: &Mesh,
         vertex_position_quantization_factor: u8,
@@ -177,7 +185,8 @@ impl MeshletMesh {
                     &mut meshlets,
                 );
 
-                // Calculate the culling bounding sphere for the new meshlets and set their LOD group data
+                // Calculate the culling bounding sphere for the new meshlets and set their LOD
+                // group data
                 let new_meshlet_ids = (meshlets.len() - new_meshlets_count)..meshlets.len();
                 bounding_spheres.extend(new_meshlet_ids.clone().map(|meshlet_id| {
                     MeshletBoundingSpheres {
@@ -282,7 +291,8 @@ fn compute_meshlets(
         }
     }
 
-    // For each triangle, gather all other triangles that share at least one vertex along with their shared vertex count
+    // For each triangle, gather all other triangles that share at least one vertex along with their
+    // shared vertex count
     let triangle_count = indices.len() / 3;
     let mut connected_triangles_per_triangle = vec![Vec::new(); triangle_count];
     for ((triangle_id1, triangle_id2), shared_vertex_count) in triangle_pair_to_shared_vertex_count
@@ -292,7 +302,8 @@ fn compute_meshlets(
         connected_triangles_per_triangle[triangle_id2].push((triangle_id1, shared_vertex_count));
     }
 
-    // The order of triangles depends on hash traversal order; to produce deterministic results, sort them
+    // The order of triangles depends on hash traversal order; to produce deterministic results,
+    // sort them
     for list in connected_triangles_per_triangle.iter_mut() {
         list.sort_unstable();
     }
@@ -385,7 +396,8 @@ fn find_connected_meshlets(
         }
     }
 
-    // For each meshlet, gather all other meshlets that share at least one vertex along with their shared vertex count
+    // For each meshlet, gather all other meshlets that share at least one vertex along with their
+    // shared vertex count
     let mut connected_meshlets_per_meshlet = vec![Vec::new(); simplification_queue.len()];
     for ((meshlet_id1, meshlet_id2), shared_vertex_count) in meshlet_pair_to_shared_vertex_count {
         // We record both id1->id2 and id2->id1 as adjacency is symmetrical
@@ -395,7 +407,8 @@ fn find_connected_meshlets(
             .push((meshlet_id1, shared_vertex_count));
     }
 
-    // The order of meshlets depends on hash traversal order; to produce deterministic results, sort them
+    // The order of meshlets depends on hash traversal order; to produce deterministic results, sort
+    // them
     for list in connected_meshlets_per_meshlet.iter_mut() {
         list.sort_unstable();
     }
@@ -460,7 +473,8 @@ fn lock_group_borders(
                 let vertex_id =
                     position_only_vertex_remap[meshlet.vertices[*index as usize] as usize] as usize;
 
-                // If the vertex is not yet claimed by any group, or was already claimed by this group
+                // If the vertex is not yet claimed by any group, or was already claimed by this
+                // group
                 if position_only_locks[vertex_id] == -1
                     || position_only_locks[vertex_id] == group_id as i32
                 {
@@ -542,9 +556,9 @@ fn compute_lod_group_data(
     }
     group_bounding_sphere.center /= weight;
 
-    // Force parent group sphere to contain all child group spheres (we're currently building the parent from its children)
-    // TODO: This does not produce the absolute minimal bounding sphere. Doing so is non-trivial.
-    //       "Smallest enclosing balls of balls" http://www.inf.ethz.ch/personal/emo/DoctThesisFiles/fischer05.pdf
+    // Force parent group sphere to contain all child group spheres (we're currently building the
+    // parent from its children) TODO: This does not produce the absolute minimal bounding
+    // sphere. Doing so is non-trivial.       "Smallest enclosing balls of balls" http://www.inf.ethz.ch/personal/emo/DoctThesisFiles/fischer05.pdf
     for meshlet_id in group_meshlets {
         let meshlet_lod_bounding_sphere = bounding_spheres[*meshlet_id].lod_group_sphere;
         let d = meshlet_lod_bounding_sphere
@@ -555,7 +569,8 @@ fn compute_lod_group_data(
             .max(meshlet_lod_bounding_sphere.radius + d);
     }
 
-    // Force parent error to be >= child error (we're currently building the parent from its children)
+    // Force parent error to be >= child error (we're currently building the parent from its
+    // children)
     for meshlet_id in group_meshlets {
         *group_error = group_error.max(simplification_errors[*meshlet_id].group_error);
     }
@@ -648,7 +663,8 @@ fn build_and_compress_per_meshlet_vertex_data(
         max_quantized_position_channels = max_quantized_position_channels.max(quantized_position);
     }
 
-    // Calculate bits needed to encode each quantized vertex position channel based on the range of each channel
+    // Calculate bits needed to encode each quantized vertex position channel based on the range of
+    // each channel
     let range = max_quantized_position_channels - min_quantized_position_channels + 1;
     let bits_per_vertex_position_channel_x = log2(range.x as f32).ceil() as u8;
     let bits_per_vertex_position_channel_y = log2(range.y as f32).ceil() as u8;

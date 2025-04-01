@@ -1,4 +1,5 @@
-//! Shows how to render a polygonal [`Mesh`], generated from a [`Rectangle`] primitive, in a 2D scene.
+//! Shows how to render a polygonal [`Mesh`], generated from a [`Rectangle`] primitive, in a 2D
+//! scene.
 
 use bevy::{color::palettes::basic::PURPLE, prelude::*};
 

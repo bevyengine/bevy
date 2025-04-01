@@ -34,9 +34,9 @@ impl ReaderRef<'_> {
 ///
 ///   See [`StaticTyped`] (the default), [`DynamicTyped`], and [`UnknownTyped`].
 ///
-/// - `M`: the load mode. Do we want to load this asset right now (in which case
-///   you will have to `await` the operation), or do we just want a [`Handle`],
-///   and leave the actual asset loading to later?
+/// - `M`: the load mode. Do we want to load this asset right now (in which case you will have to
+///   `await` the operation), or do we just want a [`Handle`], and leave the actual asset loading to
+///   later?
 ///
 ///   See [`Deferred`] (the default) and [`Immediate`].
 ///
@@ -46,8 +46,7 @@ impl ReaderRef<'_> {
 /// ## Typing
 ///
 /// To inform the loader of what type of asset to load:
-/// - in [`StaticTyped`]: statically providing a type parameter `A: Asset` to
-///   [`load`].
+/// - in [`StaticTyped`]: statically providing a type parameter `A: Asset` to [`load`].
 ///
 ///   This is the simplest way to get a [`Handle<A>`] to the loaded asset, as
 ///   long as you know the type of `A` at compile time.
@@ -69,14 +68,13 @@ impl ReaderRef<'_> {
 /// ## Load mode
 ///
 /// To inform the loader how you want to load the asset:
-/// - in [`Deferred`]: when you request to load the asset, you get a [`Handle`]
-///   for it, but the actual loading won't be completed until later.
+/// - in [`Deferred`]: when you request to load the asset, you get a [`Handle`] for it, but the
+///   actual loading won't be completed until later.
 ///
 ///   Use this if you only need a [`Handle`] or [`UntypedHandle`].
 ///
-/// - in [`Immediate`]: the load request will load the asset right then and
-///   there, waiting until the asset is fully loaded and giving you access to
-///   it.
+/// - in [`Immediate`]: the load request will load the asset right then and there, waiting until the
+///   asset is fully loaded and giving you access to it.
 ///
 ///   Note that this requires you to `await` a future, so you must be in an
 ///   async context to use direct loading. In an asset loader, you will be in
@@ -193,8 +191,8 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
 
     /// Configure the settings used to load the asset.
     ///
-    /// If the settings type `S` does not match the settings expected by `A`'s asset loader, an error will be printed to the log
-    /// and the asset load will fail.
+    /// If the settings type `S` does not match the settings expected by `A`'s asset loader, an
+    /// error will be printed to the log and the asset load will fail.
     #[must_use]
     pub fn with_settings<S: Settings>(
         self,
@@ -295,10 +293,9 @@ impl NestedLoader<'_, '_, StaticTyped, Deferred> {
     /// a dependency of this asset.
     ///
     /// This requires you to know the type of asset statically.
-    /// - If you have runtime info for what type of asset you're loading (e.g. a
-    ///   [`TypeId`]), use [`with_dynamic_type`].
-    /// - If you do not know at all what type of asset you're loading, use
-    ///   [`with_unknown_type`].
+    /// - If you have runtime info for what type of asset you're loading (e.g. a [`TypeId`]), use
+    ///   [`with_dynamic_type`].
+    /// - If you do not know at all what type of asset you're loading, use [`with_unknown_type`].
     ///
     /// [`with_dynamic_type`]: Self::with_dynamic_type
     /// [`with_unknown_type`]: Self::with_unknown_type
@@ -444,10 +441,9 @@ impl NestedLoader<'_, '_, StaticTyped, Immediate<'_, '_>> {
     /// Attempts to load the asset at the given `path` immediately.
     ///
     /// This requires you to know the type of asset statically.
-    /// - If you have runtime info for what type of asset you're loading (e.g. a
-    ///   [`TypeId`]), use [`with_dynamic_type`].
-    /// - If you do not know at all what type of asset you're loading, use
-    ///   [`with_unknown_type`].
+    /// - If you have runtime info for what type of asset you're loading (e.g. a [`TypeId`]), use
+    ///   [`with_dynamic_type`].
+    /// - If you do not know at all what type of asset you're loading, use [`with_unknown_type`].
     ///
     /// [`with_dynamic_type`]: Self::with_dynamic_type
     /// [`with_unknown_type`]: Self::with_unknown_type

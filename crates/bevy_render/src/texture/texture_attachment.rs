@@ -54,8 +54,9 @@ impl ColorAttachment {
         }
     }
 
-    /// Get this texture view as an attachment, without the resolve target. The attachment will be cleared with
-    /// a value of `clear_color` if this is the first time calling this function, otherwise it will be loaded.
+    /// Get this texture view as an attachment, without the resolve target. The attachment will be
+    /// cleared with a value of `clear_color` if this is the first time calling this function,
+    /// otherwise it will be loaded.
     ///
     /// The returned attachment will always have writing enabled (`store: StoreOp::Load`).
     pub fn get_unsampled_attachment(&self) -> RenderPassColorAttachment {
@@ -79,7 +80,8 @@ impl ColorAttachment {
     }
 }
 
-/// A wrapper for a [`TextureView`] that is used as a depth-only [`RenderPassDepthStencilAttachment`].
+/// A wrapper for a [`TextureView`] that is used as a depth-only
+/// [`RenderPassDepthStencilAttachment`].
 #[derive(Clone)]
 pub struct DepthAttachment {
     pub view: TextureView,
@@ -97,8 +99,8 @@ impl DepthAttachment {
     }
 
     /// Get this texture view as an attachment. The attachment will be cleared with a value of
-    /// `clear_value` if this is the first time calling this function with `store` == [`StoreOp::Store`],
-    /// and a clear value was provided, otherwise it will be loaded.
+    /// `clear_value` if this is the first time calling this function with `store` ==
+    /// [`StoreOp::Store`], and a clear value was provided, otherwise it will be loaded.
     pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment {
         let first_call = self
             .is_first_call
@@ -108,7 +110,8 @@ impl DepthAttachment {
             view: &self.view,
             depth_ops: Some(Operations {
                 load: if first_call {
-                    // If first_call is true, then a clear value will always have been provided in the constructor
+                    // If first_call is true, then a clear value will always have been provided in
+                    // the constructor
                     LoadOp::Clear(self.clear_value.unwrap())
                 } else {
                     LoadOp::Load

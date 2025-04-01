@@ -46,7 +46,8 @@ pub trait DeserializeWithRegistry<'de>: Sized {
         D: Deserializer<'de>;
 }
 
-/// Type data used to deserialize a [`PartialReflect`] type with a custom [`DeserializeWithRegistry`] implementation.
+/// Type data used to deserialize a [`PartialReflect`] type with a custom
+/// [`DeserializeWithRegistry`] implementation.
 #[derive(Clone)]
 pub struct ReflectDeserializeWithRegistry {
     deserialize: fn(
@@ -56,7 +57,8 @@ pub struct ReflectDeserializeWithRegistry {
 }
 
 impl ReflectDeserializeWithRegistry {
-    /// Deserialize a [`PartialReflect`] type with this type data's custom [`DeserializeWithRegistry`] implementation.
+    /// Deserialize a [`PartialReflect`] type with this type data's custom
+    /// [`DeserializeWithRegistry`] implementation.
     pub fn deserialize<'de, D>(
         &self,
         deserializer: D,

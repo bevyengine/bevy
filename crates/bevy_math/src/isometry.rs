@@ -12,10 +12,12 @@ use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// An isometry in two dimensions, representing a rotation followed by a translation.
-/// This can often be useful for expressing relative positions and transformations from one position to another.
+/// This can often be useful for expressing relative positions and transformations from one position
+/// to another.
 ///
-/// In particular, this type represents a distance-preserving transformation known as a *rigid motion* or a *direct motion*,
-/// and belongs to the special [Euclidean group] SE(2). This includes translation and rotation, but excludes reflection.
+/// In particular, this type represents a distance-preserving transformation known as a *rigid
+/// motion* or a *direct motion*, and belongs to the special [Euclidean group] SE(2). This includes
+/// translation and rotation, but excludes reflection.
 ///
 /// For the three-dimensional version, see [`Isometry3d`].
 ///
@@ -68,8 +70,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// assert_eq!(iso1 * iso2, iso);
 /// ```
 ///
-/// One common operation is to compute an isometry representing the relative positions of two objects
-/// for things like intersection tests. This can be done with an inverse transformation:
+/// One common operation is to compute an isometry representing the relative positions of two
+/// objects for things like intersection tests. This can be done with an inverse transformation:
 ///
 /// ```
 /// # use bevy_math::{Isometry2d, Rot2, Vec2};
@@ -285,10 +287,12 @@ impl UlpsEq for Isometry2d {
 }
 
 /// An isometry in three dimensions, representing a rotation followed by a translation.
-/// This can often be useful for expressing relative positions and transformations from one position to another.
+/// This can often be useful for expressing relative positions and transformations from one position
+/// to another.
 ///
-/// In particular, this type represents a distance-preserving transformation known as a *rigid motion* or a *direct motion*,
-/// and belongs to the special [Euclidean group] SE(3). This includes translation and rotation, but excludes reflection.
+/// In particular, this type represents a distance-preserving transformation known as a *rigid
+/// motion* or a *direct motion*, and belongs to the special [Euclidean group] SE(3). This includes
+/// translation and rotation, but excludes reflection.
 ///
 /// For the two-dimensional version, see [`Isometry2d`].
 ///
@@ -345,8 +349,8 @@ impl UlpsEq for Isometry2d {
 /// assert_eq!(iso1 * iso2, iso);
 /// ```
 ///
-/// One common operation is to compute an isometry representing the relative positions of two objects
-/// for things like intersection tests. This can be done with an inverse transformation:
+/// One common operation is to compute an isometry representing the relative positions of two
+/// objects for things like intersection tests. This can be done with an inverse transformation:
 ///
 /// ```
 /// # use bevy_math::{Isometry3d, Quat, Vec3};
@@ -413,7 +417,8 @@ impl Isometry3d {
         }
     }
 
-    /// Create a three-dimensional isometry from a translation with the given `x`, `y`, and `z` components.
+    /// Create a three-dimensional isometry from a translation with the given `x`, `y`, and `z`
+    /// components.
     #[inline]
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
         Isometry3d {

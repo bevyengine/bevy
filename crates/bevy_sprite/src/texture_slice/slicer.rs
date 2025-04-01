@@ -2,9 +2,10 @@ use super::{BorderRect, TextureSlice};
 use bevy_math::{Rect, Vec2, vec2};
 use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 
-/// Slices a texture using the **9-slicing** technique. This allows to reuse an image at various sizes
-/// without needing to prepare multiple assets. The associated texture will be split into nine portions,
-/// so that on resize the different portions scale or tile in different ways to keep the texture in proportion.
+/// Slices a texture using the **9-slicing** technique. This allows to reuse an image at various
+/// sizes without needing to prepare multiple assets. The associated texture will be split into nine
+/// portions, so that on resize the different portions scale or tile in different ways to keep the
+/// texture in proportion.
 ///
 /// For example, when resizing a 9-sliced texture the corners will remain unscaled while the other
 /// sections will be scaled or tiled.
@@ -13,7 +14,8 @@ use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 #[derive(Debug, Clone, Reflect, PartialEq)]
 #[reflect(Clone, PartialEq)]
 pub struct TextureSlicer {
-    /// Inset values in pixels that define the four slicing lines dividing the texture into nine sections.
+    /// Inset values in pixels that define the four slicing lines dividing the texture into nine
+    /// sections.
     pub border: BorderRect,
     /// Defines how the center part of the 9 slices will scale
     pub center_scale_mode: SliceScaleMode,
@@ -32,8 +34,8 @@ pub enum SliceScaleMode {
     Stretch,
     /// The slice will be tiled to fit the area
     Tile {
-        /// The slice will repeat when the ratio between the *drawing dimensions* of texture and the
-        /// *original texture size* are above `stretch_value`.
+        /// The slice will repeat when the ratio between the *drawing dimensions* of texture and
+        /// the *original texture size* are above `stretch_value`.
         ///
         /// Example: `1.0` means that a 10 pixel wide image would repeat after 10 screen pixels.
         /// `2.0` means it would repeat after 20 screen pixels.
@@ -205,13 +207,14 @@ impl TextureSlicer {
         ]
     }
 
-    /// Slices the given `rect` into at least 9 sections. If the center and/or side parts are set to tile,
-    /// a bigger number of sections will be computed.
+    /// Slices the given `rect` into at least 9 sections. If the center and/or side parts are set to
+    /// tile, a bigger number of sections will be computed.
     ///
     /// # Arguments
     ///
     /// * `rect` - The section of the texture to slice in 9 parts
-    /// * `render_size` - The optional draw size of the texture. If not set the `rect` size will be used.
+    /// * `render_size` - The optional draw size of the texture. If not set the `rect` size will be
+    ///   used.
     // TODO: Support `URect` and `UVec2` instead (See `https://github.com/bevyengine/bevy/pull/11698`)
     #[must_use]
     pub fn compute_slices(&self, rect: Rect, render_size: Option<Vec2>) -> Vec<TextureSlice> {

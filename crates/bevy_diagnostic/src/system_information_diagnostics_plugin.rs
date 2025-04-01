@@ -5,8 +5,9 @@ use bevy_ecs::resource::Resource;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
-/// Note that gathering system information is a time intensive task and therefore can't be done on every frame.
-/// Any system diagnostics gathered by this plugin may not be current when you access them.
+/// Note that gathering system information is a time intensive task and therefore can't be done on
+/// every frame. Any system diagnostics gathered by this plugin may not be current when you access
+/// them.
 ///
 /// Supported targets:
 /// * linux,
@@ -226,7 +227,8 @@ pub mod internal {
                 core_count: System::physical_core_count()
                     .map(|x| x.to_string())
                     .unwrap_or_else(|| String::from("not available")),
-                // Convert from Bytes to GibiBytes since it's probably what people expect most of the time
+                // Convert from Bytes to GibiBytes since it's probably what people expect most of
+                // the time
                 memory: format!("{:.1} GiB", sys.total_memory() as f64 * BYTES_TO_GIB),
             };
 

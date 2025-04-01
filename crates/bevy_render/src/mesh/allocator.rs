@@ -564,7 +564,8 @@ impl MeshAllocator {
 
                 let slot_size = general_slab.element_layout.slot_size();
 
-                // round up size to a multiple of the slot size to satisfy wgpu alignment requirements
+                // round up size to a multiple of the slot size to satisfy wgpu alignment
+                // requirements
                 if let Some(size) = BufferSize::new((len as u64).next_multiple_of(slot_size)) {
                     // Write the data in.
                     if let Some(mut buffer) = render_queue.write_buffer_with(

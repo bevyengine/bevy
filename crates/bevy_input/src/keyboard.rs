@@ -152,8 +152,9 @@ pub struct KeyboardFocusLost;
 ///
 /// ## Differences
 ///
-/// The main difference between the [`KeyboardInput`] event and the [`ButtonInput<KeyCode>`] resources is that
-/// the latter has convenient functions such as [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`] and is window id agnostic.
+/// The main difference between the [`KeyboardInput`] event and the [`ButtonInput<KeyCode>`]
+/// resources is that the latter has convenient functions such as [`ButtonInput::pressed`],
+/// [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`] and is window id agnostic.
 pub fn keyboard_input_system(
     mut key_input: ResMut<ButtonInput<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
@@ -217,7 +218,8 @@ pub enum NativeKeyCode {
 ///
 /// ## Usage
 ///
-/// It is used as the generic `T` value of an [`ButtonInput`] to create a `Res<ButtonInput<KeyCode>>`.
+/// It is used as the generic `T` value of an [`ButtonInput`] to create a
+/// `Res<ButtonInput<KeyCode>>`.
 ///
 /// Code representing the location of a physical key
 /// This mostly conforms to the UI Events Specification's [`KeyboardEvent.code`] with a few
@@ -402,7 +404,8 @@ pub enum KeyCode {
     Tab,
     /// Japanese: <kbd>変</kbd> (henkan)
     Convert,
-    /// Japanese: <kbd>カタカナ</kbd>/<kbd>ひらがな</kbd>/<kbd>ローマ字</kbd> (katakana/hiragana/romaji)
+    /// Japanese: <kbd>カタカナ</kbd>/<kbd>ひらがな</kbd>/<kbd>ローマ字</kbd>
+    /// (katakana/hiragana/romaji)
     KanaMode,
     /// Korean: HangulMode <kbd>한/영</kbd> (han/yeong)
     ///

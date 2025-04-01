@@ -57,19 +57,21 @@
 //!
 //! The distinction between `PartialReflect` and `Reflect` is summarized in the following:
 //! * `PartialReflect` is a trait for interacting with values under `bevy_reflect`'s data model.
-//!   This means values implementing `PartialReflect` can be dynamically constructed and introspected.
-//! * The `Reflect` trait, however, ensures that the interface exposed by `PartialReflect`
-//!   on types which additionally implement `Reflect` mirrors the structure of a single Rust type.
-//! * This means `dyn Reflect` trait objects can be directly downcasted to concrete types,
-//!   where `dyn PartialReflect` trait object cannot.
-//! * `Reflect`, since it provides a stronger type-correctness guarantee,
-//!   is the trait used to interact with [the type registry].
+//!   This means values implementing `PartialReflect` can be dynamically constructed and
+//!   introspected.
+//! * The `Reflect` trait, however, ensures that the interface exposed by `PartialReflect` on types
+//!   which additionally implement `Reflect` mirrors the structure of a single Rust type.
+//! * This means `dyn Reflect` trait objects can be directly downcasted to concrete types, where
+//!   `dyn PartialReflect` trait object cannot.
+//! * `Reflect`, since it provides a stronger type-correctness guarantee, is the trait used to
+//!   interact with [the type registry].
 //!
 //! ## Converting between `PartialReflect` and `Reflect`
 //!
-//! Since `T: Reflect` implies `T: PartialReflect`, conversion from a `dyn Reflect` to a `dyn PartialReflect`
-//! trait object (upcasting) is infallible and can be performed with one of the following methods.
-//! Note that these are temporary while [the language feature for dyn upcasting coercion] is experimental:
+//! Since `T: Reflect` implies `T: PartialReflect`, conversion from a `dyn Reflect` to a `dyn
+//! PartialReflect` trait object (upcasting) is infallible and can be performed with one of the
+//! following methods. Note that these are temporary while [the language feature for dyn upcasting
+//! coercion] is experimental:
 //! * [`PartialReflect::as_partial_reflect`] for `&dyn PartialReflect`
 //! * [`PartialReflect::as_partial_reflect_mut`] for `&mut dyn PartialReflect`
 //! * [`PartialReflect::into_partial_reflect`] for `Box<dyn PartialReflect>`
@@ -80,8 +82,8 @@
 //! * [`PartialReflect::try_as_reflect_mut`] for `&mut dyn Reflect`
 //! * [`PartialReflect::try_into_reflect`] for `Box<dyn Reflect>`
 //!
-//! Additionally, [`FromReflect::from_reflect`] can be used to convert a `dyn PartialReflect` to a concrete type
-//! which implements `Reflect`.
+//! Additionally, [`FromReflect::from_reflect`] can be used to convert a `dyn PartialReflect` to a
+//! concrete type which implements `Reflect`.
 //!
 //! # Implementing `Reflect`
 //!
@@ -105,21 +107,21 @@
 //! ## Requirements
 //!
 //! We can implement `Reflect` on any type that satisfies _both_ of the following conditions:
-//! * The type implements `Any`, `Send`, and `Sync`.
-//!   For the `Any` requirement to be satisfied, the type itself must have a [`'static` lifetime].
-//! * All fields and sub-elements themselves implement `Reflect`
-//!   (see the [derive macro documentation] for details on how to ignore certain fields when deriving).
+//! * The type implements `Any`, `Send`, and `Sync`. For the `Any` requirement to be satisfied, the
+//!   type itself must have a [`'static` lifetime].
+//! * All fields and sub-elements themselves implement `Reflect` (see the [derive macro
+//!   documentation] for details on how to ignore certain fields when deriving).
 //!
 //! Additionally, using the derive macro on enums requires a third condition to be met:
-//! * All fields and sub-elements must implement [`FromReflect`]—
-//!   another important reflection trait discussed in a later section.
+//! * All fields and sub-elements must implement [`FromReflect`]— another important reflection trait
+//!   discussed in a later section.
 //!
 //! # The Reflection Subtraits
 //!
 //! Since [`PartialReflect`] is meant to cover any and every type, this crate also comes with a few
 //! more traits to accompany `PartialReflect` and provide more specific interactions.
-//! We refer to these traits as the _reflection subtraits_ since they all have `PartialReflect` as a supertrait.
-//! The current list of reflection subtraits include:
+//! We refer to these traits as the _reflection subtraits_ since they all have `PartialReflect` as a
+//! supertrait. The current list of reflection subtraits include:
 //! * [`Tuple`]
 //! * [`Array`]
 //! * [`List`]
@@ -153,9 +155,11 @@
 //!
 //! [`PartialReflect::reflect_kind`], [`PartialReflect::reflect_ref`],
 //! [`PartialReflect::reflect_mut`], and [`PartialReflect::reflect_owned`] all return
-//! an enum that respectively contains zero-sized, immutable, mutable, and owned access to the type as a subtrait object.
+//! an enum that respectively contains zero-sized, immutable, mutable, and owned access to the type
+//! as a subtrait object.
 //!
-//! For example, we can get out a `dyn Tuple` from our reflected tuple type using one of these methods.
+//! For example, we can get out a `dyn Tuple` from our reflected tuple type using one of these
+//! methods.
 //!
 //! ```
 //! # use bevy_reflect::{PartialReflect, ReflectRef};
@@ -165,8 +169,8 @@
 //! ```
 //!
 //! And to go back to a general-purpose `dyn PartialReflect`,
-//! we can just use the matching [`PartialReflect::as_partial_reflect`], [`PartialReflect::as_partial_reflect_mut`],
-//! or [`PartialReflect::into_partial_reflect`] methods.
+//! we can just use the matching [`PartialReflect::as_partial_reflect`],
+//! [`PartialReflect::as_partial_reflect_mut`], or [`PartialReflect::into_partial_reflect`] methods.
 //!
 //! ## Opaque Types
 //!
@@ -227,7 +231,8 @@
 //! ## Patching
 //!
 //! These dynamic types come in handy when needing to apply multiple changes to another type.
-//! This is known as "patching" and is done using the [`PartialReflect::apply`] and [`PartialReflect::try_apply`] methods.
+//! This is known as "patching" and is done using the [`PartialReflect::apply`] and
+//! [`PartialReflect::try_apply`] methods.
 //!
 //! ```
 //! # use bevy_reflect::{DynamicEnum, PartialReflect};
@@ -239,9 +244,9 @@
 //!
 //! ## `FromReflect`
 //!
-//! It's important to remember that dynamic types are _not_ the concrete type they may be representing.
-//! A common mistake is to treat them like such when trying to cast back to the original type
-//! or when trying to make use of a reflected trait which expects the actual type.
+//! It's important to remember that dynamic types are _not_ the concrete type they may be
+//! representing. A common mistake is to treat them like such when trying to cast back to the
+//! original type or when trying to make use of a reflected trait which expects the actual type.
 //!
 //! ```should_panic
 //! # use bevy_reflect::{DynamicStruct, PartialReflect, Reflect};
@@ -284,13 +289,14 @@
 //!
 //! When deriving, all active fields and sub-elements must also implement `FromReflect`.
 //!
-//! Fields can be given default values for when a field is missing in the passed value or even ignored.
-//! Ignored fields must either implement [`Default`] or have a default function specified
+//! Fields can be given default values for when a field is missing in the passed value or even
+//! ignored. Ignored fields must either implement [`Default`] or have a default function specified
 //! using `#[reflect(default = "path::to::function")]`.
 //!
 //! See the [derive macro documentation](derive@crate::FromReflect) for details.
 //!
-//! All primitives and simple types implement `FromReflect` by relying on their [`Default`] implementation.
+//! All primitives and simple types implement `FromReflect` by relying on their [`Default`]
+//! implementation.
 //!
 //! # Path navigation
 //!
@@ -317,12 +323,13 @@
 //!
 //! # Type Registration
 //!
-//! This crate also comes with a [`TypeRegistry`] that can be used to store and retrieve additional type metadata at runtime,
-//! such as helper types and trait implementations.
+//! This crate also comes with a [`TypeRegistry`] that can be used to store and retrieve additional
+//! type metadata at runtime, such as helper types and trait implementations.
 //!
-//! The [derive macro] for [`Reflect`] also generates an implementation of the [`GetTypeRegistration`] trait,
-//! which is used by the registry to generate a [`TypeRegistration`] struct for that type.
-//! We can then register additional [type data] we want associated with that type.
+//! The [derive macro] for [`Reflect`] also generates an implementation of the
+//! [`GetTypeRegistration`] trait, which is used by the registry to generate a [`TypeRegistration`]
+//! struct for that type. We can then register additional [type data] we want associated with that
+//! type.
 //!
 //! For example, we can register [`ReflectDefault`] on our type so that its `Default` implementation
 //! may be used dynamically.
@@ -345,8 +352,8 @@
 //! ```
 //!
 //! Because this operation is so common, the derive macro actually has a shorthand for it.
-//! By using the `#[reflect(Trait)]` attribute, the derive macro will automatically register a matching,
-//! in-scope `ReflectTrait` type within the `GetTypeRegistration` implementation.
+//! By using the `#[reflect(Trait)]` attribute, the derive macro will automatically register a
+//! matching, in-scope `ReflectTrait` type within the `GetTypeRegistration` implementation.
 //!
 //! ```
 //! use bevy_reflect::prelude::{Reflect, ReflectDefault};
@@ -360,12 +367,12 @@
 //!
 //! ## Reflecting Traits
 //!
-//! Type data doesn't have to be tied to a trait, but it's often extremely useful to create trait type data.
-//! These allow traits to be used directly on a `dyn Reflect` (and not a `dyn PartialReflect`)
-//! while utilizing the underlying type's implementation.
+//! Type data doesn't have to be tied to a trait, but it's often extremely useful to create trait
+//! type data. These allow traits to be used directly on a `dyn Reflect` (and not a `dyn
+//! PartialReflect`) while utilizing the underlying type's implementation.
 //!
-//! For any [object-safe] trait, we can easily generate a corresponding `ReflectTrait` type for our trait
-//! using the [`#[reflect_trait]`](reflect_trait) macro.
+//! For any [object-safe] trait, we can easily generate a corresponding `ReflectTrait` type for our
+//! trait using the [`#[reflect_trait]`](reflect_trait) macro.
 //!
 //! ```
 //! # use bevy_reflect::{Reflect, reflect_trait, TypeRegistry};
@@ -384,8 +391,8 @@
 //! # Serialization
 //!
 //! By using reflection, we are also able to get serialization capabilities for free.
-//! In fact, using [`bevy_reflect`] can result in faster compile times and reduced code generation over
-//! directly deriving the [`serde`] traits.
+//! In fact, using [`bevy_reflect`] can result in faster compile times and reduced code generation
+//! over directly deriving the [`serde`] traits.
 //!
 //! The way it works is by moving the serialization logic into common serializers and deserializers:
 //! * [`ReflectSerializer`]
@@ -393,21 +400,24 @@
 //! * [`ReflectDeserializer`]
 //! * [`TypedReflectDeserializer`]
 //!
-//! All of these structs require a reference to the [registry] so that [type information] can be retrieved,
-//! as well as registered type data, such as [`ReflectSerialize`] and [`ReflectDeserialize`].
+//! All of these structs require a reference to the [registry] so that [type information] can be
+//! retrieved, as well as registered type data, such as [`ReflectSerialize`] and
+//! [`ReflectDeserialize`].
 //!
 //! The general entry point are the "untyped" versions of these structs.
-//! These will automatically extract the type information and pass them into their respective "typed" version.
+//! These will automatically extract the type information and pass them into their respective
+//! "typed" version.
 //!
 //! The output of the `ReflectSerializer` will be a map, where the key is the [type path]
 //! and the value is the serialized data.
 //! The `TypedReflectSerializer` will simply output the serialized data.
 //!
 //! The `ReflectDeserializer` can be used to deserialize this map and return a `Box<dyn Reflect>`,
-//! where the underlying type will be a dynamic type representing some concrete type (except for opaque types).
+//! where the underlying type will be a dynamic type representing some concrete type (except for
+//! opaque types).
 //!
-//! Again, it's important to remember that dynamic types may need to be converted to their concrete counterparts
-//! in order to be used in certain cases.
+//! Again, it's important to remember that dynamic types may need to be converted to their concrete
+//! counterparts in order to be used in certain cases.
 //! This can be achieved using [`FromReflect`].
 //!
 //! ```
@@ -460,9 +470,9 @@
 //!
 //! ## Generic Function Reflection
 //!
-//! Another limitation is the inability to reflect over generic functions directly. It can be done, but will
-//! typically require manual monomorphization (i.e. manually specifying the types the generic method can
-//! take).
+//! Another limitation is the inability to reflect over generic functions directly. It can be done,
+//! but will typically require manual monomorphization (i.e. manually specifying the types the
+//! generic method can take).
 //!
 //! ## Manual Registration
 //!
@@ -482,8 +492,8 @@
 //! This feature makes it so that the appropriate reflection traits are implemented on all the types
 //! necessary for the [Bevy] game engine.
 //! enables the optional dependencies: [`bevy_math`], [`glam`], and [`smallvec`].
-//! These dependencies are used by the [Bevy] game engine and must define their reflection implementations
-//! within this crate due to Rust's [orphan rule].
+//! These dependencies are used by the [Bevy] game engine and must define their reflection
+//! implementations within this crate due to Rust's [orphan rule].
 //!
 //! ## `functions`
 //!
@@ -491,8 +501,8 @@
 //! | :-----: | :-------------------------------: |
 //! | ❌      | [`bevy_reflect_derive/functions`] |
 //!
-//! This feature allows creating a [`DynamicFunction`] or [`DynamicFunctionMut`] from Rust functions. Dynamic
-//! functions can then be called with valid [`ArgList`]s.
+//! This feature allows creating a [`DynamicFunction`] or [`DynamicFunctionMut`] from Rust
+//! functions. Dynamic functions can then be called with valid [`ArgList`]s.
 //!
 //! For more information, read the [`func`] module docs.
 //!
@@ -988,12 +998,14 @@ mod tests {
         assert_eq!(values, vec![1]);
     }
 
-    /// This test ensures that we are able to reflect generic types with one or more type parameters.
+    /// This test ensures that we are able to reflect generic types with one or more type
+    /// parameters.
     ///
-    /// When there is an `Add` implementation for `String`, the compiler isn't able to infer the correct
-    /// type to deref to.
-    /// If we don't append the strings in the `TypePath` derive correctly (i.e. explicitly specifying the type),
-    /// we'll get a compilation error saying that "`&String` cannot be added to `String`".
+    /// When there is an `Add` implementation for `String`, the compiler isn't able to infer the
+    /// correct type to deref to.
+    /// If we don't append the strings in the `TypePath` derive correctly (i.e. explicitly
+    /// specifying the type), we'll get a compilation error saying that "`&String` cannot be
+    /// added to `String`".
     ///
     /// So this test just ensures that we do do that correctly.
     ///
@@ -3076,8 +3088,8 @@ bevy_reflect::tests::Test {
         mod wrapper {
             use super::*;
 
-            // We have to place this module internally to this one to get around the following error:
-            // ```
+            // We have to place this module internally to this one to get around the following
+            // error: ```
             // error[E0433]: failed to resolve: use of undeclared crate or module `external_crate`
             // ```
             pub mod external_crate {

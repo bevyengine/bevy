@@ -60,7 +60,8 @@ enum Action {
         screenshot_frame: u32,
 
         #[arg(long, default_value = "0.05")]
-        /// Fixed duration of a frame, in seconds. Only used when taking a screenshot, default to 0.05
+        /// Fixed duration of a frame, in seconds. Only used when taking a screenshot, default to
+        /// 0.05
         fixed_frame_time: f32,
 
         #[arg(long)]
@@ -226,8 +227,8 @@ fn main() {
                 .run()
                 .unwrap();
 
-                // Don't use automatic position as it's "random" on Windows and breaks screenshot comparison
-                // using the cursor position
+                // Don't use automatic position as it's "random" on Windows and breaks screenshot
+                // comparison using the cursor position
                 let sh = Shell::new().unwrap();
                 cmd!(
                     sh,
@@ -246,7 +247,8 @@ fn main() {
                 .unwrap();
 
                 // Sending extra WindowResize events. They are not sent on CI with xvfb x11 server
-                // This is needed for example split_screen that uses the window size to set the panels
+                // This is needed for example split_screen that uses the window size to set the
+                // panels
                 cmd!(
                     sh,
                     "git apply --ignore-whitespace tools/example-showcase/extra-window-resized-events.patch"
@@ -777,7 +779,8 @@ fn parse_examples() -> Vec<Example> {
                 Regex::new(r"(shaders\/\w+\.wgsl)|(shaders\/\w+\.frag)|(shaders\/\w+\.vert)")
                     .unwrap();
 
-            // Find all instances of references to shader files, and keep them in an ordered and deduped vec.
+            // Find all instances of references to shader files, and keep them in an ordered and
+            // deduped vec.
             let mut shader_paths = vec![];
             for path in shader_regex
                 .find_iter(&source_code)
@@ -854,7 +857,8 @@ fn parse_examples() -> Vec<Example> {
         .collect()
 }
 
-/// Data for this struct comes from both the entry for an example in the Cargo.toml file, and its associated metadata.
+/// Data for this struct comes from both the entry for an example in the Cargo.toml file, and its
+/// associated metadata.
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 struct Example {
     // From the example entry
@@ -874,9 +878,11 @@ struct Example {
     /// Pretty category name, matching the folder containing the example
     category: String,
     /// Does this example work in Wasm?
-    // TODO: be able to differentiate between WebGL2, WebGPU, both, or neither (for examples that could run on Wasm without a renderer)
+    // TODO: be able to differentiate between WebGL2, WebGPU, both, or neither (for examples that
+    // could run on Wasm without a renderer)
     wasm: bool,
-    /// List of commands to run before the example. Can be used for example to specify data to download
+    /// List of commands to run before the example. Can be used for example to specify data to
+    /// download
     setup: Vec<Vec<String>>,
     /// Type of example
     example_type: ExampleType,

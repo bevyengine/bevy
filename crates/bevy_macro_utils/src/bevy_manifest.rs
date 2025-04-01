@@ -87,11 +87,14 @@ impl BevyManifest {
             } else if deps.get(BEVY).is_some() {
                 BEVY
             } else {
-                // Note: to support bevy crate aliases, we could do scanning here to find a crate with a "package" name that
-                // matches our request, but that would then mean we are scanning every dependency (and dev dependency) for every
-                // macro execution that hits this branch (which includes all built-in bevy crates). Our current stance is that supporting
-                // remapped crate names in derive macros is not worth that "compile time" price of admission. As a workaround, people aliasing
-                // bevy crate names can use "use REMAPPED as bevy_X" or "use REMAPPED::x as bevy_x".
+                // Note: to support bevy crate aliases, we could do scanning here to find a crate
+                // with a "package" name that matches our request, but that would
+                // then mean we are scanning every dependency (and dev dependency) for every
+                // macro execution that hits this branch (which includes all built-in bevy crates).
+                // Our current stance is that supporting remapped crate names in
+                // derive macros is not worth that "compile time" price of admission. As a
+                // workaround, people aliasing bevy crate names can use "use
+                // REMAPPED as bevy_X" or "use REMAPPED::x as bevy_x".
                 return None;
             };
 
@@ -124,7 +127,8 @@ impl BevyManifest {
     ///
     /// # Panics
     ///
-    /// Will panic if the path is not able to be parsed. For a non-panicking option, see [`try_parse_str`]
+    /// Will panic if the path is not able to be parsed. For a non-panicking option, see
+    /// [`try_parse_str`]
     ///
     /// [`try_parse_str`]: Self::try_parse_str
     pub fn parse_str<T: syn::parse::Parse>(path: &str) -> T {

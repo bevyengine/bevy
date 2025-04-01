@@ -20,30 +20,35 @@ use bevy_ptr::{Ptr, UnsafeCellDeref};
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, panic::Location, ptr};
 use thiserror::Error;
 
-/// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
-/// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
+/// Variant of the [`World`] where resource and component accesses take `&self`, and the
+/// responsibility to avoid aliasing violations are given to the caller instead of being checked at
+/// compile-time by rust's unique XOR shared rule.
 ///
 /// ### Rationale
-/// In rust, having a `&mut World` means that there are absolutely no other references to the safe world alive at the same time,
-/// without exceptions. Not even unsafe code can change this.
+/// In rust, having a `&mut World` means that there are absolutely no other references to the safe
+/// world alive at the same time, without exceptions. Not even unsafe code can change this.
 ///
-/// But there are situations where careful shared mutable access through a type is possible and safe. For this, rust provides the [`UnsafeCell`]
-/// escape hatch, which allows you to get a `*mut T` from a `&UnsafeCell<T>` and around which safe abstractions can be built.
+/// But there are situations where careful shared mutable access through a type is possible and
+/// safe. For this, rust provides the [`UnsafeCell`] escape hatch, which allows you to get a `*mut
+/// T` from a `&UnsafeCell<T>` and around which safe abstractions can be built.
 ///
-/// Access to resources and components can be done uniquely using [`World::resource_mut`] and [`World::entity_mut`], and shared using [`World::resource`] and [`World::entity`].
-/// These methods use lifetimes to check at compile time that no aliasing rules are being broken.
+/// Access to resources and components can be done uniquely using [`World::resource_mut`] and
+/// [`World::entity_mut`], and shared using [`World::resource`] and [`World::entity`]. These methods
+/// use lifetimes to check at compile time that no aliasing rules are being broken.
 ///
-/// This alone is not enough to implement bevy systems where multiple systems can access *disjoint* parts of the world concurrently. For this, bevy stores all values of
-/// resources and components (and [`ComponentTicks`]) in [`UnsafeCell`]s, and carefully validates disjoint access patterns using
-/// APIs like [`System::component_access`](crate::system::System::component_access).
+/// This alone is not enough to implement bevy systems where multiple systems can access *disjoint*
+/// parts of the world concurrently. For this, bevy stores all values of resources and components
+/// (and [`ComponentTicks`]) in [`UnsafeCell`]s, and carefully validates disjoint access patterns
+/// using APIs like [`System::component_access`](crate::system::System::component_access).
 ///
-/// A system then can be executed using [`System::run_unsafe`](crate::system::System::run_unsafe) with a `&World` and use methods with interior mutability to access resource values.
+/// A system then can be executed using [`System::run_unsafe`](crate::system::System::run_unsafe)
+/// with a `&World` and use methods with interior mutability to access resource values.
 ///
 /// ### Example Usage
 ///
-/// [`UnsafeWorldCell`] can be used as a building block for writing APIs that safely allow disjoint access into the world.
-/// In the following example, the world is split into a resource access half and a component access half, where each one can
-/// safely hand out mutable references.
+/// [`UnsafeWorldCell`] can be used as a building block for writing APIs that safely allow disjoint
+/// access into the world. In the following example, the world is split into a resource access half
+/// and a component access half, where each one can safely hand out mutable references.
 ///
 /// ```
 /// use bevy_ecs::world::World;
@@ -137,26 +142,28 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     /// Gets a mutable reference to the [`World`] this [`UnsafeWorldCell`] belongs to.
-    /// This is an incredibly error-prone operation and is only valid in a small number of circumstances.
+    /// This is an incredibly error-prone operation and is only valid in a small number of
+    /// circumstances.
     ///
-    /// Calling this method implies mutable access to the *whole* world (see first point on safety section
-    /// below), which includes all entities, components, and resources. Notably, calling this on
-    /// [`WorldQuery::init_fetch`](crate::query::WorldQuery::init_fetch) and
-    /// [`SystemParam::get_param`](crate::system::SystemParam::get_param) are most likely *unsound* unless
-    /// you can prove that the underlying [`World`] is exclusive, which in normal circumstances is not.
+    /// Calling this method implies mutable access to the *whole* world (see first point on safety
+    /// section below), which includes all entities, components, and resources. Notably, calling
+    /// this on [`WorldQuery::init_fetch`](crate::query::WorldQuery::init_fetch) and
+    /// [`SystemParam::get_param`](crate::system::SystemParam::get_param) are most likely *unsound*
+    /// unless you can prove that the underlying [`World`] is exclusive, which in normal
+    /// circumstances is not.
     ///
     /// # Safety
-    /// - `self` must have been obtained from a call to [`World::as_unsafe_world_cell`]
-    ///   (*not* `as_unsafe_world_cell_readonly` or any other method of construction that
-    ///   does not provide mutable access to the entire world).
-    ///   - This means that if you have an `UnsafeWorldCell` that you didn't create yourself,
-    ///     it is likely *unsound* to call this method.
-    /// - The returned `&mut World` *must* be unique: it must never be allowed to exist
-    ///   at the same time as any other borrows of the world or any accesses to its data.
-    ///   This includes safe ways of accessing world data, such as [`UnsafeWorldCell::archetypes`].
-    ///   - Note that the `&mut World` *may* exist at the same time as instances of `UnsafeWorldCell`,
-    ///     so long as none of those instances are used to access world data in any way
-    ///     while the mutable borrow is active.
+    /// - `self` must have been obtained from a call to [`World::as_unsafe_world_cell`] (*not*
+    ///   `as_unsafe_world_cell_readonly` or any other method of construction that does not provide
+    ///   mutable access to the entire world).
+    ///   - This means that if you have an `UnsafeWorldCell` that you didn't create yourself, it is
+    ///     likely *unsound* to call this method.
+    /// - The returned `&mut World` *must* be unique: it must never be allowed to exist at the same
+    ///   time as any other borrows of the world or any accesses to its data. This includes safe
+    ///   ways of accessing world data, such as [`UnsafeWorldCell::archetypes`].
+    ///   - Note that the `&mut World` *may* exist at the same time as instances of
+    ///     `UnsafeWorldCell`, so long as none of those instances are used to access world data in
+    ///     any way while the mutable borrow is active.
     ///
     /// [//]: # (This test fails miri.)
     /// ```no_run
@@ -232,13 +239,13 @@ impl<'w> UnsafeWorldCell<'w> {
     /// mutable borrows of data inside it, is to use [`UnsafeWorldCell`].
     ///
     /// # Safety
-    /// - must not be used in a way that would conflict with any
-    ///   live exclusive borrows on world data
+    /// - must not be used in a way that would conflict with any live exclusive borrows on world
+    ///   data
     #[inline]
     unsafe fn unsafe_world(self) -> &'w World {
         // SAFETY:
-        // - caller ensures that the returned `&World` is not used in a way that would conflict
-        //   with any existing mutable borrows of world data
+        // - caller ensures that the returned `&World` is not used in a way that would conflict with
+        //   any existing mutable borrows of world data
         unsafe { &*self.ptr }
     }
 
@@ -354,8 +361,9 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.unsafe_world() }.storages
     }
 
-    /// Retrieves an [`UnsafeEntityCell`] that exposes read and write operations for the given `entity`.
-    /// Similar to the [`UnsafeWorldCell`], you are in charge of making sure that no aliasing rules are violated.
+    /// Retrieves an [`UnsafeEntityCell`] that exposes read and write operations for the given
+    /// `entity`. Similar to the [`UnsafeWorldCell`], you are in charge of making sure that no
+    /// aliasing rules are violated.
     #[inline]
     pub fn get_entity(
         self,
@@ -421,8 +429,8 @@ impl<'w> UnsafeWorldCell<'w> {
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the borrow of the [`World`] ends.
     ///
-    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_resource`] where possible and only
-    /// use this in cases where the actual types are not known at compile time.**
+    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_resource`] where possible
+    /// and only use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
@@ -460,11 +468,13 @@ impl<'w> UnsafeWorldCell<'w> {
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
     ///
-    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_non_send_resource`] where possible and only
-    /// use this in cases where the actual types are not known at compile time.**
+    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_non_send_resource`] where
+    /// possible and only use this in cases where the actual types are not known at compile
+    /// time.**
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was
+    /// inserted from.
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
@@ -504,8 +514,9 @@ impl<'w> UnsafeWorldCell<'w> {
     /// The returned pointer may be used to modify the resource, as long as the mutable borrow
     /// of the [`UnsafeWorldCell`] is still valid.
     ///
-    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_resource_mut`] where possible and only
-    /// use this in cases where the actual types are not known at compile time.**
+    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_resource_mut`] where
+    /// possible and only use this in cases where the actual types are not known at compile
+    /// time.**
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
@@ -526,7 +537,8 @@ impl<'w> UnsafeWorldCell<'w> {
 
         // SAFETY:
         // - index is in-bounds because the column is initialized and non-empty
-        // - the caller promises that no other reference to the ticks of the same row can exist at the same time
+        // - the caller promises that no other reference to the ticks of the same row can exist at
+        //   the same time
         let ticks = unsafe {
             TicksMut::from_tick_cells(ticks, self.last_change_tick(), self.change_tick())
         };
@@ -568,11 +580,13 @@ impl<'w> UnsafeWorldCell<'w> {
     /// The returned pointer may be used to modify the resource, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///
-    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_non_send_resource_mut`] where possible and only
-    /// use this in cases where the actual types are not known at compile time.**
+    /// **You should prefer to use the typed API [`UnsafeWorldCell::get_non_send_resource_mut`]
+    /// where possible and only use this in cases where the actual types are not known at
+    /// compile time.**
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was
+    /// inserted from.
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
@@ -633,7 +647,8 @@ impl<'w> UnsafeWorldCell<'w> {
 
     // Shorthand helper function for getting the data and change ticks for a resource.
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was
+    /// inserted from.
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
@@ -768,7 +783,8 @@ impl<'w> UnsafeEntityCell<'w> {
     /// ## Notes
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
-    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
+    /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using
+    ///   [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(self, type_id: TypeId) -> bool {
         let Some(id) = self.world.components().get_id(type_id) else {
@@ -832,8 +848,8 @@ impl<'w> UnsafeEntityCell<'w> {
         }
     }
 
-    /// Retrieves the change ticks for the given component. This can be useful for implementing change
-    /// detection in custom runtimes.
+    /// Retrieves the change ticks for the given component. This can be useful for implementing
+    /// change detection in custom runtimes.
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
@@ -857,11 +873,11 @@ impl<'w> UnsafeEntityCell<'w> {
         }
     }
 
-    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
-    /// detection in custom runtimes.
+    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for
+    /// implementing change detection in custom runtimes.
     ///
-    /// **You should prefer to use the typed API [`UnsafeEntityCell::get_change_ticks`] where possible and only
-    /// use this in cases where the actual component types are not known at
+    /// **You should prefer to use the typed API [`UnsafeEntityCell::get_change_ticks`] where
+    /// possible and only use this in cases where the actual component types are not known at
     /// compile time.**
     ///
     /// # Safety
@@ -992,10 +1008,12 @@ impl<'w> UnsafeEntityCell<'w> {
                     .get(location.table_id)
                     .debug_checked_unwrap()
             };
-            // SAFETY: Archetype and table are from the same world used to initialize state and fetch.
-            // Table corresponds to archetype. State is the same state used to init fetch above.
+            // SAFETY: Archetype and table are from the same world used to initialize state and
+            // fetch. Table corresponds to archetype. State is the same state used to
+            // init fetch above.
             unsafe { Q::set_archetype(&mut fetch, &state, archetype, table) }
-            // SAFETY: Called after set_archetype above. Entity and location are guaranteed to exist.
+            // SAFETY: Called after set_archetype above. Entity and location are guaranteed to
+            // exist.
             unsafe { Some(Q::fetch(&mut fetch, self.id(), location.table_row)) }
         } else {
             None
@@ -1030,11 +1048,12 @@ impl<'w> UnsafeEntityCell<'w> {
         }
     }
 
-    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
-    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
+    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given
+    /// [`ComponentId`]. Returns `None` if the `entity` does not have a [`Component`] of the
+    /// given type.
     ///
-    /// **You should prefer to use the typed API [`UnsafeEntityCell::get_mut`] where possible and only
-    /// use this in cases where the actual types are not known at compile time.**
+    /// **You should prefer to use the typed API [`UnsafeEntityCell::get_mut`] where possible and
+    /// only use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
@@ -1068,7 +1087,8 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.location,
             )
             .map(|(value, cells, caller)| MutUntyped {
-                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped`
+                // lifetime
                 value: value.assert_unique(),
                 ticks: TicksMut::from_tick_cells(
                     cells,
@@ -1081,12 +1101,13 @@ impl<'w> UnsafeEntityCell<'w> {
         }
     }
 
-    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
-    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
-    /// This method assumes the [`Component`] is mutable, skipping that check.
+    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given
+    /// [`ComponentId`]. Returns `None` if the `entity` does not have a [`Component`] of the
+    /// given type. This method assumes the [`Component`] is mutable, skipping that check.
     ///
-    /// **You should prefer to use the typed API [`UnsafeEntityCell::get_mut_assume_mutable`] where possible and only
-    /// use this in cases where the actual types are not known at compile time.**
+    /// **You should prefer to use the typed API [`UnsafeEntityCell::get_mut_assume_mutable`] where
+    /// possible and only use this in cases where the actual types are not known at compile
+    /// time.**
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
@@ -1116,7 +1137,8 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.location,
             )
             .map(|(value, cells, caller)| MutUntyped {
-                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped`
+                // lifetime
                 value: value.assert_unique(),
                 ticks: TicksMut::from_tick_cells(
                     cells,
@@ -1156,20 +1178,24 @@ pub enum GetEntityMutByIdError {
 impl<'w> UnsafeWorldCell<'w> {
     #[inline]
     /// # Safety
-    /// - the returned `Table` is only used in ways that this [`UnsafeWorldCell`] has permission for.
-    /// - the returned `Table` is only used in ways that would not conflict with any existing borrows of world data.
+    /// - the returned `Table` is only used in ways that this [`UnsafeWorldCell`] has permission
+    ///   for.
+    /// - the returned `Table` is only used in ways that would not conflict with any existing
+    ///   borrows of world data.
     unsafe fn fetch_table(self, location: EntityLocation) -> Option<&'w Table> {
         // SAFETY:
-        // - caller ensures returned data is not misused and we have not created any borrows of component/resource data
+        // - caller ensures returned data is not misused and we have not created any borrows of
+        //   component/resource data
         // - `location` contains a valid `TableId`, so getting the table won't fail
         unsafe { self.storages().tables.get(location.table_id) }
     }
 
     #[inline]
     /// # Safety
-    /// - the returned `ComponentSparseSet` is only used in ways that this [`UnsafeWorldCell`] has permission for.
-    /// - the returned `ComponentSparseSet` is only used in ways that would not conflict with any existing
-    ///   borrows of world data.
+    /// - the returned `ComponentSparseSet` is only used in ways that this [`UnsafeWorldCell`] has
+    ///   permission for.
+    /// - the returned `ComponentSparseSet` is only used in ways that would not conflict with any
+    ///   existing borrows of world data.
     unsafe fn fetch_sparse_set(self, component_id: ComponentId) -> Option<&'w ComponentSparseSet> {
         // SAFETY: caller ensures returned data is not misused and we have not created any borrows
         // of component/resource data
@@ -1177,11 +1203,11 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 }
 
-/// Get an untyped pointer to a particular [`Component`] on a particular [`Entity`] in the provided [`World`].
+/// Get an untyped pointer to a particular [`Component`] on a particular [`Entity`] in the provided
+/// [`World`].
 ///
 /// # Safety
-/// - `location` must refer to an archetype that contains `entity`
-///   the archetype
+/// - `location` must refer to an archetype that contains `entity` the archetype
 /// - `component_id` must be valid
 /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 /// - the caller must ensure that no aliasing rules are violated
@@ -1250,8 +1276,7 @@ unsafe fn get_component_and_ticks(
 /// Get an untyped pointer to the [`ComponentTicks`] on a particular [`Entity`]
 ///
 /// # Safety
-/// - `location` must refer to an archetype that contains `entity`
-///   the archetype
+/// - `location` must refer to an archetype that contains `entity` the archetype
 /// - `component_id` must be valid
 /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 /// - the caller must ensure that no aliasing rules are violated

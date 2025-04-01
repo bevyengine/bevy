@@ -22,12 +22,14 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
-/// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
-/// should be loaded.
+/// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`],
+/// which configure how the [`Asset`] should be loaded.
 ///
-/// This trait is generally used in concert with [`AssetReader`](crate::io::AssetReader) to load assets from a byte source.
+/// This trait is generally used in concert with [`AssetReader`](crate::io::AssetReader) to load
+/// assets from a byte source.
 ///
-/// For a complementary version of this trait that can save assets, see [`AssetSaver`](crate::saver::AssetSaver).
+/// For a complementary version of this trait that can save assets, see
+/// [`AssetSaver`](crate::saver::AssetSaver).
 pub trait AssetLoader: Send + Sync + 'static {
     /// The top level [`Asset`] loaded by this [`AssetLoader`].
     type Asset: Asset;
@@ -35,7 +37,8 @@ pub trait AssetLoader: Send + Sync + 'static {
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
     /// The type of [error](`std::error::Error`) which could be encountered by this loader.
     type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
-    /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes provided by [`Reader`].
+    /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes
+    /// provided by [`Reader`].
     fn load(
         &self,
         reader: &mut dyn Reader,
@@ -44,7 +47,8 @@ pub trait AssetLoader: Send + Sync + 'static {
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>>;
 
     /// Returns a list of extensions supported by this [`AssetLoader`], without the preceding dot.
-    /// Note that users of this [`AssetLoader`] may choose to load files with a non-matching extension.
+    /// Note that users of this [`AssetLoader`] may choose to load files with a non-matching
+    /// extension.
     fn extensions(&self) -> &[&str] {
         &[]
     }
@@ -65,9 +69,11 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
-    /// Deserializes metadata from the input `meta` bytes into the appropriate type (erased as [`Box<dyn AssetMetaDyn>`]).
+    /// Deserializes metadata from the input `meta` bytes into the appropriate type (erased as
+    /// [`Box<dyn AssetMetaDyn>`]).
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError>;
-    /// Returns the default meta value for the [`AssetLoader`] (erased as [`Box<dyn AssetMetaDyn>`]).
+    /// Returns the default meta value for the [`AssetLoader`] (erased as [`Box<dyn
+    /// AssetMetaDyn>`]).
     fn default_meta(&self) -> Box<dyn AssetMetaDyn>;
     /// Returns the type name of the [`AssetLoader`].
     fn type_name(&self) -> &'static str;
@@ -144,9 +150,11 @@ pub(crate) struct LabeledAsset {
     pub(crate) handle: UntypedHandle,
 }
 
-/// The successful result of an [`AssetLoader::load`] call. This contains the loaded "root" asset and any other "labeled" assets produced
-/// by the loader. It also holds the input [`AssetMeta`] (if it exists) and tracks dependencies:
-/// * normal dependencies: dependencies that must be loaded as part of this asset load (ex: assets a given asset has handles to).
+/// The successful result of an [`AssetLoader::load`] call. This contains the loaded "root" asset
+/// and any other "labeled" assets produced by the loader. It also holds the input [`AssetMeta`] (if
+/// it exists) and tracks dependencies:
+/// * normal dependencies: dependencies that must be loaded as part of this asset load (ex: assets a
+///   given asset has handles to).
 /// * Loader dependencies: dependencies whose actual asset values are used during the load process
 pub struct LoadedAsset<A: Asset> {
     pub(crate) value: A,
@@ -156,7 +164,8 @@ pub struct LoadedAsset<A: Asset> {
 }
 
 impl<A: Asset> LoadedAsset<A> {
-    /// Create a new loaded asset. This will use [`VisitAssetDependencies`](crate::VisitAssetDependencies) to populate `dependencies`.
+    /// Create a new loaded asset. This will use
+    /// [`VisitAssetDependencies`](crate::VisitAssetDependencies) to populate `dependencies`.
     pub fn new_with_dependencies(value: A) -> Self {
         let mut dependencies = <HashSet<_>>::default();
         value.visit_dependencies(&mut |id| {
@@ -200,7 +209,8 @@ impl<A: Asset> From<A> for LoadedAsset<A> {
     }
 }
 
-/// A "type erased / boxed" counterpart to [`LoadedAsset`]. This is used in places where the loaded type is not statically known.
+/// A "type erased / boxed" counterpart to [`LoadedAsset`]. This is used in places where the loaded
+/// type is not statically known.
 pub struct ErasedLoadedAsset {
     pub(crate) value: Box<dyn AssetContainer>,
     pub(crate) dependencies: HashSet<UntypedAssetId>,
@@ -220,13 +230,14 @@ impl<A: Asset> From<LoadedAsset<A>> for ErasedLoadedAsset {
 }
 
 impl ErasedLoadedAsset {
-    /// Cast (and take ownership) of the [`Asset`] value of the given type. This will return [`Some`] if
-    /// the stored type matches `A` and [`None`] if it does not.
+    /// Cast (and take ownership) of the [`Asset`] value of the given type. This will return
+    /// [`Some`] if the stored type matches `A` and [`None`] if it does not.
     pub fn take<A: Asset>(self) -> Option<A> {
         self.value.downcast::<A>().map(|a| *a).ok()
     }
 
-    /// Retrieves a reference to the internal [`Asset`] type, if it matches the type `A`. Otherwise returns [`None`].
+    /// Retrieves a reference to the internal [`Asset`] type, if it matches the type `A`. Otherwise
+    /// returns [`None`].
     pub fn get<A: Asset>(&self) -> Option<&A> {
         self.value.downcast_ref::<A>()
     }
@@ -272,7 +283,8 @@ impl ErasedLoadedAsset {
     }
 }
 
-/// A type erased container for an [`Asset`] value that is capable of inserting the [`Asset`] into a [`World`]'s [`Assets`] collection.
+/// A type erased container for an [`Asset`] value that is capable of inserting the [`Asset`] into a
+/// [`World`]'s [`Assets`] collection.
 pub trait AssetContainer: Downcast + Any + Send + Sync + 'static {
     fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World);
     fn asset_type_name(&self) -> &'static str;
@@ -317,9 +329,11 @@ pub enum DeserializeMetaError {
     DeserializeMinimal(SpannedError),
 }
 
-/// A context that provides access to assets in [`AssetLoader`]s, tracks dependencies, and collects asset load state.
+/// A context that provides access to assets in [`AssetLoader`]s, tracks dependencies, and collects
+/// asset load state.
 ///
-/// Any asset state accessed by [`LoadContext`] will be tracked and stored for use in dependency events and asset preprocessing.
+/// Any asset state accessed by [`LoadContext`] will be tracked and stored for use in dependency
+/// events and asset preprocessing.
 pub struct LoadContext<'a> {
     pub(crate) asset_server: &'a AssetServer,
     pub(crate) should_load_dependencies: bool,
@@ -352,8 +366,8 @@ impl<'a> LoadContext<'a> {
 
     /// Begins a new labeled asset load. Use the returned [`LoadContext`] to load
     /// dependencies for the new asset and call [`LoadContext::finish`] to finalize the asset load.
-    /// When finished, make sure you call [`LoadContext::add_labeled_asset`] to add the results back to the parent
-    /// context.
+    /// When finished, make sure you call [`LoadContext::add_labeled_asset`] to add the results back
+    /// to the parent context.
     /// Prefer [`LoadContext::labeled_asset_scope`] when possible, which will automatically add
     /// the labeled [`LoadContext`] back to the parent context.
     /// [`LoadContext::begin_labeled_asset`] exists largely to enable parallel asset loading.
@@ -388,12 +402,13 @@ impl<'a> LoadContext<'a> {
         )
     }
 
-    /// Creates a new [`LoadContext`] for the given `label`. The `load` function is responsible for loading an [`Asset`] of
-    /// type `A`. `load` will be called immediately and the result will be used to finalize the [`LoadContext`], resulting in a new
-    /// [`LoadedAsset`], which is registered under the `label` label.
+    /// Creates a new [`LoadContext`] for the given `label`. The `load` function is responsible for
+    /// loading an [`Asset`] of type `A`. `load` will be called immediately and the result will
+    /// be used to finalize the [`LoadContext`], resulting in a new [`LoadedAsset`], which is
+    /// registered under the `label` label.
     ///
-    /// This exists to remove the need to manually call [`LoadContext::begin_labeled_asset`] and then manually register the
-    /// result with [`LoadContext::add_labeled_asset`].
+    /// This exists to remove the need to manually call [`LoadContext::begin_labeled_asset`] and
+    /// then manually register the result with [`LoadContext::add_labeled_asset`].
     ///
     /// See [`AssetPath`] for more on labeled assets.
     pub fn labeled_asset_scope<A: Asset>(
@@ -488,8 +503,8 @@ impl<'a> LoadContext<'a> {
         };
         let mut reader = asset_reader.read(path.path()).await?;
         let hash = if self.populate_hashes {
-            // NOTE: ensure meta is read while the asset bytes reader is still active to ensure transactionality
-            // See `ProcessorGatedReader` for more info
+            // NOTE: ensure meta is read while the asset bytes reader is still active to ensure
+            // transactionality See `ProcessorGatedReader` for more info
             let meta_bytes = asset_reader.read_meta_bytes(path.path()).await?;
             let minimal: ProcessedInfoMinimal = ron::de::from_bytes(&meta_bytes)
                 .map_err(DeserializeMetaError::DeserializeMinimal)?;
@@ -512,9 +527,10 @@ impl<'a> LoadContext<'a> {
         Ok(bytes)
     }
 
-    /// Returns a handle to an asset of type `A` with the label `label`. This [`LoadContext`] must produce an asset of the
-    /// given type and the given label or the dependencies of this asset will never be considered "fully loaded". However you
-    /// can call this method before _or_ after adding the labeled asset.
+    /// Returns a handle to an asset of type `A` with the label `label`. This [`LoadContext`] must
+    /// produce an asset of the given type and the given label or the dependencies of this asset
+    /// will never be considered "fully loaded". However you can call this method before _or_
+    /// after adding the labeled asset.
     pub fn get_label_handle<'b, A: Asset>(
         &mut self,
         label: impl Into<CowArc<'b, str>>,
@@ -559,14 +575,17 @@ impl<'a> LoadContext<'a> {
         NestedLoader::new(self)
     }
 
-    /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset.
-    /// If the current context is a normal [`AssetServer::load`], an actual asset load will be kicked off immediately, which ensures the load happens
-    /// as soon as possible.
-    /// "Normal loads" kicked from within a normal Bevy App will generally configure the context to kick off loads immediately.
-    /// If the current context is configured to not load dependencies automatically (ex: [`AssetProcessor`](crate::processor::AssetProcessor)),
-    /// a load will not be kicked off automatically. It is then the calling context's responsibility to begin a load if necessary.
+    /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the
+    /// asset. If the current context is a normal [`AssetServer::load`], an actual asset load
+    /// will be kicked off immediately, which ensures the load happens as soon as possible.
+    /// "Normal loads" kicked from within a normal Bevy App will generally configure the context to
+    /// kick off loads immediately. If the current context is configured to not load
+    /// dependencies automatically (ex: [`AssetProcessor`](crate::processor::AssetProcessor)), a
+    /// load will not be kicked off automatically. It is then the calling context's responsibility
+    /// to begin a load if necessary.
     ///
-    /// If you need to override asset settings, asset type, or load directly, please see [`LoadContext::loader`].
+    /// If you need to override asset settings, asset type, or load directly, please see
+    /// [`LoadContext::loader`].
     pub fn load<'b, A: Asset>(&mut self, path: impl Into<AssetPath<'b>>) -> Handle<A> {
         self.loader().load(path)
     }

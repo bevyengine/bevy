@@ -157,7 +157,8 @@ impl SubApp {
 
     /// Sets the method that will be called by [`extract`](Self::extract).
     ///
-    /// The first argument is the `World` to extract data from, the second argument is the app `World`.
+    /// The first argument is the `World` to extract data from, the second argument is the app
+    /// `World`.
     pub fn set_extract<F>(&mut self, extract: F) -> &mut Self
     where
         F: Fn(&mut World, &mut World) + Send + 'static,
@@ -166,13 +167,13 @@ impl SubApp {
         self
     }
 
-    /// Take the function that will be called by [`extract`](Self::extract) out of the app, if any was set,
-    /// and replace it with `None`.
+    /// Take the function that will be called by [`extract`](Self::extract) out of the app, if any
+    /// was set, and replace it with `None`.
     ///
     /// If you use Bevy, `bevy_render` will set a default extract function used to extract data from
-    /// the main world into the render world as part of the Extract phase. In that case, you cannot replace
-    /// it with your own function. Instead, take the Bevy default function with this, and install your own
-    /// instead which calls the Bevy default.
+    /// the main world into the render world as part of the Extract phase. In that case, you cannot
+    /// replace it with your own function. Instead, take the Bevy default function with this,
+    /// and install your own instead which calls the Bevy default.
     ///
     /// ```
     /// # use bevy_app::SubApp;
@@ -511,7 +512,8 @@ impl SubApps {
         core::iter::once(&mut self.main).chain(self.sub_apps.values_mut())
     }
 
-    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
+    /// Extract data from the main world into the [`SubApp`] with the given label and perform an
+    /// update if it exists.
     pub fn update_subapp_by_label(&mut self, label: impl AppLabel) {
         if let Some(sub_app) = self.sub_apps.get_mut(&label.intern()) {
             sub_app.extract(&mut self.main.world);

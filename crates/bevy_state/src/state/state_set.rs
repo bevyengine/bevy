@@ -54,10 +54,10 @@ pub trait StateSet: StateSetSealed {
 /// Some [`ComputedStates`]'s might need to exist in different states based on the existence
 /// of other states. So we needed the ability to use[`Option<S>`] when appropriate.
 ///
-/// The isolation works because it is implemented for both S & [`Option<S>`], and has the `RawState` associated type
-/// that allows it to know what the resource in the world should be. We can then essentially "unwrap" it in our
-/// `StateSet` implementation - and the behavior of that unwrapping will depend on the arguments expected by the
-/// the [`ComputedStates`] & [`SubStates]`.
+/// The isolation works because it is implemented for both S & [`Option<S>`], and has the `RawState`
+/// associated type that allows it to know what the resource in the world should be. We can then
+/// essentially "unwrap" it in our `StateSet` implementation - and the behavior of that unwrapping
+/// will depend on the arguments expected by the the [`ComputedStates`] & [`SubStates]`.
 trait InnerStateSet: Sized {
     type RawState: States;
 

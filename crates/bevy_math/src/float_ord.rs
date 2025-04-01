@@ -33,8 +33,8 @@ impl PartialOrd for FloatOrd {
         !other.le(self)
     }
     // If `self` is NaN, it is equal to another NaN and less than all other floats, so return true.
-    // If `self` isn't NaN and `other` is, the float comparison returns false, which match the `FloatOrd` ordering.
-    // Otherwise, a standard float comparison happens.
+    // If `self` isn't NaN and `other` is, the float comparison returns false, which match the
+    // `FloatOrd` ordering. Otherwise, a standard float comparison happens.
     fn le(&self, other: &Self) -> bool {
         self.0.is_nan() || self.0 <= other.0
     }

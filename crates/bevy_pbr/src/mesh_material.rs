@@ -7,7 +7,8 @@ use derive_more::derive::From;
 
 /// A [material](Material) used for rendering a [`Mesh3d`].
 ///
-/// See [`Material`] for general information about 3D materials and how to implement your own materials.
+/// See [`Material`] for general information about 3D materials and how to implement your own
+/// materials.
 ///
 /// [`Mesh3d`]: bevy_render::mesh::Mesh3d
 ///

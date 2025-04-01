@@ -302,8 +302,8 @@ const DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY: u32 = 2;
 
 /// Creates window surfaces.
 pub fn create_surfaces(
-    // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
-    // which is necessary for some OS's
+    // By accessing a NonSend resource, we tell the scheduler to put this system on the main
+    // thread, which is necessary for some OS's
     #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: bevy_ecs::system::NonSendMarker,
     windows: Res<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
@@ -320,10 +320,12 @@ pub fn create_surfaces(
                     raw_display_handle: window.handle.get_display_handle(),
                     raw_window_handle: window.handle.get_window_handle(),
                 };
-                // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
+                // SAFETY: The window handles in ExtractedWindows will always be valid objects to
+                // create surfaces on
                 let surface = unsafe {
                     // NOTE: On some OSes this MUST be called from the main thread.
-                    // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
+                    // As of wgpu 0.15, only fallible if the given window is a HTML canvas and
+                    // obtaining a WebGPU or WebGL2 context fails.
                     render_instance
                         .create_surface_unsafe(surface_target)
                         .expect("Failed to create wgpu surface")
@@ -332,10 +334,12 @@ pub fn create_surfaces(
                 let formats = caps.formats;
                 // For future HDR output support, we'll need to request a format that supports HDR,
                 // but as of wgpu 0.15 that is not yet supported.
-                // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
+                // Prefer sRGB formats for surfaces, but fall back to first available format if no
+                // sRGB formats are available.
                 let mut format = *formats.first().expect("No supported formats for surface");
                 for available_format in formats {
-                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
+                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that
+                    // we can use for surfaces.
                     if available_format == TextureFormat::Rgba8UnormSrgb
                         || available_format == TextureFormat::Bgra8UnormSrgb
                     {

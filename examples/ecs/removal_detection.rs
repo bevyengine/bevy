@@ -1,8 +1,9 @@
-//! This example shows how you can know when a [`Component`] has been removed, so you can react to it.
+//! This example shows how you can know when a [`Component`] has been removed, so you can react to
+//! it.
 //!
-//! When a [`Component`] is removed from an [`Entity`], all [`Observer`] with an [`OnRemove`] trigger for
-//! that [`Component`] will be notified. These observers will be called immediately after the
-//! [`Component`] is removed. For more info on observers, see the
+//! When a [`Component`] is removed from an [`Entity`], all [`Observer`] with an [`OnRemove`]
+//! trigger for that [`Component`] will be notified. These observers will be called immediately
+//! after the [`Component`] is removed. For more info on observers, see the
 //! [observers example](https://github.com/bevyengine/bevy/blob/main/examples/ecs/observers.rs).
 //!
 //! Advanced users may also consider using a lifecycle hook
@@ -49,7 +50,8 @@ fn remove_component(
 }
 
 fn react_on_removal(trigger: Trigger<OnRemove, MyComponent>, mut query: Query<&mut Sprite>) {
-    // The `OnRemove` trigger was automatically called on the `Entity` that had its `MyComponent` removed.
+    // The `OnRemove` trigger was automatically called on the `Entity` that had its `MyComponent`
+    // removed.
     let entity = trigger.target();
     if let Ok(mut sprite) = query.get_mut(entity) {
         sprite.color = Color::srgb(0.5, 1., 1.);

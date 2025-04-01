@@ -31,12 +31,14 @@ impl Bounded2d for Circle {
     }
 }
 
-// Compute the axis-aligned bounding points of a rotated arc, used for computing the AABB of arcs and derived shapes.
-// The return type has room for 7 points so that the CircularSector code can add an additional point.
+// Compute the axis-aligned bounding points of a rotated arc, used for computing the AABB of arcs
+// and derived shapes. The return type has room for 7 points so that the CircularSector code can add
+// an additional point.
 #[inline]
 fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rot2>) -> SmallVec<[Vec2; 7]> {
-    // Otherwise, the extreme points will always be either the endpoints or the axis-aligned extrema of the arc's circle.
-    // We need to compute which axis-aligned extrema are actually contained within the rotated arc.
+    // Otherwise, the extreme points will always be either the endpoints or the axis-aligned extrema
+    // of the arc's circle. We need to compute which axis-aligned extrema are actually contained
+    // within the rotated arc.
     let mut bounds = SmallVec::<[Vec2; 7]>::new();
     let rotation = rotation.into();
     bounds.push(rotation * arc.left_endpoint());
@@ -50,9 +52,11 @@ fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rot2>) -> SmallVec<[Vec2;
     let inverted = left_angle < right_angle;
     for extremum in [Vec2::X, Vec2::Y, Vec2::NEG_X, Vec2::NEG_Y] {
         let angle = ops::rem_euclid(extremum.to_angle(), TAU);
-        // If inverted = true, then right_angle > left_angle, so we are looking for an angle that is not between them.
-        // There's a chance that this condition fails due to rounding error, if the endpoint angle is juuuust shy of the axis.
-        // But in that case, the endpoint itself is within rounding error of the axis and will define the bounds just fine.
+        // If inverted = true, then right_angle > left_angle, so we are looking for an angle that is
+        // not between them. There's a chance that this condition fails due to rounding
+        // error, if the endpoint angle is juuuust shy of the axis. But in that case, the
+        // endpoint itself is within rounding error of the axis and will define the bounds just
+        // fine.
         let angle_within_parameters = if inverted {
             angle >= right_angle || angle <= left_angle
         } else {
@@ -85,8 +89,8 @@ impl Bounded2d for Arc2d {
 
         // There are two possibilities for the bounding circle.
         if self.is_major() {
-            // If the arc is major, then the widest distance between two points is a diameter of the arc's circle;
-            // therefore, that circle is the bounding radius.
+            // If the arc is major, then the widest distance between two points is a diameter of the
+            // arc's circle; therefore, that circle is the bounding radius.
             BoundingCircle::new(isometry.translation, self.radius)
         } else {
             // Otherwise, the widest distance between two points is the chord,
@@ -106,7 +110,8 @@ impl Bounded2d for CircularSector {
             return Circle::new(self.radius()).aabb_2d(isometry);
         }
 
-        // Otherwise, we use the same logic as for Arc2d, above, just with the circle's center as an additional possibility.
+        // Otherwise, we use the same logic as for Arc2d, above, just with the circle's center as an
+        // additional possibility.
         let mut bounds = arc_bounding_points(self.arc, isometry.rotation);
         bounds.push(Vec2::ZERO);
 
@@ -122,10 +127,10 @@ impl Bounded2d for CircularSector {
             BoundingCircle::new(isometry.translation, self.arc.radius)
         } else {
             // However, when the arc is minor,
-            // we need our bounding circle to include both endpoints of the arc as well as the circle center.
-            // This means we need the circumcircle of those three points.
-            // The circumcircle will always have a greater curvature than the circle itself, so it will contain
-            // the entire circular sector.
+            // we need our bounding circle to include both endpoints of the arc as well as the
+            // circle center. This means we need the circumcircle of those three points.
+            // The circumcircle will always have a greater curvature than the circle itself, so it
+            // will contain the entire circular sector.
             Triangle2d::new(
                 Vec2::ZERO,
                 self.arc.left_endpoint(),
@@ -330,11 +335,12 @@ impl Bounded2d for Triangle2d {
             None
         };
 
-        // Find the minimum bounding circle. If the triangle is obtuse, the circle passes through two vertices.
-        // Otherwise, it's the circumcircle and passes through all three.
+        // Find the minimum bounding circle. If the triangle is obtuse, the circle passes through
+        // two vertices. Otherwise, it's the circumcircle and passes through all three.
         if let Some((point1, point2)) = side_opposite_to_non_acute {
-            // The triangle is obtuse or right, so the minimum bounding circle's diameter is equal to the longest side.
-            // We can compute the minimum bounding circle from the line segment of the longest side.
+            // The triangle is obtuse or right, so the minimum bounding circle's diameter is equal
+            // to the longest side. We can compute the minimum bounding circle from the
+            // line segment of the longest side.
             let segment = Segment2d::new(point1, point2);
             segment.bounding_circle(isometry)
         } else {
@@ -560,8 +566,8 @@ mod tests {
                 aabb_min: Vec2::new(-apothem, 0.5),
                 aabb_max: Vec2::new(0.0, 1.0),
                 // The exact coordinates here are not obvious, but can be computed by constructing
-                // an altitude from the midpoint of the chord to the y-axis and using the right triangle
-                // similarity theorem.
+                // an altitude from the midpoint of the chord to the y-axis and using the right
+                // triangle similarity theorem.
                 bounding_circle_center: Vec2::new(-apothem / 2.0, apothem.squared()),
                 bounding_circle_radius: 0.5,
             },
@@ -570,7 +576,8 @@ mod tests {
                 name: "1/4er circle rotated to be axis-aligned",
                 arc: Arc2d::from_radians(1.0, FRAC_PI_2),
                 translation: Vec2::ZERO,
-                // Rotate right by 1/8 of a circle, so the right endpoint is on the x-axis and the left endpoint is on the y-axis.
+                // Rotate right by 1/8 of a circle, so the right endpoint is on the x-axis and the
+                // left endpoint is on the y-axis.
                 rotation: -FRAC_PI_4,
                 aabb_min: Vec2::ZERO,
                 aabb_max: Vec2::splat(1.0),
@@ -660,7 +667,8 @@ mod tests {
         let apothem = ops::sqrt(3.0) / 2.0;
         let inv_sqrt_3 = ops::sqrt(3.0).recip();
         let tests = [
-            // Test case: A sector whose arc is minor, but whose bounding circle is not the circumcircle of the endpoints and center
+            // Test case: A sector whose arc is minor, but whose bounding circle is not the
+            // circumcircle of the endpoints and center
             TestCase {
                 name: "1/3rd circle",
                 arc: Arc2d::from_radians(1.0, TAU / 3.0),
@@ -679,8 +687,9 @@ mod tests {
                 rotation: 0.0,
                 aabb_min: Vec2::new(-0.5, 0.0),
                 aabb_max: Vec2::new(0.5, 1.0),
-                // The bounding circle is a circumcircle of an equilateral triangle with side length 1.
-                // The distance from the corner to the center of such a triangle is 1/sqrt(3).
+                // The bounding circle is a circumcircle of an equilateral triangle with side length
+                // 1. The distance from the corner to the center of such a triangle
+                // is 1/sqrt(3).
                 bounding_circle_center: Vec2::new(0.0, inv_sqrt_3),
                 bounding_circle_radius: inv_sqrt_3,
             },
@@ -722,7 +731,8 @@ mod tests {
                 rotation: FRAC_PI_6,
                 aabb_min: Vec2::new(-apothem, 0.0),
                 aabb_max: Vec2::new(0.0, 1.0),
-                // The x-coordinate is now the inradius of the equilateral triangle, which is sqrt(3)/2.
+                // The x-coordinate is now the inradius of the equilateral triangle, which is
+                // sqrt(3)/2.
                 bounding_circle_center: Vec2::new(-inv_sqrt_3 / 2.0, 0.5),
                 bounding_circle_radius: inv_sqrt_3,
             },
@@ -730,7 +740,8 @@ mod tests {
                 name: "1/4er circle rotated to be axis-aligned",
                 arc: Arc2d::from_radians(1.0, FRAC_PI_2),
                 translation: Vec2::ZERO,
-                // Rotate right by 1/8 of a circle, so the right endpoint is on the x-axis and the left endpoint is on the y-axis.
+                // Rotate right by 1/8 of a circle, so the right endpoint is on the x-axis and the
+                // left endpoint is on the y-axis.
                 rotation: -FRAC_PI_4,
                 aabb_min: Vec2::ZERO,
                 aabb_max: Vec2::splat(1.0),
@@ -958,7 +969,8 @@ mod tests {
         assert_eq!(aabb.min, Vec2::new(-8.0, 0.0));
         assert_eq!(aabb.max, Vec2::new(12.0, 2.0));
 
-        // For obtuse and right triangles, the center is the midpoint of the longest side (diameter of bounding circle)
+        // For obtuse and right triangles, the center is the midpoint of the longest side (diameter
+        // of bounding circle)
         let bounding_circle = obtuse_triangle.bounding_circle(isometry);
         assert_eq!(bounding_circle.center, translation - Vec2::Y);
         assert_eq!(bounding_circle.radius(), 10.0);

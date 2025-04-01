@@ -1,6 +1,8 @@
-//! Contains the [`EntityIndexMap`] type, an [`IndexMap`] pre-configured to use [`EntityHash`] hashing.
+//! Contains the [`EntityIndexMap`] type, an [`IndexMap`] pre-configured to use [`EntityHash`]
+//! hashing.
 //!
-//! This module is a lightweight wrapper around `indexmap`'s [`IndexMap`] that is more performant for [`Entity`] keys.
+//! This module is a lightweight wrapper around `indexmap`'s [`IndexMap`] that is more performant
+//! for [`Entity`] keys.
 
 use core::{
     cmp::Ordering,
@@ -408,7 +410,8 @@ impl<V> Slice<V> {
         &self.1
     }
 
-    /// Constructs a boxed [`entity::index_map::Slice`] from a boxed [`indexmap::map::Slice`] unsafely.
+    /// Constructs a boxed [`entity::index_map::Slice`] from a boxed [`indexmap::map::Slice`]
+    /// unsafely.
     ///
     /// # Safety
     ///

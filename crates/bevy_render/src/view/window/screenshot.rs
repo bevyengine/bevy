@@ -129,8 +129,8 @@ pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(Trigger<ScreenshotCapt
         match img.try_into_dynamic() {
             Ok(dyn_img) => match image::ImageFormat::from_path(&path) {
                 Ok(format) => {
-                    // discard the alpha channel which stores brightness values when HDR is enabled to make sure
-                    // the screenshot looks right
+                    // discard the alpha channel which stores brightness values when HDR is enabled
+                    // to make sure the screenshot looks right
                     let img = dyn_img.to_rgb8();
                     #[cfg(not(target_arch = "wasm32"))]
                     match img.save_with_format(&path, format) {
@@ -147,7 +147,8 @@ pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(Trigger<ScreenshotCapt
                             let mut image_buffer = std::io::Cursor::new(Vec::new());
                             img.write_to(&mut image_buffer, format)
                                 .map_err(|e| JsValue::from_str(&format!("{e}")))?;
-                            // SAFETY: `image_buffer` only exist in this closure, and is not used after this line
+                            // SAFETY: `image_buffer` only exist in this closure, and is not used
+                            // after this line
                             let parts = js_sys::Array::of1(&unsafe {
                                 js_sys::Uint8Array::view(image_buffer.into_inner().as_bytes())
                                     .into()
@@ -641,7 +642,8 @@ pub(crate) fn collect_screenshots(world: &mut World) {
         let finish = async move {
             let (tx, rx) = async_channel::bounded(1);
             let buffer_slice = buffer.slice(..);
-            // The polling for this map call is done every frame when the command queue is submitted.
+            // The polling for this map call is done every frame when the command queue is
+            // submitted.
             buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
                 let err = result.err();
                 if err.is_some() {

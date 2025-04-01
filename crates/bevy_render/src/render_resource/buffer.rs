@@ -16,7 +16,8 @@ impl Buffer {
     }
 
     pub fn slice(&self, bounds: impl RangeBounds<wgpu::BufferAddress>) -> BufferSlice {
-        // need to compute and store this manually because wgpu doesn't export offset and size on wgpu::BufferSlice
+        // need to compute and store this manually because wgpu doesn't export offset and size on
+        // wgpu::BufferSlice
         let offset = match bounds.start_bound() {
             Bound::Included(&bound) => bound,
             Bound::Excluded(&bound) => bound + 1,

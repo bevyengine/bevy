@@ -60,12 +60,14 @@ struct FontFaceInfo {
     family_name: Arc<str>,
 }
 
-/// The `TextPipeline` is used to layout and render text blocks (see `Text`/[`Text2d`](crate::Text2d)).
+/// The `TextPipeline` is used to layout and render text blocks (see
+/// `Text`/[`Text2d`](crate::Text2d)).
 ///
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
 pub struct TextPipeline {
-    /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset).
+    /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`]
+    /// [`Asset`](bevy_asset::Asset).
     map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     /// Buffered vec for collecting spans.
     ///
@@ -92,8 +94,8 @@ impl TextPipeline {
     ) -> Result<(), TextError> {
         let font_system = &mut font_system.0;
 
-        // Collect span information into a vec. This is necessary because font loading requires mut access
-        // to FontSystem, which the cosmic-text Buffer also needs.
+        // Collect span information into a vec. This is necessary because font loading requires mut
+        // access to FontSystem, which the cosmic-text Buffer also needs.
         let mut font_size: f32 = 0.;
         let mut line_height: f32 = 0.0;
         let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color)> =
@@ -151,13 +153,13 @@ impl TextPipeline {
 
         let mut metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
         // Metrics of 0.0 cause `Buffer::set_metrics` to panic. We hack around this by 'falling
-        // through' to call `Buffer::set_rich_text` with zero spans so any cached text will be cleared without
-        // deallocating the buffer.
+        // through' to call `Buffer::set_rich_text` with zero spans so any cached text will be
+        // cleared without deallocating the buffer.
         metrics.font_size = metrics.font_size.max(0.000001);
         metrics.line_height = metrics.line_height.max(0.000001);
 
-        // Map text sections to cosmic-text spans, and ignore sections with negative or zero fontsizes,
-        // since they cannot be rendered by cosmic-text.
+        // Map text sections to cosmic-text spans, and ignore sections with negative or zero
+        // fontsizes, since they cannot be rendered by cosmic-text.
         //
         // The section index is stored in the metadata of the spans, and could be used
         // to look up the section the span came from and is not used internally
@@ -236,7 +238,8 @@ impl TextPipeline {
         layout_info.glyphs.clear();
         layout_info.size = Default::default();
 
-        // Clear this here at the focal point of text rendering to ensure the field's lifecycle has strong boundaries.
+        // Clear this here at the focal point of text rendering to ensure the field's lifecycle has
+        // strong boundaries.
         computed.needs_rerender = false;
 
         // Extract font ids from the iterator while traversing it.
@@ -369,8 +372,8 @@ impl TextPipeline {
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 
-        // Clear this here at the focal point of measured text rendering to ensure the field's lifecycle has
-        // strong boundaries.
+        // Clear this here at the focal point of measured text rendering to ensure the field's
+        // lifecycle has strong boundaries.
         computed.needs_rerender = false;
 
         self.update_buffer(
@@ -411,8 +414,8 @@ impl TextPipeline {
 
 /// Render information for a corresponding text block.
 ///
-/// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`] when an entity has
-/// [`TextLayout`] and [`ComputedTextBlock`] components.
+/// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`] when an entity
+/// has [`TextLayout`] and [`ComputedTextBlock`] components.
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextLayoutInfo {
@@ -443,8 +446,8 @@ impl TextMeasureInfo {
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
     ) -> Vec2 {
-        // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'
-        // whenever a canonical state is required.
+        // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always
+        // 'refreshed' whenever a canonical state is required.
         computed
             .buffer
             .set_size(&mut font_system.0, bounds.width, bounds.height);
@@ -525,8 +528,8 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
 
 /// Discards stale data cached in `FontSystem`.
 pub(crate) fn trim_cosmic_cache(mut font_system: ResMut<CosmicFontSystem>) {
-    // A trim age of 2 was found to reduce frame time variance vs age of 1 when tested with dynamic text.
-    // See https://github.com/bevyengine/bevy/pull/15037
+    // A trim age of 2 was found to reduce frame time variance vs age of 1 when tested with dynamic
+    // text. See https://github.com/bevyengine/bevy/pull/15037
     //
     // We assume only text updated frequently benefits from the shape cache (e.g. animated text, or
     // text that is dynamically measured for UI).

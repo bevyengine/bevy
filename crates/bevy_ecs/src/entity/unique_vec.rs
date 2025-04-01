@@ -368,7 +368,8 @@ impl<T: EntityEquivalent> UniqueEntityVec<T> {
         self.0.resize_with(new_len, f);
     }
 
-    /// Consumes and leaks the Vec, returning a mutable reference to the contents, `&'a mut UniqueEntitySlice<T>`.
+    /// Consumes and leaks the Vec, returning a mutable reference to the contents, `&'a mut
+    /// UniqueEntitySlice<T>`.
     pub fn leak<'a>(self) -> &'a mut UniqueEntitySlice<T> {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.0.leak()) }

@@ -24,7 +24,8 @@ use {
 ///
 /// If no [ordering](https://github.com/bevyengine/bevy/blob/main/examples/ecs/ecs_guide.rs)
 /// is applied between writing and reading systems, there is a risk of a race condition.
-/// This means that whether the events arrive before or after the next [`Events::update`] is unpredictable.
+/// This means that whether the events arrive before or after the next [`Events::update`] is
+/// unpredictable.
 ///
 /// This collection is meant to be paired with a system that calls
 /// [`Events::update`] exactly once per update/frame.
@@ -93,7 +94,8 @@ use {
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Default))]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
-    /// Note that `a.start_event_count + a.len()` should always be equal to `events_b.start_event_count`.
+    /// Note that `a.start_event_count + a.len()` should always be equal to
+    /// `events_b.start_event_count`.
     pub(crate) events_a: EventSequence<E>,
     /// Holds the newer events.
     pub(crate) events_b: EventSequence<E>,
@@ -142,9 +144,9 @@ impl<E: Event> Events<E> {
         event_id
     }
 
-    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
-    /// This is more efficient than sending each event individually.
-    /// This method returns the [IDs](`EventId`) of the sent `events`.
+    /// Sends a list of `events` all at once, which can later be read by
+    /// [`EventReader`](super::EventReader)s. This is more efficient than sending each event
+    /// individually. This method returns the [IDs](`EventId`) of the sent `events`.
     #[track_caller]
     pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
         let last_count = self.event_count;

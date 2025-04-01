@@ -413,7 +413,8 @@ pub fn prepare_shadows(
                         .map(|pos| (box_shadow.transform * (pos * rect_size).extend(1.)).xyz());
 
                     // Calculate the effect of clipping
-                    // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
+                    // Note: this won't work with rotation/scaling, but that's much more complex
+                    // (may need more that 2 quads)
                     let positions_diff = if let Some(clip) = box_shadow.clip {
                         [
                             Vec2::new(
@@ -448,8 +449,8 @@ pub fn prepare_shadows(
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
-                    // In those two cases, the culling check can proceed normally as corners will be on
-                    // horizontal / vertical lines
+                    // In those two cases, the culling check can proceed normally as corners will be
+                    // on horizontal / vertical lines
                     // For all other angles, bypass the culling check
                     // This does not properly handles all rotations on all axis
                     if box_shadow.transform.x_axis[1] == 0.0 {

@@ -55,7 +55,8 @@ pub struct Gltf {
 pub struct GltfMesh {
     /// Index of the mesh inside the scene
     pub index: usize,
-    /// Computed name for a mesh - either a user defined mesh name from gLTF or a generated name from index
+    /// Computed name for a mesh - either a user defined mesh name from gLTF or a generated name
+    /// from index
     pub name: String,
     /// Primitives of the glTF mesh.
     pub primitives: Vec<GltfPrimitive>,
@@ -97,7 +98,8 @@ impl GltfMesh {
 pub struct GltfNode {
     /// Index of the node inside the scene
     pub index: usize,
-    /// Computed name for a node - either a user defined node name from gLTF or a generated name from index
+    /// Computed name for a node - either a user defined node name from gLTF or a generated name
+    /// from index
     pub name: String,
     /// Direct children of the node.
     pub children: Vec<Handle<GltfNode>>,
@@ -156,7 +158,8 @@ impl GltfNode {
     }
 }
 
-/// Part of a [`GltfMesh`] that consists of a [`Mesh`], an optional [`StandardMaterial`] and [`GltfExtras`].
+/// Part of a [`GltfMesh`] that consists of a [`Mesh`], an optional [`StandardMaterial`] and
+/// [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh-primitive).
 #[derive(Asset, Debug, Clone, TypePath)]
@@ -165,7 +168,8 @@ pub struct GltfPrimitive {
     pub index: usize,
     /// Index of the parent [`GltfMesh`] of this primitive
     pub parent_mesh_index: usize,
-    /// Computed name for a primitive - either a user defined primitive name from gLTF or a generated name from index
+    /// Computed name for a primitive - either a user defined primitive name from gLTF or a
+    /// generated name from index
     pub name: String,
     /// Topology to be rendered.
     pub mesh: Handle<Mesh>,
@@ -205,7 +209,8 @@ impl GltfPrimitive {
         }
     }
 
-    /// Subasset label for this primitive within its parent [`GltfMesh`] within the gLTF parent asset.
+    /// Subasset label for this primitive within its parent [`GltfMesh`] within the gLTF parent
+    /// asset.
     pub fn asset_label(&self) -> GltfAssetLabel {
         GltfAssetLabel::Primitive {
             mesh: self.parent_mesh_index,
@@ -214,7 +219,8 @@ impl GltfPrimitive {
     }
 }
 
-/// A glTF skin with all of its joint nodes, [`SkinnedMeshInversiveBindposes`](bevy_mesh::skinning::SkinnedMeshInverseBindposes)
+/// A glTF skin with all of its joint nodes,
+/// [`SkinnedMeshInversiveBindposes`](bevy_mesh::skinning::SkinnedMeshInverseBindposes)
 /// and an optional [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-skin).
@@ -222,7 +228,8 @@ impl GltfPrimitive {
 pub struct GltfSkin {
     /// Index of the skin inside the scene
     pub index: usize,
-    /// Computed name for a skin - either a user defined skin name from gLTF or a generated name from index
+    /// Computed name for a skin - either a user defined skin name from gLTF or a generated name
+    /// from index
     pub name: String,
     /// All the nodes that form this skin.
     pub joints: Vec<Handle<GltfNode>>,

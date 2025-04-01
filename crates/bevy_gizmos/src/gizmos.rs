@@ -210,7 +210,8 @@ where
         archetype: &bevy_ecs::archetype::Archetype,
         system_meta: &mut SystemMeta,
     ) {
-        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized
+        // from in `init_state`.
         unsafe {
             GizmosState::<Config, Clear>::new_archetype(&mut state.state, archetype, system_meta);
         };
@@ -248,8 +249,9 @@ where
         };
 
         // Accessing the GizmoConfigStore in every API call reduces performance significantly.
-        // Implementing SystemParam manually allows us to cache whether the config is currently enabled.
-        // Having this available allows for cheap early returns when gizmos are disabled.
+        // Implementing SystemParam manually allows us to cache whether the config is currently
+        // enabled. Having this available allows for cheap early returns when gizmos are
+        // disabled.
         let (config, config_ext) = f1.into_inner().config::<Config>();
         f0.enabled = config.enabled;
 

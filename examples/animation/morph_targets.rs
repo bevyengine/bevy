@@ -2,8 +2,8 @@
 //!
 //! Illustrates:
 //!
-//! - How to access and modify individual morph target weights.
-//!   See the `update_weights` system for details.
+//! - How to access and modify individual morph target weights. See the `update_weights` system for
+//!   details.
 //! - How to read morph target names in `name_morphs`.
 //! - How to play morph target animations in `setup_animations`.
 
@@ -59,7 +59,8 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     ));
 }
 
-/// Plays an [`AnimationClip`] from the loaded [`Gltf`] on the [`AnimationPlayer`] created by the spawned scene.
+/// Plays an [`AnimationClip`] from the loaded [`Gltf`] on the [`AnimationPlayer`] created by the
+/// spawned scene.
 fn setup_animations(
     mut has_setup: Local<bool>,
     mut commands: Commands,
@@ -71,7 +72,8 @@ fn setup_animations(
         return;
     }
     for (entity, name, mut player) in &mut players {
-        // The name of the entity in the GLTF scene containing the AnimationPlayer for our morph targets is "Main"
+        // The name of the entity in the GLTF scene containing the AnimationPlayer for our morph
+        // targets is "Main"
         if name.as_str() != "Main" {
             continue;
         }

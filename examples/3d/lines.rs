@@ -82,7 +82,8 @@ impl Material for LineMaterial {
         _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        // This is the important part to tell bevy to render this material as a line between vertices
+        // This is the important part to tell bevy to render this material as a line between
+        // vertices
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         Ok(())
     }

@@ -50,7 +50,8 @@ impl InstanceId {
     }
 }
 
-/// Handles spawning and despawning scenes in the world, either synchronously or batched through the [`scene_spawner_system`].
+/// Handles spawning and despawning scenes in the world, either synchronously or batched through the
+/// [`scene_spawner_system`].
 ///
 /// Synchronous methods: (Scene operations will take effect immediately)
 /// - [`spawn_dynamic_sync`](Self::spawn_dynamic_sync)
@@ -187,8 +188,8 @@ impl SceneSpawner {
     /// Schedule the despawn of a scene instance, removing all its entities from the world.
     ///
     /// Note: this will despawn _all_ entities associated with this instance, including those
-    /// that have been removed from the scene hierarchy. To despawn _only_ entities still in the hierarchy,
-    /// despawn the relevant root entity directly.
+    /// that have been removed from the scene hierarchy. To despawn _only_ entities still in the
+    /// hierarchy, despawn the relevant root entity directly.
     pub fn despawn_instance(&mut self, instance_id: InstanceId) {
         self.instances_to_despawn.push(instance_id);
     }
@@ -289,7 +290,8 @@ impl SceneSpawner {
 
     /// Iterate through all instances of the provided scenes and update those immediately.
     ///
-    /// Useful for updating already spawned scene instances after their corresponding scene has been modified.
+    /// Useful for updating already spawned scene instances after their corresponding scene has been
+    /// modified.
     pub fn update_spawned_scenes(
         &mut self,
         world: &mut World,
@@ -346,7 +348,8 @@ impl SceneSpawner {
                     // Scenes with parents need more setup before they are ready.
                     // See `set_scene_instance_parent_sync()`.
                     if parent.is_none() {
-                        // Defer via commands otherwise SceneSpawner is not available in the observer.
+                        // Defer via commands otherwise SceneSpawner is not available in the
+                        // observer.
                         world.commands().trigger(SceneInstanceReady { instance_id });
                     }
                 }
@@ -371,7 +374,8 @@ impl SceneSpawner {
                     // Scenes with parents need more setup before they are ready.
                     // See `set_scene_instance_parent_sync()`.
                     if parent.is_none() {
-                        // Defer via commands otherwise SceneSpawner is not available in the observer.
+                        // Defer via commands otherwise SceneSpawner is not available in the
+                        // observer.
                         world.commands().trigger(SceneInstanceReady { instance_id });
                     }
                 }
@@ -392,8 +396,8 @@ impl SceneSpawner {
         for (instance_id, parent) in scenes_with_parent {
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
                 for &entity in instance.entity_map.values() {
-                    // Add the `ChildOf` component to the scene root, and update the `Children` component of
-                    // the scene parent
+                    // Add the `ChildOf` component to the scene root, and update the `Children`
+                    // component of the scene parent
                     if !world
                         .get_entity(entity)
                         .ok()
@@ -895,8 +899,8 @@ mod tests {
         let mut scene_world = World::new();
         let root = scene_world.spawn_empty().id();
         let temporary_root = scene_world.spawn_empty().id();
-        // Spawn entities with different parent first before parenting them to the actual root, allowing us
-        // to decouple child order from archetype-creation-order
+        // Spawn entities with different parent first before parenting them to the actual root,
+        // allowing us to decouple child order from archetype-creation-order
         let child1 = scene_world
             .spawn((
                 ChildOf {
@@ -913,8 +917,8 @@ mod tests {
                 ComponentA { x: 2.0, y: 2.0 },
             ))
             .id();
-        // the "first" child is intentionally spawned with a different component to force it into a "newer" archetype,
-        // meaning it will be iterated later in the spawn code.
+        // the "first" child is intentionally spawned with a different component to force it into a
+        // "newer" archetype, meaning it will be iterated later in the spawn code.
         let child0 = scene_world
             .spawn((
                 ChildOf {

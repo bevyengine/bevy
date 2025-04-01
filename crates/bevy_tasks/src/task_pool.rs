@@ -146,7 +146,8 @@ impl TaskPool {
         static THREAD_EXECUTOR: Arc<ThreadExecutor<'static>> = Arc::new(ThreadExecutor::new());
     }
 
-    /// Each thread should only create one `ThreadExecutor`, otherwise, there are good chances they will deadlock
+    /// Each thread should only create one `ThreadExecutor`, otherwise, there are good chances they
+    /// will deadlock
     pub fn get_thread_executor() -> Arc<ThreadExecutor<'static>> {
         Self::THREAD_EXECUTOR.with(Clone::clone)
     }
@@ -316,13 +317,15 @@ impl TaskPool {
         })
     }
 
-    /// This allows passing an external executor to spawn tasks on. When you pass an external executor
-    /// [`Scope::spawn_on_scope`] spawns is then run on the thread that [`ThreadExecutor`] is being ticked on.
-    /// If [`None`] is passed the scope will use a [`ThreadExecutor`] that is ticked on the current thread.
+    /// This allows passing an external executor to spawn tasks on. When you pass an external
+    /// executor [`Scope::spawn_on_scope`] spawns is then run on the thread that
+    /// [`ThreadExecutor`] is being ticked on. If [`None`] is passed the scope will use a
+    /// [`ThreadExecutor`] that is ticked on the current thread.
     ///
-    /// When `tick_task_pool_executor` is set to `true`, the multithreaded task stealing executor is ticked on the scope
-    /// thread. Disabling this can be useful when finishing the scope is latency sensitive. Pulling tasks from
-    /// global executor can run tasks unrelated to the scope and delay when the scope returns.
+    /// When `tick_task_pool_executor` is set to `true`, the multithreaded task stealing executor is
+    /// ticked on the scope thread. Disabling this can be useful when finishing the scope is
+    /// latency sensitive. Pulling tasks from global executor can run tasks unrelated to the
+    /// scope and delay when the scope returns.
     ///
     /// See [`Self::scope`] for more details in general about how scopes work.
     pub fn scope_with_executor<'env, F, T>(
@@ -372,21 +375,25 @@ impl TaskPool {
         // Any futures spawned with these references need to return before this function completes.
         // This is guaranteed because we drive all the futures spawned onto the Scope
         // to completion in this function. However, rust has no way of knowing this so we
-        // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
-        // Any usages of the references passed into `Scope` must be accessed through
+        // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate
+        // safety. Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
         let executor: &crate::executor::Executor = &self.executor;
-        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        // SAFETY: As above, all futures must complete in this function so we can change the
+        // lifetime
         let executor: &'env crate::executor::Executor = unsafe { mem::transmute(executor) };
-        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        // SAFETY: As above, all futures must complete in this function so we can change the
+        // lifetime
         let external_executor: &'env ThreadExecutor<'env> =
             unsafe { mem::transmute(external_executor) };
-        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        // SAFETY: As above, all futures must complete in this function so we can change the
+        // lifetime
         let scope_executor: &'env ThreadExecutor<'env> = unsafe { mem::transmute(scope_executor) };
         let spawned: ConcurrentQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>> =
             ConcurrentQueue::unbounded();
         // shadow the variable so that the owned value cannot be used for the rest of the function
-        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        // SAFETY: As above, all futures must complete in this function so we can change the
+        // lifetime
         let spawned: &'env ConcurrentQueue<
             FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>,
         > = unsafe { mem::transmute(&spawned) };
@@ -401,7 +408,8 @@ impl TaskPool {
         };
 
         // shadow the variable so that the owned value cannot be used for the rest of the function
-        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        // SAFETY: As above, all futures must complete in this function so we can change the
+        // lifetime
         let scope: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
 
         f(scope);
@@ -427,9 +435,10 @@ impl TaskPool {
 
                 let tick_task_pool_executor = tick_task_pool_executor || self.threads.is_empty();
 
-                // we get this from a thread local so we should always be on the scope executors thread.
-                // note: it is possible `scope_executor` and `external_executor` is the same executor,
-                // in that case, we should only tick one of them, otherwise, it may cause deadlock.
+                // we get this from a thread local so we should always be on the scope executors
+                // thread. note: it is possible `scope_executor` and
+                // `external_executor` is the same executor, in that case, we should
+                // only tick one of them, otherwise, it may cause deadlock.
                 let scope_ticker = scope_executor.ticker().unwrap();
                 let external_ticker = if !external_executor.is_same(scope_executor) {
                     external_executor.ticker()
@@ -638,8 +647,8 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.
     ///
-    /// For futures that should run on the thread `scope` is called on [`Scope::spawn_on_scope`] should be used
-    /// instead.
+    /// For futures that should run on the thread `scope` is called on [`Scope::spawn_on_scope`]
+    /// should be used instead.
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
@@ -926,12 +935,14 @@ mod tests {
                     scope.spawn(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
 
-                        // spawning on the scope from another thread runs the futures on the scope's thread
+                        // spawning on the scope from another thread runs the futures on the scope's
+                        // thread
                         scope.spawn_on_scope(async move {
                             inner_count_clone.fetch_add(1, Ordering::Release);
                             if thread::current().id() != spawner {
-                                // NOTE: This check is using an atomic rather than simply panicking the
-                                // thread to avoid deadlocking the barrier on failure
+                                // NOTE: This check is using an atomic rather than simply panicking
+                                // the thread to avoid deadlocking
+                                // the barrier on failure
                                 inner_thread_check_failed.store(true, Ordering::Release);
                             }
                         });

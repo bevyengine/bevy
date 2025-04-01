@@ -13,8 +13,8 @@ use crate::{
 ///
 /// This allows functions to be called dynamically through [reflection].
 ///
-/// This is a supertrait of [`ReflectFn`], and is used for functions that may mutate their environment,
-/// such as closures that capture mutable references.
+/// This is a supertrait of [`ReflectFn`], and is used for functions that may mutate their
+/// environment, such as closures that capture mutable references.
 ///
 /// # Blanket Implementation
 ///
@@ -31,12 +31,14 @@ use crate::{
 /// For each of the above cases, the function signature may only have up to 15 arguments,
 /// not including an optional receiver argument (often `&self` or `&mut self`).
 /// This optional receiver argument may be either a mutable or immutable reference to a type.
-/// If the return type is also a reference, its lifetime will be bound to the lifetime of this receiver.
+/// If the return type is also a reference, its lifetime will be bound to the lifetime of this
+/// receiver.
 ///
 /// See the [module-level documentation] for more information on valid signatures.
 ///
-/// Arguments are expected to implement [`FromArg`], and the return type is expected to implement [`IntoReturn`].
-/// Both of these traits are automatically implemented when using the `Reflect` [derive macro].
+/// Arguments are expected to implement [`FromArg`], and the return type is expected to implement
+/// [`IntoReturn`]. Both of these traits are automatically implemented when using the `Reflect`
+/// [derive macro].
 ///
 /// # Example
 ///
@@ -62,9 +64,10 @@ use crate::{
 /// [unconstrained type parameters] when defining impls with generic arguments or return types.
 /// This `Marker` can be any type, provided it doesn't conflict with other implementations.
 ///
-/// Additionally, it has a lifetime parameter, `'env`, that is used to bound the lifetime of the function.
-/// For named functions and some closures, this will end up just being `'static`,
-/// however, closures that borrow from their environment will have a lifetime bound to that environment.
+/// Additionally, it has a lifetime parameter, `'env`, that is used to bound the lifetime of the
+/// function. For named functions and some closures, this will end up just being `'static`,
+/// however, closures that borrow from their environment will have a lifetime bound to that
+/// environment.
 ///
 /// [reflection]: crate
 /// [`ReflectFn`]: crate::func::ReflectFn
@@ -78,7 +81,8 @@ pub trait ReflectFnMut<'env, Marker> {
 
 /// Helper macro for implementing [`ReflectFnMut`] on Rust functions.
 ///
-/// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
+/// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`,
+/// or `&mut T`):
 /// - `FnMut(arg0, arg1, ..., argN) -> R`
 /// - `FnMut(&Receiver, arg0, arg1, ..., argN) -> &R`
 /// - `FnMut(&mut Receiver, arg0, arg1, ..., argN) -> &mut R`

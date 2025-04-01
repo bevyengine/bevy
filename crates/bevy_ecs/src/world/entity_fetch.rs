@@ -67,17 +67,19 @@ impl<'w> EntityFetcher<'w> {
     ///
     /// This function supports fetching a single entity or multiple entities:
     /// - Pass an [`Entity`] to receive a single [`EntityMut`].
-    ///    - This reference type allows for structural changes to the entity,
-    ///      such as adding or removing components, or despawning the entity.
+    ///    - This reference type allows for structural changes to the entity, such as adding or
+    ///      removing components, or despawning the entity.
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
     /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
     ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
+    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do
+    ///   not exist in the world.
     ///     - Only the first entity found to be missing will be returned.
-    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested
+    ///   multiple times.
     ///
     /// # Examples
     ///
@@ -99,18 +101,17 @@ impl<'w> EntityFetcher<'w> {
 ///
 /// Provided implementations are:
 /// - [`Entity`]: Fetch a single entity.
-/// - `[Entity; N]`/`&[Entity; N]`: Fetch multiple entities, receiving a
-///   same-sized array of references.
+/// - `[Entity; N]`/`&[Entity; N]`: Fetch multiple entities, receiving a same-sized array of
+///   references.
 /// - `&[Entity]`: Fetch multiple entities, receiving a vector of references.
-/// - [`&EntityHashSet`](EntityHashSet): Fetch multiple entities, receiving a
-///   hash map of [`Entity`] IDs to references.
+/// - [`&EntityHashSet`](EntityHashSet): Fetch multiple entities, receiving a hash map of [`Entity`]
+///   IDs to references.
 ///
 /// # Performance
 ///
-/// - The slice and array implementations perform an aliased mutability check
-///   in [`WorldEntityFetch::fetch_mut`] that is `O(N^2)`.
-/// - The single [`Entity`] implementation performs no such check as only one
-///   reference is returned.
+/// - The slice and array implementations perform an aliased mutability check in
+///   [`WorldEntityFetch::fetch_mut`] that is `O(N^2)`.
+/// - The single [`Entity`] implementation performs no such check as only one reference is returned.
 ///
 /// # Safety
 ///
@@ -160,8 +161,8 @@ pub unsafe trait WorldEntityFetch {
     /// # Errors
     ///
     /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if the entity does not exist.
-    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the entity was
-    ///   requested mutably more than once.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the entity was requested mutably
+    ///   more than once.
     unsafe fn fetch_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -183,8 +184,8 @@ pub unsafe trait WorldEntityFetch {
     /// # Errors
     ///
     /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if the entity does not exist.
-    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the entity was
-    ///   requested mutably more than once.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the entity was requested mutably
+    ///   more than once.
     unsafe fn fetch_deferred_mut(
         self,
         cell: UnsafeWorldCell<'_>,

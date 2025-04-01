@@ -3,12 +3,13 @@
 //!
 //! In many cases, this doesn't matter and is in fact desirable!
 //! Consider two systems, one which writes to resource A, and the other which writes to resource B.
-//! By allowing their order to be arbitrary, we can evaluate them greedily, based on the data that is free.
-//! Because their data accesses are **compatible**, there is no **observable** difference created based on the order they are run.
+//! By allowing their order to be arbitrary, we can evaluate them greedily, based on the data that
+//! is free. Because their data accesses are **compatible**, there is no **observable** difference
+//! created based on the order they are run.
 //!
-//! But if instead we have two systems mutating the same data, or one reading it and the other mutating,
-//! then the actual observed value will vary based on the nondeterministic order of evaluation.
-//! These observable conflicts are called **system execution order ambiguities**.
+//! But if instead we have two systems mutating the same data, or one reading it and the other
+//! mutating, then the actual observed value will vary based on the nondeterministic order of
+//! evaluation. These observable conflicts are called **system execution order ambiguities**.
 //!
 //! This example demonstrates how you might detect and resolve (or silence) these ambiguities.
 
@@ -19,9 +20,9 @@ use bevy::{
 
 fn main() {
     App::new()
-        // We can modify the reporting strategy for system execution order ambiguities on a per-schedule basis.
-        // You must do this for each schedule you want to inspect; child schedules executed within an inspected
-        // schedule do not inherit this modification.
+        // We can modify the reporting strategy for system execution order ambiguities on a
+        // per-schedule basis. You must do this for each schedule you want to inspect; child
+        // schedules executed within an inspected schedule do not inherit this modification.
         .edit_schedule(Update, |schedule| {
             schedule.set_build_settings(ScheduleBuildSettings {
                 ambiguity_detection: LogLevel::Warn,

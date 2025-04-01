@@ -28,7 +28,8 @@ use bevy_window::PrimaryWindow;
 #[reflect(Debug, Default, Component, Clone)]
 pub struct SpritePickingCamera;
 
-/// How should the [`SpritePickingPlugin`] handle picking and how should it handle transparent pixels
+/// How should the [`SpritePickingPlugin`] handle picking and how should it handle transparent
+/// pixels
 #[derive(Debug, Clone, Copy, Reflect)]
 #[reflect(Debug, Clone)]
 pub enum SpritePickingMode {
@@ -50,7 +51,8 @@ pub struct SpritePickingSettings {
     /// This setting is provided to give you fine-grained control over which cameras and entities
     /// should be used by the sprite picking backend at runtime.
     pub require_markers: bool,
-    /// Should the backend count transparent pixels as part of the sprite for picking purposes or should it use the bounding box of the sprite alone.
+    /// Should the backend count transparent pixels as part of the sprite for picking purposes or
+    /// should it use the bounding box of the sprite alone.
     ///
     /// Defaults to an inclusive alpha threshold of 0.1
     pub picking_mode: SpritePickingMode,
@@ -202,7 +204,8 @@ fn sprite_picking(
                         SpritePickingMode::AlphaThreshold(cutoff) => {
                             let Some(image) = images.get(&sprite.image) else {
                                 // [`Sprite::from_color`] returns a defaulted handle.
-                                // This handle doesn't return a valid image, so returning false here would make picking "color sprites" impossible
+                                // This handle doesn't return a valid image, so returning false here
+                                // would make picking "color sprites" impossible
                                 break 'valid_pixel true;
                             };
                             // grab pixel and check alpha

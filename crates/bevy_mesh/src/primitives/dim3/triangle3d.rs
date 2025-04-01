@@ -15,7 +15,8 @@ impl MeshBuilder for Triangle3dMeshBuilder {
         let positions: Vec<_> = self.triangle.vertices.into();
         let uvs: Vec<_> = uv_coords(&self.triangle).into();
 
-        // Every vertex has the normal of the face of the triangle (or zero if the triangle is degenerate).
+        // Every vertex has the normal of the face of the triangle (or zero if the triangle is
+        // degenerate).
         let normal: Vec3 = normal_vec(&self.triangle);
         let normals = vec![normal; 3];
 

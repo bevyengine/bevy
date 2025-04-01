@@ -151,7 +151,8 @@ where
             isometry * Isometry2d::from_rotation(Rot2::radians(-primitive.arc.half_angle));
         let end_iso = isometry * Isometry2d::from_rotation(Rot2::radians(primitive.arc.half_angle));
 
-        // we need to draw the arc part of the sector, and the two lines connecting the arc and the center
+        // we need to draw the arc part of the sector, and the two lines connecting the arc and the
+        // center
         self.arc_2d(
             start_iso,
             primitive.arc.half_angle * 2.0,

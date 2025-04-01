@@ -1363,7 +1363,8 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             // Unpack that index and metadata. Note that it's possible for index
             // and/or metadata to not be present, which signifies that this
             // entity is unbatchable. In that case, we break the batch here.
-            // If the index isn't present the item is not part of this pipeline and so will be skipped.
+            // If the index isn't present the item is not part of this pipeline and so will be
+            // skipped.
             let Some((current_input_index, current_meta)) = current_batch_input_index else {
                 // Break a batch if we need to.
                 if let Some(batch) = batch.take() {

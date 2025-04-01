@@ -98,7 +98,8 @@ impl VariableCurve {
 #[derive(Asset, Reflect, Clone, Debug, Default)]
 #[reflect(Clone, Default)]
 pub struct AnimationClip {
-    // This field is ignored by reflection because AnimationCurves can contain things that are not reflect-able
+    // This field is ignored by reflection because AnimationCurves can contain things that are not
+    // reflect-able
     #[reflect(ignore, clone)]
     curves: AnimationCurves,
     events: AnimationEvents,
@@ -229,7 +230,8 @@ impl AnimationClip {
     }
 
     #[inline]
-    /// Get mutable references of [`VariableCurve`]s for each animation target. Indexed by the [`AnimationTargetId`].
+    /// Get mutable references of [`VariableCurve`]s for each animation target. Indexed by the
+    /// [`AnimationTargetId`].
     pub fn curves_mut(&mut self) -> &mut AnimationCurves {
         &mut self.curves
     }
@@ -326,8 +328,8 @@ impl AnimationClip {
 
     /// Add a untargeted [`Event`] to this [`AnimationClip`].
     ///
-    /// The `event` will be cloned and triggered on the [`AnimationPlayer`] entity once the `time` (in seconds)
-    /// is reached in the animation.
+    /// The `event` will be cloned and triggered on the [`AnimationPlayer`] entity once the `time`
+    /// (in seconds) is reached in the animation.
     ///
     /// See also [`add_event_to_target`](Self::add_event_to_target).
     pub fn add_event(&mut self, time: f32, event: impl Event + Clone) {
@@ -341,8 +343,8 @@ impl AnimationClip {
 
     /// Add an [`Event`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
     ///
-    /// The `event` will be cloned and triggered on the entity matching the target once the `time` (in seconds)
-    /// is reached in the animation.
+    /// The `event` will be cloned and triggered on the entity matching the target once the `time`
+    /// (in seconds) is reached in the animation.
     ///
     /// Use [`add_event`](Self::add_event) instead if you don't have a specific target.
     pub fn add_event_to_target(
@@ -486,7 +488,8 @@ pub struct ActiveAnimation {
     /// The `seek_time` of the previous tick, if any.
     last_seek_time: Option<f32>,
     /// Number of times the animation has completed.
-    /// If the animation is playing in reverse, this increments when the animation passes the start.
+    /// If the animation is playing in reverse, this increments when the animation passes the
+    /// start.
     completions: u32,
     /// `true` if the animation was completed at least once this tick.
     just_completed: bool,
@@ -510,7 +513,8 @@ impl Default for ActiveAnimation {
 }
 
 impl ActiveAnimation {
-    /// Check if the animation has finished, based on its repetition behavior and the number of times it has repeated.
+    /// Check if the animation has finished, based on its repetition behavior and the number of
+    /// times it has repeated.
     ///
     /// Note: An animation with `RepeatAnimation::Forever` will never finish.
     #[inline]

@@ -27,67 +27,73 @@ pub struct MaterialExtensionKey<E: MaterialExtension> {
     pub bind_group_data: E::Data,
 }
 
-/// A subset of the `Material` trait for defining extensions to a base `Material`, such as the builtin `StandardMaterial`.
+/// A subset of the `Material` trait for defining extensions to a base `Material`, such as the
+/// builtin `StandardMaterial`.
 ///
-/// A user type implementing the trait should be used as the `E` generic param in an `ExtendedMaterial` struct.
+/// A user type implementing the trait should be used as the `E` generic param in an
+/// `ExtendedMaterial` struct.
 pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
-    /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the base material mesh vertex shader
-    /// will be used.
+    /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the base
+    /// material mesh vertex shader will be used.
     fn vertex_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the base material mesh fragment shader
-    /// will be used.
+    /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the base
+    /// material mesh fragment shader will be used.
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    // Returns this material’s AlphaMode. If None is returned, the base material alpha mode will be used.
+    // Returns this material’s AlphaMode. If None is returned, the base material alpha mode will be
+    // used.
     fn alpha_mode() -> Option<AlphaMode> {
         None
     }
 
-    /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the base material prepass vertex shader
-    /// will be used.
+    /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the
+    /// base material prepass vertex shader will be used.
     fn prepass_vertex_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the base material prepass fragment shader
-    /// will be used.
+    /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the
+    /// base material prepass fragment shader will be used.
     fn prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's deferred vertex shader. If [`ShaderRef::Default`] is returned, the base material deferred vertex shader
-    /// will be used.
+    /// Returns this material's deferred vertex shader. If [`ShaderRef::Default`] is returned, the
+    /// base material deferred vertex shader will be used.
     fn deferred_vertex_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the base material deferred fragment shader
-    /// will be used.
+    /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the
+    /// base material deferred fragment shader will be used.
     fn deferred_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's [`crate::meshlet::MeshletMesh`] fragment shader. If [`ShaderRef::Default`] is returned,
-    /// the default meshlet mesh fragment shader will be used.
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] fragment shader. If
+    /// [`ShaderRef::Default`] is returned, the default meshlet mesh fragment shader will be
+    /// used.
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's [`crate::meshlet::MeshletMesh`] prepass fragment shader. If [`ShaderRef::Default`] is returned,
-    /// the default meshlet mesh prepass fragment shader will be used.
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] prepass fragment shader. If
+    /// [`ShaderRef::Default`] is returned, the default meshlet mesh prepass fragment shader
+    /// will be used.
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's [`crate::meshlet::MeshletMesh`] deferred fragment shader. If [`ShaderRef::Default`] is returned,
-    /// the default meshlet mesh deferred fragment shader will be used.
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] deferred fragment shader. If
+    /// [`ShaderRef::Default`] is returned, the default meshlet mesh deferred fragment shader
+    /// will be used.
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
         ShaderRef::Default
@@ -117,11 +123,11 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 /// so that shader functions built for the base material (and referencing the base material
 /// bindings) will work as expected, and custom alterations based on custom data can also be used.
 ///
-/// If the extension `E` returns a non-default result from `vertex_shader()` it will be used in place of the base
-/// material's vertex shader.
+/// If the extension `E` returns a non-default result from `vertex_shader()` it will be used in
+/// place of the base material's vertex shader.
 ///
-/// If the extension `E` returns a non-default result from `fragment_shader()` it will be used in place of the base
-/// fragment shader.
+/// If the extension `E` returns a non-default result from `fragment_shader()` it will be used in
+/// place of the base fragment shader.
 ///
 /// When used with `StandardMaterial` as the base, all the standard material fields are
 /// present, so the `pbr_fragment` shader functions can be called from the extension shader (see

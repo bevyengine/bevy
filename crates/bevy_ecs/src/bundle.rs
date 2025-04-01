@@ -153,7 +153,8 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     #[doc(hidden)]
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId));
 
-    /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
+    /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been
+    /// registered.
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
 
     /// Registers components that are required by the components in this [`Bundle`].
@@ -206,8 +207,8 @@ pub trait DynamicBundle {
     fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect;
 }
 
-/// An operation on an [`Entity`] that occurs _after_ inserting the [`Bundle`] that defined this bundle effect.
-/// The order of operations is:
+/// An operation on an [`Entity`] that occurs _after_ inserting the [`Bundle`] that defined this
+/// bundle effect. The order of operations is:
 ///
 /// 1. The [`Bundle`] is inserted on the entity
 /// 2. Relevant Hooks are run for the insert, then Observers
@@ -221,7 +222,8 @@ pub trait BundleEffect {
 
 // SAFETY:
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
-// - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
+// - `Bundle::get_components` is called exactly once for C and passes the component's storage type
+//   based on its associated constant.
 unsafe impl<C: Component> Bundle for C {
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         ids(components.register_component::<C>());
@@ -247,7 +249,8 @@ unsafe impl<C: Component> Bundle for C {
 }
 
 // SAFETY:
-// - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
+// - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by
+//   `Bundle::component_ids`.
 unsafe impl<C: Component> BundleFromComponents for C {
     unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
     where
@@ -378,8 +381,9 @@ all_tuples!(
     B
 );
 
-/// A trait implemented for [`BundleEffect`] implementations that do nothing. This is used as a type constraint for
-/// [`Bundle`] APIs that do not / cannot run [`DynamicBundle::Effect`], such as "batch spawn" APIs.
+/// A trait implemented for [`BundleEffect`] implementations that do nothing. This is used as a type
+/// constraint for [`Bundle`] APIs that do not / cannot run [`DynamicBundle::Effect`], such as
+/// "batch spawn" APIs.
 pub trait NoBundleEffect {}
 
 macro_rules! after_effect_impl {
@@ -409,7 +413,8 @@ macro_rules! after_effect_impl {
 
 all_tuples!(after_effect_impl, 0, 15, P);
 
-/// For a specific [`World`], this stores a unique value identifying a type of a registered [`Bundle`].
+/// For a specific [`World`], this stores a unique value identifying a type of a registered
+/// [`Bundle`].
 ///
 /// [`World`]: crate::world::World
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -451,8 +456,8 @@ pub enum InsertMode {
 /// [`World`]: crate::world::World
 pub struct BundleInfo {
     id: BundleId,
-    /// The list of all components contributed by the bundle (including Required Components). This is in
-    /// the order `[EXPLICIT_COMPONENTS][REQUIRED_COMPONENTS]`
+    /// The list of all components contributed by the bundle (including Required Components). This
+    /// is in the order `[EXPLICIT_COMPONENTS][REQUIRED_COMPONENTS]`
     ///
     /// # Safety
     /// Every ID in this list must be valid within the World that owns the [`BundleInfo`],
@@ -523,8 +528,9 @@ impl BundleInfo {
                 // Safety: These ids came out of the passed `components`, so they must be valid.
                 let info = unsafe { components.get_info_unchecked(component_id) };
                 storages.prepare_component(info);
-                // This adds required components to the component_ids list _after_ using that list to remove explicitly provided
-                // components. This ordering is important!
+                // This adds required components to the component_ids list _after_ using that list
+                // to remove explicitly provided components. This ordering is
+                // important!
                 component_ids.push(component_id);
                 v.constructor
             })
@@ -548,46 +554,54 @@ impl BundleInfo {
         self.id
     }
 
-    /// Returns the [ID](ComponentId) of each component explicitly defined in this bundle (ex: Required Components are excluded).
+    /// Returns the [ID](ComponentId) of each component explicitly defined in this bundle (ex:
+    /// Required Components are excluded).
     ///
-    /// For all components contributed by this bundle (including Required Components), see [`BundleInfo::contributed_components`]
+    /// For all components contributed by this bundle (including Required Components), see
+    /// [`BundleInfo::contributed_components`]
     #[inline]
     pub fn explicit_components(&self) -> &[ComponentId] {
         &self.component_ids[0..self.explicit_components_len]
     }
 
-    /// Returns the [ID](ComponentId) of each Required Component needed by this bundle. This _does not include_ Required Components that are
-    /// explicitly provided by the bundle.
+    /// Returns the [ID](ComponentId) of each Required Component needed by this bundle. This _does
+    /// not include_ Required Components that are explicitly provided by the bundle.
     #[inline]
     pub fn required_components(&self) -> &[ComponentId] {
         &self.component_ids[self.explicit_components_len..]
     }
 
-    /// Returns the [ID](ComponentId) of each component contributed by this bundle. This includes Required Components.
+    /// Returns the [ID](ComponentId) of each component contributed by this bundle. This includes
+    /// Required Components.
     ///
-    /// For only components explicitly defined in this bundle, see [`BundleInfo::explicit_components`]
+    /// For only components explicitly defined in this bundle, see
+    /// [`BundleInfo::explicit_components`]
     #[inline]
     pub fn contributed_components(&self) -> &[ComponentId] {
         &self.component_ids
     }
 
-    /// Returns an iterator over the [ID](ComponentId) of each component explicitly defined in this bundle (ex: this excludes Required Components).
-    /// To iterate all components contributed by this bundle (including Required Components), see [`BundleInfo::iter_contributed_components`]
+    /// Returns an iterator over the [ID](ComponentId) of each component explicitly defined in this
+    /// bundle (ex: this excludes Required Components). To iterate all components contributed by
+    /// this bundle (including Required Components), see [`BundleInfo::iter_contributed_components`]
     #[inline]
     pub fn iter_explicit_components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.explicit_components().iter().copied()
     }
 
-    /// Returns an iterator over the [ID](ComponentId) of each component contributed by this bundle. This includes Required Components.
+    /// Returns an iterator over the [ID](ComponentId) of each component contributed by this bundle.
+    /// This includes Required Components.
     ///
-    /// To iterate only components explicitly defined in this bundle, see [`BundleInfo::iter_explicit_components`]
+    /// To iterate only components explicitly defined in this bundle, see
+    /// [`BundleInfo::iter_explicit_components`]
     #[inline]
     pub fn iter_contributed_components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.component_ids.iter().copied()
     }
 
-    /// Returns an iterator over the [ID](ComponentId) of each Required Component needed by this bundle. This _does not include_ Required Components that are
-    /// explicitly provided by the bundle.
+    /// Returns an iterator over the [ID](ComponentId) of each Required Component needed by this
+    /// bundle. This _does not include_ Required Components that are explicitly provided by the
+    /// bundle.
     pub fn iter_required_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.required_components().iter().copied()
     }
@@ -597,13 +611,16 @@ impl BundleInfo {
     /// # Safety
     ///
     /// `bundle_component_status` must return the "correct" [`ComponentStatus`] for each component
-    /// in the [`Bundle`], with respect to the entity's original archetype (prior to the bundle being added).
+    /// in the [`Bundle`], with respect to the entity's original archetype (prior to the bundle
+    /// being added).
     ///
-    /// For example, if the original archetype already has `ComponentA` and `T` also has `ComponentA`, the status
-    /// should be `Existing`. If the original archetype does not have `ComponentA`, the status should be `Added`.
+    /// For example, if the original archetype already has `ComponentA` and `T` also has
+    /// `ComponentA`, the status should be `Existing`. If the original archetype does not have
+    /// `ComponentA`, the status should be `Added`.
     ///
     /// When "inserting" a bundle into an existing entity, [`ArchetypeAfterBundleInsert`]
-    /// should be used, which will report `Added` vs `Existing` status based on the current archetype's structure.
+    /// should be used, which will report `Added` vs `Existing` status based on the current
+    /// archetype's structure.
     ///
     /// When spawning a bundle, [`SpawnBundleStatus`] can be used instead, which removes the need
     /// to look up the [`ArchetypeAfterBundleInsert`] in the archetype graph, which requires
@@ -634,8 +651,8 @@ impl BundleInfo {
                 StorageType::Table => {
                     // SAFETY: bundle_component is a valid index for this bundle
                     let status = unsafe { bundle_component_status.get_status(bundle_component) };
-                    // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
-                    // the target table contains the component.
+                    // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures
+                    // that the target table contains the component.
                     let column = table.get_column_mut(component_id).debug_checked_unwrap();
                     match (status, insert_mode) {
                         (ComponentStatus::Added, _) => {
@@ -676,13 +693,15 @@ impl BundleInfo {
         after_effect
     }
 
-    /// Internal method to initialize a required component from an [`OwningPtr`]. This should ultimately be called
-    /// in the context of [`BundleInfo::write_components`], via [`RequiredComponentConstructor::initialize`].
+    /// Internal method to initialize a required component from an [`OwningPtr`]. This should
+    /// ultimately be called in the context of [`BundleInfo::write_components`], via
+    /// [`RequiredComponentConstructor::initialize`].
     ///
     /// # Safety
     ///
-    /// `component_ptr` must point to a required component value that matches the given `component_id`. The `storage_type` must match
-    /// the type associated with `component_id`. The `entity` and `table_row` must correspond to an entity with an uninitialized
+    /// `component_ptr` must point to a required component value that matches the given
+    /// `component_id`. The `storage_type` must match the type associated with `component_id`.
+    /// The `entity` and `table_row` must correspond to an entity with an uninitialized
     /// component matching `component_id`.
     ///
     /// This method _should not_ be called outside of [`BundleInfo::write_components`].
@@ -798,7 +817,8 @@ impl BundleInfo {
             let table_id;
             let table_components;
             let sparse_set_components;
-            // The archetype changes when we insert this bundle. Prepare the new archetype and storages.
+            // The archetype changes when we insert this bundle. Prepare the new archetype and
+            // storages.
             {
                 let current_archetype = &archetypes[archetype_id];
                 table_components = if new_table_components.is_empty() {
@@ -858,8 +878,8 @@ impl BundleInfo {
     ///
     /// Results are cached in the [`Archetype`] graph to avoid redundant work.
     ///
-    /// If `intersection` is false, attempting to remove a bundle with components not contained in the
-    /// current archetype will fail, returning `None`.
+    /// If `intersection` is false, attempting to remove a bundle with components not contained in
+    /// the current archetype will fail, returning `None`.
     ///
     /// If `intersection` is true, components in the bundle but not in the current archetype
     /// will be ignored.
@@ -907,8 +927,9 @@ impl BundleInfo {
                             }
                         }
                     } else if !intersection {
-                        // A component in the bundle was not present in the entity's archetype, so this
-                        // removal is invalid. Cache the result in the archetype graph.
+                        // A component in the bundle was not present in the entity's archetype, so
+                        // this removal is invalid. Cache the result in the
+                        // archetype graph.
                         current_archetype
                             .edges_mut()
                             .cache_archetype_after_bundle_take(self.id(), None);
@@ -999,7 +1020,8 @@ impl<'w> BundleInserter<'w> {
         archetype_id: ArchetypeId,
         change_tick: Tick,
     ) -> Self {
-        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
+        // SAFETY: These come from the same world. `world.components_registrator` can't be used
+        // since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
@@ -1020,7 +1042,8 @@ impl<'w> BundleInserter<'w> {
         bundle_id: BundleId,
         change_tick: Tick,
     ) -> Self {
-        // SAFETY: We will not make any accesses to the command queue, component or resource data of this world
+        // SAFETY: We will not make any accesses to the command queue, component or resource data of
+        // this world
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let bundle_id = bundle_info.id();
         let new_archetype_id = bundle_info.insert_bundle_into_archetype(
@@ -1032,7 +1055,8 @@ impl<'w> BundleInserter<'w> {
         );
         if new_archetype_id == archetype_id {
             let archetype = &mut world.archetypes[archetype_id];
-            // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
+            // SAFETY: The edge is assured to be initialized when we called
+            // insert_bundle_into_archetype
             let archetype_after_insert = unsafe {
                 archetype
                     .edges()
@@ -1053,7 +1077,8 @@ impl<'w> BundleInserter<'w> {
         } else {
             let (archetype, new_archetype) =
                 world.archetypes.get_2_mut(archetype_id, new_archetype_id);
-            // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
+            // SAFETY: The edge is assured to be initialized when we called
+            // insert_bundle_into_archetype
             let archetype_after_insert = unsafe {
                 archetype
                     .edges()
@@ -1138,7 +1163,8 @@ impl<'w> BundleInserter<'w> {
         let table = self.table.as_mut();
 
         // SAFETY: Archetype gets borrowed when running the on_replace observers above,
-        // so this reference can only be promoted from shared to &mut down here, after they have been ran
+        // so this reference can only be promoted from shared to &mut down here, after they have
+        // been ran
         let archetype = self.archetype.as_mut();
 
         let (new_archetype, new_location, after_effect) = match &mut self.archetype_move_type {
@@ -1266,7 +1292,8 @@ impl<'w> BundleInserter<'w> {
                         new_archetype
                             .set_entity_table_row(swapped_location.archetype_row, result.table_row);
                     } else {
-                        // SAFETY: the only two borrowed archetypes are above and we just did collision checks
+                        // SAFETY: the only two borrowed archetypes are above and we just did
+                        // collision checks
                         (*archetypes_ptr.add(swapped_location.archetype_id.index()))
                             .set_entity_table_row(swapped_location.archetype_row, result.table_row);
                     }
@@ -1356,7 +1383,8 @@ impl<'w> BundleInserter<'w> {
 
     #[inline]
     pub(crate) fn entities(&mut self) -> &mut Entities {
-        // SAFETY: No outstanding references to self.world, changes to entities cannot invalidate our internal pointers
+        // SAFETY: No outstanding references to self.world, changes to entities cannot invalidate
+        // our internal pointers
         unsafe { &mut self.world.world_mut().entities }
     }
 }
@@ -1373,7 +1401,8 @@ pub(crate) struct BundleSpawner<'w> {
 impl<'w> BundleSpawner<'w> {
     #[inline]
     pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
-        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
+        // SAFETY: These come from the same world. `world.components_registrator` can't be used
+        // since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
@@ -1430,7 +1459,8 @@ impl<'w> BundleSpawner<'w> {
         bundle: T,
         caller: MaybeLocation,
     ) -> (EntityLocation, T::Effect) {
-        // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
+        // SAFETY: We do not make any structural changes to the archetype graph through self.world
+        // so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
         let (location, after_effect) = {
             let table = self.table.as_mut();
@@ -1516,7 +1546,8 @@ impl<'w> BundleSpawner<'w> {
 
     #[inline]
     pub(crate) fn entities(&mut self) -> &mut Entities {
-        // SAFETY: No outstanding references to self.world, changes to entities cannot invalidate our internal pointers
+        // SAFETY: No outstanding references to self.world, changes to entities cannot invalidate
+        // our internal pointers
         unsafe { &mut self.world.world_mut().entities }
     }
 
@@ -1600,7 +1631,8 @@ impl Bundles {
         })
     }
 
-    /// Registers a new [`BundleInfo`], which contains both explicit and required components for a statically known type.
+    /// Registers a new [`BundleInfo`], which contains both explicit and required components for a
+    /// statically known type.
     ///
     /// Also registers all the components in the bundle.
     pub(crate) fn register_contributed_bundle_info<T: Bundle>(
@@ -1612,7 +1644,8 @@ impl Bundles {
             id
         } else {
             let explicit_bundle_id = self.register_info::<T>(components, storages);
-            // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its valid because bundle hashmap allow this
+            // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its
+            // valid because bundle hashmap allow this
             let id = unsafe {
                 let (ptr, len) = {
                     // SAFETY: `explicit_bundle_id` is valid and defined above
@@ -1621,8 +1654,10 @@ impl Bundles {
                         .contributed_components();
                     (contributed.as_ptr(), contributed.len())
                 };
-                // SAFETY: this is sound because the contributed_components Vec for explicit_bundle_id will not be accessed mutably as
-                // part of init_dynamic_info. No mutable references will be created and the allocation will remain valid.
+                // SAFETY: this is sound because the contributed_components Vec for
+                // explicit_bundle_id will not be accessed mutably as
+                // part of init_dynamic_info. No mutable references will be created and the
+                // allocation will remain valid.
                 self.init_dynamic_info(storages, components, core::slice::from_raw_parts(ptr, len))
             };
             self.contributed_bundle_ids.insert(TypeId::of::<T>(), id);
@@ -1631,13 +1666,15 @@ impl Bundles {
     }
 
     /// # Safety
-    /// A [`BundleInfo`] with the given [`BundleId`] must have been initialized for this instance of `Bundles`.
+    /// A [`BundleInfo`] with the given [`BundleId`] must have been initialized for this instance of
+    /// `Bundles`.
     pub(crate) unsafe fn get_unchecked(&self, id: BundleId) -> &BundleInfo {
         self.bundle_infos.get_unchecked(id.0)
     }
 
     /// # Safety
-    /// This [`BundleId`] must have been initialized with a single [`Component`] (via [`init_component_info`](Self::init_dynamic_info))
+    /// This [`BundleId`] must have been initialized with a single [`Component`] (via
+    /// [`init_component_info`](Self::init_dynamic_info))
     pub(crate) unsafe fn get_storage_unchecked(&self, id: BundleId) -> StorageType {
         *self
             .dynamic_component_storages
@@ -1646,7 +1683,8 @@ impl Bundles {
     }
 
     /// # Safety
-    /// This [`BundleId`] must have been initialized with multiple [`Component`]s (via [`init_dynamic_info`](Self::init_dynamic_info))
+    /// This [`BundleId`] must have been initialized with multiple [`Component`]s (via
+    /// [`init_dynamic_info`](Self::init_dynamic_info))
     pub(crate) unsafe fn get_storages_unchecked(&mut self, id: BundleId) -> &mut Vec<StorageType> {
         self.dynamic_bundle_storages
             .get_mut(&id)
@@ -1679,7 +1717,8 @@ impl Bundles {
                     components,
                     Vec::from(component_ids),
                 );
-                // SAFETY: The ID always increases when new bundles are added, and so, the ID is unique.
+                // SAFETY: The ID always increases when new bundles are added, and so, the ID is
+                // unique.
                 unsafe {
                     self.dynamic_bundle_storages
                         .insert_unique_unchecked(id, storages);

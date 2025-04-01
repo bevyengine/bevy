@@ -1,4 +1,5 @@
-//! Shows different built-in plugins that logs diagnostics, like frames per second (FPS), to the console.
+//! Shows different built-in plugins that logs diagnostics, like frames per second (FPS), to the
+//! console.
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -13,8 +14,8 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             // Adds a system that prints diagnostics to the console
             LogDiagnosticsPlugin::default(),
-            // Any plugin can register diagnostics. Uncomment this to add an entity count diagnostics:
-            // bevy::diagnostic::EntityCountDiagnosticsPlugin::default(),
+            // Any plugin can register diagnostics. Uncomment this to add an entity count
+            // diagnostics: bevy::diagnostic::EntityCountDiagnosticsPlugin::default(),
 
             // Uncomment this to add an asset count diagnostics:
             // bevy::asset::diagnostic::AssetCountDiagnosticsPlugin::<Texture>::default(),

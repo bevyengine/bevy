@@ -1789,7 +1789,8 @@ impl PartialReflect for Cow<'static, str> {
         } else {
             return Err(ApplyError::MismatchedTypes {
                 from_type: value.reflect_type_path().into(),
-                // If we invoke the reflect_type_path on self directly the borrow checker complains that the lifetime of self must outlive 'static
+                // If we invoke the reflect_type_path on self directly the borrow checker complains
+                // that the lifetime of self must outlive 'static
                 to_type: Self::type_path().into(),
             });
         }

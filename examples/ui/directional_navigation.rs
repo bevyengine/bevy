@@ -1,9 +1,12 @@
-//! Demonstrates how to set up the directional navigation system to allow for navigation between widgets.
+//! Demonstrates how to set up the directional navigation system to allow for navigation between
+//! widgets.
 //!
-//! Directional navigation is generally used to move between widgets in a user interface using arrow keys or gamepad input.
-//! When compared to tab navigation, directional navigation is generally more direct, and less aware of the structure of the UI.
+//! Directional navigation is generally used to move between widgets in a user interface using arrow
+//! keys or gamepad input. When compared to tab navigation, directional navigation is generally more
+//! direct, and less aware of the structure of the UI.
 //!
-//! In this example, we will set up a simple UI with a grid of buttons that can be navigated using the arrow keys or gamepad input.
+//! In this example, we will set up a simple UI with a grid of buttons that can be navigated using
+//! the arrow keys or gamepad input.
 
 use std::time::Duration;
 
@@ -33,9 +36,11 @@ fn main() {
             DirectionalNavigationPlugin,
         ))
         // This resource is canonically used to track whether or not to render a focus indicator
-        // It starts as false, but we set it to true here as we would like to see the focus indicator
+        // It starts as false, but we set it to true here as we would like to see the focus
+        // indicator
         .insert_resource(InputFocusVisible(true))
-        // We've made a simple resource to keep track of the actions that are currently being pressed for this example
+        // We've made a simple resource to keep track of the actions that are currently being
+        // pressed for this example
         .init_resource::<ActionState>()
         .add_systems(Startup, setup_ui)
         // Input is generally handled during PreUpdate
@@ -46,7 +51,8 @@ fn main() {
             (
                 // We need to show which button is currently focused
                 highlight_focused_element,
-                // Pressing the "Interact" button while we have a focused element should simulate a click
+                // Pressing the "Interact" button while we have a focused element should simulate a
+                // click
                 interact_with_focused_button,
                 // We're doing a tiny animation when the button is interacted with,
                 // so we need a timer and a polling mechanism to reset it
@@ -212,7 +218,8 @@ fn setup_ui(
 
     // Connect all of the buttons in the same column to each other,
     // but don't loop around when the edge is reached.
-    // While looping is a very reasonable choice, we're not doing it here to demonstrate the different options.
+    // While looping is a very reasonable choice, we're not doing it here to demonstrate the
+    // different options.
     for col in 0..N_COLS {
         let entities_in_column: Vec<Entity> = (0..N_ROWS)
             .map(|row| button_entities.get(&(row, col)).unwrap())

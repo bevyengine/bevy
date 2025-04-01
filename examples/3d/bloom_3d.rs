@@ -33,13 +33,15 @@ fn setup_scene(
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
-        Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
+        Tonemapping::TonyMcMapface, /* 2. Using a tonemapper that desaturates to white is
+                                     *    recommended */
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         Bloom::NATURAL, // 3. Enable bloom for the camera
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: LinearRgba::rgb(0.0, 0.0, 150.0), // 4. Put something bright in a dark environment to see the effect
+        emissive: LinearRgba::rgb(0.0, 0.0, 150.0), /* 4. Put something bright in a dark
+                                                     *    environment to see the effect */
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {

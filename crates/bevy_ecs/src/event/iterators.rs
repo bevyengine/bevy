@@ -3,7 +3,8 @@ use bevy_ecs::batching::BatchingStrategy;
 use bevy_ecs::event::{Event, EventCursor, EventId, EventInstance, Events};
 use core::{iter::Chain, slice::Iter};
 
-/// An iterator that yields any unread events from an [`EventReader`](super::EventReader) or [`EventCursor`].
+/// An iterator that yields any unread events from an [`EventReader`](super::EventReader) or
+/// [`EventCursor`].
 #[derive(Debug)]
 pub struct EventIterator<'a, E: Event> {
     iter: EventIteratorWithId<'a, E>,
@@ -41,7 +42,8 @@ impl<'a, E: Event> ExactSizeIterator for EventIterator<'a, E> {
     }
 }
 
-/// An iterator that yields any unread events (and their IDs) from an [`EventReader`](super::EventReader) or [`EventCursor`].
+/// An iterator that yields any unread events (and their IDs) from an
+/// [`EventReader`](super::EventReader) or [`EventCursor`].
 #[derive(Debug)]
 pub struct EventIteratorWithId<'a, E: Event> {
     reader: &'a mut EventCursor<E>,
@@ -189,22 +191,23 @@ impl<'a, E: Event> EventParIter<'a, E> {
     /// Unlike normal iteration, the event order is not guaranteed in any form.
     ///
     /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from an event reader that is being
-    /// initialized and run from the ECS scheduler, this should never panic.
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from an event reader that is
+    /// being initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     pub fn for_each<FN: Fn(&'a E) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_with_id(move |e, _| func(e));
     }
 
-    /// Runs the provided closure for each unread event in parallel, like [`for_each`](Self::for_each),
-    /// but additionally provides the `EventId` to the closure.
+    /// Runs the provided closure for each unread event in parallel, like
+    /// [`for_each`](Self::for_each), but additionally provides the `EventId` to the closure.
     ///
-    /// Note that the order of iteration is not guaranteed, but `EventId`s are ordered by send order.
+    /// Note that the order of iteration is not guaranteed, but `EventId`s are ordered by send
+    /// order.
     ///
     /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from an event reader that is being
-    /// initialized and run from the ECS scheduler, this should never panic.
+    /// If the [`ComputeTaskPool`] is not initialized. If using this from an event reader that is
+    /// being initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[cfg_attr(

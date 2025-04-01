@@ -4,8 +4,9 @@ use core::any::{Any, TypeId};
 /// A filter used to control which types can be added to a [`DynamicScene`].
 ///
 /// This scene filter _can_ be used more generically to represent a filter for any given type;
-/// however, note that its intended usage with `DynamicScene` only considers [components] and [resources].
-/// Adding types that are not a component or resource will have no effect when used with `DynamicScene`.
+/// however, note that its intended usage with `DynamicScene` only considers [components] and
+/// [resources]. Adding types that are not a component or resource will have no effect when used
+/// with `DynamicScene`.
 ///
 /// [`DynamicScene`]: crate::DynamicScene
 /// [components]: bevy_ecs::prelude::Component
@@ -28,13 +29,15 @@ pub enum SceneFilter {
     Unset,
     /// Contains the set of permitted types by their [`TypeId`].
     ///
-    /// Types not contained within this set should not be allowed to be saved to an associated [`DynamicScene`].
+    /// Types not contained within this set should not be allowed to be saved to an associated
+    /// [`DynamicScene`].
     ///
     /// [`DynamicScene`]: crate::DynamicScene
     Allowlist(HashSet<TypeId>),
     /// Contains the set of prohibited types by their [`TypeId`].
     ///
-    /// Types contained within this set should not be allowed to be saved to an associated [`DynamicScene`].
+    /// Types contained within this set should not be allowed to be saved to an associated
+    /// [`DynamicScene`].
     ///
     /// [`DynamicScene`]: crate::DynamicScene
     Denylist(HashSet<TypeId>),

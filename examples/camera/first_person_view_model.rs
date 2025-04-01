@@ -9,30 +9,33 @@
 //!
 //! ## Motivation
 //!
-//! The reason for this distinction is that these two models should be rendered with different field of views (FOV).
-//! The view model is typically designed and animated with a very specific FOV in mind, so it is
-//! generally *fixed* and cannot be changed by a player. The world model, on the other hand, should
-//! be able to change its FOV to accommodate the player's preferences for the following reasons:
+//! The reason for this distinction is that these two models should be rendered with different field
+//! of views (FOV). The view model is typically designed and animated with a very specific FOV in
+//! mind, so it is generally *fixed* and cannot be changed by a player. The world model, on the
+//! other hand, should be able to change its FOV to accommodate the player's preferences for the
+//! following reasons:
 //! - *Accessibility*: How prone is the player to motion sickness? A wider FOV can help.
-//! - *Tactical preference*: Does the player want to see more of the battlefield?
-//!   Or have a more zoomed-in view for precision aiming?
+//! - *Tactical preference*: Does the player want to see more of the battlefield? Or have a more
+//!   zoomed-in view for precision aiming?
 //! - *Physical considerations*: How well does the in-game FOV match the player's real-world FOV?
-//!   Are they sitting in front of a monitor or playing on a TV in the living room? How big is the screen?
+//!   Are they sitting in front of a monitor or playing on a TV in the living room? How big is the
+//!   screen?
 //!
 //! ## Implementation
 //!
-//! The `Player` is an entity holding two cameras, one for each model. The view model camera has a fixed
-//! FOV of 70 degrees, while the world model camera has a variable FOV that can be changed by the player.
+//! The `Player` is an entity holding two cameras, one for each model. The view model camera has a
+//! fixed FOV of 70 degrees, while the world model camera has a variable FOV that can be changed by
+//! the player.
 //!
 //! We use different `RenderLayers` to select what to render.
 //!
-//! - The world model camera has no explicit `RenderLayers` component, so it uses the layer 0.
-//!   All static objects in the scene are also on layer 0 for the same reason.
+//! - The world model camera has no explicit `RenderLayers` component, so it uses the layer 0. All
+//!   static objects in the scene are also on layer 0 for the same reason.
 //! - The view model camera has a `RenderLayers` component with layer 1, so it only renders objects
-//!   explicitly assigned to layer 1. The arm of the player is one such object.
-//!   The order of the view model camera is additionally bumped to 1 to ensure it renders on top of the world model.
-//! - The light source in the scene must illuminate both the view model and the world model, so it is
-//!   assigned to both layers 0 and 1.
+//!   explicitly assigned to layer 1. The arm of the player is one such object. The order of the
+//!   view model camera is additionally bumped to 1 to ensure it renders on top of the world model.
+//! - The light source in the scene must illuminate both the view model and the world model, so it
+//!   is assigned to both layers 0 and 1.
 //!
 //! ## Controls
 //!
@@ -212,11 +215,12 @@ fn move_player(
 
     if delta != Vec2::ZERO {
         // Note that we are not multiplying by delta_time here.
-        // The reason is that for mouse movement, we already get the full movement that happened since the last frame.
-        // This means that if we multiply by delta_time, we will get a smaller rotation than intended by the user.
-        // This situation is reversed when reading e.g. analog input from a gamepad however, where the same rules
-        // as for keyboard input apply. Such an input should be multiplied by delta_time to get the intended rotation
-        // independent of the framerate.
+        // The reason is that for mouse movement, we already get the full movement that happened
+        // since the last frame. This means that if we multiply by delta_time, we will get a
+        // smaller rotation than intended by the user. This situation is reversed when
+        // reading e.g. analog input from a gamepad however, where the same rules
+        // as for keyboard input apply. Such an input should be multiplied by delta_time to get the
+        // intended rotation independent of the framerate.
         let delta_yaw = -delta.x * camera_sensitivity.x;
         let delta_pitch = -delta.y * camera_sensitivity.y;
 
@@ -224,11 +228,12 @@ fn move_player(
         let yaw = yaw + delta_yaw;
 
         // If the pitch was ±¹⁄₂ π, the camera would look straight up or down.
-        // When the user wants to move the camera back to the horizon, which way should the camera face?
-        // The camera has no way of knowing what direction was "forward" before landing in that extreme position,
-        // so the direction picked will for all intents and purposes be arbitrary.
-        // Another issue is that for mathematical reasons, the yaw will effectively be flipped when the pitch is at the extremes.
-        // To not run into these issues, we clamp the pitch to a safe range.
+        // When the user wants to move the camera back to the horizon, which way should the camera
+        // face? The camera has no way of knowing what direction was "forward" before
+        // landing in that extreme position, so the direction picked will for all intents
+        // and purposes be arbitrary. Another issue is that for mathematical reasons, the
+        // yaw will effectively be flipped when the pitch is at the extremes. To not run
+        // into these issues, we clamp the pitch to a safe range.
         const PITCH_LIMIT: f32 = FRAC_PI_2 - 0.01;
         let pitch = (pitch + delta_pitch).clamp(-PITCH_LIMIT, PITCH_LIMIT);
 

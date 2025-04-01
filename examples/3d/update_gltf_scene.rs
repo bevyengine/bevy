@@ -53,7 +53,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-// This system will move all entities that are descendants of MovedScene (which will be all entities spawned in the scene)
+// This system will move all entities that are descendants of MovedScene (which will be all entities
+// spawned in the scene)
 fn move_scene_entities(
     time: Res<Time>,
     moved_scene: Query<Entity, With<MovedScene>>,

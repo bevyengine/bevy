@@ -20,41 +20,34 @@ use variadics_please::all_tuples;
 ///
 /// There are many types that natively implement this trait:
 ///
-/// - **Component references. (&T and &mut T)**
-///   Fetches a component by reference (immutably or mutably).
-/// - **`QueryData` tuples.**
-///   If every element of a tuple implements `QueryData`, then the tuple itself also implements the same trait.
-///   This enables a single `Query` to access multiple components.
-///   Due to the current lack of variadic generics in Rust, the trait has been implemented for tuples from 0 to 15 elements,
-///   but nesting of tuples allows infinite `WorldQuery`s.
-/// - **[`Entity`].**
-///   Gets the identifier of the queried entity.
-/// - **[`EntityLocation`].**
-///   Gets the location metadata of the queried entity.
-/// - **[`EntityRef`].**
-///   Read-only access to arbitrary components on the queried entity.
-/// - **[`EntityMut`].**
-///   Mutable access to arbitrary components on the queried entity.
-/// - **[`&Archetype`](Archetype).**
-///   Read-only access to the archetype-level metadata of the queried entity.
-/// - **[`Option`].**
-///   By default, a world query only tests entities that have the matching component types.
-///   Wrapping it into an `Option` will increase the query search space, and it will return `None` if an entity doesn't satisfy the `WorldQuery`.
-/// - **[`AnyOf`].**
-///   Equivalent to wrapping each world query inside it into an `Option`.
-/// - **[`Ref`].**
-///   Similar to change detection filters but it is used as a query fetch parameter.
-///   It exposes methods to check for changes to the wrapped component.
-/// - **[`Has`].**
-///   Returns a bool indicating whether the entity has the specified component.
+/// - **Component references. (&T and &mut T)** Fetches a component by reference (immutably or
+///   mutably).
+/// - **`QueryData` tuples.** If every element of a tuple implements `QueryData`, then the tuple
+///   itself also implements the same trait. This enables a single `Query` to access multiple
+///   components. Due to the current lack of variadic generics in Rust, the trait has been
+///   implemented for tuples from 0 to 15 elements, but nesting of tuples allows infinite
+///   `WorldQuery`s.
+/// - **[`Entity`].** Gets the identifier of the queried entity.
+/// - **[`EntityLocation`].** Gets the location metadata of the queried entity.
+/// - **[`EntityRef`].** Read-only access to arbitrary components on the queried entity.
+/// - **[`EntityMut`].** Mutable access to arbitrary components on the queried entity.
+/// - **[`&Archetype`](Archetype).** Read-only access to the archetype-level metadata of the queried
+///   entity.
+/// - **[`Option`].** By default, a world query only tests entities that have the matching component
+///   types. Wrapping it into an `Option` will increase the query search space, and it will return
+///   `None` if an entity doesn't satisfy the `WorldQuery`.
+/// - **[`AnyOf`].** Equivalent to wrapping each world query inside it into an `Option`.
+/// - **[`Ref`].** Similar to change detection filters but it is used as a query fetch parameter. It
+///   exposes methods to check for changes to the wrapped component.
+/// - **[`Has`].** Returns a bool indicating whether the entity has the specified component.
 ///
 /// Implementing the trait manually can allow for a fundamentally new type of behavior.
 ///
 /// # Trait derivation
 ///
 /// Query design can be easily structured by deriving `QueryData` for custom types.
-/// Despite the added complexity, this approach has several advantages over using `QueryData` tuples.
-/// The most relevant improvements are:
+/// Despite the added complexity, this approach has several advantages over using `QueryData`
+/// tuples. The most relevant improvements are:
 ///
 /// - Reusability across multiple systems.
 /// - There is no need to destructure a tuple since all fields are named.
@@ -92,8 +85,8 @@ use variadics_please::all_tuples;
 ///
 /// ## Macro expansion
 ///
-/// Expanding the macro will declare one or three additional structs, depending on whether or not the struct is marked as mutable.
-/// For a struct named `X`, the additional structs will be:
+/// Expanding the macro will declare one or three additional structs, depending on whether or not
+/// the struct is marked as mutable. For a struct named `X`, the additional structs will be:
 ///
 /// |Struct name|`mutable` only|Description|
 /// |:---:|:---:|---|
@@ -118,8 +111,9 @@ use variadics_please::all_tuples;
 /// }
 /// ```
 ///
-/// To grant mutable access to components, the struct must be marked with the `#[query_data(mutable)]` attribute.
-/// This will also create three more structs that will be used for accessing the query immutably (see table above).
+/// To grant mutable access to components, the struct must be marked with the
+/// `#[query_data(mutable)]` attribute. This will also create three more structs that will be used
+/// for accessing the query immutably (see table above).
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -137,9 +131,10 @@ use variadics_please::all_tuples;
 ///
 /// ## Adding methods to query items
 ///
-/// It is possible to add methods to query items in order to write reusable logic about related components.
-/// This will often make systems more readable because low level logic is moved out from them.
-/// It is done by adding `impl` blocks with methods for the `-Item` or `-ReadOnlyItem` generated structs.
+/// It is possible to add methods to query items in order to write reusable logic about related
+/// components. This will often make systems more readable because low level logic is moved out from
+/// them. It is done by adding `impl` blocks with methods for the `-Item` or `-ReadOnlyItem`
+/// generated structs.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -192,9 +187,9 @@ use variadics_please::all_tuples;
 ///
 /// ## Deriving traits for query items
 ///
-/// The `QueryData` derive macro does not automatically implement the traits of the struct to the query item types.
-/// Something similar can be done by using the `#[query_data(derive(...))]` attribute.
-/// This will apply the listed derivable traits to the query item structs.
+/// The `QueryData` derive macro does not automatically implement the traits of the struct to the
+/// query item types. Something similar can be done by using the `#[query_data(derive(...))]`
+/// attribute. This will apply the listed derivable traits to the query item structs.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -265,8 +260,8 @@ use variadics_please::all_tuples;
 ///
 /// # Safety
 ///
-/// - Component access of `Self::ReadOnly` must be a subset of `Self`
-///   and `Self::ReadOnly` must match exactly the same archetypes/tables as `Self`
+/// - Component access of `Self::ReadOnly` must be a subset of `Self` and `Self::ReadOnly` must
+///   match exactly the same archetypes/tables as `Self`
 /// - `IS_READ_ONLY` must be `true` if and only if `Self: ReadOnlyQueryData`
 ///
 /// [`Query`]: crate::system::Query
@@ -280,7 +275,8 @@ pub unsafe trait QueryData: WorldQuery {
     /// True if this query is read-only and may not perform mutable access.
     const IS_READ_ONLY: bool;
 
-    /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.
+    /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`]
+    /// trait.
     type ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;
 
     /// The item returned by this [`WorldQuery`]
@@ -291,17 +287,18 @@ pub unsafe trait QueryData: WorldQuery {
     /// This function manually implements subtyping for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
 
-    /// Fetch [`Self::Item`](`QueryData::Item`) for either the given `entity` in the current [`Table`],
-    /// or for the given `entity` in the current [`Archetype`]. This must always be called after
-    /// [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`] or after
-    /// [`WorldQuery::set_archetype`]  with an `entity` in the current archetype.
-    /// Accesses components registered in [`WorldQuery::update_component_access`].
+    /// Fetch [`Self::Item`](`QueryData::Item`) for either the given `entity` in the current
+    /// [`Table`], or for the given `entity` in the current [`Archetype`]. This must always be
+    /// called after [`WorldQuery::set_table`] with a `table_row` in the range of the current
+    /// [`Table`] or after [`WorldQuery::set_archetype`]  with an `entity` in the current
+    /// archetype. Accesses components registered in [`WorldQuery::update_component_access`].
     ///
     /// # Safety
     ///
-    /// - Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
-    ///   `table_row` must be in the range of the current table and archetype.
-    /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
+    /// - Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`].
+    ///   `entity` and `table_row` must be in the range of the current table and archetype.
+    /// - There must not be simultaneous conflicting component access registered in
+    ///   `update_component_access`.
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
@@ -413,8 +410,8 @@ unsafe impl WorldQuery for EntityLocation {
         world.entities()
     }
 
-    // This is set to true to avoid forcing archetypal iteration in compound queries, is likely to be slower
-    // in most practical use case.
+    // This is set to true to avoid forcing archetypal iteration in compound queries, is likely to
+    // be slower in most practical use case.
     const IS_DENSE: bool = true;
 
     #[inline]
@@ -472,8 +469,8 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 
 /// SAFETY:
 /// `fetch` accesses all components in a readonly way.
-/// This is sound because `update_component_access` and `update_archetype_component_access` set read access for all components and panic when appropriate.
-/// Filters are unchanged.
+/// This is sound because `update_component_access` and `update_archetype_component_access` set read
+/// access for all components and panic when appropriate. Filters are unchanged.
 unsafe impl<'a> WorldQuery for EntityRef<'a> {
     type Fetch<'w> = UnsafeWorldCell<'w>;
     type State = ();
@@ -1038,7 +1035,8 @@ unsafe impl WorldQuery for &Archetype {
     }
 
     // This could probably be a non-dense query and just set a Option<&Archetype> fetch value in
-    // set_archetypes, but forcing archetypal iteration is likely to be slower in any compound query.
+    // set_archetypes, but forcing archetypal iteration is likely to be slower in any compound
+    // query.
     const IS_DENSE: bool = true;
 
     #[inline]
@@ -1117,9 +1115,10 @@ impl<T: Component> Copy for ReadFetch<'_, T> {}
 
 /// SAFETY:
 /// `fetch` accesses a single component in a readonly way.
-/// This is sound because `update_component_access` and `update_archetype_component_access` add read access for that component and panic when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
-/// This is sound because `matches_component_set` returns whether the set contains that component.
+/// This is sound because `update_component_access` and `update_archetype_component_access` add read
+/// access for that component and panic when appropriate. `update_component_access` adds a `With`
+/// filter for a component. This is sound because `matches_component_set` returns whether the set
+/// contains that component.
 unsafe impl<T: Component> WorldQuery for &T {
     type Fetch<'w> = ReadFetch<'w, T>;
     type State = ComponentId;
@@ -1140,9 +1139,11 @@ unsafe impl<T: Component> WorldQuery for &T {
                 || None,
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
-                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
-                    // Note that we do not actually access any components in this function, we just get a shared
-                    // reference to the sparse set, which is used to access the components in `Self::fetch`.
+                    // which we are allowed to access since we registered it in
+                    // `update_archetype_component_access`. Note that we do not
+                    // actually access any components in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components in
+                    // `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
                 },
             ),
@@ -1284,9 +1285,10 @@ impl<T: Component> Copy for RefFetch<'_, T> {}
 
 /// SAFETY:
 /// `fetch` accesses a single component in a readonly way.
-/// This is sound because `update_component_access` and `update_archetype_component_access` add read access for that component and panic when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
-/// This is sound because `matches_component_set` returns whether the set contains that component.
+/// This is sound because `update_component_access` and `update_archetype_component_access` add read
+/// access for that component and panic when appropriate. `update_component_access` adds a `With`
+/// filter for a component. This is sound because `matches_component_set` returns whether the set
+/// contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     type Fetch<'w> = RefFetch<'w, T>;
     type State = ComponentId;
@@ -1307,9 +1309,11 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 || None,
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
-                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
-                    // Note that we do not actually access any components in this function, we just get a shared
-                    // reference to the sparse set, which is used to access the components in `Self::fetch`.
+                    // which we are allowed to access since we registered it in
+                    // `update_archetype_component_access`. Note that we do not
+                    // actually access any components in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components in
+                    // `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
                 },
             ),
@@ -1479,9 +1483,10 @@ impl<T: Component> Copy for WriteFetch<'_, T> {}
 
 /// SAFETY:
 /// `fetch` accesses a single component mutably.
-/// This is sound because `update_component_access` and `update_archetype_component_access` add write access for that component and panic when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
-/// This is sound because `matches_component_set` returns whether the set contains that component.
+/// This is sound because `update_component_access` and `update_archetype_component_access` add
+/// write access for that component and panic when appropriate. `update_component_access` adds a
+/// `With` filter for a component. This is sound because `matches_component_set` returns whether the
+/// set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
@@ -1502,9 +1507,11 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 || None,
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
-                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
-                    // Note that we do not actually access any components in this function, we just get a shared
-                    // reference to the sparse set, which is used to access the components in `Self::fetch`.
+                    // which we are allowed to access since we registered it in
+                    // `update_archetype_component_access`. Note that we do not
+                    // actually access any components in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components in
+                    // `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
                 },
             ),
@@ -1643,15 +1650,18 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
     }
 }
 
-/// When `Mut<T>` is used in a query, it will be converted to `Ref<T>` when transformed into its read-only form, providing access to change detection methods.
+/// When `Mut<T>` is used in a query, it will be converted to `Ref<T>` when transformed into its
+/// read-only form, providing access to change detection methods.
 ///
-/// By contrast `&mut T` will result in a `Mut<T>` item in mutable form to record mutations, but result in a bare `&T` in read-only form.
+/// By contrast `&mut T` will result in a `Mut<T>` item in mutable form to record mutations, but
+/// result in a bare `&T` in read-only form.
 ///
 /// SAFETY:
 /// `fetch` accesses a single component mutably.
-/// This is sound because `update_component_access` and `update_archetype_component_access` add write access for that component and panic when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
-/// This is sound because `matches_component_set` returns whether the set contains that component.
+/// This is sound because `update_component_access` and `update_archetype_component_access` add
+/// write access for that component and panic when appropriate. `update_component_access` adds a
+/// `With` filter for a component. This is sound because `matches_component_set` returns whether the
+/// set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
@@ -1696,8 +1706,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         &component_id: &ComponentId,
         access: &mut FilteredAccess<ComponentId>,
     ) {
-        // Update component access here instead of in `<&mut T as WorldQuery>` to avoid erroneously referencing
-        // `&mut T` in error message.
+        // Update component access here instead of in `<&mut T as WorldQuery>` to avoid erroneously
+        // referencing `&mut T` in error message.
         assert!(
             !access.access().has_component_read(component_id),
             "Mut<{}> conflicts with a previous access in this query. Mutable component access mut be unique.",
@@ -1739,8 +1749,9 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
     #[inline(always)]
     // Forwarded to `&mut T`
     unsafe fn fetch<'w>(
-        // Rust complains about lifetime bounds not matching the trait if I directly use `WriteFetch<'w, T>` right here.
-        // But it complains nowhere else in the entire trait implementation.
+        // Rust complains about lifetime bounds not matching the trait if I directly use
+        // `WriteFetch<'w, T>` right here. But it complains nowhere else in the entire
+        // trait implementation.
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
@@ -1766,8 +1777,8 @@ impl<T: WorldQuery> Clone for OptionFetch<'_, T> {
 
 /// SAFETY:
 /// `fetch` might access any components that `T` accesses.
-/// This is sound because `update_component_access` and `update_archetype_component_access` add the same accesses as `T`.
-/// Filters are unchanged.
+/// This is sound because `update_component_access` and `update_archetype_component_access` add the
+/// same accesses as `T`. Filters are unchanged.
 unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     type Fetch<'w> = OptionFetch<'w, T>;
     type State = T::State;
@@ -1881,8 +1892,8 @@ unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 
 /// Returns a bool that describes if an entity has the component `T`.
 ///
-/// This can be used in a [`Query`](crate::system::Query) if you want to know whether or not entities
-/// have the component `T`  but don't actually care about the component's value.
+/// This can be used in a [`Query`](crate::system::Query) if you want to know whether or not
+/// entities have the component `T`  but don't actually care about the component's value.
 ///
 /// # Footguns
 ///
@@ -2042,9 +2053,10 @@ unsafe impl<T: Component> ReadOnlyQueryData for Has<T> {}
 
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
 ///
-/// `Query<AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<(Option<&A>, Option<&B>, Option<&mut C>), Or<(With<A>, With<B>, With<C>)>>`.
-/// Each of the components in `T` is returned as an `Option`, as with `Option<A>` queries.
-/// Entities are guaranteed to have at least one of the components in `T`.
+/// `Query<AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<(Option<&A>, Option<&B>, Option<&mut
+/// C>), Or<(With<A>, With<B>, With<C>)>>`. Each of the components in `T` is returned as an
+/// `Option`, as with `Option<A>` queries. Entities are guaranteed to have at least one of the
+/// components in `T`.
 pub struct AnyOf<T>(PhantomData<T>);
 
 macro_rules! impl_tuple_query_data {

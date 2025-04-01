@@ -47,7 +47,8 @@ mod implementation {
     }
 
     impl BarrierWaitResult {
-        /// Returns `true` if this thread is the "leader thread" for the call to [`Barrier::wait()`].
+        /// Returns `true` if this thread is the "leader thread" for the call to
+        /// [`Barrier::wait()`].
         ///
         /// See the standard library for further details.
         #[must_use]

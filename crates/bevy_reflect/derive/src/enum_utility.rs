@@ -205,7 +205,8 @@ pub(crate) trait VariantBuilder: Sized {
     }
 }
 
-/// Generates the enum variant output data needed to build the `FromReflect::from_reflect` implementation.
+/// Generates the enum variant output data needed to build the `FromReflect::from_reflect`
+/// implementation.
 pub(crate) struct FromReflectVariantBuilder<'a> {
     reflect_enum: &'a ReflectEnum<'a>,
 }
@@ -237,7 +238,8 @@ impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
     }
 }
 
-/// Generates the enum variant output data needed to build the `PartialReflect::try_apply` implementation.
+/// Generates the enum variant output data needed to build the `PartialReflect::try_apply`
+/// implementation.
 pub(crate) struct TryApplyVariantBuilder<'a> {
     reflect_enum: &'a ReflectEnum<'a>,
 }
@@ -293,7 +295,8 @@ impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
     }
 }
 
-/// Generates the enum variant output data needed to build the `Reflect::reflect_clone` implementation.
+/// Generates the enum variant output data needed to build the `Reflect::reflect_clone`
+/// implementation.
 pub(crate) struct ReflectCloneVariantBuilder<'a> {
     reflect_enum: &'a ReflectEnum<'a>,
 }

@@ -31,10 +31,12 @@ pub trait Measure: Send + Sync + 'static {
     fn measure(&mut self, measure_args: MeasureArgs<'_>, style: &taffy::Style) -> Vec2;
 }
 
-/// A type to serve as Taffy's node context (which allows the content size of leaf nodes to be computed)
+/// A type to serve as Taffy's node context (which allows the content size of leaf nodes to be
+/// computed)
 ///
-/// It has specific variants for common built-in types to avoid making them opaque and needing to box them
-/// by wrapping them in a closure and a Custom variant that allows arbitrary measurement closures if required.
+/// It has specific variants for common built-in types to avoid making them opaque and needing to
+/// box them by wrapping them in a closure and a Custom variant that allows arbitrary measurement
+/// closures if required.
 pub enum NodeMeasure {
     Fixed(FixedMeasure),
 
@@ -84,7 +86,8 @@ impl ContentSize {
         self.measure = Some(measure);
     }
 
-    /// Creates a `ContentSize` with a `Measure` that always returns given `size` argument, regardless of the UI layout's constraints.
+    /// Creates a `ContentSize` with a `Measure` that always returns given `size` argument,
+    /// regardless of the UI layout's constraints.
     pub fn fixed_size(size: Vec2) -> ContentSize {
         let mut content_size = Self::default();
         content_size.set(NodeMeasure::Fixed(FixedMeasure { size }));

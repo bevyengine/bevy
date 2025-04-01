@@ -2,11 +2,13 @@
 
 use bevy::{math::VectorSpace, prelude::*};
 
-// We define this trait so we can reuse the same code for multiple color types that may be implemented using curves.
+// We define this trait so we can reuse the same code for multiple color types that may be
+// implemented using curves.
 trait CurveColor: VectorSpace + Into<Color> + Send + Sync + 'static {}
 impl<T: VectorSpace + Into<Color> + Send + Sync + 'static> CurveColor for T {}
 
-// We define this trait so we can reuse the same code for multiple color types that may be implemented using mixing.
+// We define this trait so we can reuse the same code for multiple color types that may be
+// implemented using mixing.
 trait MixedColor: Mix + Into<Color> + Send + Sync + 'static {}
 impl<T: Mix + Into<Color> + Send + Sync + 'static> MixedColor for T {}
 
@@ -37,8 +39,9 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    // The color spaces `Oklaba`, `Laba`, `LinearRgba`, `Srgba` and `Xyza` all are either perceptually or physically linear.
-    // This property allows us to define curves, e.g. bezier curves through these spaces.
+    // The color spaces `Oklaba`, `Laba`, `LinearRgba`, `Srgba` and `Xyza` all are either
+    // perceptually or physically linear. This property allows us to define curves, e.g. bezier
+    // curves through these spaces.
 
     // Define the control points for the curve.
     // For more information, please see the cubic curve example.
@@ -51,14 +54,16 @@ fn setup(mut commands: Commands) {
     // Spawn a sprite using the provided colors as control points.
     spawn_curve_sprite(&mut commands, 275., colors);
 
-    // Spawn another sprite using the provided colors as control points after converting them to the `Xyza` color space.
+    // Spawn another sprite using the provided colors as control points after converting them to the
+    // `Xyza` color space.
     spawn_curve_sprite(&mut commands, 175., colors.map(Xyza::from));
 
     spawn_curve_sprite(&mut commands, 75., colors.map(Oklaba::from));
 
     // Other color spaces like `Srgba` or `Hsva` are neither perceptually nor physically linear.
     // As such, we cannot use curves in these spaces.
-    // However, we can still mix these colors and animate that way. In fact, mixing colors works in any color space.
+    // However, we can still mix these colors and animate that way. In fact, mixing colors works in
+    // any color space.
 
     // Spawn a sprite using the provided colors for mixing.
     spawn_mixed_sprite(&mut commands, -75., colors.map(Hsla::from));

@@ -60,7 +60,8 @@ fn update_clipping(
         return;
     };
 
-    // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
+    // If `display` is None, clip the entire node and all its descendants by replacing the inherited
+    // clip with a default rect (which is empty)
     if node.display == Display::None {
         maybe_inherited_clip = Some(Rect::default());
     }
@@ -79,7 +80,8 @@ fn update_clipping(
             commands.entity(entity).remove::<CalculatedClip>();
         }
     } else if let Some(inherited_clip) = maybe_inherited_clip {
-        // No previous calculated clip, add a new CalculatedClip component with the inherited clipping rect
+        // No previous calculated clip, add a new CalculatedClip component with the inherited
+        // clipping rect
         commands.entity(entity).try_insert(CalculatedClip {
             clip: inherited_clip,
         });
@@ -87,19 +89,23 @@ fn update_clipping(
 
     // Calculate new clip rectangle for children nodes
     let children_clip = if node.overflow.is_visible() {
-        // The current node doesn't clip, propagate the optional inherited clipping rect to any children
+        // The current node doesn't clip, propagate the optional inherited clipping rect to any
+        // children
         maybe_inherited_clip
     } else {
-        // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
+        // Find the current node's clipping rect and intersect it with the inherited clipping rect,
+        // if one exists
         let mut clip_rect = Rect::from_center_size(
             global_transform.translation().truncate(),
             computed_node.size(),
         );
 
-        // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Node::overflow_clip_margin`].
+        // Content isn't clipped at the edges of the node but at the edges of the region specified
+        // by [`Node::overflow_clip_margin`].
         //
         // `clip_inset` should always fit inside `node_rect`.
-        // Even if `clip_inset` were to overflow, we won't return a degenerate result as `Rect::intersect` will clamp the intersection, leaving it empty.
+        // Even if `clip_inset` were to overflow, we won't return a degenerate result as
+        // `Rect::intersect` will clamp the intersection, leaving it empty.
         let clip_inset = match node.overflow_clip_margin.visual_box {
             crate::OverflowClipBox::BorderBox => BorderRect::ZERO,
             crate::OverflowClipBox::ContentBox => computed_node.content_inset(),
@@ -533,7 +539,8 @@ mod tests {
             camera1
         );
 
-        // Now `uinode1` is a root UI node its `UiTargetCamera` component will be used and its camera target set to `camera2`.
+        // Now `uinode1` is a root UI node its `UiTargetCamera` component will be used and its
+        // camera target set to `camera2`.
         world.entity_mut(uinode1).remove::<ChildOf>();
 
         schedule.run(&mut world);

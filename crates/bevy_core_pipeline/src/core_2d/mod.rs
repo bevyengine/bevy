@@ -403,7 +403,8 @@ impl SortedPhaseItem for Transparent2d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
+        // radsort is a stable radix sort that performed better than `slice::sort_by_key` or
+        // `slice::sort_unstable_by_key`.
         radsort::sort_by_key(items, |item| item.sort_key().0);
     }
 

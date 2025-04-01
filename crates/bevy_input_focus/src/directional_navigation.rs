@@ -12,8 +12,9 @@
 //! from the [`DirectionalNavigation`] system parameter.
 //!
 //! Under the hood, the [`DirectionalNavigationMap`] stores a directed graph of focusable entities.
-//! Each entity can have up to 8 neighbors, one for each [`CompassOctant`], balancing flexibility and required precision.
-//! For now, this graph must be built manually, but in the future, it could be generated automatically.
+//! Each entity can have up to 8 neighbors, one for each [`CompassOctant`], balancing flexibility
+//! and required precision. For now, this graph must be built manually, but in the future, it could
+//! be generated automatically.
 
 use bevy_app::prelude::*;
 use bevy_ecs::{
@@ -52,7 +53,8 @@ impl Plugin for DirectionalNavigationPlugin {
 )]
 pub struct NavNeighbors {
     /// The array of neighbors, one for each [`CompassOctant`].
-    /// The mapping between array elements and directions is determined by [`CompassOctant::to_index`].
+    /// The mapping between array elements and directions is determined by
+    /// [`CompassOctant::to_index`].
     ///
     /// If no neighbor exists in a given direction, the value will be [`None`].
     /// In most cases, using [`NavNeighbors::set`] and [`NavNeighbors::get`]
@@ -84,12 +86,14 @@ impl NavNeighbors {
 /// To ensure that your graph is intuitive to navigate and generally works correctly, it should be:
 ///
 /// - **Connected**: Every focusable entity should be reachable from every other focusable entity.
-/// - **Symmetric**: If entity A is a neighbor of entity B, then entity B should be a neighbor of entity A, ideally in the reverse direction.
-/// - **Physical**: The direction of navigation should match the layout of the entities when possible,
-///   although looping around the edges of the screen is also acceptable.
+/// - **Symmetric**: If entity A is a neighbor of entity B, then entity B should be a neighbor of
+///   entity A, ideally in the reverse direction.
+/// - **Physical**: The direction of navigation should match the layout of the entities when
+///   possible, although looping around the edges of the screen is also acceptable.
 /// - **Not self-connected**: An entity should not be a neighbor of itself; use [`None`] instead.
 ///
-/// For now, this graph must be built manually, and the developer is responsible for ensuring that it meets the above criteria.
+/// For now, this graph must be built manually, and the developer is responsible for ensuring that
+/// it meets the above criteria.
 #[derive(Resource, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -112,7 +116,8 @@ impl DirectionalNavigationMap {
     /// Note that this is an O(n) operation, where n is the number of entities in the map,
     /// as we must iterate over each entity to check for connections to the removed entity.
     ///
-    /// If you are removing multiple entities, consider using [`remove_multiple`](Self::remove_multiple) instead.
+    /// If you are removing multiple entities, consider using
+    /// [`remove_multiple`](Self::remove_multiple) instead.
     pub fn remove(&mut self, entity: Entity) {
         self.neighbors.remove(&entity);
 
@@ -131,7 +136,8 @@ impl DirectionalNavigationMap {
     /// it is more efficient than calling [`remove`](Self::remove) multiple times,
     /// as we can check for connections to all removed entities in a single pass.
     ///
-    /// An [`EntityHashSet`] must be provided as it is noticeably faster than the standard hasher or a [`Vec`](`alloc::vec::Vec`).
+    /// An [`EntityHashSet`] must be provided as it is noticeably faster than the standard hasher or
+    /// a [`Vec`](`alloc::vec::Vec`).
     pub fn remove_multiple(&mut self, entities: EntityHashSet) {
         for entity in &entities {
             self.neighbors.remove(entity);
@@ -157,7 +163,8 @@ impl DirectionalNavigationMap {
     /// Any existing edge from A in the provided direction will be overwritten.
     ///
     /// The reverse edge will not be added, so navigation will only be possible in one direction.
-    /// If you want to add a symmetrical edge, use [`add_symmetrical_edge`](Self::add_symmetrical_edge) instead.
+    /// If you want to add a symmetrical edge, use
+    /// [`add_symmetrical_edge`](Self::add_symmetrical_edge) instead.
     pub fn add_edge(&mut self, a: Entity, b: Entity, direction: CompassOctant) {
         self.neighbors
             .entry(a)
@@ -166,7 +173,8 @@ impl DirectionalNavigationMap {
     }
 
     /// Adds a symmetrical edge between two entities in the navigation map.
-    /// The A -> B path will use the provided direction, while B -> A will use the [`CompassOctant::opposite`] variant.
+    /// The A -> B path will use the provided direction, while B -> A will use the
+    /// [`CompassOctant::opposite`] variant.
     ///
     /// Any existing connections between the two entities will be overwritten.
     pub fn add_symmetrical_edge(&mut self, a: Entity, b: Entity, direction: CompassOctant) {
@@ -176,16 +184,19 @@ impl DirectionalNavigationMap {
 
     /// Add symmetrical edges between each consecutive pair of entities in the provided slice.
     ///
-    /// Unlike [`add_looping_edges`](Self::add_looping_edges), this method does not loop back to the first entity.
+    /// Unlike [`add_looping_edges`](Self::add_looping_edges), this method does not loop back to the
+    /// first entity.
     pub fn add_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
         for pair in entities.windows(2) {
             self.add_symmetrical_edge(pair[0], pair[1], direction);
         }
     }
 
-    /// Add symmetrical edges between each consecutive pair of entities in the provided slice, looping back to the first entity at the end.
+    /// Add symmetrical edges between each consecutive pair of entities in the provided slice,
+    /// looping back to the first entity at the end.
     ///
-    /// This is useful for creating a circular navigation path between a set of entities, such as a menu.
+    /// This is useful for creating a circular navigation path between a set of entities, such as a
+    /// menu.
     pub fn add_looping_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
         self.add_edges(entities, direction);
         if let Some((first_entity, rest)) = entities.split_first() {
@@ -224,9 +235,11 @@ impl DirectionalNavigation<'_> {
     /// Navigates to the neighbor in a given direction from the current focus, if any.
     ///
     /// Returns the new focus if successful.
-    /// Returns an error if there is no focus set or if there is no neighbor in the requested direction.
+    /// Returns an error if there is no focus set or if there is no neighbor in the requested
+    /// direction.
     ///
-    /// If the result was `Ok`, the [`InputFocus`] resource is updated to the new focus as part of this method call.
+    /// If the result was `Ok`, the [`InputFocus`] resource is updated to the new focus as part of
+    /// this method call.
     pub fn navigate(
         &mut self,
         direction: CompassOctant,
@@ -247,7 +260,8 @@ impl DirectionalNavigation<'_> {
     }
 }
 
-/// An error that can occur when navigating between focusable entities using [directional navigation](crate::directional_navigation).
+/// An error that can occur when navigating between focusable entities using [directional
+/// navigation](crate::directional_navigation).
 #[derive(Debug, PartialEq, Clone, Error)]
 pub enum DirectionalNavigationError {
     /// No focusable entity is currently set.

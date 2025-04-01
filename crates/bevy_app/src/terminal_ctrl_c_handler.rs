@@ -9,7 +9,8 @@ pub use ctrlc;
 /// Indicates that all [`App`]'s should exit.
 static SHOULD_EXIT: AtomicBool = AtomicBool::new(false);
 
-/// Gracefully handles `Ctrl+C` by emitting a [`AppExit`] event. This plugin is part of the `DefaultPlugins`.
+/// Gracefully handles `Ctrl+C` by emitting a [`AppExit`] event. This plugin is part of the
+/// `DefaultPlugins`.
 ///
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as MinimalPlugins, PluginGroup, TerminalCtrlCHandlerPlugin};
@@ -22,8 +23,8 @@ static SHOULD_EXIT: AtomicBool = AtomicBool::new(false);
 /// ```
 ///
 /// If you want to setup your own `Ctrl+C` handler, you should call the
-/// [`TerminalCtrlCHandlerPlugin::gracefully_exit`] function in your handler if you want bevy to gracefully exit.
-/// ```no_run
+/// [`TerminalCtrlCHandlerPlugin::gracefully_exit`] function in your handler if you want bevy to
+/// gracefully exit. ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, TerminalCtrlCHandlerPlugin, ctrlc};
 /// fn main() {
 ///     // Your own `Ctrl+C` handler

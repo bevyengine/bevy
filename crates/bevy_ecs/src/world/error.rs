@@ -69,7 +69,8 @@ pub enum ResourceFetchError {
     /// The resource with the given [`ComponentId`] does not currently exist in the world.
     #[error("The resource with ID {0:?} does not currently exist in the world.")]
     DoesNotExist(ComponentId),
-    /// Cannot get access to the resource with the given [`ComponentId`] in the world as it conflicts with an on going operation.
+    /// Cannot get access to the resource with the given [`ComponentId`] in the world as it
+    /// conflicts with an on going operation.
     #[error(
         "Cannot get access to the resource with ID {0:?} in the world as it conflicts with an on going operation."
     )]

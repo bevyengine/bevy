@@ -86,8 +86,8 @@ impl Default for Headers {
     }
 }
 
-/// Add this plugin to your [`App`] to allow remote connections over HTTP to inspect and modify entities.
-/// It requires the [`RemotePlugin`](super::RemotePlugin).
+/// Add this plugin to your [`App`] to allow remote connections over HTTP to inspect and modify
+/// entities. It requires the [`RemotePlugin`](super::RemotePlugin).
 ///
 /// This BRP transport cannot be used when targeting WASM.
 ///

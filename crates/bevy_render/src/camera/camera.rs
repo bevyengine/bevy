@@ -56,11 +56,11 @@ use wgpu::{BlendState, TextureFormat, TextureUsages};
 #[derive(Reflect, Debug, Clone)]
 #[reflect(Default, Clone)]
 pub struct Viewport {
-    /// The physical position to render this viewport to within the [`RenderTarget`] of this [`Camera`].
-    /// (0,0) corresponds to the top-left corner
+    /// The physical position to render this viewport to within the [`RenderTarget`] of this
+    /// [`Camera`]. (0,0) corresponds to the top-left corner
     pub physical_position: UVec2,
-    /// The physical size of the viewport rectangle to render to within the [`RenderTarget`] of this [`Camera`].
-    /// The origin of the rectangle is in the top-left corner.
+    /// The physical size of the viewport rectangle to render to within the [`RenderTarget`] of
+    /// this [`Camera`]. The origin of the rectangle is in the top-left corner.
     pub physical_size: UVec2,
     /// The minimum and maximum depth to render (on a scale from 0.0 to 1.0).
     pub depth: Range<f32>,
@@ -133,8 +133,7 @@ impl Viewport {
 /// - Camera A: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 0,0
 /// - Camera B: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 1920,0
 /// - Camera C: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 0,1080
-/// - Camera D: `full_size` = 3840x2160, `size` = 1920x1080, `offset` =
-///   1920,1080
+/// - Camera D: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 1920,1080
 ///
 /// However since only the ratio between the values is important, they could all
 /// be divided by 120 and still produce the same image. Camera D would for
@@ -169,7 +168,8 @@ pub struct RenderTargetInfo {
     /// The scale factor of this render target.
     ///
     /// When rendering to a window, typically it is a value greater or equal than 1.0,
-    /// representing the ratio between the size of the window in physical pixels and the logical size of the window.
+    /// representing the ratio between the size of the window in physical pixels and the logical
+    /// size of the window.
     pub scale_factor: f32,
 }
 
@@ -204,8 +204,8 @@ impl Exposure {
     pub const INDOOR: Self = Self {
         ev100: Self::EV100_INDOOR,
     };
-    /// This value was calibrated to match Blender's implicit/default exposure as closely as possible.
-    /// It also happens to be a reasonable default.
+    /// This value was calibrated to match Blender's implicit/default exposure as closely as
+    /// possible. It also happens to be a reasonable default.
     ///
     /// See <https://github.com/bevyengine/bevy/issues/11577> for details.
     pub const BLENDER: Self = Self {
@@ -216,8 +216,8 @@ impl Exposure {
     pub const EV100_OVERCAST: f32 = 12.0;
     pub const EV100_INDOOR: f32 = 7.0;
 
-    /// This value was calibrated to match Blender's implicit/default exposure as closely as possible.
-    /// It also happens to be a reasonable default.
+    /// This value was calibrated to match Blender's implicit/default exposure as closely as
+    /// possible. It also happens to be a reasonable default.
     ///
     /// See <https://github.com/bevyengine/bevy/issues/11577> for details.
     pub const EV100_BLENDER: f32 = 9.7;
@@ -286,17 +286,21 @@ impl Default for PhysicalCameraParameters {
 
 /// Error returned when a conversion between world-space and viewport-space coordinates fails.
 ///
-/// See [`world_to_viewport`][Camera::world_to_viewport] and [`viewport_to_world`][Camera::viewport_to_world].
+/// See [`world_to_viewport`][Camera::world_to_viewport] and
+/// [`viewport_to_world`][Camera::viewport_to_world].
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Error)]
 pub enum ViewportConversionError {
     /// The pre-computed size of the viewport was not available.
     ///
-    /// This may be because the `Camera` was just created and [`camera_system`] has not been executed
-    /// yet, or because the [`RenderTarget`] is misconfigured in one of the following ways:
+    /// This may be because the `Camera` was just created and [`camera_system`] has not been
+    /// executed yet, or because the [`RenderTarget`] is misconfigured in one of the following
+    /// ways:
     ///   - it references the [`PrimaryWindow`](RenderTarget::Window) when there is none,
-    ///   - it references a [`Window`](RenderTarget::Window) entity that doesn't exist or doesn't actually have a `Window` component,
+    ///   - it references a [`Window`](RenderTarget::Window) entity that doesn't exist or doesn't
+    ///     actually have a `Window` component,
     ///   - it references an [`Image`](RenderTarget::Image) that doesn't exist (invalid handle),
-    ///   - it references a [`TextureView`](RenderTarget::TextureView) that doesn't exist (invalid handle).
+    ///   - it references a [`TextureView`](RenderTarget::TextureView) that doesn't exist (invalid
+    ///     handle).
     #[error("pre-computed size of viewport not available")]
     NoViewportSize,
     /// The computed coordinate was beyond the `Camera`'s near plane.
@@ -344,29 +348,33 @@ pub enum ViewportConversionError {
     SyncToRenderWorld
 )]
 pub struct Camera {
-    /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
+    /// If set, this camera will render to the given [`Viewport`] rectangle within the configured
+    /// [`RenderTarget`].
     pub viewport: Option<Viewport>,
     /// Cameras with a higher order are rendered later, and thus on top of lower order cameras.
     pub order: isize,
-    /// If this is set to `true`, this camera will be rendered to its specified [`RenderTarget`]. If `false`, this
-    /// camera will not be rendered.
+    /// If this is set to `true`, this camera will be rendered to its specified [`RenderTarget`].
+    /// If `false`, this camera will not be rendered.
     pub is_active: bool,
     /// Computed values for this camera, such as the projection matrix and the render target size.
     #[reflect(ignore, clone)]
     pub computed: ComputedCameraValues,
     /// The "target" that this camera will render to.
     pub target: RenderTarget,
-    /// If this is set to `true`, the camera will use an intermediate "high dynamic range" render texture.
-    /// This allows rendering with a wider range of lighting values.
+    /// If this is set to `true`, the camera will use an intermediate "high dynamic range" render
+    /// texture. This allows rendering with a wider range of lighting values.
     pub hdr: bool,
     // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
     #[reflect(ignore, clone)]
     pub output_mode: CameraOutputMode,
-    /// If this is enabled, a previous camera exists that shares this camera's render target, and this camera has MSAA enabled, then the previous camera's
-    /// outputs will be written to the intermediate multi-sampled render target textures for this camera. This enables cameras with MSAA enabled to
-    /// "write their results on top" of previous camera results, and include them as a part of their render results. This is enabled by default to ensure
-    /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
+    /// If this is enabled, a previous camera exists that shares this camera's render target, and
+    /// this camera has MSAA enabled, then the previous camera's outputs will be written to the
+    /// intermediate multi-sampled render target textures for this camera. This enables cameras
+    /// with MSAA enabled to "write their results on top" of previous camera results, and
+    /// include them as a part of their render results. This is enabled by default to ensure
+    /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA
+    /// enabled by default.
     pub msaa_writeback: bool,
     /// The clear color operation to perform on the render target.
     pub clear_color: ClearColorConfig,
@@ -443,12 +451,15 @@ impl Camera {
     /// [`RenderTarget`], prefer [`Camera::logical_target_size`].
     ///
     /// Returns `None` if either:
-    /// - the function is called just after the `Camera` is created, before `camera_system` is executed,
+    /// - the function is called just after the `Camera` is created, before `camera_system` is
+    ///   executed,
     /// - the [`RenderTarget`] isn't correctly set:
     ///   - it references the [`PrimaryWindow`](RenderTarget::Window) when there is none,
-    ///   - it references a [`Window`](RenderTarget::Window) entity that doesn't exist or doesn't actually have a `Window` component,
+    ///   - it references a [`Window`](RenderTarget::Window) entity that doesn't exist or doesn't
+    ///     actually have a `Window` component,
     ///   - it references an [`Image`](RenderTarget::Image) that doesn't exist (invalid handle),
-    ///   - it references a [`TextureView`](RenderTarget::TextureView) that doesn't exist (invalid handle).
+    ///   - it references a [`TextureView`](RenderTarget::TextureView) that doesn't exist (invalid
+    ///     handle).
     #[inline]
     pub fn logical_viewport_size(&self) -> Option<Vec2> {
         self.viewport
@@ -459,9 +470,10 @@ impl Camera {
 
     /// The physical size of this camera's viewport (in physical pixels).
     /// If the `viewport` field is set to [`Some`], this
-    /// will be the size of that custom viewport. Otherwise it will default to the full physical size of
-    /// the current [`RenderTarget`].
-    /// For logic that requires the full physical size of the [`RenderTarget`], prefer [`Camera::physical_target_size`].
+    /// will be the size of that custom viewport. Otherwise it will default to the full physical
+    /// size of the current [`RenderTarget`].
+    /// For logic that requires the full physical size of the [`RenderTarget`], prefer
+    /// [`Camera::physical_target_size`].
     #[inline]
     pub fn physical_viewport_size(&self) -> Option<UVec2> {
         self.viewport
@@ -470,9 +482,10 @@ impl Camera {
             .or_else(|| self.physical_target_size())
     }
 
-    /// The full logical size of this camera's [`RenderTarget`], ignoring custom `viewport` configuration.
-    /// Note that if the `viewport` field is [`Some`], this will not represent the size of the rendered area.
-    /// For logic that requires the size of the actually rendered area, prefer [`Camera::logical_viewport_size`].
+    /// The full logical size of this camera's [`RenderTarget`], ignoring custom `viewport`
+    /// configuration. Note that if the `viewport` field is [`Some`], this will not represent
+    /// the size of the rendered area. For logic that requires the size of the actually rendered
+    /// area, prefer [`Camera::logical_viewport_size`].
     #[inline]
     pub fn logical_target_size(&self) -> Option<Vec2> {
         self.computed
@@ -483,8 +496,9 @@ impl Camera {
 
     /// The full physical size of this camera's [`RenderTarget`] (in physical pixels),
     /// ignoring custom `viewport` configuration.
-    /// Note that if the `viewport` field is [`Some`], this will not represent the size of the rendered area.
-    /// For logic that requires the size of the actually rendered area, prefer [`Camera::physical_viewport_size`].
+    /// Note that if the `viewport` field is [`Some`], this will not represent the size of the
+    /// rendered area. For logic that requires the size of the actually rendered area, prefer
+    /// [`Camera::physical_viewport_size`].
     #[inline]
     pub fn physical_target_size(&self) -> Option<UVec2> {
         self.computed.target_info.as_ref().map(|t| t.physical_size)
@@ -525,7 +539,8 @@ impl Camera {
         let mut ndc_space_coords = self
             .world_to_ndc(camera_transform, world_position)
             .ok_or(ViewportConversionError::InvalidData)?;
-        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
+        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus
+        // not in viewport-space
         if ndc_space_coords.z < 0.0 {
             return Err(ViewportConversionError::PastNearPlane);
         }
@@ -542,7 +557,8 @@ impl Camera {
         Ok(viewport_position)
     }
 
-    /// Given a position in world space, use the camera to compute the viewport-space coordinates and depth.
+    /// Given a position in world space, use the camera to compute the viewport-space coordinates
+    /// and depth.
     ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
     /// [`world_to_ndc`](Self::world_to_ndc).
@@ -563,7 +579,8 @@ impl Camera {
         let mut ndc_space_coords = self
             .world_to_ndc(camera_transform, world_position)
             .ok_or(ViewportConversionError::InvalidData)?;
-        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
+        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus
+        // not in viewport-space
         if ndc_space_coords.z < 0.0 {
             return Err(ViewportConversionError::PastNearPlane);
         }
@@ -571,7 +588,8 @@ impl Camera {
             return Err(ViewportConversionError::PastFarPlane);
         }
 
-        // Stretching ndc depth to value via near plane and negating result to be in positive room again.
+        // Stretching ndc depth to value via near plane and negating result to be in positive room
+        // again.
         let depth = -self.depth_ndc_to_view_z(ndc_space_coords.z);
 
         // Flip the Y co-ordinate origin from the bottom to the top.
@@ -583,11 +601,13 @@ impl Camera {
         Ok(viewport_position.extend(depth))
     }
 
-    /// Returns a ray originating from the camera, that passes through everything beyond `viewport_position`.
+    /// Returns a ray originating from the camera, that passes through everything beyond
+    /// `viewport_position`.
     ///
     /// The resulting ray starts on the near plane of the camera.
     ///
-    /// If the camera's projection is orthographic the direction of the ray is always equal to `camera_transform.forward()`.
+    /// If the camera's projection is orthographic the direction of the ray is always equal to
+    /// `camera_transform.forward()`.
     ///
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
@@ -615,7 +635,8 @@ impl Camera {
         // Using EPSILON because an ndc with Z = 0 returns NaNs.
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
 
-        // The fallible direction constructor ensures that world_near_plane and world_far_plane aren't NaN.
+        // The fallible direction constructor ensures that world_near_plane and world_far_plane
+        // aren't NaN.
         Dir3::new(world_far_plane - world_near_plane)
             .map_err(|_| ViewportConversionError::InvalidData)
             .map(|direction| Ray3d {
@@ -626,7 +647,8 @@ impl Camera {
 
     /// Returns a 2D world position computed from a position on this [`Camera`]'s viewport.
     ///
-    /// Useful for 2D cameras and other cameras with an orthographic projection pointing along the Z axis.
+    /// Useful for 2D cameras and other cameras with an orthographic projection pointing along the Z
+    /// axis.
     ///
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
@@ -657,18 +679,21 @@ impl Camera {
         Ok(world_near_plane.truncate())
     }
 
-    /// Given a position in world space, use the camera's viewport to compute the Normalized Device Coordinates.
+    /// Given a position in world space, use the camera's viewport to compute the Normalized Device
+    /// Coordinates.
     ///
-    /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
-    /// and between 0.0 and 1.0 on the Z axis.
+    /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on
+    /// the X and Y axes, and between 0.0 and 1.0 on the Z axis.
     /// To get the coordinates in the render target's viewport dimensions, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
-    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
+    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix
+    /// defined by [`CameraProjection`] contain `NAN`.
     ///
     /// # Panics
     ///
-    /// Will panic if the `camera_transform` contains `NAN` and the `glam_assert` feature is enabled.
+    /// Will panic if the `camera_transform` contains `NAN` and the `glam_assert` feature is
+    /// enabled.
     pub fn world_to_ndc(
         &self,
         camera_transform: &GlobalTransform,
@@ -685,16 +710,18 @@ impl Camera {
     /// Given a position in Normalized Device Coordinates,
     /// use the camera's viewport to compute the world space position.
     ///
-    /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
-    /// and between 0.0 and 1.0 on the Z axis.
+    /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on
+    /// the X and Y axes, and between 0.0 and 1.0 on the Z axis.
     /// To get the world space coordinates with the viewport position, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
-    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
+    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix
+    /// defined by [`CameraProjection`] contain `NAN`.
     ///
     /// # Panics
     ///
-    /// Will panic if the projection matrix is invalid (has a determinant of 0) and `glam_assert` is enabled.
+    /// Will panic if the projection matrix is invalid (has a determinant of 0) and `glam_assert` is
+    /// enabled.
     pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
         // Build a transformation matrix to convert from NDC to world space using camera data
         let ndc_to_world =
@@ -729,17 +756,19 @@ impl Camera {
 pub enum CameraOutputMode {
     /// Writes the camera output to configured render target.
     Write {
-        /// The blend state that will be used by the pipeline that writes the intermediate render textures to the final render target texture.
+        /// The blend state that will be used by the pipeline that writes the intermediate render
+        /// textures to the final render target texture.
         blend_state: Option<BlendState>,
         /// The clear color operation to perform on the final render target texture.
         clear_color: ClearColorConfig,
     },
-    /// Skips writing the camera output to the configured render target. The output will remain in the
-    /// Render Target's "intermediate" textures, which a camera with a higher order should write to the render target
-    /// using [`CameraOutputMode::Write`]. The "skip" mode can easily prevent render results from being displayed, or cause
-    /// them to be lost. Only use this if you know what you are doing!
-    /// In camera setups with multiple active cameras rendering to the same [`RenderTarget`], the Skip mode can be used to remove
-    /// unnecessary / redundant writes to the final output texture, removing unnecessary render passes.
+    /// Skips writing the camera output to the configured render target. The output will remain in
+    /// the Render Target's "intermediate" textures, which a camera with a higher order should
+    /// write to the render target using [`CameraOutputMode::Write`]. The "skip" mode can easily
+    /// prevent render results from being displayed, or cause them to be lost. Only use this if
+    /// you know what you are doing! In camera setups with multiple active cameras rendering to
+    /// the same [`RenderTarget`], the Skip mode can be used to remove unnecessary / redundant
+    /// writes to the final output texture, removing unnecessary render passes.
     Skip,
 }
 
@@ -752,7 +781,8 @@ impl Default for CameraOutputMode {
     }
 }
 
-/// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
+/// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a
+/// given [`Camera`] entity.
 #[derive(Component, Debug, Deref, DerefMut, Reflect, Clone)]
 #[reflect(opaque)]
 #[reflect(Component, Debug, Clone)]
@@ -834,7 +864,8 @@ pub enum NormalizedRenderTarget {
 }
 
 impl RenderTarget {
-    /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
+    /// Normalize the render target down to a more concrete value, mostly used for equality
+    /// comparisons.
     pub fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
         match self {
             RenderTarget::Window(window_ref) => window_ref
@@ -951,8 +982,9 @@ impl NormalizedRenderTarget {
 ///
 /// ## World Resources
 ///
-/// [`Res<Assets<Image>>`](Assets<Image>) -- For cameras that render to an image, this resource is used to
-/// inspect information about the render target. This system will not access any other image assets.
+/// [`Res<Assets<Image>>`](Assets<Image>) -- For cameras that render to an image, this resource is
+/// used to inspect information about the render target. This system will not access any other image
+/// assets.
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
@@ -1030,9 +1062,10 @@ pub fn camera_system(
                         }
                     }
                 }
-                // This check is needed because when changing WindowMode to Fullscreen, the viewport may have invalid
-                // arguments due to a sudden change on the window size to a lower value.
-                // If the size of the window is lower, the viewport will match that lower value.
+                // This check is needed because when changing WindowMode to Fullscreen, the viewport
+                // may have invalid arguments due to a sudden change on the window
+                // size to a lower value. If the size of the window is lower, the
+                // viewport will match that lower value.
                 if let Some(viewport) = &mut camera.viewport {
                     let target_info = &new_computed_target_info;
                     if let Some(target) = target_info {
@@ -1064,7 +1097,8 @@ pub fn camera_system(
     }
 }
 
-/// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
+/// This component lets you control the [`TextureUsages`] field of the main texture generated for
+/// the camera
 #[derive(Component, ExtractComponent, Clone, Copy, Reflect)]
 #[reflect(opaque)]
 #[reflect(Component, Default, Clone)]

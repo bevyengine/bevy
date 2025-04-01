@@ -51,7 +51,8 @@ impl Component for ObservedBy {
 }
 
 impl EntityClonerBuilder<'_> {
-    /// Sets the option to automatically add cloned entities to the observers targeting source entity.
+    /// Sets the option to automatically add cloned entities to the observers targeting source
+    /// entity.
     pub fn add_observers(&mut self, add_observers: bool) -> &mut Self {
         if add_observers {
             self.override_clone_behavior::<ObservedBy>(ComponentCloneBehavior::Custom(

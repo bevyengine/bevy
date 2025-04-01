@@ -47,8 +47,9 @@ impl Plugin for Wireframe2dPlugin {
                 (
                     global_color_changed.run_if(resource_changed::<Wireframe2dConfig>),
                     wireframe_color_changed,
-                    // Run `apply_global_wireframe_material` after `apply_wireframe_material` so that the global
-                    // wireframe setting is applied to a mesh on the same frame its wireframe marker component is removed.
+                    // Run `apply_global_wireframe_material` after `apply_wireframe_material` so
+                    // that the global wireframe setting is applied to a mesh
+                    // on the same frame its wireframe marker component is removed.
                     (apply_wireframe_material, apply_global_wireframe_material).chain(),
                 ),
             );
@@ -66,7 +67,8 @@ pub struct Wireframe2d;
 /// Sets the color of the [`Wireframe2d`] of the entity it is attached to.
 ///
 /// If this component is present but there's no [`Wireframe2d`] component,
-/// it will still affect the color of the wireframe when [`Wireframe2dConfig::global`] is set to true.
+/// it will still affect the color of the wireframe when [`Wireframe2dConfig::global`] is set to
+/// true.
 ///
 /// This overrides the [`Wireframe2dConfig::default_color`].
 #[derive(Component, Debug, Clone, Default, Reflect)]
@@ -87,11 +89,12 @@ pub struct NoWireframe2d;
 #[reflect(Resource, Debug, Default, Clone)]
 pub struct Wireframe2dConfig {
     /// Whether to show wireframes for all 2D meshes.
-    /// Can be overridden for individual meshes by adding a [`Wireframe2d`] or [`NoWireframe2d`] component.
+    /// Can be overridden for individual meshes by adding a [`Wireframe2d`] or [`NoWireframe2d`]
+    /// component.
     pub global: bool,
-    /// If [`Self::global`] is set, any [`Entity`] that does not have a [`Wireframe2d`] component attached to it will have
-    /// wireframes using this color. Otherwise, this will be the fallback color for any entity that has a [`Wireframe2d`],
-    /// but no [`Wireframe2dColor`].
+    /// If [`Self::global`] is set, any [`Entity`] that does not have a [`Wireframe2d`] component
+    /// attached to it will have wireframes using this color. Otherwise, this will be the
+    /// fallback color for any entity that has a [`Wireframe2d`], but no [`Wireframe2dColor`].
     pub default_color: Color,
 }
 
@@ -114,7 +117,8 @@ fn setup_global_wireframe_material(
     });
 }
 
-/// Updates the wireframe material of all entities without a [`Wireframe2dColor`] or without a [`Wireframe2d`] component
+/// Updates the wireframe material of all entities without a [`Wireframe2dColor`] or without a
+/// [`Wireframe2d`] component
 fn global_color_changed(
     config: Res<Wireframe2dConfig>,
     mut materials: ResMut<Assets<Wireframe2dMaterial>>,
@@ -140,8 +144,8 @@ fn wireframe_color_changed(
     }
 }
 
-/// Applies or remove the wireframe material to any mesh with a [`Wireframe2d`] component, and removes it
-/// for any mesh with a [`NoWireframe2d`] component.
+/// Applies or remove the wireframe material to any mesh with a [`Wireframe2d`] component, and
+/// removes it for any mesh with a [`NoWireframe2d`] component.
 fn apply_wireframe_material(
     mut commands: Commands,
     mut materials: ResMut<Assets<Wireframe2dMaterial>>,
@@ -175,7 +179,8 @@ fn apply_wireframe_material(
                 color: wireframe_color.color.into(),
             })
         } else {
-            // If there's no color specified we can use the global material since it's already set to use the default_color
+            // If there's no color specified we can use the global material since it's already set
+            // to use the default_color
             global_material.handle.clone()
         };
         wireframes_to_spawn.push((e, MeshMaterial2d(material)));
@@ -185,7 +190,8 @@ fn apply_wireframe_material(
 
 type Wireframe2dFilter = (With<Mesh2d>, Without<Wireframe2d>, Without<NoWireframe2d>);
 
-/// Applies or removes a wireframe material on any mesh without a [`Wireframe2d`] or [`NoWireframe2d`] component.
+/// Applies or removes a wireframe material on any mesh without a [`Wireframe2d`] or
+/// [`NoWireframe2d`] component.
 fn apply_global_wireframe_material(
     mut commands: Commands,
     config: Res<Wireframe2dConfig>,
@@ -206,7 +212,8 @@ fn apply_global_wireframe_material(
         let mut material_to_spawn = vec![];
         for e in &meshes_without_material {
             // We only add the material handle but not the Wireframe component
-            // This makes it easy to detect which mesh is using the global material and which ones are user specified
+            // This makes it easy to detect which mesh is using the global material and which ones
+            // are user specified
             material_to_spawn.push((e, MeshMaterial2d(global_material.handle.clone())));
         }
         commands.try_insert_batch(material_to_spawn);

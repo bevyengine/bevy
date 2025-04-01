@@ -12,9 +12,12 @@ use core::{
 };
 use serde::{Deserialize, Serialize};
 
-/// Transforms an [`Asset`] of a given [`AssetTransformer::AssetInput`] type to an [`Asset`] of [`AssetTransformer::AssetOutput`] type.
+/// Transforms an [`Asset`] of a given [`AssetTransformer::AssetInput`] type to an [`Asset`] of
+/// [`AssetTransformer::AssetOutput`] type.
 ///
-/// This trait is commonly used in association with [`LoadTransformAndSave`](crate::processor::LoadTransformAndSave) to accomplish common asset pipeline workflows.
+/// This trait is commonly used in association with
+/// [`LoadTransformAndSave`](crate::processor::LoadTransformAndSave) to accomplish common asset
+/// pipeline workflows.
 pub trait AssetTransformer: Send + Sync + 'static {
     /// The [`Asset`] type which this [`AssetTransformer`] takes as and input.
     type AssetInput: Asset;
@@ -65,7 +68,8 @@ impl<A: Asset> TransformedAsset<A> {
         }
         None
     }
-    /// Creates a new [`TransformedAsset`] from `asset`, transferring the `labeled_assets` from this [`TransformedAsset`] to the new one
+    /// Creates a new [`TransformedAsset`] from `asset`, transferring the `labeled_assets` from this
+    /// [`TransformedAsset`] to the new one
     pub fn replace_asset<B: Asset>(self, asset: B) -> TransformedAsset<B> {
         TransformedAsset {
             value: asset,
@@ -117,7 +121,8 @@ impl<A: Asset> TransformedAsset<A> {
         let labeled = self.labeled_assets.get(label)?;
         Some(labeled.handle.clone())
     }
-    /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is an asset of type `B`
+    /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is
+    /// an asset of type `B`
     pub fn get_handle<Q, B: Asset>(&self, label: &Q) -> Option<Handle<B>>
     where
         CowArc<'static, str>: Borrow<Q>,
@@ -217,7 +222,8 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
         let labeled = self.labeled_assets.get(label)?;
         Some(labeled.handle.clone())
     }
-    /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is an asset of type `B`
+    /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is
+    /// an asset of type `B`
     pub fn get_handle<Q, B: Asset>(&self, label: &Q) -> Option<Handle<B>>
     where
         CowArc<'static, str>: Borrow<Q>,
@@ -248,7 +254,8 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
     }
 }
 
-/// An identity [`AssetTransformer`] which infallibly returns the input [`Asset`] on transformation.]
+/// An identity [`AssetTransformer`] which infallibly returns the input [`Asset`] on
+/// transformation.]
 pub struct IdentityAssetTransformer<A: Asset> {
     _phantom: PhantomData<fn(A) -> A>,
 }

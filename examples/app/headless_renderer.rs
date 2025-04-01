@@ -363,9 +363,10 @@ impl render_graph::Node for ImageCopyDriver {
             let block_size = src_image.texture_format.block_copy_size(None).unwrap();
 
             // Calculating correct size of image row because
-            // copy_texture_to_buffer can copy image only by rows aligned wgpu::COPY_BYTES_PER_ROW_ALIGNMENT
-            // That's why image in buffer can be little bit wider
-            // This should be taken into account at copy from buffer stage
+            // copy_texture_to_buffer can copy image only by rows aligned
+            // wgpu::COPY_BYTES_PER_ROW_ALIGNMENT That's why image in buffer can be
+            // little bit wider This should be taken into account at copy from buffer
+            // stage
             let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
                 (src_image.size.width as usize / block_dimensions.0 as usize) * block_size as usize,
             );
@@ -395,7 +396,8 @@ impl render_graph::Node for ImageCopyDriver {
     }
 }
 
-/// runs in render world after Render stage to send image from buffer via channel (receiver is in main world)
+/// runs in render world after Render stage to send image from buffer via channel (receiver is in
+/// main world)
 fn receive_image_from_buffer(
     image_copiers: Res<ImageCopiers>,
     render_device: Res<RenderDevice>,
@@ -454,7 +456,8 @@ fn receive_image_from_buffer(
         // This blocks until the buffer is mapped
         r.recv().expect("Failed to receive the map_async message");
 
-        // This could fail on app exit, if Main world clears resources (including receiver) while Render world still renders
+        // This could fail on app exit, if Main world clears resources (including receiver) while
+        // Render world still renders
         let _ = sender.send(buffer_slice.get_mapped_range().to_vec());
 
         // We need to make sure all `BufferView`'s are dropped before we do what we're about
@@ -494,7 +497,8 @@ fn update(
 
                     // We need to ensure that this works regardless of the image dimensions
                     // If the image became wider when copying from the texture to the buffer,
-                    // then the data is reduced to its original size when copying from the buffer to the image.
+                    // then the data is reduced to its original size when copying from the buffer to
+                    // the image.
                     let row_bytes = img_bytes.width() as usize
                         * img_bytes.texture_descriptor.format.pixel_size();
                     let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
@@ -518,8 +522,9 @@ fn update(
                         Err(e) => panic!("Failed to create image buffer {e:?}"),
                     };
 
-                    // Prepare directory for images, test_images in bevy folder is used here for example
-                    // You should choose the path depending on your needs
+                    // Prepare directory for images, test_images in bevy folder is used here for
+                    // example You should choose the path depending on your
+                    // needs
                     let images_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_images");
                     info!("Saving image to: {images_dir:?}");
                     std::fs::create_dir_all(&images_dir).unwrap();

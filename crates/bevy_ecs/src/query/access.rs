@@ -48,7 +48,8 @@ impl<'a, T: SparseSetIndex + Debug> Debug for FormattedBitSet<'a, T> {
 /// Tracks read and write access to specific elements in a collection.
 ///
 /// Used internally to ensure soundness during system initialization and execution.
-/// See the [`is_compatible`](Access::is_compatible) and [`get_conflicts`](Access::get_conflicts) functions.
+/// See the [`is_compatible`](Access::is_compatible) and [`get_conflicts`](Access::get_conflicts)
+/// functions.
 #[derive(Eq, PartialEq)]
 pub struct Access<T: SparseSetIndex> {
     /// All accessed components, or forbidden components if
@@ -68,7 +69,8 @@ pub struct Access<T: SparseSetIndex> {
     /// present in `Self::component_writes`.
     component_writes_inverted: bool,
     /// Is `true` if this has access to all resources.
-    /// This field is a performance optimization for `&World` (also harder to mess up for soundness).
+    /// This field is a performance optimization for `&World` (also harder to mess up for
+    /// soundness).
     reads_all_resources: bool,
     /// Is `true` if this has mutable access to all resources.
     /// If this is true, then `reads_all` must also be true.
@@ -586,8 +588,8 @@ impl<T: SparseSetIndex> Access<T> {
         self.is_components_compatible(other) && self.is_resources_compatible(other)
     }
 
-    /// Returns `true` if the set's component access is a subset of another, i.e. `other`'s component access
-    /// contains at least all the values in `self`.
+    /// Returns `true` if the set's component access is a subset of another, i.e. `other`'s
+    /// component access contains at least all the values in `self`.
     pub fn is_subset_components(&self, other: &Access<T>) -> bool {
         for (
             our_components,
@@ -633,8 +635,8 @@ impl<T: SparseSetIndex> Access<T> {
         true
     }
 
-    /// Returns `true` if the set's resource access is a subset of another, i.e. `other`'s resource access
-    /// contains at least all the values in `self`.
+    /// Returns `true` if the set's resource access is a subset of another, i.e. `other`'s resource
+    /// access contains at least all the values in `self`.
     pub fn is_subset_resources(&self, other: &Access<T>) -> bool {
         if self.writes_all_resources {
             return other.writes_all_resources;
@@ -878,8 +880,8 @@ impl<T> ComponentAccessKind<T> {
 /// For example consider `Query<Option<&T>>` this only has a `read` of `T` as doing
 /// otherwise would allow for queries to be considered disjoint when they shouldn't:
 /// - `Query<(&mut T, Option<&U>)>` read/write `T`, read `U`, with `U`
-/// - `Query<&mut T, Without<U>>` read/write `T`, without `U`
-///   from this we could reasonably conclude that the queries are disjoint but they aren't.
+/// - `Query<&mut T, Without<U>>` read/write `T`, without `U` from this we could reasonably conclude
+///   that the queries are disjoint but they aren't.
 ///
 /// In order to solve this the actual access that `Query<(&mut T, Option<&U>)>` has
 /// is read/write `T`, read `U`. It must still have a read `U` access otherwise the following
@@ -887,13 +889,15 @@ impl<T> ComponentAccessKind<T> {
 /// - `Query<&mut T>`  read/write `T`
 /// - `Query<Option<&T>>` accesses nothing
 ///
-/// See comments the [`WorldQuery`](super::WorldQuery) impls of [`AnyOf`](super::AnyOf)/`Option`/[`Or`](super::Or) for more information.
+/// See comments the [`WorldQuery`](super::WorldQuery) impls of
+/// [`AnyOf`](super::AnyOf)/`Option`/[`Or`](super::Or) for more information.
 #[derive(Debug, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     pub(crate) access: Access<T>,
     pub(crate) required: FixedBitSet,
-    // An array of filter sets to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
-    // Filters like `(With<A>, Or<(With<B>, Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
+    // An array of filter sets to express `With` or `Without` clauses in disjunctive normal form,
+    // for example: `Or<(With<A>, With<B>)>`. Filters like `(With<A>, Or<(With<B>,
+    // Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
     pub(crate) filter_sets: Vec<AccessFilters<T>>,
 }
 
@@ -1053,8 +1057,9 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     /// Adds a `With` filter: corresponds to a conjunction (AND) operation.
     ///
-    /// Suppose we begin with `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances.
-    /// Adding `AND With<C>` via this method transforms it into the equivalent of  `Or<((With<A>, With<C>), (With<B>, With<C>))>`.
+    /// Suppose we begin with `Or<(With<A>, With<B>)>`, which is represented by an array of two
+    /// `AccessFilter` instances. Adding `AND With<C>` via this method transforms it into the
+    /// equivalent of  `Or<((With<A>, With<C>), (With<B>, With<C>))>`.
     pub fn and_with(&mut self, index: T) {
         for filter in &mut self.filter_sets {
             filter.with.grow_and_insert(index.sparse_set_index());
@@ -1063,8 +1068,9 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     /// Adds a `Without` filter: corresponds to a conjunction (AND) operation.
     ///
-    /// Suppose we begin with `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances.
-    /// Adding `AND Without<C>` via this method transforms it into the equivalent of  `Or<((With<A>, Without<C>), (With<B>, Without<C>))>`.
+    /// Suppose we begin with `Or<(With<A>, With<B>)>`, which is represented by an array of two
+    /// `AccessFilter` instances. Adding `AND Without<C>` via this method transforms it into the
+    /// equivalent of  `Or<((With<A>, Without<C>), (With<B>, Without<C>))>`.
     pub fn and_without(&mut self, index: T) {
         for filter in &mut self.filter_sets {
             filter.without.grow_and_insert(index.sparse_set_index());
@@ -1099,11 +1105,13 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
         // If the access instances are incompatible, we want to check that whether filters can
         // guarantee that queries are disjoint.
-        // Since the `filter_sets` array represents a Disjunctive Normal Form formula ("ORs of ANDs"),
-        // we need to make sure that each filter set (ANDs) rule out every filter set from the `other` instance.
+        // Since the `filter_sets` array represents a Disjunctive Normal Form formula ("ORs of
+        // ANDs"), we need to make sure that each filter set (ANDs) rule out every filter
+        // set from the `other` instance.
         //
-        // For example, `Query<&mut C, Or<(With<A>, Without<B>)>>` is compatible `Query<&mut C, (With<B>, Without<A>)>`,
-        // but `Query<&mut C, Or<(Without<A>, Without<B>)>>` isn't compatible with `Query<&mut C, Or<(With<A>, With<B>)>>`.
+        // For example, `Query<&mut C, Or<(With<A>, Without<B>)>>` is compatible `Query<&mut C,
+        // (With<B>, Without<A>)>`, but `Query<&mut C, Or<(Without<A>, Without<B>)>>` isn't
+        // compatible with `Query<&mut C, Or<(With<A>, With<B>)>>`.
         self.filter_sets.iter().all(|filter| {
             other
                 .filter_sets
@@ -1126,13 +1134,15 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Corresponds to a conjunction operation (AND) for filters.
     ///
     /// Extending `Or<(With<A>, Without<B>)>` with `Or<(With<C>, Without<D>)>` will result in
-    /// `Or<((With<A>, With<C>), (With<A>, Without<D>), (Without<B>, With<C>), (Without<B>, Without<D>))>`.
+    /// `Or<((With<A>, With<C>), (With<A>, Without<D>), (Without<B>, With<C>), (Without<B>,
+    /// Without<D>))>`.
     pub fn extend(&mut self, other: &FilteredAccess<T>) {
         self.access.extend(&other.access);
         self.required.union_with(&other.required);
 
-        // We can avoid allocating a new array of bitsets if `other` contains just a single set of filters:
-        // in this case we can short-circuit by performing an in-place union for each bitset.
+        // We can avoid allocating a new array of bitsets if `other` contains just a single set of
+        // filters: in this case we can short-circuit by performing an in-place union for
+        // each bitset.
         if other.filter_sets.len() == 1 {
             for filter in &mut self.filter_sets {
                 filter.with.union_with(&other.filter_sets[0].with);
@@ -1295,15 +1305,14 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     /// Returns `true` if this and `other` can be active at the same time.
     ///
     /// Access conflict resolution happen in two steps:
-    /// 1. A "coarse" check, if there is no mutual unfiltered conflict between
-    ///    `self` and `other`, we already know that the two access sets are
+    /// 1. A "coarse" check, if there is no mutual unfiltered conflict between `self` and `other`,
+    ///    we already know that the two access sets are compatible.
+    /// 2. A "fine grained" check, it kicks in when the "coarse" check fails. the two access sets
+    ///    might still be compatible if some of the accesses are restricted with the
+    ///    [`With`](super::With) or [`Without`](super::Without) filters so that access is mutually
+    ///    exclusive. The fine grained phase iterates over all filters in the `self` set and
+    ///    compares it to all the filters in the `other` set, making sure they are all mutually
     ///    compatible.
-    /// 2. A "fine grained" check, it kicks in when the "coarse" check fails.
-    ///    the two access sets might still be compatible if some of the accesses
-    ///    are restricted with the [`With`](super::With) or [`Without`](super::Without) filters so that access is
-    ///    mutually exclusive. The fine grained phase iterates over all filters in
-    ///    the `self` set and compares it to all the filters in the `other` set,
-    ///    making sure they are all mutually compatible.
     pub fn is_compatible(&self, other: &FilteredAccessSet<T>) -> bool {
         if self.combined_access.is_compatible(other.combined_access()) {
             return true;
@@ -1678,7 +1687,8 @@ mod tests {
         let mut expected = FilteredAccess::<usize>::default();
         expected.add_component_write(0);
         expected.add_component_write(1);
-        // The resulted access is expected to represent `Or<((With<A>, With<B>, With<C>), (With<A>, With<B>, With<D>, Without<E>))>`.
+        // The resulted access is expected to represent `Or<((With<A>, With<B>, With<C>), (With<A>,
+        // With<B>, With<D>, Without<E>))>`.
         expected.filter_sets = vec![
             AccessFilters {
                 with: FixedBitSet::with_capacity_and_blocks(3, [0b111]),

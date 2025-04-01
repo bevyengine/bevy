@@ -47,10 +47,10 @@ pub struct TextEntity {
 pub struct ComputedTextBlock {
     /// Buffer for managing text layout and creating [`TextLayoutInfo`].
     ///
-    /// This is private because buffer contents are always refreshed from ECS state when writing glyphs to
-    /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
-    /// `TextLayoutInfo`.
+    /// This is private because buffer contents are always refreshed from ECS state when writing
+    /// glyphs to `TextLayoutInfo`. If you want to control the buffer contents manually or use
+    /// the `cosmic-text` editor, then you need to not use `TextLayout` and instead manually
+    /// implement the conversion to `TextLayoutInfo`.
     #[reflect(ignore, clone)]
     pub(crate) buffer: CosmicBuffer,
     /// Entities for all text spans in the block, including the root-level text.
@@ -61,20 +61,22 @@ pub struct ComputedTextBlock {
     ///
     /// Includes:
     /// - [`TextLayout`] changes.
-    /// - [`TextFont`] or `Text2d`/`Text`/`TextSpan` changes anywhere in the block's entity hierarchy.
-    // TODO: This encompasses both structural changes like font size or justification and non-structural
-    // changes like text color and font smoothing. This field currently causes UI to 'remeasure' text, even if
-    // the actual changes are non-structural and can be handled by only rerendering and not remeasuring. A full
-    // solution would probably require splitting TextLayout and TextFont into structural/non-structural
-    // components for more granular change detection. A cost/benefit analysis is needed.
+    /// - [`TextFont`] or `Text2d`/`Text`/`TextSpan` changes anywhere in the block's entity
+    ///   hierarchy.
+    // TODO: This encompasses both structural changes like font size or justification and
+    // non-structural changes like text color and font smoothing. This field currently causes
+    // UI to 'remeasure' text, even if the actual changes are non-structural and can be handled
+    // by only rerendering and not remeasuring. A full solution would probably require
+    // splitting TextLayout and TextFont into structural/non-structural components for more
+    // granular change detection. A cost/benefit analysis is needed.
     pub(crate) needs_rerender: bool,
 }
 
 impl ComputedTextBlock {
     /// Accesses entities in this block.
     ///
-    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
-    /// stored there.
+    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the
+    /// `span_index` stored there.
     pub fn entities(&self) -> &[TextEntity] {
         &self.entities
     }
@@ -86,13 +88,13 @@ impl ComputedTextBlock {
     pub fn needs_rerender(&self) -> bool {
         self.needs_rerender
     }
-    /// Accesses the underlying buffer which can be used for `cosmic-text` APIs such as accessing layout information
-    /// or calculating a cursor position.
+    /// Accesses the underlying buffer which can be used for `cosmic-text` APIs such as accessing
+    /// layout information or calculating a cursor position.
     ///
-    /// Mutable access is not offered because changes would be overwritten during the automated layout calculation.
-    /// If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
-    /// `TextLayoutInfo`.
+    /// Mutable access is not offered because changes would be overwritten during the automated
+    /// layout calculation. If you want to control the buffer contents manually or use the
+    /// `cosmic-text` editor, then you need to not use `TextLayout` and instead manually
+    /// implement the conversion to `TextLayoutInfo`.
     pub fn buffer(&self) -> &CosmicBuffer {
         &self.buffer
     }
@@ -110,11 +112,12 @@ impl Default for ComputedTextBlock {
 
 /// Component with text format settings for a block of text.
 ///
-/// A block of text is composed of text spans, which each have a separate string value and [`TextFont`]. Text
-/// spans associated with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted
-/// to [`TextLayoutInfo`] for rendering.
+/// A block of text is composed of text spans, which each have a separate string value and
+/// [`TextFont`]. Text spans associated with a text block are collected into [`ComputedTextBlock`]
+/// for layout, and then inserted to [`TextLayoutInfo`] for rendering.
 ///
-/// See [`Text2d`](crate::Text2d) for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
+/// See [`Text2d`](crate::Text2d) for the core component of 2d text, and `Text` in `bevy_ui` for UI
+/// text.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(ComputedTextBlock, TextLayoutInfo)]
@@ -143,7 +146,8 @@ impl TextLayout {
     }
 
     /// Makes a new [`TextLayout`] with soft wrapping disabled.
-    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
+    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`,
+    /// will still occur.
     pub fn new_with_no_wrap() -> Self {
         Self::default().with_no_wrap()
     }
@@ -161,7 +165,8 @@ impl TextLayout {
     }
 
     /// Returns this [`TextLayout`] with soft wrapping disabled.
-    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
+    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`,
+    /// will still occur.
     pub const fn with_no_wrap(mut self) -> Self {
         self.linebreak = LineBreak::NoWrap;
         self
@@ -170,8 +175,8 @@ impl TextLayout {
 
 /// A span of text in a tree of spans.
 ///
-/// `TextSpan` is only valid as a child of an entity with [`TextLayout`], which is provided by `Text`
-/// for text in `bevy_ui` or `Text2d` for text in 2d world-space.
+/// `TextSpan` is only valid as a child of an entity with [`TextLayout`], which is provided by
+/// `Text` for text in `bevy_ui` or `Text2d` for text in 2d world-space.
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
 ///
@@ -420,10 +425,12 @@ pub enum LineBreak {
     /// This is closer to the behavior one might expect from text in a terminal.
     /// However it may lead to words being broken up across linebreaks.
     AnyCharacter,
-    /// Wraps at the word level, or fallback to character level if a word can’t fit on a line by itself
+    /// Wraps at the word level, or fallback to character level if a word can’t fit on a line by
+    /// itself
     WordOrCharacter,
-    /// No soft wrapping, where text is automatically broken up into separate lines when it overflows a boundary, will ever occur.
-    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, is still enabled.
+    /// No soft wrapping, where text is automatically broken up into separate lines when it
+    /// overflows a boundary, will ever occur. Hard wrapping, where text contains an explicit
+    /// linebreak such as the escape sequence `\n`, is still enabled.
     NoWrap,
 }
 
@@ -438,7 +445,8 @@ pub enum LineBreak {
 pub enum FontSmoothing {
     /// No antialiasing. Useful for when you want to render text with a pixel art aesthetic.
     ///
-    /// Combine this with `UiAntiAlias::Off` and `Msaa::Off` on your 2D camera for a fully pixelated look.
+    /// Combine this with `UiAntiAlias::Off` and `Msaa::Off` on your 2D camera for a fully pixelated
+    /// look.
     ///
     /// **Note:** Due to limitations of the underlying text rendering library,
     /// this may require specially-crafted pixel fonts to look good, especially at small sizes.
@@ -453,8 +461,8 @@ pub enum FontSmoothing {
 
 /// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
 ///
-/// Generic over the root text component and text span component. For example, [`Text2d`](crate::Text2d)/[`TextSpan`] for
-/// 2d or `Text`/[`TextSpan`] for UI.
+/// Generic over the root text component and text span component. For example,
+/// [`Text2d`](crate::Text2d)/[`TextSpan`] for 2d or `Text`/[`TextSpan`] for UI.
 pub fn detect_text_needs_rerender<Root: Component>(
     changed_roots: Query<
         Entity,
@@ -534,8 +542,8 @@ pub fn detect_text_needs_rerender<Root: Component>(
         let mut parent: Entity = span_child_of.parent;
 
         // Search for the nearest ancestor with ComputedTextBlock.
-        // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
-        // is outweighed by the expense of tracking visited spans.
+        // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a
+        // block are visited is outweighed by the expense of tracking visited spans.
         loop {
             let Ok((maybe_child_of, maybe_computed, has_span)) = computed.get_mut(parent) else {
                 once!(warn!(

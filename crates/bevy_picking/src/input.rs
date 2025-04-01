@@ -8,8 +8,8 @@
 //!
 //! If, for example, you wanted to add support for VR input, all you need to do is spawn a pointer
 //! entity with a custom [`PointerId`], and write a system
-//! that updates its position. If you want this to work properly with the existing interaction events,
-//! you need to be sure that you also write a [`PointerInput`] event stream.
+//! that updates its position. If you want this to work properly with the existing interaction
+//! events, you need to be sure that you also write a [`PointerInput`] event stream.
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
@@ -45,8 +45,8 @@ pub mod prelude {
 /// [`crate::PickingPlugin::is_input_enabled`] can be used to toggle whether
 /// the core picking plugin processes the inputs sent by this, or other input plugins, in one place.
 ///
-/// This plugin contains several settings, and is added to the world as a resource after initialization.
-/// You can configure pointer input settings at runtime by accessing the resource.
+/// This plugin contains several settings, and is added to the world as a resource after
+/// initialization. You can configure pointer input settings at runtime by accessing the resource.
 #[derive(Copy, Clone, Resource, Debug, Reflect)]
 #[reflect(Resource, Default, Clone)]
 pub struct PointerInputPlugin {

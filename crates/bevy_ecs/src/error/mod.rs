@@ -4,13 +4,14 @@
 //! considers those systems to be "fallible", and the ECS scheduler will special-case the [`Err`]
 //! variant of the returned `Result`.
 //!
-//! All [`BevyError`]s returned by a system, observer or command are handled by an "error handler". By default, the
-//! [`panic`] error handler function is used, resulting in a panic with the error message attached.
+//! All [`BevyError`]s returned by a system, observer or command are handled by an "error handler".
+//! By default, the [`panic`] error handler function is used, resulting in a panic with the error
+//! message attached.
 //!
 //! You can change the default behavior by registering a custom error handler.
-//! Modify the [`GLOBAL_ERROR_HANDLER`] value to set a custom error handler function for your entire app.
-//! In practice, this is generally feature-flagged: panicking or loudly logging errors in development,
-//! and quietly logging or ignoring them in production to avoid crashing the app.
+//! Modify the [`GLOBAL_ERROR_HANDLER`] value to set a custom error handler function for your entire
+//! app. In practice, this is generally feature-flagged: panicking or loudly logging errors in
+//! development, and quietly logging or ignoring them in production to avoid crashing the app.
 //!
 //! Bevy provides a number of pre-built error-handlers for you to use:
 //!
@@ -58,7 +59,8 @@
 //! If you need special handling of individual fallible systems, you can use Bevy's [`system piping
 //! feature`] to capture the [`Result`] output of the system and handle it accordingly.
 //!
-//! When working with commands, you can handle the result of each command separately using the [`HandleError::handle_error_with`] method.
+//! When working with commands, you can handle the result of each command separately using the
+//! [`HandleError::handle_error_with`] method.
 //!
 //! [`Schedule`]: crate::schedule::Schedule
 //! [`panic`]: panic()

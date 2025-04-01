@@ -34,12 +34,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Recursively walks up the tree defined by the given `R` [`Relationship`] until
-    /// there are no more related entities, returning the "root entity" of the relationship hierarchy.
+    /// there are no more related entities, returning the "root entity" of the relationship
+    /// hierarchy.
     ///
     /// # Warning
     ///
     /// For relationship graphs that contain loops, this could loop infinitely.
-    /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter a duplicate entity.
+    /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter
+    /// a duplicate entity.
     pub fn root_ancestor<R: Relationship>(&'w self, entity: Entity) -> Entity
     where
         <D as QueryData>::ReadOnly: QueryData<Item<'w> = &'w R>,
@@ -56,7 +58,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # Warning
     ///
     /// For relationship graphs that contain loops, this could loop infinitely.
-    /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter a duplicate entity.
+    /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter
+    /// a duplicate entity.
     pub fn iter_leaves<S: RelationshipTarget>(
         &'w self,
         entity: Entity,
@@ -74,7 +77,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         })
     }
 
-    /// Iterates all sibling entities that also have the `R` [`Relationship`] with the same target entity.
+    /// Iterates all sibling entities that also have the `R` [`Relationship`] with the same target
+    /// entity.
     pub fn iter_siblings<R: Relationship>(
         &'w self,
         entity: Entity,
@@ -91,13 +95,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             .flat_map(move |children| children.iter().filter(move |child| *child != entity))
     }
 
-    /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipTarget`] and their recursive
-    /// [`RelationshipTarget`].
+    /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipTarget`]
+    /// and their recursive [`RelationshipTarget`].
     ///
     /// # Warning
     ///
     /// For relationship graphs that contain loops, this could loop infinitely.
-    /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter a duplicate entity.
+    /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter
+    /// a duplicate entity.
     pub fn iter_descendants<S: RelationshipTarget>(
         &'w self,
         entity: Entity,
@@ -108,13 +113,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         DescendantIter::new(self, entity)
     }
 
-    /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipTarget`] and their recursive
-    /// [`RelationshipTarget`] in depth-first order.
+    /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipTarget`]
+    /// and their recursive [`RelationshipTarget`] in depth-first order.
     ///
     /// # Warning
     ///
     /// For relationship graphs that contain loops, this could loop infinitely.
-    /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter a duplicate entity.
+    /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter
+    /// a duplicate entity.
     pub fn iter_descendants_depth_first<S: RelationshipTarget>(
         &'w self,
         entity: Entity,
@@ -131,7 +137,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # Warning
     ///
     /// For relationship graphs that contain loops, this could loop infinitely.
-    /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter a duplicate entity.
+    /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter
+    /// a duplicate entity.
     pub fn iter_ancestors<R: Relationship>(
         &'w self,
         entity: Entity,

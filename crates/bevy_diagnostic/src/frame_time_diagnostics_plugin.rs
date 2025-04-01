@@ -14,7 +14,8 @@ use bevy_time::{Real, Time};
 pub struct FrameTimeDiagnosticsPlugin {
     /// The total number of values to keep for averaging.
     pub max_history_length: usize,
-    /// The smoothing factor for the exponential moving average. Usually `2.0 / (history_length + 1.0)`.
+    /// The smoothing factor for the exponential moving average. Usually `2.0 / (history_length +
+    /// 1.0)`.
     pub smoothing_factor: f64,
 }
 impl Default for FrameTimeDiagnosticsPlugin {

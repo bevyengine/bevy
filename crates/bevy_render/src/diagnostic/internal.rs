@@ -534,9 +534,14 @@ impl FrameData {
 
                 #[cfg(feature = "tracing-tracy")]
                 {
-                    // Calling span_alloc() and end_zone() here instead of in open_span() and close_span() means that tracy does not know where each GPU command was recorded on the CPU timeline.
-                    // Unfortunately we must do it this way, because tracy does not play nicely with multithreaded command recording. The start/end pairs would get all mixed up.
-                    // The GPU spans themselves are still accurate though, and it's probably safe to assume that each GPU span in frame N belongs to the corresponding CPU render node span from frame N-1.
+                    // Calling span_alloc() and end_zone() here instead of in open_span() and
+                    // close_span() means that tracy does not know where each GPU command was
+                    // recorded on the CPU timeline. Unfortunately we must do it
+                    // this way, because tracy does not play nicely with multithreaded command
+                    // recording. The start/end pairs would get all mixed up.
+                    // The GPU spans themselves are still accurate though, and it's probably safe to
+                    // assume that each GPU span in frame N belongs to the corresponding CPU render
+                    // node span from frame N-1.
                     let name = &self.path_components[span.path_range.clone()].join("/");
                     let mut tracy_gpu_span =
                         self.tracy_gpu_context.span_alloc(name, "", "", 0).unwrap();

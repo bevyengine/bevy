@@ -663,8 +663,8 @@ impl ScheduleState {
         // Systems may be present multiple times within a schedule, so we
         // iterate through all systems in the schedule, and check our behavior
         // updates for the system TypeId.
-        // PERF: If we add a way to efficiently query schedule systems by their TypeId, we could remove the full
-        // system scan here
+        // PERF: If we add a way to efficiently query schedule systems by their TypeId, we could
+        // remove the full system scan here
         for (node_id, system) in schedule.systems().unwrap() {
             let behavior = self.behavior_updates.get(&system.type_id());
             match behavior {

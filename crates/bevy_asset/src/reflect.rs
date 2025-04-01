@@ -6,13 +6,16 @@ use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect};
 
 use crate::{Asset, AssetId, Assets, Handle, UntypedAssetId, UntypedHandle};
 
-/// Type data for the [`TypeRegistry`](bevy_reflect::TypeRegistry) used to operate on reflected [`Asset`]s.
+/// Type data for the [`TypeRegistry`](bevy_reflect::TypeRegistry) used to operate on reflected
+/// [`Asset`]s.
 ///
 /// This type provides similar methods to [`Assets<T>`] like [`get`](ReflectAsset::get),
-/// [`add`](ReflectAsset::add) and [`remove`](ReflectAsset::remove), but can be used in situations where you don't know which asset type `T` you want
-/// until runtime.
+/// [`add`](ReflectAsset::add) and [`remove`](ReflectAsset::remove), but can be used in situations
+/// where you don't know which asset type `T` you want until runtime.
 ///
-/// [`ReflectAsset`] can be obtained via [`TypeRegistration::data`](bevy_reflect::TypeRegistration::data) if the asset was registered using [`register_asset_reflect`](crate::AssetApp::register_asset_reflect).
+/// [`ReflectAsset`] can be obtained via
+/// [`TypeRegistration::data`](bevy_reflect::TypeRegistration::data) if the asset was registered
+/// using [`register_asset_reflect`](crate::AssetApp::register_asset_reflect).
 #[derive(Clone)]
 pub struct ReflectAsset {
     handle_type_id: TypeId,
@@ -20,7 +23,8 @@ pub struct ReflectAsset {
 
     get: fn(&World, UntypedHandle) -> Option<&dyn Reflect>,
     // SAFETY:
-    // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
+    // - may only be called with an [`UnsafeWorldCell`] which can be used to access the
+    //   corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
     get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, UntypedHandle) -> Option<&mut dyn Reflect>,
     add: fn(&mut World, &dyn PartialReflect) -> UntypedHandle,
@@ -64,9 +68,9 @@ impl ReflectAsset {
 
     /// Equivalent of [`Assets::get_mut`], but works with an [`UnsafeWorldCell`].
     ///
-    /// Only use this method when you have ensured that you are the *only* one with access to the [`Assets`] resource of the asset type.
-    /// Furthermore, this does *not* allow you to have look up two distinct handles,
-    /// you can only have at most one alive at the same time.
+    /// Only use this method when you have ensured that you are the *only* one with access to the
+    /// [`Assets`] resource of the asset type. Furthermore, this does *not* allow you to have
+    /// look up two distinct handles, you can only have at most one alive at the same time.
     /// This means that this is *not allowed*:
     /// ```no_run
     /// # use bevy_asset::{ReflectAsset, UntypedHandle};
@@ -87,7 +91,8 @@ impl ReflectAsset {
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
     /// violating Rust's aliasing rules. To avoid this:
-    /// * Only call this method if you know that the [`UnsafeWorldCell`] may be used to access the corresponding `Assets<T>`
+    /// * Only call this method if you know that the [`UnsafeWorldCell`] may be used to access the
+    ///   corresponding `Assets<T>`
     /// * Don't call this method more than once in the same scope.
     #[expect(
         unsafe_code,
@@ -143,8 +148,9 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 asset.map(|asset| asset as &dyn Reflect)
             },
             get_unchecked_mut: |world, handle| {
-                // SAFETY: `get_unchecked_mut` must be called with `UnsafeWorldCell` having access to `Assets<A>`,
-                // and must ensure to only have at most one reference to it live at all times.
+                // SAFETY: `get_unchecked_mut` must be called with `UnsafeWorldCell` having access
+                // to `Assets<A>`, and must ensure to only have at most one
+                // reference to it live at all times.
                 #[expect(unsafe_code, reason = "Uses `UnsafeWorldCell::get_resource_mut()`.")]
                 let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
                 let asset = assets.get_mut(&handle.typed_debug_checked());
@@ -181,10 +187,12 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 
 /// Reflect type data struct relating a [`Handle<T>`] back to the `T` asset type.
 ///
-/// Say you want to look up the asset values of a list of handles when you have access to their `&dyn Reflect` form.
-/// Assets can be looked up in the world using [`ReflectAsset`], but how do you determine which [`ReflectAsset`] to use when
-/// only looking at the handle? [`ReflectHandle`] is stored in the type registry on each `Handle<T>` type, so you can use [`ReflectHandle::asset_type_id`] to look up
-/// the [`ReflectAsset`] type data on the corresponding `T` asset type:
+/// Say you want to look up the asset values of a list of handles when you have access to their
+/// `&dyn Reflect` form. Assets can be looked up in the world using [`ReflectAsset`], but how do you
+/// determine which [`ReflectAsset`] to use when only looking at the handle? [`ReflectHandle`] is
+/// stored in the type registry on each `Handle<T>` type, so you can use
+/// [`ReflectHandle::asset_type_id`] to look up the [`ReflectAsset`] type data on the corresponding
+/// `T` asset type:
 ///
 ///
 /// ```no_run

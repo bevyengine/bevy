@@ -1,4 +1,5 @@
-//! This module is for 'retained' alternatives to the 'immediate mode' [`Gizmos`](crate::gizmos::Gizmos) system parameter.
+//! This module is for 'retained' alternatives to the 'immediate mode'
+//! [`Gizmos`](crate::gizmos::Gizmos) system parameter.
 
 use core::ops::{Deref, DerefMut};
 

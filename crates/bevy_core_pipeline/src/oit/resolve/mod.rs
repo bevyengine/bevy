@@ -26,7 +26,8 @@ use tracing::warn;
 
 use super::OitBuffers;
 
-/// Shader handle for the shader that sorts the OIT layers, blends the colors based on depth and renders them to the screen.
+/// Shader handle for the shader that sorts the OIT layers, blends the colors based on depth and
+/// renders them to the screen.
 pub const OIT_RESOLVE_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("562d2917-eb06-444d-9ade-41de76b0f5ae");
 

@@ -2,7 +2,8 @@ use crate::ButtonInput;
 use bevy_ecs::system::Res;
 use core::hash::Hash;
 
-/// Stateful run condition that can be toggled via an input press using [`ButtonInput::just_pressed`].
+/// Stateful run condition that can be toggled via an input press using
+/// [`ButtonInput::just_pressed`].
 ///
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};

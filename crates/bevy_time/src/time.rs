@@ -13,14 +13,12 @@ use {
 /// [`TimePlugin`](crate::TimePlugin):
 ///
 /// - [`Time<Real>`](crate::real::Real) tracks real wall-clock time elapsed.
-/// - [`Time<Virtual>`](crate::virt::Virtual) tracks virtual game time that may
-///   be paused or scaled.
-/// - [`Time<Fixed>`](crate::fixed::Fixed) tracks fixed timesteps based on
-///   virtual time.
-/// - [`Time`] is a generic clock that corresponds to "current" or "default"
-///   time for systems. It contains [`Time<Virtual>`](crate::virt::Virtual)
-///   except inside the [`FixedMain`](bevy_app::FixedMain) schedule when it
-///   contains [`Time<Fixed>`](crate::fixed::Fixed).
+/// - [`Time<Virtual>`](crate::virt::Virtual) tracks virtual game time that may be paused or scaled.
+/// - [`Time<Fixed>`](crate::fixed::Fixed) tracks fixed timesteps based on virtual time.
+/// - [`Time`] is a generic clock that corresponds to "current" or "default" time for systems. It
+///   contains [`Time<Virtual>`](crate::virt::Virtual) except inside the
+///   [`FixedMain`](bevy_app::FixedMain) schedule when it contains
+///   [`Time<Fixed>`](crate::fixed::Fixed).
 ///
 /// The time elapsed since the previous time this clock was advanced is saved as
 /// [`delta()`](Time::delta) and the total amount of time the clock has advanced

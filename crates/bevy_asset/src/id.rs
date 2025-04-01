@@ -12,8 +12,9 @@ use core::{
 use derive_more::derive::From;
 use thiserror::Error;
 
-/// A unique runtime-only identifier for an [`Asset`]. This is cheap to [`Copy`]/[`Clone`] and is not directly tied to the
-/// lifetime of the Asset. This means it _can_ point to an [`Asset`] that no longer exists.
+/// A unique runtime-only identifier for an [`Asset`]. This is cheap to [`Copy`]/[`Clone`] and is
+/// not directly tied to the lifetime of the Asset. This means it _can_ point to an [`Asset`] that
+/// no longer exists.
 ///
 /// For an identifier tied to the lifetime of an asset, see [`Handle`](`crate::Handle`).
 ///
@@ -21,9 +22,10 @@ use thiserror::Error;
 #[derive(Reflect, Serialize, Deserialize, From)]
 #[reflect(Clone, Default, Debug, PartialEq, Hash)]
 pub enum AssetId<A: Asset> {
-    /// A small / efficient runtime identifier that can be used to efficiently look up an asset stored in [`Assets`]. This is
-    /// the "default" identifier used for assets. The alternative(s) (ex: [`AssetId::Uuid`]) will only be used if assets are
-    /// explicitly registered that way.
+    /// A small / efficient runtime identifier that can be used to efficiently look up an asset
+    /// stored in [`Assets`]. This is the "default" identifier used for assets. The
+    /// alternative(s) (ex: [`AssetId::Uuid`]) will only be used if assets are explicitly
+    /// registered that way.
     ///
     /// [`Assets`]: crate::Assets
     Index {
@@ -33,8 +35,8 @@ pub enum AssetId<A: Asset> {
         #[reflect(ignore, clone)]
         marker: PhantomData<fn() -> A>,
     },
-    /// A stable-across-runs / const asset identifier. This will only be used if an asset is explicitly registered in [`Assets`]
-    /// with one.
+    /// A stable-across-runs / const asset identifier. This will only be used if an asset is
+    /// explicitly registered in [`Assets`] with one.
     ///
     /// [`Assets`]: crate::Assets
     Uuid {
@@ -44,12 +46,13 @@ pub enum AssetId<A: Asset> {
 }
 
 impl<A: Asset> AssetId<A> {
-    /// The uuid for the default [`AssetId`]. It is valid to assign a value to this in [`Assets`](crate::Assets)
-    /// and by convention (where appropriate) assets should support this pattern.
+    /// The uuid for the default [`AssetId`]. It is valid to assign a value to this in
+    /// [`Assets`](crate::Assets) and by convention (where appropriate) assets should support
+    /// this pattern.
     pub const DEFAULT_UUID: Uuid = Uuid::from_u128(200809721996911295814598172825939264631);
 
-    /// This asset id _should_ never be valid. Assigning a value to this in [`Assets`](crate::Assets) will
-    /// produce undefined behavior, so don't do it!
+    /// This asset id _should_ never be valid. Assigning a value to this in
+    /// [`Assets`](crate::Assets) will produce undefined behavior, so don't do it!
     pub const INVALID_UUID: Uuid = Uuid::from_u128(108428345662029828789348721013522787528);
 
     /// Returns an [`AssetId`] with [`Self::INVALID_UUID`], which _should_ never be assigned to.
@@ -60,8 +63,8 @@ impl<A: Asset> AssetId<A> {
         }
     }
 
-    /// Converts this to an "untyped" / "generic-less" [`Asset`] identifier that stores the type information
-    /// _inside_ the [`UntypedAssetId`].
+    /// Converts this to an "untyped" / "generic-less" [`Asset`] identifier that stores the type
+    /// information _inside_ the [`UntypedAssetId`].
     #[inline]
     pub fn untyped(self) -> UntypedAssetId {
         self.into()
@@ -161,14 +164,16 @@ impl<A: Asset> From<AssetIndex> for AssetId<A> {
     }
 }
 
-/// An "untyped" / "generic-less" [`Asset`] identifier that behaves much like [`AssetId`], but stores the [`Asset`] type
-/// information at runtime instead of compile-time. This increases the size of the type, but it enables storing asset ids
-/// across asset types together and enables comparisons between them.
+/// An "untyped" / "generic-less" [`Asset`] identifier that behaves much like [`AssetId`], but
+/// stores the [`Asset`] type information at runtime instead of compile-time. This increases the
+/// size of the type, but it enables storing asset ids across asset types together and enables
+/// comparisons between them.
 #[derive(Debug, Copy, Clone)]
 pub enum UntypedAssetId {
-    /// A small / efficient runtime identifier that can be used to efficiently look up an asset stored in [`Assets`]. This is
-    /// the "default" identifier used for assets. The alternative(s) (ex: [`UntypedAssetId::Uuid`]) will only be used if assets are
-    /// explicitly registered that way.
+    /// A small / efficient runtime identifier that can be used to efficiently look up an asset
+    /// stored in [`Assets`]. This is the "default" identifier used for assets. The
+    /// alternative(s) (ex: [`UntypedAssetId::Uuid`]) will only be used if assets are explicitly
+    /// registered that way.
     ///
     /// [`Assets`]: crate::Assets
     Index {
@@ -177,8 +182,8 @@ pub enum UntypedAssetId {
         /// The unstable, opaque index of the asset.
         index: AssetIndex,
     },
-    /// A stable-across-runs / const asset identifier. This will only be used if an asset is explicitly registered in [`Assets`]
-    /// with one.
+    /// A stable-across-runs / const asset identifier. This will only be used if an asset is
+    /// explicitly registered in [`Assets`] with one.
     ///
     /// [`Assets`]: crate::Assets
     Uuid {
@@ -190,8 +195,9 @@ pub enum UntypedAssetId {
 }
 
 impl UntypedAssetId {
-    /// Converts this to a "typed" [`AssetId`] without checking the stored type to see if it matches the target `A` [`Asset`] type.
-    /// This should only be called if you are _absolutely certain_ the asset type matches the stored type. And even then, you should
+    /// Converts this to a "typed" [`AssetId`] without checking the stored type to see if it matches
+    /// the target `A` [`Asset`] type. This should only be called if you are _absolutely
+    /// certain_ the asset type matches the stored type. And even then, you should
     /// consider using [`UntypedAssetId::typed_debug_checked`] instead.
     #[inline]
     pub fn typed_unchecked<A: Asset>(self) -> AssetId<A> {
@@ -204,12 +210,14 @@ impl UntypedAssetId {
         }
     }
 
-    /// Converts this to a "typed" [`AssetId`]. When compiled in debug-mode it will check to see if the stored type
-    /// matches the target `A` [`Asset`] type. When compiled in release-mode, this check will be skipped.
+    /// Converts this to a "typed" [`AssetId`]. When compiled in debug-mode it will check to see if
+    /// the stored type matches the target `A` [`Asset`] type. When compiled in release-mode,
+    /// this check will be skipped.
     ///
     /// # Panics
     ///
-    /// Panics if compiled in debug mode and the [`TypeId`] of `A` does not match the stored [`TypeId`].
+    /// Panics if compiled in debug mode and the [`TypeId`] of `A` does not match the stored
+    /// [`TypeId`].
     #[inline]
     pub fn typed_debug_checked<A: Asset>(self) -> AssetId<A> {
         debug_assert_eq!(

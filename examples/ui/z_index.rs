@@ -1,7 +1,7 @@
 //! Demonstrates how to use the z-index component on UI nodes to control their relative depth
 //!
-//! It uses colored boxes with different z-index values to demonstrate how it can affect the order of
-//! depth of nodes compared to their siblings, but also compared to the entire UI.
+//! It uses colored boxes with different z-index values to demonstrate how it can affect the order
+//! of depth of nodes compared to their siblings, but also compared to the entire UI.
 
 use bevy::{
     color::palettes::basic::{BLUE, GRAY, LIME, PURPLE, RED, YELLOW},
@@ -85,8 +85,9 @@ fn setup(mut commands: Commands) {
                     ));
 
                     // spawn a node with a positive global z-index of 1.
-                    // it will show above all other nodes, because it's the highest global z-index in this example.
-                    // by default, boxes all share the global z-index of 0 that the gray container is added to.
+                    // it will show above all other nodes, because it's the highest global z-index
+                    // in this example. by default, boxes all share the global
+                    // z-index of 0 that the gray container is added to.
                     parent.spawn((
                         Node {
                             position_type: PositionType::Absolute,
@@ -101,8 +102,8 @@ fn setup(mut commands: Commands) {
                     ));
 
                     // spawn a node with a negative global z-index of -1.
-                    // this will show under all other nodes including its parent, because it's the lowest global z-index
-                    // in this example.
+                    // this will show under all other nodes including its parent, because it's the
+                    // lowest global z-index in this example.
                     parent.spawn((
                         Node {
                             position_type: PositionType::Absolute,

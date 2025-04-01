@@ -347,7 +347,8 @@ pub struct Image {
     /// CPU, then this should be `None`
     /// Otherwise, it should always be `Some`
     pub data: Option<Vec<u8>>,
-    // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
+    // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or
+    // add accessors
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
@@ -355,9 +356,10 @@ pub struct Image {
     pub asset_usage: RenderAssetUsages,
 }
 
-/// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
-/// [`ImageSampler::Default`], will read the sampler from the `ImagePlugin` at setup.
-/// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
+/// Used in [`Image`], this determines what image sampler to use when rendering. The default
+/// setting, [`ImageSampler::Default`], will read the sampler from the `ImagePlugin` at setup.
+/// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for
+/// this [`Image`].
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub enum ImageSampler {
     /// Default image sampler, derived from the `ImagePlugin` setup.
@@ -1125,7 +1127,8 @@ impl Image {
     ///
     /// Supports many of the common [`TextureFormat`]s:
     ///  - RGBA/BGRA 8-bit unsigned integer, both sRGB and Linear
-    ///  - 16-bit and 32-bit unsigned integer (with possibly-limited precision, as [`Color`] uses `f32`)
+    ///  - 16-bit and 32-bit unsigned integer (with possibly-limited precision, as [`Color`] uses
+    ///    `f32`)
     ///  - 16-bit and 32-bit float
     ///
     /// Be careful: writing to non-f32 [`TextureFormat`]s is lossy! The data has to be converted,

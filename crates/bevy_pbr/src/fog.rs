@@ -5,8 +5,9 @@ use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
 /// Configures the “classic” computer graphics [distance fog](https://en.wikipedia.org/wiki/Distance_fog) effect,
-/// in which objects appear progressively more covered in atmospheric haze the further away they are from the camera.
-/// Affects meshes rendered via the PBR [`StandardMaterial`](crate::StandardMaterial).
+/// in which objects appear progressively more covered in atmospheric haze the further away they are
+/// from the camera. Affects meshes rendered via the PBR
+/// [`StandardMaterial`](crate::StandardMaterial).
 ///
 /// ## Falloff
 ///
@@ -98,7 +99,8 @@ pub struct DistanceFog {
 pub enum FogFalloff {
     /// A linear fog falloff that grows in intensity between `start` and `end` distances.
     ///
-    /// This falloff mode is simpler to control than other modes, however it can produce results that look “artificial”, depending on the scene.
+    /// This falloff mode is simpler to control than other modes, however it can produce results
+    /// that look “artificial”, depending on the scene.
     ///
     /// ## Formula
     ///
@@ -109,21 +111,30 @@ pub enum FogFalloff {
     /// ```
     ///
     /// <svg width="370" height="212" viewBox="0 0 370 212" fill="none">
-    /// <title>Plot showing how linear fog falloff behaves for start and end values of 0.8 and 2.2, respectively.</title>
-    /// <path d="M331 151H42V49" stroke="currentColor" stroke-width="2"/>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-family="Inter" font-size="12" letter-spacing="0em"><tspan x="136" y="173.864">1</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-family="Inter" font-size="12" letter-spacing="0em"><tspan x="30" y="53.8636">1</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-family="Inter" font-size="12" letter-spacing="0em"><tspan x="42" y="173.864">0</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-family="Inter" font-size="12" letter-spacing="0em"><tspan x="232" y="173.864">2</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-family="Inter" font-size="12" letter-spacing="0em"><tspan x="332" y="173.864">3</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-family="Inter" font-size="12" letter-spacing="0em"><tspan x="161" y="190.864">distance</tspan></text>
-    /// <text font-family="sans-serif" transform="translate(10 132) rotate(-90)" fill="currentColor" style="white-space: pre" font-family="Inter" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">fog intensity</tspan></text>
-    /// <path d="M43 150H117.227L263 48H331" stroke="#FF00E5"/>
+    /// <title>Plot showing how linear fog falloff behaves for start and end values of 0.8 and 2.2,
+    /// respectively.</title> <path d="M331 151H42V49" stroke="currentColor" stroke-width="2"/>
+    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre"
+    /// font-family="Inter" font-size="12" letter-spacing="0em"><tspan x="136"
+    /// y="173.864">1</tspan></text> <text font-family="sans-serif" fill="currentColor"
+    /// style="white-space: pre" font-family="Inter" font-size="12" letter-spacing="0em"><tspan
+    /// x="30" y="53.8636">1</tspan></text> <text font-family="sans-serif" fill="currentColor"
+    /// style="white-space: pre" font-family="Inter" font-size="12" letter-spacing="0em"><tspan
+    /// x="42" y="173.864">0</tspan></text> <text font-family="sans-serif" fill="currentColor"
+    /// style="white-space: pre" font-family="Inter" font-size="12" letter-spacing="0em"><tspan
+    /// x="232" y="173.864">2</tspan></text> <text font-family="sans-serif" fill="currentColor"
+    /// style="white-space: pre" font-family="Inter" font-size="12" letter-spacing="0em"><tspan
+    /// x="332" y="173.864">3</tspan></text> <text font-family="sans-serif" fill="currentColor"
+    /// style="white-space: pre" font-family="Inter" font-size="12" letter-spacing="0em"><tspan
+    /// x="161" y="190.864">distance</tspan></text> <text font-family="sans-serif"
+    /// transform="translate(10 132) rotate(-90)" fill="currentColor" style="white-space: pre"
+    /// font-family="Inter" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">fog
+    /// intensity</tspan></text> <path d="M43 150H117.227L263 48H331" stroke="#FF00E5"/>
     /// <path d="M118 151V49" stroke="#FF00E5" stroke-dasharray="1 4"/>
     /// <path d="M263 151V49" stroke="#FF00E5" stroke-dasharray="1 4"/>
-    /// <text font-family="sans-serif" fill="#FF00E5" style="white-space: pre" font-family="Inter" font-size="10" letter-spacing="0em"><tspan x="121" y="58.6364">start</tspan></text>
-    /// <text font-family="sans-serif" fill="#FF00E5" style="white-space: pre" font-family="Inter" font-size="10" letter-spacing="0em"><tspan x="267" y="58.6364">end</tspan></text>
-    /// </svg>
+    /// <text font-family="sans-serif" fill="#FF00E5" style="white-space: pre" font-family="Inter"
+    /// font-size="10" letter-spacing="0em"><tspan x="121" y="58.6364">start</tspan></text>
+    /// <text font-family="sans-serif" fill="#FF00E5" style="white-space: pre" font-family="Inter"
+    /// font-size="10" letter-spacing="0em"><tspan x="267" y="58.6364">end</tspan></text> </svg>
     Linear {
         /// Distance from the camera where fog is completely transparent, in world units.
         start: f32,
@@ -134,20 +145,22 @@ pub enum FogFalloff {
 
     /// An exponential fog falloff with a given `density`.
     ///
-    /// Initially gains intensity quickly with distance, then more slowly. Typically produces more natural results than [`FogFalloff::Linear`],
-    /// but is a bit harder to control.
+    /// Initially gains intensity quickly with distance, then more slowly. Typically produces more
+    /// natural results than [`FogFalloff::Linear`], but is a bit harder to control.
     ///
-    /// To move the fog “further away”, use lower density values. To move it “closer” use higher density values.
+    /// To move the fog “further away”, use lower density values. To move it “closer” use higher
+    /// density values.
     ///
     /// ## Tips
     ///
-    /// - Use the [`FogFalloff::from_visibility()`] convenience method to create an exponential falloff with the proper
-    ///   density for a desired visibility distance in world units;
-    /// - It's not _unusual_ to have very large or very small values for the density, depending on the scene
-    ///   scale. Typically, for scenes with objects in the scale of thousands of units, you might want density values
-    ///   in the ballpark of `0.001`. Conversely, for really small scale scenes you might want really high values of
-    ///   density;
-    /// - Combine the `density` parameter with the [`DistanceFog`] `color`'s alpha channel for easier artistic control.
+    /// - Use the [`FogFalloff::from_visibility()`] convenience method to create an exponential
+    ///   falloff with the proper density for a desired visibility distance in world units;
+    /// - It's not _unusual_ to have very large or very small values for the density, depending on
+    ///   the scene scale. Typically, for scenes with objects in the scale of thousands of units,
+    ///   you might want density values in the ballpark of `0.001`. Conversely, for really small
+    ///   scale scenes you might want really high values of density;
+    /// - Combine the `density` parameter with the [`DistanceFog`] `color`'s alpha channel for
+    ///   easier artistic control.
     ///
     /// ## Formula
     ///
@@ -159,8 +172,8 @@ pub enum FogFalloff {
     ///
     /// <svg width="370" height="212" viewBox="0 0 370 212" fill="none">
     /// <title>Plot showing how exponential fog falloff behaves for different density values</title>
-    /// <mask id="mask0_3_31" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="42" y="42" width="286" height="108">
-    /// <rect x="42" y="42" width="286" height="108" fill="#D9D9D9"/>
+    /// <mask id="mask0_3_31" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="42" y="42"
+    /// width="286" height="108"> <rect x="42" y="42" width="286" height="108" fill="#D9D9D9"/>
     /// </mask>
     /// <g mask="url(#mask0_3_31)">
     /// <path d="M42 150C42 150 98.3894 53 254.825 53L662 53" stroke="#FF003D" stroke-width="1"/>
@@ -168,34 +181,48 @@ pub enum FogFalloff {
     /// <path d="M42 150C42 150 206.348 53 662.281 53L1849 53" stroke="#14FF00" stroke-width="1"/>
     /// </g>
     /// <path d="M331 151H42V49" stroke="currentColor" stroke-width="2"/>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="136" y="173.864">1</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="30" y="53.8636">1</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="42" y="173.864">0</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="232" y="173.864">2</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="332" y="173.864">3</tspan></text>
-    /// <text font-family="sans-serif" fill="#FF003D" style="white-space: pre" font-size="10" letter-spacing="0em"><tspan x="77" y="64.6364">density = 2</tspan></text>
-    /// <text font-family="sans-serif" fill="#001AFF" style="white-space: pre" font-size="10" letter-spacing="0em"><tspan x="236" y="76.6364">density = 1</tspan></text>
-    /// <text font-family="sans-serif" fill="#14FF00" style="white-space: pre" font-size="10" letter-spacing="0em"><tspan x="205" y="115.636">density = 0.5</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="161" y="190.864">distance</tspan></text>
-    /// <text font-family="sans-serif" transform="translate(10 132) rotate(-90)" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">fog intensity</tspan></text>
-    /// </svg>
+    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12"
+    /// letter-spacing="0em"><tspan x="136" y="173.864">1</tspan></text> <text font-family="
+    /// sans-serif" fill="currentColor" style="white-space: pre" font-size="12"
+    /// letter-spacing="0em"><tspan x="30" y="53.8636">1</tspan></text> <text font-family="
+    /// sans-serif" fill="currentColor" style="white-space: pre" font-size="12"
+    /// letter-spacing="0em"><tspan x="42" y="173.864">0</tspan></text> <text font-family="
+    /// sans-serif" fill="currentColor" style="white-space: pre" font-size="12"
+    /// letter-spacing="0em"><tspan x="232" y="173.864">2</tspan></text> <text font-family="
+    /// sans-serif" fill="currentColor" style="white-space: pre" font-size="12"
+    /// letter-spacing="0em"><tspan x="332" y="173.864">3</tspan></text> <text font-family="
+    /// sans-serif" fill="#FF003D" style="white-space: pre" font-size="10"
+    /// letter-spacing="0em"><tspan x="77" y="64.6364">density = 2</tspan></text>
+    /// <text font-family="sans-serif" fill="#001AFF" style="white-space: pre" font-size="10"
+    /// letter-spacing="0em"><tspan x="236" y="76.6364">density = 1</tspan></text>
+    /// <text font-family="sans-serif" fill="#14FF00" style="white-space: pre" font-size="10"
+    /// letter-spacing="0em"><tspan x="205" y="115.636">density = 0.5</tspan></text>
+    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12"
+    /// letter-spacing="0em"><tspan x="161" y="190.864">distance</tspan></text>
+    /// <text font-family="sans-serif" transform="translate(10 132) rotate(-90)" fill="currentColor"
+    /// style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">fog
+    /// intensity</tspan></text> </svg>
     Exponential {
-        /// Multiplier applied to the world distance (within the exponential fog falloff calculation).
+        /// Multiplier applied to the world distance (within the exponential fog falloff
+        /// calculation).
         density: f32,
     },
 
     /// A squared exponential fog falloff with a given `density`.
     ///
-    /// Similar to [`FogFalloff::Exponential`], but grows more slowly in intensity for closer distances
-    /// before “catching up”.
+    /// Similar to [`FogFalloff::Exponential`], but grows more slowly in intensity for closer
+    /// distances before “catching up”.
     ///
-    /// To move the fog “further away”, use lower density values. To move it “closer” use higher density values.
+    /// To move the fog “further away”, use lower density values. To move it “closer” use higher
+    /// density values.
     ///
     /// ## Tips
     ///
-    /// - Use the [`FogFalloff::from_visibility_squared()`] convenience method to create an exponential squared falloff
-    ///   with the proper density for a desired visibility distance in world units;
-    /// - Combine the `density` parameter with the [`DistanceFog`] `color`'s alpha channel for easier artistic control.
+    /// - Use the [`FogFalloff::from_visibility_squared()`] convenience method to create an
+    ///   exponential squared falloff with the proper density for a desired visibility distance in
+    ///   world units;
+    /// - Combine the `density` parameter with the [`DistanceFog`] `color`'s alpha channel for
+    ///   easier artistic control.
     ///
     /// ## Formula
     ///
@@ -206,49 +233,62 @@ pub enum FogFalloff {
     /// ```
     ///
     /// <svg width="370" height="212" viewBox="0 0 370 212" fill="none">
-    /// <title>Plot showing how exponential squared fog falloff behaves for different density values</title>
-    /// <mask id="mask0_1_3" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="42" y="42" width="286" height="108">
-    /// <rect x="42" y="42" width="286" height="108" fill="#D9D9D9"/>
-    /// </mask>
+    /// <title>Plot showing how exponential squared fog falloff behaves for different density
+    /// values</title> <mask id="mask0_1_3" style="mask-type:alpha" maskUnits="userSpaceOnUse"
+    /// x="42" y="42" width="286" height="108"> <rect x="42" y="42" width="286" height="108"
+    /// fill="#D9D9D9"/> </mask>
     /// <g mask="url(#mask0_1_3)">
-    /// <path d="M42 150C75.4552 150 74.9241 53.1724 166.262 53.1724L404 53.1724" stroke="#FF003D" stroke-width="1"/>
-    /// <path d="M42 150C107.986 150 106.939 53.1724 287.091 53.1724L756 53.1724" stroke="#001AFF" stroke-width="1"/>
-    /// <path d="M42 150C166.394 150 164.42 53.1724 504.035 53.1724L1388 53.1724" stroke="#14FF00" stroke-width="1"/>
-    /// </g>
+    /// <path d="M42 150C75.4552 150 74.9241 53.1724 166.262 53.1724L404 53.1724" stroke="#FF003D"
+    /// stroke-width="1"/> <path d="M42 150C107.986 150 106.939 53.1724 287.091 53.1724L756
+    /// 53.1724" stroke="#001AFF" stroke-width="1"/> <path d="M42 150C166.394 150 164.42 53.1724
+    /// 504.035 53.1724L1388 53.1724" stroke="#14FF00" stroke-width="1"/> </g>
     /// <path d="M331 151H42V49" stroke="currentColor" stroke-width="2"/>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="136" y="173.864">1</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="30" y="53.8636">1</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="42" y="173.864">0</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="232" y="173.864">2</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="332" y="173.864">3</tspan></text>
-    /// <text font-family="sans-serif" fill="#FF003D" style="white-space: pre" font-size="10" letter-spacing="0em"><tspan x="61" y="54.6364">density = 2</tspan></text>
-    /// <text font-family="sans-serif" fill="#001AFF" style="white-space: pre" font-size="10" letter-spacing="0em"><tspan x="168" y="84.6364">density = 1</tspan></text>
-    /// <text font-family="sans-serif" fill="#14FF00" style="white-space: pre" font-size="10" letter-spacing="0em"><tspan x="174" y="121.636">density = 0.5</tspan></text>
-    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="161" y="190.864">distance</tspan></text>
-    /// <text font-family="sans-serif" transform="translate(10 132) rotate(-90)" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">fog intensity</tspan></text>
-    /// </svg>
+    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12"
+    /// letter-spacing="0em"><tspan x="136" y="173.864">1</tspan></text> <text font-family="
+    /// sans-serif" fill="currentColor" style="white-space: pre" font-size="12"
+    /// letter-spacing="0em"><tspan x="30" y="53.8636">1</tspan></text> <text font-family="
+    /// sans-serif" fill="currentColor" style="white-space: pre" font-size="12"
+    /// letter-spacing="0em"><tspan x="42" y="173.864">0</tspan></text> <text font-family="
+    /// sans-serif" fill="currentColor" style="white-space: pre" font-size="12"
+    /// letter-spacing="0em"><tspan x="232" y="173.864">2</tspan></text> <text font-family="
+    /// sans-serif" fill="currentColor" style="white-space: pre" font-size="12"
+    /// letter-spacing="0em"><tspan x="332" y="173.864">3</tspan></text> <text font-family="
+    /// sans-serif" fill="#FF003D" style="white-space: pre" font-size="10"
+    /// letter-spacing="0em"><tspan x="61" y="54.6364">density = 2</tspan></text>
+    /// <text font-family="sans-serif" fill="#001AFF" style="white-space: pre" font-size="10"
+    /// letter-spacing="0em"><tspan x="168" y="84.6364">density = 1</tspan></text>
+    /// <text font-family="sans-serif" fill="#14FF00" style="white-space: pre" font-size="10"
+    /// letter-spacing="0em"><tspan x="174" y="121.636">density = 0.5</tspan></text>
+    /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12"
+    /// letter-spacing="0em"><tspan x="161" y="190.864">distance</tspan></text>
+    /// <text font-family="sans-serif" transform="translate(10 132) rotate(-90)" fill="currentColor"
+    /// style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">fog
+    /// intensity</tspan></text> </svg>
     ExponentialSquared {
-        /// Multiplier applied to the world distance (within the exponential squared fog falloff calculation).
+        /// Multiplier applied to the world distance (within the exponential squared fog falloff
+        /// calculation).
         density: f32,
     },
 
-    /// A more general form of the [`FogFalloff::Exponential`] mode. The falloff formula is separated into
-    /// two terms, `extinction` and `inscattering`, for a somewhat simplified atmospheric scattering model.
-    /// Additionally, individual color channels can have their own density values, resulting in a total of
-    /// six different configuration parameters.
+    /// A more general form of the [`FogFalloff::Exponential`] mode. The falloff formula is
+    /// separated into two terms, `extinction` and `inscattering`, for a somewhat simplified
+    /// atmospheric scattering model. Additionally, individual color channels can have their own
+    /// density values, resulting in a total of six different configuration parameters.
     ///
     /// ## Tips
     ///
-    /// - Use the [`FogFalloff::from_visibility_colors()`] or [`FogFalloff::from_visibility_color()`] convenience methods
-    ///   to create an atmospheric falloff with the proper densities for a desired visibility distance in world units and
+    /// - Use the [`FogFalloff::from_visibility_colors()`] or
+    ///   [`FogFalloff::from_visibility_color()`] convenience methods to create an atmospheric
+    ///   falloff with the proper densities for a desired visibility distance in world units and
     ///   extinction and inscattering colors;
-    /// - Combine the atmospheric fog parameters with the [`DistanceFog`] `color`'s alpha channel for easier artistic control.
+    /// - Combine the atmospheric fog parameters with the [`DistanceFog`] `color`'s alpha channel
+    ///   for easier artistic control.
     ///
     /// ## Formula
     ///
-    /// Unlike other modes, atmospheric falloff doesn't use a simple intensity-based blend of fog color with
-    /// object color. Instead, it calculates per-channel extinction and inscattering factors, which are
-    /// then used to calculate the final color.
+    /// Unlike other modes, atmospheric falloff doesn't use a simple intensity-based blend of fog
+    /// color with object color. Instead, it calculates per-channel extinction and inscattering
+    /// factors, which are then used to calculate the final color.
     ///
     /// ```text
     /// let extinction_factor = 1.0 - 1.0 / (distance * extinction).exp();
@@ -258,7 +298,8 @@ pub enum FogFalloff {
     ///
     /// ## Equivalence to [`FogFalloff::Exponential`]
     ///
-    /// For a density value of `D`, the following two falloff modes will produce identical visual results:
+    /// For a density value of `D`, the following two falloff modes will produce identical visual
+    /// results:
     ///
     /// ```
     /// # use bevy_pbr::prelude::*;
@@ -275,36 +316,41 @@ pub enum FogFalloff {
     /// };
     /// ```
     ///
-    /// **Note:** While the results are identical, [`FogFalloff::Atmospheric`] is computationally more expensive.
+    /// **Note:** While the results are identical, [`FogFalloff::Atmospheric`] is computationally
+    /// more expensive.
     Atmospheric {
-        /// Controls how much light is removed due to atmospheric “extinction”, i.e. loss of light due to
-        /// photons being absorbed by atmospheric particles.
+        /// Controls how much light is removed due to atmospheric “extinction”, i.e. loss of light
+        /// due to photons being absorbed by atmospheric particles.
         ///
-        /// Each component can be thought of as an independent per `R`/`G`/`B` channel `density` factor from
-        /// [`FogFalloff::Exponential`]: Multiplier applied to the world distance (within the fog
+        /// Each component can be thought of as an independent per `R`/`G`/`B` channel `density`
+        /// factor from [`FogFalloff::Exponential`]: Multiplier applied to the world distance (within the fog
         /// falloff calculation) for that specific channel.
         ///
         /// **Note:**
-        /// This value is not a `Color`, since it affects the channels exponentially in a non-intuitive way.
-        /// For artistic control, use the [`FogFalloff::from_visibility_colors()`] convenience method.
+        /// This value is not a `Color`, since it affects the channels exponentially in a
+        /// non-intuitive way. For artistic control, use the
+        /// [`FogFalloff::from_visibility_colors()`] convenience method.
         extinction: Vec3,
 
-        /// Controls how much light is added due to light scattering from the sun through the atmosphere.
+        /// Controls how much light is added due to light scattering from the sun through the
+        /// atmosphere.
         ///
-        /// Each component can be thought of as an independent per `R`/`G`/`B` channel `density` factor from
-        /// [`FogFalloff::Exponential`]: A multiplier applied to the world distance (within the fog
+        /// Each component can be thought of as an independent per `R`/`G`/`B` channel `density`
+        /// factor from [`FogFalloff::Exponential`]: A multiplier applied to the world distance (within the fog
         /// falloff calculation) for that specific channel.
         ///
         /// **Note:**
-        /// This value is not a `Color`, since it affects the channels exponentially in a non-intuitive way.
-        /// For artistic control, use the [`FogFalloff::from_visibility_colors()`] convenience method.
+        /// This value is not a `Color`, since it affects the channels exponentially in a
+        /// non-intuitive way. For artistic control, use the
+        /// [`FogFalloff::from_visibility_colors()`] convenience method.
         inscattering: Vec3,
     },
 }
 
 impl FogFalloff {
-    /// Creates a [`FogFalloff::Exponential`] value from the given visibility distance in world units,
-    /// using the revised Koschmieder contrast threshold, [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
+    /// Creates a [`FogFalloff::Exponential`] value from the given visibility distance in world
+    /// units, using the revised Koschmieder contrast threshold,
+    /// [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
     pub fn from_visibility(visibility: f32) -> FogFalloff {
         FogFalloff::from_visibility_contrast(
             visibility,
@@ -312,16 +358,17 @@ impl FogFalloff {
         )
     }
 
-    /// Creates a [`FogFalloff::Exponential`] value from the given visibility distance in world units,
-    /// and a given contrast threshold in the range of `0.0` to `1.0`.
+    /// Creates a [`FogFalloff::Exponential`] value from the given visibility distance in world
+    /// units, and a given contrast threshold in the range of `0.0` to `1.0`.
     pub fn from_visibility_contrast(visibility: f32, contrast_threshold: f32) -> FogFalloff {
         FogFalloff::Exponential {
             density: FogFalloff::koschmieder(visibility, contrast_threshold),
         }
     }
 
-    /// Creates a [`FogFalloff::ExponentialSquared`] value from the given visibility distance in world units,
-    /// using the revised Koschmieder contrast threshold, [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
+    /// Creates a [`FogFalloff::ExponentialSquared`] value from the given visibility distance in
+    /// world units, using the revised Koschmieder contrast threshold,
+    /// [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
     pub fn from_visibility_squared(visibility: f32) -> FogFalloff {
         FogFalloff::from_visibility_contrast_squared(
             visibility,
@@ -329,8 +376,8 @@ impl FogFalloff {
         )
     }
 
-    /// Creates a [`FogFalloff::ExponentialSquared`] value from the given visibility distance in world units,
-    /// and a given contrast threshold in the range of `0.0` to `1.0`.
+    /// Creates a [`FogFalloff::ExponentialSquared`] value from the given visibility distance in
+    /// world units, and a given contrast threshold in the range of `0.0` to `1.0`.
     pub fn from_visibility_contrast_squared(
         visibility: f32,
         contrast_threshold: f32,
@@ -340,9 +387,9 @@ impl FogFalloff {
         }
     }
 
-    /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world units,
-    /// and a shared color for both extinction and inscattering, using the revised Koschmieder contrast threshold,
-    /// [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
+    /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world
+    /// units, and a shared color for both extinction and inscattering, using the revised
+    /// Koschmieder contrast threshold, [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
     pub fn from_visibility_color(
         visibility: f32,
         extinction_inscattering_color: Color,
@@ -355,14 +402,17 @@ impl FogFalloff {
         )
     }
 
-    /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world units,
-    /// extinction and inscattering colors, using the revised Koschmieder contrast threshold,
-    /// [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
+    /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world
+    /// units, extinction and inscattering colors, using the revised Koschmieder contrast
+    /// threshold, [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
     ///
     /// ## Tips
-    /// - Alpha values of the provided colors can modulate the `extinction` and `inscattering` effects;
-    /// - Using an `extinction_color` of [`Color::WHITE`] or [`Color::NONE`] disables the extinction effect;
-    /// - Using an `inscattering_color` of [`Color::BLACK`] or [`Color::NONE`] disables the inscattering effect.
+    /// - Alpha values of the provided colors can modulate the `extinction` and `inscattering`
+    ///   effects;
+    /// - Using an `extinction_color` of [`Color::WHITE`] or [`Color::NONE`] disables the extinction
+    ///   effect;
+    /// - Using an `inscattering_color` of [`Color::BLACK`] or [`Color::NONE`] disables the
+    ///   inscattering effect.
     pub fn from_visibility_colors(
         visibility: f32,
         extinction_color: Color,
@@ -376,8 +426,9 @@ impl FogFalloff {
         )
     }
 
-    /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world units,
-    /// a contrast threshold in the range of `0.0` to `1.0`, and a shared color for both extinction and inscattering.
+    /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world
+    /// units, a contrast threshold in the range of `0.0` to `1.0`, and a shared color for both
+    /// extinction and inscattering.
     pub fn from_visibility_contrast_color(
         visibility: f32,
         contrast_threshold: f32,
@@ -391,13 +442,17 @@ impl FogFalloff {
         )
     }
 
-    /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world units,
-    /// a contrast threshold in the range of `0.0` to `1.0`, extinction and inscattering colors.
+    /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world
+    /// units, a contrast threshold in the range of `0.0` to `1.0`, extinction and inscattering
+    /// colors.
     ///
     /// ## Tips
-    /// - Alpha values of the provided colors can modulate the `extinction` and `inscattering` effects;
-    /// - Using an `extinction_color` of [`Color::WHITE`] or [`Color::NONE`] disables the extinction effect;
-    /// - Using an `inscattering_color` of [`Color::BLACK`] or [`Color::NONE`] disables the inscattering effect.
+    /// - Alpha values of the provided colors can modulate the `extinction` and `inscattering`
+    ///   effects;
+    /// - Using an `extinction_color` of [`Color::WHITE`] or [`Color::NONE`] disables the extinction
+    ///   effect;
+    /// - Using an `inscattering_color` of [`Color::BLACK`] or [`Color::NONE`] disables the
+    ///   inscattering effect.
     pub fn from_visibility_contrast_colors(
         visibility: f32,
         contrast_threshold: f32,
@@ -411,9 +466,9 @@ impl FogFalloff {
 
         FogFalloff::Atmospheric {
             extinction: Vec3::new(
-                // Values are subtracted from 1.0 here to preserve the intuitive/artistic meaning of
-                // colors, since they're later subtracted. (e.g. by giving a blue extinction color, you
-                // get blue and _not_ yellow results)
+                // Values are subtracted from 1.0 here to preserve the intuitive/artistic meaning
+                // of colors, since they're later subtracted. (e.g. by giving a
+                // blue extinction color, you get blue and _not_ yellow results)
                 ops::powf(1.0 - r_e, E),
                 ops::powf(1.0 - g_e, E),
                 ops::powf(1.0 - b_e, E),

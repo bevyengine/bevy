@@ -79,12 +79,13 @@ pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash 
     /// Computes the next value of [`State<Self>`](crate::state::State).
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
     ///
-    /// If the result is [`None`], the [`State<Self>`](crate::state::State) resource will be removed from the world.
+    /// If the result is [`None`], the [`State<Self>`](crate::state::State) resource will be removed
+    /// from the world.
     fn compute(sources: Self::SourceStates) -> Option<Self>;
 
-    /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
-    /// change. It is called by `App::add_computed_state`, but can be called manually if `App` is not
-    /// used.
+    /// This function sets up systems that compute the state whenever one of the
+    /// [`SourceStates`](Self::SourceStates) change. It is called by `App::add_computed_state`,
+    /// but can be called manually if `App` is not used.
     fn register_computed_state_systems(schedule: &mut Schedule) {
         Self::SourceStates::register_computed_state_systems_in_schedule::<Self>(schedule);
     }

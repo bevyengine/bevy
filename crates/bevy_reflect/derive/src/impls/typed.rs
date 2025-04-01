@@ -7,7 +7,8 @@ use bevy_macro_utils::fq_std::FQOption;
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 
-/// Returns an expression for a `NonGenericTypeCell` or `GenericTypeCell`  to generate `'static` references.
+/// Returns an expression for a `NonGenericTypeCell` or `GenericTypeCell`  to generate `'static`
+/// references.
 fn static_type_cell(
     meta: &ReflectMeta,
     property: TypedProperty,

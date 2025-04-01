@@ -13,31 +13,36 @@ use bevy_ecs::{
 use bevy_reflect::PartialReflect;
 use bevy_utils::default;
 
-/// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities and resources.
+/// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities
+/// and resources.
 ///
 /// # Component Extraction
 ///
-/// By default, all components registered with [`ReflectComponent`] type data in a world's [`AppTypeRegistry`] will be extracted.
-/// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(Component)]` attribute).
-/// This can be changed by [specifying a filter](DynamicSceneBuilder::with_component_filter) or by explicitly
-/// [allowing](DynamicSceneBuilder::allow_component)/[denying](DynamicSceneBuilder::deny_component) certain components.
+/// By default, all components registered with [`ReflectComponent`] type data in a world's
+/// [`AppTypeRegistry`] will be extracted. (this type data is added automatically during
+/// registration if [`Reflect`] is derived with the `#[reflect(Component)]` attribute). This can be
+/// changed by [specifying a filter](DynamicSceneBuilder::with_component_filter) or by explicitly
+/// [allowing](DynamicSceneBuilder::allow_component)/[denying](DynamicSceneBuilder::deny_component)
+/// certain components.
 ///
 /// Extraction happens immediately and uses the filter as it exists during the time of extraction.
 ///
 /// # Resource Extraction
 ///
-/// By default, all resources registered with [`ReflectResource`] type data in a world's [`AppTypeRegistry`] will be extracted.
-/// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(Resource)]` attribute).
-/// This can be changed by [specifying a filter](DynamicSceneBuilder::with_resource_filter) or by explicitly
-/// [allowing](DynamicSceneBuilder::allow_resource)/[denying](DynamicSceneBuilder::deny_resource) certain resources.
+/// By default, all resources registered with [`ReflectResource`] type data in a world's
+/// [`AppTypeRegistry`] will be extracted. (this type data is added automatically during
+/// registration if [`Reflect`] is derived with the `#[reflect(Resource)]` attribute). This can be
+/// changed by [specifying a filter](DynamicSceneBuilder::with_resource_filter) or by explicitly
+/// [allowing](DynamicSceneBuilder::allow_resource)/[denying](DynamicSceneBuilder::deny_resource)
+/// certain resources.
 ///
 /// Extraction happens immediately and uses the filter as it exists during the time of extraction.
 ///
 /// # Entity Order
 ///
-/// Extracted entities will always be stored in ascending order based on their [index](Entity::index).
-/// This means that inserting `Entity(1v0)` then `Entity(0v0)` will always result in the entities
-/// being ordered as `[Entity(0v0), Entity(1v0)]`.
+/// Extracted entities will always be stored in ascending order based on their
+/// [index](Entity::index). This means that inserting `Entity(1v0)` then `Entity(0v0)` will always
+/// result in the entities being ordered as `[Entity(0v0), Entity(1v0)]`.
 ///
 /// # Example
 /// ```
@@ -94,7 +99,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Updates the filter to allow all component and resource types.
     ///
     /// This is useful for resetting the filter so that types may be selectively denied
-    /// with [`deny_component`](`Self::deny_component`) and [`deny_resource`](`Self::deny_resource`).
+    /// with [`deny_component`](`Self::deny_component`) and
+    /// [`deny_resource`](`Self::deny_resource`).
     pub fn allow_all(mut self) -> Self {
         self.component_filter = SceneFilter::allow_all();
         self.resource_filter = SceneFilter::allow_all();
@@ -104,7 +110,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Updates the filter to deny all component and resource types.
     ///
     /// This is useful for resetting the filter so that types may be selectively allowed
-    /// with [`allow_component`](`Self::allow_component`) and [`allow_resource`](`Self::allow_resource`).
+    /// with [`allow_component`](`Self::allow_component`) and
+    /// [`allow_resource`](`Self::allow_resource`).
     pub fn deny_all(mut self) -> Self {
         self.component_filter = SceneFilter::deny_all();
         self.resource_filter = SceneFilter::deny_all();
@@ -225,7 +232,8 @@ impl<'w> DynamicSceneBuilder<'w> {
 
     /// Despawns all entities with no components.
     ///
-    /// These were likely created because none of their components were present in the provided type registry upon extraction.
+    /// These were likely created because none of their components were present in the provided type
+    /// registry upon extraction.
     #[must_use]
     pub fn remove_empty_entities(mut self) -> Self {
         self.extracted_scene
@@ -263,7 +271,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///     .build();
     /// ```
     ///
-    /// Note that components extracted from queried entities must still pass through the filter if one is set.
+    /// Note that components extracted from queried entities must still pass through the filter if
+    /// one is set.
     ///
     /// [`allow`]: Self::allow_component
     /// [`deny`]: Self::deny_component

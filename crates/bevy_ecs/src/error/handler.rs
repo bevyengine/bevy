@@ -84,7 +84,8 @@ impl ErrorContext {
 /// The value of this error handler can be accessed using the [`default_error_handler`] function,
 /// which calls [`OnceLock::get_or_init`] to get the value.
 ///
-/// **Note:** this is only available when the `configurable_error_handler` feature of `bevy_ecs` (or `bevy`) is enabled!
+/// **Note:** this is only available when the `configurable_error_handler` feature of `bevy_ecs` (or
+/// `bevy`) is enabled!
 ///
 /// # Example
 ///
@@ -112,9 +113,9 @@ impl ErrorContext {
 pub static GLOBAL_ERROR_HANDLER: OnceLock<fn(BevyError, ErrorContext)> = OnceLock::new();
 
 /// The default error handler. This defaults to [`panic()`],
-/// but if set, the [`GLOBAL_ERROR_HANDLER`] will be used instead, enabling error handler customization.
-/// The `configurable_error_handler` feature must be enabled to change this from the panicking default behavior,
-/// as there may be runtime overhead.
+/// but if set, the [`GLOBAL_ERROR_HANDLER`] will be used instead, enabling error handler
+/// customization. The `configurable_error_handler` feature must be enabled to change this from the
+/// panicking default behavior, as there may be runtime overhead.
 #[inline]
 pub fn default_error_handler() -> fn(BevyError, ErrorContext) {
     #[cfg(not(feature = "configurable_error_handler"))]

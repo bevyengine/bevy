@@ -190,7 +190,8 @@ impl SpecializedMeshPipeline for StencilPipeline {
             // Make sure this matches the shader location
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
-        // This will automatically generate the correct `VertexBufferLayout` based on the vertex attributes
+        // This will automatically generate the correct `VertexBufferLayout` based on the vertex
+        // attributes
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         Ok(RenderPipelineDescriptor {
@@ -249,8 +250,8 @@ type DrawMesh3dStencil = (
     DrawMesh,
 );
 
-// This is the data required per entity drawn in a custom phase in bevy. More specifically this is the
-// data required when using a ViewSortedRenderPhase. This would look differently if we wanted a
+// This is the data required per entity drawn in a custom phase in bevy. More specifically this is
+// the data required when using a ViewSortedRenderPhase. This would look differently if we wanted a
 // batched render phase. Sorted phases are a bit easier to implement, but a batched phase would
 // look similar.
 //
@@ -317,8 +318,9 @@ impl SortedPhaseItem for Stencil3d {
     #[inline]
     fn sort(items: &mut [Self]) {
         // bevy normally uses radsort instead of the std slice::sort_by_key
-        // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
-        // Since it is not re-exported by bevy, we just use the std sort for the purpose of the example
+        // radsort is a stable radix sort that performed better than `slice::sort_by_key` or
+        // `slice::sort_unstable_by_key`. Since it is not re-exported by bevy, we just use
+        // the std sort for the purpose of the example
         items.sort_by_key(SortedPhaseItem::sort_key);
     }
 

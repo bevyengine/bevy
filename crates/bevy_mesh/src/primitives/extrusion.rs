@@ -10,13 +10,16 @@ use crate::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
 pub enum PerimeterSegment {
     /// This segment of the perimeter will be shaded smooth.
     ///
-    /// This has the effect of rendering the segment's faces with softened edges, so it is appropriate for curved shapes.
+    /// This has the effect of rendering the segment's faces with softened edges, so it is
+    /// appropriate for curved shapes.
     ///
-    /// The normals for the vertices that are part of this segment will be calculated based on the positions of their neighbors.
-    /// Each normal is interpolated between the normals of the two line segments connecting it with its neighbors.
-    /// Closer vertices have a stronger effect on the normal than more distant ones.
+    /// The normals for the vertices that are part of this segment will be calculated based on the
+    /// positions of their neighbors. Each normal is interpolated between the normals of the two
+    /// line segments connecting it with its neighbors. Closer vertices have a stronger effect
+    /// on the normal than more distant ones.
     ///
-    /// Since the vertices corresponding to the first and last indices do not have two neighboring vertices, their normals must be provided manually.
+    /// Since the vertices corresponding to the first and last indices do not have two neighboring
+    /// vertices, their normals must be provided manually.
     Smooth {
         /// The normal of the first vertex.
         first_normal: Vec2,
@@ -45,7 +48,8 @@ pub enum PerimeterSegment {
 }
 
 impl PerimeterSegment {
-    /// Returns the amount of vertices each 'layer' of the extrusion should include for this perimeter segment.
+    /// Returns the amount of vertices each 'layer' of the extrusion should include for this
+    /// perimeter segment.
     ///
     /// A layer is the set of vertices sharing a common Z value or depth.
     fn vertices_per_layer(&self) -> u32 {
@@ -55,7 +59,8 @@ impl PerimeterSegment {
         }
     }
 
-    /// Returns the amount of indices each 'segment' of the extrusion should include for this perimeter segment.
+    /// Returns the amount of indices each 'segment' of the extrusion should include for this
+    /// perimeter segment.
     ///
     /// A segment is the set of faces on the mantel of the extrusion between two layers of vertices.
     fn indices_per_segment(&self) -> usize {
@@ -111,7 +116,8 @@ where
     P: Primitive2d + Meshable,
     P::Output: Extrudable,
 {
-    /// Create a new `ExtrusionBuilder<P>` from a given `base_shape` and the full `depth` of the extrusion.
+    /// Create a new `ExtrusionBuilder<P>` from a given `base_shape` and the full `depth` of the
+    /// extrusion.
     pub fn new(base_shape: &P, depth: f32) -> Self {
         Self {
             base_builder: base_shape.mesh(),
@@ -145,7 +151,8 @@ impl ExtrusionBuilder<Ellipse> {
 }
 
 impl ExtrusionBuilder<Annulus> {
-    /// Sets the number of vertices used in constructing the concentric circles of the annulus mesh at each end of the extrusion.
+    /// Sets the number of vertices used in constructing the concentric circles of the annulus mesh
+    /// at each end of the extrusion.
     pub fn resolution(mut self, resolution: u32) -> Self {
         self.base_builder.resolution = resolution;
         self
@@ -195,7 +202,8 @@ where
                 }
             }
 
-            // By swapping the first and second indices of each triangle we invert the winding order thus making the mesh visible from the other side
+            // By swapping the first and second indices of each triangle we invert the winding order
+            // thus making the mesh visible from the other side
             if let Some(indices) = back_face.indices_mut() {
                 match topology {
                     PrimitiveTopology::TriangleList => match indices {
@@ -269,7 +277,8 @@ where
                             // Get the index of the next vertex added to the mantel.
                             let index = positions.len() as u32;
 
-                            // Push the positions of the two indices and their equivalent points on each layer.
+                            // Push the positions of the two indices and their equivalent points on
+                            // each layer.
                             for i in 0..layers {
                                 let i = i as f32;
                                 let z = a[2] - layer_depth_delta * i;
@@ -282,7 +291,8 @@ where
                                 uvs.push([uv_x + uv_delta, uv_y]);
                             }
 
-                            // The normal is calculated to be the normal of the line segment connecting a and b.
+                            // The normal is calculated to be the normal of the line segment
+                            // connecting a and b.
                             let n = Vec3::from_array([b[1] - a[1], a[0] - b[0], 0.])
                                 .normalize_or_zero()
                                 .to_array();
@@ -309,12 +319,14 @@ where
                     } => {
                         let uv_delta = uv_segment_delta / (segment_indices.len() - 1) as f32;
 
-                        // Since the indices for this segment will be added after its vertices have been added,
-                        // we need to store the index of the first vertex that is part of this segment.
+                        // Since the indices for this segment will be added after its vertices have
+                        // been added, we need to store the index of the
+                        // first vertex that is part of this segment.
                         let base_index = positions.len() as u32;
 
-                        // If there is a first vertex, we need to add it and its counterparts on each layer.
-                        // The normal is provided by `segment.first_normal`.
+                        // If there is a first vertex, we need to add it and its counterparts on
+                        // each layer. The normal is provided by
+                        // `segment.first_normal`.
                         if let Some(i) = segment_indices.first() {
                             let p = cap_verts[*i as usize];
                             for i in 0..layers {
@@ -331,7 +343,8 @@ where
                             ]);
                         }
 
-                        // For all points inbetween the first and last vertices, we can automatically compute the normals.
+                        // For all points inbetween the first and last vertices, we can
+                        // automatically compute the normals.
                         for i in 1..(segment_indices.len() - 1) {
                             let uv_x = uv_start + uv_delta * i as f32;
 
@@ -350,9 +363,12 @@ where
                                 uvs.push([uv_x, uv_y]);
                             }
 
-                            // The normal for the current vertices can be calculated based on the two neighboring vertices.
-                            // The normal is interpolated between the normals of the two line segments connecting the current vertex with its neighbors.
-                            // Closer vertices have a stronger effect on the normal than more distant ones.
+                            // The normal for the current vertices can be calculated based on the
+                            // two neighboring vertices. The normal is
+                            // interpolated between the normals of the two line segments connecting
+                            // the current vertex with its neighbors.
+                            // Closer vertices have a stronger effect on the normal than more
+                            // distant ones.
                             let n = {
                                 let ab = Vec2::from_slice(&b) - Vec2::from_slice(&a);
                                 let bc = Vec2::from_slice(&c) - Vec2::from_slice(&b);
@@ -365,8 +381,9 @@ where
                             normals.extend_from_slice(&vec![n; layers]);
                         }
 
-                        // If there is a last vertex, we need to add it and its counterparts on each layer.
-                        // The normal is provided by `segment.last_normal`.
+                        // If there is a last vertex, we need to add it and its counterparts on each
+                        // layer. The normal is provided by
+                        // `segment.last_normal`.
                         if let Some(i) = segment_indices.last() {
                             let p = cap_verts[*i as usize];
                             for i in 0..layers {

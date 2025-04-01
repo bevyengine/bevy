@@ -17,7 +17,8 @@ pub struct SpotLight {
     /// By default, this is white.
     pub color: Color,
 
-    /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
+    /// Luminous power in lumens, representing the amount of light emitted by this source in all
+    /// directions.
     pub intensity: f32,
 
     /// Range in meters that this light illuminates.
@@ -122,9 +123,9 @@ impl Default for SpotLight {
         // a quarter arc attenuating from the center
         Self {
             color: Color::WHITE,
-            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
-            // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
-            // this would be way too bright.
+            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at
+            // Bevy's default "very overcast day" exposure level. For "indoor lighting"
+            // with a lower exposure, this would be way too bright.
             intensity: 1_000_000.0,
             range: 20.0,
             radius: 0.0,

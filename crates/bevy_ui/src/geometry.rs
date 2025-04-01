@@ -8,10 +8,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Represents the possible value types for layout properties.
 ///
-/// This enum allows specifying values for various [`Node`](crate::Node) properties in different units,
-/// such as logical pixels, percentages, or automatically determined values.
+/// This enum allows specifying values for various [`Node`](crate::Node) properties in different
+/// units, such as logical pixels, percentages, or automatically determined values.
 ///
-/// `Val` also implements [`core::str::FromStr`] to allow parsing values from strings in the format `#.#px`. Whitespaces between the value and unit is allowed. The following units are supported:
+/// `Val` also implements [`core::str::FromStr`] to allow parsing values from strings in the format
+/// `#.#px`. Whitespaces between the value and unit is allowed. The following units are supported:
 /// * `px`: logical pixels
 /// * `%`: percentage
 /// * `vw`: percentage of the viewport width
@@ -28,7 +29,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     reflect(Serialize, Deserialize)
 )]
 pub enum Val {
-    /// Automatically determine the value based on the context and other [`Node`](crate::Node) properties.
+    /// Automatically determine the value based on the context and other [`Node`](crate::Node)
+    /// properties.
     Auto,
     /// Set this value in logical pixels.
     Px(f32),
@@ -38,12 +40,15 @@ pub enum Val {
     /// along the corresponding axis.
     ///
     /// The chosen axis depends on the [`Node`](crate::Node) field set:
-    /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
+    /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the
+    ///   `flex_direction`.
     /// * For `gap`, `min_size`, `size`, and `max_size`:
     ///   - `width` is relative to the parent's width.
     ///   - `height` is relative to the parent's height.
-    /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent node's width.
-    /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
+    /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent
+    ///   node's width.
+    /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and
+    ///   `top` are relative to the parent's height.
     Percent(f32),
     /// Set this value in percent of the viewport width
     Vw(f32),
@@ -256,8 +261,9 @@ pub enum ValArithmeticError {
 
 impl Val {
     /// Resolves a [`Val`] from the given context values and returns this as an [`f32`].
-    /// The [`Val::Px`] value (if present), `parent_size` and `viewport_size` should all be in the same coordinate space.
-    /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
+    /// The [`Val::Px`] value (if present), `parent_size` and `viewport_size` should all be in the
+    /// same coordinate space. Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is
+    /// impossible to resolve into a concrete value.
     ///
     /// **Note:** If a [`Val::Px`] is resolved, its inner value is returned unchanged.
     pub fn resolve(self, parent_size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
@@ -484,7 +490,8 @@ impl UiRect {
         }
     }
 
-    /// Creates a new [`UiRect`] where both `left` and `right` take the value of `horizontal`, and both `top` and `bottom` take the value of `vertical`.
+    /// Creates a new [`UiRect`] where both `left` and `right` take the value of `horizontal`, and
+    /// both `top` and `bottom` take the value of `vertical`.
     ///
     /// # Example
     ///
@@ -707,7 +714,8 @@ mod tests {
         let viewport_size = vec2(500., 500.);
 
         for value in (-10..10).map(|value| value as f32) {
-            // for a square viewport there should be no difference between `Vw` and `Vh` and between `Vmin` and `Vmax`.
+            // for a square viewport there should be no difference between `Vw` and `Vh` and between
+            // `Vmin` and `Vmax`.
             assert_eq!(
                 Val::Vw(value).resolve(size, viewport_size),
                 Val::Vh(value).resolve(size, viewport_size)

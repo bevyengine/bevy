@@ -16,15 +16,17 @@ use std::{
 use tracing::warn;
 
 /// A watcher for assets stored in the `embedded` asset source. Embedded assets are assets whose
-/// bytes have been embedded into the Rust binary using the [`embedded_asset`](crate::embedded_asset) macro.
-/// This watcher will watch for changes to the "source files", read the contents of changed files from the file system
-/// and overwrite the initial static bytes of the file embedded in the binary with the new dynamically loaded bytes.
+/// bytes have been embedded into the Rust binary using the
+/// [`embedded_asset`](crate::embedded_asset) macro. This watcher will watch for changes to the
+/// "source files", read the contents of changed files from the file system and overwrite the
+/// initial static bytes of the file embedded in the binary with the new dynamically loaded bytes.
 pub struct EmbeddedWatcher {
     _watcher: Debouncer<RecommendedWatcher, RecommendedCache>,
 }
 
 impl EmbeddedWatcher {
-    /// Creates a new `EmbeddedWatcher` that watches for changes to the embedded assets in the given `dir`.
+    /// Creates a new `EmbeddedWatcher` that watches for changes to the embedded assets in the given
+    /// `dir`.
     pub fn new(
         dir: Dir,
         root_paths: Arc<RwLock<HashMap<Box<Path>, PathBuf>>>,
@@ -46,9 +48,10 @@ impl EmbeddedWatcher {
 
 impl AssetWatcher for EmbeddedWatcher {}
 
-/// A [`FilesystemEventHandler`] that uses [`EmbeddedAssetRegistry`](crate::io::embedded::EmbeddedAssetRegistry) to hot-reload
-/// binary-embedded Rust source files. This will read the contents of changed files from the file system and overwrite
-/// the initial static bytes from the file embedded in the binary.
+/// A [`FilesystemEventHandler`] that uses
+/// [`EmbeddedAssetRegistry`](crate::io::embedded::EmbeddedAssetRegistry) to hot-reload
+/// binary-embedded Rust source files. This will read the contents of changed files from the file
+/// system and overwrite the initial static bytes from the file embedded in the binary.
 pub(crate) struct EmbeddedEventHandler {
     sender: crossbeam_channel::Sender<AssetSourceEvent>,
     root_paths: Arc<RwLock<HashMap<Box<Path>, PathBuf>>>,

@@ -58,10 +58,12 @@ pub struct CameraController {
     pub walk_speed: f32,
     /// Multiplier for running translation speed.
     pub run_speed: f32,
-    /// Multiplier for how the mouse scroll wheel modifies [`walk_speed`](CameraController::walk_speed)
+    /// Multiplier for how the mouse scroll wheel modifies
+    /// [`walk_speed`](CameraController::walk_speed)
     /// and [`run_speed`](CameraController::run_speed).
     pub scroll_factor: f32,
-    /// Friction factor used to exponentially decay [`velocity`](CameraController::velocity) over time.
+    /// Friction factor used to exponentially decay [`velocity`](CameraController::velocity) over
+    /// time.
     pub friction: f32,
     /// This [`CameraController`]'s pitch rotation.
     pub pitch: f32,

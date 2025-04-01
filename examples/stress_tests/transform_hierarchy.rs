@@ -416,7 +416,8 @@ fn spawn_tree(
             let transform = {
                 let mut translation = Vec3::ZERO;
                 // use the same placement fn as the `update` system
-                // this way the entities won't be all at (0, 0, 0) when they don't have an `Update` component
+                // this way the entities won't be all at (0, 0, 0) when they don't have an `Update`
+                // component
                 set_translation(&mut translation, sep);
                 Transform::from_translation(translation)
             };
@@ -470,7 +471,8 @@ fn add_children_non_uniform(
 }
 
 /// generate a tree that has more nodes on one side that the other
-/// the deepest hierarchy path is `max_depth` and the widest branches have `max_branch_width` children
+/// the deepest hierarchy path is `max_depth` and the widest branches have `max_branch_width`
+/// children
 fn gen_non_uniform_tree(max_depth: u32, max_branch_width: u32) -> Vec<usize> {
     let mut tree = Vec::new();
     add_children_non_uniform(&mut tree, 0, max_depth, max_branch_width);

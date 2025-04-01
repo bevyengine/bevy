@@ -257,8 +257,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         )
     };
 
-    // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
-    // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
+    // This puts `register_required` before `register_recursive_requires` to ensure that the
+    // constructors of _all_ top level components are initialized first, giving them precedence
+    // over recursively defined constructors for the same component type
     TokenStream::from(quote! {
         #required_component_docs
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {

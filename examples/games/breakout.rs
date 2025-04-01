@@ -148,7 +148,8 @@ impl WallLocation {
 impl Wall {
     // This "builder method" allows us to reuse logic across our wall entities,
     // making our code easier to read and less prone to bugs when we change the logic
-    // Notice the use of Sprite and Transform alongside Wall, overwriting the default values defined for the required components
+    // Notice the use of Sprite and Transform alongside Wall, overwriting the default values defined
+    // for the required components
     fn new(location: WallLocation) -> (Wall, Sprite, Transform) {
         (
             Wall,

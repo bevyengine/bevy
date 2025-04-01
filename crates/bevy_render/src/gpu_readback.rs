@@ -68,8 +68,9 @@ impl Plugin for GpuReadbackPlugin {
 
 /// A component that registers the wrapped handle for gpu readback, either a texture or a buffer.
 ///
-/// Data is read asynchronously and will be triggered on the entity via the [`ReadbackComplete`] event
-/// when complete. If this component is not removed, the readback will be attempted every frame
+/// Data is read asynchronously and will be triggered on the entity via the [`ReadbackComplete`]
+/// event when complete. If this component is not removed, the readback will be attempted every
+/// frame
 #[derive(Component, ExtractComponent, Clone, Debug)]
 pub enum Readback {
     Texture(Handle<Image>),
@@ -349,7 +350,8 @@ pub(crate) const fn align_byte_size(value: u32) -> u32 {
     RenderDevice::align_copy_bytes_per_row(value as usize) as u32
 }
 
-/// Get the size of a image when the size of each row has been rounded up to [`wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`].
+/// Get the size of a image when the size of each row has been rounded up to
+/// [`wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`].
 pub(crate) const fn get_aligned_size(extent: Extent3d, pixel_size: u32) -> u32 {
     extent.height * align_byte_size(extent.width * pixel_size) * extent.depth_or_array_layers
 }

@@ -1,8 +1,9 @@
 //! Showcases how fallible systems and observers can make use of Rust's powerful result handling
 //! syntax.
 //!
-//! Important note: to set the global error handler, the `configurable_error_handler` feature must be
-//! enabled. This feature is disabled by default, as it may introduce runtime overhead, especially for commands.
+//! Important note: to set the global error handler, the `configurable_error_handler` feature must
+//! be enabled. This feature is disabled by default, as it may introduce runtime overhead,
+//! especially for commands.
 
 use bevy::{
     ecs::{
@@ -39,8 +40,8 @@ fn main() {
     // types of systems the same way, except for the error handling.
     app.add_systems(Startup, setup);
 
-    // Commands can also return `Result`s, which are automatically handled by the global error handler
-    // if not explicitly handled by the user.
+    // Commands can also return `Result`s, which are automatically handled by the global error
+    // handler if not explicitly handled by the user.
     app.add_systems(Startup, failing_commands);
 
     // Individual systems can also be handled by piping the output result:
@@ -56,8 +57,8 @@ fn main() {
 
     // If we run the app, we'll see the following output at startup:
     //
-    //  WARN Encountered an error in system `fallible_systems::failing_system`: Resource not initialized
-    // ERROR fallible_systems::failing_system failed: Resource not initialized
+    //  WARN Encountered an error in system `fallible_systems::failing_system`: Resource not
+    // initialized ERROR fallible_systems::failing_system failed: Resource not initialized
     //  INFO captured error: Resource not initialized
     app.run();
 }

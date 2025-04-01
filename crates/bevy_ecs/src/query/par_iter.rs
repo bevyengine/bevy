@@ -45,9 +45,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 
     /// Runs `func` on each query result in parallel on a value returned by `init`.
     ///
-    /// `init` may be called multiple times per thread, and the values returned may be discarded between tasks on any given thread.
-    /// Callers should avoid using this function as if it were a parallel version
-    /// of [`Iterator::fold`].
+    /// `init` may be called multiple times per thread, and the values returned may be discarded
+    /// between tasks on any given thread. Callers should avoid using this function as if it
+    /// were a parallel version of [`Iterator::fold`].
     ///
     /// # Example
     ///
@@ -195,9 +195,9 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
 
     /// Runs `func` on each query result in parallel on a value returned by `init`.
     ///
-    /// `init` may be called multiple times per thread, and the values returned may be discarded between tasks on any given thread.
-    /// Callers should avoid using this function as if it were a parallel version
-    /// of [`Iterator::fold`].
+    /// `init` may be called multiple times per thread, and the values returned may be discarded
+    /// between tasks on any given thread. Callers should avoid using this function as if it
+    /// were a parallel version of [`Iterator::fold`].
     ///
     /// # Example
     ///
@@ -259,9 +259,9 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
             // SAFETY:
             // This method can only be called once per instance of QueryParManyIter,
             // which ensures that mutable queries cannot be executed multiple times at once.
-            // Mutable instances of QueryParManyUniqueIter can only be created via an exclusive borrow of a
-            // Query or a World, which ensures that multiple aliasing QueryParManyIters cannot exist
-            // at the same time.
+            // Mutable instances of QueryParManyUniqueIter can only be created via an exclusive
+            // borrow of a Query or a World, which ensures that multiple aliasing
+            // QueryParManyIters cannot exist at the same time.
             unsafe {
                 self.state
                     .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
@@ -309,7 +309,8 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
 
 /// A parallel iterator over the unique query items generated from an [`EntitySet`].
 ///
-/// This struct is created by the [`Query::par_iter_many_unique`] and [`Query::par_iter_many_unique_mut`] methods.
+/// This struct is created by the [`Query::par_iter_many_unique`] and
+/// [`Query::par_iter_many_unique_mut`] methods.
 ///
 /// [`EntitySet`]: crate::entity::EntitySet
 /// [`Query::par_iter_many_unique`]: crate::system::Query::par_iter_many_unique
@@ -350,9 +351,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
 
     /// Runs `func` on each query result in parallel on a value returned by `init`.
     ///
-    /// `init` may be called multiple times per thread, and the values returned may be discarded between tasks on any given thread.
-    /// Callers should avoid using this function as if it were a parallel version
-    /// of [`Iterator::fold`].
+    /// `init` may be called multiple times per thread, and the values returned may be discarded
+    /// between tasks on any given thread. Callers should avoid using this function as if it
+    /// were a parallel version of [`Iterator::fold`].
     ///
     /// # Example
     ///
@@ -414,9 +415,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
             // SAFETY:
             // This method can only be called once per instance of QueryParManyUniqueIter,
             // which ensures that mutable queries cannot be executed multiple times at once.
-            // Mutable instances of QueryParManyUniqueIter can only be created via an exclusive borrow of a
-            // Query or a World, which ensures that multiple aliasing QueryParManyUniqueIters cannot exist
-            // at the same time.
+            // Mutable instances of QueryParManyUniqueIter can only be created via an exclusive
+            // borrow of a Query or a World, which ensures that multiple aliasing
+            // QueryParManyUniqueIters cannot exist at the same time.
             unsafe {
                 self.state
                     .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)

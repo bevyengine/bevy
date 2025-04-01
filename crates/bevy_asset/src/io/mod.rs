@@ -46,13 +46,15 @@ pub enum AssetReaderError {
     Io(Arc<std::io::Error>),
 
     /// The HTTP request completed but returned an unhandled [HTTP response status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status).
-    /// If the request fails before getting a status code (e.g. request timeout, interrupted connection, etc), expect [`AssetReaderError::Io`].
+    /// If the request fails before getting a status code (e.g. request timeout, interrupted
+    /// connection, etc), expect [`AssetReaderError::Io`].
     #[error("Encountered HTTP status {0:?} when loading asset")]
     HttpError(u16),
 }
 
 impl PartialEq for AssetReaderError {
-    /// Equality comparison for `AssetReaderError::Io` is not full (only through `ErrorKind` of inner error)
+    /// Equality comparison for `AssetReaderError::Io` is not full (only through `ErrorKind` of
+    /// inner error)
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -74,9 +76,9 @@ impl From<std::io::Error> for AssetReaderError {
 
 /// The maximum size of a future returned from [`Reader::read_to_end`].
 /// This is large enough to fit ten references.
-// Ideally this would be even smaller (ReadToEndFuture only needs space for two references based on its definition),
-// but compiler optimizations can apparently inflate the stack size of futures due to inlining, which makes
-// a higher maximum necessary.
+// Ideally this would be even smaller (ReadToEndFuture only needs space for two references based on
+// its definition), but compiler optimizations can apparently inflate the stack size of futures due
+// to inlining, which makes a higher maximum necessary.
 pub const STACK_FUTURE_SIZE: usize = 10 * size_of::<&()>();
 
 pub use stackfuture::StackFuture;
@@ -87,11 +89,12 @@ pub use stackfuture::StackFuture;
 /// support exclusively for the [`futures_io::SeekFrom::Current`] variant. It allows for relative
 /// seeking from the current cursor position.
 pub trait AsyncSeekForward {
-    /// Attempts to asynchronously seek forward by a specified number of bytes from the current cursor position.
+    /// Attempts to asynchronously seek forward by a specified number of bytes from the current
+    /// cursor position.
     ///
-    /// Seeking beyond the end of the stream is allowed and the behavior for this case is defined by the implementation.
-    /// The new position, relative to the beginning of the stream, should be returned upon successful completion
-    /// of the seek operation.
+    /// Seeking beyond the end of the stream is allowed and the behavior for this case is defined by
+    /// the implementation. The new position, relative to the beginning of the stream, should be
+    /// returned upon successful completion of the seek operation.
     ///
     /// If the seek operation completes successfully,
     /// the new position relative to the beginning of the stream should be returned.
@@ -99,9 +102,9 @@ pub trait AsyncSeekForward {
     /// # Implementation
     ///
     /// Implementations of this trait should handle [`Poll::Pending`] correctly, converting
-    /// [`std::io::ErrorKind::WouldBlock`] errors into [`Poll::Pending`] to indicate that the operation is not
-    /// yet complete and should be retried, and either internally retry or convert
-    /// [`std::io::ErrorKind::Interrupted`] into another error kind.
+    /// [`std::io::ErrorKind::WouldBlock`] errors into [`Poll::Pending`] to indicate that the
+    /// operation is not yet complete and should be retried, and either internally retry or
+    /// convert [`std::io::ErrorKind::Interrupted`] into another error kind.
     fn poll_seek_forward(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -121,7 +124,8 @@ impl<T: ?Sized + AsyncSeekForward + Unpin> AsyncSeekForward for Box<T> {
 
 /// Extension trait for [`AsyncSeekForward`].
 pub trait AsyncSeekForwardExt: AsyncSeekForward {
-    /// Seek by the provided `offset` in the forwards direction, using the [`AsyncSeekForward`] trait.
+    /// Seek by the provided `offset` in the forwards direction, using the [`AsyncSeekForward`]
+    /// trait.
     fn seek_forward(&mut self, offset: u64) -> SeekForwardFuture<'_, Self>
     where
         Self: Unpin,
@@ -203,7 +207,8 @@ where
 /// `path`. This trait is not object safe, if needed use a dyn [`ErasedAssetReader`] instead.
 ///
 /// This trait defines asset-agnostic mechanisms to read bytes from a storage system.
-/// For the per-asset-type saving/loading logic, see [`AssetSaver`](crate::saver::AssetSaver) and [`AssetLoader`](crate::loader::AssetLoader).
+/// For the per-asset-type saving/loading logic, see [`AssetSaver`](crate::saver::AssetSaver) and
+/// [`AssetLoader`](crate::loader::AssetLoader).
 ///
 /// For a complementary version of this trait that can write assets to storage, see [`AssetWriter`].
 pub trait AssetReader: Send + Sync + 'static {
@@ -256,8 +261,8 @@ pub trait AssetReader: Send + Sync + 'static {
     }
 }
 
-/// Equivalent to an [`AssetReader`] but using boxed futures, necessary eg. when using a `dyn AssetReader`,
-/// as [`AssetReader`] isn't currently object safe.
+/// Equivalent to an [`AssetReader`] but using boxed futures, necessary eg. when using a `dyn
+/// AssetReader`, as [`AssetReader`] isn't currently object safe.
 pub trait ErasedAssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
     fn read<'a>(
@@ -343,9 +348,11 @@ pub enum AssetWriterError {
 /// `path`. This trait is not object safe, if needed use a dyn [`ErasedAssetWriter`] instead.
 ///
 /// This trait defines asset-agnostic mechanisms to write bytes to a storage system.
-/// For the per-asset-type saving/loading logic, see [`AssetSaver`](crate::saver::AssetSaver) and [`AssetLoader`](crate::loader::AssetLoader).
+/// For the per-asset-type saving/loading logic, see [`AssetSaver`](crate::saver::AssetSaver) and
+/// [`AssetLoader`](crate::loader::AssetLoader).
 ///
-/// For a complementary version of this trait that can read assets from storage, see [`AssetReader`].
+/// For a complementary version of this trait that can read assets from storage, see
+/// [`AssetReader`].
 pub trait AssetWriter: Send + Sync + 'static {
     /// Writes the full asset bytes at the provided path.
     fn write<'a>(
@@ -388,13 +395,14 @@ pub trait AssetWriter: Send + Sync + 'static {
         &'a self,
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<(), AssetWriterError>>;
-    /// Removes the directory at the given path, including all assets _and_ directories in that directory.
+    /// Removes the directory at the given path, including all assets _and_ directories in that
+    /// directory.
     fn remove_directory<'a>(
         &'a self,
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<(), AssetWriterError>>;
-    /// Removes the directory at the given path, but only if it is completely empty. This will return an error if the
-    /// directory is not empty.
+    /// Removes the directory at the given path, but only if it is completely empty. This will
+    /// return an error if the directory is not empty.
     fn remove_empty_directory<'a>(
         &'a self,
         path: &'a Path,
@@ -432,8 +440,8 @@ pub trait AssetWriter: Send + Sync + 'static {
     }
 }
 
-/// Equivalent to an [`AssetWriter`] but using boxed futures, necessary eg. when using a `dyn AssetWriter`,
-/// as [`AssetWriter`] isn't currently object safe.
+/// Equivalent to an [`AssetWriter`] but using boxed futures, necessary eg. when using a `dyn
+/// AssetWriter`, as [`AssetWriter`] isn't currently object safe.
 pub trait ErasedAssetWriter: Send + Sync + 'static {
     /// Writes the full asset bytes at the provided path.
     fn write<'a>(
@@ -470,13 +478,14 @@ pub trait ErasedAssetWriter: Send + Sync + 'static {
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
-    /// Removes the directory at the given path, including all assets _and_ directories in that directory.
+    /// Removes the directory at the given path, including all assets _and_ directories in that
+    /// directory.
     fn remove_directory<'a>(
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
-    /// Removes the directory at the given path, but only if it is completely empty. This will return an error if the
-    /// directory is not empty.
+    /// Removes the directory at the given path, but only if it is completely empty. This will
+    /// return an error if the directory is not empty.
     fn remove_empty_directory<'a>(
         &'a self,
         path: &'a Path,
@@ -573,7 +582,8 @@ impl<T: AssetWriter> ErasedAssetWriter for T {
     }
 }
 
-/// An "asset source change event" that occurs whenever asset (or asset metadata) is created/added/removed
+/// An "asset source change event" that occurs whenever asset (or asset metadata) is
+/// created/added/removed
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AssetSourceEvent {
     /// An asset at this path was added.
@@ -598,21 +608,23 @@ pub enum AssetSourceEvent {
     RemovedFolder(PathBuf),
     /// A folder at the given path was renamed.
     RenamedFolder { old: PathBuf, new: PathBuf },
-    /// Something of unknown type was removed. It is the job of the event handler to determine the type.
-    /// This exists because notify-rs produces "untyped" rename events without destination paths for unwatched folders, so we can't determine the type of
-    /// the rename.
+    /// Something of unknown type was removed. It is the job of the event handler to determine the
+    /// type. This exists because notify-rs produces "untyped" rename events without destination
+    /// paths for unwatched folders, so we can't determine the type of the rename.
     RemovedUnknown {
-        /// The path of the removed asset or folder (undetermined). This could be an asset path or a folder. This will not be a "meta file" path.
+        /// The path of the removed asset or folder (undetermined). This could be an asset path or
+        /// a folder. This will not be a "meta file" path.
         path: PathBuf,
-        /// This field is only relevant if `path` is determined to be an asset path (and therefore not a folder). If this field is `true`,
-        /// then this event corresponds to a meta removal (not an asset removal) . If `false`, then this event corresponds to an asset removal
-        /// (not a meta removal).
+        /// This field is only relevant if `path` is determined to be an asset path (and therefore
+        /// not a folder). If this field is `true`, then this event corresponds to a meta
+        /// removal (not an asset removal) . If `false`, then this event corresponds to an asset
+        /// removal (not a meta removal).
         is_meta: bool,
     },
 }
 
-/// A handle to an "asset watcher" process, that will listen for and emit [`AssetSourceEvent`] values for as long as
-/// [`AssetWatcher`] has not been dropped.
+/// A handle to an "asset watcher" process, that will listen for and emit [`AssetSourceEvent`]
+/// values for as long as [`AssetWatcher`] has not been dropped.
 pub trait AssetWatcher: Send + Sync + 'static {}
 
 /// An [`AsyncRead`] implementation capable of reading a [`Vec<u8>`].

@@ -90,7 +90,8 @@ impl Plugin for TimePlugin {
         // Ensure the events are not dropped until `FixedMain` systems can observe them
         app.add_systems(FixedPostUpdate, signal_event_update_system);
         let mut event_registry = app.world_mut().resource_mut::<EventRegistry>();
-        // We need to start in a waiting state so that the events are not updated until the first fixed update
+        // We need to start in a waiting state so that the events are not updated until the first
+        // fixed update
         event_registry.should_update = ShouldUpdateEvents::Waiting;
     }
 }
@@ -101,8 +102,8 @@ impl Plugin for TimePlugin {
 /// networking or similar, you may prefer to set the next [`Time`] value manually.
 #[derive(Resource, Default)]
 pub enum TimeUpdateStrategy {
-    /// [`Time`] will be automatically updated each frame using an [`Instant`] sent from the render world.
-    /// If nothing is sent, the system clock will be used instead.
+    /// [`Time`] will be automatically updated each frame using an [`Instant`] sent from the render
+    /// world. If nothing is sent, the system clock will be used instead.
     #[cfg_attr(feature = "std", doc = "See [`TimeSender`] for more details.")]
     #[default]
     Automatic,
@@ -235,8 +236,8 @@ mod tests {
     #[test]
     fn fixed_main_schedule_should_run_with_time_plugin_enabled() {
         // Set the time step to just over half the fixed update timestep
-        // This way, it will have not accumulated enough time to run the fixed update after one update
-        // But will definitely have enough time after two updates
+        // This way, it will have not accumulated enough time to run the fixed update after one
+        // update But will definitely have enough time after two updates
         let fixed_update_timestep = Time::<Fixed>::default().timestep();
         let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
 
@@ -332,8 +333,8 @@ mod tests {
     #[test]
     fn event_update_should_wait_for_fixed_main() {
         // Set the time step to just over half the fixed update timestep
-        // This way, it will have not accumulated enough time to run the fixed update after one update
-        // But will definitely have enough time after two updates
+        // This way, it will have not accumulated enough time to run the fixed update after one
+        // update But will definitely have enough time after two updates
         let fixed_update_timestep = Time::<Fixed>::default().timestep();
         let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
 

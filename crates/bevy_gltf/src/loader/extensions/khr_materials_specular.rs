@@ -21,8 +21,8 @@ use {
 /// `KHR_materials_specular` specification requirement that stems from the fact
 /// that glTF is specified in terms of a specular strength model, not the
 /// reflectance model that Filament and Bevy use. A workaround, which is noted
-/// in the [`StandardMaterial`](bevy_pbr::StandardMaterial) documentation, is to set the reflectance value
-/// to 2.0, which spreads the specular map range from [0.0, 1.0] as normal.
+/// in the [`StandardMaterial`](bevy_pbr::StandardMaterial) documentation, is to set the reflectance
+/// value to 2.0, which spreads the specular map range from [0.0, 1.0] as normal.
 ///
 /// See the specification:
 /// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_specular/README.md>

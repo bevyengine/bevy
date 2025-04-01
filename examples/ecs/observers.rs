@@ -34,10 +34,11 @@ fn main() {
                 }
             },
         )
-        // This observer runs whenever the `Mine` component is added to an entity, and places it in a simple spatial index.
+        // This observer runs whenever the `Mine` component is added to an entity, and places it in
+        // a simple spatial index.
         .add_observer(on_add_mine)
-        // This observer runs whenever the `Mine` component is removed from an entity (including despawning it)
-        // and removes it from the spatial index.
+        // This observer runs whenever the `Mine` component is removed from an entity (including
+        // despawning it) and removes it from the spatial index.
         .add_observer(on_remove_mine)
         .run();
 }
@@ -95,11 +96,12 @@ fn setup(mut commands: Commands) {
 
     // We want to spawn a bunch of mines. We could just call the code above for each of them.
     // That would create a new observer instance for every Mine entity. Having duplicate observers
-    // generally isn't worth worrying about as the overhead is low. But if you want to be maximally efficient,
-    // you can reuse observers across entities.
+    // generally isn't worth worrying about as the overhead is low. But if you want to be maximally
+    // efficient, you can reuse observers across entities.
     //
-    // First, observers are actually just entities with the Observer component! The `observe()` functions
-    // you've seen so far in this example are just shorthand for manually spawning an observer.
+    // First, observers are actually just entities with the Observer component! The `observe()`
+    // functions you've seen so far in this example are just shorthand for manually spawning an
+    // observer.
     let mut observer = Observer::new(explode_mine);
 
     // As we spawn entities, we can make this observer watch each of them:

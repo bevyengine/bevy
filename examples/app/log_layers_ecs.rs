@@ -3,10 +3,11 @@
 //! The way we will do this is via a [`mpsc`] channel. [`mpsc`] channels allow 2 unrelated
 //! parts of the program to communicate (in this case, [`Layer`]s and Bevy's ECS).
 //!
-//! Inside the `custom_layer` function we will create a [`mpsc::Sender`] and a [`mpsc::Receiver`] from a
-//! [`mpsc::channel`]. The [`Sender`](mpsc::Sender) will go into the `AdvancedLayer` and the [`Receiver`](mpsc::Receiver) will
-//! go into a non-send resource called `LogEvents` (It has to be non-send because [`Receiver`](mpsc::Receiver) is [`!Sync`](Sync)).
-//! From there we will use `transfer_log_events` to transfer log events from `LogEvents` to an ECS event called `LogEvent`.
+//! Inside the `custom_layer` function we will create a [`mpsc::Sender`] and a [`mpsc::Receiver`]
+//! from a [`mpsc::channel`]. The [`Sender`](mpsc::Sender) will go into the `AdvancedLayer` and the
+//! [`Receiver`](mpsc::Receiver) will go into a non-send resource called `LogEvents` (It has to be
+//! non-send because [`Receiver`](mpsc::Receiver) is [`!Sync`](Sync)). From there we will use
+//! `transfer_log_events` to transfer log events from `LogEvents` to an ECS event called `LogEvent`.
 //!
 //! Finally, after all that we can access the `LogEvent` event from our systems and use it.
 //! In this example we build a simple log viewer.
@@ -36,7 +37,8 @@ fn main() {
         .run();
 }
 
-/// A basic message. This is what we will be sending from the [`CaptureLayer`] to [`CapturedLogEvents`] non-send resource.
+/// A basic message. This is what we will be sending from the [`CaptureLayer`] to
+/// [`CapturedLogEvents`] non-send resource.
 #[derive(Debug, Event)]
 struct LogEvent {
     message: String,
@@ -86,7 +88,8 @@ impl<S: Subscriber> Layer<S> for CaptureLayer {
     }
 }
 
-/// A [`Visit`](tracing::field::Visit)or that records log messages that are transferred to [`CaptureLayer`].
+/// A [`Visit`](tracing::field::Visit)or that records log messages that are transferred to
+/// [`CaptureLayer`].
 struct CaptureLayerVisitor<'a>(&'a mut Option<String>);
 impl tracing::field::Visit for CaptureLayerVisitor<'_> {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {

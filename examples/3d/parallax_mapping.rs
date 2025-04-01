@@ -1,5 +1,5 @@
-//! A simple 3D scene with a spinning cube with a normal map and depth map to demonstrate parallax mapping.
-//! Press left mouse button to cycle through different views.
+//! A simple 3D scene with a spinning cube with a normal map and depth map to demonstrate parallax
+//! mapping. Press left mouse button to cycle through different views.
 
 use std::fmt;
 

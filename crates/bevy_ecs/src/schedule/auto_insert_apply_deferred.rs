@@ -11,16 +11,17 @@ use super::{
 
 /// A [`ScheduleBuildPass`] that inserts [`ApplyDeferred`] systems into the schedule graph
 /// when there are [`Deferred`](crate::prelude::Deferred)
-/// in one system and there are ordering dependencies on that system. [`Commands`](crate::system::Commands) is one
-/// such deferred buffer.
+/// in one system and there are ordering dependencies on that system.
+/// [`Commands`](crate::system::Commands) is one such deferred buffer.
 ///
 /// This pass is typically automatically added to the schedule. You can disable this by setting
 /// [`ScheduleBuildSettings::auto_insert_apply_deferred`](crate::schedule::ScheduleBuildSettings::auto_insert_apply_deferred)
-/// to `false`. You may want to disable this if you only want to sync deferred params at the end of the schedule,
-/// or want to manually insert all your sync points.
+/// to `false`. You may want to disable this if you only want to sync deferred params at the end of
+/// the schedule, or want to manually insert all your sync points.
 #[derive(Debug, Default)]
 pub struct AutoInsertApplyDeferredPass {
-    /// Dependency edges that will **not** automatically insert an instance of `ApplyDeferred` on the edge.
+    /// Dependency edges that will **not** automatically insert an instance of `ApplyDeferred` on
+    /// the edge.
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
     auto_sync_node_ids: HashMap<u32, NodeId>,
 }
@@ -108,9 +109,9 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         };
 
         // Calculate the distance for each node.
-        // The "distance" is the number of sync points between a node and the beginning of the graph.
-        // Also store if a preceding edge would have added a sync point but was ignored to add it at
-        // a later edge that is not ignored.
+        // The "distance" is the number of sync points between a node and the beginning of the
+        // graph. Also store if a preceding edge would have added a sync point but was
+        // ignored to add it at a later edge that is not ignored.
         let mut distances_and_pending_sync: HashMap<usize, (u32, bool)> =
             HashMap::with_capacity_and_hasher(topo.len(), Default::default());
 

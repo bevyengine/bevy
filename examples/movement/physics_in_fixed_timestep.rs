@@ -14,36 +14,40 @@
 //! ```
 //! The issue here is that the player's movement speed will be tied to the frame rate.
 //! Faster machines will move the player faster, and slower machines will move the player slower.
-//! In fact, you can observe this today when running some old games that did it this way on modern hardware!
-//! The player will move at a breakneck pace.
+//! In fact, you can observe this today when running some old games that did it this way on modern
+//! hardware! The player will move at a breakneck pace.
 //!
 //! The more sophisticated way is to update the player's position based on the time that has passed:
 //! ```no_run
 //! transform.translation += velocity * time.delta_secs();
 //! ```
-//! This way, velocity represents a speed in units per second, and the player will move at the same speed
-//! regardless of the frame rate.
+//! This way, velocity represents a speed in units per second, and the player will move at the same
+//! speed regardless of the frame rate.
 //!
 //! However, this can still be problematic if the frame rate is very low or very high.
 //! If the frame rate is very low, the player will move in large jumps. This may lead to
 //! a player moving in such large jumps that they pass through walls or other obstacles.
 //! In general, you cannot expect a physics simulation to behave nicely with *any* delta time.
-//! Ideally, we want to have some stability in what kinds of delta times we feed into our physics simulation.
+//! Ideally, we want to have some stability in what kinds of delta times we feed into our physics
+//! simulation.
 //!
-//! The solution is using a fixed timestep. This means that we advance the physics simulation by a fixed amount
-//! at a time. If the real time that passed between two frames is less than the fixed timestep, we simply
-//! don't advance the physics simulation at all.
+//! The solution is using a fixed timestep. This means that we advance the physics simulation by a
+//! fixed amount at a time. If the real time that passed between two frames is less than the fixed
+//! timestep, we simply don't advance the physics simulation at all.
 //! If it is more, we advance the physics simulation multiple times until we catch up.
 //! You can read more about how Bevy implements this in the documentation for
 //! [`bevy::time::Fixed`](https://docs.rs/bevy/latest/bevy/time/struct.Fixed.html).
 //!
-//! This leaves us with a last problem, however. If our physics simulation may advance zero or multiple times
-//! per frame, there may be frames in which the player's position did not need to be updated at all,
-//! and some where it is updated by a large amount that resulted from running the physics simulation multiple times.
-//! This is physically correct, but visually jarring. Imagine a player moving in a straight line, but depending on the frame rate,
-//! they may sometimes advance by a large amount and sometimes not at all. Visually, we want the player to move smoothly.
-//! This is why we need to separate the player's position in the physics simulation from the player's position in the visual representation.
-//! The visual representation can then be interpolated smoothly based on the previous and current actual player position in the physics simulation.
+//! This leaves us with a last problem, however. If our physics simulation may advance zero or
+//! multiple times per frame, there may be frames in which the player's position did not need to be
+//! updated at all, and some where it is updated by a large amount that resulted from running the
+//! physics simulation multiple times. This is physically correct, but visually jarring. Imagine a
+//! player moving in a straight line, but depending on the frame rate, they may sometimes advance by
+//! a large amount and sometimes not at all. Visually, we want the player to move smoothly.
+//! This is why we need to separate the player's position in the physics simulation from the
+//! player's position in the visual representation. The visual representation can then be
+//! interpolated smoothly based on the previous and current actual player position in the physics
+//! simulation.
 //!
 //! This is a tradeoff: every visual frame is now slightly lagging behind the actual physical frame,
 //! but in return, the player's movement will appear smooth.
@@ -53,22 +57,28 @@
 //!
 //! ## Implementation
 //!
-//! - The player's inputs since the last physics update are stored in the `AccumulatedInput` component.
-//! - The player's velocity is stored in a `Velocity` component. This is the speed in units per second.
-//! - The player's current position in the physics simulation is stored in a `PhysicalTranslation` component.
-//! - The player's previous position in the physics simulation is stored in a `PreviousPhysicalTranslation` component.
+//! - The player's inputs since the last physics update are stored in the `AccumulatedInput`
+//!   component.
+//! - The player's velocity is stored in a `Velocity` component. This is the speed in units per
+//!   second.
+//! - The player's current position in the physics simulation is stored in a `PhysicalTranslation`
+//!   component.
+//! - The player's previous position in the physics simulation is stored in a
+//!   `PreviousPhysicalTranslation` component.
 //! - The player's visual representation is stored in Bevy's regular `Transform` component.
 //! - Every frame, we go through the following steps:
-//!   - Accumulate the player's input and set the current speed in the `handle_input` system.
-//!     This is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystem::BeforeFixedMainLoop`,
-//!     which runs before the fixed timestep loop. This is run every frame.
+//!   - Accumulate the player's input and set the current speed in the `handle_input` system. This
+//!     is run in the `RunFixedMainLoop` schedule, ordered in
+//!     `RunFixedMainLoopSystem::BeforeFixedMainLoop`, which runs before the fixed timestep loop.
+//!     This is run every frame.
 //!   - Advance the physics simulation by one fixed timestep in the `advance_physics` system.
-//!     Accumulated input is consumed here.
-//!     This is run in the `FixedUpdate` schedule, which runs zero or multiple times per frame.
+//!     Accumulated input is consumed here. This is run in the `FixedUpdate` schedule, which runs
+//!     zero or multiple times per frame.
 //!   - Update the player's visual representation in the `interpolate_rendered_transform` system.
-//!     This interpolates between the player's previous and current position in the physics simulation.
-//!     It is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystem::AfterFixedMainLoop`,
-//!     which runs after the fixed timestep loop. This is run every frame.
+//!     This interpolates between the player's previous and current position in the physics
+//!     simulation. It is run in the `RunFixedMainLoop` schedule, ordered in
+//!     `RunFixedMainLoopSystem::AfterFixedMainLoop`, which runs after the fixed timestep loop. This
+//!     is run every frame.
 //!
 //!
 //! ## Controls
@@ -89,15 +99,19 @@ fn main() {
         // Advance the physics simulation using a fixed timestep.
         .add_systems(FixedUpdate, advance_physics)
         .add_systems(
-            // The `RunFixedMainLoop` schedule allows us to schedule systems to run before and after the fixed timestep loop.
+            // The `RunFixedMainLoop` schedule allows us to schedule systems to run before and
+            // after the fixed timestep loop.
             RunFixedMainLoop,
             (
-                // The physics simulation needs to know the player's input, so we run this before the fixed timestep loop.
-                // Note that if we ran it in `Update`, it would be too late, as the physics simulation would already have been advanced.
-                // If we ran this in `FixedUpdate`, it would sometimes not register player input, as that schedule may run zero times per frame.
+                // The physics simulation needs to know the player's input, so we run this before
+                // the fixed timestep loop. Note that if we ran it in `Update`, it
+                // would be too late, as the physics simulation would already have been advanced.
+                // If we ran this in `FixedUpdate`, it would sometimes not register player input,
+                // as that schedule may run zero times per frame.
                 handle_input.in_set(RunFixedMainLoopSystem::BeforeFixedMainLoop),
-                // The player's visual representation needs to be updated after the physics simulation has been advanced.
-                // This could be run in `Update`, but if we run it here instead, the systems in `Update`
+                // The player's visual representation needs to be updated after the physics
+                // simulation has been advanced. This could be run in `Update`, but
+                // if we run it here instead, the systems in `Update`
                 // will be working with the `Transform` that will actually be shown on screen.
                 interpolate_rendered_transform.in_set(RunFixedMainLoopSystem::AfterFixedMainLoop),
             ),
@@ -162,8 +176,9 @@ fn spawn_text(mut commands: Commands) {
 
 /// Handle keyboard input and accumulate it in the `AccumulatedInput` component.
 ///
-/// There are many strategies for how to handle all the input that happened since the last fixed timestep.
-/// This is a very simple one: we just accumulate the input and average it out by normalizing it.
+/// There are many strategies for how to handle all the input that happened since the last fixed
+/// timestep. This is a very simple one: we just accumulate the input and average it out by
+/// normalizing it.
 fn handle_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut AccumulatedInput, &mut Velocity)>,
@@ -193,10 +208,11 @@ fn handle_input(
     }
 }
 
-/// Advance the physics simulation by one fixed timestep. This may run zero or multiple times per frame.
+/// Advance the physics simulation by one fixed timestep. This may run zero or multiple times per
+/// frame.
 ///
-/// Note that since this runs in `FixedUpdate`, `Res<Time>` would be `Res<Time<Fixed>>` automatically.
-/// We are being explicit here for clarity.
+/// Note that since this runs in `FixedUpdate`, `Res<Time>` would be `Res<Time<Fixed>>`
+/// automatically. We are being explicit here for clarity.
 fn advance_physics(
     fixed_time: Res<Time<Fixed>>,
     mut query: Query<(
@@ -216,7 +232,8 @@ fn advance_physics(
         previous_physical_translation.0 = current_physical_translation.0;
         current_physical_translation.0 += velocity.0 * fixed_time.delta_secs();
 
-        // Reset the input accumulator, as we are currently consuming all input that happened since the last fixed timestep.
+        // Reset the input accumulator, as we are currently consuming all input that happened since
+        // the last fixed timestep.
         input.0 = Vec2::ZERO;
     }
 }
@@ -234,7 +251,8 @@ fn interpolate_rendered_transform(
     {
         let previous = previous_physical_translation.0;
         let current = current_physical_translation.0;
-        // The overstep fraction is a value between 0 and 1 that tells us how far we are between two fixed timesteps.
+        // The overstep fraction is a value between 0 and 1 that tells us how far we are between two
+        // fixed timesteps.
         let alpha = fixed_time.overstep_fraction();
 
         let rendered_translation = previous.lerp(current, alpha);

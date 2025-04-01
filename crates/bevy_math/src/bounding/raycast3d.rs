@@ -51,9 +51,9 @@ impl RayCast3d {
         let min = Vec3A::select(positive, aabb.min, aabb.max);
         let max = Vec3A::select(positive, aabb.max, aabb.min);
 
-        // Calculate the minimum/maximum time for each axis based on how much the direction goes that
-        // way. These values can get arbitrarily large, or even become NaN, which is handled by the
-        // min/max operations below
+        // Calculate the minimum/maximum time for each axis based on how much the direction goes
+        // that way. These values can get arbitrarily large, or even become NaN, which is
+        // handled by the min/max operations below
         let tmin = (min - self.origin) * self.direction_recip;
         let tmax = (max - self.origin) * self.direction_recip;
 
@@ -156,7 +156,8 @@ pub struct BoundingSphereCast {
 }
 
 impl BoundingSphereCast {
-    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [direction], and max distance.
+    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [direction], and max
+    /// distance.
     ///
     /// [direction]: crate::direction::Dir3
     pub fn new(

@@ -4,8 +4,8 @@
 //! This example sets up many sprites in different sizes, rotations, and scales in the world.
 //! It also moves the camera over them to see how well frustum culling works.
 //!
-//! Add the `--colored` arg to run with color tinted sprites. This will cause the sprites to be rendered
-//! in multiple batches, reducing performance but useful for testing.
+//! Add the `--colored` arg to run with color tinted sprites. This will cause the sprites to be
+//! rendered in multiple batches, reducing performance but useful for testing.
 
 use bevy::{
     color::palettes::css::*,

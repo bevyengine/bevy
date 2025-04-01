@@ -456,7 +456,8 @@ impl MeshPipelineViewLayouts {
 
         #[cfg(debug_assertions)]
         if layout.texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES {
-            // Issue our own warning here because Naga's error message is a bit cryptic in this situation
+            // Issue our own warning here because Naga's error message is a bit cryptic in this
+            // situation
             once!(warn!(
                 "Too many textures in mesh pipeline view layout, this might cause us to hit `wgpu::Limits::max_sampled_textures_per_shader_stage` in some environments."
             ));

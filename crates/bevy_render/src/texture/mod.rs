@@ -24,7 +24,8 @@ use bevy_ecs::prelude::*;
 /// A handle to a 1 x 1 transparent white image.
 ///
 /// Like [`Handle<Image>::default`], this is a handle to a fallback image asset.
-/// While that handle points to an opaque white 1 x 1 image, this handle points to a transparent 1 x 1 white image.
+/// While that handle points to an opaque white 1 x 1 image, this handle points to a transparent 1 x
+/// 1 white image.
 // Number randomly selected by fair WolframAlpha query. Totally arbitrary.
 pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
     weak_handle!("d18ad97e-a322-4981-9505-44c59a4b5e46");

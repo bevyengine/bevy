@@ -17,11 +17,12 @@ use thiserror::Error;
 /// Represents a path to an asset in a "virtual filesystem".
 ///
 /// Asset paths consist of three main parts:
-/// * [`AssetPath::source`]: The name of the [`AssetSource`](crate::io::AssetSource) to load the asset from.
-///   This is optional. If one is not set the default source will be used (which is the `assets` folder by default).
+/// * [`AssetPath::source`]: The name of the [`AssetSource`](crate::io::AssetSource) to load the
+///   asset from. This is optional. If one is not set the default source will be used (which is the
+///   `assets` folder by default).
 /// * [`AssetPath::path`]: The "virtual filesystem path" pointing to an asset source file.
-/// * [`AssetPath::label`]: An optional "named sub asset". When assets are loaded, they are
-///   allowed to load "sub assets" of any type, which are identified by a named "label".
+/// * [`AssetPath::label`]: An optional "named sub asset". When assets are loaded, they are allowed
+///   to load "sub assets" of any type, which are identified by a named "label".
 ///
 /// Asset paths are generally constructed (and visualized) as strings:
 ///
@@ -50,7 +51,8 @@ use thiserror::Error;
 /// which allows us to optimize the static cases.
 /// This means that the common case of `asset_server.load("my_scene.scn")` when it creates and
 /// clones internal owned [`AssetPaths`](AssetPath).
-/// This also means that you should use [`AssetPath::parse`] in cases where `&str` is the explicit type.
+/// This also means that you should use [`AssetPath::parse`] in cases where `&str` is the explicit
+/// type.
 #[derive(Eq, PartialEq, Hash, Clone, Default, Reflect)]
 #[reflect(opaque)]
 #[reflect(Debug, PartialEq, Hash, Clone, Serialize, Deserialize)]
@@ -79,21 +81,26 @@ impl<'a> Display for AssetPath<'a> {
     }
 }
 
-/// An error that occurs when parsing a string type to create an [`AssetPath`] fails, such as during [`AssetPath::parse`].
+/// An error that occurs when parsing a string type to create an [`AssetPath`] fails, such as during
+/// [`AssetPath::parse`].
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ParseAssetPathError {
-    /// Error that occurs when the [`AssetPath::source`] section of a path string contains the [`AssetPath::label`] delimiter `#`. E.g. `bad#source://file.test`.
+    /// Error that occurs when the [`AssetPath::source`] section of a path string contains the
+    /// [`AssetPath::label`] delimiter `#`. E.g. `bad#source://file.test`.
     #[error("Asset source must not contain a `#` character")]
     InvalidSourceSyntax,
-    /// Error that occurs when the [`AssetPath::label`] section of a path string contains the [`AssetPath::source`] delimiter `://`. E.g. `source://file.test#bad://label`.
+    /// Error that occurs when the [`AssetPath::label`] section of a path string contains the
+    /// [`AssetPath::source`] delimiter `://`. E.g. `source://file.test#bad://label`.
     #[error("Asset label must not contain a `://` substring")]
     InvalidLabelSyntax,
-    /// Error that occurs when a path string has an [`AssetPath::source`] delimiter `://` with no characters preceding it. E.g. `://file.test`.
+    /// Error that occurs when a path string has an [`AssetPath::source`] delimiter `://` with no
+    /// characters preceding it. E.g. `://file.test`.
     #[error(
         "Asset source must be at least one character. Either specify the source before the '://' or remove the `://`"
     )]
     MissingSource,
-    /// Error that occurs when a path string has an [`AssetPath::label`] delimiter `#` with no characters succeeding it. E.g. `file.test#`
+    /// Error that occurs when a path string has an [`AssetPath::label`] delimiter `#` with no
+    /// characters succeeding it. E.g. `file.test#`
     #[error(
         "Asset label must be at least one character. Either specify the label after the '#' or remove the '#'"
     )]
@@ -111,7 +118,8 @@ impl<'a> AssetPath<'a> {
     /// and reference counting for [`AssetPath::into_owned`].
     ///
     /// # Panics
-    /// Panics if the asset path is in an invalid format. Use [`AssetPath::try_parse`] for a fallible variant
+    /// Panics if the asset path is in an invalid format. Use [`AssetPath::try_parse`] for a
+    /// fallible variant
     pub fn parse(asset_path: &'a str) -> AssetPath<'a> {
         Self::try_parse(asset_path).unwrap()
     }
@@ -138,7 +146,8 @@ impl<'a> AssetPath<'a> {
         })
     }
 
-    // Attempts to Parse a &str into an `AssetPath`'s `AssetPath::source`, `AssetPath::path`, and `AssetPath::label` components.
+    // Attempts to Parse a &str into an `AssetPath`'s `AssetPath::source`, `AssetPath::path`, and
+    // `AssetPath::label` components.
     fn parse_internal(
         asset_path: &str,
     ) -> Result<(Option<&str>, &Path, Option<&str>), ParseAssetPathError> {
@@ -149,12 +158,15 @@ impl<'a> AssetPath<'a> {
 
         // Loop through the characters of the passed in &str to accomplish the following:
         // 1. Search for the first instance of the `://` substring. If the `://` substring is found,
-        //  store the range of indices representing everything before the `://` substring as the `source_range`.
+        //  store the range of indices representing everything before the `://` substring as the
+        // `source_range`.
         // 2. Search for the last instance of the `#` character. If the `#` character is found,
-        //  store the range of indices representing everything after the `#` character as the `label_range`
+        //  store the range of indices representing everything after the `#` character as the
+        // `label_range`
         // 3. Set the `path_range` to be everything in between the `source_range` and `label_range`,
         //  excluding the `://` substring and `#` character.
-        // 4. Verify that there are no `#` characters in the `AssetPath::source` and no `://` substrings in the `AssetPath::label`
+        // 4. Verify that there are no `#` characters in the `AssetPath::source` and no `://`
+        //    substrings in the `AssetPath::label`
         let mut source_delimiter_chars_matched = 0;
         let mut last_found_source_index = 0;
         for (index, char) in chars {
@@ -168,9 +180,11 @@ impl<'a> AssetPath<'a> {
                             source_delimiter_chars_matched = 2;
                         }
                         2 => {
-                            // If we haven't found our first `AssetPath::source` yet, check to make sure it is valid and then store it.
+                            // If we haven't found our first `AssetPath::source` yet, check to make
+                            // sure it is valid and then store it.
                             if source_range.is_none() {
-                                // If the `AssetPath::source` contains a `#` character, it is invalid.
+                                // If the `AssetPath::source` contains a `#` character, it is
+                                // invalid.
                                 if label_range.is_some() {
                                     return Err(ParseAssetPathError::InvalidSourceSyntax);
                                 }
@@ -200,8 +214,9 @@ impl<'a> AssetPath<'a> {
                 return Err(ParseAssetPathError::InvalidLabelSyntax);
             }
         }
-        // Try to parse the range of indices that represents the `AssetPath::source` portion of the `AssetPath` to make sure it is not empty.
-        // This would be the case if the input &str was something like `://some/file.test`
+        // Try to parse the range of indices that represents the `AssetPath::source` portion of the
+        // `AssetPath` to make sure it is not empty. This would be the case if the input
+        // &str was something like `://some/file.test`
         let source = match source_range {
             Some(source_range) => {
                 if source_range.is_empty() {
@@ -211,8 +226,9 @@ impl<'a> AssetPath<'a> {
             }
             None => None,
         };
-        // Try to parse the range of indices that represents the `AssetPath::label` portion of the `AssetPath` to make sure it is not empty.
-        // This would be the case if the input &str was something like `some/file.test#`.
+        // Try to parse the range of indices that represents the `AssetPath::label` portion of the
+        // `AssetPath` to make sure it is not empty. This would be the case if the input
+        // &str was something like `some/file.test#`.
         let label = match label_range {
             Some(label_range) => {
                 if label_range.is_empty() {
@@ -262,7 +278,8 @@ impl<'a> AssetPath<'a> {
         self.path.deref()
     }
 
-    /// Gets the path to the asset in the "virtual filesystem" without a label (if a label is currently set).
+    /// Gets the path to the asset in the "virtual filesystem" without a label (if a label is
+    /// currently set).
     #[inline]
     pub fn without_label(&self) -> AssetPath<'_> {
         Self {
@@ -306,7 +323,8 @@ impl<'a> AssetPath<'a> {
         }
     }
 
-    /// Returns an [`AssetPath`] for the parent folder of this path, if there is a parent folder in the path.
+    /// Returns an [`AssetPath`] for the parent folder of this path, if there is a parent folder in
+    /// the path.
     pub fn parent(&self) -> Option<AssetPath<'a>> {
         let path = match &self.path {
             CowArc::Borrowed(path) => CowArc::Borrowed(path.parent()?),
@@ -320,9 +338,10 @@ impl<'a> AssetPath<'a> {
         })
     }
 
-    /// Converts this into an "owned" value. If internally a value is borrowed, it will be cloned into an "owned [`Arc`]".
-    /// If internally a value is a static reference, the static reference will be used unchanged.
-    /// If internally a value is an "owned [`Arc`]", it will remain unchanged.
+    /// Converts this into an "owned" value. If internally a value is borrowed, it will be cloned
+    /// into an "owned [`Arc`]". If internally a value is a static reference, the static
+    /// reference will be used unchanged. If internally a value is an "owned [`Arc`]", it will
+    /// remain unchanged.
     ///
     /// [`Arc`]: alloc::sync::Arc
     pub fn into_owned(self) -> AssetPath<'static> {
@@ -333,9 +352,10 @@ impl<'a> AssetPath<'a> {
         }
     }
 
-    /// Clones this into an "owned" value. If internally a value is borrowed, it will be cloned into an "owned [`Arc`]".
-    /// If internally a value is a static reference, the static reference will be used unchanged.
-    /// If internally a value is an "owned [`Arc`]", the [`Arc`] will be cloned.
+    /// Clones this into an "owned" value. If internally a value is borrowed, it will be cloned into
+    /// an "owned [`Arc`]". If internally a value is a static reference, the static reference
+    /// will be used unchanged. If internally a value is an "owned [`Arc`]", the [`Arc`] will be
+    /// cloned.
     ///
     /// [`Arc`]: alloc::sync::Arc
     #[inline]
@@ -1004,7 +1024,8 @@ mod tests {
 
     #[test]
     fn test_resolve_insufficient_elements() {
-        // Ensure that ".." segments are preserved if there are insufficient elements to remove them.
+        // Ensure that ".." segments are preserved if there are insufficient elements to remove
+        // them.
         let base = AssetPath::from("alice/bob#carol");
         assert_eq!(
             base.resolve("../../joe/next").unwrap(),

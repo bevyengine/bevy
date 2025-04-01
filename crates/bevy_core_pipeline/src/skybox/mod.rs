@@ -233,7 +233,8 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                     } else {
                         TextureFormat::bevy_default()
                     },
-                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
+                    // BlendState::REPLACE is not needed here, and None will be potentially much
+                    // faster in some cases.
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],

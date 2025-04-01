@@ -43,7 +43,8 @@ fn setup(mut commands: Commands) {
 
 // This event represents an attack we want to "bubble" up from the armor to the goblin.
 //
-// We enable propagation by adding the event attribute and specifying two important pieces of information.
+// We enable propagation by adding the event attribute and specifying two important pieces of
+// information.
 //
 // - **traversal:**
 // Which component we want to propagate along. In this case, we want to "bubble" (meaning propagate

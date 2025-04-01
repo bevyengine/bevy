@@ -23,8 +23,8 @@ pub(crate) fn node_name(node: &Node) -> Name {
 /// Calculate the transform of gLTF [`Node`].
 ///
 /// This should be used instead of calling [`gltf::scene::Transform::matrix()`]
-/// on [`Node::transform()`](gltf::Node::transform) directly because it uses optimized glam types and
-/// if `libm` feature of `bevy_math` crate is enabled also handles cross
+/// on [`Node::transform()`](gltf::Node::transform) directly because it uses optimized glam types
+/// and if `libm` feature of `bevy_math` crate is enabled also handles cross
 /// platform determinism properly.
 pub(crate) fn node_transform(node: &Node) -> Transform {
     match node.transform() {

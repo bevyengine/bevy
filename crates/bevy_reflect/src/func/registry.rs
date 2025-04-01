@@ -80,7 +80,8 @@ impl FunctionRegistry {
     /// assert!(result.is_ok());
     /// ```
     ///
-    /// Anonymous functions and closures should be registered using [`register_with_name`] or given a name using [`DynamicFunction::with_name`].
+    /// Anonymous functions and closures should be registered using [`register_with_name`] or given
+    /// a name using [`DynamicFunction::with_name`].
     ///
     /// ```
     /// # use bevy_reflect::func::{FunctionRegistrationError, FunctionRegistry, IntoFunction};
@@ -128,8 +129,9 @@ impl FunctionRegistry {
     /// The given function will internally be stored as a [`DynamicFunction<'static>`]
     /// with its [name] set to the given name.
     ///
-    /// For named functions (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`) where a custom name is not needed,
-    /// it's recommended to use [`register`] instead as the generated name is guaranteed to be unique.
+    /// For named functions (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`) where a custom name is
+    /// not needed, it's recommended to use [`register`] instead as the generated name is
+    /// guaranteed to be unique.
     ///
     /// If a registered function with the same name already exists,
     /// it will not be registered again and an error will be returned.
@@ -147,8 +149,9 @@ impl FunctionRegistry {
     /// however, it should be noted that anonymous functions and closures
     /// are not guaranteed to have unique type names.
     ///
-    /// This method is a convenience around calling [`IntoFunction::into_function`] and [`DynamicFunction::with_name`]
-    /// on the function and inserting it into the registry using the [`register`] method.
+    /// This method is a convenience around calling [`IntoFunction::into_function`] and
+    /// [`DynamicFunction::with_name`] on the function and inserting it into the registry using
+    /// the [`register`] method.
     ///
     /// # Examples
     ///
@@ -218,8 +221,8 @@ impl FunctionRegistry {
     ///
     /// Because the function must have a name,
     /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) and closures must instead
-    /// be registered using [`overwrite_registration_with_name`] or manually converted to a [`DynamicFunction`]
-    /// and named using [`DynamicFunction::with_name`].
+    /// be registered using [`overwrite_registration_with_name`] or manually converted to a
+    /// [`DynamicFunction`] and named using [`DynamicFunction::with_name`].
     /// Failure to do so will result in an error being returned.
     ///
     /// To avoid overwriting existing registrations,
@@ -257,8 +260,9 @@ impl FunctionRegistry {
     /// To avoid overwriting existing registrations,
     /// it's recommended to use the [`register_with_name`] method instead.
     ///
-    /// This method is a convenience around calling [`IntoFunction::into_function`] and [`DynamicFunction::with_name`]
-    /// on the function and inserting it into the registry using the [`overwrite_registration`] method.
+    /// This method is a convenience around calling [`IntoFunction::into_function`] and
+    /// [`DynamicFunction::with_name`] on the function and inserting it into the registry using
+    /// the [`overwrite_registration`] method.
     ///
     /// Returns the previous function with the same name, if any.
     ///

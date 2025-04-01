@@ -136,7 +136,8 @@ pub struct TonemappingPipeline {
     sampler: Sampler,
 }
 
-/// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
+/// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a
+/// perceptually uniform image for a given [`Camera`] entity.
 #[derive(
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
@@ -163,10 +164,10 @@ pub enum Tonemapping {
     /// NOTE: Requires the `tonemapping_luts` cargo feature.
     AgX,
     /// By Tomasz Stachowiak
-    /// Has little hue shifting in the darks and mids, but lots in the brights. Brights desaturate across the spectrum.
-    /// Is sort of between Reinhard and `ReinhardLuminance`. Conceptually similar to reinhard-jodie.
-    /// Designed as a compromise if you want e.g. decent skin tones in low light, but can't afford to re-do your
-    /// VFX to look good without hue shifting.
+    /// Has little hue shifting in the darks and mids, but lots in the brights. Brights desaturate
+    /// across the spectrum. Is sort of between Reinhard and `ReinhardLuminance`. Conceptually
+    /// similar to reinhard-jodie. Designed as a compromise if you want e.g. decent skin tones
+    /// in low light, but can't afford to re-do your VFX to look good without hue shifting.
     SomewhatBoringDisplayTransform,
     /// Current Bevy default.
     /// By Tomasz Stachowiak
@@ -176,8 +177,8 @@ pub enum Tonemapping {
     /// Tony is a display transform intended for real-time applications such as games.
     /// It is intentionally boring, does not increase contrast or saturation, and stays close to the
     /// input stimulus where compression isn't necessary.
-    /// Brightness-equivalent luminance of the input stimulus is compressed. The non-linearity resembles Reinhard.
-    /// Color hues are preserved during compression, except for a deliberate [Bezold–Brücke shift](https://en.wikipedia.org/wiki/Bezold%E2%80%93Br%C3%BCcke_shift).
+    /// Brightness-equivalent luminance of the input stimulus is compressed. The non-linearity
+    /// resembles Reinhard. Color hues are preserved during compression, except for a deliberate [Bezold–Brücke shift](https://en.wikipedia.org/wiki/Bezold%E2%80%93Br%C3%BCcke_shift).
     /// To avoid posterization, selective desaturation is employed, with care to avoid the [Abney effect](https://en.wikipedia.org/wiki/Abney_effect).
     /// NOTE: Requires the `tonemapping_luts` cargo feature.
     #[default]
@@ -392,7 +393,8 @@ pub fn prepare_view_tonemapping_pipelines(
             .insert(ViewTonemappingPipeline(pipeline));
     }
 }
-/// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`Camera`] entity.
+/// Enables a debanding shader that applies dithering to mitigate color banding in the final image
+/// for a given [`Camera`] entity.
 #[derive(
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
@@ -411,7 +413,8 @@ pub fn get_lut_bindings<'a>(
     fallback_image: &'a FallbackImage,
 ) -> (&'a TextureView, &'a Sampler) {
     let image = match tonemapping {
-        // AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
+        // AgX lut texture used when tonemapping doesn't need a texture since it's very small
+        // (32x32x32)
         Tonemapping::None
         | Tonemapping::Reinhard
         | Tonemapping::ReinhardLuminance

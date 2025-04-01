@@ -29,11 +29,12 @@ pub struct Sprite {
     pub flip_x: bool,
     /// Flip the sprite along the `Y` axis
     pub flip_y: bool,
-    /// An optional custom size for the sprite that will be used when rendering, instead of the size
-    /// of the sprite's image
+    /// An optional custom size for the sprite that will be used when rendering, instead of the
+    /// size of the sprite's image
     pub custom_size: Option<Vec2>,
-    /// An optional rectangle representing the region of the sprite's image to render, instead of rendering
-    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`].
+    /// An optional rectangle representing the region of the sprite's image to render, instead of
+    /// rendering the full image. This is an easy one-off alternative to using a
+    /// [`TextureAtlas`].
     ///
     /// When used with a [`TextureAtlas`], the rect
     /// is offset by the atlas's minimal (top-left) corner position.
@@ -157,7 +158,8 @@ impl From<Handle<Image>> for Sprite {
 #[derive(Default, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Debug, Default, Clone)]
 pub enum SpriteImageMode {
-    /// The sprite will take on the size of the image by default, and will be stretched or shrunk if [`Sprite::custom_size`] is set.
+    /// The sprite will take on the size of the image by default, and will be stretched or shrunk if
+    /// [`Sprite::custom_size`] is set.
     #[default]
     Auto,
     /// The texture will be scaled to fit the rect bounds defined in [`Sprite::custom_size`].
@@ -171,14 +173,15 @@ pub enum SpriteImageMode {
         tile_x: bool,
         /// Should the image repeat vertically
         tile_y: bool,
-        /// The texture will repeat when the ratio between the *drawing dimensions* of texture and the
-        /// *original texture size* are above this value.
+        /// The texture will repeat when the ratio between the *drawing dimensions* of texture and
+        /// the *original texture size* are above this value.
         stretch_value: f32,
     },
 }
 
 impl SpriteImageMode {
-    /// Returns true if this mode uses slices internally ([`SpriteImageMode::Sliced`] or [`SpriteImageMode::Tiled`])
+    /// Returns true if this mode uses slices internally ([`SpriteImageMode::Sliced`] or
+    /// [`SpriteImageMode::Tiled`])
     #[inline]
     pub fn uses_slices(&self) -> bool {
         matches!(

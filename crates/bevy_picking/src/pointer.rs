@@ -274,7 +274,8 @@ pub enum PointerAction {
 pub struct PointerInput {
     /// The id of the pointer.
     pub pointer_id: PointerId,
-    /// The location of the pointer. For [`PointerAction::Move`], this is the location after the movement.
+    /// The location of the pointer. For [`PointerAction::Move`], this is the location after the
+    /// movement.
     pub location: Location,
     /// The action that the event describes.
     pub action: PointerAction,

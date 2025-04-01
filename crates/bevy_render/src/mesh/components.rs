@@ -13,7 +13,8 @@ use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_transform::components::Transform;
 use derive_more::derive::From;
 
-/// A component for 2D meshes. Requires a [`MeshMaterial2d`] to be rendered, commonly using a [`ColorMaterial`].
+/// A component for 2D meshes. Requires a [`MeshMaterial2d`] to be rendered, commonly using a
+/// [`ColorMaterial`].
 ///
 /// [`MeshMaterial2d`]: <https://docs.rs/bevy/latest/bevy/sprite/struct.MeshMaterial2d.html>
 /// [`ColorMaterial`]: <https://docs.rs/bevy/latest/bevy/sprite/struct.ColorMaterial.html>
@@ -66,7 +67,8 @@ impl AsAssetId for Mesh2d {
     }
 }
 
-/// A component for 3D meshes. Requires a [`MeshMaterial3d`] to be rendered, commonly using a [`StandardMaterial`].
+/// A component for 3D meshes. Requires a [`MeshMaterial3d`] to be rendered, commonly using a
+/// [`StandardMaterial`].
 ///
 /// [`MeshMaterial3d`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterial3d.html>
 /// [`StandardMaterial`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html>

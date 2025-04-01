@@ -84,7 +84,8 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 
     // spawn 3 triangles to show that batching works
     for (x, y) in [-0.5, 0.0, 0.5].into_iter().zip([-0.25, 0.5, -0.25]) {
-        // Spawn an entity with all the required components for it to be rendered with our custom pipeline
+        // Spawn an entity with all the required components for it to be rendered with our custom
+        // pipeline
         commands.spawn((
             // We use a marker component to identify the mesh that will be rendered
             // with our specialized pipeline
@@ -186,8 +187,9 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
     /// The key is also used by the pipeline cache to determine if
     /// it needs to create a new pipeline or not
     ///
-    /// In this example we just use the base `MeshPipelineKey` defined by bevy, but this could be anything.
-    /// For example, if you want to make a pipeline with a procedural shader you could add the Handle<Shader> to the key.
+    /// In this example we just use the base `MeshPipelineKey` defined by bevy, but this could be
+    /// anything. For example, if you want to make a pipeline with a procedural shader you could
+    /// add the Handle<Shader> to the key.
     type Key = MeshPipelineKey;
 
     fn specialize(
@@ -205,7 +207,8 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             // Make sure this matches the shader location
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(1));
         }
-        // This will automatically generate the correct `VertexBufferLayout` based on the vertex attributes
+        // This will automatically generate the correct `VertexBufferLayout` based on the vertex
+        // attributes
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         Ok(RenderPipelineDescriptor {

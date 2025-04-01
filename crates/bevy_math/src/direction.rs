@@ -169,7 +169,8 @@ impl Dir2 {
         Self::new(Vec2::new(x, y))
     }
 
-    /// Create a direction from its `x` and `y` components, assuming the resulting vector is normalized.
+    /// Create a direction from its `x` and `y` components, assuming the resulting vector is
+    /// normalized.
     ///
     /// # Warning
     ///
@@ -255,13 +256,14 @@ impl Dir2 {
         self.rotation_from_y().inverse()
     }
 
-    /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
-    /// Useful for preventing numerical error accumulation.
+    /// Returns `self` after an approximate normalization, assuming the value is already nearly
+    /// normalized. Useful for preventing numerical error accumulation.
     /// See [`Dir3::fast_renormalize`] for an example of when such error accumulation might occur.
     #[inline]
     pub fn fast_renormalize(self) -> Self {
         let length_squared = self.0.length_squared();
-        // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
+        // Based on a Taylor approximation of the inverse square root, see
+        // [`Dir3::fast_renormalize`] for more details.
         Self(self * (0.5 * (3.0 - length_squared)))
     }
 }
@@ -434,7 +436,8 @@ impl Dir3 {
         Self::new(Vec3::new(x, y, z))
     }
 
-    /// Create a direction from its `x`, `y`, and `z` components, assuming the resulting vector is normalized.
+    /// Create a direction from its `x`, `y`, and `z` components, assuming the resulting vector is
+    /// normalized.
     ///
     /// # Warning
     ///
@@ -483,8 +486,8 @@ impl Dir3 {
         Dir3(quat.mul_vec3(self.0))
     }
 
-    /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
-    /// Useful for preventing numerical error accumulation.
+    /// Returns `self` after an approximate normalization, assuming the value is already nearly
+    /// normalized. Useful for preventing numerical error accumulation.
     ///
     /// # Example
     /// The following seemingly benign code would start accumulating errors over time,
@@ -699,7 +702,8 @@ impl Dir3A {
         Self::new(Vec3A::new(x, y, z))
     }
 
-    /// Create a direction from its `x`, `y`, and `z` components, assuming the resulting vector is normalized.
+    /// Create a direction from its `x`, `y`, and `z` components, assuming the resulting vector is
+    /// normalized.
     ///
     /// # Warning
     ///
@@ -751,14 +755,15 @@ impl Dir3A {
         Dir3A(quat.mul_vec3a(self.0))
     }
 
-    /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
-    /// Useful for preventing numerical error accumulation.
+    /// Returns `self` after an approximate normalization, assuming the value is already nearly
+    /// normalized. Useful for preventing numerical error accumulation.
     ///
     /// See [`Dir3::fast_renormalize`] for an example of when such error accumulation might occur.
     #[inline]
     pub fn fast_renormalize(self) -> Self {
         let length_squared = self.0.length_squared();
-        // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
+        // Based on a Taylor approximation of the inverse square root, see
+        // [`Dir3::fast_renormalize`] for more details.
         Self(self * (0.5 * (3.0 - length_squared)))
     }
 }

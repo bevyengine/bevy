@@ -229,7 +229,8 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Returns a new `Commands` instance from a [`RawCommandQueue`] and an [`Entities`] reference.
     ///
-    /// This is used when constructing [`Commands`] from a [`DeferredWorld`](crate::world::DeferredWorld).
+    /// This is used when constructing [`Commands`] from a
+    /// [`DeferredWorld`](crate::world::DeferredWorld).
     ///
     /// # Safety
     ///
@@ -316,8 +317,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// # See also
     ///
     /// - [`spawn`](Self::spawn) to spawn an entity with components.
-    /// - [`spawn_batch`](Self::spawn_batch) to spawn many entities
-    ///   with the same combination of components.
+    /// - [`spawn_batch`](Self::spawn_batch) to spawn many entities with the same combination of
+    ///   components.
     pub fn spawn_empty(&mut self) -> EntityCommands {
         let entity = self.entities.reserve_entity();
         EntityCommands {
@@ -366,8 +367,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// # See also
     ///
     /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
-    /// - [`spawn_batch`](Self::spawn_batch) to spawn many entities
-    ///   with the same combination of components.
+    /// - [`spawn_batch`](Self::spawn_batch) to spawn many entities with the same combination of
+    ///   components.
     #[track_caller]
     pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands {
         let mut entity = self.spawn_empty();
@@ -615,8 +616,9 @@ impl<'w, 's> Commands<'w, 's> {
                 queue.push(command);
             }
             InternalQueue::RawCommandQueue(queue) => {
-                // SAFETY: `RawCommandQueue` is only every constructed in `Commands::new_raw_from_entities`
-                // where the caller of that has ensured that `queue` outlives `self`
+                // SAFETY: `RawCommandQueue` is only every constructed in
+                // `Commands::new_raw_from_entities` where the caller of that has
+                // ensured that `queue` outlives `self`
                 unsafe {
                     queue.push(command);
                 }
@@ -642,9 +644,10 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # Note
     ///
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`Commands::spawn_batch`].
-    /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
-    /// worked out to share an ID space (which doesn't happen by default).
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use
+    /// [`Commands::spawn_batch`]. This method should generally only be used for sharing
+    /// entities across apps, and only when they have a scheme worked out to share an ID space
+    /// (which doesn't happen by default).
     #[track_caller]
     #[deprecated(
         since = "0.16.0",
@@ -694,8 +697,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// This command will fail if any of the given entities do not exist.
     ///
-    /// It will internally return a [`TryInsertBatchError`](crate::world::error::TryInsertBatchError),
-    /// which will be handled by the [default error handler](crate::error::default_error_handler).
+    /// It will internally return a
+    /// [`TryInsertBatchError`](crate::world::error::TryInsertBatchError), which will be handled
+    /// by the [default error handler](crate::error::default_error_handler).
     #[track_caller]
     pub fn insert_batch<I, B>(&mut self, batch: I)
     where
@@ -725,8 +729,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// This command will fail if any of the given entities do not exist.
     ///
-    /// It will internally return a [`TryInsertBatchError`](crate::world::error::TryInsertBatchError),
-    /// which will be handled by the [default error handler](crate::error::default_error_handler).
+    /// It will internally return a
+    /// [`TryInsertBatchError`](crate::world::error::TryInsertBatchError), which will be handled
+    /// by the [default error handler](crate::error::default_error_handler).
     #[track_caller]
     pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
@@ -755,8 +760,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// This command will fail if any of the given entities do not exist.
     ///
-    /// It will internally return a [`TryInsertBatchError`](crate::world::error::TryInsertBatchError),
-    /// which will be handled by [logging the error at the `warn` level](warn).
+    /// It will internally return a
+    /// [`TryInsertBatchError`](crate::world::error::TryInsertBatchError), which will be handled
+    /// by [logging the error at the `warn` level](warn).
     #[track_caller]
     pub fn try_insert_batch<I, B>(&mut self, batch: I)
     where
@@ -786,8 +792,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// This command will fail if any of the given entities do not exist.
     ///
-    /// It will internally return a [`TryInsertBatchError`](crate::world::error::TryInsertBatchError),
-    /// which will be handled by [logging the error at the `warn` level](warn).
+    /// It will internally return a
+    /// [`TryInsertBatchError`](crate::world::error::TryInsertBatchError), which will be handled
+    /// by [logging the error at the `warn` level](warn).
     #[track_caller]
     pub fn try_insert_batch_if_new<I, B>(&mut self, batch: I)
     where
@@ -882,14 +889,16 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
-    /// [`World::run_system`] or [`World::run_system_with`] instead of running the system as a command.
+    /// [`World::run_system`] or [`World::run_system_with`] instead of running the system as a
+    /// command.
     ///
     /// # Fallible
     ///
     /// This command will fail if the given [`SystemId`]
     /// does not correspond to a [`System`](crate::system::System).
     ///
-    /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
+    /// It will internally return a
+    /// [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
     pub fn run_system(&mut self, id: SystemId) {
         self.queue(command::run_system(id).handle_error_with(warn));
@@ -904,14 +913,16 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
-    /// [`World::run_system`] or [`World::run_system_with`] instead of running the system as a command.
+    /// [`World::run_system`] or [`World::run_system_with`] instead of running the system as a
+    /// command.
     ///
     /// # Fallible
     ///
     /// This command will fail if the given [`SystemId`]
     /// does not correspond to a [`System`](crate::system::System).
     ///
-    /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
+    /// It will internally return a
+    /// [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
     pub fn run_system_with<I>(&mut self, id: SystemId<I>, input: I::Inner<'static>)
     where
@@ -924,7 +935,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`Commands::run_system`] or [`World::run_system`].
     ///
     /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
-    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the
+    /// associated system.
     ///
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
@@ -1004,7 +1016,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// This command will fail if the given [`SystemId`]
     /// does not correspond to a [`System`](crate::system::System).
     ///
-    /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
+    /// It will internally return a
+    /// [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
     pub fn unregister_system<I, O>(&mut self, system_id: SystemId<I, O>)
     where
@@ -1024,7 +1037,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// This command will fail if the given system
     /// is not currently cached in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
     ///
-    /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
+    /// It will internally return a
+    /// [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
     pub fn unregister_system_cached<I, O, M, S>(&mut self, system: S)
     where
@@ -1137,8 +1151,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # Performance
     ///
-    /// Since this is a command, exclusive world access is used, which means that it will not profit from
-    /// system-level parallelism on supported platforms.
+    /// Since this is a command, exclusive world access is used, which means that it will not profit
+    /// from system-level parallelism on supported platforms.
     ///
     /// If these events are performance-critical or very frequently sent,
     /// consider using a typed [`EventWriter`](crate::event::EventWriter) instead.
@@ -1157,8 +1171,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// This command will fail if the given [`ScheduleLabel`]
     /// does not correspond to a [`Schedule`](crate::schedule::Schedule).
     ///
-    /// It will internally return a [`TryRunScheduleError`](crate::world::error::TryRunScheduleError),
-    /// which will be handled by [logging the error at the `warn` level](warn).
+    /// It will internally return a
+    /// [`TryRunScheduleError`](crate::world::error::TryRunScheduleError), which will be handled
+    /// by [logging the error at the `warn` level](warn).
     ///
     /// # Example
     ///
@@ -1707,8 +1722,9 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Note
     ///
-    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget)
-    /// that is configured to despawn descendants.
+    /// This will also despawn the entities in any
+    /// [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured to
+    /// despawn descendants.
     ///
     /// For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     ///
@@ -1747,8 +1763,9 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Note
     ///
-    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget)
-    /// that is configured to despawn descendants.
+    /// This will also despawn the entities in any
+    /// [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured to
+    /// despawn descendants.
     ///
     /// For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     pub fn try_despawn(&mut self) {
@@ -2061,7 +2078,8 @@ impl<'a> EntityCommands<'a> {
     }
 }
 
-/// A wrapper around [`EntityCommands`] with convenience methods for working with a specified component type.
+/// A wrapper around [`EntityCommands`] with convenience methods for working with a specified
+/// component type.
 pub struct EntityEntryCommands<'a, T> {
     entity_commands: EntityCommands<'a>,
     marker: PhantomData<T>,

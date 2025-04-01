@@ -34,12 +34,14 @@ use bevy_window::{PrimaryWindow, Window};
 /// Adding `Text2d` to an entity will pull in required components for setting up 2d text.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 ///
-/// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`ComputedTextBlock`]. See [`TextSpan`](crate::TextSpan) for the component used by children of entities with [`Text2d`].
+/// The string in this component is the first 'text span' in a hierarchy of text spans that are
+/// collected into a [`ComputedTextBlock`]. See [`TextSpan`](crate::TextSpan) for the component used
+/// by children of entities with [`Text2d`].
 ///
-/// With `Text2d` the `justify` field of [`TextLayout`] only affects the internal alignment of a block of text and not its
-/// relative position, which is controlled by the [`Anchor`] component.
-/// This means that for a block of text consisting of only one line that doesn't wrap, the `justify` field will have no effect.
+/// With `Text2d` the `justify` field of [`TextLayout`] only affects the internal alignment of a
+/// block of text and not its relative position, which is controlled by the [`Anchor`] component.
+/// This means that for a block of text consisting of only one line that doesn't wrap, the `justify`
+/// field will have no effect.
 ///
 ///
 /// ```
@@ -344,7 +346,8 @@ pub fn scale_value(value: f32, factor: f32) -> f32 {
 /// System calculating and inserting an [`Aabb`] component to entities with some
 /// [`TextLayoutInfo`] and [`Anchor`] components, and without a [`NoFrustumCulling`] component.
 ///
-/// Used in system set [`VisibilitySystems::CalculateBounds`](bevy_render::view::VisibilitySystems::CalculateBounds).
+/// Used in system set
+/// [`VisibilitySystems::CalculateBounds`](bevy_render::view::VisibilitySystems::CalculateBounds).
 pub fn calculate_bounds_text2d(
     mut commands: Commands,
     mut text_to_update_aabb: Query<

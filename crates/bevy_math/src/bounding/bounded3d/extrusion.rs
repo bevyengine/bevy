@@ -200,12 +200,13 @@ impl<T: BoundedExtrusion> Bounded3d for Extrusion<T> {
 
 /// A trait implemented on 2D shapes which determines the 3D bounding volumes of their extrusions.
 ///
-/// Since default implementations can be inferred from 2D bounding volumes, this allows a `Bounded2d`
-/// implementation on some shape `MyShape` to be extrapolated to a `Bounded3d` implementation on
-/// `Extrusion<MyShape>` without supplying any additional data; e.g.:
+/// Since default implementations can be inferred from 2D bounding volumes, this allows a
+/// `Bounded2d` implementation on some shape `MyShape` to be extrapolated to a `Bounded3d`
+/// implementation on `Extrusion<MyShape>` without supplying any additional data; e.g.:
 /// `impl BoundedExtrusion for MyShape {}`
 pub trait BoundedExtrusion: Primitive2d + Bounded2d {
-    /// Get an axis-aligned bounding box for an extrusion with this shape as a base and the given `half_depth`, transformed by the given `translation` and `rotation`.
+    /// Get an axis-aligned bounding box for an extrusion with this shape as a base and the given
+    /// `half_depth`, transformed by the given `translation` and `rotation`.
     fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
         let isometry = isometry.into();
         let cap_normal = isometry.rotation * Vec3A::Z;
@@ -213,7 +214,8 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
 
         // The `(halfsize, offset)` for each axis
         let axis_values = Vec3A::AXES.map(|ax| {
-            // This is the direction of the line of intersection of a plane with the `ax` normal and the plane containing the cap of the extrusion.
+            // This is the direction of the line of intersection of a plane with the `ax` normal and
+            // the plane containing the cap of the extrusion.
             let intersect_line = ax.cross(cap_normal);
             if intersect_line.length_squared() <= f32::EPSILON {
                 return (0., 0.);
@@ -223,12 +225,14 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
             let line_normal = (conjugate_rot * intersect_line).yx();
             let angle = line_normal.to_angle();
 
-            // Since the plane containing the caps of the extrusion is not guaranteed to be orthogonal to the `ax` plane, only a certain "scale" factor
+            // Since the plane containing the caps of the extrusion is not guaranteed to be
+            // orthogonal to the `ax` plane, only a certain "scale" factor
             // of the `Aabb2d` will actually go towards the dimensions of the `Aabb3d`
             let scale = cap_normal.reject_from(ax).length();
 
-            // Calculate the `Aabb2d` of the base shape. The shape is rotated so that the line of intersection is parallel to the Y axis in the `Aabb2d` calculations.
-            // This guarantees that the X value of the `Aabb2d` is closest to the `ax` plane
+            // Calculate the `Aabb2d` of the base shape. The shape is rotated so that the line of
+            // intersection is parallel to the Y axis in the `Aabb2d` calculations. This
+            // guarantees that the X value of the `Aabb2d` is closest to the `ax` plane
             let aabb2d = self.aabb_2d(Rot2::radians(angle));
             (aabb2d.half_size().x * scale, aabb2d.center().x * scale)
         });
@@ -240,7 +244,8 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
         Aabb3d::new(isometry.translation - offset, cap_size + depth.abs())
     }
 
-    /// Get a bounding sphere for an extrusion of the `base_shape` with the given `half_depth` with the given translation and rotation
+    /// Get a bounding sphere for an extrusion of the `base_shape` with the given `half_depth` with
+    /// the given translation and rotation
     fn extrusion_bounding_sphere(
         &self,
         half_depth: f32,
@@ -250,8 +255,9 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
 
         // We calculate the bounding circle of the base shape.
         // Since each of the extrusions bases will have the same distance from its center,
-        // and they are just shifted along the Z-axis, the minimum bounding sphere will be the bounding sphere
-        // of the cylinder defined by the two bounding circles of the bases for any base shape
+        // and they are just shifted along the Z-axis, the minimum bounding sphere will be the
+        // bounding sphere of the cylinder defined by the two bounding circles of the bases
+        // for any base shape
         let BoundingCircle {
             center,
             circle: Circle { radius },

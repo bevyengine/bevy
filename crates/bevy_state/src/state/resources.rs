@@ -20,10 +20,11 @@ use bevy_reflect::prelude::ReflectDefault;
 ///
 /// The current state value can be accessed through this resource. To *change* the state,
 /// queue a transition in the [`NextState<S>`] resource, and it will be applied during the
-/// [`StateTransition`](crate::state::StateTransition) schedule - which by default runs after `PreUpdate`.
+/// [`StateTransition`](crate::state::StateTransition) schedule - which by default runs after
+/// `PreUpdate`.
 ///
-/// You can also manually trigger the [`StateTransition`](crate::state::StateTransition) schedule to apply the changes
-/// at an arbitrary time.
+/// You can also manually trigger the [`StateTransition`](crate::state::StateTransition) schedule to
+/// apply the changes at an arbitrary time.
 ///
 /// The starting state is defined via the [`Default`] implementation for `S`.
 ///
@@ -94,10 +95,12 @@ impl<S: States> Deref for State<S> {
 /// The next state of [`State<S>`].
 ///
 /// This can be fetched as a resource and used to queue state transitions.
-/// To queue a transition, call [`NextState::set`] or mutate the value to [`NextState::Pending`] directly.
+/// To queue a transition, call [`NextState::set`] or mutate the value to [`NextState::Pending`]
+/// directly.
 ///
 /// Note that these transitions can be overridden by other systems:
-/// only the actual value of this resource during the [`StateTransition`](crate::state::StateTransition) schedule matters.
+/// only the actual value of this resource during the
+/// [`StateTransition`](crate::state::StateTransition) schedule matters.
 ///
 /// ```
 /// use bevy_state::prelude::*;

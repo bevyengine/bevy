@@ -151,7 +151,8 @@ pub(crate) struct TableBuilder {
 }
 
 impl TableBuilder {
-    /// Start building a new [`Table`] with a specified `column_capacity` (How many components per column?) and a `capacity` (How many columns?)
+    /// Start building a new [`Table`] with a specified `column_capacity` (How many components per
+    /// column?) and a `capacity` (How many columns?)
     pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
@@ -159,7 +160,8 @@ impl TableBuilder {
         }
     }
 
-    /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](ThinColumn) using its [`ComponentId`]
+    /// Add a new column to the [`Table`]. Specify the component which will be stored in the
+    /// [`column`](ThinColumn) using its [`ComponentId`]
     #[must_use]
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
         self.columns.insert(
@@ -169,7 +171,8 @@ impl TableBuilder {
         self
     }
 
-    /// Build the [`Table`], after this operation the caller wouldn't be able to add more columns. The [`Table`] will be ready to use.
+    /// Build the [`Table`], after this operation the caller wouldn't be able to add more columns.
+    /// The [`Table`] will be ready to use.
     #[must_use]
     pub fn build(self) -> Table {
         Table {
@@ -183,9 +186,9 @@ impl TableBuilder {
 /// in a [`World`].
 ///
 /// Conceptually, a `Table` can be thought of as a `HashMap<ComponentId, Column>`, where
-/// each [`ThinColumn`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
-/// (i.e. index 3 in Column A and index 3 in Column B point to different components on the same
-/// entity). Fetching components from a table involves fetching the associated column for a
+/// each [`ThinColumn`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single
+/// entity (i.e. index 3 in Column A and index 3 in Column B point to different components on the
+/// same entity). Fetching components from a table involves fetching the associated column for a
 /// component type (via its [`ComponentId`]), then fetching the entity's row within that column.
 ///
 /// [structure-of-arrays]: https://en.wikipedia.org/wiki/AoS_and_SoA#Structure_of_arrays
@@ -213,7 +216,8 @@ impl Table {
     }
 
     /// Get the capacity of this table, in entities.
-    /// Note that if an allocation is in process, this might not match the actual capacity of the columns, but it should once the allocation ends.
+    /// Note that if an allocation is in process, this might not match the actual capacity of the
+    /// columns, but it should once the allocation ends.
     #[inline]
     pub fn capacity(&self) -> usize {
         self.entities.capacity()
@@ -241,8 +245,8 @@ impl Table {
                 };
             }
         } else {
-            // If `row.as_usize()` == `last_element_index` than there's no point in removing the component
-            // at `row`, but we still need to drop it.
+            // If `row.as_usize()` == `last_element_index` than there's no point in removing the
+            // component at `row`, but we still need to drop it.
             for col in self.columns.values_mut() {
                 col.drop_last_component(last_element_index);
             }
@@ -432,7 +436,8 @@ impl Table {
         )
     }
 
-    /// Get the specific calling location that changed the component matching `component_id` in `row`
+    /// Get the specific calling location that changed the component matching `component_id` in
+    /// `row`
     pub fn get_changed_by(
         &self,
         component_id: ComponentId,
@@ -466,7 +471,8 @@ impl Table {
         })
     }
 
-    /// Fetches a read-only reference to the [`ThinColumn`] for a given [`Component`] within the table.
+    /// Fetches a read-only reference to the [`ThinColumn`] for a given [`Component`] within the
+    /// table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
     ///
@@ -524,11 +530,13 @@ impl Table {
 
     /// Allocate memory for the columns in the [`Table`]
     ///
-    /// The current capacity of the columns should be 0, if it's not 0, then the previous data will be overwritten and leaked.
+    /// The current capacity of the columns should be 0, if it's not 0, then the previous data will
+    /// be overwritten and leaked.
     fn alloc_columns(&mut self, new_capacity: NonZeroUsize) {
-        // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
-        // To avoid this, we use `AbortOnPanic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
-        // called, and abort the program.
+        // If any of these allocations trigger an unwind, the wrong capacity will be used while
+        // dropping this table - UB. To avoid this, we use `AbortOnPanic`. If the allocation
+        // triggered a panic, the `AbortOnPanic`'s Drop impl will be called, and abort the
+        // program.
         let _guard = AbortOnPanic;
         for col in self.columns.values_mut() {
             col.alloc(new_capacity);
@@ -545,9 +553,10 @@ impl Table {
         current_column_capacity: NonZeroUsize,
         new_capacity: NonZeroUsize,
     ) {
-        // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
-        // To avoid this, we use `AbortOnPanic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
-        // called, and abort the program.
+        // If any of these allocations trigger an unwind, the wrong capacity will be used while
+        // dropping this table - UB. To avoid this, we use `AbortOnPanic`. If the allocation
+        // triggered a panic, the `AbortOnPanic`'s Drop impl will be called, and abort the
+        // program.
         let _guard = AbortOnPanic;
 
         // SAFETY:
@@ -633,7 +642,8 @@ impl Table {
     /// Clears all of the stored components in the [`Table`].
     pub(crate) fn clear(&mut self) {
         let len = self.entity_count();
-        // We must clear the entities first, because in the drop function causes a panic, it will result in a double free of the columns.
+        // We must clear the entities first, because in the drop function causes a panic, it will
+        // result in a double free of the columns.
         self.entities.clear();
         for column in self.columns.values_mut() {
             // SAFETY: we defer `self.entities.clear()` until after clearing the columns,
@@ -645,13 +655,14 @@ impl Table {
     /// Moves component data out of the [`Table`].
     ///
     /// This function leaves the underlying memory unchanged, but the component behind
-    /// returned pointer is semantically owned by the caller and will not be dropped in its original location.
-    /// Caller is responsible to drop component data behind returned pointer.
+    /// returned pointer is semantically owned by the caller and will not be dropped in its original
+    /// location. Caller is responsible to drop component data behind returned pointer.
     ///
     /// # Safety
     /// - This table must hold the component matching `component_id`
     /// - `row` must be in bounds
-    /// - The row's inconsistent state that happens after taking the component must be resolved—either initialize a new component or remove the row.
+    /// - The row's inconsistent state that happens after taking the component must be
+    ///   resolved—either initialize a new component or remove the row.
     pub(crate) unsafe fn take_component(
         &mut self,
         component_id: ComponentId,
@@ -664,7 +675,8 @@ impl Table {
             .promote()
     }
 
-    /// Get the component at a given `row`, if the [`Table`] stores components with the given `component_id`
+    /// Get the component at a given `row`, if the [`Table`] stores components with the given
+    /// `component_id`
     ///
     /// # Safety
     /// `row.as_usize()` < `self.len()`

@@ -20,8 +20,8 @@ pub trait IterableCurve<T> {
     /// is already known to lie within the curve's domain.
     ///
     /// Values sampled from outside of a curve's domain are generally considered invalid; data which
-    /// is nonsensical or otherwise useless may be returned in such a circumstance, and extrapolation
-    /// beyond a curve's domain should not be relied upon.
+    /// is nonsensical or otherwise useless may be returned in such a circumstance, and
+    /// extrapolation beyond a curve's domain should not be relied upon.
     fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T>;
 
     /// Sample this curve at a specified time `t`, producing an iterator over sampled values.

@@ -1,4 +1,5 @@
-//! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
+//! Resources are unique, singleton-like data types that can be accessed from systems and stored in
+//! the [`World`](crate::world::World).
 
 // The derive macro for the `Resource` trait
 pub use bevy_ecs_macros::Resource;
@@ -34,10 +35,10 @@ pub use bevy_ecs_macros::Resource;
 /// ```
 ///
 /// # `!Sync` Resources
-/// A `!Sync` type cannot implement `Resource`. However, it is possible to wrap a `Send` but not `Sync`
-/// type in [`SyncCell`] or the currently unstable [`Exclusive`] to make it `Sync`. This forces only
-/// having mutable access (`&mut T` only, never `&T`), but makes it safe to reference across multiple
-/// threads.
+/// A `!Sync` type cannot implement `Resource`. However, it is possible to wrap a `Send` but not
+/// `Sync` type in [`SyncCell`] or the currently unstable [`Exclusive`] to make it `Sync`. This
+/// forces only having mutable access (`&mut T` only, never `&T`), but makes it safe to reference
+/// across multiple threads.
 ///
 /// This will fail to compile since `RefCell` is `!Sync`.
 /// ```compile_fail

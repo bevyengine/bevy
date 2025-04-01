@@ -10,7 +10,8 @@ use bevy_math::{AspectRatio, UVec2};
 use wgpu::{Extent3d, TextureFormat, TextureViewDescriptor};
 
 /// The GPU-representation of an [`Image`].
-/// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`], and the texture's size.
+/// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`], and the
+/// texture's size.
 #[derive(Debug, Clone)]
 pub struct GpuImage {
     pub texture: Texture,

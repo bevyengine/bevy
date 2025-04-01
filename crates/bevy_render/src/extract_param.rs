@@ -21,10 +21,10 @@ use core::ops::{Deref, DerefMut};
 ///
 /// ## Context
 ///
-/// [`ExtractSchedule`] is used to extract (move) data from the simulation world ([`MainWorld`]) to the
-/// render world. The render world drives rendering each frame (generally to a `Window`).
-/// This design is used to allow performing calculations related to rendering a prior frame at the same
-/// time as the next frame is simulated, which increases throughput (FPS).
+/// [`ExtractSchedule`] is used to extract (move) data from the simulation world ([`MainWorld`]) to
+/// the render world. The render world drives rendering each frame (generally to a `Window`).
+/// This design is used to allow performing calculations related to rendering a prior frame at the
+/// same time as the next frame is simulated, which increases throughput (FPS).
 ///
 /// [`Extract`] is used to get data from the main world during [`ExtractSchedule`].
 ///
@@ -112,7 +112,8 @@ where
     ) -> Self::Item<'w, 's> {
         // SAFETY:
         // - The caller ensures that `world` is the same one that `init_state` was called with.
-        // - The caller ensures that no other `SystemParam`s will conflict with the accesses we have registered.
+        // - The caller ensures that no other `SystemParam`s will conflict with the accesses we have
+        //   registered.
         let main_world = unsafe {
             Res::<MainWorld>::get_param(
                 &mut state.main_world_state,

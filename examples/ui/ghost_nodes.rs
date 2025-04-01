@@ -1,6 +1,7 @@
 //! This example demonstrates the use of Ghost Nodes.
 //!
-//! UI layout will ignore ghost nodes, and treat their children as if they were direct descendants of the first non-ghost ancestor.
+//! UI layout will ignore ghost nodes, and treat their children as if they were direct descendants
+//! of the first non-ghost ancestor.
 //!
 //! # Warning
 //!
@@ -53,7 +54,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .spawn((GhostNode, Counter(0)))
                         .with_children(|ghost_parent| {
                             // Ghost children using a separate counter state
-                            // These buttons are being treated as children of layout_parent in the context of UI
+                            // These buttons are being treated as children of layout_parent in the
+                            // context of UI
                             ghost_parent
                                 .spawn(create_button())
                                 .with_child(create_label("0", font_handle.clone()));

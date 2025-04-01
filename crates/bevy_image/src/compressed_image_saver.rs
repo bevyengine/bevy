@@ -54,8 +54,9 @@ impl AssetSaver for CompressedImageSaver {
                 unsafe_code,
                 reason = "The basis-universal compressor cannot be interacted with except through unsafe functions"
             )]
-            // SAFETY: the CompressorParams are "valid" to the best of our knowledge. The basis-universal
-            // library bindings note that invalid params might produce undefined behavior.
+            // SAFETY: the CompressorParams are "valid" to the best of our knowledge. The
+            // basis-universal library bindings note that invalid params might produce
+            // undefined behavior.
             unsafe {
                 compressor.init(&compressor_params);
                 compressor.process().unwrap();

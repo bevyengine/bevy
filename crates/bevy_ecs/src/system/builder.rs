@@ -72,14 +72,18 @@ use super::{Res, ResMut, SystemState, init_query_param};
 /// # List of Builders
 ///
 /// [`ParamBuilder`] can be used for parameters that don't require any special building.
-/// Using a `ParamBuilder` will build the system parameter the same way it would be initialized in an ordinary system.
+/// Using a `ParamBuilder` will build the system parameter the same way it would be initialized in
+/// an ordinary system.
 ///
-/// `ParamBuilder` also provides factory methods that return a `ParamBuilder` typed as `impl SystemParamBuilder<P>`
-/// for common system parameters that can be used to guide closure parameter inference.
+/// `ParamBuilder` also provides factory methods that return a `ParamBuilder` typed as `impl
+/// SystemParamBuilder<P>` for common system parameters that can be used to guide closure parameter
+/// inference.
 ///
 /// [`QueryParamBuilder`] can build a [`Query`] to add additional filters,
-/// or to configure the components available to [`FilteredEntityRef`](crate::world::FilteredEntityRef) or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
-/// You can also use a [`QueryState`] to build a [`Query`].
+/// or to configure the components available to
+/// [`FilteredEntityRef`](crate::world::FilteredEntityRef) or
+/// [`FilteredEntityMut`](crate::world::FilteredEntityMut). You can also use a [`QueryState`] to
+/// build a [`Query`].
 ///
 /// [`LocalBuilder`] can build a [`Local`] to supply the initial value for the `Local`.
 ///
@@ -91,23 +95,24 @@ use super::{Res, ResMut, SystemState, init_query_param};
 /// and to supply any `SystemParamBuilder` it needs.
 ///
 /// Tuples of builders can build tuples of parameters, one builder for each element.
-/// Note that since systems require a tuple as a parameter, the outer builder for a system will always be a tuple.
+/// Note that since systems require a tuple as a parameter, the outer builder for a system will
+/// always be a tuple.
 ///
 /// A [`Vec`] of builders can build a `Vec` of parameters, one builder for each element.
 ///
 /// A [`ParamSetBuilder`] can build a [`ParamSet`].
 /// This can wrap either a tuple or a `Vec`, one builder for each element.
 ///
-/// A custom system param created with `#[derive(SystemParam)]` can be buildable if it includes a `#[system_param(builder)]` attribute.
-/// See [the documentation for `SystemParam` derives](SystemParam#builders).
+/// A custom system param created with `#[derive(SystemParam)]` can be buildable if it includes a
+/// `#[system_param(builder)]` attribute. See [the documentation for `SystemParam`
+/// derives](SystemParam#builders).
 ///
 /// # Safety
 ///
 /// The implementor must ensure the following is true.
-/// - [`SystemParamBuilder::build`] correctly registers all [`World`] accesses used
-///   by [`SystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
-/// - None of the world accesses may conflict with any prior accesses registered
-///   on `system_meta`.
+/// - [`SystemParamBuilder::build`] correctly registers all [`World`] accesses used by
+///   [`SystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
+/// - None of the world accesses may conflict with any prior accesses registered on `system_meta`.
 ///
 /// Note that this depends on the implementation of [`SystemParam::get_param`],
 /// so if `Self` is not a local type then you must call [`SystemParam::init_state`]
@@ -174,7 +179,8 @@ unsafe impl<P: SystemParam> SystemParamBuilder<P> for ParamBuilder {
 }
 
 impl ParamBuilder {
-    /// Creates a [`SystemParamBuilder`] for any [`SystemParam`] that uses its default initialization.
+    /// Creates a [`SystemParamBuilder`] for any [`SystemParam`] that uses its default
+    /// initialization.
     pub fn of<T: SystemParam>() -> impl SystemParamBuilder<T> {
         Self
     }
@@ -184,7 +190,8 @@ impl ParamBuilder {
         Self
     }
 
-    /// Helper method for mutably accessing a [`Resource`] as a param, equivalent to `of::<ResMut<T>>()`
+    /// Helper method for mutably accessing a [`Resource`] as a param, equivalent to
+    /// `of::<ResMut<T>>()`
     pub fn resource_mut<'w, T: Resource>() -> impl SystemParamBuilder<ResMut<'w, T>> {
         Self
     }
@@ -200,7 +207,8 @@ impl ParamBuilder {
         Self
     }
 
-    /// Helper method for adding a filtered [`Query`] as a param, equivalent to `of::<Query<D, F>>()`
+    /// Helper method for adding a filtered [`Query`] as a param, equivalent to `of::<Query<D,
+    /// F>>()`
     pub fn query_filtered<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>()
     -> impl SystemParamBuilder<Query<'w, 's, D, F>> {
         Self
@@ -219,9 +227,11 @@ unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
 }
 
 /// A [`SystemParamBuilder`] for a [`Query`].
-/// This takes a closure accepting an `&mut` [`QueryBuilder`] and uses the builder to construct the query's state.
-/// This can be used to add additional filters,
-/// or to configure the components available to [`FilteredEntityRef`](crate::world::FilteredEntityRef) or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
+/// This takes a closure accepting an `&mut` [`QueryBuilder`] and uses the builder to construct the
+/// query's state. This can be used to add additional filters,
+/// or to configure the components available to
+/// [`FilteredEntityRef`](crate::world::FilteredEntityRef) or
+/// [`FilteredEntityMut`](crate::world::FilteredEntityMut).
 ///
 /// ## Example
 ///
@@ -262,7 +272,8 @@ unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
 pub struct QueryParamBuilder<T>(T);
 
 impl<T> QueryParamBuilder<T> {
-    /// Creates a [`SystemParamBuilder`] for a [`Query`] that accepts a callback to configure the [`QueryBuilder`].
+    /// Creates a [`SystemParamBuilder`] for a [`Query`] that accepts a callback to configure the
+    /// [`QueryBuilder`].
     pub fn new<D: QueryData, F: QueryFilter>(f: T) -> Self
     where
         T: FnOnce(&mut QueryBuilder<D, F>),
@@ -274,8 +285,9 @@ impl<T> QueryParamBuilder<T> {
 impl<'a, D: QueryData, F: QueryFilter>
     QueryParamBuilder<Box<dyn FnOnce(&mut QueryBuilder<D, F>) + 'a>>
 {
-    /// Creates a [`SystemParamBuilder`] for a [`Query`] that accepts a callback to configure the [`QueryBuilder`].
-    /// This boxes the callback so that it has a common type and can be put in a `Vec`.
+    /// Creates a [`SystemParamBuilder`] for a [`Query`] that accepts a callback to configure the
+    /// [`QueryBuilder`]. This boxes the callback so that it has a common type and can be put in
+    /// a `Vec`.
     pub fn new_box(f: impl FnOnce(&mut QueryBuilder<D, F>) + 'a) -> Self {
         Self(Box::new(f))
     }
@@ -348,8 +360,9 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>>
 
 /// A [`SystemParamBuilder`] for a [`ParamSet`].
 ///
-/// To build a [`ParamSet`] with a tuple of system parameters, pass a tuple of matching [`SystemParamBuilder`]s.
-/// To build a [`ParamSet`] with a [`Vec`] of system parameters, pass a `Vec` of matching [`SystemParamBuilder`]s.
+/// To build a [`ParamSet`] with a tuple of system parameters, pass a tuple of matching
+/// [`SystemParamBuilder`]s. To build a [`ParamSet`] with a [`Vec`] of system parameters, pass a
+/// `Vec` of matching [`SystemParamBuilder`]s.
 ///
 /// # Examples
 ///
@@ -471,8 +484,8 @@ macro_rules! impl_param_set_builder_tuple {
 
 all_tuples!(impl_param_set_builder_tuple, 1, 8, P, B, meta);
 
-// SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
-// with any prior access, a panic will occur.
+// SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta.
+// If any ParamState conflicts with any prior access, a panic will occur.
 unsafe impl<'w, 's, P: SystemParam, B: SystemParamBuilder<P>>
     SystemParamBuilder<ParamSet<'w, 's, Vec<P>>> for ParamSetBuilder<Vec<B>>
 {
@@ -573,7 +586,8 @@ unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
 pub struct FilteredResourcesParamBuilder<T>(T);
 
 impl<T> FilteredResourcesParamBuilder<T> {
-    /// Creates a [`SystemParamBuilder`] for a [`FilteredResources`] that accepts a callback to configure the [`FilteredResourcesBuilder`].
+    /// Creates a [`SystemParamBuilder`] for a [`FilteredResources`] that accepts a callback to
+    /// configure the [`FilteredResourcesBuilder`].
     pub fn new(f: T) -> Self
     where
         T: FnOnce(&mut FilteredResourcesBuilder),
@@ -583,15 +597,16 @@ impl<T> FilteredResourcesParamBuilder<T> {
 }
 
 impl<'a> FilteredResourcesParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesBuilder) + 'a>> {
-    /// Creates a [`SystemParamBuilder`] for a [`FilteredResources`] that accepts a callback to configure the [`FilteredResourcesBuilder`].
-    /// This boxes the callback so that it has a common type.
+    /// Creates a [`SystemParamBuilder`] for a [`FilteredResources`] that accepts a callback to
+    /// configure the [`FilteredResourcesBuilder`]. This boxes the callback so that it has a
+    /// common type.
     pub fn new_box(f: impl FnOnce(&mut FilteredResourcesBuilder) + 'a) -> Self {
         Self(Box::new(f))
     }
 }
 
-// SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
-// conflicts with any prior access, a panic will occur.
+// SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
+// FilteredResources conflicts with any prior access, a panic will occur.
 unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
     SystemParamBuilder<FilteredResources<'w, 's>> for FilteredResourcesParamBuilder<T>
 {
@@ -639,7 +654,8 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
 pub struct FilteredResourcesMutParamBuilder<T>(T);
 
 impl<T> FilteredResourcesMutParamBuilder<T> {
-    /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to configure the [`FilteredResourcesMutBuilder`].
+    /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to
+    /// configure the [`FilteredResourcesMutBuilder`].
     pub fn new(f: T) -> Self
     where
         T: FnOnce(&mut FilteredResourcesMutBuilder),
@@ -649,15 +665,16 @@ impl<T> FilteredResourcesMutParamBuilder<T> {
 }
 
 impl<'a> FilteredResourcesMutParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesMutBuilder) + 'a>> {
-    /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to configure the [`FilteredResourcesMutBuilder`].
-    /// This boxes the callback so that it has a common type.
+    /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to
+    /// configure the [`FilteredResourcesMutBuilder`]. This boxes the callback so that it has a
+    /// common type.
     pub fn new_box(f: impl FnOnce(&mut FilteredResourcesMutBuilder) + 'a) -> Self {
         Self(Box::new(f))
     }
 }
 
-// SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
-// conflicts with any prior access, a panic will occur.
+// SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
+// FilteredResources conflicts with any prior access, a panic will occur.
 unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
     SystemParamBuilder<FilteredResourcesMut<'w, 's>> for FilteredResourcesMutParamBuilder<T>
 {

@@ -71,15 +71,17 @@ pub mod graph {
     }
 }
 
-/// Z offsets of "extracted nodes" for a given entity. These exist to allow rendering multiple "extracted nodes"
-/// for a given source entity (ex: render both a background color _and_ a custom material for a given node).
+/// Z offsets of "extracted nodes" for a given entity. These exist to allow rendering multiple
+/// "extracted nodes" for a given source entity (ex: render both a background color _and_ a custom
+/// material for a given node).
 ///
-/// When possible these offsets should be defined in _this_ module to ensure z-index coordination across contexts.
-/// When this is _not_ possible, pick a suitably unique index unlikely to clash with other things (ex: `0.1826823` not `0.1`).
+/// When possible these offsets should be defined in _this_ module to ensure z-index coordination
+/// across contexts. When this is _not_ possible, pick a suitably unique index unlikely to clash
+/// with other things (ex: `0.1826823` not `0.1`).
 ///
 /// Offsets should be unique for a given node entity to avoid z fighting.
-/// These should pretty much _always_ be larger than -0.5 and smaller than 0.5 to avoid clipping into nodes
-/// above / below the current node in the stack.
+/// These should pretty much _always_ be larger than -0.5 and smaller than 0.5 to avoid clipping
+/// into nodes above / below the current node in the stack.
 ///
 /// A z-index of 0.0 is the baseline, which is used as the primary "background color" of the node.
 ///
@@ -275,7 +277,8 @@ pub struct UiCameraMapper<'w, 's> {
 }
 
 impl<'w, 's> UiCameraMapper<'w, 's> {
-    /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
+    /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera
+    /// if `None`.
     pub fn map(&mut self, computed_target: &ComputedNodeTarget) -> Option<Entity> {
         let camera_entity = computed_target.camera;
         if self.camera_entity != camera_entity {
@@ -563,15 +566,15 @@ pub fn extract_uinode_borders(
     }
 }
 
-/// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
-/// distance of this many units. This ensures that with a left-handed projection,
+/// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and
+/// also has a view distance of this many units. This ensures that with a left-handed projection,
 /// as ui elements are "stacked on top of each other", they are within the camera's view
 /// and have room to grow.
 // TODO: Consider computing this value at runtime based on the maximum z-value.
 const UI_CAMERA_FAR: f32 = 1000.0;
 
-// This value is subtracted from the far distance for the camera's z-position to ensure nodes at z == 0.0 are rendered
-// TODO: Evaluate if we still need this.
+// This value is subtracted from the far distance for the camera's z-position to ensure nodes at z
+// == 0.0 are rendered TODO: Evaluate if we still need this.
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
 /// The ID of the subview associated with a camera on which UI is to be drawn.
@@ -631,7 +634,8 @@ pub fn extract_ui_camera_view(
         }
 
         if let Some(physical_viewport_rect) = camera.physical_viewport_rect() {
-            // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
+            // use a projection matrix with the origin in the top left instead of the bottom left
+            // that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
                 physical_viewport_rect.width() as f32,
@@ -723,7 +727,8 @@ pub fn extract_text_sections(
         text_layout_info,
     ) in &uinode_query
     {
-        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to
+        // `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
         }
@@ -820,7 +825,8 @@ pub fn extract_text_shadows(
         shadow,
     ) in &uinode_query
     {
-        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to
+        // `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
         }
@@ -1142,7 +1148,8 @@ pub fn prepare_uinodes(
                             let points = QUAD_VERTEX_POSITIONS.map(|pos| pos.xy() * rect_size.xy());
 
                             // Calculate the effect of clipping
-                            // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
+                            // Note: this won't work with rotation/scaling, but that's much more
+                            // complex (may need more that 2 quads)
                             let mut positions_diff = if let Some(clip) = extracted_uinode.clip {
                                 [
                                     Vec2::new(
@@ -1183,8 +1190,9 @@ pub fn prepare_uinodes(
                             let transformed_rect_size = transform.transform_vector3(rect_size);
 
                             // Don't try to cull nodes that have a rotation
-                            // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
-                            // In those two cases, the culling check can proceed normally as corners will be on
+                            // In a rotation around the Z-axis, this value is 0.0 for an angle of
+                            // 0.0 or π In those two cases, the culling
+                            // check can proceed normally as corners will be on
                             // horizontal / vertical lines
                             // For all other angles, bypass the culling check
                             // This does not properly handles all rotations on all axis
@@ -1204,7 +1212,8 @@ pub fn prepare_uinodes(
                                 let image = gpu_images.get(extracted_uinode.image).expect(
                                     "Image was checked during batching and should still exist",
                                 );
-                                // Rescale atlases. This is done here because we need texture data that might not be available in Extract.
+                                // Rescale atlases. This is done here because we need texture data
+                                // that might not be available in Extract.
                                 let atlas_extent = atlas_scaling
                                     .map(|scaling| image.size_2d().as_vec2() * scaling)
                                     .unwrap_or(uinode_rect.max);

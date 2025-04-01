@@ -35,9 +35,9 @@ impl ChildBufferCache {
 
 /// Generates the render stack for UI nodes.
 ///
-/// Create a list of root nodes from parentless entities and entities with a `GlobalZIndex` component.
-/// Then build the `UiStack` from a walk of the existing layout trees starting from each root node,
-/// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
+/// Create a list of root nodes from parentless entities and entities with a `GlobalZIndex`
+/// component. Then build the `UiStack` from a walk of the existing layout trees starting from each
+/// root node, filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
     mut cache: Local<ChildBufferCache>,
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,

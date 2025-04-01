@@ -16,22 +16,26 @@ use {
     bevy_reflect::{Reflect, std_traits::ReflectDefault},
 };
 
-/// [`GlobalTransform`] is an affine transformation from entity-local coordinates to worldspace coordinates.
+/// [`GlobalTransform`] is an affine transformation from entity-local coordinates to worldspace
+/// coordinates.
 ///
-/// You cannot directly mutate [`GlobalTransform`]; instead, you change an entity's transform by manipulating
-/// its [`Transform`], which indirectly causes Bevy to update its [`GlobalTransform`].
+/// You cannot directly mutate [`GlobalTransform`]; instead, you change an entity's transform by
+/// manipulating its [`Transform`], which indirectly causes Bevy to update its [`GlobalTransform`].
 ///
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
-/// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
-///   [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
+/// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a
+///   [`GlobalTransform`]. [`GlobalTransform`] is automatically inserted whenever [`Transform`] is
+///   inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
-/// [`Transform`] transforms an entity relative to its parent's reference frame, or relative to world space coordinates,
-/// if it doesn't have a [`ChildOf`](bevy_ecs::hierarchy::ChildOf) component.
+/// [`Transform`] transforms an entity relative to its parent's reference frame, or relative to
+/// world space coordinates, if it doesn't have a [`ChildOf`](bevy_ecs::hierarchy::ChildOf)
+/// component.
 ///
-/// [`GlobalTransform`] is managed by Bevy; it is computed by successively applying the [`Transform`] of each ancestor
-/// entity which has a Transform. This is done automatically by Bevy-internal systems in the system set
+/// [`GlobalTransform`] is managed by Bevy; it is computed by successively applying the
+/// [`Transform`] of each ancestor entity which has a Transform. This is done automatically by
+/// Bevy-internal systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
 /// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
@@ -220,7 +224,8 @@ impl GlobalTransform {
 
     /// Get the rotation as a [`Quat`].
     ///
-    /// The transform is expected to be non-degenerate and without shearing, or the output will be invalid.
+    /// The transform is expected to be non-degenerate and without shearing, or the output will be
+    /// invalid.
     ///
     /// # Warning
     ///
@@ -233,10 +238,11 @@ impl GlobalTransform {
 
     /// Get the scale as a [`Vec3`].
     ///
-    /// The transform is expected to be non-degenerate and without shearing, or the output will be invalid.
+    /// The transform is expected to be non-degenerate and without shearing, or the output will be
+    /// invalid.
     ///
-    /// Some of the computations overlap with `to_scale_rotation_translation`, which means you should use
-    /// it instead if you also need rotation.
+    /// Some of the computations overlap with `to_scale_rotation_translation`, which means you
+    /// should use it instead if you also need rotation.
     #[inline]
     pub fn scale(&self) -> Vec3 {
         // Formula based on glam's implementation https://github.com/bitshifter/glam-rs/blob/2e4443e70c709710dfb25958d866d29b11ed3e2b/src/f32/affine3a.rs#L290
@@ -254,7 +260,8 @@ impl GlobalTransform {
         (self.0.matrix3 * extents).length()
     }
 
-    /// Transforms the given point from local space to global space, applying shear, scale, rotation and translation.
+    /// Transforms the given point from local space to global space, applying shear, scale, rotation
+    /// and translation.
     ///
     /// It can be used like this:
     ///
@@ -276,8 +283,8 @@ impl GlobalTransform {
     /// assert_eq!(local_point, Vec3::new(1., 2., 3.))
     /// ```
     ///
-    /// To apply shear, scale, and rotation *without* applying translation, different functions are available:
-    /// ```
+    /// To apply shear, scale, and rotation *without* applying translation, different functions are
+    /// available: ```
     /// # use bevy_transform::prelude::{GlobalTransform};
     /// # use bevy_math::prelude::Vec3;
     /// let global_transform = GlobalTransform::from_xyz(1., 2., 3.);

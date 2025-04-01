@@ -89,7 +89,8 @@ impl URect {
     ///
     /// # Panics
     ///
-    /// This method panics if any of the components of the size is negative or if `origin - (size / 2)` results in any negatives.
+    /// This method panics if any of the components of the size is negative or if `origin - (size /
+    /// 2)` results in any negatives.
     ///
     /// # Examples
     ///
@@ -113,7 +114,8 @@ impl URect {
     ///
     /// # Panics
     ///
-    /// This method panics if any of the components of the half-size is negative or if `origin - half_size` results in any negatives.
+    /// This method panics if any of the components of the half-size is negative or if `origin -
+    /// half_size` results in any negatives.
     ///
     /// # Examples
     ///
@@ -195,7 +197,8 @@ impl URect {
     ///
     /// # Rounding Behavior
     ///
-    /// If the full size contains odd numbers they will be rounded down to the nearest whole number when calculating the half size.
+    /// If the full size contains odd numbers they will be rounded down to the nearest whole number
+    /// when calculating the half size.
     ///
     /// # Examples
     ///
@@ -213,7 +216,8 @@ impl URect {
     ///
     /// # Rounding Behavior
     ///
-    /// If the (min + max) contains odd numbers they will be rounded down to the nearest whole number when calculating the center.
+    /// If the (min + max) contains odd numbers they will be rounded down to the nearest whole
+    /// number when calculating the center.
     ///
     /// # Examples
     ///

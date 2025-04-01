@@ -1,6 +1,7 @@
 //! Contains the [`EntityHashSet`] type, a [`HashSet`] pre-configured to use [`EntityHash`] hashing.
 //!
-//! This module is a lightweight wrapper around Bevy's [`HashSet`] that is more performant for [`Entity`] keys.
+//! This module is a lightweight wrapper around Bevy's [`HashSet`] that is more performant for
+//! [`Entity`] keys.
 
 use core::{
     fmt::{self, Debug, Formatter},
@@ -212,7 +213,8 @@ impl FromEntitySetIterator<Entity> for EntityHashSet {
 
 /// An iterator over the items of an [`EntityHashSet`].
 ///
-/// This struct is created by the [`iter`] method on [`EntityHashSet`]. See its documentation for more.
+/// This struct is created by the [`iter`] method on [`EntityHashSet`]. See its documentation for
+/// more.
 ///
 /// [`iter`]: EntityHashSet::iter
 pub struct Iter<'a, S = EntityHash>(hash_set::Iter<'a, Entity>, PhantomData<S>);
@@ -267,7 +269,8 @@ unsafe impl EntitySetIterator for Iter<'_> {}
 
 /// Owning iterator over the items of an [`EntityHashSet`].
 ///
-/// This struct is created by the [`into_iter`] method on [`EntityHashSet`] (provided by the [`IntoIterator`] trait). See its documentation for more.
+/// This struct is created by the [`into_iter`] method on [`EntityHashSet`] (provided by the
+/// [`IntoIterator`] trait). See its documentation for more.
 ///
 /// [`into_iter`]: EntityHashSet::into_iter
 pub struct IntoIter<S = EntityHash>(hash_set::IntoIter<Entity>, PhantomData<S>);
@@ -319,7 +322,8 @@ unsafe impl EntitySetIterator for IntoIter {}
 
 /// A draining iterator over the items of an [`EntityHashSet`].
 ///
-/// This struct is created by the [`drain`] method on [`EntityHashSet`]. See its documentation for more.
+/// This struct is created by the [`drain`] method on [`EntityHashSet`]. See its documentation for
+/// more.
 ///
 /// [`drain`]: EntityHashSet::drain
 pub struct Drain<'a, S = EntityHash>(hash_set::Drain<'a, Entity>, PhantomData<S>);
@@ -365,7 +369,8 @@ unsafe impl EntitySetIterator for Drain<'_> {}
 
 /// A draining iterator over entries of a [`EntityHashSet`] which don't satisfy the predicate `f`.
 ///
-/// This struct is created by the [`extract_if`] method on [`EntityHashSet`]. See its documentation for more.
+/// This struct is created by the [`extract_if`] method on [`EntityHashSet`]. See its documentation
+/// for more.
 ///
 /// [`extract_if`]: EntityHashSet::extract_if
 pub struct ExtractIf<'a, F: FnMut(&Entity) -> bool, S = EntityHash>(

@@ -16,7 +16,8 @@ use wgpu::{BindingResource, BufferUsages};
 pub trait GpuArrayBufferable: ShaderType + ShaderSize + WriteInto + Clone {}
 impl<T: ShaderType + ShaderSize + WriteInto + Clone> GpuArrayBufferable for T {}
 
-/// Stores an array of elements to be transferred to the GPU and made accessible to shaders as a read-only array.
+/// Stores an array of elements to be transferred to the GPU and made accessible to shaders as a
+/// read-only array.
 ///
 /// On platforms that support storage buffers, this is equivalent to
 /// [`BufferVec<T>`]. Otherwise, this falls back to a dynamic offset

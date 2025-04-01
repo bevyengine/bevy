@@ -8,16 +8,15 @@
 //! Environment maps come in two flavors, depending on what other components the
 //! entities they're attached to have:
 //!
-//! 1. If attached to a view, they represent the objects located a very far
-//!    distance from the view, in a similar manner to a skybox. Essentially, these
-//!    *view environment maps* represent a higher-quality replacement for
-//!    [`AmbientLight`](crate::AmbientLight) for outdoor scenes. The indirect light from such
-//!    environment maps are added to every point of the scene, including
+//! 1. If attached to a view, they represent the objects located a very far distance from the view,
+//!    in a similar manner to a skybox. Essentially, these *view environment maps* represent a
+//!    higher-quality replacement for [`AmbientLight`](crate::AmbientLight) for outdoor scenes. The
+//!    indirect light from such environment maps are added to every point of the scene, including
 //!    interior enclosed areas.
 //!
-//! 2. If attached to a [`crate::LightProbe`], environment maps represent the immediate
-//!    surroundings of a specific location in the scene. These types of
-//!    environment maps are known as *reflection probes*.
+//! 2. If attached to a [`crate::LightProbe`], environment maps represent the immediate surroundings
+//!    of a specific location in the scene. These types of environment maps are known as *reflection
+//!    probes*.
 //!
 //! Typically, environment maps are static (i.e. "baked", calculated ahead of
 //! time) and so only reflect fixed static geometry. The environment maps must

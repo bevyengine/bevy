@@ -13,7 +13,8 @@ use crate::{
     world::World,
 };
 
-/// Provides read access to the source component (the component being cloned) in a [`ComponentCloneFn`].
+/// Provides read access to the source component (the component being cloned) in a
+/// [`ComponentCloneFn`].
 pub struct SourceComponent<'a> {
     ptr: Ptr<'a>,
     info: &'a ComponentInfo,
@@ -22,7 +23,8 @@ pub struct SourceComponent<'a> {
 impl<'a> SourceComponent<'a> {
     /// Returns a reference to the component on the source entity.
     ///
-    /// Will return `None` if `ComponentId` of requested component does not match `ComponentId` of source component
+    /// Will return `None` if `ComponentId` of requested component does not match `ComponentId` of
+    /// source component
     pub fn read<C: Component>(&self) -> Option<&C> {
         if self
             .info
@@ -43,14 +45,16 @@ impl<'a> SourceComponent<'a> {
         self.ptr
     }
 
-    /// Returns a reference to the component on the source entity as [`&dyn Reflect`](bevy_reflect::Reflect).
+    /// Returns a reference to the component on the source entity as [`&dyn
+    /// Reflect`](bevy_reflect::Reflect).
     ///
     /// Will return `None` if:
     /// - World does not have [`AppTypeRegistry`](`crate::reflect::AppTypeRegistry`).
     /// - Component does not implement [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr).
     /// - Component is not registered.
     /// - Component does not have [`TypeId`]
-    /// - Registered [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr)'s [`TypeId`] does not match component's [`TypeId`]
+    /// - Registered [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr)'s [`TypeId`] does not match
+    ///   component's [`TypeId`]
     #[cfg(feature = "bevy_reflect")]
     pub fn read_reflect(
         &self,
@@ -61,15 +65,17 @@ impl<'a> SourceComponent<'a> {
         if reflect_from_ptr.type_id() != type_id {
             return None;
         }
-        // SAFETY: `source_component_ptr` stores data represented by `component_id`, which we used to get `ReflectFromPtr`.
+        // SAFETY: `source_component_ptr` stores data represented by `component_id`, which we used
+        // to get `ReflectFromPtr`.
         unsafe { Some(reflect_from_ptr.as_reflect(self.ptr)) }
     }
 }
 
 /// Context for component clone handlers.
 ///
-/// Provides fast access to useful resources like [`AppTypeRegistry`](crate::reflect::AppTypeRegistry)
-/// and allows component clone handler to get information about component being cloned.
+/// Provides fast access to useful resources like
+/// [`AppTypeRegistry`](crate::reflect::AppTypeRegistry) and allows component clone handler to get
+/// information about component being cloned.
 pub struct ComponentCloneCtx<'a, 'b> {
     component_id: ComponentId,
     target_component_written: bool,
@@ -123,7 +129,8 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         }
     }
 
-    /// Returns true if [`write_target_component`](`Self::write_target_component`) was called before.
+    /// Returns true if [`write_target_component`](`Self::write_target_component`) was called
+    /// before.
     pub fn target_component_written(&self) -> bool {
         self.target_component_written
     }
@@ -148,9 +155,11 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         self.component_info
     }
 
-    /// Returns true if the [`EntityCloner`] is configured to recursively clone entities. When this is enabled,
-    /// entities stored in a cloned entity's [`RelationshipTarget`](crate::relationship::RelationshipTarget) component with
-    /// [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN) will also be cloned.
+    /// Returns true if the [`EntityCloner`] is configured to recursively clone entities. When this
+    /// is enabled, entities stored in a cloned entity's
+    /// [`RelationshipTarget`](crate::relationship::RelationshipTarget) component with
+    /// [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN)
+    /// will also be cloned.
     #[inline]
     pub fn linked_cloning(&self) -> bool {
         self.entity_cloner.linked_cloning
@@ -192,8 +201,9 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// Writes component data to target entity by providing a pointer to source component data.
     ///
     /// # Safety
-    /// Caller must ensure that the passed in `ptr` references data that corresponds to the type of the source / target [`ComponentId`].
-    /// `ptr` must also contain data that the written component can "own" (for example, this should not directly copy non-Copy data).
+    /// Caller must ensure that the passed in `ptr` references data that corresponds to the type of
+    /// the source / target [`ComponentId`]. `ptr` must also contain data that the written
+    /// component can "own" (for example, this should not directly copy non-Copy data).
     ///
     /// # Panics
     /// This will panic if component has already been written once.
@@ -272,8 +282,10 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         self.entity_cloner.clone_queue.push_back(entity);
     }
 
-    /// Queues a deferred clone operation, which will run with exclusive [`World`] access immediately after calling the clone handler for each component on an entity.
-    /// This exists, despite its similarity to [`Commands`](crate::system::Commands), to provide access to the entity mapper in the current context.
+    /// Queues a deferred clone operation, which will run with exclusive [`World`] access
+    /// immediately after calling the clone handler for each component on an entity.
+    /// This exists, despite its similarity to [`Commands`](crate::system::Commands), to provide
+    /// access to the entity mapper in the current context.
     pub fn queue_deferred(
         &mut self,
         deferred: impl FnOnce(&mut World, &mut dyn EntityMapper) + 'static,
@@ -284,8 +296,8 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     }
 }
 
-/// A configuration determining how to clone entities. This can be built using [`EntityCloner::build`], which
-/// returns an [`EntityClonerBuilder`].
+/// A configuration determining how to clone entities. This can be built using
+/// [`EntityCloner::build`], which returns an [`EntityClonerBuilder`].
 ///
 /// After configuration is complete an entity can be cloned using [`Self::clone_entity`].
 ///
@@ -311,13 +323,15 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 /// ```
 ///
 /// # Default cloning strategy
-/// By default, all types that derive [`Component`] and implement either [`Clone`] or `Reflect` (with `ReflectComponent`) will be cloned
-/// (with `Clone`-based implementation preferred in case component implements both).
+/// By default, all types that derive [`Component`] and implement either [`Clone`] or `Reflect`
+/// (with `ReflectComponent`) will be cloned (with `Clone`-based implementation preferred in case
+/// component implements both).
 ///
-/// It should be noted that if `Component` is implemented manually or if `Clone` implementation is conditional
-/// (like when deriving `Clone` for a type with a generic parameter without `Clone` bound),
-/// the component will be cloned using the [default cloning strategy](crate::component::ComponentCloneBehavior::global_default_fn).
-/// To use `Clone`-based handler ([`ComponentCloneBehavior::clone`]) in this case it should be set manually using one
+/// It should be noted that if `Component` is implemented manually or if `Clone` implementation is
+/// conditional (like when deriving `Clone` for a type with a generic parameter without `Clone`
+/// bound), the component will be cloned using the [default cloning
+/// strategy](crate::component::ComponentCloneBehavior::global_default_fn). To use `Clone`-based
+/// handler ([`ComponentCloneBehavior::clone`]) in this case it should be set manually using one
 /// of the methods mentioned in the [Clone Behaviors](#Clone-Behaviors) section
 ///
 /// Here's an example of how to do it using [`clone_behavior`](Component::clone_behavior):
@@ -337,12 +351,14 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 /// ```
 ///
 /// # Clone Behaviors
-/// [`EntityCloner`] clones entities by cloning components using [`ComponentCloneBehavior`], and there are multiple layers
-/// to decide which handler to use for which component. The overall hierarchy looks like this (priority from most to least):
+/// [`EntityCloner`] clones entities by cloning components using [`ComponentCloneBehavior`], and
+/// there are multiple layers to decide which handler to use for which component. The overall
+/// hierarchy looks like this (priority from most to least):
 /// 1. local overrides using [`EntityClonerBuilder::override_clone_behavior`]
 /// 2. component-defined handler using [`Component::clone_behavior`]
 /// 3. default handler override using [`EntityClonerBuilder::with_default_clone_fn`].
-/// 4. reflect-based or noop default clone handler depending on if `bevy_reflect` feature is enabled or not.
+/// 4. reflect-based or noop default clone handler depending on if `bevy_reflect` feature is enabled
+///    or not.
 pub struct EntityCloner {
     filter_allows_components: bool,
     filter: HashSet<ComponentId>,
@@ -386,19 +402,20 @@ impl<'a> BundleScratch<'a> {
     /// Pushes the `ptr` component onto this storage with the given `id` [`ComponentId`].
     ///
     /// # Safety
-    /// The `id` [`ComponentId`] must match the component `ptr` for whatever [`World`] this scratch will
-    /// be written to. `ptr` must contain valid uniquely-owned data that matches the type of component referenced
-    /// in `id`.
+    /// The `id` [`ComponentId`] must match the component `ptr` for whatever [`World`] this scratch
+    /// will be written to. `ptr` must contain valid uniquely-owned data that matches the type
+    /// of component referenced in `id`.
     pub(crate) unsafe fn push_ptr(&mut self, id: ComponentId, ptr: PtrMut<'a>) {
         self.component_ids.push(id);
         self.component_ptrs.push(ptr);
     }
 
-    /// Pushes the `C` component onto this storage with the given `id` [`ComponentId`], using the given `bump` allocator.
+    /// Pushes the `C` component onto this storage with the given `id` [`ComponentId`], using the
+    /// given `bump` allocator.
     ///
     /// # Safety
-    /// The `id` [`ComponentId`] must match the component `C` for whatever [`World`] this scratch will
-    /// be written to.
+    /// The `id` [`ComponentId`] must match the component `C` for whatever [`World`] this scratch
+    /// will be written to.
     pub(crate) unsafe fn push<C: Component>(
         &mut self,
         allocator: &'a Bump,
@@ -443,14 +460,17 @@ impl EntityCloner {
         }
     }
 
-    /// Returns `true` if this cloner is configured to clone entities referenced in cloned components via [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN).
+    /// Returns `true` if this cloner is configured to clone entities referenced in cloned
+    /// components via
+    /// [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN).
     /// This will produce "deep" / recursive clones of relationship trees that have "linked spawn".
     #[inline]
     pub fn linked_cloning(&self) -> bool {
         self.linked_cloning
     }
 
-    /// Clones and inserts components from the `source` entity into the entity mapped by `mapper` from `source` using the stored configuration.
+    /// Clones and inserts components from the `source` entity into the entity mapped by `mapper`
+    /// from `source` using the stored configuration.
     fn clone_entity_internal(
         &mut self,
         world: &mut World,
@@ -459,7 +479,8 @@ impl EntityCloner {
         relationship_hook_insert_mode: RelationshipHookMode,
     ) -> Entity {
         let target = mapper.get_mapped(source);
-        // PERF: reusing allocated space across clones would be more efficient. Consider an allocation model similar to `Commands`.
+        // PERF: reusing allocated space across clones would be more efficient. Consider an
+        // allocation model similar to `Commands`.
         let bundle_scratch_allocator = Bump::new();
         let mut bundle_scratch: BundleScratch;
         {
@@ -467,8 +488,8 @@ impl EntityCloner {
             let source_entity = world.get_entity(source).expect("Source entity must exist");
 
             #[cfg(feature = "bevy_reflect")]
-            // SAFETY: we have unique access to `world`, nothing else accesses the registry at this moment, and we clone
-            // the registry, which prevents future conflicts.
+            // SAFETY: we have unique access to `world`, nothing else accesses the registry at this
+            // moment, and we clone the registry, which prevents future conflicts.
             let app_registry = unsafe {
                 world
                     .get_resource::<crate::reflect::AppTypeRegistry>()
@@ -510,7 +531,8 @@ impl EntityCloner {
 
                 // SAFETY:
                 // - `components` and `component` are from the same world
-                // - `source_component_ptr` is valid and points to the same type as represented by `component`
+                // - `source_component_ptr` is valid and points to the same type as represented by
+                //   `component`
                 let mut ctx = unsafe {
                     ComponentCloneCtx::new(
                         component,
@@ -553,8 +575,9 @@ impl EntityCloner {
         target
     }
 
-    /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
-    /// If this [`EntityCloner`] has [`EntityCloner::linked_cloning`], then it will recursively spawn entities as defined
+    /// Clones and inserts components from the `source` entity into `target` entity using the stored
+    /// configuration. If this [`EntityCloner`] has [`EntityCloner::linked_cloning`], then it
+    /// will recursively spawn entities as defined
     /// by [`RelationshipTarget`](crate::relationship::RelationshipTarget) components with
     /// [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN)
     #[track_caller]
@@ -564,8 +587,9 @@ impl EntityCloner {
         self.clone_entity_mapped(world, source, &mut map);
     }
 
-    /// Clones and inserts components from the `source` entity into a newly spawned entity using the stored configuration.
-    /// If this [`EntityCloner`] has [`EntityCloner::linked_cloning`], then it will recursively spawn entities as defined
+    /// Clones and inserts components from the `source` entity into a newly spawned entity using the
+    /// stored configuration. If this [`EntityCloner`] has [`EntityCloner::linked_cloning`],
+    /// then it will recursively spawn entities as defined
     /// by [`RelationshipTarget`](crate::relationship::RelationshipTarget) components with
     /// [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN)
     #[track_caller]
@@ -586,12 +610,14 @@ impl EntityCloner {
         // All relationships on the root should have their hooks run
         let target = self.clone_entity_internal(world, source, mapper, RelationshipHookMode::Run);
         let child_hook_insert_mode = if self.linked_cloning {
-            // When spawning "linked relationships", we want to ignore hooks for relationships we are spawning, while
-            // still registering with original relationship targets that are "not linked" to the current recursive spawn.
+            // When spawning "linked relationships", we want to ignore hooks for relationships we
+            // are spawning, while still registering with original relationship targets
+            // that are "not linked" to the current recursive spawn.
             RelationshipHookMode::RunIfNotLinked
         } else {
-            // If we are not cloning "linked relationships" recursively, then we want any cloned relationship components to
-            // register themselves with their original relationship target.
+            // If we are not cloning "linked relationships" recursively, then we want any cloned
+            // relationship components to register themselves with their original
+            // relationship target.
             RelationshipHookMode::Run
         };
         loop {
@@ -664,8 +690,9 @@ impl<'w> EntityClonerBuilder<'w> {
 
     /// Adds all components of the bundle to the list of components to clone.
     ///
-    /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
-    /// [`deny_all`](`Self::deny_all`) before calling any of the `allow` methods.
+    /// Note that all components are allowed by default, to clone only explicitly allowed components
+    /// make sure to call [`deny_all`](`Self::deny_all`) before calling any of the `allow`
+    /// methods.
     pub fn allow<T: Bundle>(&mut self) -> &mut Self {
         let bundle = self.world.register_bundle::<T>();
         let ids = bundle.explicit_components().to_owned();
@@ -677,8 +704,9 @@ impl<'w> EntityClonerBuilder<'w> {
 
     /// Extends the list of components to clone.
     ///
-    /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
-    /// [`deny_all`](`Self::deny_all`) before calling any of the `allow` methods.
+    /// Note that all components are allowed by default, to clone only explicitly allowed components
+    /// make sure to call [`deny_all`](`Self::deny_all`) before calling any of the `allow`
+    /// methods.
     pub fn allow_by_ids(&mut self, ids: impl IntoIterator<Item = ComponentId>) -> &mut Self {
         for id in ids {
             self.filter_allow(id);
@@ -688,8 +716,9 @@ impl<'w> EntityClonerBuilder<'w> {
 
     /// Extends the list of components to clone using [`TypeId`]s.
     ///
-    /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
-    /// [`deny_all`](`Self::deny_all`) before calling any of the `allow` methods.
+    /// Note that all components are allowed by default, to clone only explicitly allowed components
+    /// make sure to call [`deny_all`](`Self::deny_all`) before calling any of the `allow`
+    /// methods.
     pub fn allow_by_type_ids(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
         for type_id in ids {
             if let Some(id) = self.world.components().get_id(type_id) {
@@ -742,9 +771,11 @@ impl<'w> EntityClonerBuilder<'w> {
     }
 
     /// Overrides the [`ComponentCloneBehavior`] for a component in this builder.
-    /// This handler will be used to clone the component instead of the global one defined by the [`EntityCloner`].
+    /// This handler will be used to clone the component instead of the global one defined by the
+    /// [`EntityCloner`].
     ///
-    /// See [Handlers section of `EntityClonerBuilder`](EntityClonerBuilder#handlers) to understand how this affects handler priority.
+    /// See [Handlers section of `EntityClonerBuilder`](EntityClonerBuilder#handlers) to understand
+    /// how this affects handler priority.
     pub fn override_clone_behavior<T: Component>(
         &mut self,
         clone_behavior: ComponentCloneBehavior,
@@ -757,10 +788,12 @@ impl<'w> EntityClonerBuilder<'w> {
         self
     }
 
-    /// Overrides the [`ComponentCloneBehavior`] for a component with the given `component_id` in this builder.
-    /// This handler will be used to clone the component instead of the global one defined by the [`EntityCloner`].
+    /// Overrides the [`ComponentCloneBehavior`] for a component with the given `component_id` in
+    /// this builder. This handler will be used to clone the component instead of the global one
+    /// defined by the [`EntityCloner`].
     ///
-    /// See [Handlers section of `EntityClonerBuilder`](EntityClonerBuilder#handlers) to understand how this affects handler priority.
+    /// See [Handlers section of `EntityClonerBuilder`](EntityClonerBuilder#handlers) to understand
+    /// how this affects handler priority.
     pub fn override_clone_behavior_with_id(
         &mut self,
         component_id: ComponentId,
@@ -772,7 +805,8 @@ impl<'w> EntityClonerBuilder<'w> {
         self
     }
 
-    /// Removes a previously set override of [`ComponentCloneBehavior`] for a component in this builder.
+    /// Removes a previously set override of [`ComponentCloneBehavior`] for a component in this
+    /// builder.
     pub fn remove_clone_behavior_override<T: Component>(&mut self) -> &mut Self {
         if let Some(id) = self.world.components().component_id::<T>() {
             self.entity_cloner.clone_behavior_overrides.remove(&id);
@@ -780,7 +814,8 @@ impl<'w> EntityClonerBuilder<'w> {
         self
     }
 
-    /// Removes a previously set override of [`ComponentCloneBehavior`] for a given `component_id` in this builder.
+    /// Removes a previously set override of [`ComponentCloneBehavior`] for a given `component_id`
+    /// in this builder.
     pub fn remove_clone_behavior_override_with_id(
         &mut self,
         component_id: ComponentId,
@@ -791,8 +826,10 @@ impl<'w> EntityClonerBuilder<'w> {
         self
     }
 
-    /// When true this cloner will be configured to clone entities referenced in cloned components via [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN).
-    /// This will produce "deep" / recursive clones of relationship trees that have "linked spawn".
+    /// When true this cloner will be configured to clone entities referenced in cloned components
+    /// via [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN).
+    /// This will produce "deep" / recursive clones of relationship trees that have "linked
+    /// spawn".
     pub fn linked_cloning(&mut self, linked_cloning: bool) -> &mut Self {
         self.entity_cloner.linked_cloning = linked_cloning;
         self
@@ -1285,7 +1322,8 @@ mod tests {
     fn clone_entity_with_dynamic_components() {
         const COMPONENT_SIZE: usize = 10;
         fn test_handler(source: &SourceComponent, ctx: &mut ComponentCloneCtx) {
-            // SAFETY: the passed in ptr corresponds to copy-able data that matches the type of the source / target component
+            // SAFETY: the passed in ptr corresponds to copy-able data that matches the type of the
+            // source / target component
             unsafe {
                 ctx.write_target_component_ptr(source.ptr());
             }

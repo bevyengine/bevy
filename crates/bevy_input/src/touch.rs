@@ -22,8 +22,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// identifier for the finger is generated. When the finger is lifted, the [`TouchPhase::Ended`]
 /// event is generated with the same finger id.
 ///
-/// After a [`TouchPhase::Started`] event has been emitted, there may be zero or more [`TouchPhase::Moved`]
-/// events when the finger is moved or the touch pressure changes.
+/// After a [`TouchPhase::Started`] event has been emitted, there may be zero or more
+/// [`TouchPhase::Moved`] events when the finger is moved or the touch pressure changes.
 ///
 /// The finger id may be reused by the system after an [`TouchPhase::Ended`] event. The user
 /// should assume that a new [`TouchPhase::Started`] event received with the same id has nothing
@@ -288,9 +288,11 @@ impl Touches {
         self.just_pressed.contains_key(&id)
     }
 
-    /// Clears the `just_pressed` state of the touch input and returns `true` if the touch input has just been pressed.
+    /// Clears the `just_pressed` state of the touch input and returns `true` if the touch input has
+    /// just been pressed.
     ///
-    /// Future calls to [`Touches::just_pressed`] for the given touch input will return false until a new press event occurs.
+    /// Future calls to [`Touches::just_pressed`] for the given touch input will return false until
+    /// a new press event occurs.
     pub fn clear_just_pressed(&mut self, id: u64) -> bool {
         self.just_pressed.remove(&id).is_some()
     }
@@ -315,9 +317,11 @@ impl Touches {
         self.just_released.contains_key(&id)
     }
 
-    /// Clears the `just_released` state of the touch input and returns `true` if the touch input has just been released.
+    /// Clears the `just_released` state of the touch input and returns `true` if the touch input
+    /// has just been released.
     ///
-    /// Future calls to [`Touches::just_released`] for the given touch input will return false until a new release event occurs.
+    /// Future calls to [`Touches::just_released`] for the given touch input will return false until
+    /// a new release event occurs.
     pub fn clear_just_released(&mut self, id: u64) -> bool {
         self.just_released.remove(&id).is_some()
     }
@@ -337,9 +341,11 @@ impl Touches {
         self.just_canceled.contains_key(&id)
     }
 
-    /// Clears the `just_canceled` state of the touch input and returns `true` if the touch input has just been canceled.
+    /// Clears the `just_canceled` state of the touch input and returns `true` if the touch input
+    /// has just been canceled.
     ///
-    /// Future calls to [`Touches::just_canceled`] for the given touch input will return false until a new cancel event occurs.
+    /// Future calls to [`Touches::just_canceled`] for the given touch input will return false until
+    /// a new cancel event occurs.
     pub fn clear_just_canceled(&mut self, id: u64) -> bool {
         self.just_canceled.remove(&id).is_some()
     }
@@ -352,7 +358,8 @@ impl Touches {
     /// Retrieves the position of the first currently pressed touch, if any
     pub fn first_pressed_position(&self) -> Option<Vec2> {
         // Looking for the position in `pressed`. If nothing is found, also look into `just_pressed`
-        // A touch can be in `just_pressed` but not in `pressed` if it ended in the same frame it started
+        // A touch can be in `just_pressed` but not in `pressed` if it ended in the same frame it
+        // started
         self.pressed
             .values()
             .next()
@@ -369,9 +376,11 @@ impl Touches {
         self.just_canceled.clear();
     }
 
-    /// Clears `pressed`, `just_pressed`, `just_released`, and `just_canceled` data for every touch input.
+    /// Clears `pressed`, `just_pressed`, `just_released`, and `just_canceled` data for every touch
+    /// input.
     ///
-    /// See also [`Touches::clear`] for clearing only touches that have just been pressed, released or canceled.
+    /// See also [`Touches::clear`] for clearing only touches that have just been pressed, released
+    /// or canceled.
     pub fn reset_all(&mut self) {
         self.pressed.clear();
         self.just_pressed.clear();
@@ -429,7 +438,8 @@ impl Touches {
 /// ## Differences
 ///
 /// The main difference between the [`TouchInput`] event and the [`Touches`] resource is that
-/// the latter has convenient functions like [`Touches::just_pressed`] and [`Touches::just_released`].
+/// the latter has convenient functions like [`Touches::just_pressed`] and
+/// [`Touches::just_released`].
 pub fn touch_screen_input_system(
     mut touch_state: ResMut<Touches>,
     mut touch_input_events: EventReader<TouchInput>,

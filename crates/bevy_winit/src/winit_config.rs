@@ -79,8 +79,8 @@ pub enum UpdateMode {
     /// [`AppExit`](bevy_app::AppExit) event appears:
     /// - `wait` time has elapsed since the previous update
     /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
-    /// - new [window](`winit::event::WindowEvent`), [raw input](`winit::event::DeviceEvent`), or custom
-    ///   events have appeared
+    /// - new [window](`winit::event::WindowEvent`), [raw input](`winit::event::DeviceEvent`), or
+    ///   custom events have appeared
     /// - a redraw has been requested with the [`EventLoopProxy`](crate::EventLoopProxy)
     Reactive {
         /// The approximate time from the start of one update to the next.
@@ -111,9 +111,10 @@ impl UpdateMode {
     /// Low power mode
     ///
     /// Unlike [`Reactive`](`UpdateMode::reactive()`), this will ignore events that
-    /// don't come from interacting with a window, like [`MouseMotion`](winit::event::DeviceEvent::MouseMotion).
-    /// Use this if, for example, you only want your app to update when the mouse cursor is
-    /// moving over a window, not just moving in general. This can greatly reduce power consumption.
+    /// don't come from interacting with a window, like
+    /// [`MouseMotion`](winit::event::DeviceEvent::MouseMotion). Use this if, for example, you
+    /// only want your app to update when the mouse cursor is moving over a window, not just
+    /// moving in general. This can greatly reduce power consumption.
     pub fn reactive_low_power(wait: Duration) -> Self {
         Self::Reactive {
             wait,

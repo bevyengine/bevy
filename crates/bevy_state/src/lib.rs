@@ -1,8 +1,11 @@
 #![no_std]
 
-//! In Bevy, states are app-wide interdependent, finite state machines that are generally used to model the large scale structure of your program: whether a game is paused, if the player is in combat, if assets are loaded and so on.
+//! In Bevy, states are app-wide interdependent, finite state machines that are generally used to
+//! model the large scale structure of your program: whether a game is paused, if the player is in
+//! combat, if assets are loaded and so on.
 //!
-//! This module provides 3 distinct types of state, all of which implement the [`States`](state::States) trait:
+//! This module provides 3 distinct types of state, all of which implement the
+//! [`States`](state::States) trait:
 //!
 //! - Standard [`States`](state::States) can only be changed by manually setting the [`NextState<S>`](state::NextState) resource.
 //!   These states are the baseline on which the other state types are built, and can be used on
@@ -11,10 +14,11 @@
 //! - [`SubStates`](state::SubStates) are children of other states - they can be changed manually using [`NextState<S>`](state::NextState),
 //!   but are removed from the [`World`](bevy_ecs::prelude::World) if the source states aren't in the right state. See the [sub_states example](https://github.com/bevyengine/bevy/blob/latest/examples/state/sub_states.rs)
 //!   for a simple use case based on the derive macro, or read the trait docs for more complex scenarios.
-//! - [`ComputedStates`](state::ComputedStates) are fully derived from other states - they provide a [`compute`](state::ComputedStates::compute) method
-//!   that takes in the source states and returns their derived value. They are particularly useful for situations
-//!   where a simplified view of the source states is necessary - such as having an `InAMenu` computed state, derived
-//!   from a source state that defines multiple distinct menus. See the [computed state example](https://github.com/bevyengine/bevy/blob/latest/examples/state/computed_states.rs)
+//! - [`ComputedStates`](state::ComputedStates) are fully derived from other states - they provide a
+//!   [`compute`](state::ComputedStates::compute) method that takes in the source states and returns
+//!   their derived value. They are particularly useful for situations where a simplified view of the
+//!   source states is necessary - such as having an `InAMenu` computed state, derived from a source
+//!   state that defines multiple distinct menus. See the [computed state example](https://github.com/bevyengine/bevy/blob/latest/examples/state/computed_states.rs)
 //!   to see usage samples for these states.
 //!
 //! Most of the utilities around state involve running systems during transitions between states, or
@@ -23,11 +27,14 @@
 //!
 //! Specifically, Bevy provides the following utilities:
 //!
-//! - 3 Transition Schedules - [`OnEnter<S>`](crate::state::OnEnter), [`OnExit<S>`](crate::state::OnExit) and [`OnTransition<S>`](crate::state::OnTransition) - which are used
-//!   to trigger systems specifically during matching transitions.
-//! - A [`StateTransitionEvent<S>`](crate::state::StateTransitionEvent) that gets fired when a given state changes.
-//! - The [`in_state<S>`](crate::condition::in_state) and [`state_changed<S>`](crate::condition::state_changed) run conditions - which are used
-//!   to determine whether a system should run based on the current state.
+//! - 3 Transition Schedules - [`OnEnter<S>`](crate::state::OnEnter),
+//!   [`OnExit<S>`](crate::state::OnExit) and [`OnTransition<S>`](crate::state::OnTransition) -
+//!   which are used to trigger systems specifically during matching transitions.
+//! - A [`StateTransitionEvent<S>`](crate::state::StateTransitionEvent) that gets fired when a given
+//!   state changes.
+//! - The [`in_state<S>`](crate::condition::in_state) and
+//!   [`state_changed<S>`](crate::condition::state_changed) run conditions - which are used to
+//!   determine whether a system should run based on the current state.
 
 #![cfg_attr(
     any(docsrs, docsrs_dep),
@@ -57,7 +64,8 @@ pub mod condition;
 pub mod state;
 
 /// Provides [`StateScoped`](crate::state_scoped::StateScoped) and
-/// [`clear_state_scoped_entities`](crate::state_scoped::clear_state_scoped_entities) for managing lifetime of entities.
+/// [`clear_state_scoped_entities`](crate::state_scoped::clear_state_scoped_entities) for managing
+/// lifetime of entities.
 pub mod state_scoped;
 #[cfg(feature = "bevy_app")]
 /// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with methods for registering

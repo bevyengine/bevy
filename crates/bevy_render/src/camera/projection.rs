@@ -416,10 +416,11 @@ impl Default for PerspectiveProjection {
 
 /// Scaling mode for [`OrthographicProjection`].
 ///
-/// The effect of these scaling modes are combined with the [`OrthographicProjection::scale`] property.
+/// The effect of these scaling modes are combined with the [`OrthographicProjection::scale`]
+/// property.
 ///
-/// For example, if the scaling mode is `ScalingMode::Fixed { width: 100.0, height: 300 }` and the scale is `2.0`,
-/// the projection will be 200 world units wide and 600 world units tall.
+/// For example, if the scaling mode is `ScalingMode::Fixed { width: 100.0, height: 300 }` and the
+/// scale is `2.0`, the projection will be 200 world units wide and 600 world units tall.
 ///
 /// # Examples
 ///
@@ -437,11 +438,13 @@ impl Default for PerspectiveProjection {
 pub enum ScalingMode {
     /// Match the viewport size.
     ///
-    /// With a scale of 1, lengths in world units will map 1:1 with the number of pixels used to render it.
-    /// For example, if we have a 64x64 sprite with a [`Transform::scale`](bevy_transform::prelude::Transform) of 1.0,
-    /// no custom size and no inherited scale, the sprite will be 64 world units wide and 64 world units tall.
-    /// When rendered with [`OrthographicProjection::scaling_mode`] set to `WindowSize` when the window scale factor is 1
-    /// the sprite will be rendered at 64 pixels wide and 64 pixels tall.
+    /// With a scale of 1, lengths in world units will map 1:1 with the number of pixels used to
+    /// render it. For example, if we have a 64x64 sprite with a
+    /// [`Transform::scale`](bevy_transform::prelude::Transform) of 1.0, no custom size and no
+    /// inherited scale, the sprite will be 64 world units wide and 64 world units tall.
+    /// When rendered with [`OrthographicProjection::scaling_mode`] set to `WindowSize` when the
+    /// window scale factor is 1 the sprite will be rendered at 64 pixels wide and 64 pixels
+    /// tall.
     ///
     /// Changing any of these properties will multiplicatively affect the final size.
     #[default]
@@ -468,14 +471,15 @@ pub enum ScalingMode {
     FixedHorizontal { viewport_width: f32 },
 }
 
-/// Project a 3D space onto a 2D surface using parallel lines, i.e., unlike [`PerspectiveProjection`],
-/// the size of objects remains the same regardless of their distance to the camera.
+/// Project a 3D space onto a 2D surface using parallel lines, i.e., unlike
+/// [`PerspectiveProjection`], the size of objects remains the same regardless of their distance to
+/// the camera.
 ///
-/// The volume contained in the projection is called the *view frustum*. Since the viewport is rectangular
-/// and projection lines are parallel, the view frustum takes the shape of a cuboid.
+/// The volume contained in the projection is called the *view frustum*. Since the viewport is
+/// rectangular and projection lines are parallel, the view frustum takes the shape of a cuboid.
 ///
-/// Note that the scale of the projection and the apparent size of objects are inversely proportional.
-/// As the size of the projection increases, the size of objects decreases.
+/// Note that the scale of the projection and the apparent size of objects are inversely
+/// proportional. As the size of the projection increases, the size of objects decreases.
 ///
 /// # Examples
 ///
@@ -504,18 +508,20 @@ pub struct OrthographicProjection {
     ///
     /// Defaults to `1000.0`
     pub far: f32,
-    /// Specifies the origin of the viewport as a normalized position from 0 to 1, where (0, 0) is the bottom left
-    /// and (1, 1) is the top right. This determines where the camera's position sits inside the viewport.
+    /// Specifies the origin of the viewport as a normalized position from 0 to 1, where (0, 0) is
+    /// the bottom left and (1, 1) is the top right. This determines where the camera's
+    /// position sits inside the viewport.
     ///
-    /// When the projection scales due to viewport resizing, the position of the camera, and thereby `viewport_origin`,
-    /// remains at the same relative point.
+    /// When the projection scales due to viewport resizing, the position of the camera, and
+    /// thereby `viewport_origin`, remains at the same relative point.
     ///
-    /// Consequently, this is pivot point when scaling. With a bottom left pivot, the projection will expand
-    /// upwards and to the right. With a top right pivot, the projection will expand downwards and to the left.
-    /// Values in between will caused the projection to scale proportionally on each axis.
+    /// Consequently, this is pivot point when scaling. With a bottom left pivot, the projection
+    /// will expand upwards and to the right. With a top right pivot, the projection will
+    /// expand downwards and to the left. Values in between will caused the projection to scale
+    /// proportionally on each axis.
     ///
-    /// Defaults to `(0.5, 0.5)`, which makes scaling affect opposite sides equally, keeping the center
-    /// point of the viewport centered.
+    /// Defaults to `(0.5, 0.5)`, which makes scaling affect opposite sides equally, keeping the
+    /// center point of the viewport centered.
     pub viewport_origin: Vec2,
     /// How the projection will scale to the viewport.
     ///
@@ -534,14 +540,14 @@ pub struct OrthographicProjection {
     ///
     /// This property is particularly useful in implementing zoom functionality.
     ///
-    /// Defaults to `1.0`, which under standard settings corresponds to a 1:1 mapping of world units to rendered pixels.
-    /// See [`ScalingMode::WindowSize`] for more information.
+    /// Defaults to `1.0`, which under standard settings corresponds to a 1:1 mapping of world
+    /// units to rendered pixels. See [`ScalingMode::WindowSize`] for more information.
     pub scale: f32,
     /// The area that the projection covers relative to `viewport_origin`.
     ///
     /// Bevy's [`camera_system`](crate::camera::camera_system) automatically
-    /// updates this value when the viewport is resized depending on `OrthographicProjection`'s other fields.
-    /// In this case, `area` should not be manually modified.
+    /// updates this value when the viewport is resized depending on `OrthographicProjection`'s
+    /// other fields. In this case, `area` should not be manually modified.
     ///
     /// It may be necessary to set this manually for shadow projections and such.
     pub area: Rect,
@@ -555,7 +561,8 @@ impl CameraProjection for OrthographicProjection {
             self.area.min.y,
             self.area.max.y,
             // NOTE: near and far are swapped to invert the depth range from [0,1] to [1,0]
-            // This is for interoperability with pipelines using infinite reverse perspective projections.
+            // This is for interoperability with pipelines using infinite reverse perspective
+            // projections.
             self.far,
             self.near,
         )
@@ -598,7 +605,8 @@ impl CameraProjection for OrthographicProjection {
             bottom_prime,
             top_prime,
             // NOTE: near and far are swapped to invert the depth range from [0,1] to [1,0]
-            // This is for interoperability with pipelines using infinite reverse perspective projections.
+            // This is for interoperability with pipelines using infinite reverse perspective
+            // projections.
             self.far,
             self.near,
         )
@@ -611,8 +619,10 @@ impl CameraProjection for OrthographicProjection {
                 min_width,
                 min_height,
             } => {
-                // Compare Pixels of current width and minimal height and Pixels of minimal width with current height.
-                // Then use bigger (min_height when true) as what it refers to (height when true) and calculate rest so it can't get under minimum.
+                // Compare Pixels of current width and minimal height and Pixels of minimal width
+                // with current height. Then use bigger (min_height when true) as
+                // what it refers to (height when true) and calculate rest so it can't get under
+                // minimum.
                 if width * min_height > min_width * height {
                     (width * min_height / height, min_height)
                 } else {
@@ -623,8 +633,10 @@ impl CameraProjection for OrthographicProjection {
                 max_width,
                 max_height,
             } => {
-                // Compare Pixels of current width and maximal height and Pixels of maximal width with current height.
-                // Then use smaller (max_height when true) as what it refers to (height when true) and calculate rest so it can't get over maximum.
+                // Compare Pixels of current width and maximal height and Pixels of maximal width
+                // with current height. Then use smaller (max_height when true) as
+                // what it refers to (height when true) and calculate rest so it can't get over
+                // maximum.
                 if width * max_height < max_width * height {
                     (width * max_height / height, max_height)
                 } else {

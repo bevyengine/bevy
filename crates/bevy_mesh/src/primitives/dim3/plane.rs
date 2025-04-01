@@ -13,9 +13,11 @@ pub struct PlaneMeshBuilder {
     ///
     /// 0 - is the original plane geometry, the 4 points in the XZ plane.
     ///
-    /// 1 - is split by 1 line in the middle of the plane on both the X axis and the Z axis, resulting in a plane with 4 quads / 8 triangles.
+    /// 1 - is split by 1 line in the middle of the plane on both the X axis and the Z axis,
+    /// resulting in a plane with 4 quads / 8 triangles.
     ///
-    /// 2 - is a plane split by 2 lines on both the X and Z axes, subdividing the plane into 3 equal sections along each axis, resulting in a plane with 9 quads / 18 triangles.
+    /// 2 - is a plane split by 2 lines on both the X and Z axes, subdividing the plane into 3
+    /// equal sections along each axis, resulting in a plane with 9 quads / 18 triangles.
     ///
     /// and so on...
     pub subdivisions: u32,

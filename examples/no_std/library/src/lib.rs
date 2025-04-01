@@ -6,8 +6,8 @@
 
 // This does 2 things to your crate:
 //  1. It prevents automatically linking the `std` crate with yours.
-//  2. It switches to `core::prelude` instead of `std::prelude` for what is implicitly
-//     imported in all modules in your crate.
+//  2. It switches to `core::prelude` instead of `std::prelude` for what is implicitly imported in
+//     all modules in your crate.
 
 // It is common to want to use `std` when it's available, and fall-back to an alternative
 // implementation which may make compromises for the sake of compatibility.
@@ -55,14 +55,16 @@ use bevy::platform_support::{
 // Note that `bevy::platform_support::sync::Arc` exists, despite `alloc::sync::Arc` being available.
 // The reason is not every platform has full support for atomic operations, so `Arc`, `AtomicBool`,
 // etc. aren't always available.
-// You can test for their inclusion with `#[cfg(target_has_atomic = "ptr")]` and other related flags.
-// You can get a more cross-platform alternative from `portable-atomic`, but Bevy handles this for you!
-// Simply use `bevy::platform_support::sync` instead of `core::sync` and `alloc::sync` when possible,
-// and Bevy will handle selecting the fallback from `portable-atomic` when it is required.
+// You can test for their inclusion with `#[cfg(target_has_atomic = "ptr")]` and other related
+// flags. You can get a more cross-platform alternative from `portable-atomic`, but Bevy handles
+// this for you! Simply use `bevy::platform_support::sync` instead of `core::sync` and `alloc::sync`
+// when possible, and Bevy will handle selecting the fallback from `portable-atomic` when it is
+// required.
 
 /// Plugin for working with delayed components.
 ///
-/// You can delay the insertion of a component by using [`insert_delayed`](EntityCommandsExt::insert_delayed).
+/// You can delay the insertion of a component by using
+/// [`insert_delayed`](EntityCommandsExt::insert_delayed).
 pub struct DelayedComponentPlugin;
 
 impl Plugin for DelayedComponentPlugin {

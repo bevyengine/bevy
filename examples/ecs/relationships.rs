@@ -1,12 +1,13 @@
-//! Entities generally don't exist in isolation. Instead, they are related to other entities in various ways.
-//! While Bevy comes with a built-in [`ChildOf`]/[`Children`] relationship
+//! Entities generally don't exist in isolation. Instead, they are related to other entities in
+//! various ways. While Bevy comes with a built-in [`ChildOf`]/[`Children`] relationship
 //! (which enables transform and visibility propagation),
 //! you can define your own relationships using components.
 //!
 //! We can define a custom relationship by creating two components:
 //! one to store the relationship itself, and another to keep track of the reverse relationship.
-//! Bevy's [`ChildOf`] component implements the [`Relationship`] trait, serving as the source of truth,
-//! while the [`Children`] component implements the [`RelationshipTarget`] trait and is used to accelerate traversals down the hierarchy.
+//! Bevy's [`ChildOf`] component implements the [`Relationship`] trait, serving as the source of
+//! truth, while the [`Children`] component implements the [`RelationshipTarget`] trait and is used
+//! to accelerate traversals down the hierarchy.
 //!
 //! In this example we're creating a [`Targeting`]/[`TargetedBy`] relationship,
 //! demonstrating how you might model units which target a single unit in combat.
@@ -46,27 +47,30 @@ fn main() {
     // Then, we'll spawn Devon, who will target Charlie,
     // creating a more complex graph with a branching structure.
     fn spawning_entities_with_relationships(mut commands: Commands) {
-        // Calling .id() after spawning an entity will return the `Entity` identifier of the spawned entity,
-        // even though the entity itself is not yet instantiated in the world.
-        // This works because Commands will reserve the entity ID before actually spawning the entity,
-        // through the use of atomic counters.
+        // Calling .id() after spawning an entity will return the `Entity` identifier of the spawned
+        // entity, even though the entity itself is not yet instantiated in the world.
+        // This works because Commands will reserve the entity ID before actually spawning the
+        // entity, through the use of atomic counters.
         let alice = commands.spawn(Name::new("Alice")).id();
         // Relations are just components, so we can add them into the bundle that we're spawning.
         let bob = commands.spawn((Name::new("Bob"), Targeting(alice))).id();
 
-        // The `with_related` helper method on `EntityCommands` can be used to add relations in a more ergonomic way.
+        // The `with_related` helper method on `EntityCommands` can be used to add relations in a
+        // more ergonomic way.
         let charlie = commands
             .spawn((Name::new("Charlie"), Targeting(bob)))
-            // The `with_related` method will automatically add the `Targeting` component to any entities spawned within the closure,
-            // targeting the entity that we're calling `with_related` on.
+            // The `with_related` method will automatically add the `Targeting` component to any
+            // entities spawned within the closure, targeting the entity that we're
+            // calling `with_related` on.
             .with_related::<Targeting>(|related_spawner_commands| {
                 // We could spawn multiple entities here, and they would all target `charlie`.
                 related_spawner_commands.spawn(Name::new("Devon"));
             })
             .id();
 
-        // Simply inserting the `Targeting` component will automatically create and update the `TargetedBy` component on the target entity.
-        // We can do this at any point; not just when the entity is spawned.
+        // Simply inserting the `Targeting` component will automatically create and update the
+        // `TargetedBy` component on the target entity. We can do this at any point; not
+        // just when the entity is spawned.
         commands.entity(alice).insert(Targeting(charlie));
     }
 
@@ -75,7 +79,8 @@ fn main() {
         .unwrap();
 
     fn debug_relationships(
-        // Not all of our entities are targeted by something, so we use `Option` in our query to handle this case.
+        // Not all of our entities are targeted by something, so we use `Option` in our query to
+        // handle this case.
         relations_query: Query<(&Name, &Targeting, Option<&TargetedBy>)>,
         name_query: Query<&Name>,
     ) {
@@ -109,10 +114,10 @@ fn main() {
     world.run_system_once(debug_relationships).unwrap();
 
     // Demonstrates how to correctly mutate relationships.
-    // Relationship components are immutable! We can't query for the `Targeting` component mutably and modify it directly,
-    // but we can insert a new `Targeting` component to replace the old one.
-    // This allows the hooks on the `Targeting` component to update the `TargetedBy` component correctly.
-    // The `TargetedBy` component will be updated automatically!
+    // Relationship components are immutable! We can't query for the `Targeting` component mutably
+    // and modify it directly, but we can insert a new `Targeting` component to replace the old
+    // one. This allows the hooks on the `Targeting` component to update the `TargetedBy`
+    // component correctly. The `TargetedBy` component will be updated automatically!
     fn mutate_relationships(name_query: Query<(Entity, &Name)>, mut commands: Commands) {
         // Let's find Devon by doing a linear scan of the entity names.
         let devon = name_query
@@ -182,9 +187,10 @@ fn main() {
         Ok(())
     }
 
-    // Calling `world.run_system_once` on systems which return Results gives us two layers of errors:
-    // the first checks if running the system failed, and the second checks if the system itself returned an error.
-    // We're unwrapping the first, but checking the output of the system itself.
+    // Calling `world.run_system_once` on systems which return Results gives us two layers of
+    // errors: the first checks if running the system failed, and the second checks if the
+    // system itself returned an error. We're unwrapping the first, but checking the output of
+    // the system itself.
     let cycle_result = world.run_system_once(check_for_cycles).unwrap();
     println!("{cycle_result:?} \n");
     // We deliberately introduced a cycle during spawning!

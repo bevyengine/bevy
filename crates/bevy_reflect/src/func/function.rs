@@ -39,9 +39,9 @@ pub trait Function: PartialReflect + Debug {
     /// The name of the function, if any.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],
-    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
-    /// unless the function is a closure, anonymous function, or function pointer,
-    /// in which case the name will be `None`.
+    /// the default name will always be the full path to the function as returned by
+    /// [`core::any::type_name`], unless the function is a closure, anonymous function, or
+    /// function pointer, in which case the name will be `None`.
     ///
     /// [`DynamicFunctions`]: crate::func::DynamicFunction
     /// [`IntoFunction`]: crate::func::IntoFunction

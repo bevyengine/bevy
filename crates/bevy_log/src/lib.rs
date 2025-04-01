@@ -79,12 +79,12 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 
 /// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
 /// this plugin will setup a collector appropriate to your target platform:
-/// * Using [`tracing-subscriber`](https://crates.io/crates/tracing-subscriber) by default,
-///   logging to `stdout`.
-/// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android,
-///   logging to Android logs.
-/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in Wasm, logging
-///   to the browser console.
+/// * Using [`tracing-subscriber`](https://crates.io/crates/tracing-subscriber) by default, logging
+///   to `stdout`.
+/// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android, logging to
+///   Android logs.
+/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in Wasm, logging to the browser
+///   console.
 ///
 /// You can configure this plugin.
 /// ```no_run
@@ -140,8 +140,8 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// ```
 /// # Example Setup
 ///
-/// For a quick setup that enables all first-party logging while not showing any of your dependencies'
-/// log data, you can configure the plugin as shown below.
+/// For a quick setup that enables all first-party logging while not showing any of your
+/// dependencies' log data, you can configure the plugin as shown below.
 ///
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
@@ -154,9 +154,10 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///         }))
 ///     .run();
 /// ```
-/// The filter (in this case an `EnvFilter`) chooses whether to print the log. The most specific filters apply with higher priority.
-/// Let's start with an example: `filter: "warn".to_string()` will only print logs with level `warn` level or greater.
-/// From here, we can change to `filter: "warn,my_crate=trace".to_string()`. Logs will print at level `warn` unless it's in `mycrate`,
+/// The filter (in this case an `EnvFilter`) chooses whether to print the log. The most specific
+/// filters apply with higher priority. Let's start with an example: `filter: "warn".to_string()`
+/// will only print logs with level `warn` level or greater. From here, we can change to `filter:
+/// "warn,my_crate=trace".to_string()`. Logs will print at level `warn` unless it's in `mycrate`,
 /// which will instead print at `trace` level because `my_crate=trace` is more specific.
 ///
 ///
@@ -192,7 +193,8 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///     .run();
 /// ```
 /// The idea is that instead of deleting logs when they are no longer immediately applicable,
-/// you just disable them. If you do need to log in the future, then you can enable the logs instead of having to rewrite them.
+/// you just disable them. If you do need to log in the future, then you can enable the logs instead
+/// of having to rewrite them.
 ///
 /// ## Further reading
 ///
@@ -233,7 +235,8 @@ pub struct LogPlugin {
     ///
     /// This function is only called once, when the plugin is built.
     ///
-    /// Because [`BoxedLayer`] takes a `dyn Layer`, `Vec<Layer>` is also an acceptable return value.
+    /// Because [`BoxedLayer`] takes a `dyn Layer`, `Vec<Layer>` is also an acceptable return
+    /// value.
     ///
     /// Access to [`App`] is also provided to allow for communication between the
     /// [`Subscriber`](tracing::Subscriber) and the [`App`].
@@ -283,7 +286,8 @@ impl Plugin for LogPlugin {
                     .source()
                     .and_then(|source| source.downcast_ref::<ParseError>())
                     .map(|parse_err| {
-                        // we cannot use the `error!` macro here because the logger is not ready yet.
+                        // we cannot use the `error!` macro here because the logger is not ready
+                        // yet.
                         eprintln!("LogPlugin failed to parse filter from env: {}", parse_err);
                     });
 

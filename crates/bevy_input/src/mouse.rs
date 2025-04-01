@@ -87,8 +87,9 @@ pub enum MouseButton {
 /// This represents raw, unfiltered physical motion.
 /// It is the translated version of [`DeviceEvent::MouseMotion`] from the `winit` crate.
 ///
-/// All pointing devices connected to a single machine at the same time can emit the event independently.
-/// However, the event data does not make it possible to distinguish which device it is referring to.
+/// All pointing devices connected to a single machine at the same time can emit the event
+/// independently. However, the event data does not make it possible to distinguish which device it
+/// is referring to.
 ///
 /// [`DeviceEvent::MouseMotion`]: https://docs.rs/winit/latest/winit/event/enum.DeviceEvent.html#variant.MouseMotion
 #[derive(Event, Debug, Clone, Copy, PartialEq)]
@@ -166,8 +167,9 @@ pub struct MouseWheel {
 ///
 /// ## Differences
 ///
-/// The main difference between the [`MouseButtonInput`] event and the [`ButtonInput<MouseButton>`] resource is that
-/// the latter has convenient functions like [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`].
+/// The main difference between the [`MouseButtonInput`] event and the [`ButtonInput<MouseButton>`]
+/// resource is that the latter has convenient functions like [`ButtonInput::pressed`],
+/// [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`].
 pub fn mouse_button_input_system(
     mut mouse_button_input: ResMut<ButtonInput<MouseButton>>,
     mut mouse_button_input_events: EventReader<MouseButtonInput>,

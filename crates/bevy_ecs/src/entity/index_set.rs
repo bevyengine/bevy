@@ -1,6 +1,8 @@
-//! Contains the [`EntityIndexSet`] type, a [`IndexSet`] pre-configured to use [`EntityHash`] hashing.
+//! Contains the [`EntityIndexSet`] type, a [`IndexSet`] pre-configured to use [`EntityHash`]
+//! hashing.
 //!
-//! This module is a lightweight wrapper around `indexmap`'ss [`IndexSet`] that is more performant for [`Entity`] keys.
+//! This module is a lightweight wrapper around `indexmap`'ss [`IndexSet`] that is more performant
+//! for [`Entity`] keys.
 
 use core::{
     cmp::Ordering,
@@ -306,7 +308,8 @@ impl Slice {
         &self.1
     }
 
-    /// Constructs a boxed [`entity::index_set::Slice`] from a boxed [`indexmap::set::Slice`] unsafely.
+    /// Constructs a boxed [`entity::index_set::Slice`] from a boxed [`indexmap::set::Slice`]
+    /// unsafely.
     ///
     /// # Safety
     ///
@@ -547,7 +550,8 @@ impl Index<usize> for Slice {
 
 /// An iterator over the items of an [`EntityIndexSet`].
 ///
-/// This struct is created by the [`iter`] method on [`EntityIndexSet`]. See its documentation for more.
+/// This struct is created by the [`iter`] method on [`EntityIndexSet`]. See its documentation for
+/// more.
 ///
 /// [`iter`]: EntityIndexSet::iter
 pub struct Iter<'a, S = EntityHash>(set::Iter<'a, Entity>, PhantomData<S>);
@@ -616,7 +620,8 @@ unsafe impl EntitySetIterator for Iter<'_> {}
 
 /// Owning iterator over the items of an [`EntityIndexSet`].
 ///
-/// This struct is created by the [`into_iter`] method on [`EntityIndexSet`] (provided by the [`IntoIterator`] trait). See its documentation for more.
+/// This struct is created by the [`into_iter`] method on [`EntityIndexSet`] (provided by the
+/// [`IntoIterator`] trait). See its documentation for more.
 ///
 /// [`into_iter`]: EntityIndexSet::into_iter
 pub struct IntoIter<S = EntityHash>(set::IntoIter<Entity>, PhantomData<S>);
@@ -688,7 +693,8 @@ unsafe impl EntitySetIterator for IntoIter {}
 
 /// A draining iterator over the items of an [`EntityIndexSet`].
 ///
-/// This struct is created by the [`drain`] method on [`EntityIndexSet`]. See its documentation for more.
+/// This struct is created by the [`drain`] method on [`EntityIndexSet`]. See its documentation for
+/// more.
 ///
 /// [`drain`]: EntityIndexSet::drain
 pub struct Drain<'a, S = EntityHash>(set::Drain<'a, Entity>, PhantomData<S>);

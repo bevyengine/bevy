@@ -51,8 +51,9 @@ pub enum ExecutorKind {
     /// other things, or just trying minimize overhead.
     #[cfg_attr(any(target_arch = "wasm32", not(feature = "multi_threaded")), default)]
     SingleThreaded,
-    /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_deferred`](crate::system::System::apply_deferred)
-    /// immediately after running each system.
+    /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls
+    /// [`apply_deferred`](crate::system::System::apply_deferred) immediately after running each
+    /// system.
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
     #[cfg(feature = "std")]
@@ -136,15 +137,15 @@ pub const apply_deferred: ApplyDeferred = ApplyDeferred;
 /// ## Scheduling
 ///
 /// `ApplyDeferred` systems are scheduled *by default*
-/// - later in the same schedule run (for example, if a system with `Commands` param
-///   is scheduled in `Update`, all the changes will be visible in `PostUpdate`)
-/// - between systems with dependencies if the dependency [has deferred buffers]
-///   (if system `bar` directly or indirectly depends on `foo`, and `foo` uses
-///   `Commands` param, changes to the world in `foo` will be visible in `bar`)
+/// - later in the same schedule run (for example, if a system with `Commands` param is scheduled in
+///   `Update`, all the changes will be visible in `PostUpdate`)
+/// - between systems with dependencies if the dependency [has deferred buffers] (if system `bar`
+///   directly or indirectly depends on `foo`, and `foo` uses `Commands` param, changes to the world
+///   in `foo` will be visible in `bar`)
 ///
 /// ## Notes
-/// - This system (currently) does nothing if it's called manually or wrapped
-///   inside a [`PipeSystem`].
+/// - This system (currently) does nothing if it's called manually or wrapped inside a
+///   [`PipeSystem`].
 /// - Modifying a [`Schedule`] may change the order buffers are applied.
 ///
 /// [`System::apply_deferred`]: crate::system::System::apply_deferred
@@ -256,14 +257,15 @@ impl IntoSystemSet<()> for ApplyDeferred {
     }
 }
 
-/// These functions hide the bottom of the callstack from `RUST_BACKTRACE=1` (assuming the default panic handler is used).
+/// These functions hide the bottom of the callstack from `RUST_BACKTRACE=1` (assuming the default
+/// panic handler is used).
 ///
 /// The full callstack will still be visible with `RUST_BACKTRACE=full`.
-/// They are specialized for `System::run` & co instead of being generic over closures because this avoids an
-/// extra frame in the backtrace.
+/// They are specialized for `System::run` & co instead of being generic over closures because this
+/// avoids an extra frame in the backtrace.
 ///
-/// This is reliant on undocumented behavior in Rust's default panic handler, which checks the call stack for symbols
-/// containing the string `__rust_begin_short_backtrace` in their mangled name.
+/// This is reliant on undocumented behavior in Rust's default panic handler, which checks the call
+/// stack for symbols containing the string `__rust_begin_short_backtrace` in their mangled name.
 mod __rust_begin_short_backtrace {
     use core::hint::black_box;
 

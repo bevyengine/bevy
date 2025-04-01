@@ -386,7 +386,8 @@ pub enum EaseFunction {
     /// - f′(1) = 0
     #[doc = include_str!("../../images/easefunction/QuadraticOut.svg")]
     QuadraticOut,
-    /// Behaves as `EaseFunction::QuadraticIn` for t < 0.5 and as `EaseFunction::QuadraticOut` for t >= 0.5
+    /// Behaves as `EaseFunction::QuadraticIn` for t < 0.5 and as `EaseFunction::QuadraticOut` for t
+    /// >= 0.5
     ///
     /// A quadratic has too low of a degree to be both an `InOut` and C²,
     /// so consider using at least a cubic (such as [`EaseFunction::SmoothStep`])
@@ -423,7 +424,8 @@ pub enum EaseFunction {
     /// `f(t) = (t - 1.0)³ * (1.0 - t) + 1.0`
     #[doc = include_str!("../../images/easefunction/QuarticOut.svg")]
     QuarticOut,
-    /// Behaves as `EaseFunction::QuarticIn` for t < 0.5 and as `EaseFunction::QuarticOut` for t >= 0.5
+    /// Behaves as `EaseFunction::QuarticIn` for t < 0.5 and as `EaseFunction::QuarticOut` for t >=
+    /// 0.5
     #[doc = include_str!("../../images/easefunction/QuarticInOut.svg")]
     QuarticInOut,
 
@@ -433,7 +435,8 @@ pub enum EaseFunction {
     /// `f(t) = (t - 1.0)⁵ + 1.0`
     #[doc = include_str!("../../images/easefunction/QuinticOut.svg")]
     QuinticOut,
-    /// Behaves as `EaseFunction::QuinticIn` for t < 0.5 and as `EaseFunction::QuinticOut` for t >= 0.5
+    /// Behaves as `EaseFunction::QuinticIn` for t < 0.5 and as `EaseFunction::QuinticOut` for t >=
+    /// 0.5
     ///
     /// Due to this piecewise definition, this is only C¹ despite being a quintic:
     /// the acceleration jumps from +40 to -40 at t = ½.
@@ -504,7 +507,8 @@ pub enum EaseFunction {
     /// `f(t) = sqrt((2.0 - t) * t)`
     #[doc = include_str!("../../images/easefunction/CircularOut.svg")]
     CircularOut,
-    /// Behaves as `EaseFunction::CircularIn` for t < 0.5 and as `EaseFunction::CircularOut` for t >= 0.5
+    /// Behaves as `EaseFunction::CircularIn` for t < 0.5 and as `EaseFunction::CircularOut` for t
+    /// >= 0.5
     #[doc = include_str!("../../images/easefunction/CircularInOut.svg")]
     CircularInOut,
 
@@ -521,7 +525,8 @@ pub enum EaseFunction {
     ///
     #[doc = include_str!("../../images/easefunction/ExponentialOut.svg")]
     ExponentialOut,
-    /// Behaves as `EaseFunction::ExponentialIn` for t < 0.5 and as `EaseFunction::ExponentialOut` for t >= 0.5
+    /// Behaves as `EaseFunction::ExponentialIn` for t < 0.5 and as `EaseFunction::ExponentialOut`
+    /// for t >= 0.5
     #[doc = include_str!("../../images/easefunction/ExponentialInOut.svg")]
     ExponentialInOut,
 
@@ -531,7 +536,8 @@ pub enum EaseFunction {
     /// `f(t) = 2.0^(-10.0 * t) * sin((t * 10.0 - 0.75) * 2.0 * π / 3.0) + 1.0`
     #[doc = include_str!("../../images/easefunction/ElasticOut.svg")]
     ElasticOut,
-    /// Behaves as `EaseFunction::ElasticIn` for t < 0.5 and as `EaseFunction::ElasticOut` for t >= 0.5
+    /// Behaves as `EaseFunction::ElasticIn` for t < 0.5 and as `EaseFunction::ElasticOut` for t >=
+    /// 0.5
     #[doc = include_str!("../../images/easefunction/ElasticInOut.svg")]
     ElasticInOut,
 
@@ -551,7 +557,8 @@ pub enum EaseFunction {
     /// bouncy at the end!
     #[doc = include_str!("../../images/easefunction/BounceOut.svg")]
     BounceOut,
-    /// Behaves as `EaseFunction::BounceIn` for t < 0.5 and as `EaseFunction::BounceOut` for t >= 0.5
+    /// Behaves as `EaseFunction::BounceIn` for t < 0.5 and as `EaseFunction::BounceOut` for t >=
+    /// 0.5
     #[doc = include_str!("../../images/easefunction/BounceInOut.svg")]
     BounceInOut,
 
@@ -559,7 +566,8 @@ pub enum EaseFunction {
     /// [`JumpAt`]. See [`JumpAt`] for all the options and visual examples.
     Steps(usize, JumpAt),
 
-    /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parametrized by `omega`
+    /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parametrized by
+    /// `omega`
     #[doc = include_str!("../../images/easefunction/Elastic.svg")]
     Elastic(f32),
 }
@@ -1136,7 +1144,8 @@ mod tests {
 
     #[test]
     fn ease_function_curve() {
-        // Test that using `EaseFunction` directly is equivalent to `EasingCurve::new(0.0, 1.0, ...)`.
+        // Test that using `EaseFunction` directly is equivalent to `EasingCurve::new(0.0, 1.0,
+        // ...)`.
 
         let f = EaseFunction::SmoothStep;
         let c = EasingCurve::new(0.0, 1.0, EaseFunction::SmoothStep);

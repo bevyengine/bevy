@@ -2,9 +2,9 @@
 //!
 //! Just run `cargo run --release --example scene_viewer /path/to/model.gltf`,
 //! replacing the path as appropriate.
-//! In case of multiple scenes, you can select which to display by adapting the file path: `/path/to/model.gltf#Scene1`.
-//! With no arguments it will load the `FlightHelmet` glTF model from the repository assets subdirectory.
-//! Pass `--help` to see all the supported arguments.
+//! In case of multiple scenes, you can select which to display by adapting the file path:
+//! `/path/to/model.gltf#Scene1`. With no arguments it will load the `FlightHelmet` glTF model from
+//! the repository assets subdirectory. Pass `--help` to see all the supported arguments.
 //!
 //! If you want to hot reload asset changes, enable the `file_watcher` cargo feature.
 

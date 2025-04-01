@@ -79,8 +79,9 @@ use update::{update_clipping_system, update_ui_context_system};
 
 /// The basic plugin for Bevy UI
 pub struct UiPlugin {
-    /// If set to false, the UI's rendering systems won't be added to the `RenderApp` and no UI elements will be drawn.
-    /// The layout and interaction components will still be updated as normal.
+    /// If set to false, the UI's rendering systems won't be added to the `RenderApp` and no UI
+    /// elements will be drawn. The layout and interaction components will still be updated as
+    /// normal.
     pub enable_rendering: bool,
 }
 
@@ -131,8 +132,8 @@ impl Default for UiScale {
     }
 }
 
-// Marks systems that can be ambiguous with [`widget::text_system`] if the `bevy_text` feature is enabled.
-// See https://github.com/bevyengine/bevy/pull/11391 for more details.
+// Marks systems that can be ambiguous with [`widget::text_system`] if the `bevy_text` feature is
+// enabled. See https://github.com/bevyengine/bevy/pull/11391 for more details.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 struct AmbiguousWithTextSystem;
 

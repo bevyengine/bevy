@@ -43,8 +43,9 @@ impl ComputedTextureSlices {
     }
 }
 
-/// Generates sprite slices for a [`Sprite`] with [`SpriteImageMode::Sliced`] or [`SpriteImageMode::Sliced`]. The slices
-/// will be computed according to the `image_handle` dimensions or the sprite rect.
+/// Generates sprite slices for a [`Sprite`] with [`SpriteImageMode::Sliced`] or
+/// [`SpriteImageMode::Sliced`]. The slices will be computed according to the `image_handle`
+/// dimensions or the sprite rect.
 ///
 /// Returns `None` if the image asset is not loaded
 ///

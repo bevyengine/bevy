@@ -156,7 +156,8 @@ pub enum RenderSet {
     /// Queue drawable entities as phase items in render phases ready for
     /// sorting (if necessary)
     Queue,
-    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<RenderMesh>` is completed.
+    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed.
+    /// Ensures `prepare_assets::<RenderMesh>` is completed.
     QueueMeshes,
     /// A sub-set within [`Queue`](RenderSet::Queue) where meshes that have
     /// become invisible or changed phases are removed from the bins.
@@ -169,14 +170,18 @@ pub enum RenderSet {
     /// Prepare render resources from extracted data for the GPU based on their sorted order.
     /// Create [`BindGroups`](render_resource::BindGroup) that depend on those data.
     Prepare,
-    /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
+    /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and
+    /// uniforms for use in bind groups.
     PrepareResources,
     /// Collect phase buffers after
     /// [`PrepareResources`](RenderSet::PrepareResources) has run.
     PrepareResourcesCollectPhaseBuffers,
-    /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before [`PrepareBindGroups`](RenderSet::PrepareBindGroups).
+    /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before
+    /// [`PrepareBindGroups`](RenderSet::PrepareBindGroups).
     PrepareResourcesFlush,
-    /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
+    /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data
+    /// that relies on render resources prepared in
+    /// [`PrepareResources`](RenderSet::PrepareResources).
     PrepareBindGroups,
     /// Actual rendering happens here.
     /// In most cases, only the render backend should insert resources here.
@@ -422,7 +427,8 @@ impl Plugin for RenderPlugin {
         }
 
         app.register_type::<alpha::AlphaMode>()
-            // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
+            // These types cannot be registered in bevy_color, as it does not depend on the rest of
+            // Bevy
             .register_type::<bevy_color::Color>()
             .register_type::<primitives::Aabb>()
             .register_type::<primitives::CascadesFrusta>()
@@ -526,8 +532,8 @@ unsafe fn initialize_render_app(app: &mut App) {
         .add_systems(
             Render,
             (
-                // This set applies the commands from the extract schedule while the render schedule
-                // is running in parallel with the main app.
+                // This set applies the commands from the extract schedule while the render
+                // schedule is running in parallel with the main app.
                 apply_extract_commands.in_set(RenderSet::ExtractCommands),
                 (PipelineCache::process_pipeline_queue_system, render_system)
                     .chain()
@@ -554,8 +560,8 @@ unsafe fn initialize_render_app(app: &mut App) {
 }
 
 /// Applies the commands from the extract schedule. This happens during
-/// the render schedule rather than during extraction to allow the commands to run in parallel with the
-/// main app when pipelined rendering is enabled.
+/// the render schedule rather than during extraction to allow the commands to run in parallel with
+/// the main app when pipelined rendering is enabled.
 fn apply_extract_commands(render_world: &mut World) {
     render_world.resource_scope(|render_world, mut schedules: Mut<Schedules>| {
         schedules

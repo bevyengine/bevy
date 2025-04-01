@@ -19,7 +19,8 @@ pub trait TypedProperty: sealed::Sealed {
     type Stored: 'static;
 }
 
-/// Used to store a [`String`] in a [`GenericTypePathCell`] as part of a [`TypePath`] implementation.
+/// Used to store a [`String`] in a [`GenericTypePathCell`] as part of a [`TypePath`]
+/// implementation.
 ///
 /// [`TypePath`]: crate::TypePath
 /// [`String`]: alloc::string::String
@@ -129,7 +130,8 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
     }
 }
 
-/// A container for [`TypedProperty`] over generic types, allowing instances to be stored statically.
+/// A container for [`TypedProperty`] over generic types, allowing instances to be stored
+/// statically.
 ///
 /// This is specifically meant for use with generic types. If your type isn't generic,
 /// then use [`NonGenericTypeCell`] instead as it should be much more performant.

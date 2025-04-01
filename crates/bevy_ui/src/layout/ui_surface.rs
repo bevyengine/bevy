@@ -111,7 +111,8 @@ impl UiSurface {
         }
     }
 
-    /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`] if the node exists.
+    /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`] if the node
+    /// exists.
     pub fn update_node_context(&mut self, entity: Entity, context: NodeMeasure) -> Option<()> {
         let taffy_node = self.entity_to_taffy.get(&entity)?;
         self.taffy
@@ -250,9 +251,9 @@ impl UiSurface {
     }
 
     /// Get the layout geometry for the taffy node corresponding to the ui node [`Entity`].
-    /// Does not compute the layout geometry, `compute_window_layouts` should be run before using this function.
-    /// On success returns a pair consisting of the final resolved layout values after rounding
-    /// and the size of the node after layout resolution but before rounding.
+    /// Does not compute the layout geometry, `compute_window_layouts` should be run before using
+    /// this function. On success returns a pair consisting of the final resolved layout values
+    /// after rounding and the size of the node after layout resolution but before rounding.
     pub fn get_layout(
         &mut self,
         entity: Entity,

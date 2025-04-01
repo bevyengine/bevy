@@ -37,7 +37,8 @@ type ArcFn<'env> = Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send 
 /// See the [module-level documentation] for more information.
 ///
 /// You will generally not need to construct this manually.
-/// Instead, many functions and closures can be automatically converted using the [`IntoFunction`] trait.
+/// Instead, many functions and closures can be automatically converted using the [`IntoFunction`]
+/// trait.
 ///
 /// # Example
 ///
@@ -100,8 +101,9 @@ impl<'env> DynamicFunction<'env> {
             reason = "unsized coercion is an unstable feature for non-std types"
         )]
         // SAFETY:
-        // - Coercion from `T` to `dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env`
-        //   is valid as `T: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env`
+        // - Coercion from `T` to `dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync +
+        //   'env` is valid as `T: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync +
+        //   'env`
         // - `Arc::from_raw` receives a valid pointer from a previous call to `Arc::into_raw`
         let arc = unsafe { ArcFn::<'env>::from_raw(Arc::into_raw(arc) as *const _) };
 
@@ -113,9 +115,9 @@ impl<'env> DynamicFunction<'env> {
     /// Set the name of the function.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],
-    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
-    /// unless the function is a closure, anonymous function, or function pointer,
-    /// in which case the name will be `None`.
+    /// the default name will always be the full path to the function as returned by
+    /// [`core::any::type_name`], unless the function is a closure, anonymous function, or
+    /// function pointer, in which case the name will be `None`.
     ///
     /// [`DynamicFunctions`]: DynamicFunction
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
@@ -125,14 +127,15 @@ impl<'env> DynamicFunction<'env> {
 
     /// Add an overload to this function.
     ///
-    /// Overloads allow a single [`DynamicFunction`] to represent multiple functions of different signatures.
+    /// Overloads allow a single [`DynamicFunction`] to represent multiple functions of different
+    /// signatures.
     ///
     /// This can be used to handle multiple monomorphizations of a generic function
     /// or to allow functions with a variable number of arguments.
     ///
-    /// Any functions with the same [argument signature] will be overwritten by the one from the new function, `F`.
-    /// For example, if the existing function had the signature `(i32, i32) -> i32`,
-    /// and the new function, `F`, also had the signature `(i32, i32) -> i32`,
+    /// Any functions with the same [argument signature] will be overwritten by the one from the new
+    /// function, `F`. For example, if the existing function had the signature `(i32, i32) ->
+    /// i32`, and the new function, `F`, also had the signature `(i32, i32) -> i32`,
     /// the one from `F` would replace the one from the existing function.
     ///
     /// Overloaded functions retain the [name] of the original function.
@@ -290,9 +293,9 @@ impl<'env> DynamicFunction<'env> {
     /// The name of the function.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],
-    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
-    /// unless the function is a closure, anonymous function, or function pointer,
-    /// in which case the name will be `None`.
+    /// the default name will always be the full path to the function as returned by
+    /// [`core::any::type_name`], unless the function is a closure, anonymous function, or
+    /// function pointer, in which case the name will be `None`.
     ///
     /// This can be overridden using [`with_name`].
     ///
@@ -445,12 +448,14 @@ impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
 
 /// Outputs the function's signature.
 ///
-/// This takes the format: `DynamicFunction(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
+/// This takes the format: `DynamicFunction(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) ->
+/// {return_type})`.
 ///
-/// Names for arguments and the function itself are optional and will default to `_` if not provided.
+/// Names for arguments and the function itself are optional and will default to `_` if not
+/// provided.
 ///
-/// If the function is [overloaded], the output will include the signatures of all overloads as a set.
-/// For example, `DynamicFunction(fn add{(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})`.
+/// If the function is [overloaded], the output will include the signatures of all overloads as a
+/// set. For example, `DynamicFunction(fn add{(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})`.
 ///
 /// [overloaded]: DynamicFunction::with_overload
 impl<'env> Debug for DynamicFunction<'env> {

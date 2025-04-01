@@ -629,7 +629,8 @@ pub fn prepare_volumetric_fog_pipelines(
     meshes: Res<RenderAssets<RenderMesh>>,
 ) {
     let Some(plane_mesh) = meshes.get(&PLANE_MESH) else {
-        // There's an off chance that the mesh won't be prepared yet if `RenderAssetBytesPerFrame` limiting is in use.
+        // There's an off chance that the mesh won't be prepared yet if `RenderAssetBytesPerFrame`
+        // limiting is in use.
         return;
     };
 

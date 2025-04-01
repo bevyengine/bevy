@@ -80,18 +80,16 @@
 //! sampling on the GPU. Spherical harmonics have two problems that make them
 //! less ideal for this use case:
 //!
-//! 1. The level 1 spherical harmonic coefficients can be negative. That
-//!    prevents the use of the efficient [RGB9E5 texture format], which only
-//!    encodes unsigned floating point numbers, and forces the use of the
-//!    less-efficient [RGBA16F format] if hardware interpolation is desired.
+//! 1. The level 1 spherical harmonic coefficients can be negative. That prevents the use of the
+//!    efficient [RGB9E5 texture format], which only encodes unsigned floating point numbers, and
+//!    forces the use of the less-efficient [RGBA16F format] if hardware interpolation is desired.
 //!
-//! 2. As an alternative to RGBA16F, level 1 spherical harmonics can be
-//!    normalized and scaled to the SH0 base color, as [Frostbite] does. This
-//!    allows them to be packed in standard LDR RGBA8 textures. However, this
-//!    prevents the use of hardware trilinear filtering, as the nonuniform scale
-//!    factor means that hardware interpolation no longer produces correct results.
-//!    The 8 texture fetches needed to interpolate between voxels can be upwards of
-//!    twice as slow as the hardware interpolation.
+//! 2. As an alternative to RGBA16F, level 1 spherical harmonics can be normalized and scaled to the
+//!    SH0 base color, as [Frostbite] does. This allows them to be packed in standard LDR RGBA8
+//!    textures. However, this prevents the use of hardware trilinear filtering, as the nonuniform
+//!    scale factor means that hardware interpolation no longer produces correct results. The 8
+//!    texture fetches needed to interpolate between voxels can be upwards of twice as slow as the
+//!    hardware interpolation.
 //!
 //! The following chart summarizes the costs and benefits of ambient cubes,
 //! level 1 spherical harmonics, and level 2 spherical harmonics:

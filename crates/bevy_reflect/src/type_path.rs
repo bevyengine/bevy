@@ -19,7 +19,8 @@ use core::fmt;
 /// Using [`core::any::type_name`], a scene containing `my_crate::foo::MyComponent` would break,
 /// failing to deserialize if the component was moved from the `foo` module to the `bar` module,
 /// becoming `my_crate::bar::MyComponent`.
-/// This trait, through attributes when deriving itself or [`Reflect`], can ensure breaking changes are avoidable.
+/// This trait, through attributes when deriving itself or [`Reflect`], can ensure breaking changes
+/// are avoidable.
 ///
 /// The only external factor we rely on for stability when deriving is the [`module_path!`] macro,
 /// only if the derive does not provide a `#[type_path = "..."]` attribute.
@@ -29,8 +30,9 @@ use core::fmt;
 /// Some methods on this trait return `Option<&'static str>` over `&'static str`
 /// because not all types define all parts of a type path, for example the array type `[T; N]`.
 ///
-/// Such types are 'anonymous' in that they have only a defined [`type_path`] and [`short_type_path`]
-/// and the methods [`crate_name`], [`module_path`] and [`type_ident`] all return `None`.
+/// Such types are 'anonymous' in that they have only a defined [`type_path`] and
+/// [`short_type_path`] and the methods [`crate_name`], [`module_path`] and [`type_ident`] all
+/// return `None`.
 ///
 /// Primitives are treated like anonymous types, except they also have a defined [`type_ident`].
 ///

@@ -114,7 +114,8 @@ impl<E: Event> EventCursor<E> {
         // The number of events in this reader is the difference between the most recent event
         // and the last event seen by it. This will be at most the number of events contained
         // with the events (any others have already been dropped)
-        // TODO: Warn when there are dropped events, or return e.g. a `Result<usize, (usize, usize)>`
+        // TODO: Warn when there are dropped events, or return e.g. a `Result<usize, (usize,
+        // usize)>`
         events
             .event_count
             .saturating_sub(self.last_event_count)

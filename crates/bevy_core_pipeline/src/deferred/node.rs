@@ -140,9 +140,9 @@ fn run_deferred_prepass<'w>(
     );
 
     // If we clear the deferred texture with LoadOp::Clear(Default::default()) we get these errors:
-    // Chrome: GL_INVALID_OPERATION: No defined conversion between clear value and attachment format.
-    // Firefox: WebGL warning: clearBufferu?[fi]v: This attachment is of type FLOAT, but this function is of type UINT.
-    // Appears to be unsupported: https://registry.khronos.org/webgl/specs/latest/2.0/#3.7.9
+    // Chrome: GL_INVALID_OPERATION: No defined conversion between clear value and attachment
+    // format. Firefox: WebGL warning: clearBufferu?[fi]v: This attachment is of type FLOAT, but
+    // this function is of type UINT. Appears to be unsupported: https://registry.khronos.org/webgl/specs/latest/2.0/#3.7.9
     // For webgl2 we fallback to manually clearing
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     if !is_late {
@@ -190,7 +190,8 @@ fn run_deferred_prepass<'w>(
             .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
     );
 
-    // If all color attachments are none: clear the color attachment list so that no fragment shader is required
+    // If all color attachments are none: clear the color attachment list so that no fragment shader
+    // is required
     if color_attachments.iter().all(Option::is_none) {
         color_attachments.clear();
     }

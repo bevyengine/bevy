@@ -41,8 +41,8 @@ impl Distribution<Vec3> for UniformMeshSampler {
 impl UniformMeshSampler {
     /// Construct a new [`UniformMeshSampler`] from a list of [triangles].
     ///
-    /// Returns an error if the distribution of areas for the collection of triangles could not be formed
-    /// (most notably if the collection has zero surface area).
+    /// Returns an error if the distribution of areas for the collection of triangles could not be
+    /// formed (most notably if the collection has zero surface area).
     ///
     /// [triangles]: Triangle3d
     pub fn try_new<T: IntoIterator<Item = Triangle3d>>(

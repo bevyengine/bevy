@@ -79,7 +79,8 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         let _span = info_span!("present_frames").entered();
 
         // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
-        // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
+        // If all TextureViews aren't dropped before present, acquiring the next swap chain texture
+        // will fail.
         let view_entities = state.get(world).iter().collect::<Vec<_>>();
         for view_entity in view_entities {
             world.entity_mut(view_entity).remove::<ViewTarget>();
@@ -116,7 +117,8 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
                 );
             }
             bevy_time::TrySendError::Disconnected(_) => {
-                // ignore disconnected errors, the main world probably just got dropped during shutdown
+                // ignore disconnected errors, the main world probably just got dropped during
+                // shutdown
             }
         }
     }
@@ -221,8 +223,8 @@ pub async fn initialize_renderer(
             features -= wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
         }
 
-        // RAY_QUERY and RAY_TRACING_ACCELERATION STRUCTURE will sometimes cause DeviceLost failures on platforms
-        // that report them as supported:
+        // RAY_QUERY and RAY_TRACING_ACCELERATION STRUCTURE will sometimes cause DeviceLost failures
+        // on platforms that report them as supported:
         // <https://github.com/gfx-rs/wgpu/issues/5488>
         features -= wgpu::Features::EXPERIMENTAL_RAY_QUERY;
         features -= wgpu::Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE;

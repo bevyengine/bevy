@@ -74,8 +74,8 @@ const DOF_SHADER_HANDLE: Handle<Shader> = weak_handle!("c3580ddc-2cbc-4535-a02b-
 /// A plugin that adds support for the depth of field effect to Bevy.
 pub struct DepthOfFieldPlugin;
 
-/// A component that enables a [depth of field] postprocessing effect when attached to a [`Camera3d`],
-/// simulating the focus of a camera lens.
+/// A component that enables a [depth of field] postprocessing effect when attached to a
+/// [`Camera3d`], simulating the focus of a camera lens.
 ///
 /// [depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 #[derive(Component, Clone, Copy, Reflect)]
@@ -838,7 +838,8 @@ fn extract_depth_of_field_settings(
             entity_commands.remove::<(
                 DepthOfField,
                 DepthOfFieldUniform,
-                // components added in prepare systems (because `DepthOfFieldNode` does not query extracted components)
+                // components added in prepare systems (because `DepthOfFieldNode` does not query
+                // extracted components)
                 DepthOfFieldPipelines,
                 AuxiliaryDepthOfFieldTexture,
                 ViewDepthOfFieldBindGroupLayouts,
