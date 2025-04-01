@@ -1,5 +1,5 @@
 use super::GlobalTransform;
-use bevy_math::{Affine3A, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
+use bevy_math::{Affine3A, Dir3, Interpolate, Isometry3d, Mat3, Mat4, Quat, Vec3};
 use core::ops::Mul;
 
 #[cfg(feature = "bevy-support")]
@@ -646,6 +646,16 @@ impl Mul<Vec3> for Transform {
 
     fn mul(self, value: Vec3) -> Self::Output {
         self.transform_point(value)
+    }
+}
+
+impl Interpolate for Transform {
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        Transform {
+            translation: self.translation.interp(&other.translation, param),
+            rotation: self.rotation.interp(&other.rotation, param),
+            scale: self.scale.interp(&other.scale, param),
+        }
     }
 }
 

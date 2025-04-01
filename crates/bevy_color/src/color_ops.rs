@@ -30,7 +30,7 @@ pub trait Luminance: Sized {
 }
 
 /// Trait for returning a grayscale color of a provided lightness.
-pub trait Gray: Interpolate + Sized {
+pub trait Gray: Interpolate {
     /// A pure black color.
     const BLACK: Self;
     /// A pure white color.

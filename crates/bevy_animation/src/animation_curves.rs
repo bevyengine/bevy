@@ -22,7 +22,7 @@
 //!
 //! For instance, let's imagine that we want to use the `Vec3` output
 //! from our curve to animate the [translation component of a `Transform`]. For this, there is
-//! the adaptor [`AnimatableCurve`], which wraps any [`Curve`] and [`AnimatableProperty`] and turns it into an
+//! the adaptor [`PropertyCurve`], which wraps any [`Curve`] and [`AnimatableProperty`] and turns it into an
 //! [`AnimationCurve`] that will use the given curve to animate the entity's property:
 //!
 //!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
@@ -33,7 +33,7 @@
 //!     #     Interval::UNIT,
 //!     #     |t| vec3(t.cos(), 0.0, 0.0)
 //!     # );
-//!     let wobble_animation = AnimatableCurve::new(animated_field!(Transform::translation), wobble_curve);
+//!     let wobble_animation = PropertyCurve::new(animated_field!(Transform::translation), wobble_curve);
 //!
 //! And finally, this [`AnimationCurve`] needs to be added to an [`AnimationClip`] in order to
 //! actually animate something. This is what that looks like:
@@ -47,7 +47,7 @@
 //!     #     Interval::UNIT,
 //!     #     |t| { vec3(t.cos(), 0.0, 0.0) },
 //!     # );
-//!     # let wobble_animation = AnimatableCurve::new(animated_field!(Transform::translation), wobble_curve);
+//!     # let wobble_animation = PropertyCurve::new(animated_field!(Transform::translation), wobble_curve);
 //!     # let animation_target_id = AnimationTargetId::from(&Name::new("Test"));
 //!     let mut animation_clip = AnimationClip::default();
 //!     animation_clip.add_curve_to_target(
@@ -63,7 +63,7 @@
 //!
 //! ## Animated Fields
 //!
-//! The [`animated_field`] macro (which returns an [`AnimatedField`]), in combination with [`AnimatableCurve`]
+//! The [`animated_field`] macro (which returns an [`AnimatedField`]), in combination with [`PropertyCurve`]
 //! is the easiest way to make an animation curve (see the example above).
 //!
 //! This will select a field on a component and pass it to a [`Curve`] with a type that matches the field.
@@ -71,7 +71,7 @@
 //! ## Animatable Properties
 //!
 //! Animation of arbitrary aspects of entities can be accomplished using [`AnimatableProperty`] in
-//! conjunction with [`AnimatableCurve`]. See the documentation [there] for details.
+//! conjunction with [`PropertyCurve`]. See the documentation [there] for details.
 //!
 //! ## Custom [`AnimationCurve`] and [`AnimationCurveEvaluator`]
 //!
@@ -91,14 +91,17 @@ use core::{
 
 use crate::{
     graph::AnimationNodeIndex,
-    prelude::{Animatable, BlendInput},
+    prelude::{Blendable, Blender},
     AnimationEntityMut, AnimationEvaluationError,
 };
 use bevy_ecs::component::{Component, Mutable};
-use bevy_math::curve::{
-    cores::{UnevenCore, UnevenCoreError},
-    iterable::IterableCurve,
-    Curve, Interval,
+use bevy_math::{
+    curve::{
+        cores::{UnevenCore, UnevenCoreError},
+        iterable::IterableCurve,
+        Curve, Interval,
+    },
+    Interpolate,
 };
 use bevy_mesh::morph::MorphWeights;
 use bevy_platform_support::hash::Hashed;
@@ -149,8 +152,7 @@ use downcast_rs::{impl_downcast, Downcast};
 ///         }
 ///     }
 ///
-///
-/// You can then create an [`AnimatableCurve`] to animate this property like so:
+/// You can then create a [`PropertyCurve`] to animate this property like so:
 ///
 ///     # use bevy_animation::{VariableCurve, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
 ///     # use bevy_animation::prelude::{AnimatableProperty, AnimatableKeyframeCurve, AnimatableCurve};
@@ -180,16 +182,16 @@ use downcast_rs::{impl_downcast, Downcast};
 ///     #         EvaluatorId::Type(TypeId::of::<Self>())
 ///     #     }
 ///     # }
-///     AnimatableCurve::new(
+///     PropertyCurve::new(
 ///         PowerLevelProperty,
-///         AnimatableKeyframeCurve::new([
+///         KeyframeCurve::new([
 ///             (0.0, 0.0),
 ///             (1.0, 9001.0),
 ///         ]).expect("Failed to create power level curve")
 ///     );
 pub trait AnimatableProperty: Send + Sync + 'static {
     /// The animated property type.
-    type Property: Animatable;
+    type Property: Blendable + Send + Sync + 'static;
 
     /// Retrieves the property from the given `entity`.
     fn get_mut<'a>(
@@ -207,29 +209,29 @@ pub trait AnimatableProperty: Send + Sync + 'static {
 ///
 /// The best way to create an instance of this type is via the [`animated_field`] macro.
 ///
-/// `C` is the component being animated, `A` is the type of the [`Animatable`] field on the component, and `F` is an accessor
+/// `C` is the component being animated, `B` is the type of the [`Blendable`] field on the component, and `F` is an accessor
 /// function that accepts a reference to `C` and retrieves the field `A`.
 ///
 /// [`animated_field`]: crate::animated_field
 #[derive(Clone)]
-pub struct AnimatedField<C, A, F: Fn(&mut C) -> &mut A> {
+pub struct AnimatedField<C, B, F: Fn(&mut C) -> &mut B> {
     func: F,
     /// A pre-hashed (component-type-id, reflected-field-index) pair, uniquely identifying a component field
     evaluator_id: Hashed<(TypeId, usize)>,
-    marker: PhantomData<(C, A)>,
+    marker: PhantomData<(C, B)>,
 }
 
-impl<C, A, F> AnimatableProperty for AnimatedField<C, A, F>
+impl<C, B, F> AnimatableProperty for AnimatedField<C, B, F>
 where
     C: Component<Mutability = Mutable>,
-    A: Animatable + Clone + Sync + Debug,
-    F: Fn(&mut C) -> &mut A + Send + Sync + 'static,
+    B: Blendable + Clone + Send + Sync + Debug + 'static,
+    F: Fn(&mut C) -> &mut B + Send + Sync + 'static,
 {
-    type Property = A;
+    type Property = B;
     fn get_mut<'a>(
         &self,
         entity: &'a mut AnimationEntityMut,
-    ) -> Result<&'a mut A, AnimationEvaluationError> {
+    ) -> Result<&'a mut B, AnimationEvaluationError> {
         let c = entity
             .get_mut::<C>()
             .ok_or_else(|| AnimationEvaluationError::ComponentNotPresent(TypeId::of::<C>()))?;
@@ -285,7 +287,7 @@ impl<T, C> AnimationCompatibleCurve<T> for C where C: Curve<T> + Debug + Clone +
 /// [property type]: AnimatableProperty::Property
 #[derive(Reflect, FromReflect)]
 #[reflect(from_reflect = false)]
-pub struct AnimatableCurve<P, C> {
+pub struct PropertyCurve<P, C> {
     /// The property selector, which defines what component to access and how to access
     /// a property on that component.
     pub property: P,
@@ -296,22 +298,22 @@ pub struct AnimatableCurve<P, C> {
     pub curve: C,
 }
 
-/// An [`AnimatableCurveEvaluator`] for [`AnimatableProperty`] instances.
+/// An [`AnimationCurveEvaluator`] for [`AnimatableProperty`] instances.
 ///
 /// You shouldn't ordinarily need to instantiate one of these manually. Bevy
-/// will automatically do so when you use an [`AnimatableCurve`] instance.
+/// will automatically do so when you use a [`PropertyCurve`] instance.
 #[derive(Reflect)]
-pub struct AnimatableCurveEvaluator<A: Animatable> {
-    evaluator: BasicAnimationCurveEvaluator<A>,
-    property: Box<dyn AnimatableProperty<Property = A>>,
+pub struct PropertyCurveEvaluator<B: Blendable> {
+    evaluator: BlendStackEvaluator<B>,
+    property: Box<dyn AnimatableProperty<Property = B>>,
 }
 
-impl<P, C> AnimatableCurve<P, C>
+impl<P, C> PropertyCurve<P, C>
 where
     P: AnimatableProperty,
     C: AnimationCompatibleCurve<P::Property>,
 {
-    /// Create an [`AnimatableCurve`] (and thus an [`AnimationCurve`]) from a curve
+    /// Create a [`PropertyCurve`] (and thus an [`AnimationCurve`]) from a curve
     /// valued in an [animatable property].
     ///
     /// [animatable property]: AnimatableProperty::Property
@@ -320,7 +322,7 @@ where
     }
 }
 
-impl<P, C> Clone for AnimatableCurve<P, C>
+impl<P, C> Clone for PropertyCurve<P, C>
 where
     C: Clone,
     P: Clone,
@@ -333,18 +335,18 @@ where
     }
 }
 
-impl<P, C> Debug for AnimatableCurve<P, C>
+impl<P, C> Debug for PropertyCurve<P, C>
 where
     C: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("AnimatableCurve")
+        f.debug_struct("PropertyCurve")
             .field("curve", &self.curve)
             .finish()
     }
 }
 
-impl<P: Send + Sync + 'static, C> AnimationCurve for AnimatableCurve<P, C>
+impl<P: Send + Sync + 'static, C> AnimationCurve for PropertyCurve<P, C>
 where
     P: AnimatableProperty + Clone,
     C: AnimationCompatibleCurve<P::Property> + Clone,
@@ -362,8 +364,8 @@ where
     }
 
     fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
-        Box::new(AnimatableCurveEvaluator::<P::Property> {
-            evaluator: BasicAnimationCurveEvaluator::default(),
+        Box::new(PropertyCurveEvaluator::<P::Property> {
+            evaluator: BlendStackEvaluator::default(),
             property: Box::new(self.property.clone()),
         })
     }
@@ -376,22 +378,22 @@ where
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
         let curve_evaluator = curve_evaluator
-            .downcast_mut::<AnimatableCurveEvaluator<P::Property>>()
+            .downcast_mut::<PropertyCurveEvaluator<P::Property>>()
             .unwrap();
         let value = self.curve.sample_clamped(t);
-        curve_evaluator
-            .evaluator
-            .stack
-            .push(BasicAnimationCurveEvaluatorStackElement {
-                value,
-                weight,
-                graph_node,
-            });
+        curve_evaluator.evaluator.stack.push(BlendStackElement {
+            value,
+            weight,
+            graph_node,
+        });
         Ok(())
     }
 }
 
-impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
+impl<B> AnimationCurveEvaluator for PropertyCurveEvaluator<B>
+where
+    B: Blendable + Send + Sync + 'static,
+{
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
         self.evaluator.combine(graph_node, /*additive=*/ false)
     }
@@ -417,7 +419,7 @@ impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
             .evaluator
             .stack
             .pop()
-            .ok_or_else(inconsistent::<AnimatableCurveEvaluator<A>>)?
+            .ok_or_else(inconsistent::<PropertyCurveEvaluator<B>>)?
             .value;
         Ok(())
     }
@@ -563,7 +565,7 @@ impl WeightsCurveEvaluator {
                     if additive {
                         *dest += src * weight_to_blend;
                     } else {
-                        *dest = f32::interpolate(dest, &src, weight_to_blend / *current_weight);
+                        *dest = f32::interp(dest, &src, weight_to_blend / *current_weight);
                     }
                 }
             }
@@ -627,39 +629,39 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
 }
 
 #[derive(Reflect)]
-struct BasicAnimationCurveEvaluator<A>
+struct BlendStackEvaluator<B>
 where
-    A: Animatable,
+    B: Blendable,
 {
-    stack: Vec<BasicAnimationCurveEvaluatorStackElement<A>>,
-    blend_register: Option<(A, f32)>,
+    stack: Vec<BlendStackElement<B>>,
+    blend_register: Option<Blender<B>>,
 }
 
 #[derive(Reflect)]
-struct BasicAnimationCurveEvaluatorStackElement<A>
+struct BlendStackElement<B>
 where
-    A: Animatable,
+    B: Blendable,
 {
-    value: A,
+    value: B,
     weight: f32,
     graph_node: AnimationNodeIndex,
 }
 
-impl<A> Default for BasicAnimationCurveEvaluator<A>
+impl<B> Default for BlendStackEvaluator<B>
 where
-    A: Animatable,
+    B: Blendable,
 {
     fn default() -> Self {
-        BasicAnimationCurveEvaluator {
+        BlendStackEvaluator {
             stack: vec![],
             blend_register: None,
         }
     }
 }
 
-impl<A> BasicAnimationCurveEvaluator<A>
+impl<B> BlendStackEvaluator<B>
 where
-    A: Animatable,
+    B: Blendable,
 {
     fn combine(
         &mut self,
@@ -673,64 +675,22 @@ where
             return Ok(());
         }
 
-        let BasicAnimationCurveEvaluatorStackElement {
+        let BlendStackElement {
             value: value_to_blend,
             weight: weight_to_blend,
             graph_node: _,
         } = self.stack.pop().unwrap();
 
-        match self.blend_register.take() {
-            None => {
-                self.initialize_blend_register(value_to_blend, weight_to_blend, additive);
-            }
-            Some((mut current_value, mut current_weight)) => {
-                current_weight += weight_to_blend;
+        let blender = match (self.blend_register.take(), additive) {
+            (None, true) => value_to_blend.blend_additive(weight_to_blend),
+            (None, false) => value_to_blend.blend_interp(weight_to_blend),
+            (Some(blender), true) => blender.blend_additive(value_to_blend, weight_to_blend),
+            (Some(blender), false) => blender.blend_interp(value_to_blend, weight_to_blend),
+        };
 
-                if additive {
-                    current_value = A::blend(
-                        [
-                            BlendInput {
-                                weight: 1.0,
-                                value: current_value,
-                                additive: true,
-                            },
-                            BlendInput {
-                                weight: weight_to_blend,
-                                value: value_to_blend,
-                                additive: true,
-                            },
-                        ]
-                        .into_iter(),
-                    );
-                } else {
-                    current_value = A::interpolate(
-                        &current_value,
-                        &value_to_blend,
-                        weight_to_blend / current_weight,
-                    );
-                }
-
-                self.blend_register = Some((current_value, current_weight));
-            }
-        }
+        self.blend_register = Some(blender);
 
         Ok(())
-    }
-
-    fn initialize_blend_register(&mut self, value: A, weight: f32, additive: bool) {
-        if additive {
-            let scaled_value = A::blend(
-                [BlendInput {
-                    weight,
-                    value,
-                    additive: true,
-                }]
-                .into_iter(),
-            );
-            self.blend_register = Some((scaled_value, weight));
-        } else {
-            self.blend_register = Some((value, weight));
-        }
     }
 
     fn push_blend_register(
@@ -738,9 +698,9 @@ where
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        if let Some((value, _)) = self.blend_register.take() {
-            self.stack.push(BasicAnimationCurveEvaluatorStackElement {
-                value,
+        if let Some(blender) = self.blend_register.take() {
+            self.stack.push(BlendStackElement {
+                value: blender.finish(),
                 weight,
                 graph_node,
             });
@@ -753,9 +713,9 @@ where
 /// to entities by the animation system.
 ///
 /// Typically, this will not need to be implemented manually, since it is
-/// automatically implemented by [`AnimatableCurve`] and other curves used by
+/// automatically implemented by [`PropertyCurve`] and other curves used by
 /// the animation system (e.g. those that animate parts of transforms or morph
-/// weights). However, this can be implemented manually when `AnimatableCurve`
+/// weights). However, this can be implemented manually when `PropertyCurve`
 /// is not sufficiently expressive.
 ///
 /// In many respects, this behaves like a type-erased form of [`Curve`], where
@@ -826,20 +786,20 @@ pub enum EvaluatorId<'a> {
 /// A low-level trait for use in [`crate::VariableCurve`] that provides fine
 /// control over how animations are evaluated.
 ///
-/// You can implement this trait when the generic [`AnimatableCurveEvaluator`]
+/// You can implement this trait when the generic [`PropertyCurveEvaluator`]
 /// isn't sufficiently-expressive for your needs. For example, [`MorphWeights`]
-/// implements this trait instead of using [`AnimatableCurveEvaluator`] because
+/// implements this trait instead of using [`PropertyCurveEvaluator`] because
 /// it needs to animate arbitrarily many weights at once, which can't be done
-/// with [`Animatable`] as that works on fixed-size values only.
+/// with [`Blend`] as that works on fixed-size values only.
 ///
 /// If you implement this trait, you should also implement [`AnimationCurve`] on
 /// your curve type, as that trait allows creating instances of this one.
 ///
-/// Implementations of [`AnimatableCurveEvaluator`] should maintain a *stack* of
+/// Implementations of [`AnimationCurveEvaluator`] should maintain a *stack* of
 /// (value, weight, node index) triples, as well as a *blend register*, which is
-/// either a (value, weight) pair or empty. *Value* here refers to an instance
+/// either an active [`Blender<T>`] or empty. *Value* here refers to an instance
 /// of the value being animated: for example, [`Vec3`] in the case of
-/// translation keyframes.  The stack stores intermediate values generated while
+/// translation keyframes. The stack stores intermediate values generated while
 /// evaluating the [`crate::graph::AnimationGraph`], while the blend register
 /// stores the result of a blend operation.
 ///
@@ -913,20 +873,20 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
 
 impl_downcast!(AnimationCurveEvaluator);
 
-/// A [curve] defined by keyframes with values in an [animatable] type.
+/// A [curve] defined by keyframes with values that can be [interpolated between].
 ///
-/// The keyframes are interpolated using the type's [`Animatable::interpolate`] implementation.
+/// The keyframes are interpolated using the type's [`Interpolate::interp`] implementation.
 ///
 /// [curve]: Curve
-/// [animatable]: Animatable
+/// [interpolated between]: Interpolate
 #[derive(Debug, Clone, Reflect)]
-pub struct AnimatableKeyframeCurve<T> {
+pub struct KeyframeCurve<T> {
     core: UnevenCore<T>,
 }
 
-impl<T> Curve<T> for AnimatableKeyframeCurve<T>
+impl<T> Curve<T> for KeyframeCurve<T>
 where
-    T: Animatable + Clone,
+    T: Interpolate + Clone,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -936,7 +896,7 @@ where
     #[inline]
     fn sample_clamped(&self, t: f32) -> T {
         // `UnevenCore::sample_with` is implicitly clamped.
-        self.core.sample_with(t, <T as Animatable>::interpolate)
+        self.core.sample_with(t, T::interp)
     }
 
     #[inline]
@@ -945,13 +905,13 @@ where
     }
 }
 
-impl<T> AnimatableKeyframeCurve<T>
+impl<T> KeyframeCurve<T>
 where
-    T: Animatable,
+    T: Interpolate,
 {
-    /// Create a new [`AnimatableKeyframeCurve`] from the given `keyframes`. The values of this
+    /// Create a new [`KeyframeCurve`] from the given `keyframes`. The values of this
     /// curve are interpolated from the keyframes using the output type's implementation of
-    /// [`Animatable::interpolate`].
+    /// [`Interpolate::interpo`].
     ///
     /// There must be at least two samples in order for this method to succeed.
     pub fn new(keyframes: impl IntoIterator<Item = (f32, T)>) -> Result<Self, UnevenCoreError> {

@@ -310,8 +310,8 @@ impl EuclideanDistance for Srgba {
 }
 
 impl Gray for Srgba {
-    const BLACK: Self = Self::BLACK;
-    const WHITE: Self = Self::WHITE;
+    const BLACK: Srgba = Srgba::new(0.0, 0.0, 0.0, 1.0);
+    const WHITE: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
 }
 
 impl ColorToComponents for Srgba {
