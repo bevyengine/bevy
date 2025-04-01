@@ -290,7 +290,7 @@ impl SharedAllocator {
                 0
             }
         } else {
-            (next - 1) as u64
+            next as u64
         }
     }
 
