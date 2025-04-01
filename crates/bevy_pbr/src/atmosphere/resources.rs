@@ -408,7 +408,9 @@ pub(super) fn queue_render_sky_pipelines(
             RenderSkyPipelineKey {
                 msaa_samples: msaa.samples(),
                 hdr: camera.hdr,
-                dual_source_blending: render_device.features().contains(WgpuFeatures::DUAL_SOURCE_BLENDING),
+                dual_source_blending: render_device
+                    .features()
+                    .contains(WgpuFeatures::DUAL_SOURCE_BLENDING),
             },
         );
         commands.entity(entity).insert(RenderSkyPipelineId(id));
