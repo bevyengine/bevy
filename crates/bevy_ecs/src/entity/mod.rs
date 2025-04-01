@@ -595,7 +595,7 @@ impl Entities {
 
     /// Ensure at least `n` allocations can succeed without reallocating.
     pub fn reserve(&mut self, additional: u32) {
-        let shortfall = (additional as u64).saturating_sub(self.allocator.num_pending());
+        let shortfall = (additional as u64).saturating_sub(self.allocator.num_free());
         self.meta.reserve(shortfall as usize);
     }
 
@@ -719,7 +719,7 @@ impl Entities {
     /// The count of currently allocated entities.
     #[inline]
     pub fn len(&self) -> u64 {
-        self.allocator.total_entity_indices() - self.allocator.num_pending()
+        self.allocator.total_entity_indices() - self.allocator.num_free()
     }
 
     /// Checks if any entity is currently active.

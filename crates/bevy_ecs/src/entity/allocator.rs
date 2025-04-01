@@ -11,7 +11,7 @@ use crate::query::DebugCheckedUnwrap;
 
 use super::{Entity, EntitySetIterator};
 
-/// This is the item we store in the pending list.
+/// This is the item we store in the free list.
 /// It might not be init (if it's out of bounds).
 type Slot = MaybeUninit<Entity>;
 
@@ -131,21 +131,21 @@ impl Chunk {
 }
 
 /// This is conceptually like a `Vec<Entity>` that stores entities pending reuse.
-struct PendingBuffer {
-    /// The chunks of the pending list.
-    /// Put end-to-end, these chunks form a list of pending entities.
+struct FreeBuffer {
+    /// The chunks of the free list.
+    /// Put end-to-end, these chunks form a list of free entities.
     chunks: [Chunk; Chunk::NUM_CHUNKS as usize],
-    /// The length of the pending buffer
+    /// The length of the free buffer
     len: AtomicIsize,
 }
 
-impl PendingBuffer {
-    /// Gets the number of pending entities.
+impl FreeBuffer {
+    /// Gets the number of free entities.
     ///
     /// # Safety
     ///
     /// For this to be accurate, this must not be called during a [`Self::free`].
-    unsafe fn num_pending(&self) -> u64 {
+    unsafe fn num_free(&self) -> u64 {
         self.len.load(Ordering::Relaxed).max(0) as u64
     }
 
@@ -174,7 +174,7 @@ impl PendingBuffer {
         self.len.store(new_len, Ordering::Relaxed);
     }
 
-    /// Allocates an [`Entity`] from the pending list if one is available.
+    /// Allocates an [`Entity`] from the free list if one is available.
     ///
     /// # Safety
     ///
@@ -195,7 +195,7 @@ impl PendingBuffer {
         })
     }
 
-    /// Allocates an [`Entity`] from the pending list if one is available and it is safe to do so.
+    /// Allocates an [`Entity`] from the free list if one is available and it is safe to do so.
     fn remote_alloc(&self) -> Option<Entity> {
         // The goal is the same as `alloc`, so what's the difference?
         // `alloc` knows `free` is not being called, but this does not.
@@ -257,7 +257,7 @@ impl PendingBuffer {
     }
 }
 
-impl Drop for PendingBuffer {
+impl Drop for FreeBuffer {
     fn drop(&mut self) {
         for index in 0..Chunk::NUM_CHUNKS {
             // SAFETY: we have `&mut`
@@ -269,7 +269,7 @@ impl Drop for PendingBuffer {
 /// This stores allocation data shared by all entity allocators.
 struct SharedAllocator {
     /// The entities pending reuse
-    pending: PendingBuffer,
+    free: FreeBuffer,
     /// The next value of [`Entity::index`] to give out if needed.
     next_entity_index: AtomicU32,
     /// If true, the [`Self::next_entity_index`] has been incremented before,
@@ -316,23 +316,23 @@ impl SharedAllocator {
     ///
     /// # Safety
     ///
-    /// This must not conflict with [`PendingBuffer::free`] calls.
+    /// This must not conflict with [`FreeBuffer::free`] calls.
     unsafe fn alloc(&self) -> Entity {
         // SAFETY: assured by caller
-        unsafe { self.pending.alloc() }.unwrap_or_else(|| self.alloc_new_index())
+        unsafe { self.free.alloc() }.unwrap_or_else(|| self.alloc_new_index())
     }
 
     /// Allocates a new [`Entity`].
     /// This will only try to reuse a freed index if it is safe to do so.
     fn remote_alloc(&self) -> Entity {
-        self.pending
+        self.free
             .remote_alloc()
             .unwrap_or_else(|| self.alloc_new_index())
     }
 
     fn new() -> Self {
         Self {
-            pending: PendingBuffer::new(),
+            free: FreeBuffer::new(),
             next_entity_index: AtomicU32::new(0),
             entity_index_given: AtomicBool::new(false),
         }
@@ -362,10 +362,10 @@ impl Allocator {
         self.shared.total_entity_indices()
     }
 
-    /// The number of pending entities.
-    pub fn num_pending(&self) -> u64 {
+    /// The number of free entities.
+    pub fn num_free(&self) -> u64 {
         // SAFETY: `free` is not being called since it takes `&mut self`.
-        unsafe { self.shared.pending.num_pending() }
+        unsafe { self.shared.free.num_free() }
     }
 
     /// Returns whether or not the index is valid in this allocator.
@@ -377,7 +377,7 @@ impl Allocator {
     pub fn free(&mut self, entity: Entity) {
         // SAFETY: We have `&mut self`.
         unsafe {
-            self.shared.pending.free(entity);
+            self.shared.free.free(entity);
         }
     }
 
@@ -394,7 +394,7 @@ impl core::fmt::Debug for Allocator {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct(core::any::type_name::<Self>())
             .field("total_indices", &self.total_entity_indices())
-            .field("total_pending", &self.num_pending())
+            .field("total_free", &self.num_free())
             .finish()
     }
 }
