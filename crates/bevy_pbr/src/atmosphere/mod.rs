@@ -46,8 +46,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
-    renderer::RenderDevice,
-    settings::WgpuFeatures,
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
