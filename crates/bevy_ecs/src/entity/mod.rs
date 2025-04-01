@@ -86,6 +86,8 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
+use bevy_platform_support::sync::Arc;
+use concurrent_queue::ConcurrentQueue;
 use core::{fmt, hash::Hash, num::NonZero, panic::Location};
 use log::warn;
 
@@ -479,6 +481,95 @@ impl SparseSetIndex for Entity {
     }
 }
 
+/// Stores entities that need to be flushed.
+struct RemotePending {
+    pending: Arc<ConcurrentQueue<Entity>>,
+}
+
+impl RemotePending {
+    fn new() -> Self {
+        Self {
+            pending: Arc::new(ConcurrentQueue::unbounded()),
+        }
+    }
+
+    fn queue_flush(&self, entity: Entity) {
+        // We don't need the result. If it's closed it doesn't matter, and it can't be full.
+        _ = self.pending.push(entity);
+    }
+}
+
+struct Pending {
+    remote: RemotePending,
+    #[cfg(feature = "std")]
+    local: bevy_utils::Parallel<Vec<Entity>>,
+}
+
+impl Pending {
+    fn new() -> Self {
+        #[cfg(feature = "std")]
+        {
+            Self {
+                remote: RemotePending::new(),
+                local: bevy_utils::Parallel::default(),
+            }
+        }
+
+        #[cfg(not(feature = "std"))]
+        {
+            Self {
+                remote: RemotePending::new(),
+            }
+        }
+    }
+
+    fn queue_flush(&self, entity: Entity) {
+        #[cfg(feature = "std")]
+        {
+            self.local.scope(|pending| pending.push(entity));
+        }
+
+        #[cfg(not(feature = "std"))]
+        {
+            self.remote.queue_flush(entity)
+        }
+    }
+
+    fn flush_local(&mut self, mut flusher: impl FnMut(Entity)) {
+        #[cfg(feature = "std")]
+        let pending = { self.local.iter_mut().flat_map(|pending| pending.drain(..)) };
+
+        #[cfg(not(feature = "std"))]
+        let pending = { self.remote.pending.try_iter() };
+
+        for pending in pending {
+            flusher(pending)
+        }
+    }
+
+    fn flush_all(&mut self, mut flusher: impl FnMut(Entity)) {
+        let pending = { self.remote.pending.try_iter() };
+
+        #[cfg(feature = "std")]
+        let pending = {
+            self.local
+                .iter_mut()
+                .flat_map(|pending| pending.drain(..))
+                .chain(pending)
+        };
+
+        for pending in pending {
+            flusher(pending)
+        }
+    }
+}
+
+impl fmt::Debug for Pending {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "opaque pending entities")
+    }
+}
+
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
 /// Contains metadata on:
@@ -491,6 +582,7 @@ impl SparseSetIndex for Entity {
 pub struct Entities {
     meta: Vec<EntityMeta>,
     allocator: Allocator,
+    pending: Pending,
 }
 
 impl Entities {
@@ -498,6 +590,7 @@ impl Entities {
         Entities {
             meta: Vec::new(),
             allocator: Allocator::new(),
+            pending: Pending::new(),
         }
     }
 
@@ -693,7 +786,17 @@ impl Entities {
     ///
     /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
     /// to be initialized with the invalid archetype.
-    pub unsafe fn flush(&mut self, mut _init: impl FnMut(Entity, &mut EntityLocation)) {}
+    pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
+        let total = self.allocator.total_entity_indices() as usize;
+        self.meta.resize(total, EntityMeta::FRESH);
+        self.pending.flush_local(|entity| {
+            // SAFETY: `meta` has been resized to include all entities.
+            let meta = unsafe { self.meta.get_unchecked_mut(entity.index() as usize) };
+            if meta.generation == entity.generation {
+                init(entity, &mut meta.location);
+            }
+        });
+    }
 
     /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
     /// unless they are later populated with a valid archetype.
