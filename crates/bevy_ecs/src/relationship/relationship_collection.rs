@@ -450,6 +450,8 @@ impl<const N: usize> OrderedRelationshipCollection for SmallVec<[Entity; N]> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
+
     use super::*;
     use crate::prelude::{Component, World};
     use crate::relationship::RelationshipTarget;
@@ -548,5 +550,34 @@ mod tests {
         world.entity_mut(a).insert(Above(c));
         assert!(world.get::<Below>(b).is_none());
         assert_eq!(a, world.get::<Below>(c).unwrap().0);
+    }
+
+    #[test]
+    fn many_to_many_relationships() {
+        #[derive(Component, PartialEq, Debug)]
+        #[relationship(relationship_target = LikedBy)]
+        struct Likes(pub Vec<Entity>);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Likes)]
+        struct LikedBy(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Likes(vec![b, c]));
+        assert_eq!(&*world.get::<LikedBy>(b).unwrap().0, &[a]);
+        assert_eq!(&*world.get::<LikedBy>(c).unwrap().0, &[a]);
+
+        // Verify removing target removes relationship
+        world.entity_mut(b).remove::<LikedBy>();
+        assert!(!world.get::<Likes>(a).unwrap().0.contains(b));
+        assert!(world.get::<Likes>(a).unwrap().0.contains(c));
+
+        // Verify removing all relationships removes the target component
+        world.entity_mut(c).remove::<LikedBy>();
+        assert_eq!(world.get::<Likes>(a), None);
     }
 }

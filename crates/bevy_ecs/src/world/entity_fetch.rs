@@ -116,6 +116,12 @@ impl<'w> EntityFetcher<'w> {
         &mut self,
         entity: Entity,
     ) -> Result<(EntityMut<'_>, EntityFetcher<'_>), EntityDoesNotExistError> {
+        if self.excluded.is_some() {
+            panic!(
+                "Cannot split off an entity from a fetcher that already has an excluded entity."
+            );
+        }
+
         // SAFETY: `&mut self` gives mutable access to all entities,
         // and prevents any other access to entities.
         let entity_mut = unsafe { EntityMut::new(self.cell.get_entity(entity)?) };

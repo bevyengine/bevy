@@ -13,9 +13,7 @@ pub use relationship_query::*;
 use crate::{
     component::{Component, HookContext, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
-    error::{ignore, CommandWithEntity, HandleError},
-    system::entity_command::{self},
-    world::{DeferredWorld, EntityWorldMut},
+    world::{DeferredWorld, EntityWorldMut, World},
 };
 use log::warn;
 
@@ -304,50 +302,70 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
+    fn on_replace(
+        mut world: DeferredWorld,
+        HookContext {
+            entity: target,
+            caller,
+            ..
+        }: HookContext,
+    ) {
         let (entities, mut commands) = world.entities_and_commands();
-        let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
+        let relationship_target = entities.get(target).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
-            if entities.get(source_entity).is_ok() {
-                commands.queue(
-                    entity_command::remove::<Self::Relationship>()
-                        .with_entity(source_entity)
-                        .handle_error_with(ignore),
-                );
-            } else {
-                warn!(
-                    "{}Tried to despawn non-existent entity {}",
-                    caller
-                        .map(|location| format!("{location}: "))
-                        .unwrap_or_default(),
-                    source_entity
-                );
-            }
+            // TODO: consider trying to queue one bulk command?
+            commands.queue(move |world: &mut World| {
+                let Ok(mut source_entity_mut) = world.get_entity_mut(source_entity) else {
+                    warn!(
+                        "{}Tried to despawn non-existent entity {}",
+                        caller
+                            .map(|location| format!("{location}: "))
+                            .unwrap_or_default(),
+                        source_entity
+                    );
+                    return;
+                };
+                source_entity_mut.modify_component(|relationship: &mut Self::Relationship| {
+                    // The on_replace hook will remove the component if the
+                    // collection is left empty.
+                    relationship.collection_mut().remove(target);
+                });
+            });
         }
     }
 
     /// The `on_despawn` component hook that despawns entities stored in an entity's [`RelationshipTarget`] when
     /// that entity is despawned.
     // note: think of this as "on_drop"
-    fn on_despawn(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
+    fn on_despawn(
+        mut world: DeferredWorld,
+        HookContext {
+            entity: target,
+            caller,
+            ..
+        }: HookContext,
+    ) {
         let (entities, mut commands) = world.entities_and_commands();
-        let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
+        let relationship_target = entities.get(target).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
-            if entities.get(source_entity).is_ok() {
-                commands.queue(
-                    entity_command::despawn()
-                        .with_entity(source_entity)
-                        .handle_error_with(ignore),
-                );
-            } else {
-                warn!(
-                    "{}Tried to despawn non-existent entity {}",
-                    caller
-                        .map(|location| format!("{location}: "))
-                        .unwrap_or_default(),
-                    source_entity
-                );
-            }
+            // TODO: consider trying to queue one bulk command?
+            commands.queue(move |world: &mut World| {
+                let Ok(mut source_entity_mut) = world.get_entity_mut(source_entity) else {
+                    warn!(
+                        "{}Tried to despawn non-existent entity {}",
+                        caller
+                            .map(|location| format!("{location}: "))
+                            .unwrap_or_default(),
+                        source_entity
+                    );
+                    return;
+                };
+                source_entity_mut.modify_component(|relationship: &mut Self::Relationship| {
+                    // The on_replace hook will remove the component if the
+                    // collection is left empty.
+                    relationship.collection_mut().remove(target);
+                });
+            });
         }
     }
 
@@ -414,9 +432,11 @@ pub enum RelationshipHookMode {
 
 #[cfg(test)]
 mod tests {
+    use crate::entity::EntityHashSet;
     use crate::world::World;
     use crate::{component::Component, entity::Entity};
-    use alloc::vec::Vec;
+    use alloc::{vec, vec::Vec};
+    use smallvec::{smallvec, SmallVec};
 
     #[test]
     fn custom_relationship() {
@@ -488,6 +508,7 @@ mod tests {
 
         // No assert necessary, looking to make sure compilation works with the macros
     }
+
     #[test]
     fn relationship_target_with_multiple_non_target_fields_compiles() {
         #[derive(Component)]
@@ -505,5 +526,88 @@ mod tests {
         }
 
         // No assert necessary, looking to make sure compilation works with the macros
+    }
+
+    #[test]
+    fn many_to_many_relationship_vec() {
+        #[derive(Component)]
+        #[relationship(relationship_target = LikedBy)]
+        struct Likes(pub Vec<Entity>);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Likes)]
+        struct LikedBy(Vec<Entity>);
+
+        let mut world: World = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn(Likes(vec![a])).id();
+        let c = world.spawn(Likes(vec![a])).id();
+        assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
+    }
+
+    #[test]
+    fn many_to_many_relationship_smallvec() {
+        #[derive(Component)]
+        #[relationship(relationship_target = LikedBy)]
+        struct Likes(pub SmallVec<[Entity; 4]>);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Likes)]
+        struct LikedBy(SmallVec<[Entity; 4]>);
+
+        let mut world: World = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn(Likes(smallvec![a])).id();
+        let c = world.spawn(Likes(smallvec![a])).id();
+        assert_eq!(&*world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
+    }
+
+    #[test]
+    fn many_to_many_relationship_hashset() {
+        #[derive(Component)]
+        #[relationship(relationship_target = LikedBy)]
+        struct Likes(pub EntityHashSet);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Likes)]
+        struct LikedBy(EntityHashSet);
+
+        let mut world: World = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn(Likes(EntityHashSet::from_iter([a]))).id();
+        let c = world.spawn(Likes(EntityHashSet::from_iter([a]))).id();
+        let liked_by = world.entity(a).get::<LikedBy>().unwrap();
+        assert!(liked_by.0.contains(&b));
+        assert!(liked_by.0.contains(&c));
+    }
+
+    #[test]
+    fn empty_many_to_many_relationship_vec() {
+        #[derive(Component, PartialEq, Debug)]
+        #[relationship(relationship_target = LikedBy)]
+        struct Likes(pub Vec<Entity>);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Likes)]
+        struct LikedBy(Vec<Entity>);
+
+        let mut world: World = World::new();
+        let none = world.spawn(Likes(vec![])).id();
+        assert_eq!(world.get::<Likes>(none), None);
+    }
+
+    #[test]
+    fn empty_one_to_many_relationship() {
+        #[derive(Component, PartialEq, Debug)]
+        #[relationship(relationship_target = LikedBy)]
+        struct Likes(pub Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Likes)]
+        struct LikedBy(Vec<Entity>);
+
+        let mut world: World = World::new();
+        let none = world.spawn(Likes(Entity::PLACEHOLDER)).id();
+        assert_eq!(world.get::<Likes>(none), None);
     }
 }
