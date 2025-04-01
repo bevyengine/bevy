@@ -30,10 +30,22 @@ Keep it short and sweet:
 - Use bullet points to explain complex changes.
 - Avoid headings. If you must, use only level-two headings.
 - Diff codeblocks can be useful for succinctly communicating changes.
-
-```diff
-fn my_system(world: &mut World) {
-+ world.new_method();
-- world.old_method();
-}
-```
+  
+  ```diff
+   fn my_system(world: &mut World) {
+  +    world.new_method();
+  -    world.old_method();
+   }
+  ```
+  
+- Make sure to reference the currently published version of a crate when writing a migration guide.
+  See [docs.rs](https://docs.rs/) for a quick reference to the existing public API.
+- When moving items to a new module or crate, consider a simple table listing
+  the moved items and the before and after paths.
+  For example, _`Foo` has been moved from `bar::foo` to `baz`_ could be written:
+  
+  **Relocations**
+  
+  | Item                         | Old Path                       | New Path                       |
+  | ---------------------------- | ------------------------------ | ------------------------------ |
+  | `Foo`                        | `bar::foo`                     | `baz`                          |
