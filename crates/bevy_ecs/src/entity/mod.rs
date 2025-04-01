@@ -36,7 +36,7 @@
 //! [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
 //! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
 
-mod allocator;
+pub(crate) mod allocator;
 mod clone_entities;
 mod entity_set;
 mod map_entities;
@@ -641,6 +641,19 @@ impl Entities {
         self.allocator.alloc_many(count)
     }
 
+    /// A version of [`alloc_entities`](Self::alloc_entities) that requires the caller to ensure safety.
+    ///
+    /// # Safety
+    ///
+    /// Caller ensures [`Self::free`] is not called for the duration of the iterator.
+    /// Caller ensures this allocator is not dropped for the lifetime of the iterator.
+    pub(crate) unsafe fn alloc_entities_unsafe(
+        &self,
+        count: u32,
+    ) -> allocator::AllocEntitiesIterator<'static> {
+        self.allocator.alloc_many_unsafe(count)
+    }
+
     /// Allocate a specific entity ID, overwriting its generation.
     ///
     /// Returns the location of the entity currently using the given ID, if any. Location should be
@@ -707,8 +720,9 @@ impl Entities {
         self.free_current_and_future_generations(entity, 1)
     }
 
-    /// Ensure at least `n` allocations can succeed without reallocating.
-    pub fn reserve(&mut self, additional: u32) {
+    /// Prepares the for `additional` allocations/reservations.
+    /// This can prevent reallocation, etc, but since allocation can happen from anywhere, it is not guaranteed.
+    pub fn prepare(&mut self, additional: u32) {
         let shortfall = (additional as u64).saturating_sub(self.allocator.num_free());
         self.meta.reserve(shortfall as usize);
     }

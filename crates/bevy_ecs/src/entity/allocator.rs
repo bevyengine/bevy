@@ -518,6 +518,20 @@ impl Allocator {
         // SAFETY: `free` takes `&mut self`, but this lifetime is captured by the iterator.
         unsafe { self.shared.alloc_many(count) }
     }
+
+    /// Allocates `count` entities in an iterator.
+    ///
+    /// # Safety
+    ///
+    /// Caller ensures [`Self::free`] is not called for the duration of the iterator.
+    /// Caller ensures this allocator is not dropped for the lifetime of the iterator.
+    #[inline]
+    pub unsafe fn alloc_many_unsafe(&self, count: u32) -> AllocEntitiesIterator<'static> {
+        // SAFETY: Caller ensures this instance is valid until the returned value is dropped.
+        let this: &'static Self = unsafe { &*core::ptr::from_ref(self) };
+        // SAFETY:  Caller ensures free is not called.
+        unsafe { this.shared.alloc_many(count) }
+    }
 }
 
 impl core::fmt::Debug for Allocator {
