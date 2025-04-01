@@ -442,6 +442,8 @@ impl Drop for AllocEntitiesIterator<'_> {
 /// As a result, using this will be slower than [`Allocator`] but this offers additional freedoms.
 #[derive(Clone)]
 pub struct RemoteAllocator {
+    // PERF: We could avoid the extra 2 atomic ops from upgrading and then dropping the `Weak`,
+    // But this provides more safety and allows memory to be freed earlier.
     shared: Weak<SharedAllocator>,
 }
 
