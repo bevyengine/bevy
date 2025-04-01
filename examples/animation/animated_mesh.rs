@@ -24,30 +24,13 @@ fn main() {
 // created when we start loading the mesh (see `setup_mesh_and_animation`) and
 // read when the mesh has spawned (see `play_animation_once_loaded`).
 #[derive(Component)]
-struct AnimationToPlay {
-    graph_handle: Handle<AnimationGraph>,
-    index: AnimationNodeIndex,
-}
+struct AnimationToPlay(Handle<AnimationClip>);
 
-fn setup_mesh_and_animation(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
-) {
-    // Create an animation graph containing a single animation. We want the "run"
-    // animation from our example asset, which has an index of two.
-    let (graph, index) = AnimationGraph::from_clip(
-        asset_server.load(GltfAssetLabel::Animation(2).from_asset(GLTF_PATH)),
-    );
-
-    // Store the animation graph as an asset.
-    let graph_handle = graphs.add(graph);
-
-    // Create a component that stores a reference to our animation.
-    let animation_to_play = AnimationToPlay {
-        graph_handle,
-        index,
-    };
+fn setup_mesh_and_animation(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // Start loading our animation and store a reference to it. We want the
+    // "run" animation from our example asset, which has an index of two.
+    let animation_to_play =
+        AnimationToPlay(asset_server.load(GltfAssetLabel::Animation(2).from_asset(GLTF_PATH)));
 
     // Start loading the asset as a scene and store a reference to it in a
     // SceneRoot component. This component will automatically spawn a scene
@@ -63,7 +46,6 @@ fn setup_mesh_and_animation(
 
 fn play_animation_when_ready(
     trigger: Trigger<SceneInstanceReady>,
-    mut commands: Commands,
     children: Query<&Children>,
     animations_to_play: Query<&AnimationToPlay>,
     mut players: Query<&mut AnimationPlayer>,
@@ -82,13 +64,7 @@ fn play_animation_when_ready(
                 //
                 // If you want to try stopping and switching animations, see the
                 // `animated_mesh_control.rs` example.
-                player.play(animation_to_play.index).repeat();
-
-                // Add the animation graph. This only needs to be done once to
-                // connect the animation player to the mesh.
-                commands
-                    .entity(child)
-                    .insert(AnimationGraphHandle(animation_to_play.graph_handle.clone()));
+                player.play(animation_to_play.0.clone()).repeat();
             }
         }
     }
