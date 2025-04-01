@@ -37,7 +37,7 @@
 //! ```
 
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 
 /// Fully Qualified (FQ) short name for [`std::any::Any`]
 pub struct FQAny;

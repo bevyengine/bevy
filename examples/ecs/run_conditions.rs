@@ -5,7 +5,9 @@ use bevy::prelude::*;
 fn main() {
     println!();
     println!("For the first 2 seconds you will not be able to increment the counter");
-    println!("Once that time has passed you can press space, enter, left mouse, right mouse or touch the screen to increment the counter");
+    println!(
+        "Once that time has passed you can press space, enter, left mouse, right mouse or touch the screen to increment the counter"
+    );
     println!();
 
     App::new()

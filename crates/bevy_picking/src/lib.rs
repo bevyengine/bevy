@@ -167,7 +167,7 @@ pub mod mesh_picking;
 pub mod pointer;
 pub mod window;
 
-use bevy_app::{prelude::*, PluginGroupBuilder};
+use bevy_app::{PluginGroupBuilder, prelude::*};
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 
@@ -178,13 +178,13 @@ pub mod prelude {
     #[cfg(feature = "bevy_mesh_picking_backend")]
     #[doc(hidden)]
     pub use crate::mesh_picking::{
-        ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
         MeshPickingCamera, MeshPickingPlugin, MeshPickingSettings,
+        ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
     };
     #[doc(hidden)]
     pub use crate::{
-        events::*, input::PointerInputPlugin, pointer::PointerButton, DefaultPickingPlugins,
-        InteractionPlugin, Pickable, PickingPlugin,
+        DefaultPickingPlugins, InteractionPlugin, Pickable, PickingPlugin, events::*,
+        input::PointerInputPlugin, pointer::PointerButton,
     };
 }
 

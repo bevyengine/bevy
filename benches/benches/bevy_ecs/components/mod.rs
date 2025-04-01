@@ -9,7 +9,7 @@ mod insert_simple;
 mod insert_simple_unbatched;
 
 use archetype_updates::*;
-use criterion::{criterion_group, Criterion};
+use criterion::{Criterion, criterion_group};
 
 criterion_group!(
     benches,

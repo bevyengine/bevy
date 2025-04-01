@@ -3,7 +3,7 @@ use crate::material_bind_groups::MaterialBindGroupAllocator;
 use crate::*;
 use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
-use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
+use bevy_core_pipeline::core_3d::{CORE_3D_DEPTH_FORMAT, Camera3d};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::system::SystemChangeTick;
@@ -12,7 +12,7 @@ use bevy_ecs::{
     prelude::*,
     system::lifetimeless::Read,
 };
-use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles, ops};
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_platform_support::hash::FixedHasher;
 use bevy_render::experimental::occlusion_culling::{
@@ -20,12 +20,7 @@ use bevy_render::experimental::occlusion_culling::{
 };
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
-    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    camera::SortedCameras,
-    mesh::allocator::MeshAllocator,
-    view::{NoIndirectDrawing, RetainedViewEntity},
-};
-use bevy_render::{
+    Extract,
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
@@ -36,7 +31,12 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
     view::{ExtractedView, RenderLayers, ViewVisibility},
-    Extract,
+};
+use bevy_render::{
+    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
+    camera::SortedCameras,
+    mesh::allocator::MeshAllocator,
+    view::{NoIndirectDrawing, RetainedViewEntity},
 };
 use bevy_render::{
     mesh::allocator::SlabId,

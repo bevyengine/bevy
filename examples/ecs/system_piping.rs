@@ -4,7 +4,7 @@
 use bevy::prelude::*;
 use std::num::ParseIntError;
 
-use bevy::log::{debug, error, info, Level, LogPlugin};
+use bevy::log::{Level, LogPlugin, debug, error, info};
 
 fn main() {
     App::new()

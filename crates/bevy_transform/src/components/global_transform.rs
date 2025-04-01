@@ -1,7 +1,7 @@
 use core::ops::Mul;
 
 use super::Transform;
-use bevy_math::{ops, Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A};
+use bevy_math::{Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A, ops};
 use derive_more::derive::From;
 
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
@@ -13,7 +13,7 @@ use bevy_ecs::{component::Component, hierarchy::validate_parent_has_component};
 #[cfg(feature = "bevy_reflect")]
 use {
     bevy_ecs::reflect::ReflectComponent,
-    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+    bevy_reflect::{Reflect, std_traits::ReflectDefault},
 };
 
 /// [`GlobalTransform`] is an affine transformation from entity-local coordinates to worldspace coordinates.

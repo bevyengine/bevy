@@ -2,7 +2,7 @@ use crate::{
     archetype::ArchetypeComponentId,
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Tick, TickCells},
-    storage::{blob_vec::BlobVec, SparseSet},
+    storage::{SparseSet, blob_vec::BlobVec},
 };
 use alloc::string::String;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};

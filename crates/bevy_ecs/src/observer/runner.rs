@@ -3,7 +3,7 @@ use core::any::Any;
 
 use crate::{
     component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
-    error::{default_error_handler, ErrorContext},
+    error::{ErrorContext, default_error_handler},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,

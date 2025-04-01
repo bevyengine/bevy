@@ -48,7 +48,7 @@ fn setup(mut commands: Commands) {
 mod splash {
     use bevy::prelude::*;
 
-    use super::{despawn_screen, GameState};
+    use super::{GameState, despawn_screen};
 
     // This plugin will display a splash screen with Bevy logo for 1 second before switching to the menu
     pub fn splash_plugin(app: &mut App) {
@@ -113,7 +113,7 @@ mod game {
         prelude::*,
     };
 
-    use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
+    use super::{DisplayQuality, GameState, TEXT_COLOR, Volume, despawn_screen};
 
     // This plugin will contain the game. In this case, it's just be a screen that will
     // display the current settings for 5 seconds before returning to the menu
@@ -229,7 +229,7 @@ mod menu {
         prelude::*,
     };
 
-    use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
+    use super::{DisplayQuality, GameState, TEXT_COLOR, Volume, despawn_screen};
 
     // This plugin manages the menu, with 5 different screens:
     // - a main menu with "New Game", "Settings", "Quit"

@@ -12,7 +12,7 @@ use log::warn;
 #[cfg(feature = "bevy_reflect")]
 use {
     bevy_ecs::prelude::ReflectComponent,
-    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+    bevy_reflect::{Reflect, std_traits::ReflectDefault},
 };
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]

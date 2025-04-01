@@ -1,8 +1,8 @@
 use crate::{
-    meta::{AssetHash, MetaTransform},
     Asset, AssetHandleProvider, AssetLoadError, AssetPath, DependencyLoadState, ErasedLoadedAsset,
     Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
     UntypedAssetId, UntypedHandle,
+    meta::{AssetHash, MetaTransform},
 };
 use alloc::{
     borrow::ToOwned,
@@ -11,7 +11,7 @@ use alloc::{
     vec::Vec,
 };
 use bevy_ecs::world::World;
-use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
+use bevy_platform_support::collections::{HashMap, HashSet, hash_map::Entry};
 use bevy_tasks::Task;
 use bevy_utils::TypeIdMap;
 use core::{any::TypeId, task::Waker};
@@ -777,12 +777,16 @@ pub(crate) fn unwrap_with_context<T>(
         Err(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified) => None,
         Err(GetOrCreateHandleInternalError::MissingHandleProviderError(_)) => match type_info {
             Either::Left(type_name) => {
-                panic!("Cannot allocate an Asset Handle of type '{type_name}' because the asset type has not been initialized. \
-                    Make sure you have called `app.init_asset::<{type_name}>()`");
+                panic!(
+                    "Cannot allocate an Asset Handle of type '{type_name}' because the asset type has not been initialized. \
+                    Make sure you have called `app.init_asset::<{type_name}>()`"
+                );
             }
             Either::Right(type_id) => {
-                panic!("Cannot allocate an AssetHandle of type '{type_id:?}' because the asset type has not been initialized. \
-                    Make sure you have called `app.init_asset::<(actual asset type)>()`")
+                panic!(
+                    "Cannot allocate an AssetHandle of type '{type_id:?}' because the asset type has not been initialized. \
+                    Make sure you have called `app.init_asset::<(actual asset type)>()`"
+                )
             }
         },
     }

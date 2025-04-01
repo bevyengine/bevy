@@ -17,14 +17,15 @@ use bevy::{
     color::palettes::css::{SILVER, WHITE},
     core_pipeline::{
         core_3d::{
-            graph::{Core3d, Node3d},
             Opaque3d,
+            graph::{Core3d, Node3d},
         },
         prepass::DepthPrepass,
     },
     pbr::PbrPlugin,
     prelude::*,
     render::{
+        Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderSet,
         batching::gpu_preprocessing::{
             GpuPreprocessingMode, GpuPreprocessingSupport, IndirectParametersBuffers,
             IndirectParametersIndexed,
@@ -34,7 +35,6 @@ use bevy::{
         render_resource::{Buffer, BufferDescriptor, BufferUsages, MapMode},
         renderer::{RenderAdapter, RenderContext, RenderDevice},
         settings::WgpuFeatures,
-        Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderSet,
     },
 };
 use bytemuck::Pod;

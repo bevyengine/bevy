@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
+use crate::{FromReflect, Reflect, TypeInfo, TypePath, Typed, serde::Serializable};
 use alloc::{boxed::Box, string::String};
 use bevy_platform_support::{
     collections::{HashMap, HashSet},
@@ -11,7 +11,7 @@ use core::{
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
-use downcast_rs::{impl_downcast, Downcast};
+use downcast_rs::{Downcast, impl_downcast};
 use serde::Deserialize;
 
 /// A registry of [reflected] types.

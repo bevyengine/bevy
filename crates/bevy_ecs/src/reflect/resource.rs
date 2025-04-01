@@ -9,8 +9,8 @@ use crate::{
     component::ComponentId,
     resource::Resource,
     world::{
-        error::ResourceFetchError, unsafe_world_cell::UnsafeWorldCell, FilteredResources,
-        FilteredResourcesMut, World,
+        FilteredResources, FilteredResourcesMut, World, error::ResourceFetchError,
+        unsafe_world_cell::UnsafeWorldCell,
     },
 };
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};

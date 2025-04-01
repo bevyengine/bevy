@@ -1,8 +1,8 @@
 pub use bevy_ecs_macros::MapEntities;
 
 use crate::{
-    entity::{hash_map::EntityHashMap, Entity},
-    identifier::masks::{IdentifierMask, HIGH_MASK},
+    entity::{Entity, hash_map::EntityHashMap},
+    identifier::masks::{HIGH_MASK, IdentifierMask},
     world::World,
 };
 
@@ -148,11 +148,7 @@ impl EntityMapper for () {
 impl EntityMapper for (Entity, Entity) {
     #[inline]
     fn get_mapped(&mut self, source: Entity) -> Entity {
-        if source == self.0 {
-            self.1
-        } else {
-            source
-        }
+        if source == self.0 { self.1 } else { source }
     }
 
     fn set_mapped(&mut self, _source: Entity, _target: Entity) {}

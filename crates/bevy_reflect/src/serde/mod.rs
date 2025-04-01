@@ -10,8 +10,8 @@ pub use type_data::*;
 mod tests {
     use super::*;
     use crate::{
-        type_registry::TypeRegistry, DynamicStruct, DynamicTupleStruct, FromReflect,
-        PartialReflect, Reflect, Struct,
+        DynamicStruct, DynamicTupleStruct, FromReflect, PartialReflect, Reflect, Struct,
+        type_registry::TypeRegistry,
     };
     use serde::de::DeserializeSeed;
 
@@ -178,9 +178,11 @@ mod tests {
         let expected = value.to_dynamic();
         let result = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        assert!(expected
-            .reflect_partial_eq(result.as_partial_reflect())
-            .unwrap());
+        assert!(
+            expected
+                .reflect_partial_eq(result.as_partial_reflect())
+                .unwrap()
+        );
     }
 
     mod type_data {

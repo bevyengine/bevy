@@ -10,7 +10,7 @@ use alloc::{
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
-    event::{event_update_system, EventCursor},
+    event::{EventCursor, event_update_system},
     intern::Interned,
     prelude::*,
     schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},

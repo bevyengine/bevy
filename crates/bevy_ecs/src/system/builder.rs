@@ -16,7 +16,7 @@ use crate::{
 };
 use core::fmt::Debug;
 
-use super::{init_query_param, Res, ResMut, SystemState};
+use super::{Res, ResMut, SystemState, init_query_param};
 
 /// A builder that can create a [`SystemParam`].
 ///
@@ -201,8 +201,8 @@ impl ParamBuilder {
     }
 
     /// Helper method for adding a filtered [`Query`] as a param, equivalent to `of::<Query<D, F>>()`
-    pub fn query_filtered<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>(
-    ) -> impl SystemParamBuilder<Query<'w, 's, D, F>> {
+    pub fn query_filtered<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>()
+    -> impl SystemParamBuilder<Query<'w, 's, D, F>> {
         Self
     }
 }
@@ -283,12 +283,12 @@ impl<'a, D: QueryData, F: QueryFilter>
 
 // SAFETY: Calls `init_query_param`, just like `Query::init_state`.
 unsafe impl<
-        'w,
-        's,
-        D: QueryData + 'static,
-        F: QueryFilter + 'static,
-        T: FnOnce(&mut QueryBuilder<D, F>),
-    > SystemParamBuilder<Query<'w, 's, D, F>> for QueryParamBuilder<T>
+    'w,
+    's,
+    D: QueryData + 'static,
+    F: QueryFilter + 'static,
+    T: FnOnce(&mut QueryBuilder<D, F>),
+> SystemParamBuilder<Query<'w, 's, D, F>> for QueryParamBuilder<T>
 {
     fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
         let mut builder = QueryBuilder::new(world);
@@ -609,7 +609,9 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
         if !conflicts.is_empty() {
             let accesses = conflicts.format_conflict_list(world);
             let system_name = &meta.name;
-            panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002");
+            panic!(
+                "error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002"
+            );
         }
 
         if access.has_read_all_resources() {
@@ -673,7 +675,9 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
         if !conflicts.is_empty() {
             let accesses = conflicts.format_conflict_list(world);
             let system_name = &meta.name;
-            panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002");
+            panic!(
+                "error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002"
+            );
         }
 
         if access.has_read_all_resources() {

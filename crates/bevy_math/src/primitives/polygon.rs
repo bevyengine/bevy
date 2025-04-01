@@ -322,7 +322,7 @@ pub fn is_polygon_simple(vertices: &[Vec2]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::{primitives::polygon::is_polygon_simple, Vec2};
+    use crate::{Vec2, primitives::polygon::is_polygon_simple};
 
     #[test]
     fn complex_polygon() {

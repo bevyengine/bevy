@@ -8,8 +8,8 @@ use crate::{
 use bevy_ecs::resource::Resource;
 use bevy_platform_support::{
     collections::{
-        hash_map::{Entry, RawEntryMut, VacantEntry},
         HashMap,
+        hash_map::{Entry, RawEntryMut, VacantEntry},
     },
     hash::FixedHasher,
 };

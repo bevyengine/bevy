@@ -16,11 +16,11 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_text::{
-    scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
+    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
+    TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation, scale_value,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;

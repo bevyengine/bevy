@@ -1,16 +1,16 @@
 //! Showcases how to change the material of a `Scene` spawned from a Gltf
 
 use bevy::{
+    DefaultPlugins,
     app::{App, PluginGroup, Startup},
     asset::{AssetServer, Assets},
     audio::AudioPlugin,
-    color::{palettes, Color},
+    color::{Color, palettes},
     gltf::GltfAssetLabel,
     math::{Dir3, Vec3},
     pbr::{DirectionalLight, MeshMaterial3d, StandardMaterial},
     prelude::{Camera3d, Children, Commands, Component, Query, Res, ResMut, Transform, Trigger},
     scene::{SceneInstanceReady, SceneRoot},
-    DefaultPlugins,
 };
 
 fn main() {

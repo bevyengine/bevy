@@ -7,7 +7,7 @@ use crate::{
     prelude::World,
     query::Access,
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemIn, SystemParamValidationError},
+    system::{SystemIn, SystemParamValidationError, input::SystemInput},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 

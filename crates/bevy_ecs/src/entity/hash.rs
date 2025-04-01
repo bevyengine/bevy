@@ -1,7 +1,7 @@
 use core::hash::{BuildHasher, Hasher};
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 
 /// A [`BuildHasher`] that results in a [`EntityHasher`].
 #[derive(Debug, Default, Clone)]

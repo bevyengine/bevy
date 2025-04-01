@@ -1,6 +1,6 @@
 use crate::{
-    commands::{ClippyCommand, FormatCommand},
     Flag, Prepare, PreparedCommand,
+    commands::{ClippyCommand, FormatCommand},
 };
 use argh::FromArgs;
 

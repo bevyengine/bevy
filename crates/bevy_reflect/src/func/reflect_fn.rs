@@ -1,12 +1,12 @@
 use variadics_please::all_tuples;
 
 use crate::{
+    Reflect, TypePath,
     func::{
+        ArgList, FunctionError, FunctionResult, IntoReturn, ReflectFnMut,
         args::{ArgCount, FromArg},
         macros::count_tokens,
-        ArgList, FunctionError, FunctionResult, IntoReturn, ReflectFnMut,
     },
-    Reflect, TypePath,
 };
 
 /// A reflection-based version of the [`Fn`] trait.

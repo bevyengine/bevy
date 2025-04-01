@@ -1,26 +1,27 @@
 use core::ops::Range;
 
-use crate::{ComputedTextureSlices, ScalingMode, Sprite, SPRITE_SHADER_HANDLE};
+use crate::{ComputedTextureSlices, SPRITE_SHADER_HANDLE, ScalingMode, Sprite};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
-    core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
+    core_2d::{CORE_2D_DEPTH_FORMAT, Transparent2d},
     tonemapping::{
-        get_lut_bind_group_layout_entries, get_lut_bindings, DebandDither, Tonemapping,
-        TonemappingLuts,
+        DebandDither, Tonemapping, TonemappingLuts, get_lut_bind_group_layout_entries,
+        get_lut_bindings,
     },
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
-    system::{lifetimeless::*, SystemParamItem, SystemState},
+    system::{SystemParamItem, SystemState, lifetimeless::*},
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_platform_support::collections::HashMap;
 use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
+    Extract,
     render_asset::RenderAssets,
     render_phase::{
         DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
@@ -37,7 +38,6 @@ use bevy_render::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
         ViewVisibility,
     },
-    Extract,
 };
 use bevy_transform::components::GlobalTransform;
 use bytemuck::{Pod, Zeroable};

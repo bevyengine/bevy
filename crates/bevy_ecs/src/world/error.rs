@@ -21,7 +21,9 @@ pub struct TryRunScheduleError(pub InternedScheduleLabel);
 /// [`World::try_insert_batch`]: crate::world::World::try_insert_batch
 /// [`World::try_insert_batch_if_new`]: crate::world::World::try_insert_batch_if_new
 #[derive(thiserror::Error, Debug, Clone)]
-#[error("Could not insert bundles of type {bundle_type} into the entities with the following IDs because they do not exist: {entities:?}")]
+#[error(
+    "Could not insert bundles of type {bundle_type} into the entities with the following IDs because they do not exist: {entities:?}"
+)]
 pub struct TryInsertBatchError {
     /// The bundles' type name.
     pub bundle_type: &'static str,
@@ -60,12 +62,16 @@ pub enum EntityMutableFetchError {
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResourceFetchError {
     /// The resource has never been initialized or registered with the world.
-    #[error("The resource has never been initialized or registered with the world. Did you forget to add it using `app.insert_resource` / `app.init_resource`?")]
+    #[error(
+        "The resource has never been initialized or registered with the world. Did you forget to add it using `app.insert_resource` / `app.init_resource`?"
+    )]
     NotRegistered,
     /// The resource with the given [`ComponentId`] does not currently exist in the world.
     #[error("The resource with ID {0:?} does not currently exist in the world.")]
     DoesNotExist(ComponentId),
     /// Cannot get access to the resource with the given [`ComponentId`] in the world as it conflicts with an on going operation.
-    #[error("Cannot get access to the resource with ID {0:?} in the world as it conflicts with an on going operation.")]
+    #[error(
+        "Cannot get access to the resource with ID {0:?} in the world as it conflicts with an on going operation."
+    )]
     NoResourceAccess(ComponentId),
 }

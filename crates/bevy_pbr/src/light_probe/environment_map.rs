@@ -44,20 +44,20 @@
 //!
 //! [several pre-filtered environment maps]: https://github.com/KhronosGroup/glTF-Sample-Environments
 
-use bevy_asset::{weak_handle, AssetId, Handle};
+use bevy_asset::{AssetId, Handle, weak_handle};
 use bevy_ecs::{
     component::Component, query::QueryItem, reflect::ReflectComponent, system::lifetimeless::Read,
 };
 use bevy_image::Image;
 use bevy_math::Quat;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
     extract_instances::ExtractInstance,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::{self, uniform_buffer},
         BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, ShaderStages,
         TextureSampleType, TextureView,
+        binding_types::{self, uniform_buffer},
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
@@ -66,8 +66,8 @@ use bevy_render::{
 use core::{num::NonZero, ops::Deref};
 
 use crate::{
-    add_cubemap_texture_view, binding_arrays_are_usable, EnvironmentMapUniform,
-    MAX_VIEW_LIGHT_PROBES,
+    EnvironmentMapUniform, MAX_VIEW_LIGHT_PROBES, add_cubemap_texture_view,
+    binding_arrays_are_usable,
 };
 
 use super::{LightProbeComponent, RenderViewLightProbes};

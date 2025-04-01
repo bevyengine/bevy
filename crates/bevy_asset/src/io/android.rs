@@ -1,4 +1,4 @@
-use crate::io::{get_meta_path, AssetReader, AssetReaderError, PathStream, Reader, VecReader};
+use crate::io::{AssetReader, AssetReaderError, PathStream, Reader, VecReader, get_meta_path};
 use alloc::{borrow::ToOwned, boxed::Box, ffi::CString, vec::Vec};
 use futures_lite::stream;
 use std::path::Path;

@@ -590,7 +590,9 @@ pub enum AsBindGroupError {
     RetryNextUpdate,
     #[error("Create the bind group via `as_bind_group()` instead")]
     CreateBindGroupDirectly,
-    #[error("At binding index {0}, the provided image sampler `{1}` does not match the required sampler type(s) `{2}`.")]
+    #[error(
+        "At binding index {0}, the provided image sampler `{1}` does not match the required sampler type(s) `{2}`."
+    )]
     InvalidSamplerType(u32, String, String),
 }
 

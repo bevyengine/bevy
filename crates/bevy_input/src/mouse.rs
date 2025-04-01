@@ -12,7 +12,7 @@ use bevy_math::Vec2;
 #[cfg(feature = "bevy_reflect")]
 use {
     bevy_ecs::reflect::ReflectResource,
-    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+    bevy_reflect::{Reflect, std_traits::ReflectDefault},
 };
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]

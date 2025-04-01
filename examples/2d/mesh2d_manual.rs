@@ -8,10 +8,11 @@
 use bevy::{
     asset::weak_handle,
     color::palettes::basic::YELLOW,
-    core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
-    math::{ops, FloatOrd},
+    core_pipeline::core_2d::{CORE_2D_DEPTH_FORMAT, Transparent2d},
+    math::{FloatOrd, ops},
     prelude::*,
     render::{
+        Extract, Render, RenderApp, RenderSet,
         mesh::{Indices, MeshVertexAttribute, RenderMesh},
         render_asset::{RenderAssetUsages, RenderAssets},
         render_phase::{
@@ -28,12 +29,11 @@ use bevy::{
         sync_component::SyncComponentPlugin,
         sync_world::{MainEntityHashMap, RenderEntity},
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
-        Extract, Render, RenderApp, RenderSet,
     },
     sprite::{
-        extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline, Mesh2dPipelineKey,
-        Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
-        SetMesh2dViewBindGroup,
+        DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dTransforms,
+        MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+        extract_mesh2d,
     },
 };
 use std::f32::consts::PI;

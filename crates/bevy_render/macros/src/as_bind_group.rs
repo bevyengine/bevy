@@ -1,13 +1,12 @@
-use bevy_macro_utils::{get_lit_bool, get_lit_str, BevyManifest, Symbol};
+use bevy_macro_utils::{BevyManifest, Symbol, get_lit_bool, get_lit_str};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
-    parenthesized,
+    Data, DataStruct, Error, Fields, LitInt, LitStr, Meta, MetaList, Result, parenthesized,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     token::Comma,
-    Data, DataStruct, Error, Fields, LitInt, LitStr, Meta, MetaList, Result,
 };
 
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
@@ -365,13 +364,17 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 } => {
                     return Err(Error::new_spanned(
                         attr,
-                        format!("The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by the field '{occupied_ident}' of type {binding_type:?}.")
+                        format!(
+                            "The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by the field '{occupied_ident}' of type {binding_type:?}."
+                        ),
                     ));
                 }
                 BindingState::OccupiedConvertedUniform => {
                     return Err(Error::new_spanned(
                         attr,
-                        format!("The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by a struct-level uniform binding at the same index.")
+                        format!(
+                            "The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by a struct-level uniform binding at the same index."
+                        ),
                     ));
                 }
                 BindingState::OccupiedMergeableUniform { uniform_fields } => match binding_type {
@@ -380,9 +383,12 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     }
                     _ => {
                         return Err(Error::new_spanned(
-                                attr,
-                                format!("The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by a {:?}.", BindingType::Uniform)
-                            ));
+                            attr,
+                            format!(
+                                "The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by a {:?}.",
+                                BindingType::Uniform
+                            ),
+                        ));
                     }
                 },
             }
@@ -1302,7 +1308,7 @@ fn get_visibility_flag_value(meta_list: &MetaList) -> Result<ShaderStageVisibili
     if flags.is_empty() {
         return Err(Error::new_spanned(
             meta_list,
-            "Invalid visibility format. Must be `visibility(flags)`, flags can be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
+            "Invalid visibility format. Must be `visibility(flags)`, flags can be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`.",
         ));
     }
 
@@ -1328,7 +1334,7 @@ fn get_visibility_flag_value(meta_list: &MetaList) -> Result<ShaderStageVisibili
         } else {
             return Err(Error::new_spanned(
                 flag,
-                "Not a valid visibility flag. Must be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
+                "Not a valid visibility flag. Must be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`.",
             ));
         }
     }
@@ -1534,7 +1540,7 @@ fn get_texture_attrs(metas: Vec<Meta>) -> Result<TextureAttrs> {
             NameValue(m) => {
                 return Err(Error::new_spanned(
                     m.path,
-                    "Not a valid name. Available attributes: `dimension`, `sample_type`, `multisampled`, or `filterable`."
+                    "Not a valid name. Available attributes: `dimension`, `sample_type`, `multisampled`, or `filterable`.",
                 ));
             }
             _ => {

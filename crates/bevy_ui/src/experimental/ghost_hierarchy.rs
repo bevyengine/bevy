@@ -1,8 +1,8 @@
 //! This module contains [`GhostNode`] and utilities to flatten the UI hierarchy, traversing past ghost nodes.
 
+use crate::Node;
 #[cfg(feature = "ghost_nodes")]
 use crate::ui_node::ComputedNodeTarget;
-use crate::Node;
 use bevy_ecs::{prelude::*, system::SystemParam};
 #[cfg(feature = "ghost_nodes")]
 use bevy_reflect::prelude::*;

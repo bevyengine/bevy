@@ -11,15 +11,15 @@ use bevy_ecs::{
     prelude::Local,
     query::With,
     resource::Resource,
-    schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
+    schedule::{IntoScheduleConfigs, common_conditions::resource_changed},
     system::{Commands, Query, Res},
 };
 use bevy_render::view::Visibility;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
 use bevy_time::Time;
 use bevy_ui::{
-    widget::{Text, TextUiWriter},
     GlobalZIndex, Node, PositionType,
+    widget::{Text, TextUiWriter},
 };
 use core::time::Duration;
 

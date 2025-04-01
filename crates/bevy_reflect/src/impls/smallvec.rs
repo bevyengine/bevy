@@ -1,8 +1,8 @@
 use crate::{
-    utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType, Generics, GetTypeRegistration,
-    List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect, ReflectFromPtr, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo, TypePath, TypeRegistration,
-    Typed,
+    ApplyError, FromReflect, FromType, Generics, GetTypeRegistration, List, ListInfo, ListIter,
+    MaybeTyped, PartialReflect, Reflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, TypeParamInfo, TypePath, TypeRegistration, Typed,
+    utility::GenericTypeInfoCell,
 };
 use alloc::{borrow::Cow, boxed::Box, string::ToString, vec::Vec};
 use bevy_reflect::ReflectCloneError;

@@ -46,8 +46,8 @@ use bevy::platform_support::{
     collections::{HashMap, HashSet},
     hash::DefaultHasher,
     sync::{
-        atomic::{AtomicBool, AtomicUsize},
         Arc, Barrier, LazyLock, Mutex, Once, OnceLock, RwLock, Weak,
+        atomic::{AtomicBool, AtomicUsize},
     },
     time::Instant,
 };

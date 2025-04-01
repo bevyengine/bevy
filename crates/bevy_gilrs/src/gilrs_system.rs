@@ -1,6 +1,6 @@
 use crate::{
-    converter::{convert_axis, convert_button},
     Gilrs, GilrsGamepads,
+    converter::{convert_axis, convert_button},
 };
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::prelude::Commands;
@@ -9,7 +9,7 @@ use bevy_input::gamepad::{
     GamepadConnection, GamepadConnectionEvent, RawGamepadAxisChangedEvent,
     RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
-use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
+use gilrs::{EventType, Filter, ev::filter::axis_dpad_to_button};
 
 pub fn gilrs_event_startup_system(
     mut commands: Commands,

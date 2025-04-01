@@ -21,7 +21,7 @@ use bevy_render::{
 
 use crate::{GpuLights, LightMeta};
 
-use super::{shaders, Atmosphere, AtmosphereSettings};
+use super::{Atmosphere, AtmosphereSettings, shaders};
 
 #[derive(Resource)]
 pub(crate) struct AtmosphereBindGroupLayouts {

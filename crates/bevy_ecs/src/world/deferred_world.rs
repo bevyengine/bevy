@@ -13,10 +13,10 @@ use crate::{
     resource::Resource,
     system::{Commands, Query},
     traversal::Traversal,
-    world::{error::EntityMutableFetchError, EntityFetcher, WorldEntityFetch},
+    world::{EntityFetcher, WorldEntityFetch, error::EntityMutableFetchError},
 };
 
-use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World, ON_INSERT, ON_REPLACE};
+use super::{Mut, ON_INSERT, ON_REPLACE, World, unsafe_world_cell::UnsafeWorldCell};
 
 /// A [`World`] reference that disallows structural ECS changes.
 /// This includes initializing resources, registering components or spawning entities.

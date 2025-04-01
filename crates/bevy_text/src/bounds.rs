@@ -1,6 +1,6 @@
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
 ///

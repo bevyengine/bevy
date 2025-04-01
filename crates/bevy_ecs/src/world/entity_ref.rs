@@ -22,8 +22,8 @@ use crate::{
     storage::Storages,
     system::IntoObserverSystem,
     world::{
-        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DeferredWorld, Mut, Ref,
-        World, ON_DESPAWN, ON_REMOVE, ON_REPLACE,
+        DeferredWorld, Mut, ON_DESPAWN, ON_REMOVE, ON_REPLACE, Ref, World,
+        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell,
     },
 };
 use alloc::vec::Vec;
@@ -4917,8 +4917,8 @@ mod tests {
         change_detection::{MaybeLocation, MutUntyped},
         component::ComponentId,
         prelude::*,
-        system::{assert_is_system, RunSystemOnce as _},
-        world::{error::EntityComponentError, DeferredWorld, FilteredEntityMut, FilteredEntityRef},
+        system::{RunSystemOnce as _, assert_is_system},
+        world::{DeferredWorld, FilteredEntityMut, FilteredEntityRef, error::EntityComponentError},
     };
 
     use super::{EntityMutExcept, EntityRefExcept};
@@ -5427,9 +5427,11 @@ mod tests {
 
         fn system(_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent2>>) {
             for mut entity_mut in query.iter_mut() {
-                assert!(entity_mut
-                    .get_mut::<TestComponent2>()
-                    .is_some_and(|component| component.0 == 0));
+                assert!(
+                    entity_mut
+                        .get_mut::<TestComponent2>()
+                        .is_some_and(|component| component.0 == 0)
+                );
             }
         }
     }
@@ -5445,9 +5447,11 @@ mod tests {
 
         fn system(_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent>>) {
             for mut entity_mut in query.iter_mut() {
-                assert!(entity_mut
-                    .get_mut::<TestComponent2>()
-                    .is_some_and(|component| component.0 == 0));
+                assert!(
+                    entity_mut
+                        .get_mut::<TestComponent2>()
+                        .is_some_and(|component| component.0 == 0)
+                );
             }
         }
     }

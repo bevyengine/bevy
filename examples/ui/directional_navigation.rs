@@ -9,10 +9,10 @@ use std::time::Duration;
 
 use bevy::{
     input_focus::{
+        InputDispatchPlugin, InputFocus, InputFocusVisible,
         directional_navigation::{
             DirectionalNavigation, DirectionalNavigationMap, DirectionalNavigationPlugin,
         },
-        InputDispatchPlugin, InputFocus, InputFocusVisible,
     },
     math::{CompassOctant, FloatOrd},
     picking::{

@@ -4,9 +4,9 @@ extern crate alloc;
 
 pub mod prelude {
     pub use crate::{
+        BevyDefault as _, Image, ImageFormat, TextureAtlasBuilder, TextureError,
         dynamic_texture_atlas_builder::DynamicTextureAtlasBuilder,
         texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
-        BevyDefault as _, Image, ImageFormat, TextureAtlasBuilder, TextureError,
     };
 }
 

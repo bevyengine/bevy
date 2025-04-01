@@ -4,7 +4,7 @@ use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
 };
-use bevy_math::{ops, Mat4, Vec3A, Vec4};
+use bevy_math::{Mat4, Vec3A, Vec4, ops};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection, Projection},

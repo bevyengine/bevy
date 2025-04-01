@@ -8,7 +8,7 @@ use core::{
     time::Duration,
 };
 use std::{
-    collections::{hash_map::DefaultHasher, HashMap},
+    collections::{HashMap, hash_map::DefaultHasher},
     fs::{self, File},
     io::Write,
     path::{Path, PathBuf},
@@ -17,11 +17,11 @@ use std::{
     time::Instant,
 };
 
-use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
+use clap::{CommandFactory, Parser, ValueEnum, error::ErrorKind};
 use pbr::ProgressBar;
 use regex::Regex;
 use toml_edit::{DocumentMut, Item};
-use xshell::{cmd, Shell};
+use xshell::{Shell, cmd};
 
 #[derive(Parser, Debug)]
 struct Args {

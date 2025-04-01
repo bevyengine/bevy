@@ -20,7 +20,7 @@ use crate::{
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, EntityWorldMut, ON_ADD, ON_INSERT, ON_REPLACE},
+    world::{EntityWorldMut, ON_ADD, ON_INSERT, ON_REPLACE, unsafe_world_cell::UnsafeWorldCell},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform_support::collections::{HashMap, HashSet};

@@ -2,6 +2,9 @@ mod info;
 mod loaders;
 
 use crate::{
+    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
+    DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UnapprovedPathMode,
+    UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
     folder::LoadedFolder,
     io::{
         AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
@@ -10,13 +13,10 @@ use crate::{
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
     meta::{
-        loader_settings_meta_transform, AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal,
-        MetaTransform, Settings,
+        AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal, MetaTransform, Settings,
+        loader_settings_meta_transform,
     },
     path::AssetPath,
-    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
-    DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UnapprovedPathMode,
-    UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
 use alloc::{
@@ -1354,12 +1354,12 @@ impl AssetServer {
                         AssetActionMinimal::Process { .. } => {
                             return Err(AssetLoadError::CannotLoadProcessedAsset {
                                 path: asset_path.clone_owned(),
-                            })
+                            });
                         }
                         AssetActionMinimal::Ignore => {
                             return Err(AssetLoadError::CannotLoadIgnoredAsset {
                                 path: asset_path.clone_owned(),
-                            })
+                            });
                         }
                     };
                     let loader = self.get_asset_loader_with_type_name(&loader_name).await?;
@@ -1601,10 +1601,10 @@ impl AssetServer {
                 // The meta file couldn't be found so just fall through.
             }
             Err(AssetReaderError::Io(err)) => {
-                return Err(WriteDefaultMetaError::IoErrorFromExistingMetaCheck(err))
+                return Err(WriteDefaultMetaError::IoErrorFromExistingMetaCheck(err));
             }
             Err(AssetReaderError::HttpError(err)) => {
-                return Err(WriteDefaultMetaError::HttpErrorFromExistingMetaCheck(err))
+                return Err(WriteDefaultMetaError::HttpErrorFromExistingMetaCheck(err));
             }
         }
 
@@ -1879,14 +1879,18 @@ impl RecursiveDependencyLoadState {
     reason = "Adding docs to the variants would not add information beyond the error message and the names"
 )]
 pub enum AssetLoadError {
-    #[error("Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'")]
+    #[error(
+        "Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'"
+    )]
     RequestedHandleTypeMismatch {
         path: AssetPath<'static>,
         requested: TypeId,
         actual_asset_name: &'static str,
         loader_name: &'static str,
     },
-    #[error("Could not find an asset loader matching: Loader Name: {loader_name:?}; Asset Type: {loader_name:?}; Extension: {extension:?}; Path: {asset_path:?};")]
+    #[error(
+        "Could not find an asset loader matching: Loader Name: {loader_name:?}; Asset Type: {loader_name:?}; Extension: {extension:?}; Path: {asset_path:?};"
+    )]
     MissingAssetLoader {
         loader_name: Option<String>,
         asset_type_id: Option<TypeId>,

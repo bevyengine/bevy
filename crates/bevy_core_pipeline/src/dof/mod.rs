@@ -15,7 +15,7 @@
 //! [Depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -24,38 +24,38 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
-    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
+    system::{Commands, Query, Res, ResMut, lifetimeless::Read},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::ops;
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, prelude::ReflectDefault};
 use bevy_render::{
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     camera::{PhysicalCameraParameters, Projection},
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_graph::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
     },
     render_resource::{
-        binding_types::{
-            sampler, texture_2d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
-        },
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, FilterMode, FragmentState, LoadOp,
         Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
         ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp,
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        binding_types::{
+            sampler, texture_2d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
+        },
     },
     renderer::{RenderContext, RenderDevice},
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{
-        prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
-        ViewUniformOffset, ViewUniforms,
+        ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform, ViewUniformOffset,
+        ViewUniforms, prepare_view_targets,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{default, once};
 use smallvec::SmallVec;
@@ -63,8 +63,8 @@ use tracing::{info, warn};
 
 use crate::{
     core_3d::{
-        graph::{Core3d, Node3d},
         Camera3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED,
+        graph::{Core3d, Node3d},
     },
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };

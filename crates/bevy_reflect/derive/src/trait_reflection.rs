@@ -1,7 +1,7 @@
 use bevy_macro_utils::fq_std::{FQClone, FQOption, FQResult};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse::Parse, parse_macro_input, Attribute, ItemTrait, Token};
+use syn::{Attribute, ItemTrait, Token, parse::Parse, parse_macro_input};
 
 pub(crate) struct TraitInfo {
     item_trait: ItemTrait,

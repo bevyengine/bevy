@@ -1,10 +1,10 @@
 //! This example demonstrates the use of dynamic types in Bevy's reflection system.
 
 use bevy::reflect::{
-    reflect_trait, serde::TypedReflectDeserializer, std_traits::ReflectDefault, DynamicArray,
-    DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple,
+    DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple,
     DynamicTupleStruct, DynamicVariant, FromReflect, PartialReflect, Reflect, ReflectFromReflect,
-    Set, TypeRegistry, Typed,
+    Set, TypeRegistry, Typed, reflect_trait, serde::TypedReflectDeserializer,
+    std_traits::ReflectDefault,
 };
 use serde::de::DeserializeSeed;
 use std::collections::{HashMap, HashSet};
@@ -92,10 +92,12 @@ fn main() {
     // since it doesn't implement `Reflect`, only `PartialReflect`.
     // Similarly, trying to force the operation will fail.
     // This fails since the underlying type of `deserialized` is `DynamicStruct` and not `Player`.
-    assert!(deserialized
-        .try_as_reflect()
-        .and_then(|reflect_trait_obj| reflect_identifiable.get(reflect_trait_obj))
-        .is_none());
+    assert!(
+        deserialized
+            .try_as_reflect()
+            .and_then(|reflect_trait_obj| reflect_identifiable.get(reflect_trait_obj))
+            .is_none()
+    );
 
     // So how can we go from a dynamic type to a concrete type?
     // There are two ways:
@@ -152,13 +154,17 @@ fn main() {
     assert_eq!(my_list, vec![1, 2, 3]);
 
     // And if you want it to actually proxy a type, you can configure it to do that as well:
-    assert!(!my_dynamic_list
-        .as_partial_reflect()
-        .represents::<Vec<u32>>());
+    assert!(
+        !my_dynamic_list
+            .as_partial_reflect()
+            .represents::<Vec<u32>>()
+    );
     my_dynamic_list.set_represented_type(Some(<Vec<u32>>::type_info()));
-    assert!(my_dynamic_list
-        .as_partial_reflect()
-        .represents::<Vec<u32>>());
+    assert!(
+        my_dynamic_list
+            .as_partial_reflect()
+            .represents::<Vec<u32>>()
+    );
 
     // ============================= REFERENCE ============================= //
     // For reference, here are all the available dynamic types:

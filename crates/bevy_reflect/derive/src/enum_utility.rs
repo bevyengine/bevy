@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption, FQResult};
 use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote, ToTokens};
+use quote::{ToTokens, format_ident, quote};
 
 pub(crate) struct EnumVariantOutputData {
     /// The names of each variant as a string.

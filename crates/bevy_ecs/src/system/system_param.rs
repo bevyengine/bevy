@@ -13,8 +13,8 @@ use crate::{
     storage::ResourceData,
     system::{Query, Single, SystemMeta},
     world::{
-        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
-        FromWorld, World,
+        DeferredWorld, FilteredResources, FilteredResourcesMut, FromWorld, World,
+        unsafe_world_cell::UnsafeWorldCell,
     },
 };
 use alloc::{
@@ -383,7 +383,11 @@ fn assert_component_access_compatibility(
     if !accesses.is_empty() {
         accesses.push(' ');
     }
-    panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001", ShortName(query_type), ShortName(filter_type));
+    panic!(
+        "error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001",
+        ShortName(query_type),
+        ShortName(filter_type)
+    );
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
@@ -956,11 +960,15 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         if combined_access.has_resource_write(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-                core::any::type_name::<T>(), system_meta.name);
+                core::any::type_name::<T>(),
+                system_meta.name
+            );
         } else if combined_access.has_resource_read(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-                core::any::type_name::<T>(), system_meta.name);
+                core::any::type_name::<T>(),
+                system_meta.name
+            );
         }
         system_meta
             .component_access_set
@@ -1068,7 +1076,9 @@ unsafe impl SystemParam for &'_ World {
             .archetype_component_access
             .is_compatible(&access)
         {
-            panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
+            panic!(
+                "&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules"
+            );
         }
         system_meta.archetype_component_access.extend(&access);
 
@@ -1080,7 +1090,9 @@ unsafe impl SystemParam for &'_ World {
             .get_conflicts_single(&filtered_access)
             .is_empty()
         {
-            panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
+            panic!(
+                "&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules"
+            );
         }
         system_meta.component_access_set.add(filtered_access);
     }
@@ -1668,11 +1680,15 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         if combined_access.has_component_write(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-                core::any::type_name::<T>(), system_meta.name);
+                core::any::type_name::<T>(),
+                system_meta.name
+            );
         } else if combined_access.has_component_read(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-                core::any::type_name::<T>(), system_meta.name);
+                core::any::type_name::<T>(),
+                system_meta.name
+            );
         }
         system_meta
             .component_access_set

@@ -40,10 +40,10 @@
 
 use core::f32::consts::{PI, TAU};
 
-use crate::{ops, primitives::*, NormedVectorSpace, Vec2, Vec3};
+use crate::{NormedVectorSpace, Vec2, Vec3, ops, primitives::*};
 use rand::{
-    distributions::{Distribution, WeightedIndex},
     Rng,
+    distributions::{Distribution, WeightedIndex},
 };
 
 /// Exposes methods to uniformly sample a variety of primitive shapes.

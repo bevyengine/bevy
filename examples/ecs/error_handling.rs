@@ -5,14 +5,14 @@
 //! enabled. This feature is disabled by default, as it may introduce runtime overhead, especially for commands.
 
 use bevy::ecs::{
-    error::{warn, GLOBAL_ERROR_HANDLER},
+    error::{GLOBAL_ERROR_HANDLER, warn},
     world::DeferredWorld,
 };
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
-use rand::distributions::Distribution;
 use rand::SeedableRng;
+use rand::distributions::Distribution;
 use rand_chacha::ChaCha8Rng;
 
 fn main() {

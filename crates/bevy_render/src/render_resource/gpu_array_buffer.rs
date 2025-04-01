@@ -1,6 +1,6 @@
 use super::{
-    binding_types::{storage_buffer_read_only, uniform_buffer_sized},
     BindGroupLayoutEntryBuilder, BufferVec,
+    binding_types::{storage_buffer_read_only, uniform_buffer_sized},
 };
 use crate::{
     render_resource::batched_uniform_buffer::BatchedUniformBuffer,
@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_ecs::{prelude::Component, resource::Resource};
 use core::marker::PhantomData;
-use encase::{private::WriteInto, ShaderSize, ShaderType};
+use encase::{ShaderSize, ShaderType, private::WriteInto};
 use nonmax::NonMaxU32;
 use wgpu::{BindingResource, BufferUsages};
 

@@ -8,9 +8,9 @@ use tracing::info_span;
 use std::eprintln;
 
 use crate::{
-    error::{default_error_handler, BevyError, ErrorContext},
+    error::{BevyError, ErrorContext, default_error_handler},
     schedule::{
-        executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
+        BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule, executor::is_apply_deferred,
     },
     world::World,
 };

@@ -2,11 +2,11 @@ use core::{any::type_name, fmt};
 
 use crate::{
     entity::Entity,
-    system::{entity_command::EntityCommandError, Command, EntityCommand},
-    world::{error::EntityMutableFetchError, World},
+    system::{Command, EntityCommand, entity_command::EntityCommandError},
+    world::{World, error::EntityMutableFetchError},
 };
 
-use super::{default_error_handler, BevyError, ErrorContext};
+use super::{BevyError, ErrorContext, default_error_handler};
 
 /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
 /// a [`Command`] that internally handles an error if it occurs and returns `()`.
@@ -80,7 +80,7 @@ where
         self,
         entity: Entity,
     ) -> impl Command<Result<(), EntityMutableFetchError>>
-           + HandleError<Result<(), EntityMutableFetchError>> {
+    + HandleError<Result<(), EntityMutableFetchError>> {
         move |world: &mut World| -> Result<(), EntityMutableFetchError> {
             let entity = world.get_entity_mut(entity)?;
             self.apply(entity);

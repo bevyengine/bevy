@@ -1,21 +1,21 @@
 use crate::{
+    REFLECT_ATTRIBUTE_NAME, ReflectDerive,
     derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl},
     from_reflect,
     ident::ident_or_index,
     impls,
     impls::impl_assertions,
-    ReflectDerive, REFLECT_ATTRIBUTE_NAME,
 };
 use bevy_macro_utils::fq_std::FQOption;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
+    DeriveInput, ExprPath, Generics, Member, PathArguments, Type, TypePath,
     parse::{Parse, ParseStream},
     parse_macro_input,
     spanned::Spanned,
     token::PathSep,
-    DeriveInput, ExprPath, Generics, Member, PathArguments, Type, TypePath,
 };
 
 /// Generates the remote wrapper type and implements all the necessary traits.
@@ -473,7 +473,7 @@ impl<'a> RemoteType<'a> {
                     return Err(syn::Error::new(
                         arg.span(),
                         "cannot use parenthesized type as remote type",
-                    ))
+                    ));
                 }
             }
         }

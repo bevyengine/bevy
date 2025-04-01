@@ -14,4 +14,4 @@ pub use mesh::*;
 pub use mesh_bindings::MeshLayouts;
 pub use mesh_view_bindings::*;
 pub use morph::*;
-pub use skin::{extract_skins, prepare_skins, skins_use_uniform_buffers, SkinUniforms, MAX_JOINTS};
+pub use skin::{MAX_JOINTS, SkinUniforms, extract_skins, prepare_skins, skins_use_uniform_buffers};

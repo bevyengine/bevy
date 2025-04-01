@@ -19,7 +19,7 @@
 //! [`SystemParamValidationError`]: bevy::ecs::system::SystemParamValidationError
 //! [`SystemParam::validate_param`]: bevy::ecs::system::SystemParam::validate_param
 
-use bevy::ecs::error::{warn, GLOBAL_ERROR_HANDLER};
+use bevy::ecs::error::{GLOBAL_ERROR_HANDLER, warn};
 use bevy::prelude::*;
 use rand::Rng;
 

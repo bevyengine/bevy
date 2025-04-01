@@ -5,7 +5,7 @@ use bevy_platform_support::collections::HashMap;
 #[cfg(not(feature = "bevy_reflect"))]
 use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 

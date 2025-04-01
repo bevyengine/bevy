@@ -2,12 +2,12 @@ use core::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{
-    ops::{self, FloatPow},
     Dir3, InvalidDirectionError, Isometry3d, Mat3, Ray3d, Vec2, Vec3,
+    ops::{self, FloatPow},
 };
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use glam::Quat;

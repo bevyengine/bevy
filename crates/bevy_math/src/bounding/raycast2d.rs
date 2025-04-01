@@ -1,7 +1,7 @@
 use super::{Aabb2d, BoundingCircle, IntersectsVolume};
 use crate::{
-    ops::{self, FloatPow},
     Dir2, Ray2d, Vec2,
+    ops::{self, FloatPow},
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -67,11 +67,7 @@ impl RayCast2d {
         let tmin = tmin_x.max(tmin_y).max(0.);
         let tmax = tmax_y.min(tmax_x).min(self.max);
 
-        if tmin <= tmax {
-            Some(tmin)
-        } else {
-            None
-        }
+        if tmin <= tmax { Some(tmin) } else { None }
     }
 
     /// Get the distance of an intersection with a [`BoundingCircle`], if any.

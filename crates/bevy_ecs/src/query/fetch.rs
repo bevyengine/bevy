@@ -7,8 +7,8 @@ use crate::{
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
-        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
-        FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
+        EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, FilteredEntityMut,
+        FilteredEntityRef, Mut, Ref, World, unsafe_world_cell::UnsafeWorldCell,
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -2496,7 +2496,7 @@ mod tests {
     use bevy_ecs_macros::QueryData;
 
     use super::*;
-    use crate::system::{assert_is_system, Query};
+    use crate::system::{Query, assert_is_system};
 
     #[derive(Component)]
     pub struct A;

@@ -2,7 +2,7 @@ use bevy_math::Affine2;
 use bevy_pbr::UvChannel;
 use bevy_render::alpha::AlphaMode;
 
-use gltf::{json::texture::Info, Material};
+use gltf::{Material, json::texture::Info};
 
 use serde_json::value;
 
@@ -62,10 +62,10 @@ pub(crate) fn uv_channel(material: &Material, texture_kind: &str, tex_coord: u32
                 .map(|i| format!("index {i}"))
                 .unwrap_or_else(|| "default".to_string());
             tracing::warn!(
-                    "Only 2 UV Channels are supported, but {material_name} ({material_index}) \
+                "Only 2 UV Channels are supported, but {material_name} ({material_index}) \
                     has the TEXCOORD attribute {} on texture kind {texture_kind}, which will fallback to 0.",
-                    tex_coord,
-                );
+                tex_coord,
+            );
             UvChannel::Uv0
         }
     }
@@ -148,7 +148,8 @@ pub(crate) fn warn_on_differing_texture_transforms(
             .unwrap_or_else(|| "default".to_string());
         tracing::warn!(
             "Only texture transforms on base color textures are supported, but {material_name} ({material_index}) \
-            has a texture transform on {texture_name} (index {}), which will be ignored.", info.texture().index()
+            has a texture transform on {texture_name} (index {}), which will be ignored.",
+            info.texture().index()
         );
     }
 }

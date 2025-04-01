@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
 use core::any::{Any, TypeId};
 
-use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
+use bevy_ecs::world::{World, unsafe_world_cell::UnsafeWorldCell};
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect};
 
 use crate::{Asset, AssetId, Assets, Handle, UntypedAssetId, UntypedHandle};

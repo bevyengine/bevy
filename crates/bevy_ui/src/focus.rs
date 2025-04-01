@@ -7,10 +7,10 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
-use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
+use bevy_input::{ButtonInput, mouse::MouseButton, touch::Touches};
 use bevy_math::{Rect, Vec2};
 use bevy_platform_support::collections::HashMap;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::InheritedVisibility};
 use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};

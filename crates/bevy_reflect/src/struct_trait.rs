@@ -1,9 +1,9 @@
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    attributes::{impl_custom_attribute_methods, CustomAttributes},
-    type_info::impl_type_methods,
     ApplyError, Generics, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
     ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    attributes::{CustomAttributes, impl_custom_attribute_methods},
+    type_info::impl_type_methods,
 };
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use bevy_platform_support::collections::HashMap;

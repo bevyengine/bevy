@@ -5,10 +5,10 @@
 //! Using these types will ensure the correct atomic provider is used without the need for
 //! feature gates in your own code.
 
+pub use atomic_8::{AtomicBool, AtomicI8, AtomicU8};
 pub use atomic_16::{AtomicI16, AtomicU16};
 pub use atomic_32::{AtomicI32, AtomicU32};
 pub use atomic_64::{AtomicI64, AtomicU64};
-pub use atomic_8::{AtomicBool, AtomicI8, AtomicU8};
 pub use atomic_ptr::{AtomicIsize, AtomicPtr, AtomicUsize};
 pub use core::sync::atomic::Ordering;
 

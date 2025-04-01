@@ -3,12 +3,12 @@
 use bevy_ecs::reflect::{ReflectComponent, ReflectResource};
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{
-    prelude::ReflectDefault, NamedField, OpaqueInfo, ReflectDeserialize, ReflectSerialize,
-    TypeInfo, TypeRegistration, VariantInfo,
+    NamedField, OpaqueInfo, ReflectDeserialize, ReflectSerialize, TypeInfo, TypeRegistration,
+    VariantInfo, prelude::ReflectDefault,
 };
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 /// Exports schema info for a given type
 pub fn export_type(reg: &TypeRegistration) -> (String, JsonSchemaBevyType) {

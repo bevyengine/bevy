@@ -7,8 +7,8 @@ use crate::{
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
     storage::{Table, TableRow, Tables},
     world::{
-        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
-        FilteredEntityMut, FilteredEntityRef,
+        EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, FilteredEntityMut,
+        FilteredEntityRef, unsafe_world_cell::UnsafeWorldCell,
     },
 };
 use alloc::vec::Vec;
@@ -1776,13 +1776,8 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: EntityEquiv
     }
 }
 
-impl<
-        'w,
-        's,
-        D: ReadOnlyQueryData,
-        F: QueryFilter,
-        I: DoubleEndedIterator<Item: EntityEquivalent>,
-    > DoubleEndedIterator for QueryManyIter<'w, 's, D, F, I>
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: DoubleEndedIterator<Item: EntityEquivalent>>
+    DoubleEndedIterator for QueryManyIter<'w, 's, D, F, I>
 {
     #[inline(always)]
     fn next_back(&mut self) -> Option<Self::Item> {

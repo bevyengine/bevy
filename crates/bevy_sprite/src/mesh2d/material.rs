@@ -16,19 +16,20 @@ use bevy_ecs::component::Tick;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::SRes, SystemParamItem},
+    system::{SystemParamItem, lifetimeless::SRes},
 };
 use bevy_math::FloatOrd;
 use bevy_platform_support::collections::HashMap;
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, prelude::ReflectDefault};
 use bevy_render::camera::extract_cameras;
 use bevy_render::render_phase::{DrawFunctionId, InputUniformIndex};
 use bevy_render::render_resource::CachedRenderPipelineId;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{
-        prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
+        PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets, prepare_assets,
     },
     render_phase::{
         AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
@@ -43,7 +44,6 @@ use bevy_render::{
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
     view::{ExtractedView, ViewVisibility},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};

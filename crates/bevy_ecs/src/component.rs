@@ -3,7 +3,7 @@
 use crate::{
     archetype::ArchetypeFlags,
     bundle::BundleInfo,
-    change_detection::{MaybeLocation, MAX_CHANGE_AGE},
+    change_detection::{MAX_CHANGE_AGE, MaybeLocation},
     entity::{ComponentCloneCtx, Entity, EntityMapper, SourceComponent},
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
@@ -1298,7 +1298,10 @@ impl Debug for QueuedComponents {
             .iter()
             .map(|queued| queued.id)
             .collect::<Vec<_>>();
-        write!(f, "components: {components:?}, resources: {resources:?}, dynamic_registrations: {dynamic_registrations:?}")
+        write!(
+            f,
+            "components: {components:?}, resources: {resources:?}, dynamic_registrations: {dynamic_registrations:?}"
+        )
     }
 }
 

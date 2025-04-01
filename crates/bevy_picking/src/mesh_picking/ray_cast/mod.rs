@@ -6,15 +6,15 @@ mod intersections;
 
 use bevy_derive::{Deref, DerefMut};
 
-use bevy_math::{bounding::Aabb3d, Ray3d};
+use bevy_math::{Ray3d, bounding::Aabb3d};
 use bevy_mesh::Mesh;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 
 use intersections::*;
-pub use intersections::{ray_aabb_intersection_3d, ray_mesh_intersection, RayMeshHit};
+pub use intersections::{RayMeshHit, ray_aabb_intersection_3d, ray_mesh_intersection};
 
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{prelude::*, system::lifetimeless::Read, system::SystemParam};
+use bevy_ecs::{prelude::*, system::SystemParam, system::lifetimeless::Read};
 use bevy_math::FloatOrd;
 use bevy_render::{prelude::*, primitives::Aabb};
 use bevy_transform::components::GlobalTransform;

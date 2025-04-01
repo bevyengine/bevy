@@ -1,9 +1,9 @@
 use crate::{
-    meta::MetaTransform, Asset, AssetId, AssetIndexAllocator, AssetPath, InternalAssetId,
-    UntypedAssetId,
+    Asset, AssetId, AssetIndexAllocator, AssetPath, InternalAssetId, UntypedAssetId,
+    meta::MetaTransform,
 };
 use alloc::sync::Arc;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_reflect::{Reflect, TypePath, std_traits::ReflectDefault};
 use core::{
     any::TypeId,
     hash::{Hash, Hasher},
@@ -708,7 +708,11 @@ mod tests {
                 let from_reflect_handle: Handle<MyAsset> =
                     FromReflect::from_reflect(&*dynamic_handle).unwrap();
 
-                assert_eq!(Arc::strong_count(strong), 4, "Converting the reflected value back to a handle should increase the strong count to 4");
+                assert_eq!(
+                    Arc::strong_count(strong),
+                    4,
+                    "Converting the reflected value back to a handle should increase the strong count to 4"
+                );
                 assert!(
                     from_reflect_handle.is_strong(),
                     "The cloned handle should still be strong"

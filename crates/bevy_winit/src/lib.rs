@@ -15,8 +15,8 @@
 extern crate alloc;
 
 use bevy_derive::Deref;
-use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_reflect::prelude::ReflectDefault;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
 use core::marker::PhantomData;
 use winit::{event_loop::EventLoop, window::WindowId};
@@ -24,7 +24,7 @@ use winit::{event_loop::EventLoop, window::WindowId};
 use bevy_a11y::AccessibilityRequested;
 use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_window::{exit_on_all_closed, Window, WindowCreated};
+use bevy_window::{Window, WindowCreated, exit_on_all_closed};
 use system::{changed_windows, check_keyboard_focus_lost, despawn_windows};
 pub use system::{create_monitors, create_windows};
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]

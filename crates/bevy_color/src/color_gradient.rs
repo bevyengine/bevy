@@ -1,8 +1,8 @@
 use crate::Mix;
 use alloc::vec::Vec;
 use bevy_math::curve::{
-    cores::{EvenCore, EvenCoreError},
     Curve, Interval,
+    cores::{EvenCore, EvenCoreError},
 };
 
 /// A curve whose samples are defined by a collection of colors.
@@ -75,7 +75,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{palettes::basic, Srgba};
+    use crate::{Srgba, palettes::basic};
     use bevy_math::curve::{Curve, CurveExt};
 
     #[test]

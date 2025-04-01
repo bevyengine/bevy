@@ -1,7 +1,7 @@
 use crate::{
+    PluginsState,
     app::{App, AppExit},
     plugin::Plugin,
-    PluginsState,
 };
 use bevy_platform_support::time::Instant;
 use core::time::Duration;
@@ -10,7 +10,7 @@ use core::time::Duration;
 use {
     alloc::{boxed::Box, rc::Rc},
     core::cell::RefCell,
-    wasm_bindgen::{prelude::*, JsCast},
+    wasm_bindgen::{JsCast, prelude::*},
 };
 
 /// Determines the method used to run an [`App`]'s [`Schedule`](bevy_ecs::schedule::Schedule).

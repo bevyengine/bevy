@@ -1,6 +1,6 @@
 use crate::App;
 use core::any::Any;
-use downcast_rs::{impl_downcast, Downcast};
+use downcast_rs::{Downcast, impl_downcast};
 
 /// A collection of Bevy app logic and configuration.
 ///

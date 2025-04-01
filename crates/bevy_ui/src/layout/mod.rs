@@ -1,7 +1,7 @@
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
     BorderRadius, ComputedNode, ComputedNodeTarget, ContentSize, Display, LayoutConfig, Node,
     Outline, OverflowAxis, ScrollPosition, Val,
+    experimental::{UiChildren, UiRootNodes},
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -365,8 +365,8 @@ mod tests {
     };
 
     use crate::{
-        layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
-        update::update_ui_context_system, ContentSize, LayoutContext,
+        ContentSize, LayoutContext, layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
+        update::update_ui_context_system,
     };
 
     // these window dimensions are easy to convert to and from percentage values
@@ -582,24 +582,30 @@ mod tests {
                 ui_surface.taffy.parent(child_node.id),
                 Some(ui_parent_node.id)
             );
-            assert!(ui_surface
-                .taffy
-                .children(ui_parent_node.id)
-                .unwrap()
-                .contains(&child_node.id));
+            assert!(
+                ui_surface
+                    .taffy
+                    .children(ui_parent_node.id)
+                    .unwrap()
+                    .contains(&child_node.id)
+            );
         }
 
         // the nodes of the deleted children should have been removed from the layout tree
         for deleted_child_entity in &deleted_children {
-            assert!(!ui_surface
-                .entity_to_taffy
-                .contains_key(deleted_child_entity));
+            assert!(
+                !ui_surface
+                    .entity_to_taffy
+                    .contains_key(deleted_child_entity)
+            );
             let deleted_child_node = child_node_map[deleted_child_entity];
-            assert!(!ui_surface
-                .taffy
-                .children(ui_parent_node.id)
-                .unwrap()
-                .contains(&deleted_child_node.id));
+            assert!(
+                !ui_surface
+                    .taffy
+                    .children(ui_parent_node.id)
+                    .unwrap()
+                    .contains(&deleted_child_node.id)
+            );
         }
 
         // despawn the parent entity and its descendants
@@ -714,7 +720,10 @@ mod tests {
         let Some((_rect, is_overlapping)) = overlap_check else {
             unreachable!("test not setup properly");
         };
-        assert!(is_overlapping, "root ui nodes are expected to behave like they have absolute position and be independent from each other");
+        assert!(
+            is_overlapping,
+            "root ui nodes are expected to behave like they have absolute position and be independent from each other"
+        );
     }
 
     #[test]
@@ -854,7 +863,9 @@ mod tests {
 
         let current_taffy_node_count = get_taffy_node_count(&world);
         if current_taffy_node_count > expected_max_taffy_node_count {
-            panic!("extra taffy nodes detected: current: {current_taffy_node_count} max expected: {expected_max_taffy_node_count}");
+            panic!(
+                "extra taffy nodes detected: current: {current_taffy_node_count} max expected: {expected_max_taffy_node_count}"
+            );
         }
     }
 

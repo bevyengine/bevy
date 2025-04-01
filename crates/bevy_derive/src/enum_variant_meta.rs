@@ -1,6 +1,6 @@
 use proc_macro::{Span, TokenStream};
 use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput};
+use syn::{Data, DeriveInput, parse_macro_input};
 
 pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -9,7 +9,7 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
         _ => {
             return syn::Error::new(Span::call_site().into(), "Only enums are supported")
                 .into_compile_error()
-                .into()
+                .into();
         }
     };
 

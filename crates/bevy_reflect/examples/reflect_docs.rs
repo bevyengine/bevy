@@ -38,7 +38,10 @@ fn main() {
 
     // From here, we already have access to the struct's docs:
     let player_docs = player_info.docs().unwrap();
-    assert_eq!(" The struct that defines our player.\n\n # Example\n\n ```\n let player = Player::new(\"Urist McPlayer\");\n ```", player_docs);
+    assert_eq!(
+        " The struct that defines our player.\n\n # Example\n\n ```\n let player = Player::new(\"Urist McPlayer\");\n ```",
+        player_docs
+    );
     println!("=====[ Player ]=====\n{player_docs}");
 
     // We can then iterate through our struct's fields to get their documentation as well:

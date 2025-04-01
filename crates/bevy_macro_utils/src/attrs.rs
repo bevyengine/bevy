@@ -28,7 +28,9 @@ pub fn get_lit_bool(attr_name: Symbol, value: &Expr) -> syn::Result<bool> {
     } else {
         Err(syn::Error::new_spanned(
             value,
-            format!("expected {attr_name} attribute to be a bool value, `true` or `false`: `{attr_name} = ...`"),
+            format!(
+                "expected {attr_name} attribute to be a bool value, `true` or `false`: `{attr_name} = ...`"
+            ),
         ))?
     }
 }

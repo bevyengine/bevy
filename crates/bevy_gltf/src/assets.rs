@@ -4,10 +4,10 @@
 use bevy_animation::AnimationClip;
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_mesh::{skinning::SkinnedMeshInverseBindposes, Mesh};
+use bevy_mesh::{Mesh, skinning::SkinnedMeshInverseBindposes};
 use bevy_pbr::StandardMaterial;
 use bevy_platform_support::collections::HashMap;
-use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
+use bevy_reflect::{Reflect, TypePath, prelude::ReflectDefault};
 use bevy_scene::Scene;
 
 use crate::GltfAssetLabel;

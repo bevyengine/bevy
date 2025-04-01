@@ -1,6 +1,6 @@
 use bevy_platform_support::time::Instant;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use core::time::Duration;
 
 use crate::time::Time;

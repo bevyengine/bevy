@@ -6,7 +6,7 @@
 
 use bevy::{
     prelude::*,
-    render::{settings::WgpuSettings, RenderPlugin},
+    render::{RenderPlugin, settings::WgpuSettings},
 };
 
 fn main() {

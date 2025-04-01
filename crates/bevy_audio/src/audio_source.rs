@@ -1,5 +1,5 @@
 use alloc::sync::Arc;
-use bevy_asset::{io::Reader, Asset, AssetLoader, LoadContext};
+use bevy_asset::{Asset, AssetLoader, LoadContext, io::Reader};
 use bevy_reflect::TypePath;
 use std::io::Cursor;
 

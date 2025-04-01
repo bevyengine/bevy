@@ -1,7 +1,7 @@
 extern crate proc_macro;
 
 use alloc::collections::BTreeMap;
-use parking_lot::{lock_api::RwLockReadGuard, MappedRwLockReadGuard, RwLock, RwLockWriteGuard};
+use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockWriteGuard, lock_api::RwLockReadGuard};
 use proc_macro::TokenStream;
 use std::{
     env,

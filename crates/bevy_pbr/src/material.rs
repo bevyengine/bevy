@@ -3,8 +3,8 @@ use crate::material_bind_groups::{
 };
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
-    prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
-    InstanceManager,
+    InstanceManager, prepare_material_meshlet_meshes_main_opaque_pass,
+    queue_material_meshlet_meshes,
 };
 use crate::*;
 use bevy_asset::prelude::AssetChanged;
@@ -25,20 +25,21 @@ use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
     system::{
-        lifetimeless::{SRes, SResMut},
         SystemParamItem,
+        lifetimeless::{SRes, SResMut},
     },
 };
 use bevy_platform_support::collections::hash_map::Entry;
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_platform_support::hash::FixedHasher;
-use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_render::camera::extract_cameras;
 use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
 use bevy_render::render_asset::prepare_assets;
 use bevy_render::renderer::RenderQueue;
 use bevy_render::{
+    Extract,
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     extract_resource::ExtractResource,
     mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
@@ -48,7 +49,6 @@ use bevy_render::{
     renderer::RenderDevice,
     sync_world::MainEntity,
     view::{ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity, ViewVisibility},
-    Extract,
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};

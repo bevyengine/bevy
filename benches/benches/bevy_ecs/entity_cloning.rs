@@ -9,7 +9,7 @@ use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::{component::Component, world::World};
 use bevy_math::Mat4;
 use bevy_reflect::{GetTypeRegistration, Reflect};
-use criterion::{criterion_group, Bencher, Criterion, Throughput};
+use criterion::{Bencher, Criterion, Throughput, criterion_group};
 
 criterion_group!(
     benches,

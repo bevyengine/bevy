@@ -7,7 +7,7 @@ use core::any::TypeId;
 use crate::{
     bundle::Bundle,
     component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
-    entity::{hash_map::EntityHashMap, Entities, Entity, EntityMapper},
+    entity::{Entities, Entity, EntityMapper, hash_map::EntityHashMap},
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     world::World,
@@ -864,7 +864,7 @@ mod tests {
             reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
         };
         use alloc::vec;
-        use bevy_reflect::{std_traits::ReflectDefault, FromType, Reflect, ReflectFromPtr};
+        use bevy_reflect::{FromType, Reflect, ReflectFromPtr, std_traits::ReflectDefault};
 
         #[test]
         fn clone_entity_using_reflect() {
@@ -1042,9 +1042,11 @@ mod tests {
 
             EntityCloner::build(&mut world).clone_entity(e, e_clone);
 
-            assert!(world
-                .get::<A>(e_clone)
-                .is_some_and(|comp| *comp == A { field: 10 }));
+            assert!(
+                world
+                    .get::<A>(e_clone)
+                    .is_some_and(|comp| *comp == A { field: 10 })
+            );
         }
 
         #[test]

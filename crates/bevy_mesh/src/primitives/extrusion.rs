@@ -1,6 +1,6 @@
 use bevy_math::{
-    primitives::{Annulus, Capsule2d, Circle, Ellipse, Extrusion, Primitive2d},
     Vec2, Vec3,
+    primitives::{Annulus, Capsule2d, Circle, Ellipse, Extrusion, Primitive2d},
 };
 
 use super::{MeshBuilder, Meshable};
@@ -207,7 +207,9 @@ where
                         }
                     },
                     _ => {
-                        panic!("Meshes used with Extrusions must have a primitive topology of `PrimitiveTopology::TriangleList`");
+                        panic!(
+                            "Meshes used with Extrusions must have a primitive topology of `PrimitiveTopology::TriangleList`"
+                        );
                     }
                 };
             }

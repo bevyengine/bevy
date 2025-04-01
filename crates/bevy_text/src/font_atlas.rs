@@ -1,5 +1,5 @@
 use bevy_asset::{Assets, Handle};
-use bevy_image::{prelude::*, ImageSampler};
+use bevy_image::{ImageSampler, prelude::*};
 use bevy_math::{IVec2, UVec2};
 use bevy_platform_support::collections::HashMap;
 use bevy_render::{

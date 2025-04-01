@@ -31,8 +31,8 @@ impl NodeId {
 
     /// Compare this [`NodeId`] with another.
     pub const fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        use core::cmp::Ordering::{Equal, Greater, Less};
         use NodeId::{Set, System};
+        use core::cmp::Ordering::{Equal, Greater, Less};
 
         match (self, other) {
             (System(a), System(b)) | (Set(a), Set(b)) => match a.checked_sub(*b) {

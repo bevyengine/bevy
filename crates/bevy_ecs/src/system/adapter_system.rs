@@ -3,7 +3,7 @@ use alloc::{borrow::Cow, vec::Vec};
 use super::{IntoSystem, ReadOnlySystem, System, SystemParamValidationError};
 use crate::{
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemIn},
+    system::{SystemIn, input::SystemInput},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 

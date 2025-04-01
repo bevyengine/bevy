@@ -27,7 +27,7 @@ use bevy_input::InputSystem;
 use bevy_platform_support::collections::HashMap;
 use gilrs::GilrsBuilder;
 use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
-use rumble::{play_gilrs_rumble, RunningRumbleEffects};
+use rumble::{RunningRumbleEffects, play_gilrs_rumble};
 use tracing::error;
 
 #[cfg(target_arch = "wasm32")]

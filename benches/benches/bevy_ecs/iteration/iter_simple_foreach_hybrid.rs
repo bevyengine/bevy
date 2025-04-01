@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use rand::{prelude::SliceRandom, SeedableRng};
+use rand::{SeedableRng, prelude::SliceRandom};
 use rand_chacha::ChaCha8Rng;
 
 #[derive(Component, Copy, Clone)]

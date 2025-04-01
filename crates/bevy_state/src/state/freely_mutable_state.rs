@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::{Commands, IntoSystem, ResMut},
 };
 
-use super::{states::States, take_next_state, transitions::*, NextState, State};
+use super::{NextState, State, states::States, take_next_state, transitions::*};
 
 /// This trait allows a state to be mutated directly using the [`NextState<S>`](crate::state::NextState) resource.
 ///

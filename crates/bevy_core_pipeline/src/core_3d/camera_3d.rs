@@ -3,7 +3,7 @@ use crate::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize, std_traits::ReflectDefault};
 use bevy_render::{
     camera::{Camera, CameraRenderGraph, Exposure, Projection},
     extract_component::ExtractComponent,

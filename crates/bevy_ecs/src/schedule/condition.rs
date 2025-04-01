@@ -1262,7 +1262,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{common_conditions::*, Condition};
+    use super::{Condition, common_conditions::*};
     use crate::query::With;
     use crate::{
         change_detection::ResMut,

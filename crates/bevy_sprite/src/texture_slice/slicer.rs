@@ -1,6 +1,6 @@
 use super::{BorderRect, TextureSlice};
-use bevy_math::{vec2, Rect, Vec2};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_math::{Rect, Vec2, vec2};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 
 /// Slices a texture using the **9-slicing** technique. This allows to reuse an image at various sizes
 /// without needing to prepare multiple assets. The associated texture will be split into nine portions,

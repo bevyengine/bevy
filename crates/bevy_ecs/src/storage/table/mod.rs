@@ -3,7 +3,7 @@ use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
     entity::Entity,
     query::DebugCheckedUnwrap,
-    storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
+    storage::{ImmutableSparseSet, SparseSet, blob_vec::BlobVec},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform_support::collections::HashMap;

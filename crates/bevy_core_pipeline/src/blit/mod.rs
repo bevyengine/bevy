@@ -1,13 +1,13 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    RenderApp,
     render_resource::{
         binding_types::{sampler, texture_2d},
         *,
     },
     renderer::RenderDevice,
-    RenderApp,
 };
 
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;

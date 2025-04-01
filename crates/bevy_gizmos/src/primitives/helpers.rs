@@ -1,6 +1,6 @@
 use core::f32::consts::TAU;
 
-use bevy_math::{ops, Vec2};
+use bevy_math::{Vec2, ops};
 
 /// Calculates the `nth` coordinate of a circle.
 ///

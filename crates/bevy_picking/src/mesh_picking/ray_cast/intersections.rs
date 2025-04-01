@@ -1,4 +1,4 @@
-use bevy_math::{bounding::Aabb3d, Dir3, Mat4, Ray3d, Vec3, Vec3A};
+use bevy_math::{Dir3, Mat4, Ray3d, Vec3, Vec3A, bounding::Aabb3d};
 use bevy_mesh::{Indices, Mesh, PrimitiveTopology};
 use bevy_reflect::Reflect;
 
@@ -279,11 +279,7 @@ pub fn ray_aabb_intersection_3d(ray: Ray3d, aabb: &Aabb3d, model_to_world: &Mat4
     let tmin = tmin.max_element().max(0.0);
     let tmax = tmax.min_element();
 
-    if tmin <= tmax {
-        Some(tmin)
-    } else {
-        None
-    }
+    if tmin <= tmax { Some(tmin) } else { None }
 }
 
 #[cfg(test)]

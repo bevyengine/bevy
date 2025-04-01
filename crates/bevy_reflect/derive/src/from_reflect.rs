@@ -1,15 +1,15 @@
 use crate::{
+    ReflectMeta, ReflectStruct,
     container_attributes::REFLECT_DEFAULT,
     derive_data::ReflectEnum,
     enum_utility::{EnumVariantOutputData, FromReflectVariantBuilder, VariantBuilder},
     field_attributes::DefaultBehavior,
     ident::ident_or_index,
     where_clause_options::WhereClauseOptions,
-    ReflectMeta, ReflectStruct,
 };
 use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};
 use proc_macro2::Span;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
 
 /// Implements `FromReflect` for the given struct

@@ -28,9 +28,9 @@ pub mod prelude {
     };
     #[doc(hidden)]
     pub use crate::{
+        ColorMaterial, MeshMaterial2d, ScalingMode,
         sprite::{Sprite, SpriteImageMode},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, MeshMaterial2d, ScalingMode,
     };
 }
 
@@ -42,18 +42,18 @@ pub use sprite::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, AssetEvents, Assets, Handle};
+use bevy_asset::{AssetEvents, Assets, Handle, load_internal_asset, weak_handle};
 use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
-use bevy_image::{prelude::*, TextureAtlasPlugin};
+use bevy_image::{TextureAtlasPlugin, prelude::*};
 use bevy_render::{
+    ExtractSchedule, Render, RenderApp, RenderSet,
     batching::sort_binned_render_phase,
     mesh::{Mesh, Mesh2d, MeshAabb},
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
     view::{NoFrustumCulling, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
 /// Adds support for 2D sprite rendering.
@@ -230,21 +230,23 @@ mod test {
         let entity = app.world_mut().spawn(Sprite::from_image(image_handle)).id();
 
         // Verify that the entity does not have an AABB
-        assert!(!app
-            .world()
-            .get_entity(entity)
-            .expect("Could not find entity")
-            .contains::<Aabb>());
+        assert!(
+            !app.world()
+                .get_entity(entity)
+                .expect("Could not find entity")
+                .contains::<Aabb>()
+        );
 
         // Run system
         app.update();
 
         // Verify the AABB exists
-        assert!(app
-            .world()
-            .get_entity(entity)
-            .expect("Could not find entity")
-            .contains::<Aabb>());
+        assert!(
+            app.world()
+                .get_entity(entity)
+                .expect("Could not find entity")
+                .contains::<Aabb>()
+        );
     }
 
     #[test]

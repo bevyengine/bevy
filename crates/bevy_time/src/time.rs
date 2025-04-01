@@ -3,7 +3,7 @@ use core::time::Duration;
 #[cfg(feature = "bevy_reflect")]
 use {
     bevy_ecs::reflect::ReflectResource,
-    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+    bevy_reflect::{Reflect, std_traits::ReflectDefault},
 };
 
 /// A generic clock resource that tracks how much it has advanced since its

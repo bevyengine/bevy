@@ -3,8 +3,8 @@ use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, token, token::Comma, Attribute, Data,
-    DataStruct, DeriveInput, Field, Index, Meta,
+    Attribute, Data, DataStruct, DeriveInput, Field, Index, Meta, parse_macro_input, parse_quote,
+    punctuated::Punctuated, token, token::Comma,
 };
 
 use crate::{

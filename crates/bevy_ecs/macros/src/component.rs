@@ -1,16 +1,15 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{format_ident, quote, ToTokens};
+use quote::{ToTokens, format_ident, quote};
 use std::collections::HashSet;
 use syn::{
-    braced, parenthesized,
+    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprPath, Field, Fields, Ident,
+    LitStr, Member, Path, Result, Token, Type, Visibility, braced, parenthesized,
     parse::Parse,
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Brace, Comma, Paren},
-    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprPath, Field, Fields, Ident,
-    LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
 pub const EVENT: &str = "event";
@@ -777,7 +776,10 @@ fn derive_relationship_target(
     let field = relationship_field(fields, "RelationshipTarget", struct_token.span())?;
 
     if field.vis != Visibility::Inherited {
-        return Err(syn::Error::new(field.span(), "The collection in RelationshipTarget must be private to prevent users from directly mutating it, which could invalidate the correctness of relationships."));
+        return Err(syn::Error::new(
+            field.span(),
+            "The collection in RelationshipTarget must be private to prevent users from directly mutating it, which could invalidate the correctness of relationships.",
+        ));
     }
     let collection = &field.ty;
     let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);

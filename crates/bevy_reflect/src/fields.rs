@@ -1,7 +1,7 @@
 use crate::{
-    attributes::{impl_custom_attribute_methods, CustomAttributes},
-    type_info::impl_type_methods,
     MaybeTyped, PartialReflect, Type, TypeInfo, TypePath,
+    attributes::{CustomAttributes, impl_custom_attribute_methods},
+    type_info::impl_type_methods,
 };
 use alloc::borrow::Cow;
 use bevy_platform_support::sync::Arc;

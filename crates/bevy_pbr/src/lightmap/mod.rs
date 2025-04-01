@@ -32,7 +32,7 @@
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
+use bevy_asset::{AssetId, Handle, load_internal_asset, weak_handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -46,17 +46,17 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_image::Image;
-use bevy_math::{uvec2, vec4, Rect, UVec2};
+use bevy_math::{Rect, UVec2, uvec2, vec4};
 use bevy_platform_support::collections::HashSet;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
+    Extract, ExtractSchedule, RenderApp,
     render_asset::RenderAssets,
     render_resource::{Sampler, Shader, TextureView, WgpuSampler, WgpuTextureView},
     renderer::RenderAdapter,
     sync_world::MainEntity,
     texture::{FallbackImage, GpuImage},
     view::ViewVisibility,
-    Extract, ExtractSchedule, RenderApp,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
 use bevy_utils::default;
@@ -64,7 +64,7 @@ use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
 use tracing::error;
 
-use crate::{binding_arrays_are_usable, ExtractMeshesSet};
+use crate::{ExtractMeshesSet, binding_arrays_are_usable};
 
 /// The ID of the lightmap shader.
 pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =

@@ -1,8 +1,8 @@
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    attributes::{impl_custom_attribute_methods, CustomAttributes},
-    type_info::impl_type_methods,
     DynamicEnum, Generics, PartialReflect, Type, TypePath, VariantInfo, VariantType,
+    attributes::{CustomAttributes, impl_custom_attribute_methods},
+    type_info::impl_type_methods,
 };
 use alloc::{boxed::Box, format, string::String};
 use bevy_platform_support::collections::HashMap;

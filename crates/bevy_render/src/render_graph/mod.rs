@@ -24,7 +24,9 @@ pub enum RenderGraphError {
     InvalidInputNodeSlot(SlotLabel),
     #[error("node does not match the given type")]
     WrongNodeType,
-    #[error("attempted to connect output slot {output_slot} from node {output_node:?} to incompatible input slot {input_slot} from node {input_node:?}")]
+    #[error(
+        "attempted to connect output slot {output_slot} from node {output_node:?} to incompatible input slot {input_slot} from node {input_node:?}"
+    )]
     MismatchedNodeSlots {
         output_node: InternedRenderLabel,
         output_slot: usize,

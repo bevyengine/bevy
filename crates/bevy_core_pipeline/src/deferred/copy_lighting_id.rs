@@ -3,16 +3,16 @@ use crate::{
     prepass::{DeferredPrepass, ViewPrepassTextures},
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_render::{
+    Render, RenderApp, RenderSet,
     camera::ExtractedCamera,
     render_resource::{binding_types::texture_2d, *},
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    Render, RenderApp, RenderSet,
 };
 
 use bevy_ecs::query::QueryItem;

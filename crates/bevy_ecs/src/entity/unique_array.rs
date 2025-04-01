@@ -21,8 +21,8 @@ use alloc::{
 use bevy_platform_support::sync::Arc;
 
 use super::{
-    unique_slice::{self, UniqueEntitySlice},
     Entity, EntityEquivalent, UniqueEntityIter,
+    unique_slice::{self, UniqueEntitySlice},
 };
 
 /// An array that contains only unique entities.

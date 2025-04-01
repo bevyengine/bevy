@@ -13,7 +13,7 @@ pub use relationship_source_collection::*;
 use crate::{
     component::{Component, HookContext, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
-    error::{ignore, CommandWithEntity, HandleError},
+    error::{CommandWithEntity, HandleError, ignore},
     system::entity_command::{self},
     world::{DeferredWorld, EntityWorldMut},
 };
@@ -104,7 +104,9 @@ pub trait Relationship: Component + Sized {
         if target_entity == entity {
             warn!(
                 "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
-                caller.map(|location|format!("{location}: ")).unwrap_or_default(),
+                caller
+                    .map(|location| format!("{location}: "))
+                    .unwrap_or_default(),
                 core::any::type_name::<Self>(),
                 core::any::type_name::<Self>()
             );
@@ -124,7 +126,9 @@ pub trait Relationship: Component + Sized {
         } else {
             warn!(
                 "{}The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
-                caller.map(|location|format!("{location}: ")).unwrap_or_default(),
+                caller
+                    .map(|location| format!("{location}: "))
+                    .unwrap_or_default(),
                 core::any::type_name::<Self>(),
                 core::any::type_name::<Self>()
             );

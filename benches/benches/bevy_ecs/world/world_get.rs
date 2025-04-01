@@ -8,7 +8,7 @@ use bevy_ecs::{
     world::World,
 };
 use criterion::Criterion;
-use rand::{prelude::SliceRandom, SeedableRng};
+use rand::{SeedableRng, prelude::SliceRandom};
 use rand_chacha::ChaCha8Rng;
 
 #[derive(Component, Default)]

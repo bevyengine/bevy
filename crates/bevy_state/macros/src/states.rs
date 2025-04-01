@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Pat, Path, Result};
+use syn::{DeriveInput, Pat, Path, Result, parse_macro_input, spanned::Spanned};
 
 use crate::bevy_state_path;
 

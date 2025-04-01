@@ -4,11 +4,11 @@ use variadics_please::all_tuples;
 use crate::{
     error::Result,
     schedule::{
+        Chain,
         auto_insert_apply_deferred::IgnoreDeferred,
         condition::{BoxedCondition, Condition},
         graph::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
-        Chain,
     },
     system::{BoxedSystem, InfallibleSystemWrapper, IntoSystem, ScheduleSystem, System},
 };

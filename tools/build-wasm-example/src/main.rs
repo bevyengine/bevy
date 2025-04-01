@@ -3,7 +3,7 @@
 use std::{fs::File, io::Write};
 
 use clap::{Parser, ValueEnum};
-use xshell::{cmd, Shell};
+use xshell::{Shell, cmd};
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
 enum WebApi {

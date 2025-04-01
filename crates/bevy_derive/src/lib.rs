@@ -12,7 +12,7 @@ mod bevy_main;
 mod derefs;
 mod enum_variant_meta;
 
-use bevy_macro_utils::{derive_label, BevyManifest};
+use bevy_macro_utils::{BevyManifest, derive_label};
 use proc_macro::TokenStream;
 use quote::format_ident;
 

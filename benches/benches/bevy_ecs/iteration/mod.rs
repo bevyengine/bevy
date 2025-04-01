@@ -20,7 +20,7 @@ mod iter_simple_wide_sparse_set;
 mod par_iter_simple;
 mod par_iter_simple_foreach_hybrid;
 
-use criterion::{criterion_group, Criterion};
+use criterion::{Criterion, criterion_group};
 use heavy_compute::*;
 
 criterion_group!(

@@ -7,7 +7,7 @@ use super::ktx2::*;
 #[cfg(not(feature = "bevy_reflect"))]
 use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 
 use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
@@ -859,7 +859,9 @@ impl Image {
                 0,
             );
         } else {
-            warn!("Resized an uninitialized image. Directly modify image.texture_descriptor.size instead");
+            warn!(
+                "Resized an uninitialized image. Directly modify image.texture_descriptor.size instead"
+            );
         }
     }
 

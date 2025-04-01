@@ -1,10 +1,10 @@
 use crate::{
-    serde::{
-        de::{error_utils::make_custom_error, registration_utils::try_get_registration},
-        SerializationData, TypedReflectDeserializer,
-    },
     DynamicTuple, TupleInfo, TupleStructInfo, TupleVariantInfo, TypeRegistration, TypeRegistry,
     UnnamedField,
+    serde::{
+        SerializationData, TypedReflectDeserializer,
+        de::{error_utils::make_custom_error, registration_utils::try_get_registration},
+    },
 };
 use alloc::string::ToString;
 use serde::de::{Error, SeqAccess};

@@ -178,7 +178,7 @@ pub(crate) use impl_custom_attribute_methods;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{type_info::Typed, TypeInfo, VariantInfo};
+    use crate::{TypeInfo, VariantInfo, type_info::Typed};
     use alloc::{format, string::String};
     use core::ops::RangeInclusive;
 
@@ -204,9 +204,11 @@ mod tests {
         let attributes = CustomAttributes::default().with_attribute(String::from("Hello, World!"));
 
         let value = attributes.get_by_id(TypeId::of::<String>()).unwrap();
-        assert!(value
-            .reflect_partial_eq(&String::from("Hello, World!"))
-            .unwrap());
+        assert!(
+            value
+                .reflect_partial_eq(&String::from("Hello, World!"))
+                .unwrap()
+        );
     }
 
     #[test]

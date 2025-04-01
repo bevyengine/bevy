@@ -8,26 +8,26 @@
 use core::array;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    prelude::{resource_exists, Without},
+    prelude::{Without, resource_exists},
     query::{Or, QueryState, With},
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
-    system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
+    system::{Commands, Local, Query, Res, ResMut, lifetimeless::Read},
     world::{FromWorld, World},
 };
-use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
+use bevy_math::{UVec2, Vec4Swizzles as _, uvec2};
 use bevy_render::{
+    Render, RenderApp, RenderSet,
     experimental::occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
     },
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::{
-        binding_types::{sampler, texture_2d, texture_2d_multisampled, texture_storage_2d},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedComputePipelineId, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor,
         DownlevelFlags, Extent3d, IntoBinding, PipelineCache, PushConstantRange, Sampler,
@@ -35,11 +35,11 @@ use bevy_render::{
         SpecializedComputePipelines, StorageTextureAccess, TextureAspect, TextureDescriptor,
         TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
         TextureViewDescriptor, TextureViewDimension,
+        binding_types::{sampler, texture_2d, texture_2d_multisampled, texture_storage_2d},
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice},
     texture::TextureCache,
     view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture},
-    Render, RenderApp, RenderSet,
 };
 use bitflags::bitflags;
 

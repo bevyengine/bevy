@@ -5,7 +5,7 @@
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
-use bevy_math::{ops, Isometry2d, Isometry3d, Quat, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles};
+use bevy_math::{Isometry2d, Isometry3d, Quat, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles, ops};
 
 /// A builder returned by [`GizmoBuffer::grid_3d`]
 pub struct GridBuilder3d<'a, Config, Clear>
@@ -362,11 +362,7 @@ fn draw_grid<Config, Clear>(
 
     #[inline]
     fn or_zero(cond: bool, val: Vec3) -> Vec3 {
-        if cond {
-            val
-        } else {
-            Vec3::ZERO
-        }
+        if cond { val } else { Vec3::ZERO }
     }
 
     // Offset between two adjacent grid cells along the x/y-axis and accounting for skew.

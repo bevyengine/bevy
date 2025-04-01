@@ -7,7 +7,7 @@ use crate::{
     query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
     storage::{SparseSetIndex, TableId},
     system::Query,
-    world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
+    world::{World, WorldId, unsafe_world_cell::UnsafeWorldCell},
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
@@ -594,7 +594,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         #[track_caller]
         #[cold]
         fn panic_mismatched(this: WorldId, other: WorldId) -> ! {
-            panic!("Encountered a mismatched World. This QueryState was created from {this:?}, but a method was called using {other:?}.");
+            panic!(
+                "Encountered a mismatched World. This QueryState was created from {this:?}, but a method was called using {other:?}."
+            );
         }
 
         if self.world_id != world_id {
@@ -777,7 +779,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         assert!(
             component_access.is_subset(self_access),
             "Transmuted state for {} attempts to access terms that are not allowed by original state {}.",
-            core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>()
+            core::any::type_name::<(NewD, NewF)>(),
+            core::any::type_name::<(D, F)>()
         );
 
         QueryState {
@@ -892,11 +895,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         assert!(
             component_access.is_subset(&joined_component_access),
             "Joined state for {} attempts to access terms that are not allowed by state {} joined with {}.",
-            core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>(), core::any::type_name::<(OtherD, OtherF)>()
+            core::any::type_name::<(NewD, NewF)>(),
+            core::any::type_name::<(D, F)>(),
+            core::any::type_name::<(OtherD, OtherF)>()
         );
 
         if self.archetype_generation != other.archetype_generation {
-            warn!("You have tried to join queries with different archetype_generations. This could lead to unpredictable results.");
+            warn!(
+                "You have tried to join queries with different archetype_generations. This could lead to unpredictable results."
+            );
         }
 
         // the join is dense of both the queries were dense.

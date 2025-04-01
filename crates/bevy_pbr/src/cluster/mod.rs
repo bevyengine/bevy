@@ -12,10 +12,11 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
     world::{FromWorld, World},
 };
-use bevy_math::{uvec4, AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4};
+use bevy_math::{AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4, uvec4};
 use bevy_platform_support::collections::HashSet;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
+    Extract,
     camera::Camera,
     render_resource::{
         BindingResource, BufferBindingType, ShaderSize as _, ShaderType, StorageBuffer,
@@ -23,12 +24,11 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
     sync_world::RenderEntity,
-    Extract,
 };
 use tracing::warn;
 
-pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
 use crate::MeshPipeline;
+pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
 
 pub(crate) mod assign;
 

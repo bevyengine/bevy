@@ -2,10 +2,10 @@ use bevy_transform::components::Transform;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
-    face_area_normal, face_normal, generate_tangents_for_mesh, scale_normal, FourIterators,
-    GenerateTangentsError, Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute,
-    MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
+    FourIterators, GenerateTangentsError, Indices, MeshAttributeData, MeshTrianglesError,
+    MeshVertexAttribute, MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
     MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
+    face_area_normal, face_normal, generate_tangents_for_mesh, scale_normal,
 };
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle, RenderAssetUsages};
@@ -443,8 +443,10 @@ impl Mesh {
                         .map(|data| data.attribute.name.to_string())
                         .unwrap_or_else(|| format!("{attribute_id:?}"));
 
-                    warn!("{name} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh, \
-                        all attributes will be truncated to match the smallest.");
+                    warn!(
+                        "{name} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh, \
+                        all attributes will be truncated to match the smallest."
+                    );
                     vertex_count = Some(core::cmp::min(previous_vertex_count, attribute_len));
                 }
             } else {
@@ -850,7 +852,7 @@ impl Mesh {
                             other_attribute: other
                                 .attribute_data(attribute.id)
                                 .map(|data| data.attribute),
-                        })
+                        });
                     }
                 }
             }
@@ -1247,11 +1249,11 @@ pub struct MergeMeshError {
 #[cfg(test)]
 mod tests {
     use super::Mesh;
-    use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
     use crate::PrimitiveTopology;
+    use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
     use bevy_asset::RenderAssetUsages;
-    use bevy_math::primitives::Triangle3d;
     use bevy_math::Vec3;
+    use bevy_math::primitives::Triangle3d;
     use bevy_transform::components::Transform;
 
     #[test]

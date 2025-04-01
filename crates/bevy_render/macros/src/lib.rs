@@ -5,10 +5,10 @@ mod as_bind_group;
 mod extract_component;
 mod extract_resource;
 
-use bevy_macro_utils::{derive_label, BevyManifest};
+use bevy_macro_utils::{BevyManifest, derive_label};
 use proc_macro::TokenStream;
 use quote::format_ident;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
 pub(crate) fn bevy_render_path() -> syn::Path {
     BevyManifest::shared().get_path("bevy_render")

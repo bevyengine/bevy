@@ -21,7 +21,7 @@ use bevy_log::error;
 use bevy_log::{trace, warn};
 #[cfg(feature = "custom_cursor")]
 use bevy_math::URect;
-use bevy_math::{ivec2, DVec2, Vec2};
+use bevy_math::{DVec2, Vec2, ivec2};
 #[cfg(feature = "custom_cursor")]
 use bevy_platform_support::collections::HashMap;
 use bevy_platform_support::time::Instant;
@@ -49,11 +49,11 @@ use bevy_window::{
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
 use crate::{
-    accessibility::AccessKitAdapters,
-    converters, create_windows,
-    system::{create_monitors, CachedWindow, WinitWindowPressedKeys},
     AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper,
     RawWinitWindowEvent, UpdateMode, WinitSettings, WinitWindows,
+    accessibility::AccessKitAdapters,
+    converters, create_windows,
+    system::{CachedWindow, WinitWindowPressedKeys, create_monitors},
 };
 
 /// Persistent state that is used to run the [`App`] according to the current

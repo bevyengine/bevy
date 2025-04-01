@@ -9,7 +9,7 @@ pub use bevy_gizmos_macros::GizmoConfigGroup;
 use {crate::GizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
 use bevy_ecs::{reflect::ReflectResource, resource::Resource};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_reflect::{Reflect, TypePath, std_traits::ReflectDefault};
 use bevy_utils::TypeIdMap;
 use core::{
     any::TypeId,
@@ -115,7 +115,10 @@ impl GizmoConfigStore {
     /// Returns [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`GizmoConfigGroup`] `T`
     pub fn config<T: GizmoConfigGroup>(&self) -> (&GizmoConfig, &T) {
         let Some((config, ext)) = self.get_config_dyn(&TypeId::of::<T>()) else {
-            panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", T::type_path());
+            panic!(
+                "Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?",
+                T::type_path()
+            );
         };
         // hash map invariant guarantees that &dyn Reflect is of correct type T
         let ext = ext.as_any().downcast_ref().unwrap();
@@ -134,7 +137,10 @@ impl GizmoConfigStore {
     /// Returns mutable [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`GizmoConfigGroup`] `T`
     pub fn config_mut<T: GizmoConfigGroup>(&mut self) -> (&mut GizmoConfig, &mut T) {
         let Some((config, ext)) = self.get_config_mut_dyn(&TypeId::of::<T>()) else {
-            panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", T::type_path());
+            panic!(
+                "Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?",
+                T::type_path()
+            );
         };
         // hash map invariant guarantees that &dyn Reflect is of correct type T
         let ext = ext.as_any_mut().downcast_mut().unwrap();

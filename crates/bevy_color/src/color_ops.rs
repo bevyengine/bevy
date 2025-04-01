@@ -1,4 +1,4 @@
-use bevy_math::{ops, Vec3, Vec4};
+use bevy_math::{Vec3, Vec4, ops};
 
 /// Methods for changing the luminance of a color. Note that these methods are not
 /// guaranteed to produce consistent results across color spaces,
@@ -155,7 +155,7 @@ mod tests {
     use core::fmt::Debug;
 
     use super::*;
-    use crate::{testing::assert_approx_eq, Hsla};
+    use crate::{Hsla, testing::assert_approx_eq};
 
     #[test]
     fn test_rotate_hue() {

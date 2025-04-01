@@ -75,10 +75,10 @@ use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     change_detection::MaybeLocation,
     identifier::{
+        Identifier,
         error::IdentifierError,
         kinds::IdKind,
-        masks::{IdentifierMask, HIGH_MASK},
-        Identifier,
+        masks::{HIGH_MASK, IdentifierMask},
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };

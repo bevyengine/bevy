@@ -2,7 +2,7 @@
 
 use core::array;
 
-use bevy_asset::{weak_handle, AssetId, Handle};
+use bevy_asset::{AssetId, Handle, weak_handle};
 use bevy_color::ColorToComponents as _;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
@@ -14,21 +14,19 @@ use bevy_ecs::{
     entity::Entity,
     query::{Has, QueryItem, With},
     resource::Resource,
-    system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
+    system::{Commands, Local, Query, Res, ResMut, lifetimeless::Read},
     world::{FromWorld, World},
 };
 use bevy_image::{BevyDefault, Image};
-use bevy_math::{vec4, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _};
+use bevy_math::{Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _, vec4};
 use bevy_render::{
+    Extract,
     mesh::{
-        allocator::MeshAllocator, Mesh, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
+        Mesh, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo, allocator::MeshAllocator,
     },
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        binding_types::{
-            sampler, texture_3d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
-        },
         BindGroupLayout, BindGroupLayoutEntries, BindingResource, BlendComponent, BlendFactor,
         BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
         DynamicBindGroupEntries, DynamicUniformBuffer, Face, FragmentState, LoadOp,
@@ -36,12 +34,14 @@ use bevy_render::{
         RenderPassDescriptor, RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages,
         ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp, TextureFormat,
         TextureSampleType, TextureUsages, VertexState,
+        binding_types::{
+            sampler, texture_3d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
+        },
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::GpuImage,
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
-    Extract,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;

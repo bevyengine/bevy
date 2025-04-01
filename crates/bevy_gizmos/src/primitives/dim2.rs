@@ -6,12 +6,12 @@ use super::helpers::*;
 
 use bevy_color::Color;
 use bevy_math::{
+    Dir2, Isometry2d, Rot2, Vec2,
     primitives::{
         Annulus, Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector,
         CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle,
         RegularPolygon, Rhombus, Segment2d, Triangle2d,
     },
-    Dir2, Isometry2d, Rot2, Vec2,
 };
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
@@ -389,7 +389,14 @@ where
         }
 
         // transform points from the reference unit square to capsule "rectangle"
-        let [top_left, top_right, bottom_left, bottom_right, top_center, bottom_center] = [
+        let [
+            top_left,
+            top_right,
+            bottom_left,
+            bottom_right,
+            top_center,
+            bottom_center,
+        ] = [
             [-1.0, 1.0],
             [1.0, 1.0],
             [-1.0, -1.0],

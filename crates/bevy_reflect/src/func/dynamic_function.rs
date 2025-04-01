@@ -1,14 +1,14 @@
 use crate::{
     __macro_exports::RegisterForReflection,
+    ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, TypePath,
     func::{
+        DynamicFunctionMut, Function, FunctionOverloadError, FunctionResult, IntoFunction,
+        IntoFunctionMut,
         args::{ArgCount, ArgList},
         dynamic_function_internal::DynamicFunctionInternal,
         info::FunctionInfo,
-        DynamicFunctionMut, Function, FunctionOverloadError, FunctionResult, IntoFunction,
-        IntoFunctionMut,
     },
-    ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo, TypePath,
 };
 use alloc::{borrow::Cow, boxed::Box};
 use bevy_platform_support::sync::Arc;
@@ -476,9 +476,9 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunction<'env> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Type;
     use crate::func::signature::ArgumentSignature;
     use crate::func::{FunctionError, IntoReturn, SignatureInfo};
-    use crate::Type;
     use alloc::{format, string::String, vec, vec::Vec};
     use bevy_platform_support::collections::HashSet;
     use core::ops::Add;
@@ -776,7 +776,10 @@ mod tests {
 
         let function = greet.into_function();
         let debug = format!("{:?}", function);
-        assert_eq!(debug, "DynamicFunction(fn bevy_reflect::func::dynamic_function::tests::should_debug_dynamic_function::greet(_: &alloc::string::String) -> alloc::string::String)");
+        assert_eq!(
+            debug,
+            "DynamicFunction(fn bevy_reflect::func::dynamic_function::tests::should_debug_dynamic_function::greet(_: &alloc::string::String) -> alloc::string::String)"
+        );
     }
 
     #[test]

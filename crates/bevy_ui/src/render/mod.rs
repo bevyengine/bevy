@@ -13,7 +13,7 @@ use crate::{
     ComputedNodeTarget, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, AssetEvent, AssetId, Assets, Handle};
+use bevy_asset::{AssetEvent, AssetId, Assets, Handle, load_internal_asset, weak_handle};
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
@@ -29,21 +29,21 @@ use bevy_render::sync_world::MainEntity;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::view::RetainedViewEntity;
 use bevy_render::{
+    Extract, RenderApp, RenderSet,
     camera::Camera,
     render_asset::RenderAssets,
     render_graph::{Node as RenderGraphNode, RenderGraph},
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
+    render_phase::{AddRenderCommand, DrawFunctions, sort_phase_system},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     view::{ExtractedView, ViewUniforms},
-    Extract, RenderApp, RenderSet,
 };
 use bevy_render::{
+    ExtractSchedule, Render,
     render_phase::{PhaseItem, PhaseItemExtraIndex},
     sync_world::{RenderEntity, TemporaryRenderEntity},
     texture::GpuImage,
     view::InheritedVisibility,
-    ExtractSchedule, Render,
 };
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
 #[cfg(feature = "bevy_ui_debug")]

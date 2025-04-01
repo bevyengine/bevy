@@ -1,4 +1,4 @@
-use crate::entity::{hash_set::EntityHashSet, Entity};
+use crate::entity::{Entity, hash_set::EntityHashSet};
 use alloc::vec::Vec;
 use smallvec::SmallVec;
 

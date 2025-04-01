@@ -16,7 +16,7 @@ use bevy::{
     core_pipeline::core_3d::graph::{Core3d, Node3d},
     ecs::{
         query::QueryItem,
-        system::{lifetimeless::SRes, SystemParamItem},
+        system::{SystemParamItem, lifetimeless::SRes},
     },
     math::FloatOrd,
     pbr::{
@@ -26,24 +26,25 @@ use bevy::{
     platform_support::collections::HashSet,
     prelude::*,
     render::{
+        Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
         batching::{
-            gpu_preprocessing::{
-                batch_and_prepare_sorted_render_phase, IndirectParametersCpuMetadata,
-                UntypedPhaseIndirectParametersBuffers,
-            },
             GetBatchData, GetFullBatchData,
+            gpu_preprocessing::{
+                IndirectParametersCpuMetadata, UntypedPhaseIndirectParametersBuffers,
+                batch_and_prepare_sorted_render_phase,
+            },
         },
         camera::ExtractedCamera,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::{allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh},
+        mesh::{MeshVertexBufferLayoutRef, RenderMesh, allocator::MeshAllocator},
         render_asset::RenderAssets,
         render_graph::{
             NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
         },
         render_phase::{
-            sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
-            DrawFunctions, PhaseItem, PhaseItemExtraIndex, SetItemPipeline, SortedPhaseItem,
-            SortedRenderPhasePlugin, ViewSortedRenderPhases,
+            AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions,
+            PhaseItem, PhaseItemExtraIndex, SetItemPipeline, SortedPhaseItem,
+            SortedRenderPhasePlugin, ViewSortedRenderPhases, sort_phase_system,
         },
         render_resource::{
             CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
@@ -54,7 +55,6 @@ use bevy::{
         renderer::RenderContext,
         sync_world::MainEntity,
         view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
-        Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
     },
 };
 use nonmax::NonMaxU32;

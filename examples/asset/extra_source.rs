@@ -3,8 +3,8 @@
 
 use bevy::{
     asset::{
-        io::{AssetSourceBuilder, AssetSourceId},
         AssetPath,
+        io::{AssetSourceBuilder, AssetSourceId},
     },
     prelude::*,
 };

@@ -3,7 +3,7 @@
 
 use bevy_ecs::world::World;
 
-use crate::{meta::Settings, Asset, AssetPath, AssetServer, Assets, Handle};
+use crate::{Asset, AssetPath, AssetServer, Assets, Handle, meta::Settings};
 
 /// An extension trait for methods for working with assets directly from a [`World`].
 pub trait DirectAssetAccessExt {

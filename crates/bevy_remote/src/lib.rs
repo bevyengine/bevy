@@ -365,7 +365,7 @@
 //! [fully-qualified type name]: bevy_reflect::TypePath::type_path
 
 use async_channel::{Receiver, Sender};
-use bevy_app::{prelude::*, MainScheduleOrder};
+use bevy_app::{MainScheduleOrder, prelude::*};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,

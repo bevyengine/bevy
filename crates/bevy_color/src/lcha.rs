@@ -2,7 +2,7 @@ use crate::{
     Alpha, ColorToComponents, Gray, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor,
     Xyza,
 };
-use bevy_math::{ops, Vec3, Vec4};
+use bevy_math::{Vec3, Vec4, ops};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -283,11 +283,7 @@ impl From<Laba> for Lcha {
         let h = {
             let h = ops::atan2(b.to_radians(), a.to_radians()).to_degrees();
 
-            if h < 0.0 {
-                h + 360.0
-            } else {
-                h
-            }
+            if h < 0.0 { h + 360.0 } else { h }
         };
 
         let chroma = c.clamp(0.0, 1.5);

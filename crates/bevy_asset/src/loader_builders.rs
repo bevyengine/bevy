@@ -2,10 +2,10 @@
 //! [`LoadContext::loader`].
 
 use crate::{
-    io::Reader,
-    meta::{meta_transform_settings, AssetMetaDyn, MetaTransform, Settings},
     Asset, AssetLoadError, AssetPath, ErasedAssetLoader, ErasedLoadedAsset, Handle, LoadContext,
     LoadDirectError, LoadedAsset, LoadedUntypedAsset, UntypedHandle,
+    io::Reader,
+    meta::{AssetMetaDyn, MetaTransform, Settings, meta_transform_settings},
 };
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc};
 use core::any::TypeId;

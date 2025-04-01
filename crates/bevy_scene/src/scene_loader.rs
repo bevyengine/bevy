@@ -8,8 +8,8 @@ use thiserror::Error;
 
 #[cfg(feature = "serialize")]
 use {
-    crate::{serde::SceneDeserializer, DynamicScene},
-    bevy_asset::{io::Reader, AssetLoader, LoadContext},
+    crate::{DynamicScene, serde::SceneDeserializer},
+    bevy_asset::{AssetLoader, LoadContext, io::Reader},
     serde::de::DeserializeSeed,
 };
 

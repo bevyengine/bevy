@@ -1,6 +1,6 @@
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::system::SystemParamItem;
-use bevy_reflect::{impl_type_path, Reflect};
+use bevy_reflect::{Reflect, impl_type_path};
 use bevy_render::{
     alpha::AlphaMode,
     mesh::MeshVertexBufferLayoutRef,

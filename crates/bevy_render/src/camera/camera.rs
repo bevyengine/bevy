@@ -4,6 +4,7 @@
 )]
 use super::{ClearColorConfig, Projection};
 use crate::{
+    Extract,
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
     primitives::Frustum,
@@ -16,7 +17,6 @@ use crate::{
         ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing, RenderLayers,
         RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset, Visibility, VisibleEntities,
     },
-    Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -33,7 +33,7 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 use bevy_image::Image;
-use bevy_math::{ops, vec2, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3, ops, vec2};
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
@@ -376,7 +376,12 @@ pub struct Camera {
 
 fn warn_on_no_render_graph(world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
     if !world.entity(entity).contains::<CameraRenderGraph>() {
-        warn!("{}Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Consider adding a `Camera2d` or `Camera3d` component, or manually adding a `CameraRenderGraph` component if you need a custom render graph.", caller.map(|location|format!("{location}: ")).unwrap_or_default());
+        warn!(
+            "{}Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Consider adding a `Camera2d` or `Camera3d` component, or manually adding a `CameraRenderGraph` component if you need a custom render graph.",
+            caller
+                .map(|location| format!("{location}: "))
+                .unwrap_or_default()
+        );
     }
 }
 

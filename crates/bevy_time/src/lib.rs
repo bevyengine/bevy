@@ -36,9 +36,9 @@ pub mod prelude {
     pub use crate::{Fixed, Real, Time, Timer, TimerMode, Virtual};
 }
 
-use bevy_app::{prelude::*, RunFixedMainLoop};
+use bevy_app::{RunFixedMainLoop, prelude::*};
 use bevy_ecs::{
-    event::{event_update_system, signal_event_update_system, EventRegistry, ShouldUpdateEvents},
+    event::{EventRegistry, ShouldUpdateEvents, event_update_system, signal_event_update_system},
     prelude::*,
 };
 use bevy_platform_support::time::Instant;
@@ -153,7 +153,9 @@ pub fn time_system(
         }
         Some(Err(_)) => {
             if *has_received_time {
-                log::warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
+                log::warn!(
+                    "time_system did not receive the time from the render world! Calculations depending on the time may be incorrect."
+                );
             }
             None
         }
@@ -357,7 +359,9 @@ mod tests {
             let event_registry = app.world().resource::<EventRegistry>();
             let should_update = event_registry.should_update;
 
-            println!("Frame {frame}, {fixed_updates_seen} fixed updates seen. Should update: {should_update:?}");
+            println!(
+                "Frame {frame}, {fixed_updates_seen} fixed updates seen. Should update: {should_update:?}"
+            );
             println!("Total events: {n_total_events} | Current events: {n_current_events}",);
 
             match frame {

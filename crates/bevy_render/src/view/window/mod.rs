@@ -1,7 +1,7 @@
 use crate::{
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};

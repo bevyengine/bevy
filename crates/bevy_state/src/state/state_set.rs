@@ -8,10 +8,10 @@ use variadics_please::all_tuples;
 use self::sealed::StateSetSealed;
 
 use super::{
-    computed_states::ComputedStates, internal_apply_state_transition, last_transition, run_enter,
-    run_exit, run_transition, sub_states::SubStates, take_next_state, ApplyStateTransition,
-    EnterSchedules, ExitSchedules, NextState, State, StateTransitionEvent, StateTransitionSteps,
-    States, TransitionSchedules,
+    ApplyStateTransition, EnterSchedules, ExitSchedules, NextState, State, StateTransitionEvent,
+    StateTransitionSteps, States, TransitionSchedules, computed_states::ComputedStates,
+    internal_apply_state_transition, last_transition, run_enter, run_exit, run_transition,
+    sub_states::SubStates, take_next_state,
 };
 
 mod sealed {

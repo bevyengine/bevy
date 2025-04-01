@@ -15,7 +15,7 @@
 
 use alloc::rc::Rc;
 use core::{
-    future::{poll_fn, Future},
+    future::{Future, poll_fn},
     marker::PhantomData,
     task::{Context, Poll},
 };

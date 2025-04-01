@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
@@ -17,26 +17,26 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::vec2;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
-        binding_types::{sampler, texture_2d, texture_depth_2d},
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
         ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState,
         Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
         ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
         TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        binding_types::{sampler, texture_2d, texture_depth_2d},
     },
     renderer::{RenderContext, RenderDevice},
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use tracing::warn;
 

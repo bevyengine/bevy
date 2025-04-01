@@ -15,7 +15,7 @@ use crate::{
     event::Event,
     relationship::RelationshipHookMode,
     system::IntoObserverSystem,
-    world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld},
+    world::{EntityWorldMut, FromWorld, error::EntityMutableFetchError},
 };
 use bevy_ptr::OwningPtr;
 

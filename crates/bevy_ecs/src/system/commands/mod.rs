@@ -20,7 +20,7 @@ use crate::{
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
-    error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
+    error::{BevyError, CommandWithEntity, ErrorContext, HandleError, ignore, warn},
     event::Event,
     observer::{Observer, TriggerTargets},
     resource::Resource,
@@ -30,8 +30,8 @@ use crate::{
         SystemParamValidationError,
     },
     world::{
-        command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
-        EntityWorldMut, FromWorld, World,
+        CommandQueue, EntityWorldMut, FromWorld, World, command_queue::RawCommandQueue,
+        unsafe_world_cell::UnsafeWorldCell,
     },
 };
 

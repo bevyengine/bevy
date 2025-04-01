@@ -3,18 +3,18 @@ use crate::{
     MaterialPlugin, StandardMaterial,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Asset, Assets, Handle};
+use bevy_asset::{Asset, Assets, Handle, load_internal_asset, weak_handle};
 use bevy_ecs::component::Component;
-use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
+use bevy_math::{Quat, Vec2, Vec3, prelude::Rectangle};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
+    RenderDebugFlags,
     alpha::AlphaMode,
     mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable},
     render_resource::{
         AsBindGroup, CompareFunction, RenderPipelineDescriptor, Shader,
         SpecializedMeshPipelineError,
     },
-    RenderDebugFlags,
 };
 
 const FORWARD_DECAL_MESH_HANDLE: Handle<Mesh> =

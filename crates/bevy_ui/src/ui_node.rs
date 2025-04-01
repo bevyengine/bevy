@@ -2,7 +2,7 @@ use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{Rect, UVec2, Vec2, Vec4Swizzles, vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},

@@ -3,13 +3,13 @@ use core::f32::consts::FRAC_PI_2;
 use glam::{Vec2, Vec3A, Vec3Swizzles};
 
 use crate::{
+    Isometry2d, Isometry3d, Quat, Rot2,
     bounding::{BoundingCircle, BoundingVolume},
     ops,
     primitives::{
         Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d, Polygon, Polyline2d, Primitive2d,
         Rectangle, RegularPolygon, Segment2d, Triangle2d,
     },
-    Isometry2d, Isometry3d, Quat, Rot2,
 };
 
 #[cfg(feature = "alloc")]
@@ -270,13 +270,13 @@ mod tests {
     use glam::{EulerRot, Quat, Vec2, Vec3, Vec3A};
 
     use crate::{
+        Dir2, Isometry3d,
         bounding::{Bounded3d, BoundingVolume},
         ops,
         primitives::{
             Capsule2d, Circle, Ellipse, Extrusion, Line2d, Polygon, Polyline2d, Rectangle,
             RegularPolygon, Segment2d, Triangle2d,
         },
-        Dir2, Isometry3d,
     };
 
     #[test]

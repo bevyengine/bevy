@@ -1,6 +1,6 @@
 use crate::{
     bundle::Bundle,
-    entity::{hash_set::EntityHashSet, Entity},
+    entity::{Entity, hash_set::EntityHashSet},
     relationship::{
         Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
     },
@@ -204,7 +204,10 @@ impl<'w> EntityWorldMut<'w> {
                 newly_related_entities -= &entities_to_unrelate;
             }
 
-            assert_eq!(newly_related_entities, entities_to_relate, "`entities_to_relate` ({entities_to_relate:?}) didn't contain all entities that would end up related");
+            assert_eq!(
+                newly_related_entities, entities_to_relate,
+                "`entities_to_relate` ({entities_to_relate:?}) didn't contain all entities that would end up related"
+            );
         };
 
         if !self.contains::<R::RelationshipTarget>() {

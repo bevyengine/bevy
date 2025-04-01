@@ -18,13 +18,13 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, prelude::ReflectDefault};
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::view::{self, Visibility, VisibilityClass};
 use bevy_render::{
+    Extract,
     primitives::Aabb,
     view::{NoFrustumCulling, ViewVisibility},
-    Extract,
 };
 use bevy_sprite::{
     Anchor, ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSprites, Sprite,
@@ -391,10 +391,10 @@ pub fn calculate_bounds_text2d(
 mod tests {
 
     use bevy_app::{App, Update};
-    use bevy_asset::{load_internal_binary_asset, Handle};
+    use bevy_asset::{Handle, load_internal_binary_asset};
     use bevy_ecs::schedule::IntoScheduleConfigs;
 
-    use crate::{detect_text_needs_rerender, TextIterScratch};
+    use crate::{TextIterScratch, detect_text_needs_rerender};
 
     use super::*;
 
@@ -438,11 +438,12 @@ mod tests {
     fn calculate_bounds_text2d_create_aabb() {
         let (mut app, entity) = setup();
 
-        assert!(!app
-            .world()
-            .get_entity(entity)
-            .expect("Could not find entity")
-            .contains::<Aabb>());
+        assert!(
+            !app.world()
+                .get_entity(entity)
+                .expect("Could not find entity")
+                .contains::<Aabb>()
+        );
 
         // Creates the AABB after text layouting.
         app.update();

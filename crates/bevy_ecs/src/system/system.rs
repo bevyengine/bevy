@@ -11,8 +11,8 @@ use crate::{
     component::{ComponentId, Tick},
     query::Access,
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemIn},
-    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
+    system::{SystemIn, input::SystemInput},
+    world::{DeferredWorld, World, unsafe_world_cell::UnsafeWorldCell},
 };
 
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
@@ -75,7 +75,7 @@ pub trait System: Send + Sync + 'static {
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
     unsafe fn run_unsafe(&mut self, input: SystemIn<'_, Self>, world: UnsafeWorldCell)
-        -> Self::Out;
+    -> Self::Out;
 
     /// Runs the system with the given input in the world.
     ///
@@ -383,7 +383,9 @@ pub enum RunSystemError {
     /// System could not be run due to parameters that failed validation.
     ///
     /// This can occur because the data required by the system was not present in the world.
-    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
+    #[error(
+        "The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation."
+    )]
     InvalidParams(Cow<'static, str>),
 }
 

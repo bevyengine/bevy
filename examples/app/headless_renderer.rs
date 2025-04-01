@@ -13,6 +13,7 @@ use bevy::{
     image::TextureFormatPixelInfo,
     prelude::*,
     render::{
+        Extract, Render, RenderApp, RenderSet,
         camera::RenderTarget,
         render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
@@ -22,7 +23,6 @@ use bevy::{
             TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        Extract, Render, RenderApp, RenderSet,
     },
     winit::WinitPlugin,
 };
@@ -31,8 +31,8 @@ use std::{
     ops::{Deref, DerefMut},
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     time::Duration,
 };

@@ -10,17 +10,17 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::primitives::Aabb;
 use bevy_transform::{
-    components::{GlobalTransform, Transform},
     TransformSystem,
+    components::{GlobalTransform, Transform},
 };
 
 use crate::{
+    AppGizmoBuilder,
     config::{GizmoConfigGroup, GizmoConfigStore},
     gizmos::Gizmos,
-    AppGizmoBuilder,
 };
 
 /// A [`Plugin`] that provides visualization of [`Aabb`]s for debugging.

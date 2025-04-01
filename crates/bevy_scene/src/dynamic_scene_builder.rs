@@ -724,15 +724,19 @@ mod tests {
             .build();
 
         let component = &scene.entities[0].components[0];
-        assert!(component
-            .try_as_reflect()
-            .expect("component should be concrete due to `FromReflect`")
-            .is::<SomeType>());
+        assert!(
+            component
+                .try_as_reflect()
+                .expect("component should be concrete due to `FromReflect`")
+                .is::<SomeType>()
+        );
 
         let resource = &scene.resources[0];
-        assert!(resource
-            .try_as_reflect()
-            .expect("resource should be concrete due to `FromReflect`")
-            .is::<SomeType>());
+        assert!(
+            resource
+                .try_as_reflect()
+                .expect("resource should be concrete due to `FromReflect`")
+                .is::<SomeType>()
+        );
     }
 }

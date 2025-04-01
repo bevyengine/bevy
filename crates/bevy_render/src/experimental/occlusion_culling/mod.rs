@@ -4,9 +4,9 @@
 //! Bevy.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_ecs::{component::Component, entity::Entity, prelude::ReflectComponent};
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, prelude::ReflectDefault};
 
 use crate::{
     extract_component::ExtractComponent,

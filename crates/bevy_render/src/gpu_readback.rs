@@ -1,15 +1,15 @@
 use crate::{
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
     extract_component::ExtractComponentPlugin,
     render_asset::RenderAssets,
     render_resource::{
         Buffer, BufferUsages, CommandEncoder, Extent3d, TexelCopyBufferLayout, Texture,
         TextureFormat,
     },
-    renderer::{render_system, RenderDevice},
+    renderer::{RenderDevice, render_system},
     storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
     sync_world::MainEntity,
     texture::GpuImage,
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use async_channel::{Receiver, Sender};
 use bevy_app::{App, Plugin};
@@ -27,9 +27,9 @@ use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
+use encase::ShaderType;
 use encase::internal::ReadFrom;
 use encase::private::Reader;
-use encase::ShaderType;
 use tracing::warn;
 
 /// A plugin that enables reading back gpu buffers and textures to the cpu.

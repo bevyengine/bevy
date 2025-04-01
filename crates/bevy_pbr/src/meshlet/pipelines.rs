@@ -1,5 +1,5 @@
 use super::resource_manager::ResourceManager;
-use bevy_asset::{weak_handle, Handle};
+use bevy_asset::{Handle, weak_handle};
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, experimental::mip_generation::DOWNSAMPLE_DEPTH_SHADER_HANDLE,
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,

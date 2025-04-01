@@ -11,10 +11,10 @@ use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin, PreUpdate};
 
-use crate::{renderer::RenderAdapterInfo, RenderApp};
+use crate::{RenderApp, renderer::RenderAdapterInfo};
 
 use self::internal::{
-    sync_diagnostics, DiagnosticsRecorder, Pass, RenderDiagnosticsMutex, WriteTimestamp,
+    DiagnosticsRecorder, Pass, RenderDiagnosticsMutex, WriteTimestamp, sync_diagnostics,
 };
 
 use super::{RenderDevice, RenderQueue};

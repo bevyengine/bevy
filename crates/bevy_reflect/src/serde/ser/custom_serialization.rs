@@ -1,7 +1,7 @@
-use crate::serde::ser::error_utils::make_custom_error;
+use crate::serde::ReflectSerializeWithRegistry;
 #[cfg(feature = "debug_stack")]
 use crate::serde::ser::error_utils::TYPE_INFO_STACK;
-use crate::serde::ReflectSerializeWithRegistry;
+use crate::serde::ser::error_utils::make_custom_error;
 use crate::{PartialReflect, ReflectSerialize, TypeRegistry};
 use core::borrow::Borrow;
 use serde::{Serialize, Serializer};
@@ -54,9 +54,12 @@ pub(super) fn try_custom_serialize<S: Serializer>(
 
         Ok(reflect_serialize_with_registry.serialize(value, serializer, type_registry))
     } else {
-        Err((serializer, make_custom_error(format_args!(
-            "type `{}` did not register the `ReflectSerialize` or `ReflectSerializeWithRegistry` type data. For certain types, this may need to be registered manually using `register_type_data`",
-            info.type_path(),
-        ))))
+        Err((
+            serializer,
+            make_custom_error(format_args!(
+                "type `{}` did not register the `ReflectSerialize` or `ReflectSerializeWithRegistry` type data. For certain types, this may need to be registered manually using `register_type_data`",
+                info.type_path(),
+            )),
+        ))
     }
 }

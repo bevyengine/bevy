@@ -4,7 +4,7 @@
 use bevy_macro_utils::BevyManifest;
 use proc_macro::{Span, TokenStream};
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DeriveInput, Path};
+use syn::{Data, DeriveInput, Path, parse_macro_input};
 
 pub(crate) fn bevy_asset_path() -> Path {
     BevyManifest::shared().get_path("bevy_asset")

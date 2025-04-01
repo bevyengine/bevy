@@ -1,10 +1,10 @@
 use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
 use allocator::MeshAllocator;
-use bevy_asset::{load_internal_asset, AssetId, UntypedAssetId};
+use bevy_asset::{AssetId, UntypedAssetId, load_internal_asset};
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
+    core_3d::{AlphaMask3d, CORE_3D_DEPTH_FORMAT, Opaque3d, Transmissive3d, Transparent3d},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
-    oit::{prepare_oit_buffers, OrderIndependentTransparencySettingsOffset},
+    oit::{OrderIndependentTransparencySettingsOffset, prepare_oit_buffers},
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -12,19 +12,21 @@ use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     prelude::*,
     query::{QueryData, ROQueryItem},
-    system::{lifetimeless::*, SystemParamItem, SystemState},
+    system::{SystemParamItem, SystemState, lifetimeless::*},
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
-use bevy_platform_support::collections::{hash_map::Entry, HashMap};
+use bevy_platform_support::collections::{HashMap, hash_map::Entry};
 use bevy_render::{
+    Extract,
     batching::{
+        GetBatchData, GetFullBatchData, NoAutomaticBatching,
         gpu_preprocessing::{
             self, GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
             IndirectParametersCpuMetadata, IndirectParametersIndexed, IndirectParametersNonIndexed,
             InstanceInputUniformBuffer, UntypedPhaseIndirectParametersBuffers,
         },
-        no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
+        no_gpu_preprocessing,
     },
     camera::Camera,
     mesh::{skinning::SkinnedMesh, *},
@@ -42,10 +44,9 @@ use bevy_render::{
         self, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
         ViewTarget, ViewUniformOffset, ViewVisibility, VisibilityRange,
     },
-    Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{default, Parallel, TypeIdMap};
+use bevy_utils::{Parallel, TypeIdMap, default};
 use core::any::TypeId;
 use core::mem::size_of;
 use material_bind_groups::MaterialBindingId;
@@ -57,8 +58,8 @@ use crate::irradiance_volume::IrradianceVolume;
 use crate::{
     render::{
         morph::{
-            extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices,
-            MorphUniforms,
+            MorphIndices, MorphUniforms, extract_morphs, no_automatic_morph_batching,
+            prepare_morphs,
         },
         skin::no_automatic_skin_batching,
     },
@@ -70,14 +71,14 @@ use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::component::Tick;
 use bevy_ecs::system::SystemChangeTick;
+use bevy_render::RenderSet::PrepareAssets;
 use bevy_render::camera::TemporalJitter;
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::ExtractedView;
-use bevy_render::RenderSet::PrepareAssets;
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use static_assertions::const_assert_eq;
 
 /// Provides support for rendering 3D meshes.

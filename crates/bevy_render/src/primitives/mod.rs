@@ -353,7 +353,7 @@ pub struct CascadesFrusta {
 mod tests {
     use core::f32::consts::PI;
 
-    use bevy_math::{ops, Quat};
+    use bevy_math::{Quat, ops};
     use bevy_transform::components::GlobalTransform;
 
     use crate::camera::{CameraProjection, PerspectiveProjection};

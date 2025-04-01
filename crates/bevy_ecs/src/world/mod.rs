@@ -15,7 +15,7 @@ pub mod unsafe_world_cell;
 pub mod reflect;
 
 pub use crate::{
-    change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
+    change_detection::{CHECK_TICK_THRESHOLD, Mut, Ref},
     world::command_queue::CommandQueue,
 };
 pub use bevy_ecs_macros::FromWorld;
@@ -292,7 +292,11 @@ impl World {
     /// Will panic if `T` exists in any archetypes.
     pub fn register_component_hooks<T: Component>(&mut self) -> &mut ComponentHooks {
         let index = self.register_component::<T>();
-        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if {} may already be in use", core::any::type_name::<T>());
+        assert!(
+            !self.archetypes.archetypes.iter().any(|a| a.contains(index)),
+            "Components hooks cannot be modified if the component already exists in an archetype, use register_component if {} may already be in use",
+            core::any::type_name::<T>()
+        );
         // SAFETY: We just created this component
         unsafe { self.components.get_hooks_mut(index).debug_checked_unwrap() }
     }
@@ -304,7 +308,11 @@ impl World {
         &mut self,
         id: ComponentId,
     ) -> Option<&mut ComponentHooks> {
-        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if the component with id {:?} may already be in use", id);
+        assert!(
+            !self.archetypes.archetypes.iter().any(|a| a.contains(id)),
+            "Components hooks cannot be modified if the component already exists in an archetype, use register_component if the component with id {:?} may already be in use",
+            id
+        );
         self.components.get_hooks_mut(id)
     }
 
@@ -2526,11 +2534,20 @@ impl World {
                             )
                         };
                     } else {
-                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
+                        panic!(
+                            "error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003",
+                            core::any::type_name::<B>(),
+                            self.entities.entity_does_not_exist_error_details(entity)
+                        );
                     }
                 }
             } else {
-                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(first_entity));
+                panic!(
+                    "error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevyengine.org/learn/errors/b0003",
+                    core::any::type_name::<B>(),
+                    self.entities
+                        .entity_does_not_exist_error_details(first_entity)
+                );
             }
         }
     }
@@ -2765,10 +2782,12 @@ impl World {
             changed_by: caller.as_mut(),
         };
         let result = f(self, value_mut);
-        assert!(!self.contains_resource::<R>(),
+        assert!(
+            !self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
             This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
-            core::any::type_name::<R>());
+            core::any::type_name::<R>()
+        );
 
         OwningPtr::make(value, |ptr| {
             // SAFETY: pointer is of type R
@@ -3596,7 +3615,9 @@ impl World {
 
         let old = self.resource_mut::<Schedules>().insert(schedule);
         if old.is_some() {
-            warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
+            warn!(
+                "Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten"
+            );
         }
 
         Ok(value)
@@ -3769,7 +3790,7 @@ mod tests {
         entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,
         resource::Resource,
-        world::{error::EntityMutableFetchError, DeferredWorld},
+        world::{DeferredWorld, error::EntityMutableFetchError},
     };
     use alloc::{
         borrow::ToOwned,
@@ -4323,13 +4344,17 @@ mod tests {
 
         assert!(world.get_entity(e1).is_ok());
         assert!(world.get_entity([e1, e2]).is_ok());
-        assert!(world
-            .get_entity(&[e1, e2] /* this is an array not a slice */)
-            .is_ok());
+        assert!(
+            world
+                .get_entity(&[e1, e2] /* this is an array not a slice */)
+                .is_ok()
+        );
         assert!(world.get_entity(&vec![e1, e2][..]).is_ok());
-        assert!(world
-            .get_entity(&EntityHashSet::from_iter([e1, e2]))
-            .is_ok());
+        assert!(
+            world
+                .get_entity(&EntityHashSet::from_iter([e1, e2]))
+                .is_ok()
+        );
 
         world.entity_mut(e1).despawn();
 
@@ -4373,13 +4398,17 @@ mod tests {
 
         assert!(world.get_entity_mut(e1).is_ok());
         assert!(world.get_entity_mut([e1, e2]).is_ok());
-        assert!(world
-            .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
-            .is_ok());
+        assert!(
+            world
+                .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
+                .is_ok()
+        );
         assert!(world.get_entity_mut(&vec![e1, e2][..]).is_ok());
-        assert!(world
-            .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
-            .is_ok());
+        assert!(
+            world
+                .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
+                .is_ok()
+        );
 
         assert_eq!(
             Err(EntityMutableFetchError::AliasedMutability(e1)),
@@ -4396,9 +4425,11 @@ mod tests {
             world.get_entity_mut(&vec![e1, e2, e1][..]).map(|_| {})
         );
         // Aliased mutability isn't allowed by HashSets
-        assert!(world
-            .get_entity_mut(&EntityHashSet::from_iter([e1, e2, e1]))
-            .is_ok());
+        assert!(
+            world
+                .get_entity_mut(&EntityHashSet::from_iter([e1, e2, e1]))
+                .is_ok()
+        );
 
         world.entity_mut(e1).despawn();
 

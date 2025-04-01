@@ -1,17 +1,17 @@
 //! Components to customize winit cursor
 
+#[cfg(feature = "custom_cursor")]
+use crate::{
+    WinitCustomCursor,
+    custom_cursor::{
+        CustomCursorPlugin, calculate_effective_rect, extract_and_transform_rgba_pixels,
+        extract_rgba_pixels, transform_hotspot,
+    },
+    state::{CustomCursorCache, CustomCursorCacheKey},
+};
 use crate::{
     converters::convert_system_cursor_icon,
     state::{CursorSource, PendingCursor},
-};
-#[cfg(feature = "custom_cursor")]
-use crate::{
-    custom_cursor::{
-        calculate_effective_rect, extract_and_transform_rgba_pixels, extract_rgba_pixels,
-        transform_hotspot, CustomCursorPlugin,
-    },
-    state::{CustomCursorCache, CustomCursorCacheKey},
-    WinitCustomCursor,
 };
 use bevy_app::{App, Last, Plugin};
 #[cfg(feature = "custom_cursor")]
@@ -31,7 +31,7 @@ use bevy_ecs::{
 #[cfg(feature = "custom_cursor")]
 use bevy_image::{Image, TextureAtlasLayout};
 use bevy_platform_support::collections::HashSet;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_window::{SystemCursorIcon, Window};
 #[cfg(feature = "custom_cursor")]
 use tracing::warn;
@@ -134,7 +134,9 @@ fn update_cursors(
                     };
 
                     let Some(rgba) = maybe_rgba else {
-                        warn!("Cursor image {handle:?} not accepted because it's not rgba8 or rgba32float format");
+                        warn!(
+                            "Cursor image {handle:?} not accepted because it's not rgba8 or rgba32float format"
+                        );
                         continue;
                     };
 

@@ -30,6 +30,7 @@ use winit::platform::ios::WindowExtIOS;
 use winit::platform::web::WindowExtWebSys;
 
 use crate::{
+    CreateMonitorParams, CreateWindowParams, WinitWindows,
     converters::{
         convert_enabled_buttons, convert_resize_direction, convert_window_level,
         convert_window_theme, convert_winit_theme,
@@ -37,7 +38,6 @@ use crate::{
     get_selected_videomode, select_monitor,
     state::react_to_resize,
     winit_monitors::WinitMonitors,
-    CreateMonitorParams, CreateWindowParams, WinitWindows,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
@@ -554,7 +554,9 @@ pub(crate) fn changed_windows(
                     cache.window.recognize_pan_gesture,
                 ) {
                     (Some(_), Some(_)) => {
-                        warn!("Bevy currently doesn't support modifying PanGesture number of fingers recognition. Please disable it before re-enabling it with the new number of fingers");
+                        warn!(
+                            "Bevy currently doesn't support modifying PanGesture number of fingers recognition. Please disable it before re-enabling it with the new number of fingers"
+                        );
                     }
                     (Some((min, max)), _) => winit_window.recognize_pan_gesture(true, min, max),
                     _ => winit_window.recognize_pan_gesture(false, 0, 0),

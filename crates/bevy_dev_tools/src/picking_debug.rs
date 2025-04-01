@@ -8,7 +8,7 @@ use bevy_picking::backend::HitData;
 use bevy_picking::hover::HoverMap;
 use bevy_picking::pointer::{Location, PointerId, PointerPress};
 use bevy_picking::prelude::*;
-use bevy_picking::{pointer, PickSet};
+use bevy_picking::{PickSet, pointer};
 use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
 use bevy_text::prelude::*;

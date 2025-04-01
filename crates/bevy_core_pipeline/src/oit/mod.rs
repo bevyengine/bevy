@@ -1,13 +1,14 @@
 //! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin`] for more details.
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_ecs::{component::*, prelude::*};
 use bevy_math::UVec2;
 use bevy_platform_support::collections::HashSet;
 use bevy_platform_support::time::Instant;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
+    Render, RenderApp, RenderSet,
     camera::{Camera, ExtractedCamera},
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
@@ -16,18 +17,17 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
     view::Msaa,
-    Render, RenderApp, RenderSet,
 };
 use bevy_window::PrimaryWindow;
 use resolve::{
-    node::{OitResolveNode, OitResolvePass},
     OitResolvePlugin,
+    node::{OitResolveNode, OitResolvePass},
 };
 use tracing::{trace, warn};
 
 use crate::core_3d::{
-    graph::{Core3d, Node3d},
     Camera3d,
+    graph::{Core3d, Node3d},
 };
 
 /// Module that defines the necessary systems to resolve the OIT buffer and render it to the screen.
@@ -75,8 +75,12 @@ impl Component for OrderIndependentTransparencySettings {
         Some(|world, context| {
             if let Some(value) = world.get::<OrderIndependentTransparencySettings>(context.entity) {
                 if value.layer_count > 32 {
-                    warn!("{}OrderIndependentTransparencySettings layer_count set to {} might be too high.",
-                        context.caller.map(|location|format!("{location}: ")).unwrap_or_default(),
+                    warn!(
+                        "{}OrderIndependentTransparencySettings layer_count set to {} might be too high.",
+                        context
+                            .caller
+                            .map(|location| format!("{location}: "))
+                            .unwrap_or_default(),
                         value.layer_count
                     );
                 }

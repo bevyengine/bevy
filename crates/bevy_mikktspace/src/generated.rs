@@ -50,7 +50,7 @@ use core::ptr::{self, null_mut};
 
 use glam::Vec3;
 
-use crate::{face_vert_to_index, get_normal, get_position, get_tex_coord, Geometry};
+use crate::{Geometry, face_vert_to_index, get_normal, get_position, get_tex_coord};
 
 #[derive(Copy, Clone)]
 pub struct STSpace {
@@ -1669,11 +1669,7 @@ unsafe fn MergeVertsFast<I: Geometry>(
         if iL == iR {
             let bReadyRightSwap_0: bool =
                 (*pTmpVert.offset(iR as isize)).vert[channel as usize] < fSep;
-            if bReadyRightSwap_0 {
-                iL += 1
-            } else {
-                iR -= 1
-            }
+            if bReadyRightSwap_0 { iL += 1 } else { iR -= 1 }
         }
         if iL_in < iR {
             MergeVertsFast(piTriList_in_and_out, pTmpVert, geometry, iL_in, iR);
@@ -1694,11 +1690,7 @@ unsafe fn FindGridCell(fMin: f32, fMax: f32, fVal: f32) -> usize {
     let fIndex = g_iCells as f32 * ((fVal - fMin) / (fMax - fMin));
     let iIndex = fIndex as isize;
     return if iIndex < g_iCells as isize {
-        if iIndex >= 0 {
-            iIndex as usize
-        } else {
-            0
-        }
+        if iIndex >= 0 { iIndex as usize } else { 0 }
     } else {
         g_iCells - 1
     };

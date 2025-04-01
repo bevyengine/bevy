@@ -14,8 +14,8 @@ use bevy_render::{
 use crate::prepass::ViewPrepassTextures;
 
 use super::{
-    pipeline::{MotionBlurPipeline, MotionBlurPipelineId},
     MotionBlur,
+    pipeline::{MotionBlurPipeline, MotionBlurPipelineId},
 };
 
 #[derive(Default)]

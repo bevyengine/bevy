@@ -109,7 +109,7 @@ pub fn dds_buffer_to_image(
             _ => {
                 return Err(TextureError::TranscodeError(format!(
                     "unsupported transcode from {transcode_format:?} to {texture_format:?}"
-                )))
+                )));
             }
         }
     } else {
@@ -307,7 +307,7 @@ pub fn dds_format_to_texture_format(
             _ => {
                 return Err(TextureError::UnsupportedTextureFormat(format!(
                     "{dxgi_format:?}",
-                )))
+                )));
             }
         }
     } else {

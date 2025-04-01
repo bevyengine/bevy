@@ -1,23 +1,23 @@
 use super::ExtractedWindows;
 use crate::{
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
     camera::{ManualTextureViewHandle, ManualTextureViews, NormalizedRenderTarget, RenderTarget},
     gpu_readback,
     prelude::Shader,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_resource::{
-        binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayout,
-        BindGroupLayoutEntries, Buffer, BufferUsages, CachedRenderPipelineId, FragmentState,
-        PipelineCache, RenderPipelineDescriptor, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, Texture, TextureUsages, TextureView, VertexState,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, Buffer, BufferUsages,
+        CachedRenderPipelineId, FragmentState, PipelineCache, RenderPipelineDescriptor,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, TextureUsages, TextureView,
+        VertexState, binding_types::texture_2d,
     },
     renderer::RenderDevice,
     texture::{GpuImage, OutputColorAttachment},
-    view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
+    view::{ViewTargetAttachments, WindowSurfaces, prepare_view_attachments, prepare_view_targets},
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
@@ -32,8 +32,8 @@ use core::ops::Deref;
 use std::{
     path::Path,
     sync::{
-        mpsc::{Receiver, Sender},
         Mutex,
+        mpsc::{Receiver, Sender},
     },
 };
 use tracing::{error, info, warn};

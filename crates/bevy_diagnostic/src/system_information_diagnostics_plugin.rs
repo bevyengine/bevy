@@ -75,7 +75,7 @@ pub mod internal {
     use bevy_ecs::resource::Resource;
     use bevy_ecs::{prelude::ResMut, system::Local};
     use bevy_platform_support::time::Instant;
-    use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
+    use bevy_tasks::{AsyncComputeTaskPool, Task, available_parallelism, block_on, poll_once};
     use log::info;
     use std::sync::Mutex;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};

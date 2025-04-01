@@ -24,12 +24,12 @@
 use core::f32::consts::TAU;
 
 use crate::{
-    primitives::{Circle, Sphere},
     Dir2, Dir3, Dir3A, Quat, Rot2, ShapeSample, Vec3A,
+    primitives::{Circle, Sphere},
 };
 use rand::{
-    distributions::{Distribution, Standard},
     Rng,
+    distributions::{Distribution, Standard},
 };
 
 /// Ergonomics trait for a type with a [`Standard`] distribution, allowing values to be generated

@@ -1,7 +1,7 @@
 //! Implements loader for a custom asset type.
 
 use bevy::{
-    asset::{io::Reader, AssetLoader, LoadContext},
+    asset::{AssetLoader, LoadContext, io::Reader},
     prelude::*,
     reflect::TypePath,
 };

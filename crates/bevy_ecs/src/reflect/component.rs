@@ -65,8 +65,8 @@ use crate::{
     prelude::Component,
     relationship::RelationshipHookMode,
     world::{
-        unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityWorldMut, FilteredEntityMut,
-        FilteredEntityRef, World,
+        EntityMut, EntityWorldMut, FilteredEntityMut, FilteredEntityRef, World,
+        unsafe_world_cell::UnsafeEntityCell,
     },
 };
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
@@ -309,7 +309,9 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             apply: |mut entity, reflected_component| {
                 if !C::Mutability::MUTABLE {
                     let name = ShortName::of::<C>();
-                    panic!("Cannot call `ReflectComponent::apply` on component {name}. It is immutable, and cannot modified through reflection");
+                    panic!(
+                        "Cannot call `ReflectComponent::apply` on component {name}. It is immutable, and cannot modified through reflection"
+                    );
                 }
 
                 // SAFETY: guard ensures `C` is a mutable component
@@ -358,7 +360,9 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             reflect_mut: |entity| {
                 if !C::Mutability::MUTABLE {
                     let name = ShortName::of::<C>();
-                    panic!("Cannot call `ReflectComponent::reflect_mut` on component {name}. It is immutable, and cannot modified through reflection");
+                    panic!(
+                        "Cannot call `ReflectComponent::reflect_mut` on component {name}. It is immutable, and cannot modified through reflection"
+                    );
                 }
 
                 // SAFETY: guard ensures `C` is a mutable component
@@ -371,7 +375,9 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             reflect_unchecked_mut: |entity| {
                 if !C::Mutability::MUTABLE {
                     let name = ShortName::of::<C>();
-                    panic!("Cannot call `ReflectComponent::reflect_unchecked_mut` on component {name}. It is immutable, and cannot modified through reflection");
+                    panic!(
+                        "Cannot call `ReflectComponent::reflect_unchecked_mut` on component {name}. It is immutable, and cannot modified through reflection"
+                    );
                 }
 
                 // SAFETY: reflect_unchecked_mut is an unsafe function pointer used by

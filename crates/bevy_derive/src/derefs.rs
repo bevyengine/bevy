@@ -1,6 +1,6 @@
 use proc_macro::{Span, TokenStream};
 use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput, Field, Index, Member, Type};
+use syn::{Data, DeriveInput, Field, Index, Member, Type, parse_macro_input};
 
 const DEREF: &str = "Deref";
 const DEREF_MUT: &str = "DerefMut";
@@ -93,7 +93,9 @@ fn get_deref_field(ast: &DeriveInput, is_mut: bool) -> syn::Result<(Member, &Typ
             } else {
                 Err(syn::Error::new(
                     Span::call_site().into(),
-                    format!("deriving {deref_kind} on multi-field structs requires one field to have the {deref_attr_str} attribute"),
+                    format!(
+                        "deriving {deref_kind} on multi-field structs requires one field to have the {deref_attr_str} attribute"
+                    ),
                 ))
             }
         }

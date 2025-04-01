@@ -2,7 +2,7 @@ use super::asset::{
     Meshlet, MeshletBoundingSphere, MeshletBoundingSpheres, MeshletMesh, MeshletSimplificationError,
 };
 use alloc::borrow::Cow;
-use bevy_math::{ops::log2, IVec3, Vec2, Vec3, Vec3Swizzles};
+use bevy_math::{IVec3, Vec2, Vec3, Vec3Swizzles, ops::log2};
 use bevy_platform_support::collections::HashMap;
 use bevy_render::{
     mesh::{Indices, Mesh},
@@ -13,10 +13,10 @@ use core::{iter, ops::Range};
 use half::f16;
 use itertools::Itertools;
 use meshopt::{
-    build_meshlets, ffi::meshopt_Meshlet, generate_vertex_remap_multi,
-    simplify_with_attributes_and_locks, Meshlets, SimplifyOptions, VertexDataAdapter, VertexStream,
+    Meshlets, SimplifyOptions, VertexDataAdapter, VertexStream, build_meshlets,
+    ffi::meshopt_Meshlet, generate_vertex_remap_multi, simplify_with_attributes_and_locks,
 };
-use metis::{option::Opt, Graph};
+use metis::{Graph, option::Opt};
 use smallvec::SmallVec;
 use thiserror::Error;
 
@@ -707,11 +707,7 @@ fn octahedral_encode(v: Vec3) -> Vec2 {
             if n.x >= 0.0 { 1.0 } else { -1.0 },
             if n.y >= 0.0 { 1.0 } else { -1.0 },
         );
-    if n.z >= 0.0 {
-        n.xy()
-    } else {
-        octahedral_wrap
-    }
+    if n.z >= 0.0 { n.xy() } else { octahedral_wrap }
 }
 
 // https://www.w3.org/TR/WGSL/#pack2x16snorm-builtin

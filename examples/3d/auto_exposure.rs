@@ -13,8 +13,8 @@
 
 use bevy::{
     core_pipeline::{
-        auto_exposure::{AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin},
         Skybox,
+        auto_exposure::{AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin},
     },
     math::{cubic_splines::LinearSpline, primitives::Plane3d, vec2},
     prelude::*,

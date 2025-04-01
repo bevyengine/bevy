@@ -13,7 +13,7 @@ use bevy_asset::prelude::*;
 use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
 use bevy_image::prelude::*;
-use bevy_math::{prelude::*, FloatExt};
+use bevy_math::{FloatExt, prelude::*};
 use bevy_picking::backend::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;

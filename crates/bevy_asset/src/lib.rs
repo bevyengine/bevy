@@ -208,7 +208,7 @@ pub use ron;
 pub use uuid;
 
 use crate::{
-    io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
+    io::{AssetSourceBuilder, AssetSourceBuilders, AssetSourceId, embedded::EmbeddedAssetRegistry},
     processor::{AssetProcessor, Process},
 };
 use alloc::{
@@ -567,7 +567,10 @@ impl AssetApp for App {
     ) -> &mut Self {
         let id = AssetSourceId::from_static(id);
         if self.world().get_resource::<AssetServer>().is_some() {
-            error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
+            error!(
+                "{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)",
+                id
+            );
         }
 
         {
@@ -661,16 +664,16 @@ pub struct AssetEvents;
 #[cfg(test)]
 mod tests {
     use crate::{
+        Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
+        AssetPlugin, AssetServer, Assets, LoadState, UnapprovedPathMode,
         folder::LoadedFolder,
         handle::Handle,
         io::{
+            AssetReader, AssetReaderError, AssetSource, AssetSourceId, Reader,
             gated::{GateOpener, GatedReader},
             memory::{Dir, MemoryAssetReader},
-            AssetReader, AssetReaderError, AssetSource, AssetSourceId, Reader,
         },
         loader::{AssetLoader, LoadContext},
-        Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, LoadState, UnapprovedPathMode,
     };
     use alloc::{
         boxed::Box,
@@ -889,7 +892,9 @@ mod tests {
     fn load_dependencies() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
         #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
+        panic!(
+            "This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded"
+        );
 
         let dir = Dir::default();
 
@@ -1197,7 +1202,9 @@ mod tests {
     fn failure_load_states() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
         #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
+        panic!(
+            "This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded"
+        );
 
         let dir = Dir::default();
 
@@ -1314,9 +1321,11 @@ mod tests {
 
             assert!(asset_server.load_state(a_id).is_loaded());
             assert!(asset_server.dependency_load_state(a_id).is_loaded());
-            assert!(asset_server
-                .recursive_dependency_load_state(a_id)
-                .is_failed());
+            assert!(
+                asset_server
+                    .recursive_dependency_load_state(a_id)
+                    .is_failed()
+            );
 
             assert!(asset_server.is_loaded(a_id));
             assert!(asset_server.is_loaded_with_direct_dependencies(a_id));
@@ -1330,7 +1339,9 @@ mod tests {
     fn dependency_load_states() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
         #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
+        panic!(
+            "This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded"
+        );
 
         let a_path = "a.cool.ron";
         let a_ron = r#"
@@ -1469,7 +1480,9 @@ mod tests {
     fn manual_asset_management() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
         #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
+        panic!(
+            "This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded"
+        );
 
         let dir = Dir::default();
         let dep_path = "dep.cool.ron";
@@ -1570,7 +1583,9 @@ mod tests {
     fn load_folder() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
         #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
+        panic!(
+            "This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded"
+        );
 
         let dir = Dir::default();
 

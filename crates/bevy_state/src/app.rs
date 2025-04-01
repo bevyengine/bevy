@@ -5,8 +5,9 @@ use log::warn;
 
 use crate::{
     state::{
-        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-        StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
+        ComputedStates, FreelyMutableState, NextState, State, StateTransition,
+        StateTransitionEvent, StateTransitionSteps, States, SubStates,
+        setup_state_transitions_in_world,
     },
     state_scoped::clear_state_scoped_entities,
 };
@@ -220,7 +221,10 @@ impl AppExtStates for SubApp {
             .contains_resource::<Events<StateTransitionEvent<S>>>()
         {
             let name = core::any::type_name::<S>();
-            warn!("State scoped entities are enabled for state `{}`, but the state isn't installed in the app!", name);
+            warn!(
+                "State scoped entities are enabled for state `{}`, but the state isn't installed in the app!",
+                name
+            );
         }
         // We work with [`StateTransition`] in set [`StateTransitionSteps::ExitSchedules`] as opposed to [`OnExit`],
         // because [`OnExit`] only runs for one specific variant of the state.

@@ -10,16 +10,16 @@ use std::eprintln;
 use std::sync::{Mutex, MutexGuard};
 
 #[cfg(feature = "trace")]
-use tracing::{info_span, Span};
+use tracing::{Span, info_span};
 
 use crate::{
     archetype::ArchetypeComponentId,
-    error::{default_error_handler, BevyError, ErrorContext, Result},
+    error::{BevyError, ErrorContext, Result, default_error_handler},
     prelude::Resource,
     query::Access,
-    schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
+    schedule::{BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule, is_apply_deferred},
     system::ScheduleSystem,
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    world::{World, unsafe_world_cell::UnsafeWorldCell},
 };
 
 use super::__rust_begin_short_backtrace;

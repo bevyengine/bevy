@@ -1,4 +1,4 @@
-use crate::{impl_reflect_opaque, ReflectDeserialize, ReflectSerialize};
+use crate::{ReflectDeserialize, ReflectSerialize, impl_reflect_opaque};
 
 impl_reflect_opaque!(::wgpu_types::TextureFormat(
     Clone,

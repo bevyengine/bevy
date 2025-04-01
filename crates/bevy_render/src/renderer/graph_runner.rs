@@ -4,7 +4,7 @@ use bevy_platform_support::collections::HashMap;
 use tracing::info_span;
 
 use alloc::{borrow::Cow, collections::VecDeque};
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use thiserror::Error;
 
 use crate::{
@@ -39,7 +39,9 @@ pub enum RenderGraphRunnerError {
         slot_index: usize,
         slot_name: Cow<'static, str>,
     },
-    #[error("graph '{sub_graph:?}' could not be run because slot '{slot_name}' at index {slot_index} has no value")]
+    #[error(
+        "graph '{sub_graph:?}' could not be run because slot '{slot_name}' at index {slot_index} has no value"
+    )]
     MissingInput {
         slot_index: usize,
         slot_name: Cow<'static, str>,

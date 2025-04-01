@@ -12,9 +12,9 @@ use gltf::{
     feature = "pbr_multi_layer_material_textures",
     feature = "pbr_specular_textures"
 ))]
-use gltf::{json::texture::Info, Document};
+use gltf::{Document, json::texture::Info};
 
-use crate::{loader::DataUri, GltfAssetLabel};
+use crate::{GltfAssetLabel, loader::DataUri};
 
 pub(crate) fn texture_handle(
     texture: &Texture<'_>,

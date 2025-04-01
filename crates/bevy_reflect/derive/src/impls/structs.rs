@@ -1,10 +1,10 @@
 use crate::{
+    ReflectStruct,
     impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed},
     struct_utility::FieldAccessors,
-    ReflectStruct,
 };
 use bevy_macro_utils::fq_std::{FQDefault, FQOption, FQResult};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {

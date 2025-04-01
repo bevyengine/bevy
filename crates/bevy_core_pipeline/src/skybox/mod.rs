@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::{QueryItem, With},
@@ -10,8 +10,9 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, Image};
 use bevy_math::{Mat4, Quat};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
+    Render, RenderApp, RenderSet,
     camera::Exposure,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
@@ -25,10 +26,9 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::GpuImage,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
-    Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::Transform;
-use prepass::{SkyboxPrepassPipeline, SKYBOX_PREPASS_SHADER_HANDLE};
+use prepass::{SKYBOX_PREPASS_SHADER_HANDLE, SkyboxPrepassPipeline};
 
 use crate::{core_3d::CORE_3D_DEPTH_FORMAT, prepass::PreviousViewUniforms};
 

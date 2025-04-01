@@ -13,8 +13,8 @@ use bevy_macro_utils::fq_std::{FQAny, FQClone, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
 use syn::{
-    ext::IdentExt, parenthesized, parse::ParseStream, spanned::Spanned, token, Expr, LitBool,
-    MetaList, MetaNameValue, Path, Token, WhereClause,
+    Expr, LitBool, MetaList, MetaNameValue, Path, Token, WhereClause, ext::IdentExt, parenthesized,
+    parse::ParseStream, spanned::Spanned, token,
 };
 
 mod kw {
@@ -261,9 +261,12 @@ impl ContainerAttributes {
         let ident = input.parse::<Ident>()?;
 
         if input.peek(token::Paren) {
-            return Err(syn::Error::new(ident.span(), format!(
-                "only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",
-            )));
+            return Err(syn::Error::new(
+                ident.span(),
+                format!(
+                    "only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",
+                ),
+            ));
         }
 
         let ident_name = ident.to_string();

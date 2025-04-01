@@ -3,7 +3,7 @@ use crate::{
     oit::OrderIndependentTransparencySettings,
 };
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_derive::Deref;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
@@ -11,16 +11,16 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_render::{
+    Render, RenderApp, RenderSet,
     render_resource::{
-        binding_types::{storage_buffer_sized, texture_depth_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendComponent,
         BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites, DownlevelFlags,
         FragmentState, MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
         Shader, ShaderDefVal, ShaderStages, TextureFormat,
+        binding_types::{storage_buffer_sized, texture_depth_2d, uniform_buffer},
     },
     renderer::{RenderAdapter, RenderDevice},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
-    Render, RenderApp, RenderSet,
 };
 use tracing::warn;
 
@@ -80,7 +80,9 @@ pub fn is_oit_supported(adapter: &RenderAdapter, device: &RenderDevice, warn: bo
         .contains(DownlevelFlags::FRAGMENT_WRITABLE_STORAGE)
     {
         if warn {
-            warn!("OrderIndependentTransparencyPlugin not loaded. GPU lacks support: DownlevelFlags::FRAGMENT_WRITABLE_STORAGE.");
+            warn!(
+                "OrderIndependentTransparencyPlugin not loaded. GPU lacks support: DownlevelFlags::FRAGMENT_WRITABLE_STORAGE."
+            );
         }
         return false;
     }

@@ -7,10 +7,10 @@ use bevy::{
     color::palettes::css::{RED, WHITE},
     input::common_conditions::input_just_pressed,
     math::{
+        Isometry2d,
         bounding::{
             Aabb2d, Bounded2d, Bounded3d, BoundedExtrusion, BoundingCircle, BoundingVolume,
         },
-        Isometry2d,
     },
     prelude::*,
     render::{

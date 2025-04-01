@@ -1,7 +1,7 @@
 use core::hint::black_box;
 
 use bevy_tasks::{ParallelIterator, TaskPoolBuilder};
-use criterion::{criterion_group, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group};
 
 struct ParChunks<'a, T>(core::slice::Chunks<'a, T>);
 impl<'a, T> ParallelIterator<core::slice::Iter<'a, T>> for ParChunks<'a, T>

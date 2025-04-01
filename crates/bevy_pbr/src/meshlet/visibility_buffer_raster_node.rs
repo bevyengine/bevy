@@ -9,7 +9,7 @@ use bevy_ecs::{
     query::QueryState,
     world::{FromWorld, World},
 };
-use bevy_math::{ops, UVec2};
+use bevy_math::{UVec2, ops};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext},

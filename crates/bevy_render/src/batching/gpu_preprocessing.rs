@@ -14,16 +14,17 @@ use bevy_ecs::{
 };
 use bevy_encase_derive::ShaderType;
 use bevy_math::UVec4;
-use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
-use bevy_utils::{default, TypeIdMap};
+use bevy_platform_support::collections::{HashMap, HashSet, hash_map::Entry};
+use bevy_utils::{TypeIdMap, default};
 use bytemuck::{Pod, Zeroable};
-use encase::{internal::WriteInto, ShaderSize};
+use encase::{ShaderSize, internal::WriteInto};
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 use tracing::error;
 use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
+    Render, RenderApp, RenderDebugFlags, RenderSet,
     experimental::occlusion_culling::OcclusionCulling,
     render_phase::{
         BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSet,
@@ -36,7 +37,6 @@ use crate::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntity,
     view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
-    Render, RenderApp, RenderDebugFlags, RenderSet,
 };
 
 use super::{BatchMeta, GetBatchData, GetFullBatchData};

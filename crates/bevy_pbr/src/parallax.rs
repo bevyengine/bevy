@@ -1,4 +1,4 @@
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 
 /// The [parallax mapping] method to use to compute depth based on the
 /// material's [`depth_map`].

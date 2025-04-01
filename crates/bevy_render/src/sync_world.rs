@@ -12,7 +12,7 @@ use bevy_ecs::{
     world::{Mut, OnAdd, OnRemove, World},
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
 ///
@@ -279,7 +279,7 @@ mod render_entities_world_query_impls {
         entity::Entity,
         query::{FilteredAccess, QueryData, ReadOnlyQueryData, WorldQuery},
         storage::{Table, TableRow},
-        world::{unsafe_world_cell::UnsafeWorldCell, World},
+        world::{World, unsafe_world_cell::UnsafeWorldCell},
     };
 
     /// SAFETY: defers completely to `&RenderEntity` implementation,
@@ -494,8 +494,8 @@ mod tests {
     };
 
     use super::{
-        entity_sync_system, EntityRecord, MainEntity, PendingSyncEntity, RenderEntity,
-        SyncToRenderWorld,
+        EntityRecord, MainEntity, PendingSyncEntity, RenderEntity, SyncToRenderWorld,
+        entity_sync_system,
     };
 
     #[derive(Component)]

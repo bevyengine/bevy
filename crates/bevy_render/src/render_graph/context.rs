@@ -242,7 +242,9 @@ pub enum RunSubGraphError {
     MissingSubGraph(InternedRenderSubGraph),
     #[error("attempted to pass inputs to sub-graph `{0:?}`, which has no input slots")]
     SubGraphHasNoInputs(InternedRenderSubGraph),
-    #[error("sub graph (name: `{graph_name:?}`) could not be run because slot `{slot_name}` at index {slot_index} has no value")]
+    #[error(
+        "sub graph (name: `{graph_name:?}`) could not be run because slot `{slot_name}` at index {slot_index} has no value"
+    )]
     MissingInput {
         slot_index: usize,
         slot_name: Cow<'static, str>,
@@ -262,7 +264,9 @@ pub enum RunSubGraphError {
 pub enum OutputSlotError {
     #[error("output slot `{0:?}` does not exist")]
     InvalidSlot(SlotLabel),
-    #[error("attempted to output a value of type `{actual}` to output slot `{label:?}`, which has type `{expected}`")]
+    #[error(
+        "attempted to output a value of type `{actual}` to output slot `{label:?}`, which has type `{expected}`"
+    )]
     MismatchedSlotType {
         label: SlotLabel,
         expected: SlotType,
@@ -274,7 +278,9 @@ pub enum OutputSlotError {
 pub enum InputSlotError {
     #[error("input slot `{0:?}` does not exist")]
     InvalidSlot(SlotLabel),
-    #[error("attempted to retrieve a value of type `{actual}` from input slot `{label:?}`, which has type `{expected}`")]
+    #[error(
+        "attempted to retrieve a value of type `{actual}` from input slot `{label:?}`, which has type `{expected}`"
+    )]
     MismatchedSlotType {
         label: SlotLabel,
         expected: SlotType,

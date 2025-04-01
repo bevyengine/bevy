@@ -5,8 +5,8 @@ use crate::{
     entity::{Entity, EntityDoesNotExistError, EntityHashMap, EntityHashSet},
     error::Result,
     world::{
-        error::EntityMutableFetchError, unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef,
-        EntityWorldMut,
+        EntityMut, EntityRef, EntityWorldMut, error::EntityMutableFetchError,
+        unsafe_world_cell::UnsafeWorldCell,
     },
 };
 

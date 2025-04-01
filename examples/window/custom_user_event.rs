@@ -83,7 +83,7 @@ fn handle_event(mut events: EventReader<CustomEvent>) {
 pub(crate) mod wasm {
     use super::*;
     use bevy::winit::EventLoopProxy;
-    use wasm_bindgen::{prelude::*, JsCast};
+    use wasm_bindgen::{JsCast, prelude::*};
     use web_sys::KeyboardEvent;
 
     pub(crate) fn setup_js_closure(event_loop: Res<EventLoopProxyWrapper<CustomEvent>>) {

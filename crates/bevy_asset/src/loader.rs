@@ -1,10 +1,10 @@
 use crate::{
+    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
+    UntypedHandle,
     io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
     loader_builders::{Deferred, NestedLoader, StaticTyped},
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
     path::AssetPath,
-    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
-    UntypedHandle,
 };
 use alloc::{
     boxed::Box,
@@ -16,7 +16,7 @@ use bevy_ecs::world::World;
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::any::{Any, TypeId};
-use downcast_rs::{impl_downcast, Downcast};
+use downcast_rs::{Downcast, impl_downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -297,7 +297,9 @@ impl<A: Asset> AssetContainer for A {
 /// [immediately]: crate::Immediate
 #[derive(Error, Debug)]
 pub enum LoadDirectError {
-    #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291")]
+    #[error(
+        "Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291"
+    )]
     RequestedSubasset(AssetPath<'static>),
     #[error("Failed to load dependency {dependency:?} {error}")]
     LoadError {
@@ -587,6 +589,8 @@ pub enum ReadAssetBytesError {
         path: PathBuf,
         source: std::io::Error,
     },
-    #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
+    #[error(
+        "The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error."
+    )]
     MissingAssetHash,
 }

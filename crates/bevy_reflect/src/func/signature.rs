@@ -11,9 +11,9 @@
 //!
 //! [`FunctionInfo`]: crate::func::info::FunctionInfo
 
+use crate::Type;
 use crate::func::args::ArgInfo;
 use crate::func::{ArgList, SignatureInfo};
-use crate::Type;
 use alloc::boxed::Box;
 use bevy_platform_support::collections::Equivalent;
 use core::borrow::Borrow;
