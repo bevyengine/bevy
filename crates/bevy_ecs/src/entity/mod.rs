@@ -612,7 +612,8 @@ impl Entities {
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush),
-    /// but, if desiered, caller may [`set`](Self::set) the [`EntityLocation`] prior to the flush instead.
+    /// but, if desiered, caller may set the [`EntityLocation`] prior to the flush instead,
+    /// via [`flush_entity`](crate::world::World::flush_entity) for example.
     pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
         ReserveEntitiesIterator {
             allocator: self.alloc_entities(count),
@@ -630,7 +631,7 @@ impl Entities {
     }
 
     /// Allocate an entity ID directly.
-    /// Caller is responsible to [`set`](Self::set) the [`EntityLocation`] if desierd,
+    /// Caller is responsible to set the [`EntityLocation`] if desierd,
     /// which must be done before [`get`](Self::get)ing its [`EntityLocation`].
     pub fn alloc(&self) -> Entity {
         self.allocator.alloc()
@@ -934,7 +935,7 @@ pub struct RemoteEntities {
 impl RemoteEntities {
     /// Allocates an [`Entity`] if the source [`Entities`] is still linked to this [`RemoteEntities`].
     ///
-    /// The caller takes responsibility for eventually [`set`](Entities::set)ing the [`EntityLocation`],
+    /// The caller takes responsibility for eventually setting the [`EntityLocation`],
     /// usually via [`flush_entity`](crate::world::World::flush_entity).
     pub fn alloc(&self) -> Option<Entity> {
         self.allocator.alloc()
@@ -943,7 +944,7 @@ impl RemoteEntities {
     /// Reserves an [`Entity`] if the source [`Entities`] is still linked to this [`RemoteEntities`].
     ///
     /// This also queues it to be flushed after [`Entities::queue_remote_pending_to_be_flushed`] is called.
-    /// If waiting for that is not an option, it is also possible to [`set`](Entities::set) the [`EntityLocation`] manually,
+    /// If waiting for that is not an option, it is also possible to set the [`EntityLocation`] manually,
     /// usually via [`flush_entity`](crate::world::World::flush_entity).
     pub fn reserve(&self) -> Option<Entity> {
         self.alloc()
