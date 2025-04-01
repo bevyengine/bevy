@@ -9,10 +9,10 @@ use crate::{
 use super::ComputedNode;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    entity::{Entity, EntityHashSet},
+    entity::Entity,
     hierarchy::ChildOf,
     query::{Changed, With},
-    system::{Commands, Local, Query, Res},
+    system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
 use bevy_render::camera::Camera;
