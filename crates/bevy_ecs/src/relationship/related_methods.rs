@@ -336,14 +336,11 @@ impl<'a> EntityCommands<'a> {
     ///
     /// See [`add_one_related`](Self::add_one_related) if you want relate only one entity.
     pub fn add_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
-        let id = self.id();
-        let related = related.to_vec();
-        self.commands().queue(move |world: &mut World| {
-            for related in related {
-                world.entity_mut(related).insert(R::from(id));
-            }
-        });
-        self
+        let related: Box<[Entity]> = related.into();
+
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.add_related::<R>(&related);
+        })
     }
 
     /// Relates the given entity to this with the relation `R`.
@@ -355,14 +352,11 @@ impl<'a> EntityCommands<'a> {
 
     /// Replaces all the related entities with the given set of new related entities.
     pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
-        let id = self.id();
         let related: Box<[Entity]> = related.into();
 
-        self.commands().queue(move |world: &mut World| {
-            world.entity_mut(id).replace_related::<R>(&related);
-        });
-
-        self
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.replace_related::<R>(&related);
+        })
     }
 
     /// Replaces all the related entities with a new set of entities.
@@ -381,30 +375,25 @@ impl<'a> EntityCommands<'a> {
         entities_to_relate: &[Entity],
         newly_related_entities: &[Entity],
     ) -> &mut Self {
-        let id = self.id();
         let entities_to_unrelate: Box<[Entity]> = entities_to_unrelate.into();
         let entities_to_relate: Box<[Entity]> = entities_to_relate.into();
         let newly_related_entities: Box<[Entity]> = newly_related_entities.into();
 
-        self.commands().queue(move |world: &mut World| {
-            world.entity_mut(id).replace_children_with_difference(
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.replace_children_with_difference(
                 &entities_to_unrelate,
                 &entities_to_relate,
                 &newly_related_entities,
             );
-        });
-
-        self
+        })
     }
 
     /// Despawns entities that relate to this one via the given [`RelationshipTarget`].
     /// This entity will not be despawned.
     pub fn despawn_related<S: RelationshipTarget>(&mut self) -> &mut Self {
-        let id = self.id();
-        self.commands.queue(move |world: &mut World| {
-            world.entity_mut(id).despawn_related::<S>();
-        });
-        self
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.despawn_related::<S>();
+        })
     }
 
     /// Inserts a component or bundle of components into the entity and all related entities,
@@ -418,11 +407,9 @@ impl<'a> EntityCommands<'a> {
         &mut self,
         bundle: impl Bundle + Clone,
     ) -> &mut Self {
-        let id = self.id();
-        self.commands.queue(move |world: &mut World| {
-            world.entity_mut(id).insert_recursive::<S>(bundle);
-        });
-        self
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.insert_recursive::<S>(bundle);
+        })
     }
 
     /// Removes a component or bundle of components of type `B` from the entity and all related entities,
@@ -433,11 +420,9 @@ impl<'a> EntityCommands<'a> {
     /// This method should only be called on relationships that form a tree-like structure.
     /// Any cycles will cause this method to loop infinitely.
     pub fn remove_recursive<S: RelationshipTarget, B: Bundle>(&mut self) -> &mut Self {
-        let id = self.id();
-        self.commands.queue(move |world: &mut World| {
-            world.entity_mut(id).remove_recursive::<S, B>();
-        });
-        self
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_recursive::<S, B>();
+        })
     }
 }
 
