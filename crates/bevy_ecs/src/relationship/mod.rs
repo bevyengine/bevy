@@ -136,7 +136,13 @@ pub trait Relationship: Component + Sized {
                     core::any::type_name::<Self>(),
                     core::any::type_name::<Self>()
                 );
-                commands.entity(source).remove::<Self>();
+                commands
+                    .entity(source)
+                    .queue(move |mut entity: EntityWorldMut| {
+                        entity.modify_component(|relationship: &mut Self| {
+                            relationship.collection_mut().remove(target_entity);
+                        });
+                    });
             } else if let Ok(mut target_entity_mut) = entities.get_mut(target_entity) {
                 if let Some(mut relationship_target) =
                     target_entity_mut.get_mut::<Self::RelationshipTarget>()
@@ -155,7 +161,13 @@ pub trait Relationship: Component + Sized {
                     core::any::type_name::<Self>(),
                     core::any::type_name::<Self>()
                 );
-                commands.entity(source).remove::<Self>();
+                commands
+                    .entity(source)
+                    .queue(move |mut entity: EntityWorldMut| {
+                        entity.modify_component(|relationship: &mut Self| {
+                            relationship.collection_mut().remove(target_entity);
+                        });
+                    });
             }
         }
     }
@@ -195,7 +207,7 @@ pub trait Relationship: Component + Sized {
                     target_entity_mut.get_mut::<Self::RelationshipTarget>()
                 {
                     relationship_target.collection_mut_risky().remove(source);
-                    if relationship_target.len() == 0 {
+                    if relationship_target.is_empty() {
                         if let Ok(mut entity) = commands.get_entity(target_entity) {
                             // this "remove" operation must check emptiness because in the event that an identical
                             // relationship is inserted on top, this despawn would result in the removal of that identical
