@@ -58,6 +58,17 @@ Method  | `0.16` Path | `0.17` Path
 --- | --- | ---
 tonemapping_pipeline_key | | `bevy_render_2d::mesh_pipeline::key`
 
+### Shader imports
+
+`0.16` Path | `0.17` Path
+--- | ---
+`bevy_sprite::mesh2d_bindings` | `bevy_render_2d::mesh2d_bindings`
+`bevy_sprite::mesh2d_functions` | `bevy_render_2d::mesh2d_functions`
+`bevy_sprite::mesh2d_types` | `bevy_render_2d::mesh2d_types`
+`bevy_sprite::mesh2d_vertex_output` | `bevy_render_2d::mesh2d_vertex_output`
+`bevy_sprite::mesh2d_view_bindings` | `bevy_render_2d::mesh2d_view_bindings`
+`bevy_sprite::mesh2d_view_types` | `bevy_render_2d::mesh2d_view_types`
+
 ## Prelude
 
 `bevy_render_2d`'s prelude contains:
