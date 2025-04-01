@@ -104,6 +104,13 @@ impl ChildOf {
     pub fn parent(&self) -> Entity {
         self.0
     }
+
+    /// The parent entity of this child entity.
+    #[deprecated(since = "0.16.0", note = "Use child_of.parent() instead")]
+    #[inline]
+    pub fn get(&self) -> Entity {
+        self.0
+    }
 }
 
 // TODO: We need to impl either FromWorld or Default so ChildOf can be registered as Reflect.
