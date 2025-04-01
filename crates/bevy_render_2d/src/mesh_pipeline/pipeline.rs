@@ -1,5 +1,3 @@
-mod key;
-
 use bevy_asset::{AssetId, Handle};
 use bevy_core_pipeline::{
     core_2d::CORE_2D_DEPTH_FORMAT, tonemapping::get_lut_bind_group_layout_entries,
@@ -32,11 +30,10 @@ use bevy_render::{
 
 use nonmax::NonMaxU32;
 
-pub use key::Mesh2dPipelineKey;
-
 use super::{
-    bind_group::Material2dBindGroupId, instancing::RenderMesh2dInstances,
-    shader_type::Mesh2dUniform, MESH2D_SHADER_HANDLE,
+    key::Mesh2dPipelineKey,
+    render::{Material2dBindGroupId, Mesh2dUniform, RenderMesh2dInstances},
+    MESH2D_SHADER_HANDLE,
 };
 
 #[derive(Resource, Clone)]

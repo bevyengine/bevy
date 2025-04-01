@@ -35,13 +35,12 @@ use crate::{
             EntitiesNeedingSpecialization, EntitySpecializationTicks,
             SpecializedMaterial2dPipelineCache,
         },
+        AlphaMode2d, Material2d, MeshMaterial2d,
     },
     mesh_pipeline::{
-        instancing::RenderMesh2dInstances,
-        pipeline::Mesh2dPipelineKey,
-        view::{ViewKeyCache, ViewSpecializationTicks},
+        key::Mesh2dPipelineKey,
+        render::{RenderMesh2dInstances, ViewKeyCache, ViewSpecializationTicks},
     },
-    prelude::{AlphaMode2d, Material2d, MeshMaterial2d},
 };
 
 pub fn extract_mesh_materials_2d<M: Material2d>(

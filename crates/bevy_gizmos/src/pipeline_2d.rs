@@ -28,9 +28,9 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 use bevy_render_2d::mesh_pipeline::{
-    commands::SetMesh2dViewBindGroup,
-    pipeline::{Mesh2dPipeline, Mesh2dPipelineKey},
+    commands::SetMesh2dViewBindGroup, key::Mesh2dPipelineKey, pipeline::Mesh2dPipeline,
 };
+
 use tracing::error;
 
 pub struct LineGizmo2dPlugin;

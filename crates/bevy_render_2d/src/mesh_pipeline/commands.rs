@@ -14,9 +14,8 @@ use bevy_render::{
     view::ViewUniformOffset,
 };
 
-use super::{
-    bind_group::{Mesh2dBindGroup, Mesh2dViewBindGroup},
-    instancing::{RenderMesh2dInstance, RenderMesh2dInstances},
+use super::render::{
+    Mesh2dBindGroup, Mesh2dViewBindGroup, RenderMesh2dInstance, RenderMesh2dInstances,
 };
 
 pub struct SetMesh2dViewBindGroup<const I: usize>;

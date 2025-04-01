@@ -1,19 +1,14 @@
 //! Provides functionality for rendering meshes in 2d
 
-pub mod bind_group;
 pub mod commands;
-pub mod instancing;
-pub mod mesh;
+pub mod key;
 pub mod pipeline;
-mod shader_type;
-pub mod view;
+pub mod render;
+mod systems;
 
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
-use bevy_core_pipeline::{
-    core_2d::{AlphaMask2d, Opaque2d, Transparent2d},
-    tonemapping::Tonemapping,
-};
+use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     batching::no_gpu_preprocessing::{
@@ -27,12 +22,12 @@ use bevy_render::{
     RenderSet::{self},
 };
 
-use bind_group::{prepare_mesh2d_bind_group, prepare_mesh2d_view_bind_groups};
-use instancing::RenderMesh2dInstances;
-use mesh::extract_mesh2d;
-use pipeline::{Mesh2dPipeline, Mesh2dPipelineKey};
-use shader_type::Mesh2dUniform;
-use view::{check_views_need_specialization, ViewKeyCache, ViewSpecializationTicks};
+use pipeline::Mesh2dPipeline;
+use render::{Mesh2dUniform, RenderMesh2dInstances, ViewKeyCache, ViewSpecializationTicks};
+use systems::{
+    check_views_need_specialization, extract_mesh2d, prepare_mesh2d_bind_group,
+    prepare_mesh2d_view_bind_groups,
+};
 
 const MESH2D_VERTEX_OUTPUT: Handle<Shader> = weak_handle!("71e279c7-85a0-46ac-9a76-1586cbf506d0");
 const MESH2D_VIEW_TYPES_HANDLE: Handle<Shader> =
@@ -156,20 +151,5 @@ impl Plugin for Mesh2dRenderPlugin {
             Shader::from_wgsl_with_defs,
             mesh_bindings_shader_defs
         );
-    }
-}
-
-const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
-    match tonemapping {
-        Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
-        Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
-        Tonemapping::ReinhardLuminance => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
-        Tonemapping::AcesFitted => Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED,
-        Tonemapping::AgX => Mesh2dPipelineKey::TONEMAP_METHOD_AGX,
-        Tonemapping::SomewhatBoringDisplayTransform => {
-            Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-        }
-        Tonemapping::TonyMcMapface => Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-        Tonemapping::BlenderFilmic => Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
     }
 }

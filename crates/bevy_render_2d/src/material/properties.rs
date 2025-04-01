@@ -1,6 +1,6 @@
 use bevy_render::render_phase::DrawFunctionId;
 
-use crate::{material::AlphaMode2d, mesh_pipeline::pipeline::Mesh2dPipelineKey};
+use crate::{material::AlphaMode2d, mesh_pipeline::key::Mesh2dPipelineKey};
 
 /// Common [`Material2d`](super::Material2d) properties, calculated for a specific material instance.
 pub struct Material2dProperties {

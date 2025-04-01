@@ -10,7 +10,7 @@ use bevy_render::{
 
 use crate::{
     material::{AlphaMode2d, Material2d},
-    mesh_pipeline::{bind_group::Material2dBindGroupId, pipeline::Mesh2dPipelineKey},
+    mesh_pipeline::{key::Mesh2dPipelineKey, render::Material2dBindGroupId},
 };
 
 use super::{

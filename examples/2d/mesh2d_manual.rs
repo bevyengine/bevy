@@ -31,11 +31,10 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
     render_2d::mesh_pipeline::{
-        bind_group::Material2dBindGroupId,
         commands::{DrawMesh2d, SetMesh2dBindGroup, SetMesh2dViewBindGroup},
-        instancing::RenderMesh2dInstance,
-        mesh::{Mesh2dTransforms, MeshFlags},
-        pipeline::{Mesh2dPipeline, Mesh2dPipelineKey},
+        key::Mesh2dPipelineKey,
+        pipeline::Mesh2dPipeline,
+        render::{Material2dBindGroupId, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance},
     },
 };
 use std::f32::consts::PI;

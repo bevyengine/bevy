@@ -10,7 +10,7 @@ use bevy_render::{
     renderer::RenderDevice,
 };
 
-use crate::mesh_pipeline::pipeline::{Mesh2dPipeline, Mesh2dPipelineKey};
+use crate::mesh_pipeline::{key::Mesh2dPipelineKey, pipeline::Mesh2dPipeline};
 
 use super::{pipeline::Material2dPipeline, Material2d};
 
