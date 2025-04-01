@@ -482,6 +482,7 @@ impl SparseSetIndex for Entity {
 }
 
 /// Stores entities that need to be flushed.
+#[derive(Clone)]
 struct RemotePending {
     pending: Arc<ConcurrentQueue<Entity>>,
 }
@@ -543,23 +544,7 @@ impl Pending {
         let pending = { self.remote.pending.try_iter() };
 
         for pending in pending {
-            flusher(pending)
-        }
-    }
-
-    fn flush_all(&mut self, mut flusher: impl FnMut(Entity)) {
-        let pending = { self.remote.pending.try_iter() };
-
-        #[cfg(feature = "std")]
-        let pending = {
-            self.local
-                .iter_mut()
-                .flat_map(|pending| pending.drain(..))
-                .chain(pending)
-        };
-
-        for pending in pending {
-            flusher(pending)
+            flusher(pending);
         }
     }
 }
@@ -606,7 +591,9 @@ impl Entities {
     ///
     /// Equivalent to `self.reserve_entities(1).next().unwrap()`, but more efficient.
     pub fn reserve_entity(&self) -> Entity {
-        self.alloc()
+        let entity = self.alloc();
+        self.pending.queue_flush(entity);
+        entity
     }
 
     /// Allocate an entity ID directly.
@@ -892,12 +879,26 @@ impl Entities {
 #[derive(Clone)]
 pub struct RemoteEntities {
     allocator: RemoteAllocator,
+    pending: RemotePending,
 }
 
 impl RemoteEntities {
     /// Allocates an [`Entity`] if the source [`Entities`] is still linked to this [`RemoteEntities`].
+    ///
+    /// The caller takes responsibility for eventually [`set`](Entities::set)ing the [`EntityLocation`],
+    /// usually via [`flush_entity`](crate::world::World::flush_entity).
     pub fn alloc(&self) -> Option<Entity> {
         self.allocator.alloc()
+    }
+
+    /// Reserves an [`Entity`] if the source [`Entities`] is still linked to this [`RemoteEntities`].
+    ///
+    /// This also queues it to be flushed after [`Entities::queue_remote_pending_to_be_flushed`] is called.
+    /// If waiting for that is not an option, it is also possible to [`set`](Entities::set) the [`EntityLocation`] manually,
+    /// usually via [`flush_entity`](crate::world::World::flush_entity).
+    pub fn reserve(&self) -> Option<Entity> {
+        self.alloc()
+            .inspect(|entity| self.pending.queue_flush(*entity))
     }
 
     /// Returns true if this [`RemoteEntities`] is still connected to its source [`Entities`].
@@ -916,6 +917,7 @@ impl RemoteEntities {
     pub fn new(source: &Entities) -> Self {
         Self {
             allocator: RemoteAllocator::new(&source.allocator),
+            pending: source.pending.remote.clone(),
         }
     }
 }
