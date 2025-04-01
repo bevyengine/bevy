@@ -724,6 +724,7 @@ fn derive_relationship(
     };
     let field = relationship_field(fields, "Relationship", struct_token.span())?;
 
+    let collection = &field.ty;
     let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
     let members = fields
         .members()
@@ -735,19 +736,26 @@ fn derive_relationship(
     let relationship_target = &relationship.relationship_target;
 
     Ok(Some(quote! {
+        #[automatically_derived]
         impl #impl_generics #bevy_ecs_path::relationship::Relationship for #struct_name #type_generics #where_clause {
             type RelationshipTarget = #relationship_target;
+            type Collection = #collection;
 
-            #[inline(always)]
-            fn get(&self) -> #bevy_ecs_path::entity::Entity {
-                self.#relationship_member
+            #[inline]
+            fn collection(&self) -> &Self::Collection {
+                &self.#relationship_member
             }
 
             #[inline]
-            fn from(entity: #bevy_ecs_path::entity::Entity) -> Self {
+            fn collection_mut(&mut self) -> &mut Self::Collection {
+                &mut self.#relationship_member
+            }
+
+            #[inline]
+            fn from_collection(collection: Self::Collection) -> Self {
                 Self {
                     #(#members: core::default::Default::default(),)*
-                    #relationship_member: entity
+                    #relationship_member: collection
                 }
             }
         }
@@ -791,6 +799,7 @@ fn derive_relationship_target(
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     let linked_spawn = relationship_target.linked_spawn;
     Ok(Some(quote! {
+        #[automatically_derived]
         impl #impl_generics #bevy_ecs_path::relationship::RelationshipTarget for #struct_name #type_generics #where_clause {
             const LINKED_SPAWN: bool = #linked_spawn;
             type Relationship = #relationship;

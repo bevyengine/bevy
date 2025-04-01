@@ -42,6 +42,9 @@ pub trait RelationshipCollection {
     /// the entity.
     fn remove(&mut self, entity: Entity) -> bool;
 
+    /// Returns true if the collection contains the given `entity`.
+    fn contains(&self, entity: Entity) -> bool;
+
     /// Iterates all entities in the collection.
     fn iter(&self) -> Self::Iter<'_>;
 
@@ -156,6 +159,10 @@ impl RelationshipCollection for Vec<Entity> {
         false
     }
 
+    fn contains(&self, entity: Entity) -> bool {
+        <[Entity]>::iter(self).any(|e| *e == entity)
+    }
+
     fn iter(&self) -> Self::Iter<'_> {
         <[Entity]>::iter(self).copied()
     }
@@ -253,6 +260,10 @@ impl RelationshipCollection for EntityHashSet {
         self.0.remove(&entity)
     }
 
+    fn contains(&self, entity: Entity) -> bool {
+        self.0.contains(&entity)
+    }
+
     fn iter(&self) -> Self::Iter<'_> {
         self.iter().copied()
     }
@@ -304,6 +315,10 @@ impl<const N: usize> RelationshipCollection for SmallVec<[Entity; N]> {
         false
     }
 
+    fn contains(&self, entity: Entity) -> bool {
+        <[Entity]>::iter(self).any(|e| *e == entity)
+    }
+
     fn iter(&self) -> Self::Iter<'_> {
         <[Entity]>::iter(self).copied()
     }
@@ -352,6 +367,10 @@ impl RelationshipCollection for Entity {
         }
 
         false
+    }
+
+    fn contains(&self, entity: Entity) -> bool {
+        *self == entity
     }
 
     fn iter(&self) -> Self::Iter<'_> {

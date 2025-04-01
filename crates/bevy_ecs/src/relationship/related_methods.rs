@@ -74,7 +74,7 @@ impl<'w> EntityWorldMut<'w> {
                 let index = index + offset;
                 if world
                     .get::<R>(*related)
-                    .is_some_and(|relationship| relationship.get() == id)
+                    .is_some_and(|relationship| relationship.contains(id))
                 {
                     world
                         .get_mut::<R::RelationshipTarget>(id)

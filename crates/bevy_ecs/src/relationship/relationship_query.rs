@@ -7,16 +7,16 @@ use crate::{
 use alloc::collections::VecDeque;
 use smallvec::SmallVec;
 
-use super::RelationshipIter;
+use super::SourceIter;
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// If the given `entity` contains the `R` [`Relationship`] component, returns the
-    /// target entity of that relationship.
-    pub fn related<R: Relationship>(&'w self, entity: Entity) -> Option<Entity>
+    /// target entities of that relationship.
+    pub fn related<R: Relationship>(&'w self, entity: Entity) -> Option<&'w R::Collection>
     where
         <D as QueryData>::ReadOnly: QueryData<Item<'w> = &'w R>,
     {
-        self.get(entity).map(R::get).ok()
+        self.get(entity).map(R::collection).ok()
     }
 
     /// If the given `entity` contains the `S` [`RelationshipTarget`] component, returns the
@@ -33,20 +33,24 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             .flat_map(RelationshipTarget::iter)
     }
 
-    /// Recursively walks up the tree defined by the given `R` [`Relationship`] until
-    /// there are no more related entities, returning the "root entity" of the relationship hierarchy.
+    /// Recursively walks up the tree defined by the given `R` [`Relationship`]
+    /// until there are no more related entities, returning the "root entity" of
+    /// the relationship hierarchy.
+    ///
+    /// **Does not support many-to-many relationships.**
     ///
     /// # Warning
     ///
     /// For relationship graphs that contain loops, this could loop infinitely.
-    /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter a duplicate entity.
-    pub fn root_ancestor<R: Relationship>(&'w self, entity: Entity) -> Entity
+    /// If your relationship is not a tree (like Bevy's hierarchy), be sure to
+    /// stop if you encounter a duplicate entity.
+    pub fn root_ancestor<R: Relationship<Collection = Entity>>(&'w self, entity: Entity) -> Entity
     where
         <D as QueryData>::ReadOnly: QueryData<Item<'w> = &'w R>,
     {
         // Recursively search up the tree until we're out of parents
         match self.get(entity) {
-            Ok(parent) => self.root_ancestor(parent.get()),
+            Ok(parent) => self.root_ancestor(*parent.collection()),
             Err(_) => entity,
         }
     }
@@ -63,7 +67,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ) -> impl Iterator<Item = Entity> + 'w
     where
         <D as QueryData>::ReadOnly: QueryData<Item<'w> = &'w S>,
-        RelationshipIter<'w, S>: DoubleEndedIterator,
+        SourceIter<'w, S>: DoubleEndedIterator,
     {
         self.iter_descendants_depth_first(entity).filter(|entity| {
             self.get(*entity)
@@ -74,7 +78,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         })
     }
 
-    /// Iterates all sibling entities that also have the `R` [`Relationship`] with the same target entity.
+    /// Iterates all sibling entities that also have the `R` [`Relationship`]
+    /// with the same target entity.
     pub fn iter_siblings<R: Relationship>(
         &'w self,
         entity: Entity,
@@ -84,11 +89,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     {
         self.get(entity)
             .ok()
-            .and_then(|(maybe_parent, _)| maybe_parent.map(R::get))
-            .and_then(|parent| self.get(parent).ok())
-            .and_then(|(_, maybe_children)| maybe_children)
+            .and_then(|(maybe_targets, _)| maybe_targets.map(R::iter))
             .into_iter()
-            .flat_map(move |children| children.iter().filter(move |child| *child != entity))
+            .flatten()
+            .flat_map(|target| {
+                self.get(target)
+                    .ok()
+                    .map(|(_, maybe_sources)| maybe_sources)
+            })
+            .flatten()
+            .flat_map(move |sources| sources.iter().filter(move |source| *source != entity))
     }
 
     /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipTarget`] and their recursive
@@ -121,18 +131,20 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ) -> DescendantDepthFirstIter<'w, 's, D, F, S>
     where
         D::ReadOnly: QueryData<Item<'w> = &'w S>,
-        RelationshipIter<'w, S>: DoubleEndedIterator,
+        SourceIter<'w, S>: DoubleEndedIterator,
     {
         DescendantDepthFirstIter::new(self, entity)
     }
 
     /// Iterates all ancestors of the given `entity` as defined by the `R` [`Relationship`].
     ///
+    /// **Does not support many-to-many relationships.**
+    ///
     /// # Warning
     ///
     /// For relationship graphs that contain loops, this could loop infinitely.
     /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter a duplicate entity.
-    pub fn iter_ancestors<R: Relationship>(
+    pub fn iter_ancestors<R: Relationship<Collection = Entity>>(
         &'w self,
         entity: Entity,
     ) -> AncestorIter<'w, 's, D, F, R>
@@ -204,7 +216,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget>
     DescendantDepthFirstIter<'w, 's, D, F, S>
 where
     D::ReadOnly: QueryData<Item<'w> = &'w S>,
-    RelationshipIter<'w, S>: DoubleEndedIterator,
+    SourceIter<'w, S>: DoubleEndedIterator,
 {
     /// Returns a new [`DescendantDepthFirstIter`].
     pub fn new(children_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
@@ -221,7 +233,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> Iterator
     for DescendantDepthFirstIter<'w, 's, D, F, S>
 where
     D::ReadOnly: QueryData<Item<'w> = &'w S>,
-    RelationshipIter<'w, S>: DoubleEndedIterator,
+    SourceIter<'w, S>: DoubleEndedIterator,
 {
     type Item = Entity;
 
@@ -245,7 +257,8 @@ where
     next: Option<Entity>,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, R: Relationship> AncestorIter<'w, 's, D, F, R>
+impl<'w, 's, D: QueryData, F: QueryFilter, R: Relationship<Collection = Entity>>
+    AncestorIter<'w, 's, D, F, R>
 where
     D::ReadOnly: QueryData<Item<'w> = &'w R>,
 {
@@ -258,7 +271,7 @@ where
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, R: Relationship> Iterator
+impl<'w, 's, D: QueryData, F: QueryFilter, R: Relationship<Collection = Entity>> Iterator
     for AncestorIter<'w, 's, D, F, R>
 where
     D::ReadOnly: QueryData<Item<'w> = &'w R>,
@@ -266,7 +279,12 @@ where
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next = self.parent_query.get(self.next?).ok().map(R::get);
+        self.next = self
+            .parent_query
+            .get(self.next?)
+            .ok()
+            .map(R::collection)
+            .copied();
         self.next
     }
 }
