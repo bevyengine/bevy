@@ -22,6 +22,9 @@ use crate::{
 /// [`DeferredWorld::entities_and_commands`]: crate::world::DeferredWorld::entities_and_commands
 pub struct EntityFetcher<'w> {
     cell: UnsafeWorldCell<'w>,
+    /// The entity that is excluded from the fetcher. This is `None` if no
+    /// entity is excluded (the default).
+    excluded: Option<Entity>,
 }
 
 impl<'w> EntityFetcher<'w> {
@@ -29,7 +32,10 @@ impl<'w> EntityFetcher<'w> {
     // - The given `cell` has mutable access to all entities.
     // - No other references to entities exist at the same time.
     pub(crate) unsafe fn new(cell: UnsafeWorldCell<'w>) -> Self {
-        Self { cell }
+        Self {
+            cell,
+            excluded: None,
+        }
     }
 
     /// Returns [`EntityRef`]s that expose read-only operations for the given
@@ -73,6 +79,7 @@ impl<'w> EntityFetcher<'w> {
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
     /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
     ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
+    ///
     /// # Errors
     ///
     /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
@@ -92,6 +99,33 @@ impl<'w> EntityFetcher<'w> {
         // SAFETY: `&mut self` gives mutable access to all entities,
         // and prevents any other access to entities.
         unsafe { entities.fetch_deferred_mut(self.cell) }
+    }
+
+    /// Provides simultaneous mutable access to the given `entity` and any
+    /// further entities that are fetched via this fetcher. This is most useful
+    /// when you want to fetch an entity, and then use its component data to
+    /// subsequently fetch other entities.
+    ///
+    /// The returned fetcher will exclude the given `entity`, returning
+    /// [`EntityDoesNotExistError`] if it is requested again.
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`EntityDoesNotExistError`] if the given `entity` does not exist.
+    pub fn split_off(
+        &mut self,
+        entity: Entity,
+    ) -> Result<(EntityMut<'_>, EntityFetcher<'_>), EntityDoesNotExistError> {
+        // SAFETY: `&mut self` gives mutable access to all entities,
+        // and prevents any other access to entities.
+        let entity_mut = unsafe { EntityMut::new(self.cell.get_entity(entity)?) };
+        // SAFETY: `&mut self` gives mutable access to all entities,
+        // and prevents any other access to entities. Additionally, `excluded` is
+        // set to the entity that was just fetched, preventing access to it.
+        let mut fetcher = unsafe { EntityFetcher::new(self.cell) };
+        fetcher.excluded = Some(entity);
+
+        Ok((entity_mut, fetcher))
     }
 }
 
@@ -130,6 +164,9 @@ pub unsafe trait WorldEntityFetch {
     /// The mutable reference type returned by [`WorldEntityFetch::fetch_deferred_mut`],
     /// but without structural mutability.
     type DeferredMut<'w>;
+
+    /// Returns `true` if the given [`Entity`] is contained in `self`.
+    fn contains(&self, entity: Entity) -> bool;
 
     /// Returns read-only reference(s) to the entities with the given
     /// [`Entity`] IDs, as determined by `self`.
@@ -200,6 +237,10 @@ unsafe impl WorldEntityFetch for Entity {
     type Mut<'w> = EntityWorldMut<'w>;
     type DeferredMut<'w> = EntityMut<'w>;
 
+    fn contains(&self, entity: Entity) -> bool {
+        *self == entity
+    }
+
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -242,6 +283,10 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
     type Mut<'w> = [EntityMut<'w>; N];
     type DeferredMut<'w> = [EntityMut<'w>; N];
 
+    fn contains(&self, entity: Entity) -> bool {
+        self.iter().any(|&e| e == entity)
+    }
+
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -272,6 +317,10 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
     type Ref<'w> = [EntityRef<'w>; N];
     type Mut<'w> = [EntityMut<'w>; N];
     type DeferredMut<'w> = [EntityMut<'w>; N];
+
+    fn contains(&self, entity: Entity) -> bool {
+        self.iter().any(|&e| e == entity)
+    }
 
     unsafe fn fetch_ref(
         self,
@@ -335,6 +384,10 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
     type Mut<'w> = Vec<EntityMut<'w>>;
     type DeferredMut<'w> = Vec<EntityMut<'w>>;
 
+    fn contains(&self, entity: Entity) -> bool {
+        self.iter().any(|&e| e == entity)
+    }
+
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -390,6 +443,10 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
     type Ref<'w> = EntityHashMap<EntityRef<'w>>;
     type Mut<'w> = EntityHashMap<EntityMut<'w>>;
     type DeferredMut<'w> = EntityHashMap<EntityMut<'w>>;
+
+    fn contains(&self, entity: Entity) -> bool {
+        (***self).contains(&entity)
+    }
 
     unsafe fn fetch_ref(
         self,
