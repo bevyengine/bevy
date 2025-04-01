@@ -40,8 +40,8 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Relates the given entities to this entity with the relation `R`, starting at this particular index.
     ///
-    /// If the `related` has duplicates, a related entity will take the index of its last occorance in `related`.
-    /// If the indices go out of bounds, they will be "squeezed" into bounds.
+    /// If the `related` has duplicates, a related entity will take the index of its last occurrence in `related`.
+    /// If the indices go out of bounds, they will be clamped into bounds.
     /// This will not re-order existing related entities unless they are in `related`.
     ///
     /// # Example
