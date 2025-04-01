@@ -689,6 +689,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// This method is equivalent to iterating the batch
     /// and calling [`insert`](EntityCommands::insert) for each pair,
     /// but is faster by caching data that is shared between entities.
+    ///
+    /// # Fallible
+    ///
+    /// This command will fail if any of the given entities do not exist.
+    ///
+    /// It will internally return a [`TryInsertBatchError`](crate::world::error::TryInsertBatchError),
+    /// which will be handled by the [default error handler](crate::error::default_error_handler).
     #[track_caller]
     pub fn insert_batch<I, B>(&mut self, batch: I)
     where
@@ -713,6 +720,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// This method is equivalent to iterating the batch
     /// and calling [`insert_if_new`](EntityCommands::insert_if_new) for each pair,
     /// but is faster by caching data that is shared between entities.
+    ///
+    /// # Fallible
+    ///
+    /// This command will fail if any of the given entities do not exist.
+    ///
+    /// It will internally return a [`TryInsertBatchError`](crate::world::error::TryInsertBatchError),
+    /// which will be handled by the [default error handler](crate::error::default_error_handler).
     #[track_caller]
     pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
@@ -737,7 +751,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// and calling [`insert`](EntityCommands::insert) for each pair,
     /// but is faster by caching data that is shared between entities.
     ///
-    /// This command will emit a warning if any of the given entities do not exist.
+    /// # Fallible
+    ///
+    /// This command will fail if any of the given entities do not exist.
+    ///
+    /// It will internally return a [`TryInsertBatchError`](crate::world::error::TryInsertBatchError),
+    /// which will be handled by [logging the error at the `warn` level](warn).
     #[track_caller]
     pub fn try_insert_batch<I, B>(&mut self, batch: I)
     where
@@ -763,7 +782,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// and calling [`insert_if_new`](EntityCommands::insert_if_new) for each pair,
     /// but is faster by caching data that is shared between entities.
     ///
-    /// This command will emit a warning if any of the given entities do not exist.
+    /// # Fallible
+    ///
+    /// This command will fail if any of the given entities do not exist.
+    ///
+    /// It will internally return a [`TryInsertBatchError`](crate::world::error::TryInsertBatchError),
+    /// which will be handled by [logging the error at the `warn` level](warn).
     #[track_caller]
     pub fn try_insert_batch_if_new<I, B>(&mut self, batch: I)
     where
@@ -860,8 +884,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// execution of the system happens later. To get the output of a system, use
     /// [`World::run_system`] or [`World::run_system_with`] instead of running the system as a command.
     ///
-    /// If no system corresponds to the given [`SystemId`],
-    /// this command will emit a warning.
+    /// # Fallible
+    ///
+    /// This command will fail if the given [`SystemId`]
+    /// does not correspond to a [`System`](crate::system::System).
+    ///
+    /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
+    /// which will be handled by [logging the error at the `warn` level](warn).
     pub fn run_system(&mut self, id: SystemId) {
         self.queue(command::run_system(id).handle_error_with(warn));
     }
@@ -877,8 +906,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// execution of the system happens later. To get the output of a system, use
     /// [`World::run_system`] or [`World::run_system_with`] instead of running the system as a command.
     ///
-    /// If no system corresponds to the given [`SystemId`],
-    /// this command will emit a warning.
+    /// # Fallible
+    ///
+    /// This command will fail if the given [`SystemId`]
+    /// does not correspond to a [`System`](crate::system::System).
+    ///
+    /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
+    /// which will be handled by [logging the error at the `warn` level](warn).
     pub fn run_system_with<I>(&mut self, id: SystemId<I>, input: I::Inner<'static>)
     where
         I: SystemInput<Inner<'static>: Send> + 'static,
@@ -965,8 +999,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// and attempting to use it afterwards will result in an error.
     /// Re-adding the removed system will register it with a new `SystemId`.
     ///
-    /// If no system corresponds to the given [`SystemId`],
-    /// this command will emit a warning.
+    /// # Fallible
+    ///
+    /// This command will fail if the given [`SystemId`]
+    /// does not correspond to a [`System`](crate::system::System).
+    ///
+    /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
+    /// which will be handled by [logging the error at the `warn` level](warn).
     pub fn unregister_system<I, O>(&mut self, system_id: SystemId<I, O>)
     where
         I: SystemInput + Send + 'static,
@@ -980,8 +1019,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`World::run_system_cached`]
     /// - [`World::register_system_cached`]
     ///
-    /// If the given system is not currently cached,
-    /// this command will emit a warning.
+    /// # Fallible
+    ///
+    /// This command will fail if the given system
+    /// is not currently cached in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
+    ///
+    /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
+    /// which will be handled by [logging the error at the `warn` level](warn).
     pub fn unregister_system_cached<I, O, M, S>(&mut self, system: S)
     where
         I: SystemInput + Send + 'static,
@@ -1108,8 +1152,13 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// Calls [`World::try_run_schedule`](World::try_run_schedule).
     ///
-    /// If the schedule is not available to be run,
-    /// this command will emit a warning.
+    /// # Fallible
+    ///
+    /// This command will fail if the given [`ScheduleLabel`]
+    /// does not correspond to a [`Schedule`](crate::schedule::Schedule).
+    ///
+    /// It will internally return a [`TryRunScheduleError`](crate::world::error::TryRunScheduleError),
+    /// which will be handled by [logging the error at the `warn` level](warn).
     ///
     /// # Example
     ///
