@@ -71,6 +71,23 @@ impl Chunk {
         unsafe { (*target).assume_init() }
     }
 
+    /// Gets a slice of indices.
+    ///
+    /// # Safety
+    ///
+    /// [`Self::set`] must have been called on these indices before.
+    unsafe fn get_slice(&self, index: u32, ideal_len: u32, index_of_self: u32) -> &[Slot] {
+        let cap = Self::capacity_of_chunk(index_of_self);
+        let after_index_slice_len = cap - index;
+        let len = after_index_slice_len.min(ideal_len) as usize;
+
+        // SAFETY: caller ensure we are init.
+        let head = unsafe { self.ptr().debug_checked_unwrap() };
+
+        // SAFETY: The chunk was allocated via a `Vec` and the index is within the capacity.
+        unsafe { core::slice::from_raw_parts(head, len) }
+    }
+
     /// Sets this entity at this index.
     ///
     /// # Safety
@@ -196,6 +213,38 @@ impl FreeBuffer {
         })
     }
 
+    /// Allocates an as many [`Entity`]s from the free list as are available, up to `count`.
+    ///
+    /// # Safety
+    ///
+    /// This must not conflict with [`Self::free`] calls for the duration of the returned iterator.
+    unsafe fn alloc_many(&self, count: u32) -> FreeListSliceIterator {
+        // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
+        let len = self.len.fetch_sub(count as isize, Ordering::AcqRel);
+        let index = (len - count as isize).max(0);
+
+        let indices = if index < len {
+            let end = (len - 1) as u32;
+            let start = index as u32;
+            start..=end
+        } else {
+            #[expect(
+                clippy::reversed_empty_ranges,
+                reason = "We intentionally need an empty range"
+            )]
+            {
+                1..=0
+            }
+        };
+
+        // SAFETY: The indices are all less then the length.
+        FreeListSliceIterator {
+            buffer: self,
+            indices,
+            current: [].iter(),
+        }
+    }
+
     /// Allocates an [`Entity`] from the free list if one is available and it is safe to do so.
     fn remote_alloc(&self) -> Option<Entity> {
         // The goal is the same as `alloc`, so what's the difference?
@@ -267,6 +316,49 @@ impl Drop for FreeBuffer {
     }
 }
 
+/// A list that iterates the [`FreeBuffer`].
+///
+/// # Safety
+///
+/// Must be constructed to only iterate slots that have been initialized.
+struct FreeListSliceIterator<'a> {
+    buffer: &'a FreeBuffer,
+    indices: core::ops::RangeInclusive<u32>,
+    current: core::slice::Iter<'a, Slot>,
+}
+
+impl<'a> Iterator for FreeListSliceIterator<'a> {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(sliced) = self.current.next() {
+            // SAFETY: Assured by constructor.
+            return unsafe { Some(sliced.assume_init_read()) };
+        }
+
+        let next_index = self.indices.next()?;
+        let (chunk_index, inner_index) = Chunk::get_indices(next_index);
+        // SAFETY: index is correct
+        let chunk = unsafe { self.buffer.chunks.get_unchecked(chunk_index as usize) };
+
+        // SAFETY: Assured by constructor
+        let slice = unsafe { chunk.get_slice(inner_index, self.len() as u32 + 1, chunk_index) };
+        self.indices = (*self.indices.start() + slice.len() as u32 - 1)..=(*self.indices.end());
+
+        self.current = slice.iter();
+        // SAFETY: Assured by constructor.
+        unsafe { Some(self.current.next()?.assume_init_read()) }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.indices.end().saturating_sub(*self.indices.start()) as usize;
+        (len, Some(len))
+    }
+}
+
+impl<'a> ExactSizeIterator for FreeListSliceIterator<'a> {}
+impl<'a> core::iter::FusedIterator for FreeListSliceIterator<'a> {}
+
 /// This stores allocation data shared by all entity allocators.
 struct SharedAllocator {
     /// The entities pending reuse
@@ -321,6 +413,22 @@ impl SharedAllocator {
     unsafe fn alloc(&self) -> Entity {
         // SAFETY: assured by caller
         unsafe { self.free.alloc() }.unwrap_or_else(|| self.alloc_new_index())
+    }
+
+    /// Allocates a `count` [`Entity`]s, reusing freed indices if they exist.
+    ///
+    /// # Safety
+    ///
+    /// This must not conflict with [`FreeBuffer::free`] calls for the duration of the iterator.
+    unsafe fn alloc_many(&self, count: u32) -> AllocEntitiesIterator {
+        let reused = self.free.alloc_many(count);
+        let missing = count - reused.len() as u32;
+        let start_new = self.next_entity_index.fetch_add(missing, Ordering::Relaxed);
+        if start_new < missing {
+            self.check_overflow();
+        }
+        let new = start_new..=(start_new + missing);
+        AllocEntitiesIterator { new, reused }
     }
 
     /// Allocates a new [`Entity`].
@@ -383,11 +491,9 @@ impl Allocator {
     }
 
     /// Allocates `count` entities in an iterator.
-    pub fn alloc_many(&self, entities: u32) -> AllocEntitiesIterator {
-        AllocEntitiesIterator {
-            allocator: self,
-            num_left: entities,
-        }
+    pub fn alloc_many(&self, count: u32) -> AllocEntitiesIterator {
+        // SAFETY: `free` takes `&mut self`, but this lifetime is captured by the iterator.
+        unsafe { self.shared.alloc_many(count) }
     }
 }
 
@@ -404,19 +510,21 @@ impl core::fmt::Debug for Allocator {
 ///
 /// **NOTE:** Dropping will leak the remaining entities!
 pub struct AllocEntitiesIterator<'a> {
-    allocator: &'a Allocator,
-    num_left: u32,
+    new: core::ops::RangeInclusive<u32>,
+    reused: FreeListSliceIterator<'a>,
 }
 
 impl<'a> Iterator for AllocEntitiesIterator<'a> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.num_left.checked_sub(1).map(|_| self.allocator.alloc())
+        self.reused
+            .next()
+            .or_else(|| self.new.next().map(Entity::from_raw))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.num_left as usize;
+        let len = self.reused.len() + self.new.end().saturating_sub(*self.new.end()) as usize;
         (len, Some(len))
     }
 }
@@ -429,10 +537,11 @@ unsafe impl EntitySetIterator for AllocEntitiesIterator<'_> {}
 
 impl Drop for AllocEntitiesIterator<'_> {
     fn drop(&mut self) {
-        if self.num_left > 0 {
+        let leaking = self.len();
+        if leaking > 0 {
             warn!(
                 "{} entities being leaked via unfinished `AllocEntitiesIterator`",
-                self.num_left
+                leaking
             );
         }
     }
