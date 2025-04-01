@@ -7,7 +7,7 @@ use crate::{
 use alloc::collections::VecDeque;
 use smallvec::SmallVec;
 
-use super::SourceIter;
+use super::RelationshipIter;
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// If the given `entity` contains the `R` [`Relationship`] component, returns the
@@ -63,7 +63,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ) -> impl Iterator<Item = Entity> + 'w
     where
         <D as QueryData>::ReadOnly: QueryData<Item<'w> = &'w S>,
-        SourceIter<'w, S>: DoubleEndedIterator,
+        RelationshipIter<'w, S>: DoubleEndedIterator,
     {
         self.iter_descendants_depth_first(entity).filter(|entity| {
             self.get(*entity)
@@ -121,7 +121,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ) -> DescendantDepthFirstIter<'w, 's, D, F, S>
     where
         D::ReadOnly: QueryData<Item<'w> = &'w S>,
-        SourceIter<'w, S>: DoubleEndedIterator,
+        RelationshipIter<'w, S>: DoubleEndedIterator,
     {
         DescendantDepthFirstIter::new(self, entity)
     }
@@ -204,7 +204,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget>
     DescendantDepthFirstIter<'w, 's, D, F, S>
 where
     D::ReadOnly: QueryData<Item<'w> = &'w S>,
-    SourceIter<'w, S>: DoubleEndedIterator,
+    RelationshipIter<'w, S>: DoubleEndedIterator,
 {
     /// Returns a new [`DescendantDepthFirstIter`].
     pub fn new(children_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
@@ -221,7 +221,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> Iterator
     for DescendantDepthFirstIter<'w, 's, D, F, S>
 where
     D::ReadOnly: QueryData<Item<'w> = &'w S>,
-    SourceIter<'w, S>: DoubleEndedIterator,
+    RelationshipIter<'w, S>: DoubleEndedIterator,
 {
     type Item = Entity;
 

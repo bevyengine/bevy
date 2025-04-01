@@ -2,7 +2,7 @@ use crate::{
     bundle::Bundle,
     entity::{hash_set::EntityHashSet, Entity},
     relationship::{
-        Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
+        Relationship, RelationshipCollection, RelationshipHookMode, RelationshipTarget,
     },
     system::{Commands, EntityCommands},
     world::{EntityWorldMut, World},
@@ -10,7 +10,7 @@ use crate::{
 use bevy_platform_support::prelude::{Box, Vec};
 use core::{marker::PhantomData, mem};
 
-use super::OrderedRelationshipSourceCollection;
+use super::OrderedRelationshipCollection;
 
 impl<'w> EntityWorldMut<'w> {
     /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
@@ -66,8 +66,7 @@ impl<'w> EntityWorldMut<'w> {
     /// ```
     pub fn insert_related<R: Relationship>(&mut self, index: usize, related: &[Entity]) -> &mut Self
     where
-        <R::RelationshipTarget as RelationshipTarget>::Collection:
-            OrderedRelationshipSourceCollection,
+        <R::RelationshipTarget as RelationshipTarget>::Collection: OrderedRelationshipCollection,
     {
         let id = self.id();
         self.world_scope(|world| {

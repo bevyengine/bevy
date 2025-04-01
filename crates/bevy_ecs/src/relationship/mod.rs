@@ -178,9 +178,9 @@ pub trait Relationship: Component + Sized {
 }
 
 /// The iterator type for the source entities in a [`RelationshipTarget`] collection,
-/// as defined in the [`RelationshipSourceCollection`] trait.
-pub type SourceIter<'w, R> =
-    <<R as RelationshipTarget>::Collection as RelationshipSourceCollection>::SourceIter<'w>;
+/// as defined in the [`RelationshipCollection`] trait.
+pub type RelationshipIter<'w, R> =
+    <<R as RelationshipTarget>::Collection as RelationshipCollection>::Iter<'w>;
 
 /// A [`Component`] containing the collection of entities that relate to this [`Entity`] via the associated `Relationship` type.
 /// See the [`Relationship`] documentation for more information.
@@ -197,11 +197,11 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     type Relationship: Relationship<RelationshipTarget = Self>;
     /// The collection type that stores the "source" entities for this [`RelationshipTarget`] component.
     ///
-    /// Check the list of types which implement [`RelationshipSourceCollection`] for the data structures that can be used inside of your component.
-    /// If you need a new collection type, you can implement the [`RelationshipSourceCollection`] trait
+    /// Check the list of types which implement [`RelationshipCollection`] for the data structures that can be used inside of your component.
+    /// If you need a new collection type, you can implement the [`RelationshipCollection`] trait
     /// for a type you own which wraps the collection you want to use (to avoid the orphan rule),
     /// or open an issue on the Bevy repository to request first-party support for your collection type.
-    type Collection: RelationshipSourceCollection;
+    type Collection: RelationshipCollection;
 
     /// Returns a reference to the stored [`RelationshipTarget::Collection`].
     fn collection(&self) -> &Self::Collection;
@@ -270,14 +270,13 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 
     /// Creates this [`RelationshipTarget`] with the given pre-allocated entity capacity.
     fn with_capacity(capacity: usize) -> Self {
-        let collection =
-            <Self::Collection as RelationshipSourceCollection>::with_capacity(capacity);
+        let collection = <Self::Collection as RelationshipCollection>::with_capacity(capacity);
         Self::from_collection_risky(collection)
     }
 
     /// Iterates the entities stored in this collection.
     #[inline]
-    fn iter(&self) -> SourceIter<'_, Self> {
+    fn iter(&self) -> RelationshipIter<'_, Self> {
         self.collection().iter()
     }
 
