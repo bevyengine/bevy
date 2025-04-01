@@ -239,9 +239,6 @@ impl<'m> SceneEntityMapper<'m> {
 
     /// Creates a new [`SceneEntityMapper`], spawning a temporary base [`Entity`] in the provided [`World`]
     pub fn new(map: &'m mut EntityHashMap<Entity>, world: &mut World) -> Self {
-        // We're going to be calling methods on `Entities` that require advance
-        // flushing, such as `alloc` and `free`.
-        world.flush_entities();
         Self {
             map,
             // SAFETY: Entities data is kept in a valid state via `EntityMapper::world_scope`

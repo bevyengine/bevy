@@ -2884,6 +2884,7 @@ impl<'w> EntityWorldMut<'w> {
         self.assert_not_despawned();
 
         let entity_clone = self.world.entities.reserve_entity();
+        // If there is a command that could change what we are cloning, apply it.
         self.world.flush();
 
         let mut builder = EntityCloner::build(self.world);
