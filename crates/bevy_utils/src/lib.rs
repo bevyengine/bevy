@@ -25,6 +25,8 @@ pub mod prelude {
 pub mod synccell;
 pub mod syncunsafecell;
 
+pub mod optimistic_mutex;
+
 mod default;
 mod once;
 #[cfg(feature = "std")]

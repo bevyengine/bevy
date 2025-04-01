@@ -82,26 +82,25 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
+use alloc::collections::VecDeque;
 use alloc::vec::Vec;
-use bevy_platform_support::sync::atomic::Ordering;
-use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
+use bevy_platform_support::sync::{
+    atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering},
+    Arc, Weak,
+};
+use bevy_utils::optimistic_mutex::OptimisticMutex;
+use core::{
+    fmt,
+    hash::Hash,
+    mem::{self, ManuallyDrop},
+    num::NonZero,
+    panic::Location,
+};
 use log::warn;
+use smallvec::SmallVec;
 
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
-
-#[cfg(target_has_atomic = "64")]
-use bevy_platform_support::sync::atomic::AtomicI64 as AtomicIdCursor;
-#[cfg(target_has_atomic = "64")]
-type IdCursor = i64;
-
-/// Most modern platforms support 64-bit atomics, but some less-common platforms
-/// do not. This fallback allows compilation using a 32-bit cursor instead, with
-/// the caveat that some conversions may fail (and panic) at runtime.
-#[cfg(not(target_has_atomic = "64"))]
-use bevy_platform_support::sync::atomic::AtomicIsize as AtomicIdCursor;
-#[cfg(not(target_has_atomic = "64"))]
-type IdCursor = isize;
 
 /// Lightweight identifier of an [entity](crate::entity).
 ///
@@ -245,6 +244,10 @@ impl Hash for Entity {
 
 #[deprecated(
     note = "This is exclusively used with the now deprecated `Entities::alloc_at_without_replacement`."
+)]
+#[expect(
+    unused,
+    reason = "We are not supporting this deprecated on this branch yet. (It will be removed very soon.)"
 )]
 pub(crate) enum AllocAtWithoutReplacement {
     Exists(EntityLocation),
@@ -490,40 +493,709 @@ impl SparseSetIndex for Entity {
 }
 
 /// An [`Iterator`] returning a sequence of [`Entity`] values from
-pub struct ReserveEntitiesIterator<'a> {
-    // Metas, so we can recover the current generation for anything in the freelist.
-    meta: &'a [EntityMeta],
-
-    // Reserved indices formerly in the freelist to hand out.
-    freelist_indices: core::slice::Iter<'a, u32>,
-
+pub struct ReserveEntitiesIterator<T: Iterator<Item = Entity>> {
+    reused_entities: T,
     // New Entity indices to hand out, outside the range of meta.len().
-    new_indices: core::ops::Range<u32>,
+    new_indices: core::ops::RangeInclusive<u32>,
 }
 
-impl<'a> Iterator for ReserveEntitiesIterator<'a> {
+impl<T: Iterator<Item = Entity>> Iterator for ReserveEntitiesIterator<T> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.freelist_indices
+        self.reused_entities
             .next()
-            .map(|&index| {
-                Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
-            })
             .or_else(|| self.new_indices.next().map(Entity::from_raw))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.freelist_indices.len() + self.new_indices.len();
-        (len, Some(len))
+        let (min, max) = self.reused_entities.size_hint();
+        let additional = if *self.new_indices.start() <= *self.new_indices.end() {
+            *self.new_indices.end() as usize + 1 - *self.new_indices.start() as usize
+        } else {
+            0
+        };
+        (min + additional, max.map(|max| max + additional))
     }
 }
 
-impl<'a> ExactSizeIterator for ReserveEntitiesIterator<'a> {}
-impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
+// We don't constrain `T: ExactSizeIterator` since it misses `Chain`.
+// Normally `Chain` isn't an `ExactSizeIterator`, but in every cpntext,
+// `ReserveEntitiesIterator` is only constructed internally and is always of exact size.
+impl<T: Iterator<Item = Entity>> ExactSizeIterator for ReserveEntitiesIterator<T> {}
+
+impl<T: Iterator<Item = Entity> + core::iter::FusedIterator> core::iter::FusedIterator
+    for ReserveEntitiesIterator<T>
+{
+}
 
 // SAFETY: Newly reserved entity values are unique.
-unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
+unsafe impl<T: Iterator<Item = Entity>> EntitySetIterator for ReserveEntitiesIterator<T> {}
+
+/// This represents some entities that were at some point pending.
+///
+/// The first slice was pending and is flushed. The length of that slice is [`Self::flushed`].
+///
+/// The second slice was pending and is reserved (awaiting flush).
+/// The length of that slice is [`Self::reserved`] - [`Self::flushed`].
+///
+/// The last slice is entities that are still pending. This fills the rest of [`Self::entities`] up to its length.
+#[derive(Default)]
+struct PendingEntitiesChunk {
+    /// The entities that are reserved followed by those that are pending reservation.
+    entities: Vec<Entity>,
+    /// The number of entities that have been attempted to reserve.
+    /// This may exceed the length of [`Self::entities`].
+    reserved: AtomicUsize,
+    /// The number of entities that have been attempted to flush.
+    /// This may exceed the length of [`Self::entities`].
+    flushed: AtomicUsize,
+}
+
+impl PendingEntitiesChunk {
+    /// Reserves a slice of num entities from pending.
+    /// Note that the slice may not be of length `num`, but it will not be more than `num`.
+    ///
+    /// If it is less than `num`, the chunk is empty.
+    fn reserve(&self, num: u32) -> core::ops::Range<usize> {
+        let num_reserved_so_far = self.reserved.fetch_add(num as usize, Ordering::Relaxed);
+        let ideal_new_reserved = num_reserved_so_far + num as usize;
+        let start = self.entities.len().min(num_reserved_so_far);
+        let end = self.entities.len().min(ideal_new_reserved);
+        start..end
+    }
+
+    /// Reserves just one entity.
+    fn reserve_one(&self) -> Option<Entity> {
+        let num_reserved_so_far = self.reserved.fetch_add(1, Ordering::Relaxed);
+        self.entities.get(num_reserved_so_far).copied()
+    }
+
+    /// Flushes the reserved slice with the passed `flusher`
+    ///
+    /// # Safety
+    ///
+    /// To prevent double flushing, this must not be called concurrently.
+    unsafe fn flush(&self, mut flusher: impl FnMut(Entity)) {
+        let new_flushed = self.reserved.load(Ordering::Relaxed);
+        let flushed = self.flushed.swap(new_flushed, Ordering::Relaxed);
+        if self.entities.len() <= flushed {
+            return;
+        }
+
+        for to_flush in self.entities[flushed..new_flushed.min(self.entities.len())]
+            .iter()
+            .copied()
+        {
+            flusher(to_flush);
+        }
+    }
+
+    /// Clears the chunk, resetting it for use.
+    fn clear(&mut self) {
+        self.entities.clear();
+        *self.reserved.get_mut() = 0;
+        *self.flushed.get_mut() = 0;
+    }
+}
+
+/// Allows atomic access to [`PendingEntitiesChunk`]. This is effectively an [`Arc`] itself.
+struct AtomicPendingEntitiesChunk(AtomicPtr<PendingEntitiesChunk>);
+
+/// See [`AtomicPendingEntitiesChunk::get_into`].
+enum AtomicPendingEntitiesChunkGetIntoResult {
+    /// The [`Arc`]s are the same, so no change.
+    SameArc,
+    /// The [`Arc`]s were different and have been unified.
+    Updated,
+    /// The [`Arc`]s were different but were not able to be unified.
+    Waiting,
+}
+
+impl AtomicPendingEntitiesChunk {
+    fn ptr_to_arc(ptr: *mut PendingEntitiesChunk) -> Option<Arc<PendingEntitiesChunk>> {
+        // SAFETY: we know the pointer is not null, and we are not dropping the `Weak`.
+        let weak = unsafe {
+            // We use `Weak` instead of `Arc` here because if we were the only owner of the `Arc`, and a `Self::swap`
+            // happened inbetween loading the pointer and using it, we could have a use after free.
+            // `Weak::from_raw` checks if the ptr is valid, and can be called after and during the `Arc`'s drop.
+            // If the `Arc` no longer exists, it will simply return `None` when upgraded.
+            ManuallyDrop::new(Weak::from_raw(ptr))
+        };
+        weak.upgrade()
+    }
+
+    /// Scopes access to the inner arc. If this is `None`, we must be doing a [`Self::swap`].
+    fn get(&self) -> Option<Arc<PendingEntitiesChunk>> {
+        let ptr = self.0.load(Ordering::Relaxed);
+        Self::ptr_to_arc(ptr)
+    }
+
+    /// This is the same as putting [`Self::get`] into `dest` if it is `Some`, but it's more efficient.
+    ///
+    /// Returns `true` if and only if `dest` is outdated but could not be replaced at the moment.
+    fn get_into(
+        &self,
+        dest: &mut Arc<PendingEntitiesChunk>,
+    ) -> AtomicPendingEntitiesChunkGetIntoResult {
+        let ptr = self.0.load(Ordering::Relaxed);
+        if Arc::as_ptr(dest) == ptr.cast_const() {
+            // They're the same arc, so nothing changes
+            return AtomicPendingEntitiesChunkGetIntoResult::SameArc;
+        }
+
+        if let Some(new) = Self::ptr_to_arc(ptr) {
+            *dest = new;
+            AtomicPendingEntitiesChunkGetIntoResult::Updated
+        } else {
+            // The arc isn't available right now
+            AtomicPendingEntitiesChunkGetIntoResult::Waiting
+        }
+    }
+
+    // Prepares the [`Arc`] to be owned by [`Self`]
+    //
+    // # Safety
+    //
+    // The returned pointer must be used in [`Self::on_arc_go_out`], and it must never be used mutably.
+    unsafe fn on_arc_come_in(new: &Arc<PendingEntitiesChunk>) -> *mut PendingEntitiesChunk {
+        let new_arc_ptr = Arc::as_ptr(new);
+        // SAFETY: `new` has not been dropped, and the ptr is correct.
+        unsafe {
+            // We are retaining a strong count for ourselves, so we act as an arc too.
+            Arc::increment_strong_count(new_arc_ptr);
+        }
+
+        let new_weak = Arc::downgrade(new);
+        new_weak.into_raw().cast_mut()
+    }
+
+    // Returns an [`Arc`] to normal after being owned by [`Self`]
+    //
+    // # Safety
+    //
+    // The passed pointer must have come from [`Self::on_arc_come_in`].
+    unsafe fn on_arc_go_out(old_ptr: *mut PendingEntitiesChunk) -> Arc<PendingEntitiesChunk> {
+        // SAFETY: the pointer is valid
+        let old_weak = unsafe { Weak::from_raw(old_ptr) };
+
+        // we incremented the strong count when it came in, so it must still be valid.
+        let old = old_weak.upgrade().unwrap();
+        let old_arc_ptr = Arc::as_ptr(&old);
+
+        // SAFETY: The pointer is valid. `old` is not dropped.
+        // We need to decrement the strong count because we aren't owning it anymore
+        unsafe {
+            Arc::decrement_strong_count(old_arc_ptr);
+        }
+
+        old
+    }
+
+    /// Puts the new arc in, returning the old one.
+    fn swap(&self, new: Arc<PendingEntitiesChunk>) -> Arc<PendingEntitiesChunk> {
+        // SAFETY: The ordering is preserved, and we don't mutate it.
+        unsafe {
+            let new_ptr = Self::on_arc_come_in(&new);
+            let old_ptr = self.0.swap(new_ptr, Ordering::Relaxed);
+            Self::on_arc_go_out(old_ptr)
+        }
+    }
+
+    /// Constructs a new [`Self`]
+    fn new(chunk: Arc<PendingEntitiesChunk>) -> Self {
+        // SAFETY: Safety ensured by either [`Self::swap`] or `drop`
+        let ptr = unsafe { Self::on_arc_come_in(&chunk) };
+        Self(AtomicPtr::new(ptr))
+    }
+}
+
+impl Drop for AtomicPendingEntitiesChunk {
+    fn drop(&mut self) {
+        let old_ptr = *self.0.get_mut();
+        // SAFETY: The pointer must have come from [`Self::new`] or [`Self::swap`].
+        let _old = unsafe { Self::on_arc_go_out(old_ptr) };
+    }
+}
+
+/// Coordinates entity reservation
+struct AtomicEntityReservations {
+    /// The current chunk of pending entities
+    pending_chunk: AtomicPendingEntitiesChunk,
+    /// The total number of entities, including those reserved.
+    meta_len: AtomicUsize,
+    /// The value of [`Self::meta_len`] when the most recent flush started.
+    flushed_meta_len: AtomicUsize,
+    /// This is true if and only if the backing [`Entities`] has been cut off.
+    closed: AtomicBool,
+
+    /// The pending list being added to. This will become the next [`Self::pending_chunk`].
+    growing_pending: OptimisticMutex<PendingEntitiesChunk>,
+    /// This is true if [`Self::growing_pending`] is worth pushing into [`Self::pending_chunk`].
+    worth_swap: AtomicBool,
+    /// A pool of pending entities to prevent allocations.
+    pending_chunk_pool: OptimisticMutex<SmallVec<[PendingEntitiesChunk; 2]>>,
+    /// The newly created pending chunks.
+    new_pending_chunks: OptimisticMutex<SmallVec<[Arc<PendingEntitiesChunk>; 2]>>,
+}
+
+impl AtomicEntityReservations {
+    /// Creates a new [`AtomicEntityReservations`]
+    fn new() -> Self {
+        Self {
+            pending_chunk: AtomicPendingEntitiesChunk::new(Arc::default()),
+            meta_len: AtomicUsize::default(),
+            flushed_meta_len: AtomicUsize::default(),
+            growing_pending: OptimisticMutex::default(),
+            worth_swap: AtomicBool::new(false),
+            pending_chunk_pool: OptimisticMutex::default(),
+            new_pending_chunks: OptimisticMutex::default(),
+            closed: AtomicBool::default(),
+        }
+    }
+
+    fn close(&self) {
+        self.closed.store(true, Ordering::Relaxed);
+    }
+
+    fn is_closed(&self) -> bool {
+        self.closed.load(Ordering::Relaxed)
+    }
+
+    /// Reserves a `num` entities by appending to the meta list.
+    /// This should only be called if reusing an entity from a pending list is not practical.
+    #[inline]
+    fn reserve_append(&self, num: u32) -> core::ops::RangeInclusive<u32> {
+        if num == 0 {
+            #[expect(
+                clippy::reversed_empty_ranges,
+                reason = "We need to return an empty range since we aren't reserving anything."
+            )]
+            return 1..=0;
+        }
+
+        let current_meta = self.meta_len.fetch_add(num as usize, Ordering::Relaxed);
+        let new_meta = current_meta + num as usize;
+        if new_meta > u32::MAX as usize {
+            panic!("too many entities");
+        }
+
+        // inclusive, so we subtract 1.
+        current_meta as u32..=(new_meta - 1) as u32
+    }
+
+    /// Flushes the meta data for entities from [`Self::reserve_append`].
+    ///
+    /// `unseen_flusher` refers to [`EntityMeta`] that existed before this call but that this [`AtomicEntityReservations`] has not seen.
+    /// `brand_new_flusher` refers to [`EntityMeta`] that did not exist before this call.
+    fn flush_appended(
+        &self,
+        metas: &mut Vec<EntityMeta>,
+        mut should_flush_unseen: impl FnMut(&mut EntityMeta, u32) -> bool,
+        mut flusher: impl FnMut(&mut EntityMeta, u32),
+    ) {
+        let current_len = metas.len();
+        let theoretical_len = self
+            .meta_len
+            .load(Ordering::Relaxed)
+            // there should be a maximum INDEX of `u32::MAX`, so the length needs to be 1 more
+            .min(u32::MAX as usize + 1);
+        let flushed_up_to = self
+            .flushed_meta_len
+            .swap(theoretical_len, Ordering::Relaxed);
+        debug_assert!(current_len <= theoretical_len);
+
+        // flush those we haven't seen/flushed yet
+        for index in flushed_up_to..current_len {
+            // SAFETY: It is known to be a valid index.
+            let meta = unsafe { metas.get_unchecked_mut(index) };
+            if should_flush_unseen(meta, index as u32) {
+                flusher(meta, index as u32);
+            }
+        }
+
+        // flush those we need to create
+        metas.resize(theoretical_len, EntityMeta::EMPTY);
+        for index in current_len..theoretical_len {
+            // SAFETY: It is known to be a valid index.
+            let meta = unsafe { metas.get_unchecked_mut(index) };
+            flusher(meta, index as u32);
+        }
+    }
+
+    /// If beneficial, swaps pending arcs to make more pending entities available.
+    /// Returns `true` if and only if the swap happened.
+    fn refresh(&self) -> bool {
+        // This will early return unless a recent `Entities::free` has occored.
+        // We do this redundantly before locking `growing_pending` to this common early return faster.
+        if !self.worth_swap.load(Ordering::Relaxed) {
+            return false;
+        }
+
+        // We lock early to prevent concurrent refreshes.
+        let mut pending = self.growing_pending.lock();
+
+        if !self.worth_swap.swap(false, Ordering::Relaxed) {
+            return false;
+        }
+
+        let next_pending = self.pending_chunk_pool.lock().pop().unwrap_or_default();
+        let ready_pending = mem::replace::<PendingEntitiesChunk>(&mut pending, next_pending);
+        let new_pending = Arc::new(ready_pending);
+        self.pending_chunk.swap(new_pending.clone());
+
+        // release the pending lock since we don't need it anymore
+        drop(pending);
+
+        // keep a m arc of the new pending list so we can ensure it is flushed before it is dropped.
+        self.new_pending_chunks.lock().push(new_pending);
+
+        true
+    }
+
+    /// Adds `reuse` to a pool to prevent further allocation.
+    fn reuse_pending(&self, mut reuse: PendingEntitiesChunk) {
+        reuse.clear();
+        self.pending_chunk_pool.lock().push(reuse);
+    }
+
+    /// Collects the new [`PendingEntitiesChunk`]s so that they can be flushed as needed.
+    fn get_new_pending_chunks(
+        &self,
+        getter: impl FnOnce(smallvec::Drain<[Arc<PendingEntitiesChunk>; 2]>),
+    ) {
+        getter(self.new_pending_chunks.lock().drain(..));
+    }
+
+    /// Gets access to a growing list of pending entities.
+    fn pending_mut<T: 'static>(&self, func: impl FnOnce(&mut PendingEntitiesChunk) -> T) -> T {
+        let mut pending = self.growing_pending.lock();
+        let res = func(&mut pending);
+        self.worth_swap.store(
+            pending.entities.len() - *pending.reserved.get_mut() > 0,
+            Ordering::Relaxed,
+        );
+        res
+    }
+}
+
+/// See [`reserve_entity`](Self::reserve_entity) and [`reserve_entities`](Self::reserve_entities).
+///
+/// This powers both [`Entities`] and [`RemoteEntities`].
+///
+/// **Note:** The reserved [`Entity`]s will not be valid until [`Entities::flush`] is called,
+/// usually through [`World::flush`](crate::world::World). Until then, the entity is *only* reserved.
+/// It does not actually exist yet.
+///
+/// **Note:** The reserved entities *may* skip available pending entities.
+/// For example, if an entity is freed immediately before another is reserved, the two entities may not share an index.
+/// If you need to minimize this behavior, see [`tolerance`](Self::tolerance).
+///
+/// **Note:** If the source [`Entities`] is cleared, the reserved entities here will be meaningless and probably invalid.
+/// It's a good idea to use [`is_closed`](Self::is_closed) to ensure the reserved entities are still valid before actually using them in the [`World`](crate::world::World).
+///
+/// # Example
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::entity::EntityReserver;
+///
+/// // reserve
+/// let mut world = World::new();
+/// let mut entities: EntityReserver = world.entities().get_remote_entities().into_reserver();
+/// let now_reserved = entities.reserve_entity();
+///
+/// // flush
+/// world.flush();
+/// ```
+#[derive(Clone)]
+pub struct EntityReserver {
+    coordinator: Arc<AtomicEntityReservations>,
+    pending: Arc<PendingEntitiesChunk>,
+    /// This is the number of entities the reserver is allowed to reserve by extension
+    /// before checking for more pending entities.
+    ///
+    /// Setting this too high can increase memory use and, in rare cases, exhaust the entity count, causing a crash.
+    /// Setting this too low will slow down reservation if there are no pending entities.
+    /// Setting this to `0` will ensure no pending entities are missed.
+    /// Setting this to `u32::MAX` effectively turns this off. You can use [`Self::refresh`] to do this manually.
+    ///
+    /// The default value is 10.
+    pub tolerance: u32,
+    /// This is the [`Self::tolerance`] left. When this hits 0, a [`Self::refresh`] will occor.
+    pub tolerance_left: u32,
+    /// This is just a temporary list of reserved entities.
+    tmp_reserved: Vec<Entity>,
+}
+
+impl EntityReserver {
+    /// Sets the [`Self::tolerance`] for this reserver.
+    pub fn with_tolerance(mut self, tolerance: u32) -> Self {
+        self.tolerance = tolerance;
+        self.tolerance_left = tolerance;
+        self
+    }
+
+    /// Gets the [`RemoteEntities`] for this reserver.
+    pub fn remote_entities(&self) -> RemoteEntities {
+        RemoteEntities {
+            coordinator: self.coordinator.clone(),
+        }
+    }
+
+    /// Constructs a new [`EntityReserver`].
+    fn new(coordinator: Arc<AtomicEntityReservations>) -> Self {
+        const TIMEOUT: u8 = 5;
+        let mut timeout = TIMEOUT;
+        let pending = loop {
+            if let Some(found) = coordinator.pending_chunk.get() {
+                break Some(found);
+            }
+            // We must be swapping. Wait for the swap to succeed.
+            core::hint::spin_loop();
+
+            #[cfg(feature = "std")]
+            {
+                if let Some(found) = coordinator.pending_chunk.get() {
+                    break Some(found);
+                }
+                // The swap is taking longer than usual. There must have been an interrupt, so let's yield.
+                std::thread::yield_now();
+            }
+
+            if timeout == 0 {
+                break None;
+            }
+
+            timeout -= 1;
+        }
+        // This it a "just in case" measure.
+        .unwrap_or_default();
+
+        Self {
+            coordinator,
+            pending,
+            tolerance: 0,
+            tolerance_left: 0,
+            tmp_reserved: Vec::new(),
+        }
+        .with_tolerance(10)
+    }
+
+    /// Returns true if and only if the backing [`Entities`] has been closed.
+    /// That means entities reserved by this will not be flushed and are not valid.
+    pub fn is_closed(&self) -> bool {
+        self.coordinator.is_closed()
+    }
+
+    /// Refreshes the reserver to improve the quality of the reservations, also setting [`Self::tolerance_left`].
+    ///
+    /// This will make it more likely that reserved entities are reused.
+    ///
+    /// Returns a `bool` that is true if and only if the refresh was effective.
+    pub fn refresh(&mut self) -> bool {
+        // We don't care if the swap happened here since another resrver may has swapped already, requiring us to "catch up".
+        let _swapped = self.coordinator.refresh();
+        let (new_tolerance, result) =
+            match self.coordinator.pending_chunk.get_into(&mut self.pending) {
+                AtomicPendingEntitiesChunkGetIntoResult::SameArc => (self.tolerance, false),
+                AtomicPendingEntitiesChunkGetIntoResult::Updated => (self.tolerance, true),
+                // We are waiting for a refresh to be complete, so the result is false, but keep the tolerance at 0 so we try again soon.
+                AtomicPendingEntitiesChunkGetIntoResult::Waiting => (0, false),
+            };
+        self.tolerance_left = new_tolerance;
+        result
+    }
+
+    /// Based on [`Self::tolerance_left`], may [`Self::refresh`].
+    /// Returns `true` if and only if it refreshed effectively.
+    ///
+    /// `pre_on_refresh` runs with [`Self::tmp_reserved`] and [`Self::pending`] right before a refresh happens.
+    /// Note that it may run even if this returns `false`, but if it returns `true`, this must have run.
+    fn on_reserve_extended(
+        &mut self,
+        num_extended: u32,
+        pre_on_refresh: impl FnOnce(&mut Vec<Entity>, &PendingEntitiesChunk),
+    ) -> bool {
+        if num_extended == 0 {
+            return false;
+        }
+        match self.tolerance_left.checked_sub(num_extended) {
+            Some(new_left) => {
+                self.tolerance_left = new_left;
+                false
+            }
+            None => {
+                pre_on_refresh(&mut self.tmp_reserved, &self.pending);
+                self.refresh()
+            }
+        }
+    }
+
+    /// Reserves `num` entities in a [`ReserveEntitiesIterator`].
+    pub fn reserve_entities(
+        &mut self,
+        num: u32,
+    ) -> ReserveEntitiesIterator<
+        core::iter::Chain<
+            alloc::vec::Drain<'_, Entity>,
+            core::iter::Copied<core::slice::Iter<'_, Entity>>,
+        >,
+    > {
+        let reserved = self.pending.reserve(num);
+        let reserved_copy = reserved.clone();
+        let mut still_needed = num - reserved.len() as u32;
+
+        let reused = if self.on_reserve_extended(still_needed, move |tmp_reserved, pending| {
+            // We're about to loose our current pending arc, so we need to put what we've reserved so far into a new slice.
+            // It's already empty since this is the only place we use it, and we drain it as part of the iterator.
+            tmp_reserved.extend_from_slice(&pending.entities[reserved_copy]);
+        }) {
+            // We have a new pending arc, so we need to extend everything
+            // by trying to reserve the remaining from the new arc.
+            let more_reserved = self.pending.reserve(still_needed);
+            still_needed -= more_reserved.len() as u32;
+            self.pending.entities[more_reserved].iter()
+        } else {
+            // This is the usual case. We can just use our existing arc.
+            self.pending.entities[reserved].iter()
+        };
+        let reused = self.tmp_reserved.drain(..).chain(reused.copied());
+
+        // reserve any final entities by appending.
+        let new = if still_needed == 0 {
+            #[expect(
+                clippy::reversed_empty_ranges,
+                reason = "We need to create an empty range here."
+            )]
+            {
+                1..=0
+            }
+        } else {
+            self.coordinator.reserve_append(still_needed)
+        };
+
+        ReserveEntitiesIterator {
+            reused_entities: reused,
+            new_indices: new,
+        }
+    }
+
+    /// Reserves just 1 entity.
+    pub fn reserve_entity(&mut self) -> Entity {
+        // try to use pending
+        self.pending
+            .reserve_one()
+            .or_else(|| {
+                // if we refresh, try the new pending
+                if self.on_reserve_extended(1, |_, _| {}) {
+                    self.pending.reserve_one()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| {
+                // if there are no pending available, append reserve.
+
+                // SAFETY: The range is known to have length 1.
+                Entity::from_raw(unsafe {
+                    self.coordinator.reserve_append(1).next().unwrap_unchecked()
+                })
+            })
+    }
+
+    /// Reserves `num` entities in a [`ReserveEntitiesIterator`].
+    ///
+    /// **NOTE:** This ignores [`Self::tolerance_left`], so this may miss pending entities.
+    /// When possible, prefer [`reserve_entities`](Self::reserve_entities).
+    #[inline]
+    pub fn reserve_entities_no_refresh(
+        &self,
+        num: u32,
+    ) -> ReserveEntitiesIterator<core::iter::Copied<core::slice::Iter<'_, Entity>>> {
+        let reserved = self.pending.reserve(num);
+        let still_needed = num - reserved.len() as u32;
+
+        let new = if still_needed == 0 {
+            #[expect(
+                clippy::reversed_empty_ranges,
+                reason = "We need to create an empty range here."
+            )]
+            {
+                1..=0
+            }
+        } else {
+            self.coordinator.reserve_append(still_needed)
+        };
+
+        ReserveEntitiesIterator {
+            reused_entities: self.pending.entities[reserved].iter().copied(),
+            new_indices: new,
+        }
+    }
+
+    /// Reserves just 1 entity.
+    ///
+    /// **NOTE:** This ignores [`Self::tolerance_left`], so this may miss pending entities.
+    /// When possible, prefer [`reserve_entity`](Self::reserve_entity).
+    #[inline]
+    pub fn reserve_entity_no_refresh(&self) -> Entity {
+        self.pending.reserve_one().unwrap_or_else(|| {
+            // SAFETY: The range is known to have length 1.
+            Entity::from_raw(unsafe {
+                self.coordinator.reserve_append(1).next().unwrap_unchecked()
+            })
+        })
+    }
+}
+
+/// A version of [`Entities`] that can be used remotely.
+///
+/// This allows remote entity reservation via [`EntityReserver`] and can be retrieved via [`Entities::get_remote_entities`].
+///
+/// This is useful if you want to reserve entities from async contexts or without going through [`World`](crate::world::World)
+/// or [`Entities`]. This is no slower than reserving through [`Entities`], so for some uses, it may even be worth caching this.
+///
+/// Functionally, this coordinates multiple [`EntityReserver`]s.
+/// See those docs for more details and important notes regarding reservation.
+#[derive(Clone)]
+pub struct RemoteEntities {
+    coordinator: Arc<AtomicEntityReservations>,
+}
+
+impl RemoteEntities {
+    /// Creates a new [`EntityReserver`]. Use this to reserve entities in bulk.
+    pub fn reserver(&self) -> EntityReserver {
+        EntityReserver::new(self.coordinator.clone())
+    }
+
+    /// Creates a new [`EntityReserver`]. Use this to reserve entities in bulk.
+    pub fn into_reserver(self) -> EntityReserver {
+        EntityReserver::new(self.coordinator)
+    }
+
+    /// Returns true if and only if the backing [`Entities`] has been closed.
+    /// That means entities reserved by this will not be flushed and are not valid.
+    pub fn is_closed(&self) -> bool {
+        self.coordinator.is_closed()
+    }
+
+    /// Reserves just 1 entity.
+    ///
+    /// If you only need one, this is faster than using [`Self::reserver`].
+    /// Otherwise, prefer [`EntityReserver`].
+    pub fn reserve_entity(&self) -> Entity {
+        self.coordinator
+            .pending_chunk
+            .get()
+            .and_then(|pending| pending.reserve_one())
+            .unwrap_or_else(|| {
+                // SAFETY: the range has exactly 1 item
+                let index = unsafe { self.coordinator.reserve_append(1).next().unwrap_unchecked() };
+                Entity::from_raw(index)
+            })
+    }
+}
 
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
@@ -532,117 +1204,120 @@ unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 ///  - The alive/dead status of a particular entity. (i.e. "has entity 3 been despawned?")
 ///  - The location of the entity's components in memory (via [`EntityLocation`])
 ///
+/// Note that for specialized use, you may wish to modify [`ideal_owned`](Self::ideal_owned) to improve performance or reduce memory consumption.
+///
+/// Use [`get_remote_entities`](Self::get_remote_entities) to reserve entities without keeping a reference to this instance.
+///
+/// # Important
+///
+/// [`Entity`]s are [`reserved`](Self::reserve_entity) or [`allocated`](Self::alloc) with no regard to order.
+/// Sequential allocations is by no means guaranteed to have sequential indices under *any* condition.
+/// For example, if you allocate 5 entities, you may get back indices `[0, 2, 4, 7, 8]`, or even `[29, 13, 3, 2, 1]`.
+/// Hence, ordering should not be relied on at all.
+///
 /// [`World`]: crate::world::World
-#[derive(Debug)]
 pub struct Entities {
+    /// The metadata for each entity.
     meta: Vec<EntityMeta>,
-
-    /// The `pending` and `free_cursor` fields describe three sets of Entity IDs
-    /// that have been freed or are in the process of being allocated:
+    /// Coordinates all reservations, locally and otherwise.
+    coordinator: Arc<AtomicEntityReservations>,
+    /// The local reserver for when we are unable to reserve anything directly.
+    reserver: EntityReserver,
+    /// These are the pending chunks that have been distributed.
+    /// They are "wild" and could be anywhere. We can reuse them as soon as the [`Arc`] is unique.
+    wild_pending_chunks: Vec<Arc<PendingEntitiesChunk>>,
+    /// These are entities that neither exist nor need to be flushed into existence.
+    /// We own these entities and can do with them as we like.
+    /// These are marked with [`EntityLocation::OWNED`] to prevent them from being flushed on accident.
+    owned: VecDeque<Entity>,
+    /// The number of entities from [`Self::owned`] that have been reserved. These reserve in front to back order.
     ///
-    /// - The `freelist` IDs, previously freed by `free()`. These IDs are available to any of
-    ///   [`alloc`], [`reserve_entity`] or [`reserve_entities`]. Allocation will always prefer
-    ///   these over brand new IDs.
+    /// **NOTE:** This may be greater than `owned.len()` if all its items are reserved.
+    reserved_from_owned: AtomicUsize,
+    /// The number of [`entities`](Entity) to have on standby for allocations.
+    /// The higher the number, the faster allocations will be, but the more memory and entities will be taken up while still being unused.
+    /// The default value is 256.
     ///
-    /// - The `reserved` list of IDs that were once in the freelist, but got reserved by
-    ///   [`reserve_entities`] or [`reserve_entity`]. They are now waiting for [`flush`] to make them
-    ///   fully allocated.
-    ///
-    /// - The count of new IDs that do not yet exist in `self.meta`, but which we have handed out
-    ///   and reserved. [`flush`] will allocate room for them in `self.meta`.
-    ///
-    /// The contents of `pending` look like this:
-    ///
-    /// ```txt
-    /// ----------------------------
-    /// |  freelist  |  reserved   |
-    /// ----------------------------
-    ///              ^             ^
-    ///          free_cursor   pending.len()
-    /// ```
-    ///
-    /// As IDs are allocated, `free_cursor` is atomically decremented, moving
-    /// items from the freelist into the reserved list by sliding over the boundary.
-    ///
-    /// Once the freelist runs out, `free_cursor` starts going negative.
-    /// The more negative it is, the more IDs have been reserved starting exactly at
-    /// the end of `meta.len()`.
-    ///
-    /// This formulation allows us to reserve any number of IDs first from the freelist
-    /// and then from the new IDs, using only a single atomic subtract.
-    ///
-    /// Once [`flush`] is done, `free_cursor` will equal `pending.len()`.
-    ///
-    /// [`alloc`]: Entities::alloc
-    /// [`reserve_entity`]: Entities::reserve_entity
-    /// [`reserve_entities`]: Entities::reserve_entities
-    /// [`flush`]: Entities::flush
-    pending: Vec<u32>,
-    free_cursor: AtomicIdCursor,
+    /// Generally, this number of entities will be taken out of the total entities count.
+    /// As a result, the entities that will be available for use will be `u32::MAX - ideal_owned`.
+    /// If your purposes need close to `u32::MAX` entities, you may need to set this to `1`.
+    pub ideal_owned: NonZero<u32>,
 }
 
 impl Entities {
-    pub(crate) const fn new() -> Self {
+    pub(crate) fn new() -> Self {
+        let coordinator = Arc::new(AtomicEntityReservations::new());
+        let reserver = EntityReserver::new(coordinator.clone());
         Entities {
             meta: Vec::new(),
-            pending: Vec::new(),
-            free_cursor: AtomicIdCursor::new(0),
+            coordinator,
+            reserver,
+            wild_pending_chunks: Vec::new(),
+            owned: VecDeque::new(),
+            reserved_from_owned: AtomicUsize::new(0),
+            // SAFETY: 256 > 0
+            ideal_owned: unsafe { NonZero::new_unchecked(256) },
+        }
+    }
+
+    /// Creates a new [`RemoteEntities`] for this [`Entities`].
+    ///
+    /// If the [`World`](crate::world::World) or this [`Entities`] may be [`cleared`](Self::clear),
+    /// the returned [`RemoteEntities`] will become irrelevant to this instance, and the [`entities`](Entity) it reserves will be invalid.
+    /// You can check if this has happened via [`RemoteEntities::is_closed`].
+    pub fn get_remote_entities(&self) -> RemoteEntities {
+        RemoteEntities {
+            coordinator: self.coordinator.clone(),
         }
     }
 
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
-    #[expect(
-        clippy::allow_attributes,
-        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
-    )]
-    #[allow(
-        clippy::unnecessary_fallible_conversions,
-        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
-    )]
-    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
-        // Use one atomic subtract to grab a range of new IDs. The range might be
-        // entirely nonnegative, meaning all IDs come from the freelist, or entirely
-        // negative, meaning they are all new IDs to allocate, or a mix of both.
-        let range_end = self.free_cursor.fetch_sub(
-            IdCursor::try_from(count)
-                .expect("64-bit atomic operations are not supported on this platform."),
-            Ordering::Relaxed,
-        );
-        let range_start = range_end
-            - IdCursor::try_from(count)
-                .expect("64-bit atomic operations are not supported on this platform.");
-
-        let freelist_range = range_start.max(0) as usize..range_end.max(0) as usize;
-
-        let (new_id_start, new_id_end) = if range_start >= 0 {
-            // We satisfied all requests from the freelist.
-            (0, 0)
+    pub fn reserve_entities(
+        &self,
+        count: u32,
+    ) -> ReserveEntitiesIterator<
+        core::iter::Chain<
+            core::iter::Copied<alloc::collections::vec_deque::Iter<'_, Entity>>,
+            core::iter::Copied<core::slice::Iter<'_, Entity>>,
+        >,
+    > {
+        let reserved_from_owned = if self.owned.is_empty() {
+            0..0
         } else {
-            // We need to allocate some new Entity IDs outside of the range of self.meta.
-            //
-            // `range_start` covers some negative territory, e.g. `-3..6`.
-            // Since the nonnegative values `0..6` are handled by the freelist, that
-            // means we need to handle the negative range here.
-            //
-            // In this example, we truncate the end to 0, leaving us with `-3..0`.
-            // Then we negate these values to indicate how far beyond the end of `meta.end()`
-            // to go, yielding `meta.len()+0 .. meta.len()+3`.
-            let base = self.meta.len() as IdCursor;
+            let reserved_from_owned_start = self.owned.len().min(
+                self.reserved_from_owned
+                    .fetch_add(count as usize, Ordering::Relaxed),
+            );
+            let reserved_from_owned_end = self
+                .owned
+                .len()
+                .min(reserved_from_owned_start + count as usize);
+            reserved_from_owned_start..reserved_from_owned_end
+        };
+        let remaining = count - reserved_from_owned.len() as u32;
 
-            let new_id_end = u32::try_from(base - range_start).expect("too many entities");
-
-            // `new_id_end` is in range, so no need to check `start`.
-            let new_id_start = (base - range_end.min(0)) as u32;
-
-            (new_id_start, new_id_end)
+        let ReserveEntitiesIterator {
+            reused_entities,
+            new_indices,
+        } = if remaining > 0 {
+            self.reserver.reserve_entities_no_refresh(remaining)
+        } else {
+            ReserveEntitiesIterator {
+                reused_entities: [].iter().copied(),
+                #[expect(
+                    clippy::reversed_empty_ranges,
+                    reason = "We need to create an empty range here."
+                )]
+                new_indices: 1..=0,
+            }
         };
 
+        let owned = self.owned.range(reserved_from_owned).copied();
         ReserveEntitiesIterator {
-            meta: &self.meta[..],
-            freelist_indices: self.pending[freelist_range].iter(),
-            new_indices: new_id_start..new_id_end,
+            reused_entities: owned.chain(reused_entities),
+            new_indices,
         }
     }
 
@@ -650,43 +1325,54 @@ impl Entities {
     ///
     /// Equivalent to `self.reserve_entities(1).next().unwrap()`, but more efficient.
     pub fn reserve_entity(&self) -> Entity {
-        let n = self.free_cursor.fetch_sub(1, Ordering::Relaxed);
-        if n > 0 {
-            // Allocate from the freelist.
-            let index = self.pending[(n - 1) as usize];
-            Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
-        } else {
-            // Grab a new ID, outside the range of `meta.len()`. `flush()` must
-            // eventually be called to make it valid.
-            //
-            // As `self.free_cursor` goes more and more negative, we return IDs farther
-            // and farther beyond `meta.len()`.
-            Entity::from_raw(
-                u32::try_from(self.meta.len() as IdCursor - n).expect("too many entities"),
-            )
-        }
+        let reserved_from_owned = self.reserved_from_owned.fetch_add(1, Ordering::Relaxed);
+        self.owned
+            .get(reserved_from_owned)
+            .copied()
+            .unwrap_or_else(|| self.reserver.reserve_entity_no_refresh())
     }
 
-    /// Check that we do not have pending work requiring `flush()` to be called.
-    fn verify_flushed(&mut self) {
-        debug_assert!(
-            !self.needs_flush(),
-            "flush() needs to be called before this operation is legal"
-        );
+    /// Safely extends [`Self::owned`].
+    #[inline]
+    fn extend_owned(&mut self, num: NonZero<u32>) {
+        let new = self.reserver.reserve_entities(num.get());
+
+        if !new.new_indices.is_empty() {
+            self.meta
+                .resize(*new.new_indices.end() as usize + 1, EntityMeta::EMPTY);
+        }
+
+        // Make sure we don't actually flush these
+        let new = new.inspect(|entity| {
+            // SAFETY: we just resized to ensure all are valid.
+            unsafe {
+                self.meta
+                    .get_unchecked_mut(entity.index() as usize)
+                    .location = EntityLocation::OWNED;
+            }
+        });
+
+        // The newly owned entities have not been reserved via owned, so we need to cap it to the current length.
+        *self.reserved_from_owned.get_mut() =
+            self.owned.len().min(*self.reserved_from_owned.get_mut());
+
+        self.owned.reserve(new.len());
+        self.owned.extend(new);
     }
 
     /// Allocate an entity ID directly.
     pub fn alloc(&mut self) -> Entity {
-        self.verify_flushed();
-        if let Some(index) = self.pending.pop() {
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
+        let available = if *self.reserved_from_owned.get_mut() < self.owned.len() {
+            self.owned.pop_back()
         } else {
-            let index = u32::try_from(self.meta.len()).expect("too many entities");
-            self.meta.push(EntityMeta::EMPTY);
-            Entity::from_raw(index)
-        }
+            None
+        };
+
+        available.unwrap_or_else(|| {
+            self.extend_owned(self.ideal_owned);
+            // SAFETY: We just extended this by a non zero
+            unsafe { self.owned.pop_back().unwrap_unchecked() }
+        })
     }
 
     /// Allocate a specific entity ID, overwriting its generation.
@@ -696,32 +1382,8 @@ impl Entities {
     #[deprecated(
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
-    pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
-        self.verify_flushed();
-
-        let loc = if entity.index() as usize >= self.meta.len() {
-            self.pending
-                .extend((self.meta.len() as u32)..entity.index());
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            self.meta
-                .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
-            None
-        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
-            self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            None
-        } else {
-            Some(mem::replace(
-                &mut self.meta[entity.index() as usize].location,
-                EntityMeta::EMPTY.location,
-            ))
-        };
-
-        self.meta[entity.index() as usize].generation = entity.generation;
-
-        loc
+    pub fn alloc_at(&mut self, _entity: Entity) -> Option<EntityLocation> {
+        todo!()
     }
 
     /// Allocate a specific entity ID, overwriting its generation.
@@ -736,85 +1398,69 @@ impl Entities {
     )]
     pub(crate) fn alloc_at_without_replacement(
         &mut self,
-        entity: Entity,
+        _entity: Entity,
     ) -> AllocAtWithoutReplacement {
-        self.verify_flushed();
-
-        let result = if entity.index() as usize >= self.meta.len() {
-            self.pending
-                .extend((self.meta.len() as u32)..entity.index());
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            self.meta
-                .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
-            AllocAtWithoutReplacement::DidNotExist
-        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
-            self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            AllocAtWithoutReplacement::DidNotExist
-        } else {
-            let current_meta = &self.meta[entity.index() as usize];
-            if current_meta.location.archetype_id == ArchetypeId::INVALID {
-                AllocAtWithoutReplacement::DidNotExist
-            } else if current_meta.generation == entity.generation {
-                AllocAtWithoutReplacement::Exists(current_meta.location)
-            } else {
-                return AllocAtWithoutReplacement::ExistsWithWrongGeneration;
-            }
-        };
-
-        self.meta[entity.index() as usize].generation = entity.generation;
-        result
+        todo!()
     }
 
     /// Destroy an entity, allowing it to be reused.
-    ///
-    /// Must not be called while reserved entities are awaiting `flush()`.
     pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
-        self.verify_flushed();
+        self.free_current_and_future_generations(entity, 0)
+    }
 
-        let meta = &mut self.meta[entity.index() as usize];
-        if meta.generation != entity.generation {
+    /// This is the same as [`free`](Entities::free), but it allows skipping some generations.
+    /// When the entity is reused, it will have a generation greater than the current generation + `generations`.
+    #[inline]
+    pub(crate) fn free_current_and_future_generations(
+        &mut self,
+        entity: Entity,
+        generations: u32,
+    ) -> Option<EntityLocation> {
+        let theoretical = self.resolve_from_id(entity.index());
+        if theoretical.is_none_or(|theoretcal| theoretcal != entity) {
             return None;
         }
 
-        meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, 1);
+        let meta = match self.meta.get_mut(entity.index() as usize) {
+            Some(found) => found,
+            None => {
+                // The entity must have been reserved and needs to be flushed.
+                self.meta
+                    .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
+                // SAFETY: We just added it.
+                unsafe { self.meta.get_unchecked_mut(entity.index() as usize) }
+            }
+        };
 
-        if meta.generation == NonZero::<u32>::MIN {
+        let prev_generation = meta.generation;
+        meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, 1 + generations);
+
+        if prev_generation > meta.generation {
             warn!(
                 "Entity({}) generation wrapped on Entities::free, aliasing may occur",
                 entity.index
             );
         }
 
-        let loc = mem::replace(&mut meta.location, EntityMeta::EMPTY.location);
+        let loc = mem::replace(&mut meta.location, EntityLocation::OWNED);
 
-        self.pending.push(entity.index());
+        // The newly freed has not been reserved, so we need to cap it to the current length.
+        *self.reserved_from_owned.get_mut() =
+            self.owned.len().min(*self.reserved_from_owned.get_mut());
 
-        let new_free_cursor = self.pending.len() as IdCursor;
-        *self.free_cursor.get_mut() = new_free_cursor;
+        self.owned.push_back(Entity::from_raw_and_generation(
+            entity.index,
+            meta.generation,
+        ));
+
         Some(loc)
     }
 
-    /// Ensure at least `n` allocations can succeed without reallocating.
-    #[expect(
-        clippy::allow_attributes,
-        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
-    )]
-    #[allow(
-        clippy::unnecessary_fallible_conversions,
-        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
-    )]
+    /// Ensure at least `n` allocations can succeed without allocations or internal reservations.
     pub fn reserve(&mut self, additional: u32) {
-        self.verify_flushed();
-
-        let freelist_size = *self.free_cursor.get_mut();
-        let shortfall = IdCursor::try_from(additional)
-            .expect("64-bit atomic operations are not supported on this platform.")
-            - freelist_size;
-        if shortfall > 0 {
-            self.meta.reserve(shortfall as usize);
+        let shortfal = additional.saturating_sub(self.owned.len() as u32);
+        if let Some(additional) = NonZero::new(shortfal) {
+            self.extend_owned(additional);
         }
     }
 
@@ -829,8 +1475,11 @@ impl Entities {
     /// Clears all [`Entity`] from the World.
     pub fn clear(&mut self) {
         self.meta.clear();
-        self.pending.clear();
-        *self.free_cursor.get_mut() = 0;
+        self.owned.clear();
+        self.wild_pending_chunks.clear();
+        self.coordinator.close();
+        self.coordinator = Arc::new(AtomicEntityReservations::new());
+        self.reserver = EntityReserver::new(self.coordinator.clone());
     }
 
     /// Returns the location of an [`Entity`].
@@ -863,51 +1512,26 @@ impl Entities {
         meta.location = location;
     }
 
-    /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
-    /// `index` will count `generation` starting from the prior `generation` + the specified
-    /// value + 1.
-    ///
-    /// Does nothing if no entity with this `index` has been allocated yet.
-    pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
-        if (index as usize) >= self.meta.len() {
-            return false;
-        }
-
-        let meta = &mut self.meta[index as usize];
-        if meta.location.archetype_id == ArchetypeId::INVALID {
-            meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, generations);
-            true
-        } else {
-            false
-        }
-    }
-
     /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
     /// Returns `None` if this [`Entity`] is outside of the range of currently reserved Entities
     ///
     /// Note: This method may return [`Entities`](Entity) which are currently free
     /// Note that [`contains`](Entities::contains) will correctly return false for freed
     /// entities, since it checks the generation
+    #[inline]
     pub fn resolve_from_id(&self, index: u32) -> Option<Entity> {
         let idu = index as usize;
         if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
             Some(Entity::from_raw_and_generation(index, generation))
         } else {
             // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
-            let free_cursor = self.free_cursor.load(Ordering::Relaxed);
-            // If this entity was manually created, then free_cursor might be positive
-            // Returning None handles that case correctly
-            let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then_some(Entity::from_raw(index))
+            let len = self.coordinator.meta_len.load(Ordering::Relaxed);
+            (idu < len).then_some(Entity::from_raw(index))
         }
     }
 
-    fn needs_flush(&mut self) -> bool {
-        *self.free_cursor.get_mut() != self.pending.len() as IdCursor
-    }
-
-    /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
-    /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the supplied function.
+    /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity),
+    /// [`reserve_entities`](Entities::reserve_entities), or an associated [`EntityReserver`], then initializes each one using the supplied function.
     ///
     /// # Safety
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
@@ -917,43 +1541,104 @@ impl Entities {
     /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
     /// to be initialized with the invalid archetype.
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
-        let free_cursor = self.free_cursor.get_mut();
-        let current_free_cursor = *free_cursor;
-
-        let new_free_cursor = if current_free_cursor >= 0 {
-            current_free_cursor as usize
-        } else {
-            let old_meta_len = self.meta.len();
-            let new_meta_len = old_meta_len + -current_free_cursor as usize;
-            self.meta.resize(new_meta_len, EntityMeta::EMPTY);
-            for (index, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
+        // flush appended reservations
+        self.coordinator.flush_appended(
+            &mut self.meta,
+            |meta, _index| {
+                // We shouldn't flush owned entities.
+                meta.location == EntityLocation::INVALID
+            },
+            |meta, index| {
                 init(
-                    Entity::from_raw_and_generation(index as u32, meta.generation),
+                    Entity::from_raw_and_generation(index, meta.generation),
                     &mut meta.location,
                 );
+            },
+        );
+
+        // flush owned
+        for reserved_owned in self
+            .owned
+            .drain(..mem::take(self.reserved_from_owned.get_mut()).min(self.owned.len()))
+            // We need to reverse the direction so that the most recently freed and reserved entities are flushed first.
+            // Consider reserving an entity 1v1, freeing it, and reserving it again, 1v2. 1v2 should be flushed, not 1v1.
+            .rev()
+        {
+            // SAFETY: The entity was pending, so it must have existed at some point, so the index is valid.
+            let meta = unsafe { self.meta.get_unchecked_mut(reserved_owned.index() as usize) };
+            // We shouldn't flush owned entities or those already flushed.
+            // For example, one may have been reserved, and then freed (no longer needing a flush).
+            if meta.location == EntityLocation::OWNED {
+                init(reserved_owned, &mut meta.location);
+            }
+        }
+
+        // update internal reserver
+        let there_was_a_new_pending_chunk = self.reserver.refresh();
+
+        // update `wild_pending_chunks`
+        if there_was_a_new_pending_chunk {
+            self.coordinator.get_new_pending_chunks(|new_chunks| {
+                self.wild_pending_chunks.extend(new_chunks);
+            });
+        }
+
+        // flush and reuse `wild_pending_chunks`
+        self.wild_pending_chunks.retain_mut(|item| {
+            // flush the pending list
+            let flusher = |reserved: Entity| {
+                // SAFETY: The entity was pending, so it must have existed at some point, so the index is valid.
+                let meta = unsafe { self.meta.get_unchecked_mut(reserved.index() as usize) };
+                // We shouldn't flush owned entities or those already flushed.
+                // For example, one may have been reserved, freed, and reserved again, potentially causing a double flush.
+                if meta.location == EntityLocation::INVALID {
+                    init(reserved, &mut meta.location);
+                }
+            };
+            // SAFETY: We have mutable access to self, we don't share these between different [`Entities`],
+            // and this is the only place this is called, so there is no way this could be called concurrently
+            unsafe {
+                item.flush(flusher);
             }
 
-            *free_cursor = 0;
-            0
-        };
+            // see if we can get rid of it
+            match Arc::get_mut(item) {
+                Some(inner) => {
+                    self.coordinator.reuse_pending(mem::take(inner));
+                    false
+                }
+                None => true,
+            }
+        });
 
-        for index in self.pending.drain(new_free_cursor..) {
-            let meta = &mut self.meta[index as usize];
-            init(
-                Entity::from_raw_and_generation(index, meta.generation),
-                &mut meta.location,
-            );
+        // balance owned entities
+        if self.owned.len() > self.ideal_owned.get() as usize {
+            let offload_range = self.ideal_owned.get() as usize..;
+            let drain = self.owned.drain(offload_range).inspect(|no_longer_owned| {
+                // SAFETY: Owned entities are known to have valid indices.
+                unsafe {
+                    self.meta
+                        .get_unchecked_mut(no_longer_owned.index() as usize)
+                }
+                .location = EntityLocation::INVALID;
+            });
+            self.coordinator.pending_mut(|pending| {
+                pending.entities.extend(drain);
+            });
         }
     }
 
     /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
     /// unless they are later populated with a valid archetype.
+    /// This is effectively taking charge of these entities manually.
     pub fn flush_as_invalid(&mut self) {
         // SAFETY: as per `flush` safety docs, the archetype id can be set to [`ArchetypeId::INVALID`] if
         // the [`Entity`] has not been assigned to an [`Archetype`][crate::archetype::Archetype], which is the case here
         unsafe {
             self.flush(|_entity, location| {
-                location.archetype_id = ArchetypeId::INVALID;
+                // We set it to owned so we don't mistake it for a pending entity.
+                // The caller is responsible for setting its actual location before using it.
+                *location = EntityLocation::OWNED;
             });
         }
     }
@@ -967,16 +1652,20 @@ impl Entities {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn total_count(&self) -> usize {
-        self.meta.len()
+        self.coordinator.flushed_meta_len.load(Ordering::Relaxed)
     }
 
     /// The count of all entities in the [`World`] that are used,
     /// including both those allocated and those reserved, but not those freed.
+    /// Note that this can be slow and is intended for debugging purposes.
     ///
     /// [`World`]: crate::world::World
     #[inline]
     pub fn used_count(&self) -> usize {
-        (self.meta.len() as isize - self.free_cursor.load(Ordering::Relaxed) as isize) as usize
+        self.meta
+            .iter()
+            .filter(|meta| meta.location != EntityLocation::OWNED)
+            .count()
     }
 
     /// The count of all entities in the [`World`] that have ever been allocated or reserved, including those that are freed.
@@ -985,20 +1674,25 @@ impl Entities {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn total_prospective_count(&self) -> usize {
-        self.meta.len() + (-self.free_cursor.load(Ordering::Relaxed)).min(0) as usize
+        self.coordinator.meta_len.load(Ordering::Relaxed)
     }
 
-    /// The count of currently allocated entities.
+    /// The count of all currently valid entities.
+    /// Note that this can be slow and is intended for debugging purposes.
     #[inline]
     pub fn len(&self) -> u32 {
-        // `pending`, by definition, can't be bigger than `meta`.
-        (self.meta.len() - self.pending.len()) as u32
+        self.meta
+            .iter()
+            .filter(|meta| meta.location.archetype_id != ArchetypeId::INVALID)
+            .count() as u32
     }
 
-    /// Checks if any entity is currently active.
+    /// Checks if any entity is currently valid.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.meta
+            .iter()
+            .all(|meta| meta.location.archetype_id != ArchetypeId::INVALID)
     }
 
     /// Sets the source code location from which this entity has last been spawned
@@ -1042,6 +1736,23 @@ impl Entities {
         EntityDoesNotExistDetails {
             location: self.entity_get_spawned_or_despawned_by(entity),
         }
+    }
+}
+
+impl fmt::Debug for Entities {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let total_count = self.total_count();
+        let used_count = self.used_count();
+        let total_prospective_count = self.total_prospective_count();
+        let len = self.len();
+        write!(f, "Entities: [ total: {total_count}, used: {used_count}, total_when_flushed: {total_prospective_count}, current: {len} ]")
+    }
+}
+
+impl Drop for Entities {
+    fn drop(&mut self) {
+        // We need to notify any `RemoteEntities` that their reservations will be invalid.
+        self.coordinator.close();
     }
 }
 
@@ -1138,6 +1849,14 @@ impl EntityLocation {
         table_id: TableId::INVALID,
         table_row: TableRow::INVALID,
     };
+
+    /// location for **owned entity**. See [`Entities::owned`].
+    pub(crate) const OWNED: EntityLocation = EntityLocation {
+        archetype_id: ArchetypeId::INVALID,
+        archetype_row: ArchetypeRow::new(0),
+        table_id: TableId::INVALID,
+        table_row: TableRow::INVALID,
+    };
 }
 
 #[cfg(test)]
@@ -1162,8 +1881,17 @@ mod tests {
     fn reserve_entity_len() {
         let mut e = Entities::new();
         e.reserve_entity();
-        // SAFETY: entity_location is left invalid
-        unsafe { e.flush(|_, _| {}) };
+        // SAFETY: There is no world. It is irrelevant.
+        unsafe {
+            e.flush(|_entity, loc| {
+                *loc = EntityLocation {
+                    archetype_id: ArchetypeId::new(0),
+                    archetype_row: ArchetypeRow::new(0),
+                    table_id: TableId::INVALID,
+                    table_row: TableRow::INVALID,
+                }
+            });
+        };
         assert_eq!(e.len(), 1);
     }
 
@@ -1206,9 +1934,9 @@ mod tests {
     fn reserve_generations() {
         let mut entities = Entities::new();
         let entity = entities.alloc();
-        entities.free(entity);
-
-        assert!(entities.reserve_generations(entity.index(), 1));
+        assert!(entities
+            .free_current_and_future_generations(entity, 1)
+            .is_some());
     }
 
     #[test]
@@ -1217,9 +1945,9 @@ mod tests {
 
         let mut entities = Entities::new();
         let entity = entities.alloc();
-        entities.free(entity);
-
-        assert!(entities.reserve_generations(entity.index(), GENERATIONS));
+        assert!(entities
+            .free_current_and_future_generations(entity, GENERATIONS)
+            .is_some());
 
         // The very next entity allocated should be a further generation on the same index
         let next_entity = entities.alloc();
