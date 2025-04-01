@@ -86,10 +86,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use bevy_platform_support::sync::Arc;
 use concurrent_queue::ConcurrentQueue;
 use core::{fmt, hash::Hash, num::NonZero, panic::Location};
 use log::warn;
@@ -507,7 +504,6 @@ struct Pending {
     remote: RemotePending,
     #[cfg(feature = "std")]
     local: bevy_utils::Parallel<Vec<Entity>>,
-    any_local: AtomicBool,
 }
 
 impl Pending {
@@ -517,7 +513,6 @@ impl Pending {
             Self {
                 remote: RemotePending::new(),
                 local: bevy_utils::Parallel::default(),
-                any_local: AtomicBool::new(false),
             }
         }
 
@@ -539,14 +534,9 @@ impl Pending {
         {
             self.remote.queue_flush(entity)
         }
-        self.any_local.store(true, Ordering::Relaxed);
     }
 
     fn flush_local(&mut self, mut flusher: impl FnMut(Entity)) {
-        if !core::mem::replace(self.any_local.get_mut(), false) {
-            return;
-        }
-
         #[cfg(feature = "std")]
         let pending = { self.local.iter_mut().flat_map(|pending| pending.drain(..)) };
 
