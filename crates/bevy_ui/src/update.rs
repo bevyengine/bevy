@@ -177,7 +177,7 @@ pub fn update_ui_context_system(
     }
 
     for (entity, child_of) in reparented_nodes.iter() {
-        let Ok(computed_target) = computed_target_query.get(child_of.parent) else {
+        let Ok(computed_target) = computed_target_query.get(child_of.parent()) else {
             continue;
         };
 
