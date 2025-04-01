@@ -2235,7 +2235,7 @@ impl World {
     /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
     /// worked out to share an ID space (which doesn't happen by default).
     ///
-    /// ```
+    /// ```ignore
     /// use bevy_ecs::{entity::Entity, world::World, component::Component};
     /// #[derive(Component)]
     /// struct A(&'static str);
