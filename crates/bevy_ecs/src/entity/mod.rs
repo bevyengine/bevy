@@ -557,6 +557,8 @@ impl fmt::Debug for Pending {
 
 /// An [`Iterator`] returning a sequence of [`Entity`] values from [`Entities`].
 /// These will be flushed.
+///
+/// **NOTE:** Dropping will leak the remaining entities!
 pub struct ReserveEntitiesIterator<'a> {
     allocator: allocator::AllocEntitiesIterator<'a>,
     entities: &'a Entities,

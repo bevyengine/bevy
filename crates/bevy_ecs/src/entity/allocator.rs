@@ -6,6 +6,7 @@ use bevy_platform_support::{
     },
 };
 use core::mem::{ManuallyDrop, MaybeUninit};
+use log::warn;
 
 use crate::query::DebugCheckedUnwrap;
 
@@ -400,6 +401,8 @@ impl core::fmt::Debug for Allocator {
 }
 
 /// An [`Iterator`] returning a sequence of [`Entity`] values from an [`Allocator`].
+///
+/// **NOTE:** Dropping will leak the remaining entities!
 pub struct AllocEntitiesIterator<'a> {
     allocator: &'a Allocator,
     num_left: u32,
@@ -423,6 +426,17 @@ impl<'a> core::iter::FusedIterator for AllocEntitiesIterator<'a> {}
 
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for AllocEntitiesIterator<'_> {}
+
+impl Drop for AllocEntitiesIterator<'_> {
+    fn drop(&mut self) {
+        if self.num_left > 0 {
+            warn!(
+                "{} entities being leaked via unfinished `AllocEntitiesIterator`",
+                self.num_left
+            );
+        }
+    }
+}
 
 /// This is a stripped down version of [`Allocator`] that operates on fewer assumptions.
 /// As a result, using this will be slower than [`Allocator`] but this offers additional freedoms.
