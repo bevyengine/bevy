@@ -8,7 +8,7 @@ use bevy_render::{
     render_resource::*,
 };
 use bevy_render_2d::{
-    material::{Material2dKey, Material2dPlugin},
+    material::{key::Material2dKey, plugin::Material2dPlugin},
     prelude::{Material2d, MeshMaterial2d},
 };
 

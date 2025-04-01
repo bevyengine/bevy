@@ -1,34 +1,12 @@
-pub mod commands;
-pub mod instances;
-pub mod prepared_asset;
-pub mod properties;
-pub mod specialization;
-
 use core::marker::PhantomData;
 
 use bevy_asset::Handle;
 use bevy_ecs::resource::Resource;
-use bevy_render::{
-    render_phase::SetItemPipeline,
-    render_resource::{BindGroupLayout, Shader},
-};
+use bevy_render::render_resource::{BindGroupLayout, Shader};
 
-use crate::mesh_pipeline::{
-    commands::{DrawMesh2d, SetMesh2dBindGroup, SetMesh2dViewBindGroup},
-    pipeline::Mesh2dPipeline,
-};
+use crate::mesh_pipeline::pipeline::Mesh2dPipeline;
 
 use super::Material2d;
-
-use commands::SetMaterial2dBindGroup;
-
-pub type DrawMaterial2d<M> = (
-    SetItemPipeline,
-    SetMesh2dViewBindGroup<0>,
-    SetMesh2dBindGroup<1>,
-    SetMaterial2dBindGroup<M, 2>,
-    DrawMesh2d,
-);
 
 /// Render pipeline data for a given [`Material2d`]
 #[derive(Resource)]

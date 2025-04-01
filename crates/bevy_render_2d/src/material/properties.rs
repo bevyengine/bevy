@@ -12,8 +12,7 @@ pub struct Material2dProperties {
     pub depth_bias: f32,
     /// The bits in the [`Mesh2dPipelineKey`] for this material.
     ///
-    /// These are precalculated so that we can just "or" them together in
-    /// [`queue_material2d_meshes`](crate::material::queue_material2d_meshes).
+    /// [`Mesh2dPipelineKey`] are precalculated so that we can just "or" them together.
     pub mesh_pipeline_key_bits: Mesh2dPipelineKey,
     pub draw_function_id: DrawFunctionId,
 }

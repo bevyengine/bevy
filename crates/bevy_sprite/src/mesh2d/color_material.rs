@@ -6,7 +6,7 @@ use bevy_math::{Affine2, Mat3, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
 use bevy_render_2d::{
-    material::Material2dPlugin,
+    material::plugin::Material2dPlugin,
     prelude::{AlphaMode2d, Material2d},
 };
 

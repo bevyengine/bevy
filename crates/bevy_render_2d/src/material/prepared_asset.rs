@@ -13,7 +13,9 @@ use crate::{
     mesh_pipeline::{bind_group::Material2dBindGroupId, pipeline::Mesh2dPipelineKey},
 };
 
-use super::{properties::Material2dProperties, DrawMaterial2d, Material2dPipeline};
+use super::{
+    commands::DrawMaterial2d, pipeline::Material2dPipeline, properties::Material2dProperties,
+};
 
 /// Data prepared for a [`Material2d`] instance.
 pub struct PreparedMaterial2d<T: Material2d> {

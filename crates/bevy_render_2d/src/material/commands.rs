@@ -3,12 +3,22 @@ use core::marker::PhantomData;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_render::{
     render_asset::RenderAssets,
-    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_phase::{
+        PhaseItem, RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
+    },
 };
 
-use crate::material::{pipeline::instances::RenderMaterial2dInstances, Material2d};
+use crate::mesh_pipeline::commands::{DrawMesh2d, SetMesh2dBindGroup, SetMesh2dViewBindGroup};
 
-use super::prepared_asset::PreparedMaterial2d;
+use super::{instances::RenderMaterial2dInstances, prepared_asset::PreparedMaterial2d, Material2d};
+
+pub type DrawMaterial2d<M> = (
+    SetItemPipeline,
+    SetMesh2dViewBindGroup<0>,
+    SetMesh2dBindGroup<1>,
+    SetMaterial2dBindGroup<M, 2>,
+    DrawMesh2d,
+);
 
 pub struct SetMaterial2dBindGroup<M: Material2d, const I: usize>(PhantomData<M>);
 

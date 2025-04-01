@@ -1,12 +1,33 @@
-# Create `bevy_render_2d` crates
+# Create `bevy_render_2d` crate
 
-prs = [18467]
+prs = [[18467](https://github.com/bevyengine/bevy/pull/18467)]
 
-This is part of 18423 tracking issue
+Extract from `bevy_sprite` code that is not exclusive to sprites and move it to
+new crate `bevy_render_2d`. New locations for symbols are as follows:
 
-* `Mesh2dPlugin`, `Material2d`, `Material2dKey`, `MeshMaterial2d`, and `AlphaMode2d` are now located in `bevy_render_2d::material`
-* `Mesh2dRenderPlugin`, `Material2dBindGroupId`, `Mesh2dBindGroup`, `Mesh2dViewBindGroup`, `DrawMesh2d`,
-    `SetMesh2dBindGroup`, `SetMesh2dViewBindGroup`, `RenderMesh2dInstance`, `RenderMesh2dInstances`,
-    `Mesh2dTransforms`, `MeshFlags`, `Mesh2dPipeline`, `Mesh2dPipelineKey`, `ViewCache`, and `ViewSpecializationTicks`
-    are now located in `bevy_render_2d::mesh_pipeline` or one of it's submodules
-* `bevy_render_2d`'s prelude contains `Material2d`, `MeshMaterial2d`, and `AlphaMode2d`
+## Struct
+
+Struct | `0.16` Path | `0.17` Path
+--- | --- | ---
+`MeshMaterial2d` | | `bevy_render_2d::material`
+`AlphaMode2d` | | `bevy_render_2d::material`
+`Material2dKey` | | `bevy_render_2d::material::key`
+
+## Traits
+
+Trait | `0.16` Path | `0.17` Path
+--- | --- | ---
+`Material2d` | | `bevy_render_2d::material`
+
+## Plugins
+
+Trait | `0.16` Path | `0.17` Path
+--- | --- | ---
+`Material2dPlugin` | | `bevy_render_2d::material::Plugin`
+
+## Prelude
+
+`bevy_render_2d`'s prelude contains:
+* `Material2d`
+* `MeshMaterial2d`
+* `AlphaMode2d`
