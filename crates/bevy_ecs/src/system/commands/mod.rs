@@ -1019,8 +1019,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`World::run_system_cached`]
     /// - [`World::register_system_cached`]
     ///
-    /// If the given system is not currently cached,
-    /// this command will emit a warning.
+    /// # Fallible
+    ///
+    /// This command will fail if the given system
+    /// is not currently cached in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
+    ///
+    /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
+    /// which will be handled by [logging the error at the `warn` level](warn).
     pub fn unregister_system_cached<I, O, M, S>(&mut self, system: S)
     where
         I: SystemInput + Send + 'static,
