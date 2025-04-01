@@ -613,7 +613,7 @@ impl Entities {
     /// but, if desiered, caller may [`set`](Self::set) the [`EntityLocation`] prior to the flush instead.
     pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
         ReserveEntitiesIterator {
-            allocator: self.alloc_many(count),
+            allocator: self.alloc_entities(count),
             entities: self,
         }
     }
@@ -635,7 +635,7 @@ impl Entities {
     }
 
     /// A more efficient way to [`alloc`](Self::alloc) multiple entities.
-    pub fn alloc_many(&self, count: u32) -> allocator::AllocEntitiesIterator {
+    pub fn alloc_entities(&self, count: u32) -> allocator::AllocEntitiesIterator {
         self.allocator.alloc_many(count)
     }
 
