@@ -1,8 +1,12 @@
 use alloc::vec::Vec;
 use core::mem::MaybeUninit;
+use smallvec::SmallVec;
 
 use crate::{
-    entity::{Entity, EntityDoesNotExistError, EntityHashMap, EntityHashSet},
+    change_detection::MaybeLocation,
+    entity::{
+        Entity, EntityDoesNotExistDetails, EntityDoesNotExistError, EntityHashMap, EntityHashSet,
+    },
     error::Result,
     world::{
         error::EntityMutableFetchError, unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef,
@@ -22,9 +26,9 @@ use crate::{
 /// [`DeferredWorld::entities_and_commands`]: crate::world::DeferredWorld::entities_and_commands
 pub struct EntityFetcher<'w> {
     cell: UnsafeWorldCell<'w>,
-    /// The entity that is excluded from the fetcher. This is `None` if no
+    /// The entities that are excluded from the fetcher. This is empty if no
     /// entity is excluded (the default).
-    excluded: Option<Entity>,
+    excluded: SmallVec<[Entity; 2]>,
 }
 
 impl<'w> EntityFetcher<'w> {
@@ -34,7 +38,7 @@ impl<'w> EntityFetcher<'w> {
     pub(crate) unsafe fn new(cell: UnsafeWorldCell<'w>) -> Self {
         Self {
             cell,
-            excluded: None,
+            excluded: SmallVec::new(),
         }
     }
 
@@ -63,6 +67,17 @@ impl<'w> EntityFetcher<'w> {
         &self,
         entities: F,
     ) -> Result<F::Ref<'_>, EntityDoesNotExistError> {
+        for &excluded in &self.excluded {
+            if entities.contains(excluded) {
+                return Err(EntityDoesNotExistError {
+                    entity: excluded,
+                    details: EntityDoesNotExistDetails {
+                        location: MaybeLocation::new(None),
+                    },
+                });
+            }
+        }
+
         // SAFETY: `&self` gives read access to all entities, and prevents mutable access.
         unsafe { entities.fetch_ref(self.cell) }
     }
@@ -96,6 +111,12 @@ impl<'w> EntityFetcher<'w> {
         &mut self,
         entities: F,
     ) -> Result<F::DeferredMut<'_>, EntityMutableFetchError> {
+        for &excluded in &self.excluded {
+            if entities.contains(excluded) {
+                return Err(EntityMutableFetchError::AliasedMutability(excluded));
+            }
+        }
+
         // SAFETY: `&mut self` gives mutable access to all entities,
         // and prevents any other access to entities.
         unsafe { entities.fetch_deferred_mut(self.cell) }
@@ -116,10 +137,13 @@ impl<'w> EntityFetcher<'w> {
         &mut self,
         entity: Entity,
     ) -> Result<(EntityMut<'_>, EntityFetcher<'_>), EntityDoesNotExistError> {
-        if self.excluded.is_some() {
-            panic!(
-                "Cannot split off an entity from a fetcher that already has an excluded entity."
-            );
+        if self.excluded.contains(&entity) {
+            return Err(EntityDoesNotExistError {
+                entity,
+                details: EntityDoesNotExistDetails {
+                    location: MaybeLocation::new(None),
+                },
+            });
         }
 
         // SAFETY: `&mut self` gives mutable access to all entities,
@@ -129,7 +153,8 @@ impl<'w> EntityFetcher<'w> {
         // and prevents any other access to entities. Additionally, `excluded` is
         // set to the entity that was just fetched, preventing access to it.
         let mut fetcher = unsafe { EntityFetcher::new(self.cell) };
-        fetcher.excluded = Some(entity);
+        fetcher.excluded = self.excluded.clone();
+        fetcher.excluded.push(entity);
 
         Ok((entity_mut, fetcher))
     }
