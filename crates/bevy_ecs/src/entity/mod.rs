@@ -826,7 +826,7 @@ impl Entities {
         self.pending.flush_local(|entity| {
             // SAFETY: `meta` has been resized to include all entities.
             let meta = unsafe { self.meta.get_unchecked_mut(entity.index() as usize) };
-            if meta.generation == entity.generation && meta.location != EntityLocation::INVALID {
+            if meta.generation == entity.generation && meta.location == EntityLocation::INVALID {
                 init(entity, &mut meta.location);
             }
         });
