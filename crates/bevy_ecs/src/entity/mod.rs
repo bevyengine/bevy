@@ -555,6 +555,34 @@ impl fmt::Debug for Pending {
     }
 }
 
+/// An [`Iterator`] returning a sequence of [`Entity`] values from [`Entities`].
+/// These will be flushed.
+pub struct ReserveEntitiesIterator<'a> {
+    allocator: allocator::AllocEntitiesIterator<'a>,
+    entities: &'a Entities,
+}
+
+impl<'a> Iterator for ReserveEntitiesIterator<'a> {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.allocator
+            .next()
+            .inspect(|entity| self.entities.pending.queue_flush(*entity))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.allocator.size_hint()
+    }
+}
+
+impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
+
+impl<'a> ExactSizeIterator for ReserveEntitiesIterator<'a> {}
+
+// SAFETY: Newly reserved entity values are unique.
+unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
+
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
 /// Contains metadata on:
@@ -583,8 +611,11 @@ impl Entities {
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush),
     /// but, if desiered, caller may [`set`](Self::set) the [`EntityLocation`] prior to the flush instead.
-    pub fn reserve_entities(&self, count: u32) -> allocator::AllocEntitiesIterator {
-        self.alloc_many(count)
+    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
+        ReserveEntitiesIterator {
+            allocator: self.alloc_many(count),
+            entities: self,
+        }
     }
 
     /// Reserve one entity ID concurrently.
