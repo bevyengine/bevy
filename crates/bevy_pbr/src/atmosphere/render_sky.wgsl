@@ -20,9 +20,9 @@
 
 struct RenderSkyOutput {
     @location(0) inscattering: vec4<f32>,
-    #ifdef DUAL_SOURCE_BLENDING
+#ifdef DUAL_SOURCE_BLENDING
     @location(0) @second_blend_source transmittance: vec4<f32>,
-    #endif
+#endif
 }
 
 @fragment
@@ -48,11 +48,11 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
         inscattering = sample_aerial_view_lut(in.uv, t);
         transmittance = sample_transmittance_lut_segment(r, mu, t);
     }
-    #ifdef DUAL_SOURCE_BLENDING
+#ifdef DUAL_SOURCE_BLENDING
     return RenderSkyOutput(vec4(inscattering, 0.0), vec4(transmittance, 1.0));
-    #else
+#else
     let mean_transmittance = (transmittance.r + transmittance.g + transmittance.b) / 3.0;
     return RenderSkyOutput(vec4(inscattering, mean_transmittance));
-    #endif
+#endif
     
 }

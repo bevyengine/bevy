@@ -326,6 +326,7 @@ pub(crate) struct RenderSkyPipelineId(pub CachedRenderPipelineId);
 pub(crate) struct RenderSkyPipelineKey {
     pub msaa_samples: u32,
     pub hdr: bool,
+    pub dual_source_blending: bool,
 }
 
 impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
@@ -340,11 +341,15 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
         if key.hdr {
             shader_defs.push("TONEMAP_IN_SHADER".into());
         }
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
+        if key.dual_source_blending {
             shader_defs.push("DUAL_SOURCE_BLENDING".into());
         }
+
+        let dst_factor = if key.dual_source_blending {
+            BlendFactor::Src1
+        } else {
+            BlendFactor::SrcAlpha
+        };
 
         RenderPipelineDescriptor {
             label: Some(format!("render_sky_pipeline_{}", key.msaa_samples).into()),
@@ -372,11 +377,7 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
                     blend: Some(BlendState {
                         color: BlendComponent {
                             src_factor: BlendFactor::One,
-                            #[cfg(not(target_arch = "wasm32"))]
-                            dst_factor: BlendFactor::Src1,
-                            // Dual source blending is not supported on Web
-                            #[cfg(target_arch = "wasm32")]
-                            dst_factor: BlendFactor::SrcAlpha,
+                            dst_factor,
                             operation: BlendOperation::Add,
                         },
                         alpha: BlendComponent {
@@ -397,6 +398,7 @@ pub(super) fn queue_render_sky_pipelines(
     pipeline_cache: Res<PipelineCache>,
     layouts: Res<RenderSkyBindGroupLayouts>,
     mut specializer: ResMut<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>,
+    render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
     for (entity, camera, msaa) in &views {
@@ -406,6 +408,7 @@ pub(super) fn queue_render_sky_pipelines(
             RenderSkyPipelineKey {
                 msaa_samples: msaa.samples(),
                 hdr: camera.hdr,
+                dual_source_blending: render_device.features().contains(WgpuFeatures::DUAL_SOURCE_BLENDING),
             },
         );
         commands.entity(entity).insert(RenderSkyPipelineId(id));
