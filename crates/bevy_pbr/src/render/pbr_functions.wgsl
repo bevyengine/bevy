@@ -281,23 +281,10 @@ fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) ->
 fn compute_pbr_lighting(
     in: pbr_types::PbrInput,
 ) -> pbr_types::ComputedPbrLight {
-    let emissive = in.material.emissive;
-
     var computed_light = pbr_types::computed_pbr_light_new();
 
-    return computed_light;
-}
-
-fn compute_direct_light(
-    in: pbr_types::PbrInput,
-    clusterable_object_index_ranges: clustering::ClusterableObjectIndexRanges,
-    view_z: f32,
-    diffuse_color: vec3<f32>,
-    diffuse_transmissive_color: vec3<f32>,
-    F0: vec3<f32>,
-    F_ab: vec2<f32>,
-) -> vec3<f32> {
-    var direct_light: vec3<f32> = vec3(0.);
+    var output_color: vec4<f32> = in.material.base_color;
+    let emissive = in.material.emissive;
 
     // calculate non-linear roughness from linear perceptualRoughness
     let metallic = in.material.metallic;
@@ -317,6 +304,124 @@ fn compute_direct_light(
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
     let NdotV = max(dot(in.N, in.V), 0.0001);
     let R = reflect(-in.V, in.N);
+
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+    // Do the above calculations again for the clearcoat layer. Remember that
+    // the clearcoat can have its own roughness and its own normal.
+    let clearcoat = in.material.clearcoat;
+    let clearcoat_perceptual_roughness = in.material.clearcoat_perceptual_roughness;
+    let clearcoat_roughness = lighting::perceptualRoughnessToRoughness(clearcoat_perceptual_roughness);
+    let clearcoat_N = in.clearcoat_N;
+    let clearcoat_NdotV = max(dot(clearcoat_N, in.V), 0.0001);
+    let clearcoat_R = reflect(-in.V, clearcoat_N);
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+
+    let diffuse_color = calculate_diffuse_color(
+        output_color.rgb,
+        metallic,
+        specular_transmission,
+        diffuse_transmission
+    );
+
+    // Diffuse transmissive strength is inversely related to metallicity and specular transmission, but directly related to diffuse transmission
+    let diffuse_transmissive_color = output_color.rgb * (1.0 - metallic) * (1.0 - specular_transmission) * diffuse_transmission;
+
+    let F0 = calculate_F0(output_color.rgb, metallic, reflectance);
+    let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
+
+    // Transmitted Light (Specular and Diffuse)
+    var transmitted_light: vec3<f32> = vec3<f32>(0.0);
+
+    let view_z = dot(vec4<f32>(
+        view_bindings::view.view_from_world[0].z,
+        view_bindings::view.view_from_world[1].z,
+        view_bindings::view.view_from_world[2].z,
+        view_bindings::view.view_from_world[3].z
+    ), in.world_position);
+    let cluster_index = clustering::fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
+    var clusterable_object_index_ranges =
+        clustering::unpack_clusterable_object_index_ranges(cluster_index);
+
+    let direct_light: vec3<f32> = compute_direct_light(
+        in,
+        clusterable_object_index_ranges,
+        view_z,
+        diffuse_color,
+        F0, F_ab,
+        NdotV,
+        R,
+        perceptual_roughness,
+        roughness);
+
+#ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
+    transmitted_light = compute_transmitted_direct_light(
+        in,
+        clusterable_object_index_ranges,
+        view_z,
+        diffuse_color,
+        diffuse_transmissive_color,
+        F0, F_ab
+    );
+#endif
+
+    let indirect_light = compute_indirect_light(in, clusterable_object_index_ranges, diffuse_color, NdotV, F0);
+
+    transmitted_light += compute_transmitted_indirect_light(
+        in,
+        clusterable_object_index_ranges,
+        view_z,
+        roughness,
+        diffuse_transmissive_color,
+        F0
+    );
+
+    let emissive_light = compute_emissive_light(in, output_color);
+
+    computed_light.emissive = emissive_light;
+    computed_light.direct = direct_light;
+    computed_light.indirect = indirect_light;
+    computed_light.transmitted = transmitted_light;
+
+    return computed_light;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+fn compute_direct_light(
+    in: pbr_types::PbrInput,
+    clusterable_object_index_ranges: clustering::ClusterableObjectIndexRanges,
+    view_z: f32,
+    diffuse_color: vec3<f32>,
+    F0: vec3<f32>,
+    F_ab: vec2<f32>,
+    NdotV: f32,
+    R: vec3<f32>,
+    perceptual_roughness: f32,
+    roughness: f32,
+) -> vec3<f32> {
+    var direct_light: vec3<f32> = vec3(0.);
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     // Do the above calculations again for the clearcoat layer. Remember that
@@ -450,6 +555,8 @@ fn compute_direct_light(
 
     return direct_light;
 }
+
+
 
 fn compute_transmitted_direct_light(
     in: pbr_types::PbrInput,
@@ -848,107 +955,41 @@ fn compute_emissive_light(
     return emissive_light;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 fn apply_pbr_lighting(
     in: pbr_types::PbrInput,
 ) -> vec4<f32> {
     var output_color: vec4<f32> = in.material.base_color;
 
-    let emissive = in.material.emissive;
-
-    // calculate non-linear roughness from linear perceptualRoughness
-    let metallic = in.material.metallic;
-    let perceptual_roughness = in.material.perceptual_roughness;
-    let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
-    let ior = in.material.ior;
-    let thickness = in.material.thickness;
-    let reflectance = in.material.reflectance;
-    let diffuse_transmission = in.material.diffuse_transmission;
-    let specular_transmission = in.material.specular_transmission;
-
-    let specular_transmissive_color = specular_transmission * in.material.base_color.rgb;
-
-    let diffuse_occlusion = in.diffuse_occlusion;
-    let specular_occlusion = in.specular_occlusion;
-
-    // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-    let NdotV = max(dot(in.N, in.V), 0.0001);
-    let R = reflect(-in.V, in.N);
-
-#ifdef STANDARD_MATERIAL_CLEARCOAT
-    // Do the above calculations again for the clearcoat layer. Remember that
-    // the clearcoat can have its own roughness and its own normal.
-    let clearcoat = in.material.clearcoat;
-    let clearcoat_perceptual_roughness = in.material.clearcoat_perceptual_roughness;
-    let clearcoat_roughness = lighting::perceptualRoughnessToRoughness(clearcoat_perceptual_roughness);
-    let clearcoat_N = in.clearcoat_N;
-    let clearcoat_NdotV = max(dot(clearcoat_N, in.V), 0.0001);
-    let clearcoat_R = reflect(-in.V, clearcoat_N);
-#endif  // STANDARD_MATERIAL_CLEARCOAT
-
-    let diffuse_color = calculate_diffuse_color(
-        output_color.rgb,
-        metallic,
-        specular_transmission,
-        diffuse_transmission
-    );
-
-    // Diffuse transmissive strength is inversely related to metallicity and specular transmission, but directly related to diffuse transmission
-    let diffuse_transmissive_color = output_color.rgb * (1.0 - metallic) * (1.0 - specular_transmission) * diffuse_transmission;
-
-    let F0 = calculate_F0(output_color.rgb, metallic, reflectance);
-    let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
-
-    // Transmitted Light (Specular and Diffuse)
-    var transmitted_light: vec3<f32> = vec3<f32>(0.0);
-
-    let view_z = dot(vec4<f32>(
-        view_bindings::view.view_from_world[0].z,
-        view_bindings::view.view_from_world[1].z,
-        view_bindings::view.view_from_world[2].z,
-        view_bindings::view.view_from_world[3].z
-    ), in.world_position);
-    let cluster_index = clustering::fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
-    var clusterable_object_index_ranges =
-        clustering::unpack_clusterable_object_index_ranges(cluster_index);
-
-    let direct_light: vec3<f32> = compute_direct_light(
-        in,
-        clusterable_object_index_ranges,
-        view_z,
-        diffuse_color,
-        diffuse_transmissive_color,
-        F0, F_ab);
-
-#ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
-    transmitted_light = compute_transmitted_direct_light(
-        in,
-        clusterable_object_index_ranges,
-        view_z,
-        diffuse_color,
-        diffuse_transmissive_color,
-        F0, F_ab
-    );
-#endif
-
-    let indirect_light = compute_indirect_light(in, clusterable_object_index_ranges, diffuse_color, NdotV, F0);
-
-    transmitted_light += compute_transmitted_indirect_light(
-        in,
-        clusterable_object_index_ranges,
-        view_z,
-        roughness,
-        diffuse_transmissive_color,
-        F0
-    );
-
-    let emissive_light = compute_emissive_light(in, output_color);
+    let computed_light = compute_pbr_lighting(in);
 
     // Total light
     output_color = vec4<f32>(
-        (view_bindings::view.exposure * (transmitted_light + direct_light + indirect_light)) + emissive_light,
+        (
+            view_bindings::view.exposure *
+            (computed_light.transmitted + computed_light.direct + computed_light.indirect)
+        ) + computed_light.emissive,
         output_color.a
     );
 
+    /*
     output_color = clustering::cluster_debug_visualization(
         output_color,
         view_z,
@@ -956,6 +997,7 @@ fn apply_pbr_lighting(
         clusterable_object_index_ranges,
         cluster_index,
     );
+    */
 
     return output_color;
 }
