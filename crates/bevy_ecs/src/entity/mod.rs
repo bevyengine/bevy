@@ -596,7 +596,8 @@ impl Entities {
 
     /// Reserve entity IDs concurrently.
     ///
-    /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
+    /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush),
+    /// but, if desiered, caller may [`set`](Self::set) the [`EntityLocation`] prior to the flush instead.
     pub fn reserve_entities(&self, count: u32) -> allocator::AllocEntitiesIterator {
         self.alloc_many(count)
     }
@@ -609,6 +610,8 @@ impl Entities {
     }
 
     /// Allocate an entity ID directly.
+    /// Caller is responsible to [`set`](Self::set) the [`EntityLocation`] if desierd,
+    /// which must be done before [`get`](Self::get)ing its [`EntityLocation`].
     pub fn alloc(&self) -> Entity {
         self.allocator.alloc()
     }
@@ -714,8 +717,6 @@ impl Entities {
                 return None;
             }
             Some(meta.location)
-        } else if self.allocator.is_valid_index(entity.index()) {
-            Some(EntityLocation::INVALID)
         } else {
             None
         }
@@ -792,7 +793,7 @@ impl Entities {
         self.pending.flush_local(|entity| {
             // SAFETY: `meta` has been resized to include all entities.
             let meta = unsafe { self.meta.get_unchecked_mut(entity.index() as usize) };
-            if meta.generation == entity.generation {
+            if meta.generation == entity.generation && meta.location != EntityLocation::INVALID {
                 init(entity, &mut meta.location);
             }
         });
