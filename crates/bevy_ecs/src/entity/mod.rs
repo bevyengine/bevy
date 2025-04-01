@@ -763,6 +763,7 @@ impl Entities {
     /// # Safetey
     ///
     /// `idnex` must be a valid index
+    #[inline]
     unsafe fn force_get_meta_mut(&mut self, index: usize) -> &mut EntityMeta {
         if index >= self.meta.len() {
             self.resize_meta_for_index_risky(index)
@@ -790,6 +791,7 @@ impl Entities {
     /// Note: This method may return [`Entities`](Entity) which are currently free
     /// Note that [`contains`](Entities::contains) will correctly return false for freed
     /// entities, since it checks the generation
+    #[inline]
     pub fn resolve_from_id(&self, index: u32) -> Option<Entity> {
         let idu = index as usize;
         if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {

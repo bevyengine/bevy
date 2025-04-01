@@ -28,6 +28,7 @@ impl Chunk {
 
     /// Computes the capacity of the chunk at this index within [`Self::NUM_CHUNKS`].
     /// The first 2 have length 512 (2^9) and the last has length (2^31)
+    #[inline]
     fn capacity_of_chunk(chunk_index: u32) -> u32 {
         // We do this because we're skipping the first 8 powers, so we need to make up for them by doubling the first index.
         // This is why the first 2 indices both have a capacity of 256.
@@ -40,6 +41,7 @@ impl Chunk {
     }
 
     /// For this index in the whole buffer, returns the index of the [`Chunk`] and the index within that chunk.
+    #[inline]
     fn get_indices(full_idnex: u32) -> (u32, u32) {
         // We're countint leading zeros since each chunk has power of 2 capacity.
         // So the leading zeros will be proportional to the chunk index.
@@ -62,6 +64,7 @@ impl Chunk {
     /// # Safety
     ///
     /// [`Self::set`] must have been called on this index before.
+    #[inline]
     unsafe fn get(&self, index: u32) -> Entity {
         // SAFETY: caller ensure we are init.
         let head = unsafe { self.ptr().debug_checked_unwrap() };
@@ -76,6 +79,7 @@ impl Chunk {
     /// # Safety
     ///
     /// [`Self::set`] must have been called on these indices before.
+    #[inline]
     unsafe fn get_slice(&self, index: u32, ideal_len: u32, index_of_self: u32) -> &[Slot] {
         let cap = Self::capacity_of_chunk(index_of_self);
         let after_index_slice_len = cap - index;
@@ -95,6 +99,7 @@ impl Chunk {
     /// This must not be called concurrently.
     /// Index must be in bounds.
     /// Access does not conflict with another [`Self::get`].
+    #[inline]
     unsafe fn set(&self, index: u32, entity: Entity, index_of_self: u32) -> Slot {
         let head = self.ptr().unwrap_or_else(|| self.init(index_of_self));
         let target = head.add(index as usize);
@@ -163,6 +168,7 @@ impl FreeBuffer {
     /// # Safety
     ///
     /// For this to be accurate, this must not be called during a [`Self::free`].
+    #[inline]
     unsafe fn num_free(&self) -> u64 {
         self.len.load(Ordering::Relaxed).max(0) as u64
     }
@@ -172,6 +178,7 @@ impl FreeBuffer {
     /// # Safety
     ///
     /// This must not conflict with any other [`Self::free`] or [`Self::alloc`] calls.
+    #[inline]
     unsafe fn free(&self, entity: Entity) {
         // Disable remote allocation. (We could do a compare exchange loop, but this is faster in the common case.)
         let len = self.len.swap(-1, Ordering::AcqRel).max(0);
@@ -197,6 +204,7 @@ impl FreeBuffer {
     /// # Safety
     ///
     /// This must not conflict with [`Self::free`] calls.
+    #[inline]
     unsafe fn alloc(&self) -> Option<Entity> {
         // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
         let len = self.len.fetch_sub(1, Ordering::AcqRel);
@@ -218,6 +226,7 @@ impl FreeBuffer {
     /// # Safety
     ///
     /// This must not conflict with [`Self::free`] calls for the duration of the returned iterator.
+    #[inline]
     unsafe fn alloc_many(&self, count: u32) -> FreeListSliceIterator {
         // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
         let len = self.len.fetch_sub(count as isize, Ordering::AcqRel);
@@ -246,6 +255,7 @@ impl FreeBuffer {
     }
 
     /// Allocates an [`Entity`] from the free list if one is available and it is safe to do so.
+    #[inline]
     fn remote_alloc(&self) -> Option<Entity> {
         // The goal is the same as `alloc`, so what's the difference?
         // `alloc` knows `free` is not being called, but this does not.
@@ -330,6 +340,7 @@ struct FreeListSliceIterator<'a> {
 impl<'a> Iterator for FreeListSliceIterator<'a> {
     type Item = Entity;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(sliced) = self.current.next() {
             // SAFETY: Assured by constructor.
@@ -350,6 +361,7 @@ impl<'a> Iterator for FreeListSliceIterator<'a> {
         unsafe { Some(self.current.next()?.assume_init_read()) }
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let len = self.indices.end().saturating_sub(*self.indices.start()) as usize;
         (len, Some(len))
@@ -372,6 +384,7 @@ struct SharedAllocator {
 
 impl SharedAllocator {
     /// The total number of indices given out.
+    #[inline]
     fn total_entity_indices(&self) -> u64 {
         let next = self.next_entity_index.load(Ordering::Relaxed);
         if next == 0 {
@@ -397,6 +410,7 @@ impl SharedAllocator {
     }
 
     /// Allocates an [`Entity`] with a brand new index.
+    #[inline]
     fn alloc_new_index(&self) -> Entity {
         let index = self.next_entity_index.fetch_add(1, Ordering::Relaxed);
         if index == 0 {
@@ -410,6 +424,7 @@ impl SharedAllocator {
     /// # Safety
     ///
     /// This must not conflict with [`FreeBuffer::free`] calls.
+    #[inline]
     unsafe fn alloc(&self) -> Entity {
         // SAFETY: assured by caller
         unsafe { self.free.alloc() }.unwrap_or_else(|| self.alloc_new_index())
@@ -420,6 +435,7 @@ impl SharedAllocator {
     /// # Safety
     ///
     /// This must not conflict with [`FreeBuffer::free`] calls for the duration of the iterator.
+    #[inline]
     unsafe fn alloc_many(&self, count: u32) -> AllocEntitiesIterator {
         let reused = self.free.alloc_many(count);
         let missing = count - reused.len() as u32;
@@ -433,6 +449,7 @@ impl SharedAllocator {
 
     /// Allocates a new [`Entity`].
     /// This will only try to reuse a freed index if it is safe to do so.
+    #[inline]
     fn remote_alloc(&self) -> Entity {
         self.free
             .remote_alloc()
@@ -461,28 +478,33 @@ impl Allocator {
     }
 
     /// Allocates a new [`Entity`], reusing a freed index if one exists.
+    #[inline]
     pub fn alloc(&self) -> Entity {
         // SAFETY: violating safety requires a `&mut self` to exist, but rust does not allow that.
         unsafe { self.shared.alloc() }
     }
 
     /// The total number of indices given out.
+    #[inline]
     pub fn total_entity_indices(&self) -> u64 {
         self.shared.total_entity_indices()
     }
 
     /// The number of free entities.
+    #[inline]
     pub fn num_free(&self) -> u64 {
         // SAFETY: `free` is not being called since it takes `&mut self`.
         unsafe { self.shared.free.num_free() }
     }
 
     /// Returns whether or not the index is valid in this allocator.
+    #[inline]
     pub fn is_valid_index(&self, index: u32) -> bool {
         (index as u64) < self.total_entity_indices()
     }
 
     /// Frees the entity allowing it to be reused.
+    #[inline]
     pub fn free(&mut self, entity: Entity) {
         // SAFETY: We have `&mut self`.
         unsafe {
@@ -491,6 +513,7 @@ impl Allocator {
     }
 
     /// Allocates `count` entities in an iterator.
+    #[inline]
     pub fn alloc_many(&self, count: u32) -> AllocEntitiesIterator {
         // SAFETY: `free` takes `&mut self`, but this lifetime is captured by the iterator.
         unsafe { self.shared.alloc_many(count) }
@@ -561,6 +584,7 @@ impl RemoteAllocator {
     /// This is not guaranteed to reuse a freed entity, even if one exists.
     ///
     /// This will return [`None`] if the source [`Allocator`] is destroyed.
+    #[inline]
     pub fn alloc(&self) -> Option<Entity> {
         self.shared
             .upgrade()
