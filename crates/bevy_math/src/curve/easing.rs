@@ -5,7 +5,7 @@
 
 use crate::{
     curve::{Curve, CurveExt, FunctionCurve, Interval},
-    Dir2, Dir3, Dir3A, Isometry2d, Isometry3d, Quat, Rot2, VectorSpace,
+    Dir2, Dir3, Dir3A, Isometry2d, Isometry3d, NormedVectorSpace, Quat, Rot2, StableInterpolate,
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -13,39 +13,35 @@ use bevy_reflect::std_traits::ReflectDefault;
 
 use variadics_please::all_tuples_enumerated;
 
-// TODO: Think about merging `Ease` with `StableInterpolate`
-
-/// A type whose values can be eased between.
+/// Provides a curve version of [`Interpolate::interp`] which extends beyond the curve
+/// segment connecting the two values. The purpose of this trait is to make it easy to
+/// work with easing curves, which often extrapolate values before the starting point or
+/// after the end point.
 ///
-/// This requires the construction of an interpolation curve that actually extends
-/// beyond the curve segment that connects two values, because an easing curve may
-/// extrapolate before the starting value and after the ending value. This is
-/// especially common in easing functions that mimic elastic or springlike behavior.
-pub trait Ease: Sized {
-    /// Given `start` and `end` values, produce a curve with [unlimited domain]
-    /// that:
-    /// - takes a value equivalent to `start` at `t = 0`
-    /// - takes a value equivalent to `end` at `t = 1`
-    /// - has constant speed everywhere, including outside of `[0, 1]`
+/// This trait requires:
+///
+/// 1. The curve must follow all the rules of `Interpolate` and `StableInterpolate`.
+///
+/// 2. The curve must extend smoothly beyond the start and end points.
+///
+pub trait InterpolateCurve: StableInterpolate {
+    /// Given `start` and `end` values, produce a smooth curve with [unlimited domain]
+    /// that moves between the start and end points over the interval `[0, 1]` and has
+    /// constant velocity.
     ///
     /// [unlimited domain]: Interval::EVERYWHERE
-    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self>;
-}
-
-impl<V: VectorSpace> Ease for V {
-    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
-        FunctionCurve::new(Interval::EVERYWHERE, move |t| V::interp(&start, &end, t))
+    fn interp_curve(start: Self, end: Self) -> impl Curve<Self> {
+        FunctionCurve::new(Interval::EVERYWHERE, move |t| Self::interp(&start, &end, t))
     }
 }
 
-impl Ease for Rot2 {
-    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
-        FunctionCurve::new(Interval::EVERYWHERE, move |t| Rot2::slerp(start, end, t))
-    }
-}
+// Implement ease for all normed vector spaces.
+impl<V: NormedVectorSpace> InterpolateCurve for V {}
 
-impl Ease for Quat {
-    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+impl InterpolateCurve for Rot2 {}
+
+impl InterpolateCurve for Quat {
+    fn interp_curve(start: Self, end: Self) -> impl Curve<Self> {
         let dot = start.dot(end);
         let end_adjusted = if dot < 0.0 { -end } else { end };
         let difference = end_adjusted * start.inverse();
@@ -56,58 +52,46 @@ impl Ease for Quat {
     }
 }
 
-impl Ease for Dir2 {
-    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
-        FunctionCurve::new(Interval::EVERYWHERE, move |t| Dir2::slerp(start, end, t))
-    }
-}
+impl InterpolateCurve for Dir2 {}
 
-impl Ease for Dir3 {
-    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+impl InterpolateCurve for Dir3 {
+    fn interp_curve(start: Self, end: Self) -> impl Curve<Self> {
         let difference_quat = Quat::from_rotation_arc(start.as_vec3(), end.as_vec3());
-        Quat::interpolating_curve_unbounded(Quat::IDENTITY, difference_quat).map(move |q| q * start)
+        Quat::interp_curve(Quat::IDENTITY, difference_quat).map(move |q| q * start)
     }
 }
 
-impl Ease for Dir3A {
-    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+impl InterpolateCurve for Dir3A {
+    fn interp_curve(start: Self, end: Self) -> impl Curve<Self> {
         let difference_quat =
             Quat::from_rotation_arc(start.as_vec3a().into(), end.as_vec3a().into());
-        Quat::interpolating_curve_unbounded(Quat::IDENTITY, difference_quat).map(move |q| q * start)
+        Quat::interp_curve(Quat::IDENTITY, difference_quat).map(move |q| q * start)
     }
 }
 
-impl Ease for Isometry3d {
-    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+impl InterpolateCurve for Isometry3d {
+    fn interp_curve(start: Self, end: Self) -> impl Curve<Self> {
         FunctionCurve::new(Interval::EVERYWHERE, move |t| {
             // we can use sample_unchecked here, since both interpolating_curve_unbounded impls
             // used are defined on the whole domain
             Isometry3d {
-                rotation: Quat::interpolating_curve_unbounded(start.rotation, end.rotation)
+                rotation: Quat::interp_curve(start.rotation, end.rotation).sample_unchecked(t),
+                translation: crate::Vec3A::interp_curve(start.translation, end.translation)
                     .sample_unchecked(t),
-                translation: crate::Vec3A::interpolating_curve_unbounded(
-                    start.translation,
-                    end.translation,
-                )
-                .sample_unchecked(t),
             }
         })
     }
 }
 
-impl Ease for Isometry2d {
-    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+impl InterpolateCurve for Isometry2d {
+    fn interp_curve(start: Self, end: Self) -> impl Curve<Self> {
         FunctionCurve::new(Interval::EVERYWHERE, move |t| {
             // we can use sample_unchecked here, since both interpolating_curve_unbounded impls
             // used are defined on the whole domain
             Isometry2d {
-                rotation: Rot2::interpolating_curve_unbounded(start.rotation, end.rotation)
+                rotation: Rot2::interp_curve(start.rotation, end.rotation).sample_unchecked(t),
+                translation: crate::Vec2::interp_curve(start.translation, end.translation)
                     .sample_unchecked(t),
-                translation: crate::Vec2::interpolating_curve_unbounded(
-                    start.translation,
-                    end.translation,
-                )
-                .sample_unchecked(t),
             }
         })
     }
@@ -116,12 +100,12 @@ impl Ease for Isometry2d {
 macro_rules! impl_ease_tuple {
     ($(#[$meta:meta])* $(($n:tt, $T:ident)),*) => {
         $(#[$meta])*
-        impl<$($T: Ease),*> Ease for ($($T,)*) {
-            fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+        impl<$($T: InterpolateCurve),*> InterpolateCurve for ($($T,)*) {
+            fn interp_curve(start: Self, end: Self) -> impl Curve<Self> {
                 let curve_tuple =
                 (
                     $(
-                        <$T as Ease>::interpolating_curve_unbounded(start.$n, end.$n),
+                        <$T as InterpolateCurve>::interp_curve(start.$n, end.$n),
                     )*
                 );
 
@@ -257,7 +241,7 @@ impl<T> EasingCurve<T> {
 
 impl<T> Curve<T> for EasingCurve<T>
 where
-    T: Ease + Clone,
+    T: InterpolateCurve + Clone,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -267,8 +251,7 @@ where
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
         let remapped_t = self.ease_fn.eval(t);
-        T::interpolating_curve_unbounded(self.start.clone(), self.end.clone())
-            .sample_unchecked(remapped_t)
+        T::interp_curve(self.start.clone(), self.end.clone()).sample_unchecked(remapped_t)
     }
 }
 

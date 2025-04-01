@@ -293,7 +293,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             let translation_property = animated_field!(Transform::translation);
                             let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
                             if keyframe_timestamps.len() == 1 {
-                                Some(VariableCurve::new(AnimatableCurve::new(
+                                Some(VariableCurve::new(PropertyCurve::new(
                                     translation_property,
                                     ConstantCurve::new(Interval::EVERYWHERE, translations[0]),
                                 )))
@@ -305,7 +305,7 @@ async fn load_gltf<'a, 'b, 'c>(
                                         )
                                         .ok()
                                         .map(|curve| {
-                                            VariableCurve::new(AnimatableCurve::new(
+                                            VariableCurve::new(PropertyCurve::new(
                                                 translation_property,
                                                 curve,
                                             ))
@@ -317,7 +317,7 @@ async fn load_gltf<'a, 'b, 'c>(
                                         )
                                         .ok()
                                         .map(|curve| {
-                                            VariableCurve::new(AnimatableCurve::new(
+                                            VariableCurve::new(PropertyCurve::new(
                                                 translation_property,
                                                 curve,
                                             ))
@@ -327,7 +327,7 @@ async fn load_gltf<'a, 'b, 'c>(
                                         CubicKeyframeCurve::new(keyframe_timestamps, translations)
                                             .ok()
                                             .map(|curve| {
-                                                VariableCurve::new(AnimatableCurve::new(
+                                                VariableCurve::new(PropertyCurve::new(
                                                     translation_property,
                                                     curve,
                                                 ))
@@ -341,7 +341,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             let rotations: Vec<Quat> =
                                 rots.into_f32().map(Quat::from_array).collect();
                             if keyframe_timestamps.len() == 1 {
-                                Some(VariableCurve::new(AnimatableCurve::new(
+                                Some(VariableCurve::new(PropertyCurve::new(
                                     rotation_property,
                                     ConstantCurve::new(Interval::EVERYWHERE, rotations[0]),
                                 )))
@@ -353,7 +353,7 @@ async fn load_gltf<'a, 'b, 'c>(
                                         )
                                         .ok()
                                         .map(|curve| {
-                                            VariableCurve::new(AnimatableCurve::new(
+                                            VariableCurve::new(PropertyCurve::new(
                                                 rotation_property,
                                                 curve,
                                             ))
@@ -365,7 +365,7 @@ async fn load_gltf<'a, 'b, 'c>(
                                         )
                                         .ok()
                                         .map(|curve| {
-                                            VariableCurve::new(AnimatableCurve::new(
+                                            VariableCurve::new(PropertyCurve::new(
                                                 rotation_property,
                                                 curve,
                                             ))
@@ -378,7 +378,7 @@ async fn load_gltf<'a, 'b, 'c>(
                                         )
                                         .ok()
                                         .map(|curve| {
-                                            VariableCurve::new(AnimatableCurve::new(
+                                            VariableCurve::new(PropertyCurve::new(
                                                 rotation_property,
                                                 curve,
                                             ))
@@ -391,7 +391,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             let scale_property = animated_field!(Transform::scale);
                             let scales: Vec<Vec3> = scale.map(Vec3::from).collect();
                             if keyframe_timestamps.len() == 1 {
-                                Some(VariableCurve::new(AnimatableCurve::new(
+                                Some(VariableCurve::new(PropertyCurve::new(
                                     scale_property,
                                     ConstantCurve::new(Interval::EVERYWHERE, scales[0]),
                                 )))
@@ -403,7 +403,7 @@ async fn load_gltf<'a, 'b, 'c>(
                                         )
                                         .ok()
                                         .map(|curve| {
-                                            VariableCurve::new(AnimatableCurve::new(
+                                            VariableCurve::new(PropertyCurve::new(
                                                 scale_property,
                                                 curve,
                                             ))
@@ -415,7 +415,7 @@ async fn load_gltf<'a, 'b, 'c>(
                                         )
                                         .ok()
                                         .map(|curve| {
-                                            VariableCurve::new(AnimatableCurve::new(
+                                            VariableCurve::new(PropertyCurve::new(
                                                 scale_property,
                                                 curve,
                                             ))
@@ -425,7 +425,7 @@ async fn load_gltf<'a, 'b, 'c>(
                                         CubicKeyframeCurve::new(keyframe_timestamps, scales)
                                             .ok()
                                             .map(|curve| {
-                                                VariableCurve::new(AnimatableCurve::new(
+                                                VariableCurve::new(PropertyCurve::new(
                                                     scale_property,
                                                     curve,
                                                 ))

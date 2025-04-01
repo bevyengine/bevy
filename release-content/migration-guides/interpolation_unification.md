@@ -20,3 +20,4 @@ pull_requests: [TODO]
 + `AnimatableCurve` is now `PropertyCurve`.
 + `AnimatableCurveEvaluator` is now `PropertyCurveEvaluator`.
 + `AnimatableKeyframeCurve` is now `KeyframeCurve`.
++ `Ease` is now `InterpolateCurve` and `interpolate_curve_unbounded` is now `interp_curve`.

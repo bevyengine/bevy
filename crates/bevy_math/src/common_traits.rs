@@ -1,6 +1,6 @@
 //! This module contains abstract mathematical traits shared by types used in `bevy_math`.
 
-use crate::{ops, Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
+use crate::{ops, Dir2, Dir3, Dir3A, Isometry2d, Isometry3d, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
 use core::{
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},
@@ -108,6 +108,24 @@ impl Interpolate for Dir3A {
     #[inline]
     fn interp(&self, other: &Self, param: f32) -> Self {
         self.slerp(*other, param)
+    }
+}
+
+impl Interpolate for Isometry2d {
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        Isometry2d {
+            rotation: self.rotation.interp(&other.rotation, param),
+            translation: self.translation.interp(&other.translation, param),
+        }
+    }
+}
+
+impl Interpolate for Isometry3d {
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        Isometry3d {
+            rotation: self.rotation.interp(&other.rotation, param),
+            translation: self.translation.interp(&other.translation, param),
+        }
     }
 }
 
@@ -441,6 +459,10 @@ impl StableInterpolate for Dir2 {}
 impl StableInterpolate for Dir3 {}
 
 impl StableInterpolate for Dir3A {}
+
+impl StableInterpolate for Isometry2d {}
+
+impl StableInterpolate for Isometry3d {}
 
 macro_rules! impl_stable_interpolate_tuple {
     ($(#[$meta:meta])* $(($n:tt, $T:ident)),*) => {

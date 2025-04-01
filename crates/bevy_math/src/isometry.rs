@@ -1,8 +1,6 @@
 //! Isometry types for expressing rigid motions in two and three dimensions.
 
-use crate::{
-    Affine2, Affine3, Affine3A, Dir2, Dir3, Interpolate, Mat3, Mat3A, Quat, Rot2, Vec2, Vec3, Vec3A,
-};
+use crate::{Affine2, Affine3, Affine3A, Dir2, Dir3, Mat3, Mat3A, Quat, Rot2, Vec2, Vec3, Vec3A};
 use core::ops::Mul;
 
 #[cfg(feature = "approx")]
@@ -283,15 +281,6 @@ impl UlpsEq for Isometry2d {
             && self
                 .translation
                 .ulps_eq(&other.translation, epsilon, max_ulps)
-    }
-}
-
-impl Interpolate for Isometry2d {
-    fn interp(&self, other: &Self, param: f32) -> Self {
-        Isometry2d {
-            rotation: self.rotation.interp(&other.rotation, param),
-            translation: self.translation.interp(&other.translation, param),
-        }
     }
 }
 
@@ -596,15 +585,6 @@ impl UlpsEq for Isometry3d {
             && self
                 .translation
                 .ulps_eq(&other.translation, epsilon, max_ulps)
-    }
-}
-
-impl Interpolate for Isometry3d {
-    fn interp(&self, other: &Self, param: f32) -> Self {
-        Isometry3d {
-            rotation: self.rotation.interp(&other.rotation, param),
-            translation: self.translation.interp(&other.translation, param),
-        }
     }
 }
 
