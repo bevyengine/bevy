@@ -703,8 +703,6 @@ impl Entities {
     }
 
     /// Destroy an entity, allowing it to be reused.
-    ///
-    /// Must not be called while reserved entities are awaiting `flush()`.
     pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
         self.free_current_and_future_generations(entity, 1)
     }
