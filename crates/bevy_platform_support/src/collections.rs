@@ -12,9 +12,8 @@ pub use hash_table::HashTable;
 pub use hashbrown::Equivalent;
 
 pub mod hash_map {
-    //! Provides [`HashMap`]
+    //! Provides [`HashMap`], re-exported from `hashbrown` to match `std::collections::hash_map` without an `std` dependency.
 
-    use crate::hash::FixedHasher;
     use hashbrown::hash_map as hb;
 
     // Re-exports to match `std::collections::hash_map`
@@ -28,34 +27,21 @@ pub mod hash_map {
 
     // Additional items from `hashbrown`
     pub use hb::{
-        EntryRef, ExtractIf, OccupiedError, RawEntryBuilder, RawEntryBuilderMut, RawEntryMut,
-        RawOccupiedEntryMut,
+        Entry, EntryRef, ExtractIf, HashMap, OccupiedError, RawEntryBuilder, RawEntryBuilderMut,
+        RawEntryMut, RawOccupiedEntryMut,
     };
-
-    /// Shortcut for [`HashMap`](hb::HashMap) with [`FixedHasher`] as the default hashing provider.
-    pub type HashMap<K, V, S = FixedHasher> = hb::HashMap<K, V, S>;
-
-    /// Shortcut for [`Entry`](hb::Entry) with [`FixedHasher`] as the default hashing provider.
-    pub type Entry<'a, K, V, S = FixedHasher> = hb::Entry<'a, K, V, S>;
 }
 
 pub mod hash_set {
-    //! Provides [`HashSet`]
+    //! Provides [`HashSet`], re-exported from [`hashbrown`] to match `std::collections::hash_set` without an `std` dependency.
 
-    use crate::hash::FixedHasher;
     use hashbrown::hash_set as hb;
 
     // Re-exports to match `std::collections::hash_set`
     pub use hb::{Difference, Drain, Intersection, IntoIter, Iter, SymmetricDifference, Union};
 
     // Additional items from `hashbrown`
-    pub use hb::{ExtractIf, OccupiedEntry, VacantEntry};
-
-    /// Shortcut for [`HashSet`](hb::HashSet) with [`FixedHasher`] as the default hashing provider.
-    pub type HashSet<T, S = FixedHasher> = hb::HashSet<T, S>;
-
-    /// Shortcut for [`Entry`](hb::Entry) with [`FixedHasher`] as the default hashing provider.
-    pub type Entry<'a, T, S = FixedHasher> = hb::Entry<'a, T, S>;
+    pub use hb::{Entry, ExtractIf, HashSet, OccupiedEntry, VacantEntry};
 }
 
 pub mod hash_table {
