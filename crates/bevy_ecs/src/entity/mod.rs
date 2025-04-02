@@ -526,22 +526,18 @@ impl Pending {
 
     fn queue_flush(&self, entity: Entity) {
         #[cfg(feature = "std")]
-        {
-            self.local.scope(|pending| pending.push(entity));
-        }
+        self.local.scope(|pending| pending.push(entity));
 
         #[cfg(not(feature = "std"))]
-        {
-            self.remote.queue_flush(entity)
-        }
+        self.remote.queue_flush(entity);
     }
 
     fn flush_local(&mut self, mut flusher: impl FnMut(Entity)) {
         #[cfg(feature = "std")]
-        let pending = { self.local.iter_mut().flat_map(|pending| pending.drain(..)) };
+        let pending = self.local.iter_mut().flat_map(|pending| pending.drain(..));
 
         #[cfg(not(feature = "std"))]
-        let pending = { self.remote.pending.try_iter() };
+        let pending = self.remote.pending.try_iter();
 
         for pending in pending {
             flusher(pending);
