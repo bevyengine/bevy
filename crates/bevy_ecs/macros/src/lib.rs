@@ -296,8 +296,10 @@ fn derive_system_param_impl(
     let field_members = fields.members().collect::<Vec<_>>();
     let field_types = fields.iter().map(|f| &f.ty).collect::<Vec<_>>();
 
-    let field_names = fields.members().map(|m| format_ident!("::{}", m));
-    
+    let field_names = fields
+        .members()
+        .map(|m| format!("::{}", format_ident!("{}", m)));
+
     let mut field_messages = Vec::new();
     for attr in fields
         .iter()
