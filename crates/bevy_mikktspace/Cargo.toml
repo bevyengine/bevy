@@ -22,7 +22,7 @@ std = ["glam/std"]
 libm = ["glam/libm", "dep:libm"]
 
 [dependencies]
-glam = { version = "0.29.0", default-features = false }
+glam = { version = "0.29.3", default-features = false }
 libm = { version = "0.2", default-features = false, optional = true }
 
 [[example]]

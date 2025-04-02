@@ -224,8 +224,7 @@ pub mod internal {
                     .first()
                     .map(|cpu| cpu.brand().trim().to_string())
                     .unwrap_or_else(|| String::from("not available")),
-                core_count: sys
-                    .physical_core_count()
+                core_count: System::physical_core_count()
                     .map(|x| x.to_string())
                     .unwrap_or_else(|| String::from("not available")),
                 // Convert from Bytes to GibiBytes since it's probably what people expect most of the time

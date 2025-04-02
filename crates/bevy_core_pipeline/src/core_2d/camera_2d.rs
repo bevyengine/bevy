@@ -18,9 +18,9 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 #[require(
     Camera,
     DebandDither,
-    CameraRenderGraph(|| CameraRenderGraph::new(Core2d)),
-    Projection(|| Projection::Orthographic(OrthographicProjection::default_2d())),
-    Frustum(|| OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default()))),
-    Tonemapping(|| Tonemapping::None),
+    CameraRenderGraph::new(Core2d),
+    Projection::Orthographic(OrthographicProjection::default_2d()),
+    Frustum = OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default())),
+    Tonemapping::None,
 )]
 pub struct Camera2d;

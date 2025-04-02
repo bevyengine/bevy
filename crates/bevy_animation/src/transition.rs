@@ -118,8 +118,9 @@ pub fn advance_transitions(
     // is divided between all the other layers, eventually culminating in the
     // currently-playing animation receiving whatever's left. This results in a
     // nicely normalized weight.
-    let mut remaining_weight = 1.0;
     for (mut animation_transitions, mut player) in query.iter_mut() {
+        let mut remaining_weight = 1.0;
+
         for transition in &mut animation_transitions.transitions.iter_mut().rev() {
             // Decrease weight.
             transition.current_weight = (transition.current_weight

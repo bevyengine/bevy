@@ -49,7 +49,7 @@ const ROOT_2: f32 = 1.41421356; // √2
 // the exponential falloff of atmospheric density.
 const MIDPOINT_RATIO: f32 = 0.3;
 
-// LUT UV PARAMATERIZATIONS
+// LUT UV PARAMETERIZATIONS
 
 fn unit_to_sub_uvs(val: vec2<f32>, resolution: vec2<f32>) -> vec2<f32> {
     return (val + 0.5f / resolution) * (resolution / (resolution + 1.0f));

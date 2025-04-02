@@ -2,7 +2,7 @@ use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::reflect::{ReflectMapEntities, ReflectResource};
 use bevy_ecs::{
-    entity::{hash_map::EntityHashMap, Entity, SceneEntityMapper},
+    entity::{Entity, EntityHashMap, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent},
     world::World,
 };
@@ -217,7 +217,7 @@ where
 mod tests {
     use bevy_ecs::{
         component::Component,
-        entity::{hash_map::EntityHashMap, Entity, EntityMapper, MapEntities},
+        entity::{Entity, EntityHashMap, EntityMapper, MapEntities},
         hierarchy::ChildOf,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
         resource::Resource,
@@ -325,7 +325,7 @@ mod tests {
                 .unwrap()
                 .get::<ChildOf>()
                 .unwrap()
-                .parent,
+                .parent(),
             "something about reloading the scene is touching entities with the same scene Ids"
         );
         assert_eq!(
@@ -335,7 +335,7 @@ mod tests {
                 .unwrap()
                 .get::<ChildOf>()
                 .unwrap()
-                .parent,
+                .parent(),
             "something about reloading the scene is touching components not defined in the scene but on entities defined in the scene"
         );
         assert_eq!(
@@ -345,7 +345,7 @@ mod tests {
                 .unwrap()
                 .get::<ChildOf>()
                 .expect("something is wrong with this test, and the scene components don't have a parent/child relationship")
-                .parent,
+                .parent(),
             "something is wrong with this test or the code reloading scenes since the relationship between scene entities is broken"
         );
     }

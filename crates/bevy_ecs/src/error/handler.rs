@@ -127,7 +127,7 @@ pub fn default_error_handler() -> fn(BevyError, ErrorContext) {
 macro_rules! inner {
     ($call:path, $e:ident, $c:ident) => {
         $call!(
-            "Encountered an error in {} `{}`: {:?}",
+            "Encountered an error in {} `{}`: {}",
             $c.kind(),
             $c.name(),
             $e

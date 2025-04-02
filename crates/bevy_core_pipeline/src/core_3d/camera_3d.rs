@@ -21,8 +21,8 @@ use serde::{Deserialize, Serialize};
 #[reflect(Component, Default, Clone)]
 #[require(
     Camera,
-    DebandDither(|| DebandDither::Enabled),
-    CameraRenderGraph(|| CameraRenderGraph::new(Core3d)),
+    DebandDither::Enabled,
+    CameraRenderGraph::new(Core3d),
     Projection,
     Tonemapping,
     ColorGrading,

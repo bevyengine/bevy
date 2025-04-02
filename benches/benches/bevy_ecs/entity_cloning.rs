@@ -155,7 +155,7 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
 
         for parent in current_hierarchy_level {
             for _ in 0..children {
-                let child_id = world.spawn((B::default(), ChildOf { parent })).id();
+                let child_id = world.spawn((B::default(), ChildOf(parent))).id();
                 hierarchy_level.push(child_id);
             }
         }

@@ -20,7 +20,7 @@ use crate::{
     prelude::{IntoSystemSet, SystemSet},
     query::Access,
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
-    system::{ScheduleSystem, System, SystemIn, ValidationOutcome},
+    system::{ScheduleSystem, System, SystemIn, SystemParamValidationError},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -221,10 +221,13 @@ impl System for ApplyDeferred {
 
     fn queue_deferred(&mut self, _world: DeferredWorld) {}
 
-    unsafe fn validate_param_unsafe(&mut self, _world: UnsafeWorldCell) -> ValidationOutcome {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        _world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         // This system is always valid to run because it doesn't do anything,
         // and only used as a marker for the executor.
-        ValidationOutcome::Valid
+        Ok(())
     }
 
     fn initialize(&mut self, _world: &mut World) {}

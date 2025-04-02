@@ -521,7 +521,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     binding_impls.insert(0, quote! {
                         ( #binding_index,
                           #render_path::render_resource::OwnedBindingResource::TextureView(
-                                #dimension,
+                                #render_path::render_resource::#dimension,
                                 {
                                     let handle: Option<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
                                     if let Some(handle) = handle {

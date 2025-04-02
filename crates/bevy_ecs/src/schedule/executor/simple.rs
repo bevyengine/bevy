@@ -12,7 +12,6 @@ use crate::{
     schedule::{
         executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
-    system::{SystemParamValidationError, ValidationOutcome},
     world::World,
 };
 
@@ -89,18 +88,19 @@ impl SystemExecutor for SimpleExecutor {
             let system = &mut schedule.systems[system_index];
             if should_run {
                 let valid_params = match system.validate_param(world) {
-                    ValidationOutcome::Valid => true,
-                    ValidationOutcome::Invalid => {
-                        error_handler(
-                            SystemParamValidationError.into(),
-                            ErrorContext::System {
-                                name: system.name(),
-                                last_run: system.get_last_run(),
-                            },
-                        );
+                    Ok(()) => true,
+                    Err(e) => {
+                        if !e.skipped {
+                            error_handler(
+                                e.into(),
+                                ErrorContext::System {
+                                    name: system.name(),
+                                    last_run: system.get_last_run(),
+                                },
+                            );
+                        }
                         false
                     }
-                    ValidationOutcome::Skipped => false,
                 };
                 should_run &= valid_params;
             }
@@ -177,18 +177,19 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
         .iter_mut()
         .map(|condition| {
             match condition.validate_param(world) {
-                ValidationOutcome::Valid => (),
-                ValidationOutcome::Invalid => {
-                    error_handler(
-                        SystemParamValidationError.into(),
-                        ErrorContext::System {
-                            name: condition.name(),
-                            last_run: condition.get_last_run(),
-                        },
-                    );
+                Ok(()) => (),
+                Err(e) => {
+                    if !e.skipped {
+                        error_handler(
+                            e.into(),
+                            ErrorContext::System {
+                                name: condition.name(),
+                                last_run: condition.get_last_run(),
+                            },
+                        );
+                    }
                     return false;
                 }
-                ValidationOutcome::Skipped => return false,
             }
             __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
         })

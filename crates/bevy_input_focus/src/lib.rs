@@ -165,7 +165,7 @@ impl<E: Event + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
 
         // Send event to parent, if it has one.
         if let Some(child_of) = child_of {
-            return Some(child_of.parent);
+            return Some(child_of.parent());
         };
 
         // Otherwise, send it to the window entity (unless this is a window entity).
@@ -338,7 +338,7 @@ impl IsFocused for World {
             if e == entity {
                 return true;
             }
-            if let Some(parent) = self.entity(e).get::<ChildOf>().map(|c| c.parent) {
+            if let Some(parent) = self.entity(e).get::<ChildOf>().map(ChildOf::parent) {
                 e = parent;
             } else {
                 return false;

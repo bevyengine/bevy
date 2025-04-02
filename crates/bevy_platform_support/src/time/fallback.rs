@@ -80,7 +80,7 @@ impl Instant {
     /// Returns the amount of time elapsed since this instant.
     #[must_use]
     pub fn elapsed(&self) -> Duration {
-        self.saturating_duration_since(Instant::now())
+        Instant::now().saturating_duration_since(*self)
     }
 
     /// Returns `Some(t)` where `t` is the time `self + duration` if `t` can be represented as

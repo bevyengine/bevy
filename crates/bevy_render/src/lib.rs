@@ -406,6 +406,8 @@ impl Plugin for RenderPlugin {
             StoragePlugin,
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
+            #[cfg(feature = "tracing-tracy")]
+            diagnostic::RenderDiagnosticsPlugin,
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>();

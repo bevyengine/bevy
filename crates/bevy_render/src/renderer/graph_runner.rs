@@ -87,10 +87,10 @@ impl RenderGraphRunner {
         finalizer(render_context.command_encoder());
 
         let (render_device, mut diagnostics_recorder) = {
+            let (commands, render_device, diagnostics_recorder) = render_context.finish();
+
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();
-
-            let (commands, render_device, diagnostics_recorder) = render_context.finish();
             queue.submit(commands);
 
             (render_device, diagnostics_recorder)

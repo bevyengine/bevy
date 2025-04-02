@@ -189,7 +189,7 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
                 .transform_vector3(ray.direction * hit.distance)
                 .length(),
             triangle: Some(tri_vertices.map(|v| mesh_transform.transform_point3(v))),
-            triangle_index: Some(a),
+            triangle_index: Some(tri_idx),
         })
     })
 }

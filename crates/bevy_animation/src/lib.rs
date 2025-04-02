@@ -685,7 +685,6 @@ impl ActiveAnimation {
 #[reflect(Component, Default, Clone)]
 pub struct AnimationPlayer {
     active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
-    blend_weights: HashMap<AnimationNodeIndex, f32>,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -693,13 +692,11 @@ impl Clone for AnimationPlayer {
     fn clone(&self) -> Self {
         Self {
             active_animations: self.active_animations.clone(),
-            blend_weights: self.blend_weights.clone(),
         }
     }
 
     fn clone_from(&mut self, source: &Self) {
         self.active_animations.clone_from(&source.active_animations);
-        self.blend_weights.clone_from(&source.blend_weights);
     }
 }
 

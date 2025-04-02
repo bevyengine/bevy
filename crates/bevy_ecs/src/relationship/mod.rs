@@ -209,12 +209,14 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     ///
     /// # Warning
     /// This should generally not be called by user code, as modifying the internal collection could invalidate the relationship.
+    /// The collection should not contain duplicates.
     fn collection_mut_risky(&mut self) -> &mut Self::Collection;
 
     /// Creates a new [`RelationshipTarget`] from the given [`RelationshipTarget::Collection`].
     ///
     /// # Warning
     /// This should generally not be called by user code, as constructing the internal collection could invalidate the relationship.
+    /// The collection should not contain duplicates.
     fn from_collection_risky(collection: Self::Collection) -> Self;
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
@@ -384,5 +386,42 @@ mod tests {
         let b = world.spawn(Rel(a)).id();
         assert!(!world.entity(b).contains::<Rel>());
         assert!(!world.entity(b).contains::<RelTarget>());
+    }
+
+    #[test]
+    fn relationship_with_multiple_non_target_fields_compiles() {
+        #[derive(Component)]
+        #[relationship(relationship_target=Target)]
+        #[expect(dead_code, reason = "test struct")]
+        struct Source {
+            #[relationship]
+            target: Entity,
+            foo: u8,
+            bar: u8,
+        }
+
+        #[derive(Component)]
+        #[relationship_target(relationship=Source)]
+        struct Target(Vec<Entity>);
+
+        // No assert necessary, looking to make sure compilation works with the macros
+    }
+    #[test]
+    fn relationship_target_with_multiple_non_target_fields_compiles() {
+        #[derive(Component)]
+        #[relationship(relationship_target=Target)]
+        struct Source(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship=Source)]
+        #[expect(dead_code, reason = "test struct")]
+        struct Target {
+            #[relationship]
+            target: Vec<Entity>,
+            foo: u8,
+            bar: u8,
+        }
+
+        // No assert necessary, looking to make sure compilation works with the macros
     }
 }

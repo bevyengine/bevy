@@ -7,7 +7,7 @@ use crate::{
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::hash_set::EntityHashSet;
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::Component,

@@ -187,6 +187,7 @@ where
         phase.multidrawable_meshes.sort_unstable_keys();
         phase.batchable_meshes.sort_unstable_keys();
         phase.unbatchable_meshes.sort_unstable_keys();
+        phase.non_mesh_items.sort_unstable_keys();
     }
 }
 

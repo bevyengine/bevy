@@ -4,7 +4,7 @@ mod render_layers;
 use core::any::TypeId;
 
 use bevy_ecs::component::HookContext;
-use bevy_ecs::entity::hash_set::EntityHashSet;
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::world::DeferredWorld;
 use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
@@ -411,7 +411,7 @@ fn visibility_propagate_system(
             Visibility::Hidden => false,
             // fall back to true if no parent is found or parent lacks components
             Visibility::Inherited => child_of
-                .and_then(|c| visibility_query.get(c.parent).ok())
+                .and_then(|c| visibility_query.get(c.parent()).ok())
                 .is_none_or(|(_, x)| x.get()),
         };
         let (_, mut inherited_visibility) = visibility_query
@@ -786,9 +786,7 @@ mod test {
             .entity_mut(parent2)
             .insert(Visibility::Visible);
         // Simulate a change in the parent component
-        app.world_mut()
-            .entity_mut(child2)
-            .insert(ChildOf { parent: parent2 }); // example of changing parent
+        app.world_mut().entity_mut(child2).insert(ChildOf(parent2)); // example of changing parent
 
         // Run the system again to propagate changes
         app.update();

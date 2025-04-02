@@ -108,7 +108,7 @@ impl<A: smallvec::Array<Item = Entity>> MapEntities for SmallVec<A> {
 ///
 /// ```
 /// # use bevy_ecs::entity::{Entity, EntityMapper};
-/// # use bevy_ecs::entity::hash_map::EntityHashMap;
+/// # use bevy_ecs::entity::EntityHashMap;
 /// #
 /// pub struct SimpleEntityMapper {
 ///   map: EntityHashMap<Entity>,
@@ -281,7 +281,7 @@ impl<'m> SceneEntityMapper<'m> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::{hash_map::EntityHashMap, Entity, EntityMapper, SceneEntityMapper},
+        entity::{Entity, EntityHashMap, EntityMapper, SceneEntityMapper},
         world::World,
     };
 

@@ -159,9 +159,8 @@ impl Plugin for ScheduleRunnerPlugin {
                         } else {
                             loop {
                                 match tick(&mut app, wait) {
-                                    Ok(Some(_delay)) => {
-                                        #[cfg(feature = "std")]
-                                        std::thread::sleep(_delay);
+                                    Ok(Some(delay)) => {
+                                        bevy_platform_support::thread::sleep(delay);
                                     }
                                     Ok(None) => continue,
                                     Err(exit) => return exit,

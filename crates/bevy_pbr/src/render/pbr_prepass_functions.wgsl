@@ -25,8 +25,10 @@ fn prepass_alpha_discard(in: VertexOutput) {
 #ifdef BINDLESS
     let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
     var output_color: vec4<f32> = pbr_bindings::material_array[material_indices[slot].material].base_color;
+    let flags = pbr_bindings::material_array[material_indices[slot].material].flags;
 #else   // BINDLESS
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
+    let flags = pbr_bindings::material.flags;
 #endif  // BINDLESS
 
 #ifdef VERTEX_UVS
@@ -38,10 +40,8 @@ fn prepass_alpha_discard(in: VertexOutput) {
 
 #ifdef BINDLESS
     let uv_transform = pbr_bindings::material_array[material_indices[slot].material].uv_transform;
-    let flags = pbr_bindings::material_array[material_indices[slot].material].flags;
 #else   // BINDLESS
     let uv_transform = pbr_bindings::material.uv_transform;
-    let flags = pbr_bindings::material.flags;
 #endif  // BINDLESS
 
     uv = (uv_transform * vec3(uv, 1.0)).xy;

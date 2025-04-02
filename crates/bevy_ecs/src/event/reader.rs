@@ -16,6 +16,7 @@ use bevy_ecs::{
 #[derive(SystemParam, Debug)]
 pub struct EventReader<'w, 's, E: Event> {
     pub(super) reader: Local<'s, EventCursor<E>>,
+    #[system_param(validation_message = "Event not initialized")]
     events: Res<'w, Events<E>>,
 }
 

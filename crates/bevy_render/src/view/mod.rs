@@ -711,6 +711,9 @@ impl From<ColorGrading> for ColorGradingUniform {
 ///
 /// The vast majority of applications will not need to use this component, as it
 /// generally reduces rendering performance.
+///
+/// Note: This component should only be added when initially spawning a camera. Adding
+/// or removing after spawn can result in unspecified behavior.
 #[derive(Component, Default)]
 pub struct NoIndirectDrawing;
 
