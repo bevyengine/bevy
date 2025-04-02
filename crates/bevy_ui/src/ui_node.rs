@@ -2037,10 +2037,10 @@ impl<T: Into<Color>> From<T> for BackgroundColor {
     reflect(Serialize, Deserialize)
 )]
 pub struct BorderColor {
-    pub left: Color,
     pub top: Color,
     pub right: Color,
     pub bottom: Color,
+    pub left: Color,
 }
 
 impl<T: Into<Color>> From<T> for BorderColor {
