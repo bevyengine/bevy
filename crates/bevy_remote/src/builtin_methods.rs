@@ -528,10 +528,12 @@ pub fn process_remote_get_resource_request(
     };
 
     // Get the single value out of the map.
-    let value = serialized_object.into_values().next().ok_or_else(|| {
+    let value = serialized_object.values().next().ok_or_else(|| {
         BrpError::internal(anyhow!("Unexpected format of serialized resource value"))
     })?;
-    let response = BrpGetResourceResponse { value };
+    let response = BrpGetResourceResponse {
+        value: value.clone(),
+    };
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
@@ -553,7 +555,7 @@ pub fn process_remote_get_watching_request(
 
     let mut changed = Vec::new();
     let mut removed = Vec::new();
-    let mut errors = <HashMap<_, _>>::default();
+    let mut errors = HashMap::new();
 
     'component_loop: for component_path in components {
         let Ok(type_registration) =

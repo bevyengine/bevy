@@ -123,7 +123,7 @@ impl Internable for str {
 /// The implementation ensures that two equal values return two equal [`Interned<T>`] values.
 ///
 /// To use an [`Interner<T>`], `T` must implement [`Internable`].
-pub struct Interner<T: ?Sized + 'static>(RwLock<HashSet<&'static T>>);
+pub struct Interner<T: ?Sized + 'static>(RwLock<HashSet<&'static T, FixedHasher>>);
 
 impl<T: ?Sized> Interner<T> {
     /// Creates a new empty interner

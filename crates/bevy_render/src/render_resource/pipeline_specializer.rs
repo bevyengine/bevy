@@ -11,7 +11,7 @@ use bevy_platform_support::{
         hash_map::{Entry, RawEntryMut, VacantEntry},
         HashMap,
     },
-    hash::FixedHasher,
+    hash::RandomState,
 };
 use bevy_utils::default;
 use core::{fmt::Debug, hash::Hash};
@@ -138,7 +138,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
             entry: VacantEntry<
                 (MeshVertexBufferLayoutRef, S::Key),
                 CachedRenderPipelineId,
-                FixedHasher,
+                RandomState,
             >,
         ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError>
         where
