@@ -4,7 +4,7 @@ use crate::{
 };
 #[cfg(feature = "alloc")]
 use alloc::{format, string::String};
-use bevy_math::{ops, Interpolate, Vec3, Vec4};
+use bevy_math::{curve::InterpolateCurve, ops, Interpolate, InterpolateStable, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use thiserror::Error;
@@ -308,6 +308,9 @@ impl EuclideanDistance for Srgba {
         dr * dr + dg * dg + db * db
     }
 }
+
+impl InterpolateStable for Srgba {}
+impl InterpolateCurve for Srgba {}
 
 impl Gray for Srgba {
     const BLACK: Srgba = Srgba::new(0.0, 0.0, 0.0, 1.0);

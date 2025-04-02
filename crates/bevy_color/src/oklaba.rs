@@ -2,7 +2,9 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hwba, Lcha,
     LinearRgba, Luminance, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{ops, FloatPow, Interpolate, Vec3, Vec4};
+use bevy_math::{
+    curve::InterpolateCurve, ops, FloatPow, Interpolate, InterpolateStable, Vec3, Vec4,
+};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -103,6 +105,9 @@ impl Interpolate for Oklaba {
         }
     }
 }
+
+impl InterpolateStable for Oklaba {}
+impl InterpolateCurve for Oklaba {}
 
 impl Gray for Oklaba {
     const BLACK: Self = Self::new(0., 0., 0., 1.);

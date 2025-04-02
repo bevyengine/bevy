@@ -2,7 +2,7 @@ use crate::{
     Alpha, ColorToComponents, Gray, Hsla, Hsva, Hwba, LinearRgba, Luminance, Oklaba, Srgba,
     StandardColor, Xyza,
 };
-use bevy_math::{ops, Interpolate, Vec3, Vec4};
+use bevy_math::{curve::InterpolateCurve, ops, Interpolate, InterpolateStable, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -103,6 +103,9 @@ impl Interpolate for Laba {
         }
     }
 }
+
+impl InterpolateStable for Laba {}
+impl InterpolateCurve for Laba {}
 
 impl Gray for Laba {
     const BLACK: Self = Self::new(0., 0., 0., 1.);

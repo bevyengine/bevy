@@ -2,7 +2,7 @@ use crate::{
     Alpha, ColorToComponents, Gray, Hue, Hwba, Lcha, LinearRgba, Saturation, Srgba, StandardColor,
     Xyza,
 };
-use bevy_math::{Interpolate, Vec3, Vec4};
+use bevy_math::{curve::InterpolateCurve, Interpolate, InterpolateStable, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -94,6 +94,9 @@ impl Interpolate for Hsva {
         }
     }
 }
+
+impl InterpolateStable for Hsva {}
+impl InterpolateCurve for Hsva {}
 
 impl Gray for Hsva {
     const BLACK: Self = Self::new(0., 0., 0., 1.);

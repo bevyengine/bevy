@@ -2,7 +2,7 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba,
     Luminance, Oklaba, Oklcha, Saturation, Srgba, StandardColor, Xyza,
 };
-use bevy_math::Interpolate;
+use bevy_math::{curve::InterpolateCurve, Interpolate, InterpolateStable};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use derive_more::derive::From;
@@ -483,6 +483,9 @@ impl Interpolate for Color {
         Oklaba::interp(&(*self).into(), &(*other).into(), param).into()
     }
 }
+
+impl InterpolateStable for Color {}
+impl InterpolateCurve for Color {}
 
 impl Alpha for Color {
     fn with_alpha(&self, alpha: f32) -> Self {

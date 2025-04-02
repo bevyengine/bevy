@@ -2,7 +2,7 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, ColorToComponents, ColorToPacked, Gray, Luminance,
     StandardColor,
 };
-use bevy_math::{ops, Interpolate, Vec3, Vec4};
+use bevy_math::{curve::InterpolateCurve, ops, Interpolate, InterpolateStable, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
@@ -224,6 +224,9 @@ impl Interpolate for LinearRgba {
         }
     }
 }
+
+impl InterpolateStable for LinearRgba {}
+impl InterpolateCurve for LinearRgba {}
 
 impl Gray for LinearRgba {
     const BLACK: Self = Self::BLACK;
