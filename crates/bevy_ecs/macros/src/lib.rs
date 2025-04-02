@@ -295,7 +295,6 @@ fn derive_system_param_impl(
         .collect::<Vec<_>>();
     let field_members = fields.members().collect::<Vec<_>>();
     let field_types = fields.iter().map(|f| &f.ty).collect::<Vec<_>>();
-
     let field_names = fields
         .members()
         .map(|m| format!("::{}", format_ident!("{}", m)));
@@ -303,17 +302,19 @@ fn derive_system_param_impl(
     let mut field_messages = Vec::new();
     for attr in fields
         .iter()
-        .filter_map(|f| f.attrs.iter().find(|a| a.path().is_ident("system_param")))
-    {
+        .map(|f| f.attrs.iter().find(|a| a.path().is_ident("system_param")))
+    {   
         let mut field_message = None;
-        attr.parse_nested_meta(|nested| {
-            if nested.path.is_ident("validation_message") {
-                field_message = Some(nested.value()?.parse()?);
-                Ok(())
-            } else {
-                Err(nested.error("Unsupported attribute"))
-            }
-        })?;
+        if let Some(attr) = attr {
+            attr.parse_nested_meta(|nested| {
+                if nested.path.is_ident("validation_message") {
+                    field_message = Some(nested.value()?.parse()?);
+                    Ok(())
+                } else {
+                    Err(nested.error("Unsupported attribute"))
+                }
+            })?;
+        };
         field_messages.push(field_message.unwrap_or_else(|| quote! { err.message }));
     }
 
