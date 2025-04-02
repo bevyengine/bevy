@@ -5,7 +5,7 @@ use bevy_platform_support::{
         Arc, Weak,
     },
 };
-use core::mem::{ManuallyDrop, MaybeUninit};
+use core::{mem::ManuallyDrop, num::NonZero};
 use log::warn;
 
 use crate::query::DebugCheckedUnwrap;
@@ -13,8 +13,29 @@ use crate::query::DebugCheckedUnwrap;
 use super::{Entity, EntitySetIterator};
 
 /// This is the item we store in the free list.
-/// It might not be init (if it's out of bounds).
-type Slot = MaybeUninit<Entity>;
+struct Slot {
+    entity_index: AtomicU32,
+    entity_generation: AtomicU32,
+}
+
+impl Slot {
+    // TODO: could maybe make this `&mut`??
+    fn set_entity(&self, entity: Entity) {
+        self.entity_generation
+            .store(entity.generation(), Ordering::Relaxed);
+        self.entity_index.store(entity.index(), Ordering::Relaxed);
+    }
+
+    fn get_entity(&self) -> Entity {
+        Entity {
+            index: self.entity_index.load(Ordering::Relaxed),
+            // SAFETY: This is not 0 since it was from an entity's generation.
+            generation: unsafe {
+                NonZero::new_unchecked(self.entity_generation.load(Ordering::Relaxed))
+            },
+        }
+    }
+}
 
 /// Each chunk stores a buffer of [`Slot`]s at a fixed capacity.
 struct Chunk {
@@ -68,10 +89,10 @@ impl Chunk {
     unsafe fn get(&self, index: u32) -> Entity {
         // SAFETY: caller ensure we are init.
         let head = unsafe { self.ptr().debug_checked_unwrap() };
-        let target = head.add(index as usize);
+        // SAFETY: caller ensures we are in bounds (because `set` must be in bounds)
+        let target = unsafe { &*head.add(index as usize) };
 
-        // SAFETY: Ensured by caller.
-        unsafe { (*target).assume_init() }
+        target.get_entity()
     }
 
     /// Gets a slice of indices.
@@ -100,13 +121,13 @@ impl Chunk {
     /// Index must be in bounds.
     /// Access does not conflict with another [`Self::get`].
     #[inline]
-    unsafe fn set(&self, index: u32, entity: Entity, index_of_self: u32) -> Slot {
+    unsafe fn set(&self, index: u32, entity: Entity, index_of_self: u32) {
         let head = self.ptr().unwrap_or_else(|| self.init(index_of_self));
-        let target = head.add(index as usize);
-
-        // SAFETY: Caller ensures we are not fighting with other `set` calls or `get` calls.
+        // SAFETY: caller ensures it is in bounds and we are not fighting with other `set` calls or `get` calls.
         // A race condition is therefore impossible.
-        unsafe { core::ptr::replace(target, Slot::new(entity)) }
+        let target = unsafe { &*head.add(index as usize) };
+
+        target.set_entity(entity);
     }
 
     /// Initializes the chunk to be valid, returning the pointer.
@@ -343,8 +364,7 @@ impl<'a> Iterator for FreeListSliceIterator<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(sliced) = self.current.next() {
-            // SAFETY: Assured by constructor.
-            return unsafe { Some(sliced.assume_init_read()) };
+            return Some(sliced.get_entity());
         }
 
         let next_index = self.indices.next()?;
@@ -357,8 +377,7 @@ impl<'a> Iterator for FreeListSliceIterator<'a> {
         self.indices = (*self.indices.start() + slice.len() as u32 - 1)..=(*self.indices.end());
 
         self.current = slice.iter();
-        // SAFETY: Assured by constructor.
-        unsafe { Some(self.current.next()?.assume_init_read()) }
+        Some(self.current.next()?.get_entity())
     }
 
     #[inline]
