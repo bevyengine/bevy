@@ -2054,7 +2054,6 @@ impl BorderColor {
     pub const DEFAULT: Self = BorderColor::all(Color::NONE);
 
     /// Helper to create a `BorderColor` struct with all borders set to the given color
-
     pub const fn all(color: Color) -> Self {
         Self {
             top: color,
