@@ -20,12 +20,14 @@ struct Slot {
 
 impl Slot {
     // TODO: could maybe make this `&mut`??
+    #[inline]
     fn set_entity(&self, entity: Entity) {
         self.entity_generation
             .store(entity.generation(), Ordering::Relaxed);
         self.entity_index.store(entity.index(), Ordering::Relaxed);
     }
 
+    #[inline]
     fn get_entity(&self) -> Entity {
         Entity {
             index: self.entity_index.load(Ordering::Relaxed),
@@ -192,6 +194,7 @@ impl FreeBufferLen {
     const FALSE_ZERO: u64 = ((2 << 48) - 1) - ((2 << 32) - 1);
 
     /// Gets the current state of the buffer.
+    #[inline]
     fn state(&self) -> u64 {
         self.0.load(Ordering::Acquire)
     }
@@ -202,6 +205,7 @@ impl FreeBufferLen {
     }
 
     /// Gets the length from a given state. Returns 0 if the length is negative or zero.
+    #[inline]
     fn len_from_state(state: u64) -> u32 {
         let encoded_length = state >> 16;
         // Since `FALSE_ZERO` only leaves 32 bits of a u48 above it, the len must fit within 32 bits.
@@ -209,11 +213,13 @@ impl FreeBufferLen {
     }
 
     /// Gets the length. Returns 0 if the length is negative or zero.
+    #[inline]
     fn len(&self) -> u32 {
         Self::len_from_state(self.state())
     }
 
     /// Returns the number to subtract for subtracting this `num`.
+    #[inline]
     fn encode_pop(num: u32) -> u64 {
         let encoded_diff = (num as u64) << 16;
         // subtracting 1 will add one to the generation.
@@ -221,6 +227,7 @@ impl FreeBufferLen {
     }
 
     /// Subtracts `num` from the length, returning the new state.
+    #[inline]
     fn pop_from_state(mut state: u64, num: u32) -> u64 {
         state -= Self::encode_pop(num);
         // prevent generation overflow
@@ -229,21 +236,24 @@ impl FreeBufferLen {
     }
 
     /// Subtracts `num` from the length, returning the previous state.
+    #[inline]
     fn pop_for_state(&self, num: u32) -> u64 {
         let state = self.0.fetch_sub(Self::encode_pop(num), Ordering::AcqRel);
         // This can be relaxed since it only affects the one bit,
-        // and 2^15 operations would need to happen with with this never being called for an overflow to occor.
+        // and 2^15 operations would need to happen with this never being called for an overflow to occor.
         self.0
             .fetch_and(!Self::HIGHEST_GENERATION_BIT, Ordering::Relaxed);
         state
     }
 
     /// Subtracts `num` from the length, returning the previous length.
+    #[inline]
     fn pop_for_len(&self, num: u32) -> u32 {
         Self::len_from_state(self.pop_for_state(num))
     }
 
     /// Sets the length explicitly.
+    #[inline]
     fn set_len(&self, len: u32, recent_state: u64) {
         let encoded_length = (len as u64 + Self::FALSE_ZERO) << 16;
         let recent_generation = recent_state & (u16::MAX as u64 & !Self::HIGHEST_GENERATION_BIT);
@@ -254,6 +264,7 @@ impl FreeBufferLen {
     }
 
     /// Attempts to update the state, returning the new state if it fails.
+    #[inline]
     fn try_set_state(&self, expected_current_state: u64, target_state: u64) -> Result<(), u64> {
         self.0
             .compare_exchange(
@@ -375,22 +386,7 @@ impl FreeBuffer {
         // We get around this by only updating `len` after the read is complete.
         // But that means something else could be trying to allocate the same index!
         // So we need a `len.compare_exchange` loop to ensure the index is unique.
-        //
-        // Examples:
-        //
-        // What if another allocation happens during the loop?
-        // The exchange will fail, and we try again.
-        //
-        // What happens if a `free` starts during the loop?
-        // The exchange will fail, and we return `None`.
-        //
-        // What happens if a `free` starts and finishes during the loop?
-        // The exchange will fail (len is 1 more than expected) and we try again.
-        //
-        // What happens if a `free` starts and finishes, and then a different allocation takes the freed entity?
-        // The exchange will not fail, and we allocate the correct entity.
-        // The other allocation gets the newly freed one, and we get the previous one.
-        // If the `free`s and `alloc`s are not balanced, the exchange will fail, and we try again.
+        // Because we keep a generation value in the `FreeBufferLen`, if any of these things happen, we simply try again.
 
         let mut state = self.len.state();
         loop {
