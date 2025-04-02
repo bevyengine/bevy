@@ -282,6 +282,7 @@ mod __rust_begin_short_backtrace {
     #[inline(never)]
     pub(super) unsafe fn run_unsafe(system: &mut ScheduleSystem, world: UnsafeWorldCell) -> Result {
         let result = system.run_unsafe((), world);
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
         result
     }
@@ -295,12 +296,14 @@ mod __rust_begin_short_backtrace {
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: UnsafeWorldCell,
     ) -> O {
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(system.run_unsafe((), world))
     }
 
     #[inline(never)]
     pub(super) fn run(system: &mut ScheduleSystem, world: &mut World) -> Result {
         let result = system.run((), world);
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
         result
     }
@@ -311,6 +314,7 @@ mod __rust_begin_short_backtrace {
         world: &mut World,
     ) -> Result {
         let result = system.run_without_applying_deferred((), world);
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
         result
     }
@@ -320,6 +324,7 @@ mod __rust_begin_short_backtrace {
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: &mut World,
     ) -> O {
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(system.run((), world))
     }
 }
