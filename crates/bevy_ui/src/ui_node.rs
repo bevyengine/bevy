@@ -2054,7 +2054,6 @@ impl BorderColor {
     pub const DEFAULT: Self = BorderColor::all(Color::NONE);
 
     /// Helper to create a `BorderColor` struct with all borders set to the given color
- 
 
     pub const fn all(color: Color) -> Self {
         Self {
@@ -2071,7 +2070,7 @@ impl BorderColor {
             && self.bottom.is_fully_transparent()
             && self.left.is_fully_transparent()
             && self.right.is_fully_transparent()
-    }    
+    }
 }
 
 impl Default for BorderColor {
