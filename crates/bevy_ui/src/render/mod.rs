@@ -14,7 +14,7 @@ use crate::{
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, weak_handle, AssetEvent, AssetId, Assets, Handle};
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
@@ -50,7 +50,7 @@ use bevy_sprite::{BorderRect, SpriteAssetEvents};
 pub use debug_overlay::UiDebugOptions;
 
 use crate::{Display, Node};
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform_support::{collections::{HashMap, HashSet}, hash::FixedHasher};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -213,7 +213,7 @@ pub struct ExtractedUiNode {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NodeType {
     Rect,
-    Border,
+    Border(u32), // shader flags
 }
 
 pub enum ExtractedUiItem {
@@ -484,6 +484,8 @@ pub fn extract_uinode_borders(
     let image = AssetId::<Image>::default();
     let mut camera_mapper = camera_map.get_mapper();
 
+    let mut unique_colors: HashSet<_, FixedHasher> = Default::default();
+
     for (
         entity,
         node,
@@ -506,30 +508,71 @@ pub fn extract_uinode_borders(
 
         // Don't extract borders with zero width along all edges
         if computed_node.border() != BorderRect::ZERO {
-            if let Some(border_color) = maybe_border_color.filter(|bc| !bc.0.is_fully_transparent())
-            {
-                extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    stack_index: computed_node.stack_index,
-                    color: border_color.0.into(),
-                    rect: Rect {
-                        max: computed_node.size(),
-                        ..Default::default()
-                    },
-                    image,
-                    clip: maybe_clip.map(|clip| clip.clip),
-                    extracted_camera_entity,
-                    item: ExtractedUiItem::Node {
-                        atlas_scaling: None,
-                        transform: global_transform.compute_matrix(),
-                        flip_x: false,
-                        flip_y: false,
-                        border: computed_node.border(),
-                        border_radius: computed_node.border_radius(),
-                        node_type: NodeType::Border,
-                    },
-                    main_entity: entity.into(),
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                });
+            if let Some(border_color) = maybe_border_color.filter(|bc| !bc.is_fully_transparent()) {
+                // helper to allow for `Eq` color comparisons so we can build a hashset
+                let convert =
+                    |c: Color| -> [u8; 16] { bytemuck::cast::<_, [u8; 16]>(c.to_linear()) };
+
+                // gather unique colors
+                unique_colors.clear();
+                unique_colors.extend(
+                    [
+                        border_color.left,
+                        border_color.top,
+                        border_color.right,
+                        border_color.bottom,
+                    ]
+                    .map(convert),
+                );
+
+                for &converted_color in unique_colors.iter() {
+                    let color = bytemuck::cast::<[u8; 16], LinearRgba>(converted_color);
+
+                    // skip transparent
+                    if color.alpha == 0.0 {
+                        continue;
+                    }
+
+                    // gather flags of borders that match this color
+                    let border_flags = [
+                        (border_color.left, shader_flags::BORDER_LEFT),
+                        (border_color.top, shader_flags::BORDER_TOP),
+                        (border_color.right, shader_flags::BORDER_RIGHT),
+                        (border_color.bottom, shader_flags::BORDER_BOTTOM),
+                    ]
+                    .map(|(border_color, flag)| {
+                        if convert(border_color) == converted_color {
+                            flag
+                        } else {
+                            0
+                        }
+                    })
+                    .into_iter()
+                    .sum::<u32>();
+
+                    extracted_uinodes.uinodes.push(ExtractedUiNode {
+                        stack_index: computed_node.stack_index,
+                        color,
+                        rect: Rect {
+                            max: computed_node.size(),
+                            ..Default::default()
+                        },
+                        image,
+                        clip: maybe_clip.map(|clip| clip.clip),
+                        extracted_camera_entity,
+                        item: ExtractedUiItem::Node {
+                            atlas_scaling: None,
+                            transform: global_transform.compute_matrix(),
+                            flip_x: false,
+                            flip_y: false,
+                            border: computed_node.border(),
+                            border_radius: computed_node.border_radius(),
+                            node_type: NodeType::Border(border_flags),
+                        },
+                        main_entity: entity.into(),
+                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    });
+                }
             }
         }
 
@@ -558,7 +601,7 @@ pub fn extract_uinode_borders(
                     flip_y: false,
                     border: BorderRect::all(computed_node.outline_width()),
                     border_radius: computed_node.outline_radius(),
-                    node_type: NodeType::Border,
+                    node_type: NodeType::Border(shader_flags::BORDER_ALL),
                 },
                 main_entity: entity.into(),
             });
@@ -938,7 +981,11 @@ pub mod shader_flags {
     pub const TEXTURED: u32 = 1;
     /// Ordering: top left, top right, bottom right, bottom left.
     pub const CORNERS: [u32; 4] = [0, 2, 2 | 4, 4];
-    pub const BORDER: u32 = 8;
+    pub const BORDER_LEFT: u32 = 8;
+    pub const BORDER_TOP: u32 = 16;
+    pub const BORDER_RIGHT: u32 = 32;
+    pub const BORDER_BOTTOM: u32 = 64;
+    pub const BORDER_ALL: u32 = BORDER_LEFT + BORDER_TOP + BORDER_RIGHT + BORDER_BOTTOM;
 }
 
 pub fn queue_uinodes(
@@ -1247,8 +1294,8 @@ pub fn prepare_uinodes(
                             };
 
                             let color = extracted_uinode.color.to_f32_array();
-                            if *node_type == NodeType::Border {
-                                flags |= shader_flags::BORDER;
+                            if let NodeType::Border(border_flags) = *node_type {
+                                flags |= border_flags;
                             }
 
                             for i in 0..4 {
