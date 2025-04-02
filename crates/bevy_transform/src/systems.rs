@@ -53,14 +53,14 @@ pub fn mark_dirty_trees(
 ) {
     for entity in changed_transforms.iter().chain(orphaned.read()) {
         let mut next = entity;
-        while let Ok((parent, mut tree)) = transforms.get_mut(next) {
+        while let Ok((child_of, mut tree)) = transforms.get_mut(next) {
             if tree.is_changed() && !tree.is_added() {
                 // If the component was changed, this part of the tree has already been processed.
                 // Ignore this if the change was caused by the component being added.
                 break;
             }
             tree.set_changed();
-            if let Some(parent) = parent.map(|p| p.parent) {
+            if let Some(parent) = child_of.map(ChildOf::parent) {
                 next = parent;
             } else {
                 break;
@@ -121,7 +121,7 @@ mod serial {
 
             for (child, child_of) in child_query.iter_many(children) {
                 assert_eq!(
-                    child_of.parent, entity,
+                    child_of.parent(), entity,
                     "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
                 );
                 // SAFETY:
@@ -221,7 +221,7 @@ mod serial {
         let Some(children) = children else { return };
         for (child, child_of) in child_query.iter_many(children) {
             assert_eq!(
-            child_of.parent, entity,
+            child_of.parent(), entity,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
             // SAFETY: The caller guarantees that `transform_query` will not be fetched for any
@@ -452,7 +452,7 @@ mod parallel {
                         // Static scene optimization
                         return None;
                     }
-                    assert_eq!(child_of.parent, parent);
+                    assert_eq!(child_of.parent(), parent);
 
                     // Transform prop is expensive - this helps avoid updating entire subtrees if
                     // the GlobalTransform is unchanged, at the cost of an added equality check.
@@ -586,8 +586,8 @@ mod test {
         let root = commands.spawn(offset_transform(3.3)).id();
         let parent = commands.spawn(offset_transform(4.4)).id();
         let child = commands.spawn(offset_transform(5.5)).id();
-        commands.entity(parent).insert(ChildOf { parent: root });
-        commands.entity(child).insert(ChildOf { parent });
+        commands.entity(parent).insert(ChildOf(root));
+        commands.entity(child).insert(ChildOf(parent));
         command_queue.apply(&mut world);
         schedule.run(&mut world);
 
