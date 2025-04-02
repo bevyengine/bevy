@@ -15,6 +15,7 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
+mod extraction;
 #[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
 
@@ -27,7 +28,6 @@ pub mod experimental;
 mod focus;
 mod geometry;
 mod layout;
-mod render;
 mod stack;
 mod ui_node;
 
@@ -227,8 +227,6 @@ impl Plugin for UiPlugin {
 
         #[cfg(feature = "bevy_ui_debug")]
         app.init_resource::<UiDebugOptions>();
-
-        build_ui_render(app);
     }
 
     fn finish(&self, app: &mut App) {

@@ -364,60 +364,6 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
     }
 }
 
-pub fn extract_ui_material_nodes<M: UiMaterial>(
-    mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
-    materials: Extract<Res<Assets<M>>>,
-    uinode_query: Extract<
-        Query<(
-            Entity,
-            &ComputedNode,
-            &GlobalTransform,
-            &MaterialNode<M>,
-            &InheritedVisibility,
-            Option<&CalculatedClip>,
-            &ComputedNodeTarget,
-        )>,
-    >,
-    camera_map: Extract<UiCameraMap>,
-) {
-    let mut camera_mapper = camera_map.get_mapper();
-
-    for (entity, computed_node, transform, handle, inherited_visibility, clip, camera) in
-        uinode_query.iter()
-    {
-        // skip invisible nodes
-        if !inherited_visibility.get() || computed_node.is_empty() {
-            continue;
-        }
-
-        // Skip loading materials
-        if !materials.contains(handle) {
-            continue;
-        }
-
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
-            continue;
-        };
-
-        extracted_uinodes.uinodes.push(ExtractedUiMaterialNode {
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            stack_index: computed_node.stack_index,
-            transform: transform.compute_matrix(),
-            material: handle.id(),
-            rect: Rect {
-                min: Vec2::ZERO,
-                max: computed_node.size(),
-            },
-            border: computed_node.border(),
-            border_radius: computed_node.border_radius(),
-            clip: clip.map(|clip| clip.clip),
-            extracted_camera_entity,
-            main_entity: entity.into(),
-        });
-    }
-}
-
 pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
