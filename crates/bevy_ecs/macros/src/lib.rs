@@ -226,7 +226,7 @@ fn derive_system_param_impl(
 
     let field_names = fields
         .members()
-        .map(|m| format!("::{}", format_ident!("{}", m)));
+        .map(|m| format!("::{}", quote!{ #m }));
 
     let mut field_messages = Vec::new();
     for attr in fields
