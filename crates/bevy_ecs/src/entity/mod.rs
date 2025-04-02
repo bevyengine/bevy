@@ -54,12 +54,22 @@ pub use hash::*;
 pub mod hash_map;
 pub mod hash_set;
 
+pub use hash_map::EntityHashMap;
+pub use hash_set::EntityHashSet;
+
 pub mod index_map;
 pub mod index_set;
+
+pub use index_map::EntityIndexMap;
+pub use index_set::EntityIndexSet;
 
 pub mod unique_array;
 pub mod unique_slice;
 pub mod unique_vec;
+
+pub use unique_array::UniqueEntityArray;
+pub use unique_slice::UniqueEntitySlice;
+pub use unique_vec::UniqueEntityVec;
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},

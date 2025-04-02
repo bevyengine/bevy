@@ -132,6 +132,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
         WINIT_WINDOWS.set(Some(WinitWindows::default()));
         app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
+            .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
             .add_event::<RawWinitWindowEvent>()
             .set_runner(|app| winit_runner(app, event_loop))
             .add_systems(
@@ -180,6 +181,15 @@ pub struct RawWinitWindowEvent {
 /// Use `Res<EventLoopProxy>` to receive this resource.
 #[derive(Resource, Deref)]
 pub struct EventLoopProxyWrapper<T: 'static>(EventLoopProxy<T>);
+
+/// A wrapper around [`winit::event_loop::OwnedDisplayHandle`]
+///
+/// The `DisplayHandleWrapper` can be used to build integrations that rely on direct
+/// access to the display handle
+///
+/// Use `Res<DisplayHandleWrapper>` to receive this resource.
+#[derive(Resource, Deref)]
+pub struct DisplayHandleWrapper(pub winit::event_loop::OwnedDisplayHandle);
 
 trait AppSendEvent {
     fn send(&mut self, event: impl Into<WindowEvent>);

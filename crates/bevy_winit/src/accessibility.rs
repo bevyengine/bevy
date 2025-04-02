@@ -17,7 +17,7 @@ use bevy_a11y::{
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{entity::hash_map::EntityHashMap, prelude::*, system::NonSendMarker};
+use bevy_ecs::{entity::EntityHashMap, prelude::*, system::NonSendMarker};
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
 thread_local! {
@@ -277,7 +277,7 @@ fn queue_node_for_update(
     window_children: &mut Vec<NodeId>,
 ) {
     let should_push = if let Some(child_of) = child_of {
-        !node_entities.contains(child_of.parent)
+        !node_entities.contains(child_of.parent())
     } else {
         true
     };
