@@ -343,6 +343,23 @@ impl<'a> EntityCommands<'a> {
         })
     }
 
+    /// Relates the given entities to this entity with the relation `R`, starting at this particular index.
+    ///
+    /// If the `related` has duplicates, a related entity will take the index of its last occurrence in `related`.
+    /// If the indices go out of bounds, they will be clamped into bounds.
+    /// This will not re-order existing related entities unless they are in `related`.
+    pub fn insert_related<R: Relationship>(&mut self, index: usize, related: &[Entity]) -> &mut Self
+    where
+        <R::RelationshipTarget as RelationshipTarget>::Collection:
+            OrderedRelationshipSourceCollection,
+    {
+        let related: Box<[Entity]> = related.into();
+
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.insert_related::<R>(index, &related);
+        })
+    }
+
     /// Relates the given entity to this with the relation `R`.
     ///
     /// See [`add_related`](Self::add_related) if you want to relate more than one entity.
