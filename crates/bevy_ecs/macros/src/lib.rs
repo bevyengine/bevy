@@ -295,15 +295,13 @@ fn derive_system_param_impl(
         .collect::<Vec<_>>();
     let field_members = fields.members().collect::<Vec<_>>();
     let field_types = fields.iter().map(|f| &f.ty).collect::<Vec<_>>();
-    let field_names = fields
-        .members()
-        .map(|m| format!("::{}", format_ident!("{}", m)));
+    let field_names = fields.members().map(|m| format!("::{}", quote! { #m }));
 
     let mut field_messages = Vec::new();
     for attr in fields
         .iter()
         .map(|f| f.attrs.iter().find(|a| a.path().is_ident("system_param")))
-    {   
+    {
         let mut field_message = None;
         if let Some(attr) = attr {
             attr.parse_nested_meta(|nested| {
