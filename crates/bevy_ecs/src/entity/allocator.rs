@@ -191,7 +191,7 @@ impl FreeBufferLen {
     /// The bit of the u64 with the highest bit of the u16 generation.
     const HIGHEST_GENERATION_BIT: u64 = 1 << 15;
     /// The u48 encoded length considers this value to be 0. Lower values are considered negative.
-    const FALSE_ZERO: u64 = ((2 << 48) - 1) - ((2 << 32) - 1);
+    const FALSE_ZERO: u64 = ((1 << 48) - 1) - ((1 << 32) - 1);
 
     /// Gets the current state of the buffer.
     #[inline]
@@ -755,5 +755,17 @@ mod tests {
         for (input, output) in to_test {
             assert_eq!(Chunk::get_indices(input), output);
         }
+    }
+
+    #[test]
+    fn buffer_len_encoding() {
+        let len = FreeBufferLen::new_zero_len();
+        assert_eq!(len.len(), 0);
+        assert_eq!(len.pop_for_len(200), 0);
+        len.set_len(5, 0);
+        assert_eq!(len.pop_for_len(2), 5);
+        assert_eq!(len.pop_for_len(2), 3);
+        assert_eq!(len.pop_for_len(2), 1);
+        assert_eq!(len.pop_for_len(2), 0);
     }
 }
