@@ -194,19 +194,26 @@ pub fn derive_map_entities(input: TokenStream) -> TokenStream {
         }
     })
 }
-
 /// Implement `SystemParam` to use a struct as a parameter in a system
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let token_stream = input.clone();
     let ast = parse_macro_input!(input as DeriveInput);
+    match derive_system_param_impl(token_stream, ast) {
+        Ok(t) => t,
+        Err(e) => e.into_compile_error().into(),
+    }
+}
+
+fn derive_system_param_impl(
+    token_stream: TokenStream,
+    ast: DeriveInput,
+) -> syn::Result<TokenStream> {
     let Data::Struct(DataStruct { fields, .. }) = ast.data else {
-        return syn::Error::new(
+        return Err(syn::Error::new(
             ast.span(),
             "Invalid `SystemParam` type: expected a `struct`",
-        )
-        .into_compile_error()
-        .into();
+        ));
     };
     let path = bevy_ecs_path();
 
@@ -217,6 +224,25 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let field_members = fields.members().collect::<Vec<_>>();
     let field_types = fields.iter().map(|f| &f.ty).collect::<Vec<_>>();
 
+    let field_names = fields.members().map(|m| format_ident!("::{}", m));
+    
+    let mut field_messages = Vec::new();
+    for attr in fields
+        .iter()
+        .filter_map(|f| f.attrs.iter().find(|a| a.path().is_ident("system_param")))
+    {
+        let mut field_message = None;
+        attr.parse_nested_meta(|nested| {
+            if nested.path.is_ident("validation_message") {
+                field_message = Some(nested.value()?.parse()?);
+                Ok(())
+            } else {
+                Err(nested.error("Unsupported attribute"))
+            }
+        })?;
+        field_messages.push(field_message.unwrap_or_else(|| quote! { err.message }));
+    }
+
     let generics = ast.generics;
 
     // Emit an error if there's any unrecognized lifetime names.
@@ -225,14 +251,12 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         let w = format_ident!("w");
         let s = format_ident!("s");
         if ident != &w && ident != &s {
-            return syn::Error::new_spanned(
+            return Err(syn::Error::new_spanned(
                 lt,
                 r#"invalid lifetime name: expected `'w` or `'s`
  'w -- refers to data stored in the World.
  's -- refers to data stored in the SystemParam's state.'"#,
-            )
-            .into_compile_error()
-            .into();
+            ));
         }
     }
 
@@ -314,16 +338,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         .iter()
         .filter(|a| a.path().is_ident("system_param"))
     {
-        if let Err(e) = meta.parse_nested_meta(|nested| {
+        meta.parse_nested_meta(|nested| {
             if nested.path.is_ident("builder") {
                 builder_name = Some(format_ident!("{struct_name}Builder"));
                 Ok(())
             } else {
                 Err(nested.error("Unsupported attribute"))
             }
-        }) {
-            return e.into_compile_error().into();
-        }
+        })?;
     }
 
     let builder = builder_name.map(|builder_name| {
@@ -358,7 +380,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     });
     let (builder_struct, builder_impl) = builder.unzip();
 
-    TokenStream::from(quote! {
+    Ok(TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
         // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
         // <EventReader<'static, 'static, T> as SystemParam>::State
@@ -434,7 +456,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         };
 
         #builder_struct
-    })
+    }))
 }
 
 /// Implement `QueryData` to use a struct as a data parameter in a query
