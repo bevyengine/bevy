@@ -524,7 +524,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
             ));
             continue;
         };
-        let mut parent: Entity = span_child_of.parent;
+        let mut parent: Entity = span_child_of.parent();
 
         // Search for the nearest ancestor with ComputedTextBlock.
         // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
@@ -555,7 +555,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 ));
                 break;
             };
-            parent = next_child_of.parent;
+            parent = next_child_of.parent();
         }
     }
 }
