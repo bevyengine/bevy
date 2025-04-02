@@ -161,6 +161,13 @@ impl<'a> IntoBinding<'a> for &'a Sampler {
     }
 }
 
+impl<'a> IntoBinding<'a> for &'a [&'a wgpu::Sampler] {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        BindingResource::SamplerArray(self)
+    }
+}
+
 impl<'a> IntoBinding<'a> for BindingResource<'a> {
     #[inline]
     fn into_binding(self) -> BindingResource<'a> {
@@ -172,6 +179,13 @@ impl<'a> IntoBinding<'a> for wgpu::BufferBinding<'a> {
     #[inline]
     fn into_binding(self) -> BindingResource<'a> {
         BindingResource::Buffer(self)
+    }
+}
+
+impl<'a> IntoBinding<'a> for &'a [wgpu::BufferBinding<'a>] {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        BindingResource::BufferArray(self)
     }
 }
 
