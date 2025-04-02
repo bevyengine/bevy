@@ -159,6 +159,16 @@ impl LinearRgba {
     pub fn as_u32(&self) -> u32 {
         u32::from_le_bytes(self.to_u8_array())
     }
+
+    /// Scales the color components (not alpha) by the given factor.
+    pub fn scale_by(self, factor: f32) -> Self {
+        Self {
+            red: self.red * factor,
+            green: self.green * factor,
+            blue: self.green * factor,
+            alpha: self.alpha,
+        }
+    }
 }
 
 impl Default for LinearRgba {

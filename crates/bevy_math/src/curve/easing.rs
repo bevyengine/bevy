@@ -5,7 +5,7 @@
 
 use crate::{
     curve::{Curve, CurveExt, FunctionCurve, Interval},
-    Dir2, Dir3, Dir3A, Isometry2d, Isometry3d, NormedVectorSpace, Quat, Rot2, StableInterpolate,
+    Dir2, Dir3, Dir3A, InterpolateStable, Isometry2d, Isometry3d, NormedVectorSpace, Quat, Rot2,
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -13,18 +13,21 @@ use bevy_reflect::std_traits::ReflectDefault;
 
 use variadics_please::all_tuples_enumerated;
 
-/// Provides a curve version of [`Interpolate::interp`] which extends beyond the curve
+/// Provides a curve version of [`StableInterpolate`] which extends beyond the curve
 /// segment connecting the two values. The purpose of this trait is to make it easy to
 /// work with easing curves, which often extrapolate values before the starting point or
 /// after the end point.
 ///
 /// This trait requires:
 ///
-/// 1. The curve must follow all the rules of `Interpolate` and `StableInterpolate`.
+/// 1. The curve must follow all the rules of [`Interpolate`] and [`InterpolateStable`].
 ///
-/// 2. The curve must extend smoothly beyond the start and end points.
+/// 2. The curve must extend smoothly beyond the start and end points, so that it can be
+///    used for extrapolation.
 ///
-pub trait InterpolateCurve: StableInterpolate {
+/// [`Interpolate`]: crate::Interpolate
+///
+pub trait InterpolateCurve: InterpolateStable {
     /// Given `start` and `end` values, produce a smooth curve with [unlimited domain]
     /// that moves between the start and end points over the interval `[0, 1]` and has
     /// constant velocity.
@@ -172,7 +175,7 @@ all_tuples_enumerated!(
 /// assert_eq!(c.sample_clamped(2.0), 4.0);
 /// ```
 ///
-/// `EasingCurve` can be used with any type that implements the [`Ease`] trait.
+/// `EasingCurve` can be used with any type that implements the [`InterpolateCurve`] trait.
 /// This includes many math types, like vectors and rotations.
 ///
 /// ```
@@ -1008,7 +1011,7 @@ mod tests {
         let quat_start = Quat::from_axis_angle(Vec3::Z, 0.0);
         let quat_end = Quat::from_axis_angle(Vec3::Z, 90.0_f32.to_radians());
 
-        let quat_curve = Quat::interpolating_curve_unbounded(quat_start, quat_end);
+        let quat_curve = Quat::interp_curve(quat_start, quat_end);
 
         assert_abs_diff_eq!(
             quat_curve.sample(0.0).unwrap(),
@@ -1043,7 +1046,7 @@ mod tests {
         let iso_2d_start = Isometry2d::new(Vec2::ZERO, Rot2::degrees(0.0));
         let iso_2d_end = Isometry2d::new(Vec2::ONE, Rot2::degrees(angle));
 
-        let iso_2d_curve = Isometry2d::interpolating_curve_unbounded(iso_2d_start, iso_2d_end);
+        let iso_2d_curve = Isometry2d::interp_curve(iso_2d_start, iso_2d_end);
 
         [-1.0, 0.0, 0.5, 1.0, 2.0].into_iter().for_each(|t| {
             assert_abs_diff_eq!(
@@ -1059,7 +1062,7 @@ mod tests {
         let iso_3d_start = Isometry3d::new(Vec3A::ZERO, Quat::from_axis_angle(Vec3::Z, 0.0));
         let iso_3d_end = Isometry3d::new(Vec3A::ONE, Quat::from_axis_angle(Vec3::Z, angle));
 
-        let iso_3d_curve = Isometry3d::interpolating_curve_unbounded(iso_3d_start, iso_3d_end);
+        let iso_3d_curve = Isometry3d::interp_curve(iso_3d_start, iso_3d_end);
 
         [-1.0, 0.0, 0.5, 1.0, 2.0].into_iter().for_each(|t| {
             assert_abs_diff_eq!(

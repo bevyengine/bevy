@@ -2,6 +2,7 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba,
     Luminance, Oklaba, Oklcha, Saturation, Srgba, StandardColor, Xyza,
 };
+use bevy_math::Interpolate;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use derive_more::derive::From;
@@ -17,7 +18,7 @@ use derive_more::derive::From;
 ///
 /// # Operations
 ///
-/// [`Color`] supports all the standard color operations, such as [mixing](Mix),
+/// [`Color`] supports all the standard color operations, such as [interpolating](bevy_math::Interpolate),
 /// [luminance](Luminance) and [hue](Hue) adjustment,
 /// and [diffing](EuclideanDistance). These operations delegate to the concrete color space contained
 /// by [`Color`], but will convert to [`Oklch`](Oklcha) for operations which aren't supported in the
@@ -473,6 +474,13 @@ impl Default for Color {
     /// A fully white [`Color::LinearRgba`] color with an alpha of 1.0.
     fn default() -> Self {
         Color::WHITE
+    }
+}
+
+impl Interpolate for Color {
+    #[inline]
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        Oklaba::interp(&(*self).into(), &(*other).into(), param).into()
     }
 }
 

@@ -14,17 +14,17 @@ use bevy_transform::components::Transform;
 /// 1. Have a natural method of composition. For vectors this is addition, for quaternions or rotations
 ///    composition is usually expressed as multiplication. We'll use `comp(a, b)` to denote this operation.
 ///
-/// 2. The operation must be associative. That is, `comp(comp(a, b), c)` must be equivilent to
-///    `comp(a, comp(b, c))`. The result does not need to be data-identical, but it should be equivilent
-///    under some reasonable notion of equivilence.
+/// 2. The operation must be associative. That is, `comp(comp(a, b), c)` must be equivalent to
+///    `comp(a, comp(b, c))`. The result does not need to be data-identical, but it should be equivalent
+///    under some reasonable notion of equivalence.
 ///
-/// 2. Have an `IDENTITY` value such that composition with the identity is equivilent in some way to the
+/// 2. Have an `IDENTITY` value such that composition with the identity is equivalent in some way to the
 ///    original value.
 ///
-/// 3. The value of `T::blend(a, b, w)` should be equivilent to `comp(a, interp(IDENTITY, b, w))`. This implies
-///    that `T::blend(a, b, 0)` is equivilent to `a` and `T::blend(a, b, 1)` is equivilent to `comp(a, b)`.
+/// 3. The value of `T::blend(a, b, w)` should be equivalent to `comp(a, interp(IDENTITY, b, w))`. This implies
+///    that `T::blend(a, b, 0)` is equivalent to `a` and `T::blend(a, b, 1)` is equivalent to `comp(a, b)`.
 ///
-/// Some of you will have noticed that these rules encodes the axioms ofr a Monoid; In fact this trait
+/// Some of you will have noticed that these rules encodes the axioms for a Monoid; In fact this trait
 /// represents something similar to a Lie Group.
 pub trait Blend: Interpolate {
     /// The default value of the blend, which has no effect when blended with other values.

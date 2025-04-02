@@ -1167,7 +1167,7 @@ fn load_material(
         // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
         let emissive_strength = material.emissive_strength().unwrap_or(1.0);
         let emissive = LinearRgba::from_vec3(Vec3::from_array(emissive) * emissive_strength);
-        
+
         StandardMaterial {
             base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
             base_color_channel,

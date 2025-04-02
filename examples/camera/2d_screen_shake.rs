@@ -6,7 +6,7 @@
 //! |:-------------|:---------------------|
 //! | Space        | Trigger screen shake |
 
-use bevy::{prelude::*, render::camera::SubCameraView, sprite::MeshMaterial2d};
+use bevy::{math::Interpolate, prelude::*, render::camera::SubCameraView, sprite::MeshMaterial2d};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -161,7 +161,7 @@ fn screen_shake(
             let rotation = Quat::from_rotation_z(angle);
             transform.rotation = transform
                 .rotation
-                .interpolate_stable(&(transform.rotation.mul_quat(rotation)), CAMERA_DECAY_RATE);
+                .interp(&(transform.rotation.mul_quat(rotation)), CAMERA_DECAY_RATE);
         }
     } else {
         // return camera to the latest position of player (it's fixed in this example case)
@@ -171,7 +171,7 @@ fn screen_shake(
             sub_view
                 .offset
                 .smooth_nudge(&target, 1.0, time.delta_secs());
-            transform.rotation = transform.rotation.interpolate_stable(&Quat::IDENTITY, 0.1);
+            transform.rotation = transform.rotation.interp(&Quat::IDENTITY, 0.1);
         }
     }
     // Decay the trauma over time

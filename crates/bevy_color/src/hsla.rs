@@ -415,25 +415,25 @@ mod tests {
     }
 
     #[test]
-    fn test_mix_wrap() {
+    fn test_interp_wrap() {
         let hsla0 = Hsla::new(10., 0.5, 0.5, 1.0);
         let hsla1 = Hsla::new(20., 0.5, 0.5, 1.0);
         let hsla2 = Hsla::new(350., 0.5, 0.5, 1.0);
-        assert_approx_eq!(hsla0.mix(&hsla1, 0.25).hue, 12.5, 0.001);
-        assert_approx_eq!(hsla0.mix(&hsla1, 0.5).hue, 15., 0.001);
-        assert_approx_eq!(hsla0.mix(&hsla1, 0.75).hue, 17.5, 0.001);
+        assert_approx_eq!(hsla0.interp(&hsla1, 0.25).hue, 12.5, 0.001);
+        assert_approx_eq!(hsla0.interp(&hsla1, 0.5).hue, 15., 0.001);
+        assert_approx_eq!(hsla0.interp(&hsla1, 0.75).hue, 17.5, 0.001);
 
-        assert_approx_eq!(hsla1.mix(&hsla0, 0.25).hue, 17.5, 0.001);
-        assert_approx_eq!(hsla1.mix(&hsla0, 0.5).hue, 15., 0.001);
-        assert_approx_eq!(hsla1.mix(&hsla0, 0.75).hue, 12.5, 0.001);
+        assert_approx_eq!(hsla1.interp(&hsla0, 0.25).hue, 17.5, 0.001);
+        assert_approx_eq!(hsla1.interp(&hsla0, 0.5).hue, 15., 0.001);
+        assert_approx_eq!(hsla1.interp(&hsla0, 0.75).hue, 12.5, 0.001);
 
-        assert_approx_eq!(hsla0.mix(&hsla2, 0.25).hue, 5., 0.001);
-        assert_approx_eq!(hsla0.mix(&hsla2, 0.5).hue, 0., 0.001);
-        assert_approx_eq!(hsla0.mix(&hsla2, 0.75).hue, 355., 0.001);
+        assert_approx_eq!(hsla0.interp(&hsla2, 0.25).hue, 5., 0.001);
+        assert_approx_eq!(hsla0.interp(&hsla2, 0.5).hue, 0., 0.001);
+        assert_approx_eq!(hsla0.interp(&hsla2, 0.75).hue, 355., 0.001);
 
-        assert_approx_eq!(hsla2.mix(&hsla0, 0.25).hue, 355., 0.001);
-        assert_approx_eq!(hsla2.mix(&hsla0, 0.5).hue, 0., 0.001);
-        assert_approx_eq!(hsla2.mix(&hsla0, 0.75).hue, 5., 0.001);
+        assert_approx_eq!(hsla2.interp(&hsla0, 0.25).hue, 355., 0.001);
+        assert_approx_eq!(hsla2.interp(&hsla0, 0.5).hue, 0., 0.001);
+        assert_approx_eq!(hsla2.interp(&hsla0, 0.75).hue, 5., 0.001);
     }
 
     #[test]

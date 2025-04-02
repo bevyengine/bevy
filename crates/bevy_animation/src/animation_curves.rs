@@ -114,6 +114,12 @@ use downcast_rs::{impl_downcast, Downcast};
 /// as long as it can be obtained by mutable reference. This makes it more
 /// flexible than [`animated_field`].
 ///
+/// Promperties that [`Blend`] are easiest to use, because the default
+/// implementation of [`AnimationCurve`] for [`PropertyCurve`] is blending-based.
+/// To animating a non-blendable property (like a boolean or enum), you must add
+/// a new `AnimationCurve` implementation to `PropertyCurve`.
+///
+/// [`Blend`]: crate::blend::Blend
 /// [`animated_field`]: crate::animated_field
 ///
 /// Here, `AnimatableProperty` is used to animate a value inside an `Option`,
@@ -155,7 +161,7 @@ use downcast_rs::{impl_downcast, Downcast};
 /// You can then create a [`PropertyCurve`] to animate this property like so:
 ///
 ///     # use bevy_animation::{VariableCurve, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
-///     # use bevy_animation::prelude::{AnimatableProperty, AnimatableKeyframeCurve, AnimatableCurve};
+///     # use bevy_animation::prelude::{AnimatableProperty, KeyframeCurve, PropertyCurve};
 ///     # use bevy_ecs::{name::Name, component::Component};
 ///     # use std::any::TypeId;
 ///     # #[derive(Component)]
@@ -191,7 +197,7 @@ use downcast_rs::{impl_downcast, Downcast};
 ///     );
 pub trait AnimatableProperty: Send + Sync + 'static {
     /// The animated property type.
-    type Property: Blendable + Send + Sync + 'static;
+    type Property: Send + Sync + 'static;
 
     /// Retrieves the property from the given `entity`.
     fn get_mut<'a>(
@@ -298,7 +304,7 @@ pub struct PropertyCurve<P, C> {
     pub curve: C,
 }
 
-/// An [`AnimationCurveEvaluator`] for [`AnimatableProperty`] instances.
+/// An [`AnimationCurveEvaluator`] for [`AnimatableProperty`] instances that support blending.
 ///
 /// You shouldn't ordinarily need to instantiate one of these manually. Bevy
 /// will automatically do so when you use a [`PropertyCurve`] instance.
@@ -346,9 +352,13 @@ where
     }
 }
 
-impl<P: Send + Sync + 'static, C> AnimationCurve for PropertyCurve<P, C>
+// We can treat any `PropertyCurve` over a `Blendable` property as an `AnimationCurve`, using the
+// `BlendStackEvaluator`. You can still create a `PropertyCurve` for something that dosn't implement
+// `Blend`/`Blendable` but you will have to implement `AnimationCurve` for `PropertyCurve` manually.
+impl<P: Send + Sync + 'static, B, C> AnimationCurve for PropertyCurve<P, C>
 where
-    P: AnimatableProperty + Clone,
+    P: AnimatableProperty<Property = B> + Clone,
+    B: Blendable + Send + Sync + 'static,
     C: AnimationCompatibleCurve<P::Property> + Clone,
 {
     fn clone_value(&self) -> Box<dyn AnimationCurve> {
@@ -364,7 +374,7 @@ where
     }
 
     fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
-        Box::new(PropertyCurveEvaluator::<P::Property> {
+        Box::new(PropertyCurveEvaluator::<B> {
             evaluator: BlendStackEvaluator::default(),
             property: Box::new(self.property.clone()),
         })
@@ -804,6 +814,7 @@ pub enum EvaluatorId<'a> {
 /// stores the result of a blend operation.
 ///
 /// [`Vec3`]: bevy_math::Vec3
+/// [`Blend`]: crate::blend::Blend
 pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     /// Blends the top element of the stack with the blend register.
     ///
@@ -911,7 +922,7 @@ where
 {
     /// Create a new [`KeyframeCurve`] from the given `keyframes`. The values of this
     /// curve are interpolated from the keyframes using the output type's implementation of
-    /// [`Interpolate::interpo`].
+    /// [`Interpolate::interp`].
     ///
     /// There must be at least two samples in order for this method to succeed.
     pub fn new(keyframes: impl IntoIterator<Item = (f32, T)>) -> Result<Self, UnevenCoreError> {

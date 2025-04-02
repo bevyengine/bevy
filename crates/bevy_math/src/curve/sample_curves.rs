@@ -1,6 +1,6 @@
 //! Sample-interpolated curves constructed using the [`Curve`] API.
 
-use crate::{Interpolate, StableInterpolate};
+use crate::{Interpolate, InterpolateStable};
 
 use super::cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use super::{Curve, Interval};
@@ -134,7 +134,7 @@ impl<T, I> SampleCurve<T, I> {
 /// A curve that is defined by neighbor interpolation over a set of evenly-spaced samples,
 /// interpolated automatically using [a particularly well-behaved interpolation].
 ///
-/// [a particularly well-behaved interpolation]: StableInterpolate
+/// [a particularly well-behaved interpolation]: InterpolateStable
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -144,7 +144,7 @@ pub struct SampleAutoCurve<T> {
 
 impl<T> Curve<T> for SampleAutoCurve<T>
 where
-    T: StableInterpolate + Clone,
+    T: InterpolateStable + Clone,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -305,7 +305,7 @@ impl<T, I> UnevenSampleCurve<T, I> {
 /// A curve that is defined by interpolation over unevenly spaced samples,
 /// interpolated automatically using [a particularly well-behaved interpolation].
 ///
-/// [a particularly well-behaved interpolation]: StableInterpolate
+/// [a particularly well-behaved interpolation]: InterpolateStable
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -315,7 +315,7 @@ pub struct UnevenSampleAutoCurve<T> {
 
 impl<T> Curve<T> for UnevenSampleAutoCurve<T>
 where
-    T: StableInterpolate + Clone,
+    T: InterpolateStable + Clone,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -368,17 +368,17 @@ mod tests {
     //! - function items
     //! - 'static closures
     //! - function pointers
-    use super::{SampleCurve, UnevenSampleCurve};
-    use crate::{curve::Interval, VectorSpace};
+    use super::{Interpolate, SampleCurve, UnevenSampleCurve};
+    use crate::curve::Interval;
     use alloc::boxed::Box;
     use bevy_reflect::Reflect;
 
     #[test]
     fn reflect_sample_curve() {
         fn foo(x: &f32, y: &f32, t: f32) -> f32 {
-            x.lerp(*y, t)
+            x.interp(y, t)
         }
-        let bar = |x: &f32, y: &f32, t: f32| x.lerp(*y, t);
+        let bar = |x: &f32, y: &f32, t: f32| x.interp(y, t);
         let baz: fn(&f32, &f32, f32) -> f32 = bar;
 
         let samples = [0.0, 1.0, 2.0];
@@ -391,9 +391,9 @@ mod tests {
     #[test]
     fn reflect_uneven_sample_curve() {
         fn foo(x: &f32, y: &f32, t: f32) -> f32 {
-            x.lerp(*y, t)
+            x.interp(y, t)
         }
-        let bar = |x: &f32, y: &f32, t: f32| x.lerp(*y, t);
+        let bar = |x: &f32, y: &f32, t: f32| x.interp(y, t);
         let baz: fn(&f32, &f32, f32) -> f32 = bar;
 
         let keyframes = [(0.0, 1.0), (1.0, 0.0), (2.0, -1.0)];

@@ -4,7 +4,7 @@ use bevy_math::Interpolate;
 
 /// Represents a range of colors that can be linearly interpolated, defined by a start and
 /// end point which must be in the same color space. It works for any color type that
-/// implements [`Mix`].
+/// implements [`bevy_math::Interpolate`] (which is all of them).
 ///
 /// This is useful for defining gradients or animated color transitions.
 pub trait ColorRange<T: Interpolate> {
