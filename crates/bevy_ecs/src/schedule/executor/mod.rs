@@ -267,14 +267,18 @@ impl IntoSystemSet<()> for ApplyDeferred {
 mod __rust_begin_short_backtrace {
     use core::hint::black_box;
 
+    #[cfg(feature = "std")]
+    use crate::world::unsafe_world_cell::UnsafeWorldCell;
     use crate::{
         error::Result,
         system::{ReadOnlySystem, ScheduleSystem},
-        world::{unsafe_world_cell::UnsafeWorldCell, World},
+        world::World,
     };
 
     /// # Safety
     /// See `System::run_unsafe`.
+    // This is only used by `MultiThreadedExecutor`, and would be dead code without `std`.
+    #[cfg(feature = "std")]
     #[inline(never)]
     pub(super) unsafe fn run_unsafe(system: &mut ScheduleSystem, world: UnsafeWorldCell) -> Result {
         let result = system.run_unsafe((), world);
@@ -284,10 +288,8 @@ mod __rust_begin_short_backtrace {
 
     /// # Safety
     /// See `ReadOnlySystem::run_unsafe`.
-    #[cfg_attr(
-        not(feature = "std"),
-        expect(dead_code, reason = "currently only used with the std feature")
-    )]
+    // This is only used by `MultiThreadedExecutor`, and would be dead code without `std`.
+    #[cfg(feature = "std")]
     #[inline(never)]
     pub(super) unsafe fn readonly_run_unsafe<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
