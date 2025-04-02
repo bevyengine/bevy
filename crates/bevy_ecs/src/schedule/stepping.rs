@@ -4,7 +4,7 @@ use crate::{
     system::{IntoSystem, ResMut},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform_support::{collections::HashMap, hash::FixedHasher};
 use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use fixedbitset::FixedBitSet;
@@ -36,7 +36,7 @@ pub enum Action {
 }
 
 #[derive(Debug, Copy, Clone)]
-enum SystemBehavior {
+pub enum SystemBehavior {
     /// System will always run regardless of stepping action
     AlwaysRun,
 
@@ -154,6 +154,21 @@ impl Stepping {
         if self.schedule_order.len() == self.schedule_states.len() {
             Ok(&self.schedule_order)
         } else {
+            Err(NotReady)
+        }
+    }
+
+    /// Returns a hashmap of schedules and their systems (represented as a hashmap of systems and their behaviors)
+    /// Check type signatures
+    pub fn get_behaviours(&self) -> Result<HashMap<InternedScheduleLabel, &HashMap<NodeId, SystemBehavior>>, NotReady> {
+        if self.schedule_order.len() == self.schedule_states.len() {
+            let mut output = HashMap::with_hasher(FixedHasher);
+            for item in &self.schedule_states {
+                output.insert(*item.0, &item.1.behaviors);
+            }
+            Ok(output)
+        }
+        else {
             Err(NotReady)
         }
     }
