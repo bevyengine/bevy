@@ -720,7 +720,7 @@ impl Entities {
     /// Prepares the for `additional` allocations/reservations.
     /// This can prevent reallocation, etc, but since allocation can happen from anywhere, it is not guaranteed.
     pub fn prepare(&mut self, additional: u32) {
-        let shortfall = (additional as u64).saturating_sub(self.allocator.num_free());
+        let shortfall = additional.saturating_sub(self.allocator.num_free());
         self.meta.reserve(shortfall as usize);
     }
 
@@ -860,14 +860,14 @@ impl Entities {
     ///
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn total_count(&self) -> usize {
-        self.allocator.total_entity_indices() as usize
+    pub fn total_count(&self) -> u64 {
+        self.allocator.total_entity_indices()
     }
 
     /// The count of currently allocated entities.
     #[inline]
     pub fn len(&self) -> u64 {
-        self.allocator.total_entity_indices() - self.allocator.num_free()
+        self.allocator.total_entity_indices() - self.allocator.num_free() as u64
     }
 
     /// Checks if any entity is currently active.

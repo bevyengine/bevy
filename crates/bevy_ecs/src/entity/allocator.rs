@@ -1,7 +1,7 @@
 use bevy_platform_support::{
     prelude::Vec,
     sync::{
-        atomic::{AtomicBool, AtomicIsize, AtomicPtr, AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicU64, Ordering},
         Arc, Weak,
     },
 };
@@ -174,13 +174,105 @@ impl Chunk {
     }
 }
 
+/// This stores two things: the length of the buffer (which can be negative) and a generation value to track *any* change to the length.
+///
+/// The upper 48 bits store an unsigned integer of the length, and the lower 16 bits store the generation value.
+/// By keeping the length in the upper bits, we can add and subtract anything to them without it affecting the generation bits.
+/// When adding `x` to the length, we add `x << 16 + 1`, and when subtracting `x` from the length, we subtract `x << 16 - 1` so that the generation is incremented.
+/// Finally, to prevent the generation from ever overflowing into the length, we follow up each operation with a bit and to turn of the must significant generation bits.
+///
+/// Finally, to get the signed length from the unsigned 48 bit value, we simply set `u48::MAX - u32::MAX` equal to 0.
+/// This is fine since for the length to go over `u32::MAX`, the entity index would first need to be exhausted, ausing a "too many entities" panic.
+struct FreeBufferLen(AtomicU64);
+
+impl FreeBufferLen {
+    /// The bit of the u64 with the highest bit of the u16 generation.
+    const HIGHEST_GENERATION_BIT: u64 = 1 << 15;
+    /// The u48 encoded length considers this value to be 0. Lower values are considered negative.
+    const FALSE_ZERO: u64 = ((2 << 48) - 1) - ((2 << 32) - 1);
+
+    /// Gets the current state of the buffer.
+    fn state(&self) -> u64 {
+        self.0.load(Ordering::Acquire)
+    }
+
+    /// Constructs a length of 0.
+    fn new_zero_len() -> Self {
+        Self(AtomicU64::new(Self::FALSE_ZERO << 16))
+    }
+
+    /// Gets the length from a given state. Returns 0 if the length is negative or zero.
+    fn len_from_state(state: u64) -> u32 {
+        let encoded_length = state >> 16;
+        // Since `FALSE_ZERO` only leaves 32 bits of a u48 above it, the len must fit within 32 bits.
+        encoded_length.saturating_sub(Self::FALSE_ZERO) as u32
+    }
+
+    /// Gets the length. Returns 0 if the length is negative or zero.
+    fn len(&self) -> u32 {
+        Self::len_from_state(self.state())
+    }
+
+    /// Returns the number to subtract for subtracting this `num`.
+    fn encode_pop(num: u32) -> u64 {
+        let encoded_diff = (num as u64) << 16;
+        // subtracting 1 will add one to the generation.
+        encoded_diff - 1
+    }
+
+    /// Subtracts `num` from the length, returning the new state.
+    fn pop_from_state(mut state: u64, num: u32) -> u64 {
+        state -= Self::encode_pop(num);
+        // prevent generation overflow
+        state &= !Self::HIGHEST_GENERATION_BIT;
+        state
+    }
+
+    /// Subtracts `num` from the length, returning the previous state.
+    fn pop_for_state(&self, num: u32) -> u64 {
+        let state = self.0.fetch_sub(Self::encode_pop(num), Ordering::AcqRel);
+        // This can be relaxed since it only affects the one bit,
+        // and 2^15 operations would need to happen with with this never being called for an overflow to occor.
+        self.0
+            .fetch_and(!Self::HIGHEST_GENERATION_BIT, Ordering::Relaxed);
+        state
+    }
+
+    /// Subtracts `num` from the length, returning the previous length.
+    fn pop_for_len(&self, num: u32) -> u32 {
+        Self::len_from_state(self.pop_for_state(num))
+    }
+
+    /// Sets the length explicitly.
+    fn set_len(&self, len: u32, recent_state: u64) {
+        let encoded_length = (len as u64 + Self::FALSE_ZERO) << 16;
+        let recent_generation = recent_state & (u16::MAX as u64 & !Self::HIGHEST_GENERATION_BIT);
+        // This effectively adds a 2^14 to the generation, so for recent `recent_state` values, this is very safe.
+        let far_generation = recent_generation ^ (1 << 14);
+        let fully_encoded = encoded_length | far_generation;
+        self.0.store(fully_encoded, Ordering::Release);
+    }
+
+    /// Attempts to update the state, returning the new state if it fails.
+    fn try_set_state(&self, expected_current_state: u64, target_state: u64) -> Result<(), u64> {
+        self.0
+            .compare_exchange(
+                expected_current_state,
+                target_state,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            )
+            .map(|_| ())
+    }
+}
+
 /// This is conceptually like a `Vec<Entity>` that stores entities pending reuse.
 struct FreeBuffer {
     /// The chunks of the free list.
     /// Put end-to-end, these chunks form a list of free entities.
     chunks: [Chunk; Chunk::NUM_CHUNKS as usize],
     /// The length of the free buffer
-    len: AtomicIsize,
+    len: FreeBufferLen,
 }
 
 impl FreeBuffer {
@@ -190,8 +282,8 @@ impl FreeBuffer {
     ///
     /// For this to be accurate, this must not be called during a [`Self::free`].
     #[inline]
-    unsafe fn num_free(&self) -> u64 {
-        self.len.load(Ordering::Relaxed).max(0) as u64
+    unsafe fn num_free(&self) -> u32 {
+        self.len.len()
     }
 
     /// Frees the `entity` allowing it to be reused.
@@ -202,9 +294,10 @@ impl FreeBuffer {
     #[inline]
     unsafe fn free(&self, entity: Entity) {
         // Disable remote allocation. (We could do a compare exchange loop, but this is faster in the common case.)
-        let len = self.len.swap(-1, Ordering::AcqRel).max(0);
+        let state = self.len.pop_for_state(u32::MAX);
+        let len = FreeBufferLen::len_from_state(state);
         // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
-        let (chunk_index, index) = Chunk::get_indices(len as u32);
+        let (chunk_index, index) = Chunk::get_indices(len);
 
         // SAFETY: index is correct.
         let chunk = unsafe { self.chunks.get_unchecked(chunk_index as usize) };
@@ -217,7 +310,7 @@ impl FreeBuffer {
 
         let new_len = len + 1;
         // It doesn't matter when other threads realize remote allocation is enabled again.
-        self.len.store(new_len, Ordering::Relaxed);
+        self.len.set_len(new_len, state);
     }
 
     /// Allocates an [`Entity`] from the free list if one is available.
@@ -228,18 +321,16 @@ impl FreeBuffer {
     #[inline]
     unsafe fn alloc(&self) -> Option<Entity> {
         // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
-        let len = self.len.fetch_sub(1, Ordering::AcqRel);
-        (len > 0).then(|| {
-            let idnex = len - 1;
-            // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
-            let (chunk_index, index) = Chunk::get_indices(idnex as u32);
+        let len = self.len.pop_for_len(1);
+        let index = len.checked_sub(1)?;
+        // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
+        let (chunk_index, index) = Chunk::get_indices(index);
 
-            // SAFETY: index is correct.
-            let chunk = unsafe { self.chunks.get_unchecked(chunk_index as usize) };
+        // SAFETY: index is correct.
+        let chunk = unsafe { self.chunks.get_unchecked(chunk_index as usize) };
 
-            // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
-            unsafe { chunk.get(index) }
-        })
+        // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
+        Some(unsafe { chunk.get(index) })
     }
 
     /// Allocates an as many [`Entity`]s from the free list as are available, up to `count`.
@@ -250,13 +341,12 @@ impl FreeBuffer {
     #[inline]
     unsafe fn alloc_many(&self, count: u32) -> FreeListSliceIterator {
         // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
-        let len = self.len.fetch_sub(count as isize, Ordering::AcqRel);
-        let index = (len - count as isize).max(0);
+        let len = self.len.pop_for_len(count);
+        let index = len.saturating_sub(count);
 
         let indices = if index < len {
-            let end = (len - 1) as u32;
-            let start = index as u32;
-            start..=end
+            let end = len - 1;
+            index..=end
         } else {
             #[expect(
                 clippy::reversed_empty_ranges,
@@ -302,15 +392,13 @@ impl FreeBuffer {
         // The other allocation gets the newly freed one, and we get the previous one.
         // If the `free`s and `alloc`s are not balanced, the exchange will fail, and we try again.
 
-        let mut len = self.len.load(Ordering::Acquire);
+        let mut state = self.len.state();
         loop {
-            if len <= 0 {
-                return None;
-            }
+            let len = FreeBufferLen::len_from_state(state);
+            let index = len.checked_sub(1)?;
 
-            let target_new_len = len - 1;
             // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
-            let (chunk_index, index) = Chunk::get_indices(target_new_len as u32);
+            let (chunk_index, index) = Chunk::get_indices(index);
 
             // SAFETY: index is correct.
             let chunk = unsafe { self.chunks.get_unchecked(chunk_index as usize) };
@@ -318,14 +406,10 @@ impl FreeBuffer {
             // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
             let entity = unsafe { chunk.get(index) };
 
-            match self.len.compare_exchange(
-                len,
-                target_new_len,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
+            let ideal_state = FreeBufferLen::pop_from_state(state, 1);
+            match self.len.try_set_state(state, ideal_state) {
                 Ok(_) => return Some(entity),
-                Err(updated_len) => len = updated_len,
+                Err(new_state) => state = new_state,
             }
         }
     }
@@ -333,7 +417,7 @@ impl FreeBuffer {
     fn new() -> Self {
         Self {
             chunks: core::array::from_fn(|_index| Chunk::new()),
-            len: AtomicIsize::new(0),
+            len: FreeBufferLen::new_zero_len(),
         }
     }
 }
@@ -511,7 +595,7 @@ impl Allocator {
 
     /// The number of free entities.
     #[inline]
-    pub fn num_free(&self) -> u64 {
+    pub fn num_free(&self) -> u32 {
         // SAFETY: `free` is not being called since it takes `&mut self`.
         unsafe { self.shared.free.num_free() }
     }
