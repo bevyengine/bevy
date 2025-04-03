@@ -2920,15 +2920,14 @@ impl World {
     /// If this entity is not in any [`Archetype`](crate::archetype::Archetype), this will flush it to the empty archetype.
     /// Returns `Some` with the new [`EntityLocation`] if the entity is now valid in the empty archetype.
     pub fn flush_entity(&mut self, entity: Entity) -> Option<EntityLocation> {
-        if self.entities.contains(entity) && self.entities.get(entity).is_none() {
-            let empty_archetype = self.archetypes.empty_mut();
-            let table = &mut self.storages.tables[empty_archetype.table_id()];
-            // SAFETY: It's empty so no values need to be written
-            let new_location = unsafe { empty_archetype.allocate(entity, table.allocate(entity)) };
-            Some(new_location)
-        } else {
-            None
+        if !self.entities.contains(entity) || self.entities.get(entity).is_some() {
+            return None;
         }
+        let empty_archetype = self.archetypes.empty_mut();
+        let table = &mut self.storages.tables[empty_archetype.table_id()];
+        // SAFETY: It's empty so no values need to be written
+        let new_location = unsafe { empty_archetype.allocate(entity, table.allocate(entity)) };
+        Some(new_location)
     }
 
     /// Applies any commands in the world's internal [`CommandQueue`].

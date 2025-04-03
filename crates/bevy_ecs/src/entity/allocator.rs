@@ -27,8 +27,14 @@ impl Slot {
         self.entity_index.store(entity.index(), Ordering::Relaxed);
     }
 
+    /// Gets the stored entity.
+    ///
+    /// # Safety
+    ///
+    /// This slot *must* have been [`set`](Self::set) before this.
+    /// Otherwise, the entity may be invalid or meaningless.
     #[inline]
-    fn get_entity(&self) -> Entity {
+    unsafe fn get_entity(&self) -> Entity {
         Entity {
             index: self.entity_index.load(Ordering::Relaxed),
             // SAFETY: This is not 0 since it was from an entity's generation.
@@ -49,11 +55,17 @@ impl Chunk {
     const NUM_CHUNKS: u32 = 24;
     const NUM_SKIPPED: u32 = u32::BITS - Self::NUM_CHUNKS;
 
+    fn new() -> Self {
+        Self {
+            first: AtomicPtr::new(core::ptr::null_mut()),
+        }
+    }
+
     /// Computes the capacity of the chunk at this index within [`Self::NUM_CHUNKS`].
     /// The first 2 have length 512 (2^9) and the last has length (2^31)
     #[inline]
     fn capacity_of_chunk(chunk_index: u32) -> u32 {
-        // We do this because we're skipping the first 8 powers, so we need to make up for them by doubling the first index.
+        // We do this because we're skipping the first `NUM_SKIPPED` powers, so we need to make up for them by doubling the first index.
         // This is why the first 2 indices both have a capacity of 256.
         let corrected = chunk_index.max(1);
         // We add NUM_SKIPPED because the total capacity should be as if [`Self::NUM_CHUNKS`] were 32.
@@ -70,7 +82,7 @@ impl Chunk {
         // So the leading zeros will be proportional to the chunk index.
         let leading = full_idnex
             .leading_zeros()
-            // We do a min because we skip the first 8 powers.
+            // We do a min because we skip the first `NUM_SKIPPED` powers to make space for the first chunk's entity count.
             // The -1 is because this is the number of chunks, but we want the index in the end.
             .min(Self::NUM_CHUNKS - 1);
         // We store chunks in smallest to biggest order, so we need to reverse it.
@@ -94,7 +106,8 @@ impl Chunk {
         // SAFETY: caller ensures we are in bounds (because `set` must be in bounds)
         let target = unsafe { &*head.add(index as usize) };
 
-        target.get_entity()
+        // SAFETY: caller ensures `set` was called.
+        unsafe { target.get_entity() }
     }
 
     /// Gets a slice of indices.
@@ -167,12 +180,6 @@ impl Chunk {
     fn ptr(&self) -> Option<*mut Slot> {
         let ptr = self.first.load(Ordering::Relaxed);
         (!ptr.is_null()).then_some(ptr)
-    }
-
-    fn new() -> Self {
-        Self {
-            first: AtomicPtr::new(core::ptr::null_mut()),
-        }
     }
 }
 
@@ -446,7 +453,10 @@ impl<'a> Iterator for FreeListSliceIterator<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(sliced) = self.current.next() {
-            return Some(sliced.get_entity());
+            // SAFETY: Ensured by constructor
+            unsafe {
+                return Some(sliced.get_entity());
+            }
         }
 
         let next_index = self.indices.next()?;
@@ -459,7 +469,8 @@ impl<'a> Iterator for FreeListSliceIterator<'a> {
         self.indices = (*self.indices.start() + slice.len() as u32 - 1)..=(*self.indices.end());
 
         self.current = slice.iter();
-        Some(self.current.next()?.get_entity())
+        // SAFETY: Ensured by constructor
+        unsafe { Some(self.current.next()?.get_entity()) }
     }
 
     #[inline]
