@@ -675,18 +675,18 @@ mod tests {
     ),
   },
   entities: {
-    4294967296: (
+    8589934591: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    4294967297: (
+    8589934590: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
       },
     ),
-    4294967298: (
+    8589934589: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
