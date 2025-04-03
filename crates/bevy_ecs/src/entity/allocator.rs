@@ -86,7 +86,7 @@ impl Chunk {
 
     /// For this index in the whole buffer, returns the index of the [`Chunk`] and the index within that chunk.
     #[inline]
-    fn get_indices(full_idnex: u32) -> (u32, u32) {
+    fn get_indices(full_index: u32) -> (u32, u32) {
         // We're countint leading zeros since each chunk has power of 2 capacity.
         // So the leading zeros will be proportional to the chunk index.
         let leading = full_idnex
@@ -96,7 +96,7 @@ impl Chunk {
             .min(Self::NUM_CHUNKS - 1);
         // We store chunks in smallest to biggest order, so we need to reverse it.
         let chunk_index = Self::NUM_CHUNKS - 1 - leading;
-        // We only need to cut of this particular bit.
+        // We only need to cut off this particular bit.
         // The capacity is only one bit, and if other bits needed to be dropped, `leading` would have been greater
         let slice_index = full_idnex & !Self::capacity_of_chunk(chunk_index);
 
