@@ -97,15 +97,15 @@ pub trait Enum: PartialReflect {
     /// Returns a reference to the value of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
-    fn field(&self, name: &str) -> Option<&dyn PartialReflect>;
+    fn field(&self, name: &str) -> Option<&(dyn PartialReflect + Send + Sync)>;
     /// Returns a reference to the value of the field (in the current variant) at the given index.
-    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect>;
+    fn field_at(&self, index: usize) -> Option<&(dyn PartialReflect + Send + Sync)>;
     /// Returns a mutable reference to the value of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect>;
+    fn field_mut(&mut self, name: &str) -> Option<&mut (dyn PartialReflect + Send + Sync)>;
     /// Returns a mutable reference to the value of the field (in the current variant) at the given index.
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
+    fn field_at_mut(&mut self, index: usize) -> Option<&mut (dyn PartialReflect + Send + Sync)>;
     /// Returns the index of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
@@ -301,8 +301,8 @@ impl<'a> Iterator for VariantFieldIter<'a> {
 impl<'a> ExactSizeIterator for VariantFieldIter<'a> {}
 
 pub enum VariantField<'a> {
-    Struct(&'a str, &'a dyn PartialReflect),
-    Tuple(&'a dyn PartialReflect),
+    Struct(&'a str, &'a (dyn PartialReflect + Send + Sync)),
+    Tuple(&'a (dyn PartialReflect + Send + Sync)),
 }
 
 impl<'a> VariantField<'a> {
@@ -314,7 +314,7 @@ impl<'a> VariantField<'a> {
         }
     }
 
-    pub fn value(&self) -> &'a dyn PartialReflect {
+    pub fn value(&self) -> &'a (dyn PartialReflect + Send + Sync) {
         match *self {
             Self::Struct(_, value) | Self::Tuple(value) => value,
         }

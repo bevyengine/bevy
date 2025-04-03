@@ -58,7 +58,8 @@ fn main() {
     // We can also get attribute data dynamically:
     let some_type_id = TypeId::of::<Tooltip>();
 
-    let tooltip: &dyn Reflect = type_info.get_attribute_by_id(some_type_id).unwrap();
+    let tooltip: &(dyn Reflect + Send + Sync) =
+        type_info.get_attribute_by_id(some_type_id).unwrap();
     assert_eq!(
         tooltip.downcast_ref::<Tooltip>(),
         Some(&Tooltip::new("An ID is required!"))

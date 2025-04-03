@@ -10,34 +10,34 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.85.0"
+rust-version = "1.86.0"
 
 [workspace]
 resolver = "2"
 members = [
-  # All of Bevy's official crates are within the `crates` folder!
-  "crates/*",
-  # Several crates with macros have "compile fail" tests nested inside them, also known as UI
-  # tests, that verify diagnostic output does not accidentally change.
-  # TODO: Use a glob pattern once they are fixed in `dependabot-core`
-  # TODO: See https://github.com/bevyengine/bevy/issues/17876 for context.
-  "crates/bevy_derive/compile_fail",
-  "crates/bevy_ecs/compile_fail",
-  "crates/bevy_reflect/compile_fail",
-  # Examples of compiling Bevy for mobile platforms.
-  "examples/mobile",
-  # Examples of using Bevy on no_std platforms.
-  "examples/no_std/*",
-  # Benchmarks
-  "benches",
-  # Internal tools that are not published.
-  "tools/*",
-  # Bevy's error codes. This is a crate so we can automatically check all of the code blocks.
-  "errors",
+	# All of Bevy's official crates are within the `crates` folder!
+	"crates/*",
+	# Several crates with macros have "compile fail" tests nested inside them, also known as UI
+	# tests, that verify diagnostic output does not accidentally change.
+	# TODO: Use a glob pattern once they are fixed in `dependabot-core`
+	# TODO: See https://github.com/bevyengine/bevy/issues/17876 for context.
+	"crates/bevy_derive/compile_fail",
+	"crates/bevy_ecs/compile_fail",
+	"crates/bevy_reflect/compile_fail",
+	# Examples of compiling Bevy for mobile platforms.
+	"examples/mobile",
+	# Examples of using Bevy on no_std platforms.
+	"examples/no_std/*",
+	# Benchmarks
+	"benches",
+	# Internal tools that are not published.
+	"tools/*",
+	# Bevy's error codes. This is a crate so we can automatically check all of the code blocks.
+	"errors",
 ]
 exclude = [
-  # Integration tests are not part of the workspace
-  "tests-integration",
+	# Integration tests are not part of the workspace
+	"tests-integration",
 ]
 
 [workspace.lints.clippy]
@@ -124,45 +124,45 @@ unused_qualifications = "warn"
 
 [features]
 default = [
-  "std",
-  "async_executor",
-  "android-game-activity",
-  "android_shared_stdcxx",
-  "animation",
-  "bevy_asset",
-  "bevy_audio",
-  "bevy_color",
-  "bevy_core_pipeline",
-  "bevy_anti_aliasing",
-  "bevy_gilrs",
-  "bevy_gizmos",
-  "bevy_gltf",
-  "bevy_input_focus",
-  "bevy_log",
-  "bevy_mesh_picking_backend",
-  "bevy_pbr",
-  "bevy_picking",
-  "bevy_render",
-  "bevy_scene",
-  "bevy_sprite",
-  "bevy_sprite_picking_backend",
-  "bevy_state",
-  "bevy_text",
-  "bevy_ui",
-  "bevy_ui_picking_backend",
-  "bevy_window",
-  "bevy_winit",
-  "custom_cursor",
-  "default_font",
-  "hdr",
-  "multi_threaded",
-  "png",
-  "smaa_luts",
-  "sysinfo_plugin",
-  "tonemapping_luts",
-  "vorbis",
-  "webgl2",
-  "x11",
+	"std",
+	"async_executor",
+	"android-game-activity",
+	"android_shared_stdcxx",
+	"animation",
+	"bevy_asset",
+	"bevy_audio",
+	"bevy_color",
+	"bevy_core_pipeline",
+	"bevy_anti_aliasing",
+	"bevy_gilrs",
+	"bevy_gizmos",
+	"bevy_gltf",
+	"bevy_input_focus",
+	"bevy_log",
+	"bevy_mesh_picking_backend",
+	"bevy_pbr",
+	"bevy_picking",
+	"bevy_render",
+	"bevy_scene",
+	"bevy_sprite",
+	"bevy_sprite_picking_backend",
+	"bevy_state",
+	"bevy_text",
+	"bevy_ui",
+	"bevy_ui_picking_backend",
+	"bevy_window",
+	"bevy_winit",
+	"custom_cursor",
+	"default_font",
+	"hdr",
+	"multi_threaded",
+	"png",
+	"smaa_luts",
+	"sysinfo_plugin",
+	"tonemapping_luts",
+	"vorbis",
+	"webgl2",
+	"x11",
 ]
 
 # Recommended defaults for no_std applications
@@ -170,20 +170,20 @@ default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 
 # Provides an implementation for picking meshes
 bevy_mesh_picking_backend = [
-  "bevy_picking",
-  "bevy_internal/bevy_mesh_picking_backend",
+	"bevy_picking",
+	"bevy_internal/bevy_mesh_picking_backend",
 ]
 
 # Provides an implementation for picking sprites
 bevy_sprite_picking_backend = [
-  "bevy_picking",
-  "bevy_internal/bevy_sprite_picking_backend",
+	"bevy_picking",
+	"bevy_internal/bevy_sprite_picking_backend",
 ]
 
 # Provides an implementation for picking UI
 bevy_ui_picking_backend = [
-  "bevy_picking",
-  "bevy_internal/bevy_ui_picking_backend",
+	"bevy_picking",
+	"bevy_internal/bevy_ui_picking_backend",
 ]
 
 # Provides a debug overlay for bevy UI
@@ -209,16 +209,16 @@ bevy_color = ["bevy_internal/bevy_color"]
 
 # Provides cameras and other basic render pipeline features
 bevy_core_pipeline = [
-  "bevy_internal/bevy_core_pipeline",
-  "bevy_asset",
-  "bevy_render",
+	"bevy_internal/bevy_core_pipeline",
+	"bevy_asset",
+	"bevy_render",
 ]
 
 # Provides various anti aliasing solutions
 bevy_anti_aliasing = [
-  "bevy_internal/bevy_anti_aliasing",
-  "bevy_asset",
-  "bevy_render",
+	"bevy_internal/bevy_anti_aliasing",
+	"bevy_asset",
+	"bevy_render",
 ]
 
 # Adds gamepad support
@@ -229,11 +229,11 @@ bevy_gltf = ["bevy_internal/bevy_gltf", "bevy_asset", "bevy_scene", "bevy_pbr"]
 
 # Adds PBR rendering
 bevy_pbr = [
-  "bevy_internal/bevy_pbr",
-  "bevy_asset",
-  "bevy_render",
-  "bevy_core_pipeline",
-  "bevy_anti_aliasing",
+	"bevy_internal/bevy_pbr",
+	"bevy_asset",
+	"bevy_render",
+	"bevy_core_pipeline",
+	"bevy_anti_aliasing",
 ]
 
 # Provides picking functionality
@@ -247,11 +247,11 @@ bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 
 # Provides sprite functionality
 bevy_sprite = [
-  "bevy_internal/bevy_sprite",
-  "bevy_render",
-  "bevy_core_pipeline",
-  "bevy_color",
-  "bevy_anti_aliasing",
+	"bevy_internal/bevy_sprite",
+	"bevy_render",
+	"bevy_core_pipeline",
+	"bevy_color",
+	"bevy_anti_aliasing",
 ]
 
 # Provides text functionality
@@ -259,12 +259,12 @@ bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
 
 # A custom ECS-driven UI framework
 bevy_ui = [
-  "bevy_internal/bevy_ui",
-  "bevy_core_pipeline",
-  "bevy_text",
-  "bevy_sprite",
-  "bevy_color",
-  "bevy_anti_aliasing",
+	"bevy_internal/bevy_ui",
+	"bevy_core_pipeline",
+	"bevy_text",
+	"bevy_sprite",
+	"bevy_color",
+	"bevy_anti_aliasing",
 ]
 
 # Windowing layer
@@ -308,9 +308,9 @@ trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 
 # Tracing support, with memory profiling, exposing a port for Tracy
 trace_tracy_memory = [
-  "trace",
-  "bevy_internal/trace_tracy",
-  "bevy_internal/trace_tracy_memory",
+	"trace",
+	"bevy_internal/trace_tracy",
+	"bevy_internal/trace_tracy_memory",
 ]
 
 # Tracing support
@@ -468,7 +468,7 @@ pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 
 # Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_multi_layer_material_textures = [
-  "bevy_internal/pbr_multi_layer_material_textures",
+	"bevy_internal/pbr_multi_layer_material_textures",
 ]
 
 # Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
@@ -1367,17 +1367,17 @@ description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
 wasm = false
 setup = [
-  [
-    "mkdir",
-    "-p",
-    "assets/external/models",
-  ],
-  [
-    "curl",
-    "-o",
-    "assets/external/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/7a7c14138021f63904b584d5f7b73b695c7f4bbf/bunny.meshlet_mesh",
-  ],
+	[
+		"mkdir",
+		"-p",
+		"assets/external/models",
+	],
+	[
+		"curl",
+		"-o",
+		"assets/external/models/bunny.meshlet_mesh",
+		"https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/7a7c14138021f63904b584d5f7b73b695c7f4bbf/bunny.meshlet_mesh",
+	],
 ]
 
 [[example]]
@@ -4183,13 +4183,13 @@ panic = "abort"
 # with `--cfg docsrs` (and thus fail to compile) we use a different cfg.
 rustc-args = ["--cfg", "docsrs_dep"]
 rustdoc-args = [
-  "-Zunstable-options",
-  "--generate-link-to-definition",
-  # Embed tags to the top of documentation pages for common Bevy traits
-  # that are implemented by the current type, like `Component` or `Resource`.
-  # This makes it easier to see at a glance what types are used for.
-  "--html-after-content",
-  "docs-rs/trait-tags.html",
+	"-Zunstable-options",
+	"--generate-link-to-definition",
+	# Embed tags to the top of documentation pages for common Bevy traits
+	# that are implemented by the current type, like `Component` or `Resource`.
+	# This makes it easier to see at a glance what types are used for.
+	"--html-after-content",
+	"docs-rs/trait-tags.html",
 ]
 all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]

@@ -54,7 +54,7 @@ fn main() {
 
     // The `Return` value can be pattern matched or unwrapped to get the underlying reflection data.
     // For the sake of brevity, we'll just unwrap it here and downcast it to the expected type of `i32`.
-    let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
+    let value: Box<dyn PartialReflect + Send + Sync> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<i32>().unwrap(), 4);
 
     // The same can also be done for closures that capture references to their environment.
@@ -66,7 +66,7 @@ fn main() {
     let function: DynamicFunction = dbg!(clamp.into_function());
     let args = dbg!(ArgList::new().with_owned(2_i32));
     let return_value = dbg!(function.call(args).unwrap());
-    let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
+    let value: Box<dyn PartialReflect + Send + Sync> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<i32>().unwrap(), 5);
 
     // We can also handle closures that capture their environment mutably
@@ -94,7 +94,7 @@ fn main() {
 
     let args = ArgList::new().with_owned(123_i32);
     let return_value = function.call(args).unwrap();
-    let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
+    let value: Box<dyn PartialReflect + Send + Sync> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<String>().unwrap(), "123");
 
     // To make things a little easier, we can also "overload" functions.
@@ -108,7 +108,7 @@ fn main() {
     // Now our `function` accepts both `i32` and `f32` arguments.
     let args = ArgList::new().with_owned(1.23_f32);
     let return_value = function.call(args).unwrap();
-    let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
+    let value: Box<dyn PartialReflect + Send + Sync> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<String>().unwrap(), "1.23");
 
     // Function overloading even allows us to have a variable number of arguments.
@@ -123,7 +123,7 @@ fn main() {
         .with_owned(2_i32)
         .with_owned(3_i32);
     let return_value = function.call(args).unwrap();
-    let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
+    let value: Box<dyn PartialReflect + Send + Sync> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<i32>().unwrap(), 6);
 
     // As stated earlier, `IntoFunction` works for many kinds of simple functions.
@@ -158,7 +158,7 @@ fn main() {
     let get_value = dbg!(Data::get_value.into_function());
     let args = dbg!(ArgList::new().with_ref(&data));
     let return_value = dbg!(get_value.call(args).unwrap());
-    let value: &dyn PartialReflect = return_value.unwrap_ref();
+    let value: &(dyn PartialReflect + Send + Sync) = return_value.unwrap_ref();
     assert_eq!(value.try_downcast_ref::<String>().unwrap(), "Hello, world!");
 
     // For more complex use cases, you can always create a custom `DynamicFunction` manually.

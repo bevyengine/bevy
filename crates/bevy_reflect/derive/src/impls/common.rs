@@ -55,26 +55,26 @@ pub fn impl_full_reflect(
             #any_impls
 
             #[inline]
-            fn into_reflect(self: #bevy_reflect_path::__macro_exports::alloc_utils::Box<Self>) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect> {
+            fn into_reflect(self: #bevy_reflect_path::__macro_exports::alloc_utils::Box<Self>) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect + Send + Sync> {
                 self
             }
 
             #[inline]
-            fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
+            fn as_reflect(&self) -> &(dyn #bevy_reflect_path::Reflect + Send + Sync) {
                 self
             }
 
             #[inline]
-            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
+            fn as_reflect_mut(&mut self) -> &mut (dyn #bevy_reflect_path::Reflect + Send + Sync) {
                 self
             }
 
             #[inline]
             fn set(
                 &mut self,
-                value: #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>
-            ) -> #FQResult<(), #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>> {
-                *self = <dyn #bevy_reflect_path::Reflect>::take(value)?;
+                value: #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect + Send + Sync>
+            ) -> #FQResult<(), #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect + Send + Sync>> {
+                *self = <dyn #bevy_reflect_path::Reflect + Send + Sync>::take(value)?;
                 #FQResult::Ok(())
             }
         }
@@ -96,7 +96,7 @@ pub fn common_partial_reflect_methods(
             let default_delegate = default_partial_eq_delegate();
             default_delegate.map(|func| {
                 quote! {
-                    fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<bool> {
+                    fn reflect_partial_eq(&self, value: &(dyn #bevy_reflect_path::PartialReflect + Send + Sync)) -> #FQOption<bool> {
                         (#func)(self, value)
                     }
                 }
@@ -120,32 +120,32 @@ pub fn common_partial_reflect_methods(
         #[inline]
         fn try_into_reflect(
             self: #bevy_reflect_path::__macro_exports::alloc_utils::Box<Self>
-        ) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect>> {
+        ) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect + Send + Sync>, #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect + Send + Sync>> {
             #FQResult::Ok(self)
         }
 
         #[inline]
-        fn try_as_reflect(&self) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
+        fn try_as_reflect(&self) -> #FQOption<&(dyn #bevy_reflect_path::Reflect + Send + Sync)> {
             #FQOption::Some(self)
         }
 
         #[inline]
-        fn try_as_reflect_mut(&mut self) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
+        fn try_as_reflect_mut(&mut self) -> #FQOption<&mut (dyn #bevy_reflect_path::Reflect + Send + Sync)> {
             #FQOption::Some(self)
         }
 
         #[inline]
-        fn into_partial_reflect(self: #bevy_reflect_path::__macro_exports::alloc_utils::Box<Self>) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect> {
+        fn into_partial_reflect(self: #bevy_reflect_path::__macro_exports::alloc_utils::Box<Self>) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect + Send + Sync> {
             self
         }
 
         #[inline]
-        fn as_partial_reflect(&self) -> &dyn #bevy_reflect_path::PartialReflect {
+        fn as_partial_reflect(&self) -> &(dyn #bevy_reflect_path::PartialReflect + Send + Sync) {
             self
         }
 
         #[inline]
-        fn as_partial_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::PartialReflect {
+        fn as_partial_reflect_mut(&mut self) -> &mut (dyn #bevy_reflect_path::PartialReflect + Send + Sync) {
             self
         }
 

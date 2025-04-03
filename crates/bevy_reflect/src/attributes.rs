@@ -42,7 +42,7 @@ impl CustomAttributes {
     /// Inserts a custom attribute into the collection.
     ///
     /// Note that this will overwrite any existing attribute of the same type.
-    pub fn with_attribute<T: Reflect>(mut self, value: T) -> Self {
+    pub fn with_attribute<T: Reflect + Send + Sync + Send + Sync>(mut self, value: T) -> Self {
         self.attributes
             .insert(TypeId::of::<T>(), CustomAttribute::new(value));
 
@@ -50,7 +50,7 @@ impl CustomAttributes {
     }
 
     /// Returns `true` if this collection contains a custom attribute of the specified type.
-    pub fn contains<T: Reflect>(&self) -> bool {
+    pub fn contains<T: Reflect + Send + Sync + Send + Sync>(&self) -> bool {
         self.attributes.contains_key(&TypeId::of::<T>())
     }
 
@@ -60,17 +60,17 @@ impl CustomAttributes {
     }
 
     /// Gets a custom attribute by type.
-    pub fn get<T: Reflect>(&self) -> Option<&T> {
+    pub fn get<T: Reflect + Send + Sync + Send + Sync>(&self) -> Option<&T> {
         self.attributes.get(&TypeId::of::<T>())?.value::<T>()
     }
 
     /// Gets a custom attribute by its [`TypeId`].
-    pub fn get_by_id(&self, id: TypeId) -> Option<&dyn Reflect> {
+    pub fn get_by_id(&self, id: TypeId) -> Option<&(dyn Reflect + Send + Sync)> {
         Some(self.attributes.get(&id)?.reflect_value())
     }
 
     /// Returns an iterator over all custom attributes.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&TypeId, &dyn Reflect)> {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&TypeId, &(dyn Reflect + Send + Sync))> {
         self.attributes
             .iter()
             .map(|(key, value)| (key, value.reflect_value()))
@@ -94,21 +94,21 @@ impl Debug for CustomAttributes {
 }
 
 struct CustomAttribute {
-    value: Box<dyn Reflect>,
+    value: Box<dyn Reflect + Send + Sync>,
 }
 
 impl CustomAttribute {
-    pub fn new<T: Reflect>(value: T) -> Self {
+    pub fn new<T: Reflect + Send + Sync + Send + Sync>(value: T) -> Self {
         Self {
             value: Box::new(value),
         }
     }
 
-    pub fn value<T: Reflect>(&self) -> Option<&T> {
+    pub fn value<T: Reflect + Send + Sync + Send + Sync>(&self) -> Option<&T> {
         self.value.downcast_ref()
     }
 
-    pub fn reflect_value(&self) -> &dyn Reflect {
+    pub fn reflect_value(&self) -> &(dyn Reflect + Send + Sync) {
         &*self.value
     }
 }
@@ -124,9 +124,9 @@ impl Debug for CustomAttribute {
 /// Implements the following methods:
 ///
 /// * `fn custom_attributes(&self) -> &CustomAttributes`
-/// * `fn get_attribute<T: Reflect>(&self) -> Option<&T>`
-/// * `fn get_attribute_by_id(&self, id: TypeId) -> Option<&dyn Reflect>`
-/// * `fn has_attribute<T: Reflect>(&self) -> bool`
+/// * `fn get_attribute<T: Reflect + Send + Sync + Send + Sync>(&self) -> Option<&T>`
+/// * `fn get_attribute_by_id(&self, id: TypeId) -> Option<&(dyn Reflect + Send + Sync)>`
+/// * `fn has_attribute<T: Reflect + Send + Sync + Send + Sync>(&self) -> bool`
 /// * `fn has_attribute_by_id(&self, id: TypeId) -> bool`
 ///
 /// # Params
@@ -148,20 +148,20 @@ macro_rules! impl_custom_attribute_methods {
         /// Gets a custom attribute by type.
         ///
         /// For dynamically accessing an attribute, see [`get_attribute_by_id`](Self::get_attribute_by_id).
-        pub fn get_attribute<T: $crate::Reflect>(&$self) -> Option<&T> {
+        pub fn get_attribute<T: $crate::Reflect + Send + Sync>(&$self) -> Option<&T> {
             $self.custom_attributes().get::<T>()
         }
 
         /// Gets a custom attribute by its [`TypeId`](core::any::TypeId).
         ///
         /// This is the dynamic equivalent of [`get_attribute`](Self::get_attribute).
-        pub fn get_attribute_by_id(&$self, id: ::core::any::TypeId) -> Option<&dyn $crate::Reflect> {
+        pub fn get_attribute_by_id(&$self, id: ::core::any::TypeId) -> Option<&(dyn $crate::Reflect + Send + Sync)> {
             $self.custom_attributes().get_by_id(id)
         }
 
         #[doc = concat!("Returns `true` if this ", $term, " has a custom attribute of the specified type.")]
         #[doc = "\n\nFor dynamically checking if an attribute exists, see [`has_attribute_by_id`](Self::has_attribute_by_id)."]
-        pub fn has_attribute<T: $crate::Reflect>(&$self) -> bool {
+        pub fn has_attribute<T: $crate::Reflect + Send + Sync>(&$self) -> bool {
             $self.custom_attributes().contains::<T>()
         }
 

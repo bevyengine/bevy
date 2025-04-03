@@ -9,9 +9,9 @@ use bevy_reflect::{PartialReflect, ReflectFromReflect, TypeRegistration};
 /// This helps ensure that the original type and type data is retained,
 /// and only returning a dynamic type if all other methods fail.
 pub(super) fn clone_reflect_value(
-    value: &dyn PartialReflect,
+    value: &(dyn PartialReflect + Send + Sync),
     type_registration: &TypeRegistration,
-) -> Box<dyn PartialReflect> {
+) -> Box<dyn PartialReflect + Send + Sync> {
     value
         .reflect_clone()
         .map(PartialReflect::into_partial_reflect)

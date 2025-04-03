@@ -84,7 +84,7 @@ use crate::{PartialReflect, TypeRegistry};
 /// impl ReflectSerializerProcessor for HandleProcessor {
 ///     fn try_serialize<S>(
 ///         &self,
-///         value: &dyn PartialReflect,
+///         value: &(dyn PartialReflect + Send + Sync),
 ///         registry: &TypeRegistry,
 ///         serializer: S,
 ///     ) -> Result<Result<S::Ok, S>, S::Error>
@@ -151,7 +151,7 @@ pub trait ReflectSerializerProcessor {
     /// impl ReflectSerializerProcessor for I32AsStringProcessor {
     ///     fn try_serialize<S>(
     ///         &self,
-    ///         value: &dyn PartialReflect,
+    ///         value: &(dyn PartialReflect + Send + Sync),
     ///         registry: &TypeRegistry,
     ///         serializer: S,
     ///     ) -> Result<Result<S::Ok, S>, S::Error>
@@ -173,7 +173,7 @@ pub trait ReflectSerializerProcessor {
     /// [`Reflect`]: crate::Reflect
     fn try_serialize<S>(
         &self,
-        value: &dyn PartialReflect,
+        value: &(dyn PartialReflect + Send + Sync),
         registry: &TypeRegistry,
         serializer: S,
     ) -> Result<Result<S::Ok, S>, S::Error>
@@ -184,7 +184,7 @@ pub trait ReflectSerializerProcessor {
 impl ReflectSerializerProcessor for () {
     fn try_serialize<S>(
         &self,
-        _value: &dyn PartialReflect,
+        _value: &(dyn PartialReflect + Send + Sync),
         _registry: &TypeRegistry,
         serializer: S,
     ) -> Result<Result<S::Ok, S>, S::Error>

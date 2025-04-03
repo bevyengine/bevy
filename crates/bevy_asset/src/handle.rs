@@ -691,8 +691,9 @@ mod tests {
                     "Inserting the asset should result in a strong count of 1"
                 );
 
-                let reflected: &dyn Reflect = &handle;
-                let _cloned_handle: Box<dyn Reflect> = reflected.reflect_clone().unwrap();
+                let reflected: &(dyn Reflect + Send + Sync) = &handle;
+                let _cloned_handle: Box<dyn Reflect + Send + Sync> =
+                    reflected.reflect_clone().unwrap();
 
                 assert_eq!(
                     Arc::strong_count(strong),
@@ -700,7 +701,7 @@ mod tests {
                     "Cloning the handle with reflect should increase the strong count to 2"
                 );
 
-                let dynamic_handle: Box<dyn PartialReflect> = reflected.to_dynamic();
+                let dynamic_handle: Box<dyn PartialReflect + Send + Sync> = reflected.to_dynamic();
 
                 assert_eq!(
                     Arc::strong_count(strong),

@@ -52,9 +52,9 @@ impl<'a> Access<'a> {
 
     pub(super) fn element<'r>(
         &self,
-        base: &'r dyn PartialReflect,
+        base: &'r (dyn PartialReflect + Send + Sync),
         offset: Option<usize>,
-    ) -> Result<&'r dyn PartialReflect, AccessError<'a>> {
+    ) -> Result<&'r (dyn PartialReflect + Send + Sync), AccessError<'a>> {
         self.element_inner(base)
             .and_then(|opt| opt.ok_or(AccessErrorKind::MissingField(base.reflect_kind())))
             .map_err(|err| err.with_access(self.clone(), offset))
@@ -62,8 +62,8 @@ impl<'a> Access<'a> {
 
     fn element_inner<'r>(
         &self,
-        base: &'r dyn PartialReflect,
-    ) -> InnerResult<Option<&'r dyn PartialReflect>> {
+        base: &'r (dyn PartialReflect + Send + Sync),
+    ) -> InnerResult<Option<&'r (dyn PartialReflect + Send + Sync)>> {
         use ReflectRef::*;
 
         let invalid_variant =
@@ -109,9 +109,9 @@ impl<'a> Access<'a> {
 
     pub(super) fn element_mut<'r>(
         &self,
-        base: &'r mut dyn PartialReflect,
+        base: &'r mut (dyn PartialReflect + Send + Sync),
         offset: Option<usize>,
-    ) -> Result<&'r mut dyn PartialReflect, AccessError<'a>> {
+    ) -> Result<&'r mut (dyn PartialReflect + Send + Sync), AccessError<'a>> {
         let kind = base.reflect_kind();
 
         self.element_inner_mut(base)
@@ -121,8 +121,8 @@ impl<'a> Access<'a> {
 
     fn element_inner_mut<'r>(
         &self,
-        base: &'r mut dyn PartialReflect,
-    ) -> InnerResult<Option<&'r mut dyn PartialReflect>> {
+        base: &'r mut (dyn PartialReflect + Send + Sync),
+    ) -> InnerResult<Option<&'r mut (dyn PartialReflect + Send + Sync)>> {
         use ReflectMut::*;
 
         let invalid_variant =

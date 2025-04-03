@@ -78,13 +78,13 @@ mod sealed {
 /// # }
 /// # impl PartialReflect for Foo {
 /// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
-/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
-/// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { todo!() }
-/// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
-/// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> { todo!() }
-/// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
-/// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
-/// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
+/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect + Send + Sync> { todo!() }
+/// #     fn as_partial_reflect(&self) -> &(dyn PartialReflect + Send + Sync) { todo!() }
+/// #     fn as_partial_reflect_mut(&mut self) -> &mut (dyn PartialReflect + Send + Sync) { todo!() }
+/// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> { todo!() }
+/// #     fn try_as_reflect(&self) -> Option<&(dyn Reflect + Send + Sync)> { todo!() }
+/// #     fn try_as_reflect_mut(&mut self) -> Option<&mut (dyn Reflect + Send + Sync)> { todo!() }
+/// #     fn try_apply(&mut self, value: &(dyn PartialReflect + Send + Sync)) -> Result<(), ApplyError> { todo!() }
 /// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
@@ -93,10 +93,10 @@ mod sealed {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
 /// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
-/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
-/// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
-/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
+/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect + Send + Sync> { todo!() }
+/// #     fn as_reflect(&self) -> &(dyn Reflect + Send + Sync) { todo!() }
+/// #     fn as_reflect_mut(&mut self) -> &mut (dyn Reflect + Send + Sync) { todo!() }
+/// #     fn set(&mut self, value: Box<dyn Reflect + Send + Sync>) -> Result<(), Box<dyn Reflect + Send + Sync>> { todo!() }
 /// # }
 /// ```
 ///
@@ -106,7 +106,7 @@ pub struct NonGenericTypeCell<T: TypedProperty>(OnceLock<T::Stored>);
 /// See [`NonGenericTypeCell`].
 pub type NonGenericTypeInfoCell = NonGenericTypeCell<TypeInfo>;
 
-impl<T: TypedProperty> NonGenericTypeCell<T> {
+impl<T: TypedProperty + Send + Sync> NonGenericTypeCell<T> {
     /// Initialize a [`NonGenericTypeCell`] for non-generic types.
     pub const fn new() -> Self {
         Self(OnceLock::new())
@@ -123,7 +123,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
     }
 }
 
-impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
+impl<T: TypedProperty + Send + Sync> Default for NonGenericTypeCell<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -148,7 +148,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///
 /// struct Foo<T>(T);
 ///
-/// impl<T: Reflect + Typed + TypePath> Typed for Foo<T> {
+/// impl<T: Reflect + Send + Sync + Typed + TypePath> Typed for Foo<T> {
 ///     fn type_info() -> &'static TypeInfo {
 ///         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
@@ -163,27 +163,27 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn type_path() -> &'static str { todo!() }
 /// #     fn short_type_path() -> &'static str { todo!() }
 /// # }
-/// # impl<T: PartialReflect + TypePath> PartialReflect for Foo<T> {
+/// # impl<T: PartialReflect + Send + Sync + TypePath> PartialReflect for Foo<T> {
 /// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
-/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
-/// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { todo!() }
-/// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
-/// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> { todo!() }
-/// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
-/// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
-/// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
+/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect + Send + Sync> { todo!() }
+/// #     fn as_partial_reflect(&self) -> &(dyn PartialReflect + Send + Sync) { todo!() }
+/// #     fn as_partial_reflect_mut(&mut self) -> &mut (dyn PartialReflect + Send + Sync) { todo!() }
+/// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> { todo!() }
+/// #     fn try_as_reflect(&self) -> Option<&(dyn Reflect + Send + Sync)> { todo!() }
+/// #     fn try_as_reflect_mut(&mut self) -> Option<&mut (dyn Reflect + Send + Sync)> { todo!() }
+/// #     fn try_apply(&mut self, value: &(dyn PartialReflect + Send + Sync)) -> Result<(), ApplyError> { todo!() }
 /// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// # }
-/// # impl<T: Reflect + Typed + TypePath> Reflect for Foo<T> {
+/// # impl<T: Reflect + Send + Sync + Typed + TypePath> Reflect for Foo<T> {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
 /// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
-/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
-/// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
-/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
+/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect + Send + Sync> { todo!() }
+/// #     fn as_reflect(&self) -> &(dyn Reflect + Send + Sync) { todo!() }
+/// #     fn as_reflect_mut(&mut self) -> &mut (dyn Reflect + Send + Sync) { todo!() }
+/// #     fn set(&mut self, value: Box<dyn Reflect + Send + Sync>) -> Result<(), Box<dyn Reflect + Send + Sync>> { todo!() }
 /// # }
 /// ```
 ///
@@ -201,7 +201,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| format!("my_crate::foo::Foo<{}>", T::type_path()))
 ///     }
-///     
+///
 ///     fn short_type_path() -> &'static str {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| format!("Foo<{}>", T::short_type_path()))

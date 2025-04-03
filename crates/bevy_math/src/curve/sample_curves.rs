@@ -384,9 +384,12 @@ mod tests {
 
         let samples = [0.0, 1.0, 2.0];
 
-        let _: Box<dyn Reflect> = Box::new(SampleCurve::new(Interval::UNIT, samples, foo).unwrap());
-        let _: Box<dyn Reflect> = Box::new(SampleCurve::new(Interval::UNIT, samples, bar).unwrap());
-        let _: Box<dyn Reflect> = Box::new(SampleCurve::new(Interval::UNIT, samples, baz).unwrap());
+        let _: Box<dyn Reflect + Send + Sync> =
+            Box::new(SampleCurve::new(Interval::UNIT, samples, foo).unwrap());
+        let _: Box<dyn Reflect + Send + Sync> =
+            Box::new(SampleCurve::new(Interval::UNIT, samples, bar).unwrap());
+        let _: Box<dyn Reflect + Send + Sync> =
+            Box::new(SampleCurve::new(Interval::UNIT, samples, baz).unwrap());
     }
 
     #[test]
@@ -399,8 +402,11 @@ mod tests {
 
         let keyframes = [(0.0, 1.0), (1.0, 0.0), (2.0, -1.0)];
 
-        let _: Box<dyn Reflect> = Box::new(UnevenSampleCurve::new(keyframes, foo).unwrap());
-        let _: Box<dyn Reflect> = Box::new(UnevenSampleCurve::new(keyframes, bar).unwrap());
-        let _: Box<dyn Reflect> = Box::new(UnevenSampleCurve::new(keyframes, baz).unwrap());
+        let _: Box<dyn Reflect + Send + Sync> =
+            Box::new(UnevenSampleCurve::new(keyframes, foo).unwrap());
+        let _: Box<dyn Reflect + Send + Sync> =
+            Box::new(UnevenSampleCurve::new(keyframes, bar).unwrap());
+        let _: Box<dyn Reflect + Send + Sync> =
+            Box::new(UnevenSampleCurve::new(keyframes, baz).unwrap());
     }
 }

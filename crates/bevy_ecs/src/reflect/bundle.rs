@@ -33,13 +33,13 @@ pub struct ReflectBundle(ReflectBundleFns);
 #[derive(Clone)]
 pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::insert`].
-    pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
+    pub insert: fn(&mut EntityWorldMut, &(dyn PartialReflect + Send + Sync), &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply`].
-    pub apply: fn(EntityMut, &dyn PartialReflect, &TypeRegistry),
+    pub apply: fn(EntityMut, &(dyn PartialReflect + Send + Sync), &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply_or_insert_mapped`].
     pub apply_or_insert_mapped: fn(
         &mut EntityWorldMut,
-        &dyn PartialReflect,
+        &(dyn PartialReflect + Send + Sync),
         &TypeRegistry,
         &mut dyn EntityMapper,
         RelationshipHookMode,
@@ -47,7 +47,7 @@ pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::remove`].
     pub remove: fn(&mut EntityWorldMut),
     /// Function pointer implementing [`ReflectBundle::take`].
-    pub take: fn(&mut EntityWorldMut) -> Option<Box<dyn Reflect>>,
+    pub take: fn(&mut EntityWorldMut) -> Option<Box<dyn Reflect + Send + Sync>>,
 }
 
 impl ReflectBundleFns {
@@ -66,7 +66,7 @@ impl ReflectBundle {
     pub fn insert(
         &self,
         entity: &mut EntityWorldMut,
-        bundle: &dyn PartialReflect,
+        bundle: &(dyn PartialReflect + Send + Sync),
         registry: &TypeRegistry,
     ) {
         (self.0.insert)(entity, bundle, registry);
@@ -80,7 +80,7 @@ impl ReflectBundle {
     pub fn apply<'a>(
         &self,
         entity: impl Into<EntityMut<'a>>,
-        bundle: &dyn PartialReflect,
+        bundle: &(dyn PartialReflect + Send + Sync),
         registry: &TypeRegistry,
     ) {
         (self.0.apply)(entity.into(), bundle, registry);
@@ -90,7 +90,7 @@ impl ReflectBundle {
     pub fn apply_or_insert_mapped(
         &self,
         entity: &mut EntityWorldMut,
-        bundle: &dyn PartialReflect,
+        bundle: &(dyn PartialReflect + Send + Sync),
         registry: &TypeRegistry,
         mapper: &mut dyn EntityMapper,
         relationship_hook_mode: RelationshipHookMode,
@@ -108,7 +108,7 @@ impl ReflectBundle {
     ///
     /// **Note:** If the entity does not have every component in the bundle, this method will not remove any of them.
     #[must_use]
-    pub fn take(&self, entity: &mut EntityWorldMut) -> Option<Box<dyn Reflect>> {
+    pub fn take(&self, entity: &mut EntityWorldMut) -> Option<Box<dyn Reflect + Send + Sync>> {
         (self.0.take)(entity)
     }
 
@@ -147,7 +147,9 @@ impl ReflectBundle {
     }
 }
 
-impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for ReflectBundle {
+impl<B: Bundle + Reflect + Send + Sync + TypePath + BundleFromComponents> FromType<B>
+    for ReflectBundle
+{
     fn from_type() -> Self {
         ReflectBundle(ReflectBundleFns {
             insert: |entity, reflected_bundle, registry| {
@@ -232,7 +234,11 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for Refl
     }
 }
 
-fn apply_field(entity: &mut EntityMut, field: &dyn PartialReflect, registry: &TypeRegistry) {
+fn apply_field(
+    entity: &mut EntityMut,
+    field: &(dyn PartialReflect + Send + Sync),
+    registry: &TypeRegistry,
+) {
     let Some(type_id) = field.try_as_reflect().map(Any::type_id) else {
         panic!(
             "`{}` did not implement `Reflect`",
@@ -253,7 +259,7 @@ fn apply_field(entity: &mut EntityMut, field: &dyn PartialReflect, registry: &Ty
 
 fn apply_or_insert_field_mapped(
     entity: &mut EntityWorldMut,
-    field: &dyn PartialReflect,
+    field: &(dyn PartialReflect + Send + Sync),
     registry: &TypeRegistry,
     mapper: &mut dyn EntityMapper,
     relationship_hook_mode: RelationshipHookMode,

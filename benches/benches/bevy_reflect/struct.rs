@@ -73,7 +73,7 @@ fn concrete_struct_apply(criterion: &mut Criterion) {
 
     // Use functions that produce trait objects of varying concrete types as the
     // input to the benchmark.
-    let inputs: &[fn() -> (Box<dyn Struct>, Box<dyn PartialReflect>)] = &[
+    let inputs: &[fn() -> (Box<dyn Struct>, Box<dyn PartialReflect + Send + Sync>)] = &[
         || (Box::new(Struct16::default()), Box::new(Struct16::default())),
         || (Box::new(Struct32::default()), Box::new(Struct32::default())),
         || (Box::new(Struct64::default()), Box::new(Struct64::default())),
@@ -243,7 +243,7 @@ fn dynamic_struct_to_dynamic_struct(criterion: &mut Criterion) {
 fn dynamic_struct_apply(criterion: &mut Criterion) {
     let mut group = create_group(criterion, bench!("dynamic_struct_apply"));
 
-    let patches: &[(fn() -> Box<dyn PartialReflect>, usize)] = &[
+    let patches: &[(fn() -> Box<dyn PartialReflect + Send + Sync>, usize)] = &[
         (|| Box::new(Struct16::default()), 16),
         (|| Box::new(Struct32::default()), 32),
         (|| Box::new(Struct64::default()), 64),
@@ -612,12 +612,12 @@ struct Struct128 {
 }
 
 #[derive(Clone, Default, Reflect)]
-struct GenericStruct1<T: Reflect + Default> {
+struct GenericStruct1<T: Reflect + Send + Sync + Default> {
     field_0: T,
 }
 
 #[derive(Clone, Default, Reflect)]
-struct GenericStruct16<T: Reflect + Default> {
+struct GenericStruct16<T: Reflect + Send + Sync + Default> {
     field_0: T,
     field_1: T,
     field_2: T,
@@ -637,7 +637,7 @@ struct GenericStruct16<T: Reflect + Default> {
 }
 
 #[derive(Clone, Default, Reflect)]
-struct GenericStruct32<T: Reflect + Default> {
+struct GenericStruct32<T: Reflect + Send + Sync + Default> {
     field_0: T,
     field_1: T,
     field_2: T,
@@ -673,7 +673,7 @@ struct GenericStruct32<T: Reflect + Default> {
 }
 
 #[derive(Clone, Default, Reflect)]
-struct GenericStruct64<T: Reflect + Default> {
+struct GenericStruct64<T: Reflect + Send + Sync + Default> {
     field_0: T,
     field_1: T,
     field_2: T,
@@ -741,7 +741,7 @@ struct GenericStruct64<T: Reflect + Default> {
 }
 
 #[derive(Clone, Default, Reflect)]
-struct GenericStruct128<T: Reflect + Default> {
+struct GenericStruct128<T: Reflect + Send + Sync + Default> {
     field_0: T,
     field_1: T,
     field_2: T,

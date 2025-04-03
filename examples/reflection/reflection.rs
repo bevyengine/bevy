@@ -65,7 +65,7 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     assert_eq!(value.a, 2);
     assert_eq!(*value.get_field::<usize>("a").unwrap(), 2);
 
-    // You can also get the `&dyn PartialReflect` value of a field like this
+    // You can also get the `&(dyn PartialReflect + Send + Sync)` value of a field like this
     let field = value.field("a").unwrap();
 
     // But values introspected via `PartialReflect` will not return `dyn Reflect` trait objects
@@ -101,7 +101,7 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
     let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-    // Deserializing returns a `Box<dyn PartialReflect>` value.
+    // Deserializing returns a `Box<dyn PartialReflect + Send + Sync>` value.
     // Generally, deserializing a value will return the "dynamic" variant of a type.
     // For example, deserializing a struct will return the DynamicStruct type.
     // "Opaque types" will be deserialized as themselves.

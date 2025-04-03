@@ -39,7 +39,7 @@ pub(crate) trait VariantBuilder: Sized {
     /// Returns the enum data.
     fn reflect_enum(&self) -> &ReflectEnum;
 
-    /// Returns a token stream that accesses a field of a variant as an `Option<dyn Reflect>`.
+    /// Returns a token stream that accesses a field of a variant as an `Option<dyn Reflect + Send + Sync>`.
     ///
     /// The default implementation of this method will return a token stream
     /// which gets the field dynamically so as to support `dyn Enum`.
@@ -65,15 +65,15 @@ pub(crate) trait VariantBuilder: Sized {
         }
     }
 
-    /// Returns a token stream that unwraps a field of a variant as a `&dyn Reflect`
-    /// (from an `Option<dyn Reflect>`).
+    /// Returns a token stream that unwraps a field of a variant as a `&(dyn Reflect + Send + Sync)`
+    /// (from an `Option<dyn Reflect + Send + Sync>`).
     ///
     /// # Parameters
     /// * `field`: The field to access
     fn unwrap_field(&self, field: VariantField) -> TokenStream;
 
     /// Returns a token stream that constructs a field of a variant as a concrete type
-    /// (from a `&dyn Reflect`).
+    /// (from a `&(dyn Reflect + Send + Sync)`).
     ///
     /// # Parameters
     /// * `field`: The field to access

@@ -29,7 +29,7 @@ use {
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
     /// Resources stored in the dynamic scene.
-    pub resources: Vec<Box<dyn PartialReflect>>,
+    pub resources: Vec<Box<dyn PartialReflect + Send + Sync>>,
     /// Entities contained in the dynamic scene.
     pub entities: Vec<DynamicEntity>,
 }
@@ -42,7 +42,7 @@ pub struct DynamicEntity {
     pub entity: Entity,
     /// A vector of boxed components that belong to the given entity and
     /// implement the [`PartialReflect`] trait.
-    pub components: Vec<Box<dyn PartialReflect>>,
+    pub components: Vec<Box<dyn PartialReflect + Send + Sync>>,
 }
 
 impl DynamicScene {

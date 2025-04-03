@@ -81,7 +81,7 @@ impl Hash for GizmoLineStyle {
 /// Here you can store additional configuration for you gizmo group not covered by [`GizmoConfig`]
 ///
 /// Make sure to derive [`Default`] + [`Reflect`] and register in the app using `app.init_gizmo_group::<T>()`
-pub trait GizmoConfigGroup: Reflect + TypePath + Default {}
+pub trait GizmoConfigGroup: Reflect + Send + Sync + TypePath + Default {}
 
 /// The default gizmo config group.
 #[derive(Default, Reflect, GizmoConfigGroup)]
@@ -102,12 +102,15 @@ pub struct ErasedGizmoConfigGroup;
 pub struct GizmoConfigStore {
     // INVARIANT: must map TypeId::of::<T>() to correct type T
     #[reflect(ignore)]
-    store: TypeIdMap<(GizmoConfig, Box<dyn Reflect>)>,
+    store: TypeIdMap<(GizmoConfig, Box<dyn Reflect + Send + Sync>)>,
 }
 
 impl GizmoConfigStore {
     /// Returns [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`TypeId`] of a [`GizmoConfigGroup`]
-    pub fn get_config_dyn(&self, config_type_id: &TypeId) -> Option<(&GizmoConfig, &dyn Reflect)> {
+    pub fn get_config_dyn(
+        &self,
+        config_type_id: &TypeId,
+    ) -> Option<(&GizmoConfig, &(dyn Reflect + Send + Sync))> {
         let (config, ext) = self.store.get(config_type_id)?;
         Some((config, ext.deref()))
     }
@@ -117,7 +120,7 @@ impl GizmoConfigStore {
         let Some((config, ext)) = self.get_config_dyn(&TypeId::of::<T>()) else {
             panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", T::type_path());
         };
-        // hash map invariant guarantees that &dyn Reflect is of correct type T
+        // hash map invariant guarantees that &(dyn Reflect + Send + Sync) is of correct type T
         let ext = ext.as_any().downcast_ref().unwrap();
         (config, ext)
     }
@@ -126,7 +129,7 @@ impl GizmoConfigStore {
     pub fn get_config_mut_dyn(
         &mut self,
         config_type_id: &TypeId,
-    ) -> Option<(&mut GizmoConfig, &mut dyn Reflect)> {
+    ) -> Option<(&mut GizmoConfig, &mut (dyn Reflect + Send + Sync))> {
         let (config, ext) = self.store.get_mut(config_type_id)?;
         Some((config, ext.deref_mut()))
     }
@@ -136,13 +139,15 @@ impl GizmoConfigStore {
         let Some((config, ext)) = self.get_config_mut_dyn(&TypeId::of::<T>()) else {
             panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", T::type_path());
         };
-        // hash map invariant guarantees that &dyn Reflect is of correct type T
+        // hash map invariant guarantees that &(dyn Reflect + Send + Sync) is of correct type T
         let ext = ext.as_any_mut().downcast_mut().unwrap();
         (config, ext)
     }
 
     /// Returns an iterator over all [`GizmoConfig`]s.
-    pub fn iter(&self) -> impl Iterator<Item = (&TypeId, &GizmoConfig, &dyn Reflect)> + '_ {
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (&TypeId, &GizmoConfig, &(dyn Reflect + Send + Sync))> + '_ {
         self.store
             .iter()
             .map(|(id, (config, ext))| (id, config, ext.deref()))
@@ -151,7 +156,8 @@ impl GizmoConfigStore {
     /// Returns an iterator over all [`GizmoConfig`]s, by mutable reference.
     pub fn iter_mut(
         &mut self,
-    ) -> impl Iterator<Item = (&TypeId, &mut GizmoConfig, &mut dyn Reflect)> + '_ {
+    ) -> impl Iterator<Item = (&TypeId, &mut GizmoConfig, &mut (dyn Reflect + Send + Sync))> + '_
+    {
         self.store
             .iter_mut()
             .map(|(id, (config, ext))| (id, config, ext.deref_mut()))
@@ -159,7 +165,7 @@ impl GizmoConfigStore {
 
     /// Inserts [`GizmoConfig`] and [`GizmoConfigGroup`] replacing old values
     pub fn insert<T: GizmoConfigGroup>(&mut self, config: GizmoConfig, ext_config: T) {
-        // INVARIANT: hash map must correctly map TypeId::of::<T>() to &dyn Reflect of type T
+        // INVARIANT: hash map must correctly map TypeId::of::<T>() to &(dyn Reflect + Send + Sync) of type T
         self.store
             .insert(TypeId::of::<T>(), (config, Box::new(ext_config)));
     }
