@@ -62,7 +62,7 @@ impl Slot {
             index: self.entity_index.load(Ordering::Relaxed),
             // SAFETY: This is not 0 since it was from an entity's generation.
             generation: unsafe {
-                NonZero::new_unchecked(self.entity_generation.load(Ordering::Relaxed))
+                core::num::NonZero::new_unchecked(self.entity_generation.load(Ordering::Relaxed))
             },
         };
         #[cfg(target_has_atomic = "64")]
