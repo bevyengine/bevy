@@ -42,6 +42,8 @@ plugin_group! {
         bevy_render_3d:::MeshPipelinePlugin,
         #[cfg(feature = "bevy_volumetrics")]
         bevy_volumetrics::volumetric_fog::plugin:::VolumetricFogPlugin,
+        #[cfg(feature = "bevy_atmosphere")]
+        bevy_atmosphere::plugin:::AtmospherePlugin,
         #[cfg(feature = "bevy_anti_aliasing")]
         bevy_anti_aliasing:::AntiAliasingPlugin,
         #[cfg(feature = "bevy_sprite")]

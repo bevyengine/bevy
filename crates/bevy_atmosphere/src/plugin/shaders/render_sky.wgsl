@@ -1,4 +1,4 @@
-#import bevy_pbr::atmosphere::{
+#import bevy_atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
     bindings::{atmosphere, view, atmosphere_transforms},
     functions::{

@@ -1,17 +1,15 @@
-#import bevy_pbr::{
-    mesh_view_types::{Lights, DirectionalLight},
-    atmosphere::{
-        types::{Atmosphere, AtmosphereSettings},
-        bindings::{atmosphere, settings},
-        functions::{
-            multiscattering_lut_uv_to_r_mu, sample_transmittance_lut,
-            get_local_r, get_local_up, sample_atmosphere, FRAC_4_PI,
-            max_atmosphere_distance, rayleigh, henyey_greenstein,
-            zenith_azimuth_to_ray_dir,
-        },
-        bruneton_functions::{
-            distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary, ray_intersects_ground
-        }
+#import bevy_pbr::mesh_view_types::{Lights, DirectionalLight}
+#import bevy_atmosphere::{
+    types::{Atmosphere, AtmosphereSettings},
+    bindings::{atmosphere, settings},
+    functions::{
+        multiscattering_lut_uv_to_r_mu, sample_transmittance_lut,
+        get_local_r, get_local_up, sample_atmosphere, FRAC_4_PI,
+        max_atmosphere_distance, rayleigh, henyey_greenstein,
+        zenith_azimuth_to_ray_dir,
+    },
+    bruneton_functions::{
+        distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary, ray_intersects_ground
     }
 }
 

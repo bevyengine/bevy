@@ -1,11 +1,9 @@
-#define_import_path bevy_pbr::atmosphere::bindings
+#define_import_path bevy_atmosphere::bindings
 
 #import bevy_render::view::View;
 
-#import bevy_pbr::{
-    mesh_view_types::Lights,
-    atmosphere::types::{Atmosphere, AtmosphereSettings, AtmosphereTransforms}
-}
+#import bevy_pbr::mesh_view_types::Lights
+#import bevy_atmosphere::types::{Atmosphere, AtmosphereSettings, AtmosphereTransforms}
 
 @group(0) @binding(0) var<uniform> atmosphere: Atmosphere;
 @group(0) @binding(1) var<uniform> settings: AtmosphereSettings;

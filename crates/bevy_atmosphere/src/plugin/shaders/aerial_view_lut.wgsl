@@ -1,17 +1,14 @@
-#import bevy_pbr::{
-    mesh_view_types::{Lights, DirectionalLight},
-    atmosphere::{
-        types::{Atmosphere, AtmosphereSettings},
-        bindings::{atmosphere, settings, view, lights, aerial_view_lut_out},
-        functions::{
-            sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
-            sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
-            get_local_r, get_local_up, view_radius, uv_to_ndc, max_atmosphere_distance,
-            uv_to_ray_direction, MIDPOINT_RATIO
-        },
-    }
+#import bevy_pbr::mesh_view_types::{Lights, DirectionalLight}
+#import bevy_atmosphere::{
+    types::{Atmosphere, AtmosphereSettings},
+    bindings::{atmosphere, settings, view, lights, aerial_view_lut_out},
+    functions::{
+        sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
+        sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
+        get_local_r, get_local_up, view_radius, uv_to_ndc, max_atmosphere_distance,
+        uv_to_ray_direction, MIDPOINT_RATIO
+    },
 }
-
 
 @group(0) @binding(13) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
 

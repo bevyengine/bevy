@@ -23,7 +23,6 @@ pub mod experimental {
     }
 }
 
-mod atmosphere;
 mod cluster;
 mod components;
 pub mod decal;
@@ -43,7 +42,6 @@ mod ssr;
 
 use bevy_color::Color;
 
-pub use atmosphere::*;
 pub use cluster::*;
 pub use components::*;
 pub use decal::clustered::ClusteredDecalPlugin;
