@@ -1,7 +1,7 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
-    entity::{hash_map::EntityHashMap, Entity},
+    entity::{Entity, EntityHashMap},
     event::{Event, EventCursor, Events},
     hierarchy::ChildOf,
     reflect::AppTypeRegistry,
@@ -26,7 +26,7 @@ use bevy_ecs::{
 ///
 /// [`Trigger`]: bevy_ecs::observer::Trigger
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Event, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, PartialEq, Clone)]
 pub struct SceneInstanceReady {
     /// Instance which has been spawned.
     pub instance_id: InstanceId,
@@ -41,7 +41,7 @@ pub struct InstanceInfo {
 
 /// Unique id identifying a scene instance.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Reflect)]
-#[reflect(Debug, PartialEq, Hash)]
+#[reflect(Debug, PartialEq, Hash, Clone)]
 pub struct InstanceId(Uuid);
 
 impl InstanceId {
@@ -892,30 +892,15 @@ mod tests {
         // Spawn entities with different parent first before parenting them to the actual root, allowing us
         // to decouple child order from archetype-creation-order
         let child1 = scene_world
-            .spawn((
-                ChildOf {
-                    parent: temporary_root,
-                },
-                ComponentA { x: 1.0, y: 1.0 },
-            ))
+            .spawn((ChildOf(temporary_root), ComponentA { x: 1.0, y: 1.0 }))
             .id();
         let child2 = scene_world
-            .spawn((
-                ChildOf {
-                    parent: temporary_root,
-                },
-                ComponentA { x: 2.0, y: 2.0 },
-            ))
+            .spawn((ChildOf(temporary_root), ComponentA { x: 2.0, y: 2.0 }))
             .id();
         // the "first" child is intentionally spawned with a different component to force it into a "newer" archetype,
         // meaning it will be iterated later in the spawn code.
         let child0 = scene_world
-            .spawn((
-                ChildOf {
-                    parent: temporary_root,
-                },
-                ComponentF,
-            ))
+            .spawn((ChildOf(temporary_root), ComponentF))
             .id();
 
         scene_world

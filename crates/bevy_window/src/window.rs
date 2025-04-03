@@ -1,11 +1,12 @@
-use alloc::{borrow::ToOwned, string::String};
+use alloc::{borrow::ToOwned, format, string::String};
 use core::num::NonZero;
 
 use bevy_ecs::{
-    entity::{Entity, EntityBorrow, VisitEntities, VisitEntitiesMut},
+    entity::{ContainsEntity, Entity},
     prelude::Component,
 };
 use bevy_math::{CompassOctant, DVec2, IVec2, UVec2, Vec2};
+use bevy_platform_support::sync::LazyLock;
 use log::warn;
 
 #[cfg(feature = "bevy_reflect")]
@@ -19,6 +20,24 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use crate::VideoMode;
 
+/// Default string used for the window title.
+///
+/// It will try to use the name of the current exe if possible, otherwise it defaults to "App"
+static DEFAULT_WINDOW_TITLE: LazyLock<String> = LazyLock::new(|| {
+    #[cfg(feature = "std")]
+    {
+        std::env::current_exe()
+            .ok()
+            .and_then(|current_exe| Some(format!("{}", current_exe.file_stem()?.to_string_lossy())))
+            .unwrap_or_else(|| "App".to_owned())
+    }
+
+    #[cfg(not(feature = "std"))]
+    {
+        "App".to_owned()
+    }
+});
+
 /// Marker [`Component`] for the window considered the primary window.
 ///
 /// Currently this is assumed to only exist on 1 entity at a time.
@@ -30,7 +49,7 @@ use crate::VideoMode;
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Component, Debug, Default, PartialEq)
+    reflect(Component, Debug, Default, PartialEq, Clone)
 )]
 pub struct PrimaryWindow;
 
@@ -38,7 +57,11 @@ pub struct PrimaryWindow;
 /// a more vague defaulting choice.
 #[repr(C)]
 #[derive(Default, Copy, Clone, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -70,30 +93,16 @@ impl WindowRef {
     }
 }
 
-impl VisitEntities for WindowRef {
-    fn visit_entities<F: FnMut(Entity)>(&self, mut f: F) {
-        match self {
-            Self::Entity(entity) => f(*entity),
-            Self::Primary => {}
-        }
-    }
-}
-
-impl VisitEntitiesMut for WindowRef {
-    fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
-        match self {
-            Self::Entity(entity) => f(entity),
-            Self::Primary => {}
-        }
-    }
-}
-
 /// A flattened representation of a window reference for equality/hashing purposes.
 ///
 /// For most purposes you probably want to use the unnormalized version [`WindowRef`].
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Hash, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -101,7 +110,7 @@ impl VisitEntitiesMut for WindowRef {
 )]
 pub struct NormalizedWindowRef(Entity);
 
-impl EntityBorrow for NormalizedWindowRef {
+impl ContainsEntity for NormalizedWindowRef {
     fn entity(&self) -> Entity {
         self.0
     }
@@ -142,7 +151,7 @@ impl EntityBorrow for NormalizedWindowRef {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Component, Default, Debug)
+    reflect(Component, Default, Debug, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -439,7 +448,7 @@ pub struct Window {
 impl Default for Window {
     fn default() -> Self {
         Self {
-            title: "App".to_owned(),
+            title: DEFAULT_WINDOW_TITLE.to_owned(),
             name: None,
             cursor_options: Default::default(),
             present_mode: Default::default(),
@@ -631,7 +640,7 @@ impl Window {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -699,7 +708,11 @@ impl WindowResizeConstraints {
 
 /// Cursor data for a [`Window`].
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -747,7 +760,11 @@ impl Default for CursorOptions {
 
 /// Defines where a [`Window`] should be placed on the screen.
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -839,7 +856,7 @@ impl WindowPosition {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1038,7 +1055,7 @@ impl From<DVec2> for WindowResolution {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1060,7 +1077,7 @@ pub enum CursorGrabMode {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1106,7 +1123,11 @@ impl InternalWindowState {
 ///
 /// Used when centering a [`Window`] on a monitor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1135,7 +1156,7 @@ pub enum MonitorSelection {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, PartialEq, Clone)]
 pub enum VideoModeSelection {
     /// Uses the video mode that the monitor is already in.
     Current,
@@ -1168,7 +1189,7 @@ pub enum VideoModeSelection {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Hash)
+    reflect(Debug, PartialEq, Hash, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1249,7 +1270,7 @@ pub enum PresentMode {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Hash)
+    reflect(Debug, PartialEq, Hash, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1285,7 +1306,11 @@ pub enum CompositeAlphaMode {
 
 /// Defines the way a [`Window`] is displayed.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1329,7 +1354,11 @@ pub enum WindowMode {
 ///
 /// - **iOS / Android / Web / Wayland:** Unsupported.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1349,7 +1378,11 @@ pub enum WindowLevel {
 
 /// The [`Window`] theme variant to use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1374,7 +1407,7 @@ pub enum WindowTheme {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(

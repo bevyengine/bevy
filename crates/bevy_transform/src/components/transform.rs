@@ -71,7 +71,7 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Component, Default, PartialEq, Debug)
+    reflect(Component, Default, PartialEq, Debug, Clone)
 )]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),

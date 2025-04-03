@@ -19,7 +19,6 @@ use bevy_ecs::{
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_platform_support::collections::HashMap;
-use bevy_render::sync_world::MainEntity;
 use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
     render_asset::RenderAssets,
@@ -32,7 +31,7 @@ use bevy_render::{
         *,
     },
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    sync_world::RenderEntity,
     texture::{DefaultImageSampler, FallbackImage, GpuImage},
     view::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
@@ -324,28 +323,47 @@ impl SpecializedRenderPipeline for SpritePipeline {
     }
 }
 
+pub struct ExtractedSlice {
+    pub offset: Vec2,
+    pub rect: Rect,
+    pub size: Vec2,
+}
+
 pub struct ExtractedSprite {
+    pub main_entity: Entity,
+    pub render_entity: Entity,
     pub transform: GlobalTransform,
     pub color: LinearRgba,
-    /// Select an area of the texture
-    pub rect: Option<Rect>,
     /// Change the on-screen size of the sprite
-    pub custom_size: Option<Vec2>,
     /// Asset ID of the [`Image`] of this sprite
     /// PERF: storing an `AssetId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
     pub image_handle_id: AssetId<Image>,
     pub flip_x: bool,
     pub flip_y: bool,
-    pub anchor: Vec2,
-    /// For cases where additional [`ExtractedSprites`] are created during extraction, this stores the
-    /// entity that caused that creation for use in determining visibility.
-    pub original_entity: Option<Entity>,
-    pub scaling_mode: Option<ScalingMode>,
+    pub kind: ExtractedSpriteKind,
+}
+
+pub enum ExtractedSpriteKind {
+    /// A single sprite with custom sizing and scaling options
+    Single {
+        anchor: Vec2,
+        rect: Option<Rect>,
+        scaling_mode: Option<ScalingMode>,
+        custom_size: Option<Vec2>,
+    },
+    /// Indexes into the list of [`ExtractedSlice`]s stored in the [`ExtractedSlices`] resource
+    /// Used for elements composed from multiple sprites such as text or nine-patched borders
+    Slices { indices: Range<usize> },
 }
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: HashMap<(Entity, MainEntity), ExtractedSprite>,
+    pub sprites: Vec<ExtractedSprite>,
+}
+
+#[derive(Resource, Default)]
+pub struct ExtractedSlices {
+    pub slices: Vec<ExtractedSlice>,
 }
 
 #[derive(Resource, Default)]
@@ -366,8 +384,8 @@ pub fn extract_sprite_events(
 }
 
 pub fn extract_sprites(
-    mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
+    mut extracted_slices: ResMut<ExtractedSlices>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     sprite_query: Extract<
         Query<(
@@ -381,26 +399,32 @@ pub fn extract_sprites(
     >,
 ) {
     extracted_sprites.sprites.clear();
-    for (original_entity, entity, view_visibility, sprite, transform, slices) in sprite_query.iter()
+    extracted_slices.slices.clear();
+    for (main_entity, render_entity, view_visibility, sprite, transform, slices) in
+        sprite_query.iter()
     {
         if !view_visibility.get() {
             continue;
         }
 
         if let Some(slices) = slices {
-            extracted_sprites.sprites.extend(
-                slices
-                    .extract_sprites(transform, original_entity, sprite)
-                    .map(|e| {
-                        (
-                            (
-                                commands.spawn(TemporaryRenderEntity).id(),
-                                original_entity.into(),
-                            ),
-                            e,
-                        )
-                    }),
-            );
+            let start = extracted_slices.slices.len();
+            extracted_slices
+                .slices
+                .extend(slices.extract_slices(sprite));
+            let end = extracted_slices.slices.len();
+            extracted_sprites.sprites.push(ExtractedSprite {
+                main_entity,
+                render_entity,
+                color: sprite.color.into(),
+                transform: *transform,
+                flip_x: sprite.flip_x,
+                flip_y: sprite.flip_y,
+                image_handle_id: sprite.image.id(),
+                kind: ExtractedSpriteKind::Slices {
+                    indices: start..end,
+                },
+            });
         } else {
             let atlas_rect = sprite
                 .texture_atlas
@@ -413,28 +437,27 @@ pub fn extract_sprites(
                 (Some(atlas_rect), Some(mut sprite_rect)) => {
                     sprite_rect.min += atlas_rect.min;
                     sprite_rect.max += atlas_rect.min;
-
                     Some(sprite_rect)
                 }
             };
 
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
-            extracted_sprites.sprites.insert(
-                (entity, original_entity.into()),
-                ExtractedSprite {
-                    color: sprite.color.into(),
-                    transform: *transform,
+            extracted_sprites.sprites.push(ExtractedSprite {
+                main_entity,
+                render_entity,
+                color: sprite.color.into(),
+                transform: *transform,
+                flip_x: sprite.flip_x,
+                flip_y: sprite.flip_y,
+                image_handle_id: sprite.image.id(),
+                kind: ExtractedSpriteKind::Single {
+                    anchor: sprite.anchor.as_vec(),
                     rect,
+                    scaling_mode: sprite.image_mode.scale(),
                     // Pass the custom size
                     custom_size: sprite.custom_size,
-                    flip_x: sprite.flip_x,
-                    flip_y: sprite.flip_y,
-                    image_handle_id: sprite.image.id(),
-                    anchor: sprite.anchor.as_vec(),
-                    original_entity: Some(original_entity),
-                    scaling_mode: sprite.image_mode.scale(),
                 },
-            );
+            });
         }
     }
 }
@@ -561,10 +584,10 @@ pub fn queue_sprites(
             .items
             .reserve(extracted_sprites.sprites.len());
 
-        for ((entity, main_entity), extracted_sprite) in extracted_sprites.sprites.iter() {
-            let index = extracted_sprite.original_entity.unwrap_or(*entity).index();
+        for (index, extracted_sprite) in extracted_sprites.sprites.iter().enumerate() {
+            let view_index = extracted_sprite.main_entity.index();
 
-            if !view_entities.contains(index as usize) {
+            if !view_entities.contains(view_index as usize) {
                 continue;
             }
 
@@ -575,11 +598,15 @@ pub fn queue_sprites(
             transparent_phase.add(Transparent2d {
                 draw_function: draw_sprite_function,
                 pipeline,
-                entity: (*entity, *main_entity),
+                entity: (
+                    extracted_sprite.render_entity,
+                    extracted_sprite.main_entity.into(),
+                ),
                 sort_key,
                 // `batch_range` is calculated in `prepare_sprite_image_bind_groups`
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
+                extracted_index: index,
                 indexed: true,
             });
         }
@@ -627,6 +654,7 @@ pub fn prepare_sprite_image_bind_groups(
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     extracted_sprites: Res<ExtractedSprites>,
+    extracted_slices: Res<ExtractedSlices>,
     mut phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     events: Res<SpriteAssetEvents>,
     mut batches: ResMut<SpriteBatches>,
@@ -664,7 +692,12 @@ pub fn prepare_sprite_image_bind_groups(
         // Compatible items share the same entity.
         for item_index in 0..transparent_phase.items.len() {
             let item = &transparent_phase.items[item_index];
-            let Some(extracted_sprite) = extracted_sprites.sprites.get(&item.entity) else {
+
+            let Some(extracted_sprite) = extracted_sprites
+                .sprites
+                .get(item.extracted_index)
+                .filter(|extracted_sprite| extracted_sprite.render_entity == item.entity())
+            else {
                 // If there is a phase item that is not a sprite, then we must start a new
                 // batch to draw the other phase item(s) and to respect draw order. This can be
                 // done by invalidating the batch_image_handle
@@ -701,112 +734,161 @@ pub fn prepare_sprite_image_bind_groups(
                     },
                 ));
             }
-
-            // By default, the size of the quad is the size of the texture
-            let mut quad_size = batch_image_size;
-
-            // Texture size is the size of the image
-            let mut texture_size = batch_image_size;
-
-            // If a rect is specified, adjust UVs and the size of the quad
-            let mut uv_offset_scale = if let Some(rect) = extracted_sprite.rect {
-                let rect_size = rect.size();
-                quad_size = rect_size;
-                // Update texture size to the rect size
-                // It will help scale properly only portion of the image
-                texture_size = rect_size;
-                Vec4::new(
-                    rect.min.x / batch_image_size.x,
-                    rect.max.y / batch_image_size.y,
-                    rect_size.x / batch_image_size.x,
-                    -rect_size.y / batch_image_size.y,
-                )
-            } else {
-                Vec4::new(0.0, 1.0, 1.0, -1.0)
-            };
-
-            // Override the size if a custom one is specified
-            if let Some(custom_size) = extracted_sprite.custom_size {
-                quad_size = custom_size;
-            }
-
-            // Used for translation of the quad if `TextureScale::Fit...` is specified.
-            let mut quad_translation = Vec2::ZERO;
-
-            // Scales the texture based on the `texture_scale` field.
-            if let Some(scaling_mode) = extracted_sprite.scaling_mode {
-                apply_scaling(
+            match extracted_sprite.kind {
+                ExtractedSpriteKind::Single {
+                    anchor,
+                    rect,
                     scaling_mode,
-                    texture_size,
-                    &mut quad_size,
-                    &mut quad_translation,
-                    &mut uv_offset_scale,
-                );
+                    custom_size,
+                } => {
+                    // By default, the size of the quad is the size of the texture
+                    let mut quad_size = batch_image_size;
+                    let mut texture_size = batch_image_size;
+
+                    // Calculate vertex data for this item
+                    // If a rect is specified, adjust UVs and the size of the quad
+                    let mut uv_offset_scale = if let Some(rect) = rect {
+                        let rect_size = rect.size();
+                        quad_size = rect_size;
+                        // Update texture size to the rect size
+                        // It will help scale properly only portion of the image
+                        texture_size = rect_size;
+                        Vec4::new(
+                            rect.min.x / batch_image_size.x,
+                            rect.max.y / batch_image_size.y,
+                            rect_size.x / batch_image_size.x,
+                            -rect_size.y / batch_image_size.y,
+                        )
+                    } else {
+                        Vec4::new(0.0, 1.0, 1.0, -1.0)
+                    };
+
+                    if extracted_sprite.flip_x {
+                        uv_offset_scale.x += uv_offset_scale.z;
+                        uv_offset_scale.z *= -1.0;
+                    }
+                    if extracted_sprite.flip_y {
+                        uv_offset_scale.y += uv_offset_scale.w;
+                        uv_offset_scale.w *= -1.0;
+                    }
+
+                    // Override the size if a custom one is specified
+                    quad_size = custom_size.unwrap_or(quad_size);
+
+                    // Used for translation of the quad if `TextureScale::Fit...` is specified.
+                    let mut quad_translation = Vec2::ZERO;
+
+                    // Scales the texture based on the `texture_scale` field.
+                    if let Some(scaling_mode) = scaling_mode {
+                        apply_scaling(
+                            scaling_mode,
+                            texture_size,
+                            &mut quad_size,
+                            &mut quad_translation,
+                            &mut uv_offset_scale,
+                        );
+                    }
+
+                    let transform = extracted_sprite.transform.affine()
+                        * Affine3A::from_scale_rotation_translation(
+                            quad_size.extend(1.0),
+                            Quat::IDENTITY,
+                            ((quad_size + quad_translation) * (-anchor - Vec2::splat(0.5)))
+                                .extend(0.0),
+                        );
+
+                    // Store the vertex data and add the item to the render phase
+                    sprite_meta
+                        .sprite_instance_buffer
+                        .push(SpriteInstance::from(
+                            &transform,
+                            &extracted_sprite.color,
+                            &uv_offset_scale,
+                        ));
+
+                    current_batch.as_mut().unwrap().get_mut().range.end += 1;
+                    index += 1;
+                }
+                ExtractedSpriteKind::Slices { ref indices } => {
+                    for i in indices.clone() {
+                        let slice = &extracted_slices.slices[i];
+                        let rect = slice.rect;
+                        let rect_size = rect.size();
+
+                        // Calculate vertex data for this item
+                        let mut uv_offset_scale: Vec4;
+
+                        // If a rect is specified, adjust UVs and the size of the quad
+                        uv_offset_scale = Vec4::new(
+                            rect.min.x / batch_image_size.x,
+                            rect.max.y / batch_image_size.y,
+                            rect_size.x / batch_image_size.x,
+                            -rect_size.y / batch_image_size.y,
+                        );
+
+                        if extracted_sprite.flip_x {
+                            uv_offset_scale.x += uv_offset_scale.z;
+                            uv_offset_scale.z *= -1.0;
+                        }
+                        if extracted_sprite.flip_y {
+                            uv_offset_scale.y += uv_offset_scale.w;
+                            uv_offset_scale.w *= -1.0;
+                        }
+
+                        let transform = extracted_sprite.transform.affine()
+                            * Affine3A::from_scale_rotation_translation(
+                                slice.size.extend(1.0),
+                                Quat::IDENTITY,
+                                (slice.size * -Vec2::splat(0.5) + slice.offset).extend(0.0),
+                            );
+
+                        // Store the vertex data and add the item to the render phase
+                        sprite_meta
+                            .sprite_instance_buffer
+                            .push(SpriteInstance::from(
+                                &transform,
+                                &extracted_sprite.color,
+                                &uv_offset_scale,
+                            ));
+
+                        current_batch.as_mut().unwrap().get_mut().range.end += 1;
+                        index += 1;
+                    }
+                }
             }
-
-            if extracted_sprite.flip_x {
-                uv_offset_scale.x += uv_offset_scale.z;
-                uv_offset_scale.z *= -1.0;
-            }
-            if extracted_sprite.flip_y {
-                uv_offset_scale.y += uv_offset_scale.w;
-                uv_offset_scale.w *= -1.0;
-            }
-
-            let transform = extracted_sprite.transform.affine()
-                * Affine3A::from_scale_rotation_translation(
-                    quad_size.extend(1.0),
-                    Quat::IDENTITY,
-                    ((quad_size + quad_translation)
-                        * (-extracted_sprite.anchor - Vec2::splat(0.5)))
-                    .extend(0.0),
-                );
-
-            // Store the vertex data and add the item to the render phase
-            sprite_meta
-                .sprite_instance_buffer
-                .push(SpriteInstance::from(
-                    &transform,
-                    &extracted_sprite.color,
-                    &uv_offset_scale,
-                ));
-
             transparent_phase.items[batch_item_index]
                 .batch_range_mut()
                 .end += 1;
-            current_batch.as_mut().unwrap().get_mut().range.end += 1;
-            index += 1;
+        }
+        sprite_meta
+            .sprite_instance_buffer
+            .write_buffer(&render_device, &render_queue);
+
+        if sprite_meta.sprite_index_buffer.len() != 6 {
+            sprite_meta.sprite_index_buffer.clear();
+
+            // NOTE: This code is creating 6 indices pointing to 4 vertices.
+            // The vertices form the corners of a quad based on their two least significant bits.
+            // 10   11
+            //
+            // 00   01
+            // The sprite shader can then use the two least significant bits as the vertex index.
+            // The rest of the properties to transform the vertex positions and UVs (which are
+            // implicit) are baked into the instance transform, and UV offset and scale.
+            // See bevy_sprite/src/render/sprite.wgsl for the details.
+            sprite_meta.sprite_index_buffer.push(2);
+            sprite_meta.sprite_index_buffer.push(0);
+            sprite_meta.sprite_index_buffer.push(1);
+            sprite_meta.sprite_index_buffer.push(1);
+            sprite_meta.sprite_index_buffer.push(3);
+            sprite_meta.sprite_index_buffer.push(2);
+
+            sprite_meta
+                .sprite_index_buffer
+                .write_buffer(&render_device, &render_queue);
         }
     }
-    sprite_meta
-        .sprite_instance_buffer
-        .write_buffer(&render_device, &render_queue);
-
-    if sprite_meta.sprite_index_buffer.len() != 6 {
-        sprite_meta.sprite_index_buffer.clear();
-
-        // NOTE: This code is creating 6 indices pointing to 4 vertices.
-        // The vertices form the corners of a quad based on their two least significant bits.
-        // 10   11
-        //
-        // 00   01
-        // The sprite shader can then use the two least significant bits as the vertex index.
-        // The rest of the properties to transform the vertex positions and UVs (which are
-        // implicit) are baked into the instance transform, and UV offset and scale.
-        // See bevy_sprite/src/render/sprite.wgsl for the details.
-        sprite_meta.sprite_index_buffer.push(2);
-        sprite_meta.sprite_index_buffer.push(0);
-        sprite_meta.sprite_index_buffer.push(1);
-        sprite_meta.sprite_index_buffer.push(1);
-        sprite_meta.sprite_index_buffer.push(3);
-        sprite_meta.sprite_index_buffer.push(2);
-
-        sprite_meta
-            .sprite_index_buffer
-            .write_buffer(&render_device, &render_queue);
-    }
 }
-
 /// [`RenderCommand`] for sprite rendering.
 pub type DrawSprite = (
     SetItemPipeline,

@@ -45,6 +45,7 @@ impl Plugin for AabbGizmoPlugin {
 }
 /// The [`GizmoConfigGroup`] used for debug visualizations of [`Aabb`] components on entities
 #[derive(Clone, Default, Reflect, GizmoConfigGroup)]
+#[reflect(Clone, Default)]
 pub struct AabbGizmoConfigGroup {
     /// Draws all bounding boxes in the scene when set to `true`.
     ///

@@ -8,6 +8,9 @@ use crate::{
     Dir2, Dir3, Dir3A, Isometry2d, Isometry3d, Quat, Rot2, VectorSpace,
 };
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::std_traits::ReflectDefault;
+
 use variadics_please::all_tuples_enumerated;
 
 // TODO: Think about merging `Ease` with `StableInterpolate`
@@ -275,7 +278,11 @@ where
 /// [CSS step function specification]: https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function/steps#description
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Clone, Default, PartialEq)
+)]
 pub enum JumpAt {
     /// Indicates that the first step happens when the animation begins.
     ///
@@ -356,7 +363,11 @@ impl JumpAt {
 #[non_exhaustive]
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Clone, PartialEq)
+)]
 // Note: Graphs are auto-generated via `tools/build-easefunction-graphs`.
 pub enum EaseFunction {
     /// `f(t) = t`

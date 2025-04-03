@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::{ComponentId, Tick},
-    entity::{Entity, EntityBorrow, EntitySet},
+    entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
     query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-use crate::entity::{unique_slice::UniqueEntitySlice, TrustedEntityBorrow};
+use crate::entity::UniqueEntitySlice;
 
 use alloc::vec::Vec;
 use core::{fmt, ptr};
@@ -997,6 +997,44 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.query(world).get_many_inner(entities)
     }
 
+    /// Returns the read-only query results for the given [`UniqueEntityArray`].
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, UniqueEntityArray, UniqueEntityVec}};
+    ///
+    /// #[derive(Component, PartialEq, Debug)]
+    /// struct A(usize);
+    ///
+    /// let mut world = World::new();
+    /// let entity_set: UniqueEntityVec = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_set: UniqueEntityArray<3> = entity_set.try_into().unwrap();
+    ///
+    /// world.spawn(A(73));
+    ///
+    /// let mut query_state = world.query::<&A>();
+    ///
+    /// let component_values = query_state.get_many_unique(&world, entity_set).unwrap();
+    ///
+    /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
+    ///
+    /// let wrong_entity = Entity::from_raw(365);
+    ///
+    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// ```
+    #[inline]
+    pub fn get_many_unique<'w, const N: usize>(
+        &mut self,
+        world: &'w World,
+        entities: UniqueEntityArray<N>,
+    ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError> {
+        self.query(world).get_many_unique_inner(entities)
+    }
+
     /// Gets the query result for the given [`World`] and [`Entity`].
     ///
     /// This is always guaranteed to run in `O(1)` time.
@@ -1053,7 +1091,52 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: &'w mut World,
         entities: [Entity; N],
     ) -> Result<[D::Item<'w>; N], QueryEntityError> {
-        self.query_mut(world).get_many_inner(entities)
+        self.query_mut(world).get_many_mut_inner(entities)
+    }
+
+    /// Returns the query results for the given [`UniqueEntityArray`].
+    ///
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
+    ///
+    /// ```
+    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, UniqueEntityArray, UniqueEntityVec}};
+    ///
+    /// #[derive(Component, PartialEq, Debug)]
+    /// struct A(usize);
+    ///
+    /// let mut world = World::new();
+    ///
+    /// let entity_set: UniqueEntityVec = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_set: UniqueEntityArray<3> = entity_set.try_into().unwrap();
+    ///
+    /// world.spawn(A(73));
+    ///
+    /// let mut query_state = world.query::<&mut A>();
+    ///
+    /// let mut mutable_component_values = query_state.get_many_unique_mut(&mut world, entity_set).unwrap();
+    ///
+    /// for mut a in &mut mutable_component_values {
+    ///     a.0 += 5;
+    /// }
+    ///
+    /// let component_values = query_state.get_many_unique(&world, entity_set).unwrap();
+    ///
+    /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
+    ///
+    /// let wrong_entity = Entity::from_raw(57);
+    /// let invalid_entity = world.spawn_empty().id();
+    ///
+    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many_unique_mut(&mut world, UniqueEntityArray::from([invalid_entity])).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
+    /// ```
+    #[inline]
+    pub fn get_many_unique_mut<'w, const N: usize>(
+        &mut self,
+        world: &'w mut World,
+        entities: UniqueEntityArray<N>,
+    ) -> Result<[D::Item<'w>; N], QueryEntityError> {
+        self.query_mut(world).get_many_unique_inner(entities)
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
@@ -1190,7 +1273,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
-    pub fn iter_many<'w, 's, EntityList: IntoIterator<Item: EntityBorrow>>(
+    pub fn iter_many<'w, 's, EntityList: IntoIterator<Item: EntityEquivalent>>(
         &'s mut self,
         world: &'w World,
         entities: EntityList,
@@ -1213,7 +1296,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// - [`iter_many`](Self::iter_many) to update archetypes.
     /// - [`iter_manual`](Self::iter_manual) to iterate over all query items.
     #[inline]
-    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator<Item: EntityBorrow>>(
+    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator<Item: EntityEquivalent>>(
         &'s self,
         world: &'w World,
         entities: EntityList,
@@ -1226,7 +1309,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Items are returned in the order of the list of entities.
     /// Entities that don't match the query are skipped.
     #[inline]
-    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator<Item: EntityBorrow>>(
+    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator<Item: EntityEquivalent>>(
         &'s mut self,
         world: &'w mut World,
         entities: EntityList,
@@ -1531,7 +1614,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) where
         FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
-        E: TrustedEntityBorrow + Sync,
+        E: EntityEquivalent + Sync,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
@@ -1594,7 +1677,7 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
     ) where
         FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
-        E: EntityBorrow + Sync,
+        E: EntityEquivalent + Sync,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::par_fold_init_unchecked_manual

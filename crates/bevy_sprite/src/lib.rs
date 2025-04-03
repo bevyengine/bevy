@@ -21,6 +21,11 @@ mod texture_slice;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[cfg(feature = "bevy_sprite_picking_backend")]
+    #[doc(hidden)]
+    pub use crate::picking_backend::{
+        SpritePickingCamera, SpritePickingMode, SpritePickingPlugin, SpritePickingSettings,
+    };
     #[doc(hidden)]
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
@@ -52,28 +57,8 @@ use bevy_render::{
 };
 
 /// Adds support for 2D sprite rendering.
-pub struct SpritePlugin {
-    /// Whether to add the sprite picking backend to the app.
-    #[cfg(feature = "bevy_sprite_picking_backend")]
-    pub add_picking: bool,
-}
-
-#[expect(
-    clippy::allow_attributes,
-    reason = "clippy::derivable_impls is not always linted"
-)]
-#[allow(
-    clippy::derivable_impls,
-    reason = "Known false positive with clippy: <https://github.com/rust-lang/rust-clippy/issues/13160>"
-)]
-impl Default for SpritePlugin {
-    fn default() -> Self {
-        Self {
-            #[cfg(feature = "bevy_sprite_picking_backend")]
-            add_picking: true,
-        }
-    }
-}
+#[derive(Default)]
+pub struct SpritePlugin;
 
 pub const SPRITE_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("ed996613-54c0-49bd-81be-1c2d1a0d03c2");
@@ -125,9 +110,7 @@ impl Plugin for SpritePlugin {
             );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
-        if self.add_picking {
-            app.add_plugins(SpritePickingPlugin);
-        }
+        app.add_plugins(SpritePickingPlugin);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -135,6 +118,7 @@ impl Plugin for SpritePlugin {
                 .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
                 .init_resource::<SpriteMeta>()
                 .init_resource::<ExtractedSprites>()
+                .init_resource::<ExtractedSlices>()
                 .init_resource::<SpriteAssetEvents>()
                 .add_render_command::<Transparent2d, DrawSprite>()
                 .add_systems(
@@ -348,7 +332,7 @@ mod test {
             .world_mut()
             .spawn(Sprite {
                 rect: Some(Rect::new(0., 0., 0.5, 1.)),
-                anchor: Anchor::TopRight,
+                anchor: Anchor::TOP_RIGHT,
                 image: image_handle,
                 ..default()
             })

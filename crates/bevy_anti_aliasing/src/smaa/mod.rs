@@ -29,16 +29,16 @@
 //! * Compatibility with SSAA and MSAA.
 //!
 //! [SMAA]: https://www.iryoku.com/smaa/
-#[cfg(not(feature = "smaa_luts"))]
-use crate::tonemapping::lut_placeholder;
-use crate::{
-    core_2d::graph::{Core2d, Node2d},
-    core_3d::graph::{Core3d, Node3d},
-};
 use bevy_app::{App, Plugin};
 #[cfg(feature = "smaa_luts")]
 use bevy_asset::load_internal_binary_asset;
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
+#[cfg(not(feature = "smaa_luts"))]
+use bevy_core_pipeline::tonemapping::lut_placeholder;
+use bevy_core_pipeline::{
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -95,7 +95,7 @@ pub struct SmaaPlugin;
 /// A component for enabling Subpixel Morphological Anti-Aliasing (SMAA)
 /// for a [`bevy_render::camera::Camera`].
 #[derive(Clone, Copy, Default, Component, Reflect, ExtractComponent)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 #[doc(alias = "SubpixelMorphologicalAntiAliasing")]
 pub struct Smaa {
     /// A predefined set of SMAA parameters: i.e. a quality level.
@@ -110,7 +110,7 @@ pub struct Smaa {
 ///
 /// The default value is *high*.
 #[derive(Clone, Copy, Reflect, Default, PartialEq, Eq, Hash)]
-#[reflect(Default)]
+#[reflect(Default, Clone, PartialEq, Hash)]
 pub enum SmaaPreset {
     /// Four search steps; no diagonal or corner detection.
     Low,
@@ -297,8 +297,6 @@ impl Plugin for SmaaPlugin {
             SMAA_AREA_LUT_TEXTURE_HANDLE,
             "SMAAAreaLUT.ktx2",
             |bytes, _: String| Image::from_buffer(
-                #[cfg(all(debug_assertions, feature = "dds"))]
-                "SMAAAreaLUT".to_owned(),
                 bytes,
                 bevy_image::ImageType::Format(bevy_image::ImageFormat::Ktx2),
                 bevy_image::CompressedImageFormats::NONE,
@@ -315,8 +313,6 @@ impl Plugin for SmaaPlugin {
             SMAA_SEARCH_LUT_TEXTURE_HANDLE,
             "SMAASearchLUT.ktx2",
             |bytes, _: String| Image::from_buffer(
-                #[cfg(all(debug_assertions, feature = "dds"))]
-                "SMAASearchLUT".to_owned(),
                 bytes,
                 bevy_image::ImageType::Format(bevy_image::ImageFormat::Ktx2),
                 bevy_image::CompressedImageFormats::NONE,

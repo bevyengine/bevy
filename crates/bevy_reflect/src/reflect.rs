@@ -246,11 +246,69 @@ where
     /// [`Struct`]: crate::Struct
     /// [`Struct::clone_dynamic`]: crate::Struct::clone_dynamic
     /// [`DynamicStruct`]: crate::DynamicStruct
-    fn clone_value(&self) -> Box<dyn PartialReflect>;
+    #[deprecated(
+        since = "0.16.0",
+        note = "to clone reflected values, prefer using `reflect_clone`. To convert reflected values to dynamic ones, use `to_dynamic`."
+    )]
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
+        self.to_dynamic()
+    }
+
+    /// Converts this reflected value into its dynamic representation based on its [kind].
+    ///
+    /// For example, a [`List`] type will internally invoke [`List::to_dynamic_list`], returning [`DynamicList`].
+    /// A [`Struct`] type will invoke [`Struct::to_dynamic_struct`], returning [`DynamicStruct`].
+    /// And so on.
+    ///
+    /// If the [kind] is [opaque], then the value will attempt to be cloned directly via [`reflect_clone`],
+    /// since opaque types do not have any standard dynamic representation.
+    ///
+    /// To attempt to clone the value directly such that it returns a concrete instance of this type,
+    /// use [`reflect_clone`].
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if the [kind] is [opaque] and the call to [`reflect_clone`] fails.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::{PartialReflect};
+    /// let value = (1, true, 3.14);
+    /// let dynamic_value = value.to_dynamic();
+    /// assert!(dynamic_value.is_dynamic())
+    /// ```
+    ///
+    /// [kind]: PartialReflect::reflect_kind
+    /// [`List`]: crate::List
+    /// [`List::to_dynamic_list`]: crate::List::to_dynamic_list
+    /// [`DynamicList`]: crate::DynamicList
+    /// [`Struct`]: crate::Struct
+    /// [`Struct::to_dynamic_struct`]: crate::Struct::to_dynamic_struct
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [opaque]: crate::ReflectKind::Opaque
+    /// [`reflect_clone`]: PartialReflect::reflect_clone
+    fn to_dynamic(&self) -> Box<dyn PartialReflect> {
+        match self.reflect_ref() {
+            ReflectRef::Struct(dyn_struct) => Box::new(dyn_struct.to_dynamic_struct()),
+            ReflectRef::TupleStruct(dyn_tuple_struct) => {
+                Box::new(dyn_tuple_struct.to_dynamic_tuple_struct())
+            }
+            ReflectRef::Tuple(dyn_tuple) => Box::new(dyn_tuple.to_dynamic_tuple()),
+            ReflectRef::List(dyn_list) => Box::new(dyn_list.to_dynamic_list()),
+            ReflectRef::Array(dyn_array) => Box::new(dyn_array.to_dynamic_array()),
+            ReflectRef::Map(dyn_map) => Box::new(dyn_map.to_dynamic_map()),
+            ReflectRef::Set(dyn_set) => Box::new(dyn_set.to_dynamic_set()),
+            ReflectRef::Enum(dyn_enum) => Box::new(dyn_enum.to_dynamic_enum()),
+            #[cfg(feature = "functions")]
+            ReflectRef::Function(dyn_function) => Box::new(dyn_function.to_dynamic_function()),
+            ReflectRef::Opaque(value) => value.reflect_clone().unwrap().into_partial_reflect(),
+        }
+    }
 
     /// Attempts to clone `Self` using reflection.
     ///
-    /// Unlike [`PartialReflect::clone_value`], which often returns a dynamic representation of `Self`,
+    /// Unlike [`to_dynamic`], which generally returns a dynamic representation of `Self`,
     /// this method attempts create a clone of `Self` directly, if possible.
     ///
     /// If the clone cannot be performed, an appropriate [`ReflectCloneError`] is returned.
@@ -263,6 +321,8 @@ where
     /// let cloned = value.reflect_clone().unwrap();
     /// assert!(cloned.is::<(i32, bool, f64)>())
     /// ```
+    ///
+    /// [`to_dynamic`]: PartialReflect::to_dynamic
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
         Err(ReflectCloneError::NotImplemented {
             type_path: Cow::Owned(self.reflect_type_path().to_string()),

@@ -18,7 +18,7 @@ use crate::{
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
-    relationship::RelationshipInsertHookMode,
+    relationship::RelationshipHookMode,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, EntityWorldMut, ON_ADD, ON_INSERT, ON_REPLACE},
 };
@@ -1104,7 +1104,7 @@ impl<'w> BundleInserter<'w> {
         bundle: T,
         insert_mode: InsertMode,
         caller: MaybeLocation,
-        relationship_insert_hook_mode: RelationshipInsertHookMode,
+        relationship_hook_mode: RelationshipHookMode,
     ) -> (EntityLocation, T::Effect) {
         let bundle_info = self.bundle_info.as_ref();
         let archetype_after_insert = self.archetype_after_insert.as_ref();
@@ -1130,6 +1130,7 @@ impl<'w> BundleInserter<'w> {
                     entity,
                     archetype_after_insert.iter_existing(),
                     caller,
+                    relationship_hook_mode,
                 );
             }
         }
@@ -1317,7 +1318,7 @@ impl<'w> BundleInserter<'w> {
                         entity,
                         archetype_after_insert.iter_inserted(),
                         caller,
-                        relationship_insert_hook_mode,
+                        relationship_hook_mode,
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
@@ -1336,7 +1337,7 @@ impl<'w> BundleInserter<'w> {
                         entity,
                         archetype_after_insert.iter_added(),
                         caller,
-                        relationship_insert_hook_mode,
+                        relationship_hook_mode,
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
@@ -1484,7 +1485,7 @@ impl<'w> BundleSpawner<'w> {
                 entity,
                 bundle_info.iter_contributed_components(),
                 caller,
-                RelationshipInsertHookMode::Run,
+                RelationshipHookMode::Run,
             );
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
@@ -1584,7 +1585,7 @@ impl Bundles {
         storages: &mut Storages,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
-        let id = *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
+        *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let mut component_ids= Vec::new();
             T::component_ids(components, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
@@ -1596,8 +1597,7 @@ impl Bundles {
                 unsafe { BundleInfo::new(core::any::type_name::<T>(), storages, components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id
-        });
-        id
+        })
     }
 
     /// Registers a new [`BundleInfo`], which contains both explicit and required components for a statically known type.

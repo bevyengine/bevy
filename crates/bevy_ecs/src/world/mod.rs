@@ -21,7 +21,7 @@ pub use crate::{
 pub use bevy_ecs_macros::FromWorld;
 pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
-pub use entity_fetch::WorldEntityFetch;
+pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use entity_ref::{
     DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut,
     Entry, FilteredEntityMut, FilteredEntityRef, OccupiedEntry, TryFromFilteredError, VacantEntry,
@@ -47,7 +47,7 @@ use crate::{
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
-    relationship::RelationshipInsertHookMode,
+    relationship::RelationshipHookMode,
     removal_detection::RemovedComponentEvents,
     resource::Resource,
     schedule::{Schedule, ScheduleLabel, Schedules},
@@ -683,10 +683,10 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`](crate::entity::hash_map::EntityHashMap)
+    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet};
+    /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
     /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
@@ -704,7 +704,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     #[track_caller]
     pub fn entity<F: WorldEntityFetch>(&self, entities: F) -> F::Ref<'_> {
@@ -735,8 +735,8 @@ impl World {
     ///      such as adding or removing components, or despawning the entity.
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`](crate::entity::hash_map::EntityHashMap) to receive an
-    ///   [`EntityHashMap<EntityMut>`](crate::entity::hash_map::EntityHashMap).
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
     ///
     /// In order to perform structural changes on the returned entity reference,
     /// such as adding or removing components, or despawning the entity, only a
@@ -817,10 +817,10 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`](crate::entity::hash_map::EntityHashMap)
+    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet};
+    /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
     /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
@@ -840,7 +840,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     #[track_caller]
     pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::Mut<'_> {
@@ -887,8 +887,8 @@ impl World {
     /// - Pass an [`Entity`] to receive a single [`EntityRef`].
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityRef>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityRef`]s.
-    /// - Pass a reference to a [`EntityHashSet`](crate::entity::hash_map::EntityHashMap) to receive an
-    ///   [`EntityHashMap<EntityRef>`](crate::entity::hash_map::EntityHashMap).
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityRef>`](crate::entity::EntityHashMap).
     ///
     /// # Errors
     ///
@@ -899,7 +899,7 @@ impl World {
     ///
     /// For examples, see [`World::entity`].
     ///
-    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     pub fn get_entity<F: WorldEntityFetch>(
         &self,
@@ -921,8 +921,8 @@ impl World {
     ///      such as adding or removing components, or despawning the entity.
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`](crate::entity::hash_map::EntityHashMap) to receive an
-    ///   [`EntityHashMap<EntityMut>`](crate::entity::hash_map::EntityHashMap).
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
     ///
     /// In order to perform structural changes on the returned entity reference,
     /// such as adding or removing components, or despawning the entity, only a
@@ -940,7 +940,7 @@ impl World {
     ///
     /// For examples, see [`World::entity_mut`].
     ///
-    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &mut self,
@@ -1007,6 +1007,52 @@ impl World {
                     unsafe { EntityMut::new(cell) }
                 })
         })
+    }
+
+    /// Simultaneously provides access to entity data and a command queue, which
+    /// will be applied when the world is next flushed.
+    ///
+    /// This allows using borrowed entity data to construct commands where the
+    /// borrow checker would otherwise prevent it.
+    ///
+    /// See [`DeferredWorld::entities_and_commands`] for the deferred version.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use bevy_ecs::{prelude::*, world::DeferredWorld};
+    /// #[derive(Component)]
+    /// struct Targets(Vec<Entity>);
+    /// #[derive(Component)]
+    /// struct TargetedBy(Entity);
+    ///
+    /// let mut world: World = // ...
+    /// #    World::new();
+    /// # let e1 = world.spawn_empty().id();
+    /// # let e2 = world.spawn_empty().id();
+    /// # let eid = world.spawn(Targets(vec![e1, e2])).id();
+    /// let (entities, mut commands) = world.entities_and_commands();
+    ///
+    /// let entity = entities.get(eid).unwrap();
+    /// for &target in entity.get::<Targets>().unwrap().0.iter() {
+    ///     commands.entity(target).insert(TargetedBy(eid));
+    /// }
+    /// # world.flush();
+    /// # assert_eq!(world.get::<TargetedBy>(e1).unwrap().0, eid);
+    /// # assert_eq!(world.get::<TargetedBy>(e2).unwrap().0, eid);
+    /// ```
+    pub fn entities_and_commands(&mut self) -> (EntityFetcher, Commands) {
+        let cell = self.as_unsafe_world_cell();
+        // SAFETY: `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
+        let fetcher = unsafe { EntityFetcher::new(cell) };
+        // SAFETY:
+        // - `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
+        // - Command queue access does not conflict with entity access.
+        let raw_queue = unsafe { cell.get_raw_command_queue() };
+        // SAFETY: `&mut self` ensures the commands does not outlive the world.
+        let commands = unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities()) };
+
+        (fetcher, commands)
     }
 
     /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
@@ -1122,7 +1168,7 @@ impl World {
 
         // SAFETY: command_queue is not referenced anywhere else
         if !unsafe { self.command_queue.is_empty() } {
-            self.flush_commands();
+            self.flush();
             entity_location = self
                 .entities()
                 .get(entity)
@@ -1275,6 +1321,35 @@ impl World {
         let mut world = DeferredWorld::from(&mut *self);
 
         let result = world.modify_component(entity, f)?;
+
+        self.flush();
+        Ok(result)
+    }
+
+    /// Temporarily removes a [`Component`] identified by the provided
+    /// [`ComponentId`] from the provided [`Entity`] and runs the provided
+    /// closure on it, returning the result if the component was available.
+    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut_by_id`](World::get_mut_by_id).
+    ///
+    /// You should prefer the typed [`modify_component`](World::modify_component)
+    /// whenever possible.
+    #[inline]
+    pub fn modify_component_by_id<R>(
+        &mut self,
+        entity: Entity,
+        component_id: ComponentId,
+        f: impl for<'a> FnOnce(MutUntyped<'a>) -> R,
+    ) -> Result<Option<R>, EntityMutableFetchError> {
+        let mut world = DeferredWorld::from(&mut *self);
+
+        let result = world.modify_component_by_id(entity, component_id, f)?;
 
         self.flush();
         Ok(result)
@@ -2245,7 +2320,7 @@ impl World {
                         first_bundle,
                         insert_mode,
                         caller,
-                        RelationshipInsertHookMode::Run,
+                        RelationshipHookMode::Run,
                     )
                 };
 
@@ -2273,7 +2348,7 @@ impl World {
                                 bundle,
                                 insert_mode,
                                 caller,
-                                RelationshipInsertHookMode::Run,
+                                RelationshipHookMode::Run,
                             )
                         };
                     } else {
@@ -2395,7 +2470,7 @@ impl World {
                             first_bundle,
                             insert_mode,
                             caller,
-                            RelationshipInsertHookMode::Run,
+                            RelationshipHookMode::Run,
                         )
                     };
                     break Some(cache);
@@ -2432,7 +2507,7 @@ impl World {
                             bundle,
                             insert_mode,
                             caller,
-                            RelationshipInsertHookMode::Run,
+                            RelationshipHookMode::Run,
                         )
                     };
                 } else {
@@ -2627,6 +2702,7 @@ impl World {
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<true> {
+        self.flush_components();
         let archetypes = &mut self.archetypes;
         self.storages
             .resources
@@ -2642,6 +2718,7 @@ impl World {
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<false> {
+        self.flush_components();
         let archetypes = &mut self.archetypes;
         self.storages
             .non_send_resources
@@ -2940,6 +3017,25 @@ impl World {
         let id = self
             .bundles
             .register_info::<B>(&mut registrator, &mut self.storages);
+        // SAFETY: We just initialized the bundle so its id should definitely be valid.
+        unsafe { self.bundles.get(id).debug_checked_unwrap() }
+    }
+
+    /// Registers the given [`ComponentId`]s as a dynamic bundle and returns both the required component ids and the bundle id.
+    ///
+    /// Note that the components need to be registered first, this function only creates a bundle combining them. Components
+    /// can be registered with [`World::register_component`]/[`_with_descriptor`](World::register_component_with_descriptor).
+    ///
+    /// **You should prefer to use the typed API [`World::register_bundle`] where possible and only use this in cases where
+    /// not all of the actual types are known at compile time.**
+    ///
+    /// # Panics
+    /// This function will panic if any of the provided component ids do not belong to a component known to this [`World`].
+    #[inline]
+    pub fn register_dynamic_bundle(&mut self, component_ids: &[ComponentId]) -> &BundleInfo {
+        let id =
+            self.bundles
+                .init_dynamic_info(&mut self.storages, &self.components, component_ids);
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
@@ -3495,11 +3591,11 @@ mod tests {
     use crate::{
         change_detection::{DetectChangesMut, MaybeLocation},
         component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
-        entity::hash_set::EntityHashSet,
+        entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,
         resource::Resource,
-        world::error::EntityMutableFetchError,
+        world::{error::EntityMutableFetchError, DeferredWorld},
     };
     use alloc::{
         borrow::ToOwned,
@@ -4194,5 +4290,45 @@ mod tests {
         // If we explicitly remove the resource, no entities should be filtered anymore
         world.remove_resource::<DefaultQueryFilters>();
         assert_eq!(2, world.query::<&Foo>().iter(&world).count());
+    }
+
+    #[test]
+    fn entities_and_commands() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Foo(u32);
+
+        let mut world = World::new();
+
+        let eid = world.spawn(Foo(35)).id();
+
+        let (mut fetcher, mut commands) = world.entities_and_commands();
+        let emut = fetcher.get_mut(eid).unwrap();
+        commands.entity(eid).despawn();
+        assert_eq!(emut.get::<Foo>().unwrap(), &Foo(35));
+
+        world.flush();
+
+        assert!(world.get_entity(eid).is_err());
+    }
+
+    #[test]
+    fn entities_and_commands_deferred() {
+        #[derive(Component, PartialEq, Debug)]
+        struct Foo(u32);
+
+        let mut world = World::new();
+
+        let eid = world.spawn(Foo(1)).id();
+
+        let mut dworld = DeferredWorld::from(&mut world);
+
+        let (mut fetcher, mut commands) = dworld.entities_and_commands();
+        let emut = fetcher.get_mut(eid).unwrap();
+        commands.entity(eid).despawn();
+        assert_eq!(emut.get::<Foo>().unwrap(), &Foo(1));
+
+        world.flush();
+
+        assert!(world.get_entity(eid).is_err());
     }
 }

@@ -349,6 +349,7 @@ pub struct Transparent2d {
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
+    pub extracted_index: usize,
     pub extra_index: PhaseItemExtraIndex,
     /// Whether the mesh in question is indexed (uses an index buffer in
     /// addition to its vertex buffer).

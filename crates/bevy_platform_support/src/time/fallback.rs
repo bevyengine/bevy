@@ -36,7 +36,7 @@ impl Instant {
         let getter = ELAPSED_GETTER.load(Ordering::Acquire);
 
         // SAFETY: Function pointer is always valid
-        let getter = unsafe { core::mem::transmute::<_, fn() -> Duration>(getter) };
+        let getter = unsafe { core::mem::transmute::<*mut (), fn() -> Duration>(getter) };
 
         Self((getter)())
     }
@@ -80,7 +80,7 @@ impl Instant {
     /// Returns the amount of time elapsed since this instant.
     #[must_use]
     pub fn elapsed(&self) -> Duration {
-        self.saturating_duration_since(Instant::now())
+        Instant::now().saturating_duration_since(*self)
     }
 
     /// Returns `Some(t)` where `t` is the time `self + duration` if `t` can be represented as
@@ -149,28 +149,29 @@ impl fmt::Debug for Instant {
 }
 
 fn unset_getter() -> Duration {
-    let _nanos: u64;
-
-    #[cfg(target_arch = "x86")]
-    unsafe {
-        _nanos = core::arch::x86::_rdtsc();
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "x86")] {
+            // SAFETY: standard technique for getting a nanosecond counter on x86
+            let nanos = unsafe {
+                core::arch::x86::_rdtsc()
+            };
+            Duration::from_nanos(nanos)
+        } else if #[cfg(target_arch = "x86_64")] {
+            // SAFETY: standard technique for getting a nanosecond counter on x86_64
+            let nanos = unsafe {
+                core::arch::x86_64::_rdtsc()
+            };
+            Duration::from_nanos(nanos)
+        } else if #[cfg(target_arch = "aarch64")] {
+            // SAFETY: standard technique for getting a nanosecond counter of aarch64
+            let nanos = unsafe {
+                let mut ticks: u64;
+                core::arch::asm!("mrs {}, cntvct_el0", out(reg) ticks);
+                ticks
+            };
+            Duration::from_nanos(nanos)
+        } else {
+            panic!("An elapsed time getter has not been provided to `Instant`. Please use `Instant::set_elapsed(...)` before calling `Instant::now()`")
+        }
     }
-
-    #[cfg(target_arch = "x86_64")]
-    unsafe {
-        _nanos = core::arch::x86_64::_rdtsc();
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    unsafe {
-        let mut ticks: u64;
-        core::arch::asm!("mrs {}, cntvct_el0", out(reg) ticks);
-        _nanos = ticks;
-    }
-
-    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
-    panic!("An elapsed time getter has not been provided to `Instant`. Please use `Instant::set_elapsed(...)` before calling `Instant::now()`");
-
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
-    return Duration::from_nanos(_nanos);
 }

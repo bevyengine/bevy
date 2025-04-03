@@ -1,12 +1,12 @@
 use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
 use crate::{
-    Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, RenderMaterialBindings, RenderMaterialInstances,
-    RenderMeshMaterialIds,
+    Material, MaterialBindingId, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster,
+    NotShadowReceiver, PreviousGlobalTransform, RenderMaterialBindings, RenderMaterialInstances,
+    RenderMeshMaterialIds, StandardMaterial,
 };
-use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
+use bevy_asset::{AssetEvent, AssetId, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
-    entity::{hash_map::EntityHashMap, Entities, Entity},
+    entity::{Entities, Entity, EntityHashMap},
     event::EventReader,
     query::Has,
     resource::Resource,
@@ -113,10 +113,16 @@ impl InstanceManager {
         };
 
         let mesh_material = mesh_material_ids.mesh_material(instance);
-        let mesh_material_binding_id = render_material_bindings
-            .get(&mesh_material)
-            .cloned()
-            .unwrap_or_default();
+        let mesh_material_binding_id =
+            if mesh_material != AssetId::<StandardMaterial>::invalid().untyped() {
+                render_material_bindings
+                    .get(&mesh_material)
+                    .cloned()
+                    .unwrap_or_default()
+            } else {
+                // Use a dummy binding ID if the mesh has no material
+                MaterialBindingId::default()
+            };
 
         let mesh_uniform = MeshUniform::new(
             &transforms,

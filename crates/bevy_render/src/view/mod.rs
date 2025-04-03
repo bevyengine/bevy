@@ -317,7 +317,7 @@ impl ExtractedView {
 /// `post_saturation` value in [`ColorGradingGlobal`], which is applied after
 /// tonemapping.
 #[derive(Component, Reflect, Debug, Default, Clone)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct ColorGrading {
     /// Filmic color grading values applied to the image as a whole (as opposed
     /// to individual sections, like shadows and highlights).
@@ -346,7 +346,7 @@ pub struct ColorGrading {
 /// Filmic color grading values applied to the image as a whole (as opposed to
 /// individual sections, like shadows and highlights).
 #[derive(Clone, Debug, Reflect)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub struct ColorGradingGlobal {
     /// Exposure value (EV) offset, measured in stops.
     pub exposure: f32,
@@ -412,6 +412,7 @@ pub struct ColorGradingUniform {
 /// A section of color grading values that can be selectively applied to
 /// shadows, midtones, and highlights.
 #[derive(Reflect, Debug, Copy, Clone, PartialEq)]
+#[reflect(Clone, PartialEq)]
 pub struct ColorGradingSection {
     /// Values below 1.0 desaturate, with a value of 0.0 resulting in a grayscale image
     /// with luminance defined by ITU-R BT.709.
@@ -615,7 +616,9 @@ pub struct ViewTargetAttachments(HashMap<NormalizedRenderTarget, OutputColorAtta
 
 pub struct PostProcessWrite<'a> {
     pub source: &'a TextureView,
+    pub source_texture: &'a Texture,
     pub destination: &'a TextureView,
+    pub destination_texture: &'a Texture,
 }
 
 impl From<ColorGrading> for ColorGradingUniform {
@@ -708,6 +711,9 @@ impl From<ColorGrading> for ColorGradingUniform {
 ///
 /// The vast majority of applications will not need to use this component, as it
 /// generally reduces rendering performance.
+///
+/// Note: This component should only be added when initially spawning a camera. Adding
+/// or removing after spawn can result in unspecified behavior.
 #[derive(Component, Default)]
 pub struct NoIndirectDrawing;
 
@@ -843,13 +849,17 @@ impl ViewTarget {
             self.main_textures.b.mark_as_cleared();
             PostProcessWrite {
                 source: &self.main_textures.a.texture.default_view,
+                source_texture: &self.main_textures.a.texture.texture,
                 destination: &self.main_textures.b.texture.default_view,
+                destination_texture: &self.main_textures.b.texture.texture,
             }
         } else {
             self.main_textures.a.mark_as_cleared();
             PostProcessWrite {
                 source: &self.main_textures.b.texture.default_view,
+                source_texture: &self.main_textures.b.texture.texture,
                 destination: &self.main_textures.a.texture.default_view,
+                destination_texture: &self.main_textures.a.texture.texture,
             }
         }
     }
@@ -1043,7 +1053,7 @@ pub fn prepare_view_targets(
         };
 
         let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), view.hdr, msaa))
+            .entry((camera.target.clone(), texture_usage.0, view.hdr, msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,
