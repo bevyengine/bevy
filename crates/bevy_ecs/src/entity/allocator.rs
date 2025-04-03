@@ -265,8 +265,13 @@ impl FreeBufferLen {
         let encoded_diff = (num as u64) << 16;
         // In modular arithmetic, this is equivalent to the requested subtraction.
         let to_add = u64::MAX - encoded_diff;
+
         // add one to the generation.
-        to_add + 1
+        // Note that if `num` is 0, this will wrap `to_add` to 0,
+        // which is correct since we aren't adding anything.
+        // Since we aren't really popping anything either,
+        // it is perfectly fine to not add to the generation too.
+        to_add.wrapping_add(1)
     }
 
     /// Subtracts `num` from the length, returning the new state.
