@@ -509,10 +509,10 @@ mod tests {
         let mut entities = builder.build().entities.into_iter();
 
         // Assert entities are ordered
-        assert_eq!(entity_a, entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_b, entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_c, entities.next().map(|e| e.entity).unwrap());
         assert_eq!(entity_d, entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_c, entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_b, entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_a, entities.next().map(|e| e.entity).unwrap());
     }
 
     #[test]
