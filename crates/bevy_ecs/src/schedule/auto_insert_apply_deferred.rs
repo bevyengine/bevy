@@ -75,7 +75,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         &mut self,
         _world: &mut World,
         graph: &mut ScheduleGraph,
-        dependency_flattened: &mut DiGraph,
+        dependency_flattened: &mut DiGraph<NodeId>,
     ) -> Result<(), ScheduleBuildError> {
         let mut sync_point_graph = dependency_flattened.clone();
         let topo = graph.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
@@ -217,7 +217,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         &mut self,
         set: NodeId,
         systems: &[NodeId],
-        dependency_flattened: &DiGraph,
+        dependency_flattened: &DiGraph<NodeId>,
     ) -> impl Iterator<Item = (NodeId, NodeId)> {
         if systems.is_empty() {
             // collapse dependencies for empty sets
