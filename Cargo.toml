@@ -246,6 +246,9 @@ bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
 # Provides functionality for rendering in 3d
 bevy_render_3d = ["bevy_internal/bevy_render_3d"]
 
+# Renders atmospheric scattering
+bevy_atmosphere = ["bevy_internal/bevy_atmosphere"]
+
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 
@@ -966,6 +969,7 @@ wasm = true
 name = "atmosphere"
 path = "examples/3d/atmosphere.rs"
 doc-scrape-examples = true
+required-features = ["bevy_atmosphere"]
 
 [package.metadata.example.atmosphere]
 name = "Atmosphere"

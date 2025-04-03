@@ -1,3 +1,11 @@
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! Procedural Atmospheric Scattering.
 //!
 //! This plugin implements [Hillaire's 2020 paper](https://sebh.github.io/publications/egsr2020.pdf)
@@ -31,7 +39,7 @@
 
 mod node;
 pub mod plugin;
-pub mod resources;
+mod render;
 
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
@@ -43,9 +51,13 @@ use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, render_resource::ShaderType};
 
-use self::resources::{
-    AtmosphereBindGroupLayouts, AtmosphereLutPipelines, RenderSkyBindGroupLayouts,
-};
+/// The PBR prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{Atmosphere, AtmosphereSettings};
+}
 
 /// This component describes the atmosphere of a planet, and when added to a camera
 /// will enable atmospheric scattering for that camera. This is only compatible with

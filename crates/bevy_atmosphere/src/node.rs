@@ -7,11 +7,10 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ViewTarget, ViewUniformOffset},
 };
-
-use crate::ViewLightsUniformOffset;
+use bevy_render_3d::ViewLightsUniformOffset;
 
 use super::{
-    resources::{
+    render::{
         AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTransformsOffset,
         RenderSkyPipelineId,
     },

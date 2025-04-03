@@ -11,8 +11,7 @@ use bevy_render::{
     texture::CachedTexture,
     view::ViewUniform,
 };
-
-use crate::GpuLights;
+use bevy_render_3d::GpuLights;
 
 use super::{
     plugin::{AERIAL_VIEW_LUT, MULTISCATTERING_LUT, RENDER_SKY, SKY_VIEW_LUT, TRANSMITTANCE_LUT},

@@ -1,3 +1,5 @@
+//! Sets up the rendering of atmospheric scattering
+
 mod systems;
 
 use bevy_app::{App, Plugin};
@@ -21,27 +23,32 @@ use systems::{
 };
 use tracing::warn;
 
-use crate::{Atmosphere, AtmosphereSettings};
-
 use super::{
     node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
-    resources::{AtmosphereSamplers, AtmosphereTransforms},
-    AtmosphereBindGroupLayouts, AtmosphereLutPipelines, RenderSkyBindGroupLayouts,
+    render::{
+        AtmosphereBindGroupLayouts, AtmosphereLutPipelines, AtmosphereSamplers,
+        AtmosphereTransforms, RenderSkyBindGroupLayouts,
+    },
+    Atmosphere, AtmosphereSettings,
 };
 
-pub const TYPES: Handle<Shader> = weak_handle!("ef7e147e-30a0-4513-bae3-ddde2a6c20c5");
-pub const FUNCTIONS: Handle<Shader> = weak_handle!("7ff93872-2ee9-4598-9f88-68b02fef605f");
-pub const BRUNETON_FUNCTIONS: Handle<Shader> = weak_handle!("e2dccbb0-7322-444a-983b-e74d0a08bcda");
-pub const BINDINGS: Handle<Shader> = weak_handle!("bcc55ce5-0fc4-451e-8393-1b9efd2612c4");
+pub(crate) const TYPES: Handle<Shader> = weak_handle!("ef7e147e-30a0-4513-bae3-ddde2a6c20c5");
+pub(crate) const FUNCTIONS: Handle<Shader> = weak_handle!("7ff93872-2ee9-4598-9f88-68b02fef605f");
+pub(crate) const BRUNETON_FUNCTIONS: Handle<Shader> =
+    weak_handle!("e2dccbb0-7322-444a-983b-e74d0a08bcda");
+pub(crate) const BINDINGS: Handle<Shader> = weak_handle!("bcc55ce5-0fc4-451e-8393-1b9efd2612c4");
 
-pub const TRANSMITTANCE_LUT: Handle<Shader> = weak_handle!("a4187282-8cb1-42d3-889c-cbbfb6044183");
-pub const MULTISCATTERING_LUT: Handle<Shader> =
+pub(crate) const TRANSMITTANCE_LUT: Handle<Shader> =
+    weak_handle!("a4187282-8cb1-42d3-889c-cbbfb6044183");
+pub(crate) const MULTISCATTERING_LUT: Handle<Shader> =
     weak_handle!("bde3a71a-73e9-49fe-a379-a81940c67a1e");
-pub const SKY_VIEW_LUT: Handle<Shader> = weak_handle!("f87e007a-bf4b-4f99-9ef0-ac21d369f0e5");
-pub const AERIAL_VIEW_LUT: Handle<Shader> = weak_handle!("a3daf030-4b64-49ae-a6a7-354489597cbe");
-pub const RENDER_SKY: Handle<Shader> = weak_handle!("09422f46-d0f7-41c1-be24-121c17d6e834");
+pub(crate) const SKY_VIEW_LUT: Handle<Shader> =
+    weak_handle!("f87e007a-bf4b-4f99-9ef0-ac21d369f0e5");
+pub(crate) const AERIAL_VIEW_LUT: Handle<Shader> =
+    weak_handle!("a3daf030-4b64-49ae-a6a7-354489597cbe");
+pub(crate) const RENDER_SKY: Handle<Shader> = weak_handle!("09422f46-d0f7-41c1-be24-121c17d6e834");
 
-#[doc(hidden)]
+#[derive(Default)]
 pub struct AtmospherePlugin;
 
 impl Plugin for AtmospherePlugin {

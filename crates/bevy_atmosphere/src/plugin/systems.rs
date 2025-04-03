@@ -16,17 +16,16 @@ use bevy_render::{
     texture::TextureCache,
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniforms},
 };
+use bevy_render_3d::LightMeta;
 
 use crate::{
-    resources::{
-        AtmosphereBindGroups, AtmosphereSamplers, AtmosphereTextures, AtmosphereTransform,
-        AtmosphereTransforms, AtmosphereTransformsOffset, RenderSkyPipelineId,
-        RenderSkyPipelineKey,
+    render::{
+        AtmosphereBindGroupLayouts, AtmosphereBindGroups, AtmosphereSamplers, AtmosphereTextures,
+        AtmosphereTransform, AtmosphereTransforms, AtmosphereTransformsOffset,
+        RenderSkyBindGroupLayouts, RenderSkyPipelineId, RenderSkyPipelineKey,
     },
-    Atmosphere, AtmosphereSettings, LightMeta,
+    Atmosphere, AtmosphereSettings,
 };
-
-use super::{AtmosphereBindGroupLayouts, RenderSkyBindGroupLayouts};
 
 pub fn configure_camera_depth_usages(
     mut cameras: Query<&mut Camera3d, (Changed<Camera3d>, With<Atmosphere>)>,

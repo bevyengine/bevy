@@ -23,7 +23,6 @@ pub mod experimental {
     }
 }
 
-mod atmosphere;
 mod cluster;
 mod components;
 pub mod decal;
@@ -44,7 +43,6 @@ mod volumetric_fog;
 
 use bevy_color::{Color, LinearRgba};
 
-pub use atmosphere::*;
 pub use cluster::*;
 pub use components::*;
 pub use decal::clustered::ClusteredDecalPlugin;
@@ -284,7 +282,6 @@ impl Plugin for MeshPipelinePlugin {
                 SyncComponentPlugin::<SpotLight>::default(),
                 ExtractComponentPlugin::<AmbientLight>::default(),
             ))
-            .add_plugins(plugin::AtmospherePlugin)
             .configure_sets(
                 PostUpdate,
                 (
