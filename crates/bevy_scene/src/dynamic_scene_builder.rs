@@ -621,9 +621,9 @@ mod tests {
             .build();
 
         assert_eq!(scene.entities.len(), 3);
-        assert!(scene.entities[0].components[0].represents::<ComponentA>());
+        assert!(scene.entities[2].components[0].represents::<ComponentA>());
         assert!(scene.entities[1].components[0].represents::<ComponentA>());
-        assert_eq!(scene.entities[2].components.len(), 0);
+        assert_eq!(scene.entities[0].components.len(), 0);
     }
 
     #[test]
