@@ -18,7 +18,8 @@ use bevy::{
         ImageSamplerDescriptor,
     },
     prelude::*,
-    render_3d::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
+    render_3d::{DirectionalLightShadowMap, VolumetricLight},
+    volumetric::{FogVolume, VolumetricFog},
 };
 
 /// Initializes the example.

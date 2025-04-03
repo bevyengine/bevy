@@ -41,7 +41,7 @@ mod render;
 mod ssao;
 mod ssr;
 
-use bevy_color::{Color, LinearRgba};
+use bevy_color::Color;
 
 pub use atmosphere::*;
 pub use cluster::*;
@@ -253,99 +253,102 @@ impl Plugin for MeshPipelinePlugin {
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .register_type::<DefaultOpaqueRendererMethod>()
-            .init_resource::<DefaultOpaqueRendererMethod>()
-            .add_plugins((
-                MeshRenderPlugin {
-                    use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
-                    debug_flags: self.debug_flags,
-                },
-                ScreenSpaceAmbientOcclusionPlugin,
-                ExtractResourcePlugin::<AmbientLight>::default(),
-                FogPlugin,
-                ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
-                ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
-                LightmapPlugin,
-                LightProbePlugin,
-                PbrProjectionPlugin,
-                GpuMeshPreprocessPlugin {
-                    use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
-                },
-                ScreenSpaceReflectionsPlugin,
-                ClusteredDecalPlugin,
-            ))
-            .add_plugins((
-                SyncComponentPlugin::<DirectionalLight>::default(),
-                SyncComponentPlugin::<PointLight>::default(),
-                SyncComponentPlugin::<SpotLight>::default(),
-                ExtractComponentPlugin::<AmbientLight>::default(),
-            ))
-            .add_plugins(AtmospherePlugin)
-            .configure_sets(
-                PostUpdate,
+            .init_resource::<DefaultOpaqueRendererMethod>();
+        #[cfg(feature = "volumetric_light")]
+        app.register_type::<VolumetricLight>();
+
+        app.add_plugins((
+            MeshRenderPlugin {
+                use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
+                debug_flags: self.debug_flags,
+            },
+            ScreenSpaceAmbientOcclusionPlugin,
+            ExtractResourcePlugin::<AmbientLight>::default(),
+            FogPlugin,
+            ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
+            ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+            LightmapPlugin,
+            LightProbePlugin,
+            PbrProjectionPlugin,
+            GpuMeshPreprocessPlugin {
+                use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
+            },
+            ScreenSpaceReflectionsPlugin,
+            ClusteredDecalPlugin,
+        ))
+        .add_plugins((
+            SyncComponentPlugin::<DirectionalLight>::default(),
+            SyncComponentPlugin::<PointLight>::default(),
+            SyncComponentPlugin::<SpotLight>::default(),
+            ExtractComponentPlugin::<AmbientLight>::default(),
+        ))
+        .add_plugins(AtmospherePlugin)
+        .configure_sets(
+            PostUpdate,
+            (
+                SimulationLightSystems::AddClusters,
+                SimulationLightSystems::AssignLightsToClusters,
+            )
+                .chain(),
+        )
+        .configure_sets(
+            PostUpdate,
+            SimulationLightSystems::UpdateDirectionalLightCascades
+                .ambiguous_with(SimulationLightSystems::UpdateDirectionalLightCascades),
+        )
+        .configure_sets(
+            PostUpdate,
+            SimulationLightSystems::CheckLightVisibility
+                .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
+        )
+        .add_systems(
+            PostUpdate,
+            (
+                add_clusters
+                    .in_set(SimulationLightSystems::AddClusters)
+                    .after(CameraUpdateSystem),
+                assign_objects_to_clusters
+                    .in_set(SimulationLightSystems::AssignLightsToClusters)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(VisibilitySystems::CheckVisibility)
+                    .after(CameraUpdateSystem),
+                clear_directional_light_cascades
+                    .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(CameraUpdateSystem),
+                update_directional_light_frusta
+                    .in_set(SimulationLightSystems::UpdateLightFrusta)
+                    // This must run after CheckVisibility because it relies on `ViewVisibility`
+                    .after(VisibilitySystems::CheckVisibility)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::UpdateDirectionalLightCascades)
+                    // We assume that no entity will be both a directional light and a spot light,
+                    // so these systems will run independently of one another.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(update_spot_light_frusta),
+                update_point_light_frusta
+                    .in_set(SimulationLightSystems::UpdateLightFrusta)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::AssignLightsToClusters),
+                update_spot_light_frusta
+                    .in_set(SimulationLightSystems::UpdateLightFrusta)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::AssignLightsToClusters),
                 (
-                    SimulationLightSystems::AddClusters,
-                    SimulationLightSystems::AssignLightsToClusters,
+                    check_dir_light_mesh_visibility,
+                    check_point_light_mesh_visibility,
                 )
-                    .chain(),
-            )
-            .configure_sets(
-                PostUpdate,
-                SimulationLightSystems::UpdateDirectionalLightCascades
-                    .ambiguous_with(SimulationLightSystems::UpdateDirectionalLightCascades),
-            )
-            .configure_sets(
-                PostUpdate,
-                SimulationLightSystems::CheckLightVisibility
-                    .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
-            )
-            .add_systems(
-                PostUpdate,
-                (
-                    add_clusters
-                        .in_set(SimulationLightSystems::AddClusters)
-                        .after(CameraUpdateSystem),
-                    assign_objects_to_clusters
-                        .in_set(SimulationLightSystems::AssignLightsToClusters)
-                        .after(TransformSystem::TransformPropagate)
-                        .after(VisibilitySystems::CheckVisibility)
-                        .after(CameraUpdateSystem),
-                    clear_directional_light_cascades
-                        .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
-                        .after(TransformSystem::TransformPropagate)
-                        .after(CameraUpdateSystem),
-                    update_directional_light_frusta
-                        .in_set(SimulationLightSystems::UpdateLightFrusta)
-                        // This must run after CheckVisibility because it relies on `ViewVisibility`
-                        .after(VisibilitySystems::CheckVisibility)
-                        .after(TransformSystem::TransformPropagate)
-                        .after(SimulationLightSystems::UpdateDirectionalLightCascades)
-                        // We assume that no entity will be both a directional light and a spot light,
-                        // so these systems will run independently of one another.
-                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                        .ambiguous_with(update_spot_light_frusta),
-                    update_point_light_frusta
-                        .in_set(SimulationLightSystems::UpdateLightFrusta)
-                        .after(TransformSystem::TransformPropagate)
-                        .after(SimulationLightSystems::AssignLightsToClusters),
-                    update_spot_light_frusta
-                        .in_set(SimulationLightSystems::UpdateLightFrusta)
-                        .after(TransformSystem::TransformPropagate)
-                        .after(SimulationLightSystems::AssignLightsToClusters),
-                    (
-                        check_dir_light_mesh_visibility,
-                        check_point_light_mesh_visibility,
-                    )
-                        .in_set(SimulationLightSystems::CheckLightVisibility)
-                        .after(VisibilitySystems::CalculateBounds)
-                        .after(TransformSystem::TransformPropagate)
-                        .after(SimulationLightSystems::UpdateLightFrusta)
-                        // NOTE: This MUST be scheduled AFTER the core renderer visibility check
-                        // because that resets entity `ViewVisibility` for the first view
-                        // which would override any results from this otherwise
-                        .after(VisibilitySystems::CheckVisibility)
-                        .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
-                ),
-            );
+                    .in_set(SimulationLightSystems::CheckLightVisibility)
+                    .after(VisibilitySystems::CalculateBounds)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::UpdateLightFrusta)
+                    // NOTE: This MUST be scheduled AFTER the core renderer visibility check
+                    // because that resets entity `ViewVisibility` for the first view
+                    // which would override any results from this otherwise
+                    .after(VisibilitySystems::CheckVisibility)
+                    .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
+            ),
+        );
 
         if self.add_default_deferred_lighting_plugin {
             app.add_plugins(DeferredPbrLightingPlugin);

@@ -5,7 +5,8 @@ use bevy::{
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
     math::vec3,
     prelude::*,
-    render_3d::{FogVolume, VolumetricFog, VolumetricLight},
+    render_3d::VolumetricLight,
+    volumetric::{FogVolume, VolumetricFog},
 };
 
 const DIRECTIONAL_LIGHT_MOVEMENT_SPEED: f32 = 0.02;

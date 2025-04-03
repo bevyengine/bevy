@@ -1,19 +1,27 @@
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! Volumetric fog and volumetric lighting, also known as light shafts or god
 //! rays.
 //!
 //! This module implements a more physically-accurate, but slower, form of fog
-//! than the [`crate::fog`] module does. Notably, this *volumetric fog* allows
+//! than simple distance fog. Notably, this *volumetric fog* allows
 //! for light beams from directional lights to shine through, creating what is
 //! known as *light shafts* or *god rays*.
 //!
 //! To add volumetric fog to a scene, add [`VolumetricFog`] to the
-//! camera, and add [`VolumetricLight`] to directional lights that you wish to
+//! camera, and add [`VolumetricLight`](bevy_render_3d::VolumetricLight) to directional lights that you wish to
 //! be volumetric. [`VolumetricFog`] feature numerous settings that
 //! allow you to define the accuracy of the simulation, as well as the look of
 //! the fog. Currently, only interaction with directional lights that have
 //! shadow maps is supported. Note that the overhead of the effect scales
 //! directly with the number of directional lights in use, so apply
-//! [`VolumetricLight`] sparingly for the best results.
+//! [`VolumetricLight`](bevy_render_3d::VolumetricLight) sparingly for the best results.
 //!
 //! The overall algorithm, which is implemented as a postprocessing effect, is a
 //! combination of the techniques described in [Scratchapixel] and [this blog
@@ -29,50 +37,22 @@
 //!
 //! [Henyey-Greenstein phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
 
-use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Assets, Handle};
+pub mod plugin;
+mod render;
+
+use bevy_asset::Handle;
 use bevy_color::Color;
-use bevy_core_pipeline::core_3d::{
-    graph::{Core3d, Node3d},
-    prepare_core_3d_depth_textures,
-};
-use bevy_ecs::{
-    component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs as _,
-};
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_image::Image;
-use bevy_math::{
-    primitives::{Cuboid, Plane3d},
-    Vec2, Vec3,
-};
+use bevy_math::Vec3;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{
-    mesh::{Mesh, Meshable},
-    render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{Shader, SpecializedRenderPipelines},
-    sync_component::SyncComponentPlugin,
-    view::Visibility,
-    ExtractSchedule, Render, RenderApp, RenderSet,
-};
+use bevy_render::view::Visibility;
 use bevy_transform::components::Transform;
-use render::{
-    VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer, CUBE_MESH, PLANE_MESH,
-    VOLUMETRIC_FOG_HANDLE,
-};
 
-use crate::graph::NodePbr;
-
-pub mod render;
-
-/// A plugin that implements volumetric fog.
-pub struct VolumetricFogPlugin;
-
-/// Add this component to a [`DirectionalLight`](crate::DirectionalLight) with a shadow map
-/// (`shadows_enabled: true`) to make volumetric fog interact with it.
-///
-/// This allows the light to generate light shafts/god rays.
-#[derive(Clone, Copy, Component, Default, Debug, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
-pub struct VolumetricLight;
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{FogVolume, VolumetricFog};
+}
 
 /// When placed on a [`bevy_core_pipeline::core_3d::Camera3d`], enables
 /// volumetric fog and volumetric lighting, also known as light shafts or god
@@ -82,10 +62,10 @@ pub struct VolumetricLight;
 pub struct VolumetricFog {
     /// Color of the ambient light.
     ///
-    /// This is separate from Bevy's [`AmbientLight`](crate::light::AmbientLight) because an
-    /// [`EnvironmentMapLight`](crate::environment_map::EnvironmentMapLight) is
+    /// This is separate from Bevy's [`AmbientLight`](bevy_render_3d::AmbientLight) because an
+    /// [`EnvironmentMapLight`](bevy_render_3d::environment_map::EnvironmentMapLight) is
     /// still considered an ambient light for the purposes of volumetric fog. If you're using a
-    /// [`EnvironmentMapLight`](crate::environment_map::EnvironmentMapLight), for best results,
+    /// [`EnvironmentMapLight`](bevy_render_3d::environment_map::EnvironmentMapLight), for best results,
     /// this should be a good approximation of the average color of the environment map.
     ///
     /// Defaults to white.
@@ -93,7 +73,7 @@ pub struct VolumetricFog {
 
     /// The brightness of the ambient light.
     ///
-    /// If there's no [`EnvironmentMapLight`](crate::environment_map::EnvironmentMapLight),
+    /// If there's no [`EnvironmentMapLight`](bevy_render_3d::environment_map::EnvironmentMapLight),
     /// set this to 0.
     ///
     /// Defaults to 0.1.
@@ -115,13 +95,25 @@ pub struct VolumetricFog {
     pub step_count: u32,
 }
 
+impl Default for VolumetricFog {
+    fn default() -> Self {
+        Self {
+            step_count: 64,
+            // Matches `AmbientLight` defaults.
+            ambient_color: Color::WHITE,
+            ambient_intensity: 0.1,
+            jitter: 0.0,
+        }
+    }
+}
+
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Transform, Visibility)]
 pub struct FogVolume {
     /// The color of the fog.
     ///
-    /// Note that the fog must be lit by a [`VolumetricLight`] or ambient light
+    /// Note that the fog must be lit by a [`VolumetricLight`](bevy_render_3d::VolumetricLight) or ambient light
     /// in order for this color to appear.
     ///
     /// Defaults to white.
@@ -185,76 +177,6 @@ pub struct FogVolume {
     ///
     /// The default value is 1.0, which results in no adjustment.
     pub light_intensity: f32,
-}
-
-impl Plugin for VolumetricFogPlugin {
-    fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            VOLUMETRIC_FOG_HANDLE,
-            "volumetric_fog.wgsl",
-            Shader::from_wgsl
-        );
-
-        let mut meshes = app.world_mut().resource_mut::<Assets<Mesh>>();
-        meshes.insert(&PLANE_MESH, Plane3d::new(Vec3::Z, Vec2::ONE).mesh().into());
-        meshes.insert(&CUBE_MESH, Cuboid::new(1.0, 1.0, 1.0).mesh().into());
-
-        app.register_type::<VolumetricFog>()
-            .register_type::<VolumetricLight>();
-
-        app.add_plugins(SyncComponentPlugin::<FogVolume>::default());
-
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app
-            .init_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
-            .init_resource::<VolumetricFogUniformBuffer>()
-            .add_systems(ExtractSchedule, render::extract_volumetric_fog)
-            .add_systems(
-                Render,
-                (
-                    render::prepare_volumetric_fog_pipelines.in_set(RenderSet::Prepare),
-                    render::prepare_volumetric_fog_uniforms.in_set(RenderSet::Prepare),
-                    render::prepare_view_depth_textures_for_volumetric_fog
-                        .in_set(RenderSet::Prepare)
-                        .before(prepare_core_3d_depth_textures),
-                ),
-            );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app
-            .init_resource::<VolumetricFogPipeline>()
-            .add_render_graph_node::<ViewNodeRunner<VolumetricFogNode>>(
-                Core3d,
-                NodePbr::VolumetricFog,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                // Volumetric fog is a postprocessing effect. Run it after the
-                // main pass but before bloom.
-                (Node3d::EndMainPass, NodePbr::VolumetricFog, Node3d::Bloom),
-            );
-    }
-}
-
-impl Default for VolumetricFog {
-    fn default() -> Self {
-        Self {
-            step_count: 64,
-            // Matches `AmbientLight` defaults.
-            ambient_color: Color::WHITE,
-            ambient_intensity: 0.1,
-            jitter: 0.0,
-        }
-    }
 }
 
 impl Default for FogVolume {

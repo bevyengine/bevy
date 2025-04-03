@@ -1,53 +1,64 @@
-use self::assign::ClusterableObjectType;
-use crate::material_bind_groups::MaterialBindGroupAllocator;
-use crate::*;
+use core::{hash::Hash, marker::PhantomData, ops::Range};
+
 use bevy_asset::UntypedAssetId;
-use bevy_color::ColorToComponents;
+use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
-use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
+    component::Tick,
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
-    system::lifetimeless::Read,
+    system::{lifetimeless::Read, SystemChangeTick},
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_platform_support::hash::FixedHasher;
-use bevy_render::experimental::occlusion_culling::{
-    OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
+use bevy_platform_support::{
+    collections::{HashMap, HashSet},
+    hash::FixedHasher,
 };
-use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
+    alpha::AlphaMode,
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::SortedCameras,
-    mesh::allocator::MeshAllocator,
-    view::{NoIndirectDrawing, RetainedViewEntity},
-};
-use bevy_render::{
     diagnostic::RecordDiagnostics,
-    mesh::RenderMesh,
+    experimental::occlusion_culling::{
+        OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
+    },
+    mesh::{
+        allocator::{MeshAllocator, SlabId},
+        RenderMesh,
+    },
     primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
+    sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
     texture::*,
-    view::{ExtractedView, RenderLayers, ViewVisibility},
+    view::{ExtractedView, NoIndirectDrawing, RenderLayers, RetainedViewEntity, ViewVisibility},
     Extract,
-};
-use bevy_render::{
-    mesh::allocator::SlabId,
-    sync_world::{MainEntity, RenderEntity},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::default;
-use core::{hash::Hash, marker::PhantomData, ops::Range};
+
 #[cfg(feature = "trace")]
 use tracing::info_span;
 use tracing::{error, warn};
+
+#[cfg(feature = "volumetric_light")]
+use crate::VolumetricLight;
+use crate::{
+    assign::ClusterableObjectType, material_bind_groups::MaterialBindGroupAllocator, AmbientLight,
+    Cascade, CascadeShadowConfig, Cascades, CascadesVisibleEntities, CubemapVisibleEntities,
+    DirectionalLight, DirectionalLightShadowMap, DrawPrepass, EntitiesNeedingSpecialization,
+    EntitySpecializationTicks, ExtractedClusterConfig, GlobalClusterableObjectMeta,
+    GlobalVisibleClusterableObjects, GpuClusterableObject, Material, MaterialPipelineKey,
+    MeshMaterial3d, NotShadowCaster, PointLight, PointLightShadowMap, PreparedMaterial,
+    PrepassPipeline, RenderCascadesVisibleEntities, RenderCubemapVisibleEntities, RenderLightmaps,
+    RenderMaterialInstances, RenderVisibleMeshEntities, SpotLight, VisibleMeshEntities,
+};
+
+use super::{MeshPipelineKey, RenderMeshInstanceFlags, RenderMeshInstances};
 
 #[derive(Component)]
 pub struct ExtractedPointLight {
@@ -62,6 +73,7 @@ pub struct ExtractedPointLight {
     pub shadow_normal_bias: f32,
     pub shadow_map_near_z: f32,
     pub spot_light_angles: Option<(f32, f32)>,
+    #[cfg(feature = "volumetric_light")]
     pub volumetric: bool,
     pub soft_shadows_enabled: bool,
     /// whether this point light contributes diffuse light to lightmapped meshes
@@ -74,6 +86,7 @@ pub struct ExtractedDirectionalLight {
     pub illuminance: f32,
     pub transform: GlobalTransform,
     pub shadows_enabled: bool,
+    #[cfg(feature = "volumetric_light")]
     pub volumetric: bool,
     /// whether this directional light contributes diffuse light to lightmapped
     /// meshes
@@ -230,7 +243,6 @@ pub fn extract_lights(
             &GlobalTransform,
             &ViewVisibility,
             &CubemapFrusta,
-            Option<&VolumetricLight>,
         )>,
     >,
     spot_lights: Extract<
@@ -242,7 +254,6 @@ pub fn extract_lights(
             &GlobalTransform,
             &ViewVisibility,
             &Frustum,
-            Option<&VolumetricLight>,
         )>,
     >,
     directional_lights: Extract<
@@ -258,11 +269,13 @@ pub fn extract_lights(
                 &GlobalTransform,
                 &ViewVisibility,
                 Option<&RenderLayers>,
-                Option<&VolumetricLight>,
                 Has<OcclusionCulling>,
             ),
             Without<SpotLight>,
         >,
+    >,
+    #[cfg(feature = "volumetric_light")] volumetric_lights: Extract<
+        Query<(), With<VolumetricLight>>,
     >,
     mapper: Extract<Query<RenderEntity>>,
     mut previous_point_lights_len: Local<usize>,
@@ -295,7 +308,6 @@ pub fn extract_lights(
             transform,
             view_visibility,
             frusta,
-            volumetric_light,
         )) = point_lights.get(entity)
         else {
             continue;
@@ -329,7 +341,8 @@ pub fn extract_lights(
                 * core::f32::consts::SQRT_2,
             shadow_map_near_z: point_light.shadow_map_near_z,
             spot_light_angles: None,
-            volumetric: volumetric_light.is_some(),
+            #[cfg(feature = "volumetric_light")]
+            volumetric: volumetric_lights.contains(main_entity),
             affects_lightmapped_mesh_diffuse: point_light.affects_lightmapped_mesh_diffuse,
             #[cfg(feature = "experimental_pcss")]
             soft_shadows_enabled: point_light.soft_shadows_enabled,
@@ -359,7 +372,6 @@ pub fn extract_lights(
             transform,
             view_visibility,
             frustum,
-            volumetric_light,
         )) = spot_lights.get(entity)
         {
             if !view_visibility.get() {
@@ -394,7 +406,8 @@ pub fn extract_lights(
                             * core::f32::consts::SQRT_2,
                         shadow_map_near_z: spot_light.shadow_map_near_z,
                         spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
-                        volumetric: volumetric_light.is_some(),
+                        #[cfg(feature = "volumetric_light")]
+                        volumetric: volumetric_lights.contains(main_entity),
                         affects_lightmapped_mesh_diffuse: spot_light
                             .affects_lightmapped_mesh_diffuse,
                         #[cfg(feature = "experimental_pcss")]
@@ -423,7 +436,6 @@ pub fn extract_lights(
         transform,
         view_visibility,
         maybe_layers,
-        volumetric_light,
         occlusion_culling,
     ) in &directional_lights
     {
@@ -474,7 +486,8 @@ pub fn extract_lights(
                     color: directional_light.color.into(),
                     illuminance: directional_light.illuminance,
                     transform: *transform,
-                    volumetric: volumetric_light.is_some(),
+                    #[cfg(feature = "volumetric_light")]
+                    volumetric: volumetric_lights.contains(main_entity),
                     affects_lightmapped_mesh_diffuse: directional_light
                         .affects_lightmapped_mesh_diffuse,
                     #[cfg(feature = "experimental_pcss")]
@@ -818,6 +831,7 @@ pub fn prepare_lights(
         .filter(|light| light.2.spot_light_angles.is_none())
         .count();
 
+    #[cfg(feature = "volumetric_light")]
     let point_light_volumetric_enabled_count = point_lights
         .iter()
         .filter(|(_, _, light, _)| light.volumetric && light.spot_light_angles.is_none())
@@ -830,6 +844,7 @@ pub fn prepare_lights(
         .count()
         .min(max_texture_cubes);
 
+    #[cfg(feature = "volumetric_light")]
     let directional_volumetric_enabled_count = directional_lights
         .iter()
         .take(MAX_DIRECTIONAL_LIGHTS)
@@ -850,6 +865,7 @@ pub fn prepare_lights(
         .count()
         .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
 
+    #[cfg(feature = "volumetric_light")]
     let spot_light_volumetric_enabled_count = point_lights
         .iter()
         .filter(|(_, _, light, _)| light.volumetric && light.spot_light_angles.is_some())
@@ -885,7 +901,12 @@ pub fn prepare_lights(
     // - because entities are unique, we can use `sort_unstable_by_key`
     //   and still end up with a stable order.
     directional_lights.sort_unstable_by_key(|(entity, _, light)| {
-        (light.volumetric, light.shadows_enabled, *entity)
+        #[cfg(feature = "volumetric_light")]
+        let volumetric = light.volumetric;
+        #[cfg(not(feature = "volumetric_light"))]
+        let volumetric = false;
+
+        (volumetric, light.shadows_enabled, *entity)
     });
 
     if global_light_meta.entity_to_index.capacity() < point_lights.len() {
@@ -912,6 +933,7 @@ pub fn prepare_lights(
             1.0,
             light.shadow_map_near_z,
         );
+        #[cfg(feature = "volumetric_light")]
         if light.shadows_enabled
             && light.volumetric
             && (index < point_light_volumetric_enabled_count
@@ -992,6 +1014,7 @@ pub fn prepare_lights(
         let mut flags = DirectionalLightFlags::NONE;
 
         // Lights are sorted, volumetric and shadow enabled lights are first
+        #[cfg(feature = "volumetric_light")]
         if light.volumetric
             && light.shadows_enabled
             && (index < directional_volumetric_enabled_count)

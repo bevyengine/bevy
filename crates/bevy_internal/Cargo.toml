@@ -205,6 +205,7 @@ bevy_render_3d = [
   "dep:bevy_render_3d",
   "bevy_gizmos?/bevy_render_3d",
 ]
+bevy_volumetric = ["dep:bevy_volumetric"]
 
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]

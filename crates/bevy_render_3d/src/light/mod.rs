@@ -24,13 +24,16 @@ use crate::*;
 
 mod ambient_light;
 pub use ambient_light::AmbientLight;
-
 mod point_light;
 pub use point_light::PointLight;
 mod spot_light;
 pub use spot_light::SpotLight;
 mod directional_light;
 pub use directional_light::DirectionalLight;
+#[cfg(feature = "volumetric_light")]
+mod volumetric_light;
+#[cfg(feature = "volumetric_light")]
+pub use volumetric_light::VolumetricLight;
 
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {

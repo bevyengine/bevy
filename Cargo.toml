@@ -4004,6 +4004,7 @@ wasm = true
 name = "fog_volumes"
 path = "examples/3d/fog_volumes.rs"
 doc-scrape-examples = true
+required-features = ["bevy_volumetric"]
 
 [package.metadata.example.fog_volumes]
 name = "Fog volumes"
@@ -4015,6 +4016,7 @@ wasm = false
 name = "scrolling_fog"
 path = "examples/3d/scrolling_fog.rs"
 doc-scrape-examples = true
+required-features = ["bevy_volumetric"]
 
 [package.metadata.example.scrolling_fog]
 name = "Scrolling fog"

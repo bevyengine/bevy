@@ -46,7 +46,9 @@ bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.16.0-dev" }
-bevy_render_3d = { path = "../bevy_render_3d", version = "0.16.0-dev" }
+bevy_render_3d = { path = "../bevy_render_3d", version = "0.16.0-dev", features = [
+  "volumetric_light",
+] }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }

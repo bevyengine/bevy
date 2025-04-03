@@ -20,13 +20,14 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
 use tracing::warn;
 
+#[cfg(feature = "volumetric_light")]
+use crate::VolumetricLight;
 use crate::{
     decal::{self, clustered::ClusteredDecal},
     prelude::EnvironmentMapLight,
     ClusterConfig, ClusterFarZMode, Clusters, ExtractedPointLight, GlobalVisibleClusterableObjects,
     LightProbe, PointLight, SpotLight, ViewClusterBindings, VisibleClusterableObjects,
-    VolumetricLight, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-    MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
 };
 
 const NDC_MIN: Vec2 = Vec2::NEG_ONE;
@@ -67,6 +68,7 @@ pub(crate) enum ClusterableObjectType {
         /// This is used for sorting the light list.
         shadows_enabled: bool,
 
+        #[cfg(feature = "volumetric_light")]
         /// Whether this light interacts with volumetrics.
         ///
         /// This is used for sorting the light list.
@@ -80,6 +82,7 @@ pub(crate) enum ClusterableObjectType {
         /// This is used for sorting the light list.
         shadows_enabled: bool,
 
+        #[cfg(feature = "volumetric_light")]
         /// Whether this light interacts with volumetrics.
         ///
         /// This is used for sorting the light list.
@@ -111,13 +114,23 @@ impl ClusterableObjectType {
         match *self {
             ClusterableObjectType::PointLight {
                 shadows_enabled,
+                #[cfg(feature = "volumetric_light")]
                 volumetric,
-            } => (0, !shadows_enabled, !volumetric),
+            } => {
+                #[cfg(not(feature = "volumetric_light"))]
+                let volumetric = false;
+                (0, !shadows_enabled, !volumetric)
+            }
             ClusterableObjectType::SpotLight {
                 shadows_enabled,
+                #[cfg(feature = "volumetric_light")]
                 volumetric,
                 ..
-            } => (1, !shadows_enabled, !volumetric),
+            } => {
+                #[cfg(not(feature = "volumetric_light"))]
+                let volumetric = false;
+                (1, !shadows_enabled, !volumetric)
+            }
             ClusterableObjectType::ReflectionProbe => (2, false, false),
             ClusterableObjectType::IrradianceVolume => (3, false, false),
             ClusterableObjectType::Decal => (4, false, false),
@@ -132,10 +145,12 @@ impl ClusterableObjectType {
             Some((_, outer_angle)) => ClusterableObjectType::SpotLight {
                 outer_angle,
                 shadows_enabled: point_light.shadows_enabled,
+                #[cfg(feature = "volumetric_light")]
                 volumetric: point_light.volumetric,
             },
             None => ClusterableObjectType::PointLight {
                 shadows_enabled: point_light.shadows_enabled,
+                #[cfg(feature = "volumetric_light")]
                 volumetric: point_light.volumetric,
             },
         }
@@ -161,7 +176,6 @@ pub(crate) fn assign_objects_to_clusters(
         &GlobalTransform,
         &PointLight,
         Option<&RenderLayers>,
-        Option<&VolumetricLight>,
         &ViewVisibility,
     )>,
     spot_lights_query: Query<(
@@ -169,7 +183,6 @@ pub(crate) fn assign_objects_to_clusters(
         &GlobalTransform,
         &SpotLight,
         Option<&RenderLayers>,
-        Option<&VolumetricLight>,
         &ViewVisibility,
     )>,
     light_probes_query: Query<
@@ -177,6 +190,7 @@ pub(crate) fn assign_objects_to_clusters(
         With<LightProbe>,
     >,
     decals_query: Query<(Entity, &GlobalTransform), With<ClusteredDecal>>,
+    #[cfg(feature = "volumetric_light")] volumetric_lights: Query<(), With<VolumetricLight>>,
     mut clusterable_objects: Local<Vec<ClusterableObjectAssignmentData>>,
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_clusterable_objects_warning_emitted: Local<bool>,
@@ -194,14 +208,15 @@ pub(crate) fn assign_objects_to_clusters(
             .iter()
             .filter(|(.., visibility)| visibility.get())
             .map(
-                |(entity, transform, point_light, maybe_layers, volumetric, _visibility)| {
+                |(entity, transform, point_light, maybe_layers, _visibility)| {
                     ClusterableObjectAssignmentData {
                         entity,
                         transform: GlobalTransform::from_translation(transform.translation()),
                         range: point_light.range,
                         object_type: ClusterableObjectType::PointLight {
                             shadows_enabled: point_light.shadows_enabled,
-                            volumetric: volumetric.is_some(),
+                            #[cfg(feature = "volumetric_light")]
+                            volumetric: volumetric_lights.contains(entity),
                         },
                         render_layers: maybe_layers.unwrap_or_default().clone(),
                     }
@@ -213,7 +228,7 @@ pub(crate) fn assign_objects_to_clusters(
             .iter()
             .filter(|(.., visibility)| visibility.get())
             .map(
-                |(entity, transform, spot_light, maybe_layers, volumetric, _visibility)| {
+                |(entity, transform, spot_light, maybe_layers, _visibility)| {
                     ClusterableObjectAssignmentData {
                         entity,
                         transform: *transform,
@@ -221,7 +236,8 @@ pub(crate) fn assign_objects_to_clusters(
                         object_type: ClusterableObjectType::SpotLight {
                             outer_angle: spot_light.outer_angle,
                             shadows_enabled: spot_light.shadows_enabled,
-                            volumetric: volumetric.is_some(),
+                            #[cfg(feature = "volumetric_light")]
+                            volumetric: volumetric_lights.contains(entity),
                         },
                         render_layers: maybe_layers.unwrap_or_default().clone(),
                     }
