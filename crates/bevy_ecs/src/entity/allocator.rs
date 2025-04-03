@@ -225,6 +225,8 @@ impl FreeBufferLen {
     const HIGHEST_GENERATION_BIT: u64 = 1 << 15;
     /// The u48 encoded length considers this value to be 0. Lower values are considered negative.
     const FALSE_ZERO: u64 = ((1 << 48) - 1) - ((1 << 32) - 1);
+    /// This bit is off only when the length has been entirely disabled.
+    const DISABLING_BIT: u64 = 1 << 63;
 
     /// Gets the current state of the buffer.
     #[inline]
@@ -287,6 +289,14 @@ impl FreeBufferLen {
         Self::len_from_state(self.pop_for_state(num))
     }
 
+    /// Disables the length completely, returning the previous state.
+    #[inline]
+    fn disable_len_for_state(&self) -> u64 {
+        // We don't care about the generation here since the length is invalid anyway.
+        // In order to reset length, `set_len` must be called, which handles the generation.
+        self.0.fetch_add(!Self::DISABLING_BIT, Ordering::AcqRel)
+    }
+
     /// Sets the length explicitly.
     #[inline]
     fn set_len(&self, len: u32, recent_state: u64) {
@@ -345,8 +355,8 @@ impl FreeBuffer {
     /// This must not conflict with any other [`Self::free`] or [`Self::alloc`] calls.
     #[inline]
     unsafe fn free(&self, entity: Entity) {
-        // Disable remote allocation. (We could do a compare exchange loop, but this is faster in the common case.)
-        let state = self.len.pop_for_state(u32::MAX);
+        // Disable remote allocation.
+        let state = self.len.disable_len_for_state();
         let len = FreeBufferLen::len_from_state(state);
         // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
         let (chunk_index, index) = Chunk::map_to_indices(len);
@@ -361,7 +371,6 @@ impl FreeBuffer {
         }
 
         let new_len = len + 1;
-        // It doesn't matter when other threads realize remote allocation is enabled again.
         self.len.set_len(new_len, state);
     }
 
