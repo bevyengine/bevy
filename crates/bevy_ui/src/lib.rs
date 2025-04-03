@@ -34,7 +34,6 @@ mod stack;
 mod ui_node;
 
 use bevy_ui_render::UiRenderPlugin;
-use debug_overlay::UiDebugOptions;
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
@@ -232,7 +231,7 @@ impl Plugin for UiPlugin {
         add_ui_extraction_schedule(app);
 
         #[cfg(feature = "bevy_ui_debug")]
-        app.init_resource::<UiDebugOptions>();
+        app.init_resource::<debug_overlay::UiDebugOptions>();
     }
 }
 
