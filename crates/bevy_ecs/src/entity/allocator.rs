@@ -5,7 +5,7 @@ use bevy_platform_support::{
         Arc, Weak,
     },
 };
-use core::{mem::ManuallyDrop, num::NonZero};
+use core::mem::ManuallyDrop;
 use log::warn;
 
 use crate::query::DebugCheckedUnwrap;
@@ -14,26 +14,39 @@ use super::{Entity, EntitySetIterator};
 
 /// This is the item we store in the free list.
 struct Slot {
+    #[cfg(not(target_has_atomic = "64"))]
     entity_index: AtomicU32,
+    #[cfg(not(target_has_atomic = "64"))]
     entity_generation: AtomicU32,
+    #[cfg(target_has_atomic = "64")]
+    inner_entity: AtomicU64,
 }
 
 impl Slot {
     /// Produces a meaningless an empty value. This produces a valid but incorrect `Entity`.
     fn empty() -> Self {
         let source = Entity::PLACEHOLDER;
-        Self {
+        #[cfg(not(target_has_atomic = "64"))]
+        return Self {
             entity_index: AtomicU32::new(source.index()),
             entity_generation: AtomicU32::new(source.generation()),
-        }
+        };
+        #[cfg(target_has_atomic = "64")]
+        return Self {
+            inner_entity: AtomicU64::new(source.to_bits()),
+        };
     }
 
     // TODO: could maybe make this `&mut`??
     #[inline]
     fn set_entity(&self, entity: Entity) {
+        #[cfg(not(target_has_atomic = "64"))]
         self.entity_generation
             .store(entity.generation(), Ordering::Relaxed);
+        #[cfg(not(target_has_atomic = "64"))]
         self.entity_index.store(entity.index(), Ordering::Relaxed);
+        #[cfg(target_has_atomic = "64")]
+        self.inner_entity.store(entity.to_bits(), Ordering::Relaxed);
     }
 
     /// Gets the stored entity.
@@ -44,13 +57,16 @@ impl Slot {
     /// Otherwise, the entity may be invalid or meaningless.
     #[inline]
     unsafe fn get_entity(&self) -> Entity {
-        Entity {
+        #[cfg(not(target_has_atomic = "64"))]
+        return Entity {
             index: self.entity_index.load(Ordering::Relaxed),
             // SAFETY: This is not 0 since it was from an entity's generation.
             generation: unsafe {
                 NonZero::new_unchecked(self.entity_generation.load(Ordering::Relaxed))
             },
-        }
+        };
+        #[cfg(target_has_atomic = "64")]
+        return Entity::from_bits(self.inner_entity.load(Ordering::Relaxed));
     }
 }
 
