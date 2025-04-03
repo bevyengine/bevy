@@ -162,7 +162,7 @@ impl EntityRow {
     ///
     /// This method will likely panic if given `u32` values that did not come from [`EntityRow::to_bits`].
     #[inline]
-    pub const fn from_bits(bits: u32) -> Self {
+    const fn from_bits(bits: u32) -> Self {
         Self::try_from_bits(bits).expect("Attempted to initialize invalid bits as an entity row")
     }
 
@@ -172,7 +172,7 @@ impl EntityRow {
     ///
     /// This method is the fallible counterpart to [`EntityRow::from_bits`].
     #[inline(always)]
-    pub const fn try_from_bits(bits: u32) -> Option<Self> {
+    const fn try_from_bits(bits: u32) -> Option<Self> {
         match NonZero::<u32>::new(bits) {
             // SAFETY: NonMax is repr transparent.
             Some(underlying) => Some(Self(unsafe {
