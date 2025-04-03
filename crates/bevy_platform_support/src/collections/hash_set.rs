@@ -22,6 +22,7 @@ pub use hb::{ExtractIf, OccupiedEntry, VacantEntry};
 pub type Entry<'a, T, S = FixedHasher> = hb::Entry<'a, T, S>;
 
 /// New-type for [`HashSet`](hb::HashSet) with [`FixedHasher`] as the default hashing provider.
+#[repr(transparent)]
 pub struct HashSet<T, S = FixedHasher>(hb::HashSet<T, S>);
 
 impl<T, S> Clone for HashSet<T, S>
