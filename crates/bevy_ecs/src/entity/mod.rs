@@ -67,6 +67,7 @@ pub mod unique_array;
 pub mod unique_slice;
 pub mod unique_vec;
 
+use nonmax::NonMaxU32;
 pub use unique_array::{UniqueEntityArray, UniqueEntityEquivalentArray};
 pub use unique_slice::{UniqueEntityEquivalentSlice, UniqueEntitySlice};
 pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
@@ -102,6 +103,84 @@ type IdCursor = i64;
 use bevy_platform_support::sync::atomic::AtomicIsize as AtomicIdCursor;
 #[cfg(not(target_has_atomic = "64"))]
 type IdCursor = isize;
+
+/// This represents the row or "index" of an [`Entity`] within the [`Entities`] table.
+/// This is a lighter weight version of [`Entity`].
+///
+/// This is a unique identifier for an entity in the world.
+/// This differs from [`Entity`] in that [`Entity`] is unique for all entities total (unless the [`Entity::generation`] wraps),
+/// but this is only unique for entities that are active.
+///
+/// This can be used over [`Entity`] to improve performance in some cases,
+/// but improper use can cause this to identify a different entity than intended.
+/// Use with caution.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug, Clone))]
+#[repr(transparent)]
+pub struct EntityRow(NonMaxU32);
+
+impl EntityRow {
+    const PLACEHOLDER: Self = Self(NonMaxU32::MAX);
+
+    /// Constructs a new [`EntityRow`] from its index.
+    const fn new(index: NonMaxU32) -> Self {
+        Self(index)
+    }
+
+    /// Gets the index of the entity.
+    #[inline(always)]
+    pub const fn index(&self) -> u32 {
+        self.0.get()
+    }
+
+    /// Gets a some bits that represent this value.
+    /// The bits are opaque and should not be regarded as meaningful.
+    #[inline(always)]
+    const fn to_bits(&self) -> u32 {
+        // SAFETY: NonMax is repr transparent.
+        let underlying: NonZero<u32> = unsafe { mem::transmute(self.0) };
+        underlying.get()
+    }
+
+    /// Reconstruct an [`EntityRow`] previously destructured with [`EntityRow::to_bits`].
+    ///
+    /// Only useful when applied to results from `to_bits` in the same instance of an application.
+    ///
+    /// # Panics
+    ///
+    /// This method will likely panic if given `u32` values that did not come from [`EntityRow::to_bits`].
+    #[inline]
+    pub const fn from_bits(bits: u32) -> Self {
+        Self::try_from_bits(bits).expect("Attempted to initialize invalid bits as an entity row")
+    }
+
+    /// Reconstruct an [`EntityRow`] previously destructured with [`EntityRow::to_bits`].
+    ///
+    /// Only useful when applied to results from `to_bits` in the same instance of an application.
+    ///
+    /// This method is the fallible counterpart to [`EntityRow::from_bits`].
+    #[inline(always)]
+    pub const fn try_from_bits(bits: u32) -> Option<Self> {
+        match NonMaxU32::new(bits) {
+            Some(valid) => Some(Self(valid)),
+            None => None,
+        }
+    }
+}
+
+impl SparseSetIndex for EntityRow {
+    #[inline]
+    fn sparse_set_index(&self) -> usize {
+        self.index() as usize
+    }
+
+    #[inline]
+    fn get_sparse_set_index(value: usize) -> Self {
+        Self::from_bits(value as u32)
+    }
+}
 
 /// Lightweight identifier of an [entity](crate::entity).
 ///
@@ -186,10 +265,10 @@ pub struct Entity {
     // Do not reorder the fields here. The ordering is explicitly used by repr(C)
     // to make this struct equivalent to a u64.
     #[cfg(target_endian = "little")]
-    index: u32,
+    index: EntityRow,
     generation: NonZero<u32>,
     #[cfg(target_endian = "big")]
-    index: u32,
+    index: EntityRow,
 }
 
 // By not short-circuiting in comparisons, we get better codegen.
@@ -256,7 +335,10 @@ impl Entity {
     /// Construct an [`Entity`] from a raw `index` value and a non-zero `generation` value.
     /// Ensure that the generation value is never greater than `0x7FFF_FFFF`.
     #[inline(always)]
-    pub(crate) const fn from_raw_and_generation(index: u32, generation: NonZero<u32>) -> Entity {
+    pub(crate) const fn from_raw_and_generation(
+        index: EntityRow,
+        generation: NonZero<u32>,
+    ) -> Entity {
         debug_assert!(generation.get() <= HIGH_MASK);
 
         Self { index, generation }
@@ -296,9 +378,9 @@ impl Entity {
     ///     }
     /// }
     /// ```
-    pub const PLACEHOLDER: Self = Self::from_raw(u32::MAX);
+    pub const PLACEHOLDER: Self = Self::from_raw(EntityRow::PLACEHOLDER);
 
-    /// Creates a new entity ID with the specified `index` and a generation of 1.
+    /// Creates a new entity ID with the specified `row` and a generation of 1.
     ///
     /// # Note
     ///
@@ -311,8 +393,8 @@ impl Entity {
     /// `Entity` lines up between instances, but instead insert a secondary identifier as
     /// a component.
     #[inline(always)]
-    pub const fn from_raw(index: u32) -> Entity {
-        Self::from_raw_and_generation(index, NonZero::<u32>::MIN)
+    pub const fn from_raw(row: EntityRow) -> Entity {
+        Self::from_raw_and_generation(row, NonZero::<u32>::MIN)
     }
 
     /// Convert to a form convenient for passing outside of rust.
@@ -323,7 +405,7 @@ impl Entity {
     /// No particular structure is guaranteed for the returned bits.
     #[inline(always)]
     pub const fn to_bits(self) -> u64 {
-        IdentifierMask::pack_into_u64(self.index, self.generation.get())
+        IdentifierMask::pack_into_u64(self.index.to_bits(), self.generation.get())
     }
 
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
@@ -355,10 +437,12 @@ impl Entity {
             let kind = id.kind() as u8;
 
             if kind == (IdKind::Entity as u8) {
-                return Ok(Self {
-                    index: id.low(),
-                    generation: id.high(),
-                });
+                if let Some(row) = EntityRow::try_from_bits(id.low()) {
+                    return Ok(Self {
+                        index: row,
+                        generation: id.high(),
+                    });
+                }
             }
         }
 
@@ -366,13 +450,20 @@ impl Entity {
     }
 
     /// Return a transiently unique identifier.
+    /// See also [`EntityRow`].
     ///
-    /// No two simultaneously-live entities share the same index, but dead entities' indices may collide
+    /// No two simultaneously-live entities share the same row, but dead entities' indices may collide
     /// with both live and dead entities. Useful for compactly representing entities within a
     /// specific snapshot of the world, such as when serializing.
     #[inline]
-    pub const fn index(self) -> u32 {
+    pub const fn row(self) -> EntityRow {
         self.index
+    }
+
+    /// Equivalent to `self.row().index()`. See [`Self::row`] for details.
+    #[inline]
+    pub const fn index(self) -> u32 {
+        self.index.index()
     }
 
     /// Returns the generation of this Entity's index. The generation is incremented each time an
@@ -480,12 +571,12 @@ impl fmt::Display for Entity {
 impl SparseSetIndex for Entity {
     #[inline]
     fn sparse_set_index(&self) -> usize {
-        self.index() as usize
+        self.row().sparse_set_index()
     }
 
     #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
-        Entity::from_raw(value as u32)
+        Entity::from_raw(EntityRow::get_sparse_set_index(value))
     }
 }
 
@@ -508,9 +599,17 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
         self.freelist_indices
             .next()
             .map(|&index| {
-                Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
+                // SAFETY: This came from the free list so it must be valid.
+                let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(index)) };
+                Entity::from_raw_and_generation(row, self.meta[index as usize].generation)
             })
-            .or_else(|| self.new_indices.next().map(Entity::from_raw))
+            .or_else(|| {
+                self.new_indices.next().map(|index| {
+                    // SAFETY: This came from an exclusive range so the max can't be hit.
+                    let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(index)) };
+                    Entity::from_raw(row)
+                })
+            })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
