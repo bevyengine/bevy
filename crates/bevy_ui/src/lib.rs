@@ -16,7 +16,7 @@ pub mod update;
 pub mod widget;
 
 #[cfg(feature = "bevy_ui_debug")]
-mod debug;
+mod debug_overlay;
 #[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
 mod render;
@@ -34,7 +34,7 @@ mod stack;
 mod ui_node;
 
 use bevy_ui_render::UiRenderPlugin;
-use debug::UiDebugOptions;
+use debug_overlay::UiDebugOptions;
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
@@ -50,7 +50,7 @@ use widget::{ImageNode, ImageNodeSize};
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_ui_debug")]
-    pub use crate::debug::UiDebugOptions;
+    pub use crate::debug_overlay::UiDebugOptions;
     #[cfg(feature = "bevy_ui_picking_backend")]
     #[doc(hidden)]
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};

@@ -134,7 +134,7 @@ pub fn add_ui_extraction_schedule(app: &mut App) {
                 extract_text_sections.in_set(ExtractUiSystem::ExtractText),
                 extract_ui_texture_slices.in_set(ExtractUiSystem::ExtractTextureSlice),
                 #[cfg(feature = "bevy_ui_debug")]
-                crate::debug::extract_debug_overlay.in_set(ExtractUiSystem::ExtractDebug),
+                crate::debug_overlay::extract_debug_overlay.in_set(ExtractUiSystem::ExtractDebug),
             ),
         );
 }
