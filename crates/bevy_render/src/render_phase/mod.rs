@@ -165,6 +165,9 @@ where
     /// remove the entity from the old bin during
     /// [`BinnedRenderPhase::sweep_old_entities`].
     entities_that_changed_bins: Vec<EntityThatChangedBins<BPI>>,
+    /// The gpu preprocessing mode configured for the view this phase is associated
+    /// with.
+    gpu_preprocessing_mode: GpuPreprocessingMode,
 }
 
 /// All entities that share a mesh and a material and can be batched as part of
@@ -381,8 +384,8 @@ pub enum BinnedRenderPhaseType {
     /// can be batched with other meshes of the same type.
     MultidrawableMesh,
 
-    /// The item is a mesh that's eligible for single-draw indirect rendering
-    /// and can be batched with other meshes of the same type.
+    /// The item is a mesh that can be batched with other meshes of the same type and
+    /// drawn in a single draw call.
     BatchableMesh,
 
     /// The item is a mesh that's eligible for indirect rendering, but can't be
@@ -466,9 +469,17 @@ where
         bin_key: BPI::BinKey,
         (entity, main_entity): (Entity, MainEntity),
         input_uniform_index: InputUniformIndex,
-        phase_type: BinnedRenderPhaseType,
+        mut phase_type: BinnedRenderPhaseType,
         change_tick: Tick,
     ) {
+        // If the user has overridden indirect drawing for this view, we need to
+        // force the phase type to be batchable instead.
+        if self.gpu_preprocessing_mode == GpuPreprocessingMode::PreprocessingOnly
+            && phase_type == BinnedRenderPhaseType::MultidrawableMesh
+        {
+            phase_type = BinnedRenderPhaseType::BatchableMesh;
+        }
+
         match phase_type {
             BinnedRenderPhaseType::MultidrawableMesh => {
                 match self.multidrawable_meshes.entry(batch_set_key.clone()) {
@@ -1023,6 +1034,7 @@ where
             cached_entity_bin_keys: IndexMap::default(),
             valid_cached_entity_bin_keys: FixedBitSet::new(),
             entities_that_changed_bins: vec![],
+            gpu_preprocessing_mode: gpu_preprocessing,
         }
     }
 }

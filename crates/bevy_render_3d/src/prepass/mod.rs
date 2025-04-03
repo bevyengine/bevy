@@ -278,20 +278,22 @@ type PreviousMeshFilter = Or<(With<Mesh3d>, With<MeshletMesh3d>)>;
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
     views: Query<&Camera, Or<(With<Camera3d>, With<ShadowView>)>>,
-    meshes: Query<(Entity, &GlobalTransform, Option<&PreviousGlobalTransform>), PreviousMeshFilter>,
+    new_meshes: Query<
+        (Entity, &GlobalTransform),
+        (PreviousMeshFilter, Without<PreviousGlobalTransform>),
+    >,
+    mut meshes: Query<(&GlobalTransform, &mut PreviousGlobalTransform), PreviousMeshFilter>,
 ) {
     let should_run = views.iter().any(|camera| camera.is_active);
 
     if should_run {
-        for (entity, transform, old_previous_transform) in &meshes {
+        for (entity, transform) in &new_meshes {
             let new_previous_transform = PreviousGlobalTransform(transform.affine());
-            // Make sure not to trigger change detection on
-            // `PreviousGlobalTransform` if the previous transform hasn't
-            // changed.
-            if old_previous_transform != Some(&new_previous_transform) {
-                commands.entity(entity).try_insert(new_previous_transform);
-            }
+            commands.entity(entity).try_insert(new_previous_transform);
         }
+        meshes.par_iter_mut().for_each(|(transform, mut previous)| {
+            previous.set_if_neq(PreviousGlobalTransform(transform.affine()));
+        });
     }
 }
 

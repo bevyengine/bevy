@@ -947,7 +947,7 @@ impl RenderMeshInstances {
     }
 
     /// Returns the ID of the mesh asset attached to the given entity, if any.
-    pub(crate) fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
+    pub fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => instances.mesh_asset_id(entity),
             RenderMeshInstances::GpuBuilding(ref instances) => instances.mesh_asset_id(entity),
@@ -1172,13 +1172,19 @@ impl RenderMeshInstanceGpuBuilder {
         // yet loaded. In that case, add the mesh to
         // `meshes_to_reextract_next_frame` and bail.
         let mesh_material = mesh_material_ids.mesh_material(entity);
-        let mesh_material_binding_id = match render_material_bindings.get(&mesh_material) {
-            Some(binding_id) => *binding_id,
-            None => {
-                meshes_to_reextract_next_frame.insert(entity);
-                return None;
-            }
-        };
+        let mesh_material_binding_id =
+            if mesh_material != AssetId::<StandardMaterial>::invalid().untyped() {
+                match render_material_bindings.get(&mesh_material) {
+                    Some(binding_id) => *binding_id,
+                    None => {
+                        meshes_to_reextract_next_frame.insert(entity);
+                        return None;
+                    }
+                }
+            } else {
+                // Use a dummy material binding ID.
+                MaterialBindingId::default()
+            };
         self.shared.material_bindings_index = mesh_material_binding_id;
 
         let lightmap_slot = match render_lightmaps.render_lightmaps.get(&entity) {

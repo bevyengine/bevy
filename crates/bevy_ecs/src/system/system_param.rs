@@ -131,6 +131,29 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// This will most commonly occur when working with `SystemParam`s generically, as the requirement
 /// has not been proven to the compiler.
 ///
+/// ## Custom Validation Messages
+///
+/// When using the derive macro, any [`SystemParamValidationError`]s will be propagated from the sub-parameters.
+/// If you want to override the error message, add a `#[system_param(validation_message = "New message")]` attribute to the parameter.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Resource)]
+/// # struct SomeResource;
+/// # use bevy_ecs::system::SystemParam;
+/// #
+/// #[derive(SystemParam)]
+/// struct MyParam<'w> {
+///     #[system_param(validation_message = "Custom Message")]
+///     foo: Res<'w, SomeResource>,
+/// }
+///
+/// let mut world = World::new();
+/// let err = world.run_system_cached(|param: MyParam| {}).unwrap_err();
+/// let expected = "Parameter `MyParam::foo` failed validation: Custom Message";
+/// assert!(err.to_string().ends_with(expected));
+/// ```
+///
 /// ## Builders
 ///
 /// If you want to use a [`SystemParamBuilder`](crate::system::SystemParamBuilder) with a derived [`SystemParam`] implementation,
@@ -2689,26 +2712,39 @@ pub struct SystemParamValidationError {
     /// A string identifying the invalid parameter.
     /// This is usually the type name of the parameter.
     pub param: Cow<'static, str>,
+
+    /// A string identifying the field within a parameter using `#[derive(SystemParam)]`.
+    /// This will be an empty string for other parameters.
+    ///
+    /// This will be printed after `param` in the `Display` impl, and should include a `::` prefix if non-empty.
+    pub field: Cow<'static, str>,
 }
 
 impl SystemParamValidationError {
     /// Constructs a `SystemParamValidationError` that skips the system.
     /// The parameter name is initialized to the type name of `T`, so a `SystemParam` should usually pass `Self`.
     pub fn skipped<T>(message: impl Into<Cow<'static, str>>) -> Self {
-        Self {
-            skipped: true,
-            message: message.into(),
-            param: Cow::Borrowed(core::any::type_name::<T>()),
-        }
+        Self::new::<T>(true, message, Cow::Borrowed(""))
     }
 
     /// Constructs a `SystemParamValidationError` for an invalid parameter that should be treated as an error.
     /// The parameter name is initialized to the type name of `T`, so a `SystemParam` should usually pass `Self`.
     pub fn invalid<T>(message: impl Into<Cow<'static, str>>) -> Self {
+        Self::new::<T>(false, message, Cow::Borrowed(""))
+    }
+
+    /// Constructs a `SystemParamValidationError` for an invalid parameter.
+    /// The parameter name is initialized to the type name of `T`, so a `SystemParam` should usually pass `Self`.
+    pub fn new<T>(
+        skipped: bool,
+        message: impl Into<Cow<'static, str>>,
+        field: impl Into<Cow<'static, str>>,
+    ) -> Self {
         Self {
-            skipped: false,
+            skipped,
             message: message.into(),
             param: Cow::Borrowed(core::any::type_name::<T>()),
+            field: field.into(),
         }
     }
 }
@@ -2717,8 +2753,9 @@ impl Display for SystemParamValidationError {
     fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             fmt,
-            "Parameter `{}` failed validation: {}",
+            "Parameter `{}{}` failed validation: {}",
             ShortName(&self.param),
+            self.field,
             self.message
         )
     }
@@ -2959,7 +2996,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_resource_error::res_system`: SystemParamValidationError { skipped: false, message: \"Resource does not exist\", param: \"bevy_ecs::change_detection::Res<bevy_ecs::system::system_param::tests::missing_resource_error::MissingResource>\" }"]
+    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_resource_error::res_system`: Parameter `Res<MissingResource>` failed validation: Resource does not exist"]
     fn missing_resource_error() {
         #[derive(Resource)]
         pub struct MissingResource;
@@ -2970,5 +3007,21 @@ mod tests {
         schedule.run(&mut world);
 
         fn res_system(_: Res<MissingResource>) {}
+    }
+
+    #[test]
+    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_event_error::event_system`: Parameter `EventReader<MissingEvent>::events` failed validation: Event not initialized"]
+    fn missing_event_error() {
+        use crate::prelude::{Event, EventReader};
+
+        #[derive(Event)]
+        pub struct MissingEvent;
+
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems(event_system);
+        let mut world = World::new();
+        schedule.run(&mut world);
+
+        fn event_system(_: EventReader<MissingEvent>) {}
     }
 }

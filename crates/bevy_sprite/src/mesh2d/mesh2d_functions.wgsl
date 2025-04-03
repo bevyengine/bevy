@@ -43,3 +43,7 @@ fn mesh2d_tangent_local_to_world(world_from_local: mat4x4<f32>, vertex_tangent: 
         vertex_tangent.w
     );
 }
+
+fn get_tag(instance_index: u32) -> u32 {
+    return mesh[instance_index].tag;
+}
