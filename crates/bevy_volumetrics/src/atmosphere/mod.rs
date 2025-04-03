@@ -1,11 +1,3 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![forbid(unsafe_code)]
-#![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
-)]
-
 //! Procedural Atmospheric Scattering.
 //!
 //! This plugin implements [Hillaire's 2020 paper](https://sebh.github.io/publications/egsr2020.pdf)
@@ -28,7 +20,7 @@
 //! performance more finely, the [`AtmosphereSettings`] camera component
 //! manages the size of each LUT and the sample count for each ray.
 //!
-//! Given how similar it is to [`VolumetricFog`](bevy_render_3d::VolumetricFog), it might be expected
+//! Given how similar it is to [`VolumetricFog`](crate::volumetric_fog::VolumetricFog), it might be expected
 //! that these two modules would work together well. However for now using both
 //! at once is untested, and might not be physically accurate. These may be
 //! integrated into a single module in the future.
@@ -50,14 +42,6 @@ use bevy_ecs::{
 use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, render_resource::ShaderType};
-
-/// The PBR prelude.
-///
-/// This includes the most common types in this crate, re-exported for your convenience.
-pub mod prelude {
-    #[doc(hidden)]
-    pub use crate::{Atmosphere, AtmosphereSettings};
-}
 
 /// This component describes the atmosphere of a planet, and when added to a camera
 /// will enable atmospheric scattering for that camera. This is only compatible with

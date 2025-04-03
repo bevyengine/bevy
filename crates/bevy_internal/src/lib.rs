@@ -23,8 +23,6 @@ pub use bevy_anti_aliasing as anti_aliasing;
 pub use bevy_app as app;
 #[cfg(feature = "bevy_asset")]
 pub use bevy_asset as asset;
-#[cfg(feature = "bevy_atmosphere")]
-pub use bevy_atmosphere as atmosphere;
 #[cfg(feature = "bevy_audio")]
 pub use bevy_audio as audio;
 #[cfg(feature = "bevy_color")]

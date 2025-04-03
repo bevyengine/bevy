@@ -249,9 +249,6 @@ bevy_render_3d = ["bevy_internal/bevy_render_3d"]
 # Provides volumetric lights, fog, and procedural atmosphere
 bevy_volumetrics = ["bevy_internal/bevy_volumetrics"]
 
-# Renders atmospheric scattering
-bevy_atmosphere = ["bevy_internal/bevy_atmosphere"]
-
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 
@@ -972,7 +969,7 @@ wasm = true
 name = "atmosphere"
 path = "examples/3d/atmosphere.rs"
 doc-scrape-examples = true
-required-features = ["bevy_atmosphere"]
+required-features = ["bevy_volumetrics"]
 
 [package.metadata.example.atmosphere]
 name = "Atmosphere"

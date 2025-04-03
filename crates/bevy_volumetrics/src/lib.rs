@@ -6,9 +6,12 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
+pub mod atmosphere;
 pub mod volumetric_fog;
 
 pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::atmosphere::{Atmosphere, AtmosphereSettings};
     #[doc(hidden)]
     pub use crate::volumetric_fog::{FogVolume, VolumetricFog};
 }

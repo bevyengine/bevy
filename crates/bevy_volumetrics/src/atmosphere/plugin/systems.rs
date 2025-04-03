@@ -18,7 +18,7 @@ use bevy_render::{
 };
 use bevy_render_3d::LightMeta;
 
-use crate::{
+use crate::atmosphere::{
     render::{
         AtmosphereBindGroupLayouts, AtmosphereBindGroups, AtmosphereSamplers, AtmosphereTextures,
         AtmosphereTransform, AtmosphereTransforms, AtmosphereTransformsOffset,

@@ -3,11 +3,11 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    atmosphere::{Atmosphere, AtmosphereSettings},
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     prelude::*,
     render::camera::Exposure,
     render_3d::{light_consts::lux, CascadeShadowConfigBuilder},
+    volumetrics::atmosphere::{Atmosphere, AtmosphereSettings},
 };
 
 fn main() {
