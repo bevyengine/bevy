@@ -1208,6 +1208,14 @@ macro_rules! impl_reflect_for_hashset {
 
 impl_type_path!(::bevy_platform_support::hash::NoOpHash);
 impl_type_path!(::bevy_platform_support::hash::FixedHasher);
+impl_reflect_opaque!(::core::net::SocketAddr(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
 
 #[cfg(feature = "std")]
 impl_reflect_for_hashset!(::std::collections::HashSet<V,S>);
