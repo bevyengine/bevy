@@ -35,10 +35,12 @@ impl<K, V, S> Clone for HashMap<K, V, S>
 where
     hb::HashMap<K, V, S>: Clone,
 {
+    #[inline]
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 
+    #[inline]
     fn clone_from(&mut self, source: &Self) {
         self.0.clone_from(&source.0);
     }
@@ -48,6 +50,7 @@ impl<K, V, S> Debug for HashMap<K, V, S>
 where
     hb::HashMap<K, V, S>: Debug,
 {
+    #[inline]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         <hb::HashMap<K, V, S> as Debug>::fmt(&self.0, f)
     }
@@ -57,6 +60,7 @@ impl<K, V, S> Default for HashMap<K, V, S>
 where
     hb::HashMap<K, V, S>: Default,
 {
+    #[inline]
     fn default() -> Self {
         Self(Default::default())
     }
@@ -66,6 +70,7 @@ impl<K, V, S> PartialEq for HashMap<K, V, S>
 where
     hb::HashMap<K, V, S>: PartialEq,
 {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0.eq(&other.0)
     }
@@ -77,6 +82,7 @@ impl<K, V, S, T> FromIterator<T> for HashMap<K, V, S>
 where
     hb::HashMap<K, V, S>: FromIterator<T>,
 {
+    #[inline]
     fn from_iter<U: IntoIterator<Item = T>>(iter: U) -> Self {
         Self(FromIterator::from_iter(iter))
     }
@@ -88,6 +94,7 @@ where
 {
     type Output = <hb::HashMap<K, V, S> as Index<T>>::Output;
 
+    #[inline]
     fn index(&self, index: T) -> &Self::Output {
         self.0.index(index)
     }
@@ -101,6 +108,7 @@ where
 
     type IntoIter = <hb::HashMap<K, V, S> as IntoIterator>::IntoIter;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
@@ -114,6 +122,7 @@ where
 
     type IntoIter = <&'a hb::HashMap<K, V, S> as IntoIterator>::IntoIter;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         (&self.0).into_iter()
     }
@@ -127,6 +136,7 @@ where
 
     type IntoIter = <&'a mut hb::HashMap<K, V, S> as IntoIterator>::IntoIter;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         (&mut self.0).into_iter()
     }
@@ -136,18 +146,21 @@ impl<K, V, S, T> Extend<T> for HashMap<K, V, S>
 where
     hb::HashMap<K, V, S>: Extend<T>,
 {
+    #[inline]
     fn extend<U: IntoIterator<Item = T>>(&mut self, iter: U) {
-        self.0.extend(iter)
+        self.0.extend(iter);
     }
 }
 
 impl<K, V, S> From<hb::HashMap<K, V, S>> for HashMap<K, V, S> {
+    #[inline]
     fn from(value: hb::HashMap<K, V, S>) -> Self {
         Self(value)
     }
 }
 
 impl<K, V, S> From<HashMap<K, V, S>> for hb::HashMap<K, V, S> {
+    #[inline]
     fn from(value: HashMap<K, V, S>) -> Self {
         value.0
     }
@@ -156,12 +169,14 @@ impl<K, V, S> From<HashMap<K, V, S>> for hb::HashMap<K, V, S> {
 impl<K, V, S> Deref for HashMap<K, V, S> {
     type Target = hb::HashMap<K, V, S>;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
 impl<K, V, S> DerefMut for HashMap<K, V, S> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -172,6 +187,7 @@ impl<K, V, S> serde::Serialize for HashMap<K, V, S>
 where
     hb::HashMap<K, V, S>: serde::Serialize,
 {
+    #[inline]
     fn serialize<T>(&self, serializer: T) -> Result<T::Ok, T::Error>
     where
         T: serde::Serializer,
@@ -185,6 +201,7 @@ impl<'de, K, V, S> serde::Deserialize<'de> for HashMap<K, V, S>
 where
     hb::HashMap<K, V, S>: serde::Deserialize<'de>,
 {
+    #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
