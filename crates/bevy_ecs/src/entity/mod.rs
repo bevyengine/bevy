@@ -323,6 +323,11 @@ impl Entity {
     /// # Safety
     ///
     /// `bits` must come from [`Self::to_bits`].
+    #[expect(
+        clippy::allow_attributes,
+        reason = "This is only used on some platforms."
+    )]
+    #[allow(dead_code, reason = "This is only used on some platforms.")]
     pub(crate) const unsafe fn from_bits_unchecked(bits: u64) -> Self {
         match Self::try_from_bits(bits) {
             Ok(entity) => entity,
