@@ -125,7 +125,7 @@ impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static>
     for SpawnWith<F>
 {
     fn spawn(self, world: &mut World, entity: Entity) {
-        world.entity_mut(entity).with_related(self.0);
+        world.entity_mut(entity).with_relationships(self.0);
     }
 
     fn size_hint(&self) -> usize {
@@ -235,9 +235,7 @@ pub struct SpawnOneRelated<R: Relationship, B: Bundle> {
 
 impl<R: Relationship, B: Bundle> BundleEffect for SpawnOneRelated<R, B> {
     fn apply(self, entity: &mut EntityWorldMut) {
-        entity.with_related::<R>(|s| {
-            s.spawn(self.bundle);
-        });
+        entity.with_related::<R>(self.bundle);
     }
 }
 
