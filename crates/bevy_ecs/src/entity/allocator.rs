@@ -19,6 +19,15 @@ struct Slot {
 }
 
 impl Slot {
+    /// Produces a meaningless an empty value. This produces a valid but incorrect `Entity`.
+    fn empty() -> Self {
+        let source = Entity::PLACEHOLDER;
+        Self {
+            entity_index: AtomicU32::new(source.index()),
+            entity_generation: AtomicU32::new(source.generation()),
+        }
+    }
+
     // TODO: could maybe make this `&mut`??
     #[inline]
     fn set_entity(&self, entity: Entity) {
@@ -155,6 +164,7 @@ impl Chunk {
         let cap = Self::capacity_of_chunk(index);
         let mut buff = ManuallyDrop::new(Vec::new());
         buff.reserve_exact(cap as usize);
+        buff.resize_with(cap as usize, Slot::empty);
         let ptr = buff.as_mut_ptr();
         self.first.store(ptr, Ordering::Relaxed);
         ptr
