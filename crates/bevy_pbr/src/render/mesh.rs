@@ -2578,6 +2578,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if self.clustered_decals_are_usable {
             shader_defs.push("CLUSTERED_DECALS_ARE_USABLE".into());
+            if cfg!(feature = "pbr_light_textures") {
+                shader_defs.push("LIGHT_TEXTURES".into());
+            }
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
