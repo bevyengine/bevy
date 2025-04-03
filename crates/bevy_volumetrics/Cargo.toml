@@ -1,8 +1,8 @@
 [package]
-name = "bevy_volumetric"
+name = "bevy_volumetrics"
 version = "0.16.0-dev"
 edition = "2024"
-description = "Provides volumetric lights and fog"
+description = "Provides volumetric lights, fog, and procedural atmosphere"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
