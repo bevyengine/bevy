@@ -539,7 +539,7 @@ mod tests {
         assert_eq!(scene.entities.len(), 2);
         let mut scene_entities = vec![scene.entities[0].entity, scene.entities[1].entity];
         scene_entities.sort();
-        assert_eq!(scene_entities, [entity_a_b, entity_a]);
+        assert_eq!(scene_entities, [entity_a, entity_a_b]);
     }
 
     #[test]
