@@ -247,6 +247,12 @@ impl FreeBufferLen {
         encoded_length.saturating_sub(Self::FALSE_ZERO) as u32
     }
 
+    /// Returns true if the length is currently disabled.
+    #[inline]
+    fn is_state_disabled(state: u64) -> bool {
+        (state & Self::DISABLING_BIT) == 0
+    }
+
     /// Gets the length. Returns 0 if the length is negative or zero.
     #[inline]
     fn len(&self) -> u32 {
@@ -440,6 +446,15 @@ impl FreeBuffer {
 
         let mut state = self.len.state();
         loop {
+            // The state is only disabled when freeing.
+            // If a free is happening, we need to wait for the new entity to be ready on the free buffer.
+            // Then, we can allocate it.
+            if FreeBufferLen::is_state_disabled(state) {
+                core::hint::spin_loop();
+                state = self.len.state();
+                continue;
+            }
+
             let len = FreeBufferLen::len_from_state(state);
             let index = len.checked_sub(1)?;
 
