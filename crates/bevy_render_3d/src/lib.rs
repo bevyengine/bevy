@@ -284,7 +284,7 @@ impl Plugin for MeshPipelinePlugin {
                 SyncComponentPlugin::<SpotLight>::default(),
                 ExtractComponentPlugin::<AmbientLight>::default(),
             ))
-            .add_plugins(AtmospherePlugin)
+            .add_plugins(plugin::AtmospherePlugin)
             .configure_sets(
                 PostUpdate,
                 (
