@@ -40,7 +40,7 @@ impl Slot {
     ///
     /// # Safety
     ///
-    /// This slot *must* have been [`set`](Self::set) before this.
+    /// This slot *must* have been [`set_entity`](Self::set_entity) before this.
     /// Otherwise, the entity may be invalid or meaningless.
     #[inline]
     unsafe fn get_entity(&self) -> Entity {
