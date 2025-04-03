@@ -47,8 +47,8 @@ fn calc_bounds(
         if node.is_changed() || transform.is_changed() {
             let center = transform.translation().xy();
             let half_size = 0.5 * node.size;
-            let min = center - half_size;
-            let max = center + half_size;
+            let min = (center - half_size) * node.inverse_scale_factor;
+            let max = (center + half_size) * node.inverse_scale_factor;
             let bounds = Rect::new(min.x as f64, min.y as f64, max.x as f64, max.y as f64);
             accessible.set_bounds(bounds);
         }
