@@ -73,10 +73,10 @@ where
                 .init_resource::<ExtractedUiMaterialNodes<M>>()
                 .init_resource::<UiMaterialMeta<M>>()
                 .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractBackgrounds),
-                )
+                // .add_systems(
+                //     ExtractSchedule,
+                //     extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractBackgrounds),
+                // )
                 .add_systems(
                     Render,
                     (

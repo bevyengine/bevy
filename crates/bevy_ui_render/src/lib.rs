@@ -6,6 +6,7 @@ pub mod ui_texture_slice_pipeline;
 
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
+pub mod ui_material;
 
 use crate::widget::ImageNode;
 use crate::{
@@ -97,6 +98,11 @@ pub mod stack_z_offsets {
 
 pub const UI_SHADER_HANDLE: Handle<Shader> = weak_handle!("7d190d05-545b-42f5-bd85-22a0da85b0f6");
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum RenderUiSystem {
+    ExtractCameraViews,
+}
+
 pub struct UiRenderPlugin;
 
 impl Plugin for UiRenderPlugin {
@@ -116,33 +122,9 @@ impl Plugin for UiRenderPlugin {
             .init_resource::<DrawFunctions<TransparentUi>>()
             .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
             .add_render_command::<TransparentUi, DrawUi>()
-            .configure_sets(
-                ExtractSchedule,
-                (
-                    RenderUiSystem::ExtractCameraViews,
-                    RenderUiSystem::ExtractBoxShadows,
-                    RenderUiSystem::ExtractBackgrounds,
-                    RenderUiSystem::ExtractImages,
-                    RenderUiSystem::ExtractTextureSlice,
-                    RenderUiSystem::ExtractBorders,
-                    RenderUiSystem::ExtractTextShadows,
-                    RenderUiSystem::ExtractText,
-                    RenderUiSystem::ExtractDebug,
-                )
-                    .chain(),
-            )
             .add_systems(
                 ExtractSchedule,
-                (
-                    extract_ui_camera_view.in_set(RenderUiSystem::ExtractCameraViews),
-                    extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
-                    extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
-                    extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
-                    extract_text_shadows.in_set(RenderUiSystem::ExtractTextShadows),
-                    extract_text_sections.in_set(RenderUiSystem::ExtractText),
-                    #[cfg(feature = "bevy_ui_debug")]
-                    debug_overlay::extract_debug_overlay.in_set(RenderUiSystem::ExtractDebug),
-                ),
+                extract_ui_camera_view.in_set(RenderUiSystem::ExtractCameraViews),
             )
             .add_systems(
                 Render,
@@ -178,7 +160,7 @@ impl Plugin for UiRenderPlugin {
         app.add_plugins(BoxShadowPlugin);
     }
 
-    fn finish() {
+    fn finish(app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };

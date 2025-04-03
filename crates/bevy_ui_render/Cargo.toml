@@ -1,8 +1,8 @@
 [package]
-name = "bevy_ui"
+name = "bevy_ui_render"
 version = "0.16.0-dev"
 edition = "2024"
-description = "A custom ECS-driven UI framework built specifically for Bevy Engine"
+description = "Provides rendering functionality for Bevy UI"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"

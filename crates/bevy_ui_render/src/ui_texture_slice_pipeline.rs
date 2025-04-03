@@ -52,10 +52,6 @@ impl Plugin for UiTextureSlicerPlugin {
                 .init_resource::<UiTextureSliceImageBindGroups>()
                 .init_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
                 .add_systems(
-                    ExtractSchedule,
-                    extract_ui_texture_slices.in_set(RenderUiSystem::ExtractTextureSlice),
-                )
-                .add_systems(
                     Render,
                     (
                         queue_ui_slices.in_set(RenderSet::Queue),

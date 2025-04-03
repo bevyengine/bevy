@@ -1,6 +1,52 @@
+use bevy_image::TextureAtlasLayout;
+use bevy_render::sync_world::TemporaryRenderEntity;
+use bevy_render::view::InheritedVisibility;
+use bevy_render::ExtractSchedule;
+use bevy_transform::components::GlobalTransform;
+use bevy_ui_render::ExtractedUiNodes;
+use bevy_ui_render::UiCameraMap;
+
+use crate::widget::ImageNode;
+use crate::CalculatedClip;
+use crate::ComputedNode;
+use crate::ComputedNodeTarget;
+
+pub fn set_extraction_schedule(app: &mut App) {
+    let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+        return;
+    };
+
+    app.configure_sets(
+        ExtractSchedule,
+        (
+            ExtractUiSystem::ExtractBoxShadows,
+            ExtractUiSystem::ExtractBackgrounds,
+            ExtractUiSystem::ExtractImages,
+            ExtractUiSystem::ExtractTextureSlice,
+            ExtractUiSystem::ExtractBorders,
+            ExtractUiSystem::ExtractTextShadows,
+            ExtractUiSystem::ExtractText,
+            ExtractUiSystem::ExtractDebug,
+        )
+            .chain(),
+    )
+    .add_systems(
+        ExtractSchedule,
+        (
+            extract_uinode_background_colors.in_set(ExtractUiSystem::ExtractBackgrounds),
+            extract_uinode_images.in_set(ExtractUiSystem::ExtractImages),
+            extract_uinode_borders.in_set(ExtractUiSystem::ExtractBorders),
+            extract_text_shadows.in_set(ExtractUiSystem::ExtractTextShadows),
+            extract_text_sections.in_set(ExtractUiSystem::ExtractText),
+            extract_ui_texture_slices.in_set(ExtractUiSystem::ExtractTextureSlice),
+            #[cfg(feature = "bevy_ui_debug")]
+            debug_overlay::extract_debug_overlay.in_set(ExtractUiSystem::ExtractDebug),
+        ),
+    )
+}
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RenderUiSystem {
-    ExtractCameraViews,
+pub enum ExtractUiSystem {
     ExtractBoxShadows,
     ExtractBackgrounds,
     ExtractImages,

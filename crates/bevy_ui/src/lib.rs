@@ -15,9 +15,9 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
-mod extraction;
 #[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
+mod render;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -31,6 +31,7 @@ mod layout;
 mod stack;
 mod ui_node;
 
+use bevy_ui_render::UiPipeline;
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
