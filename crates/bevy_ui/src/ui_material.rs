@@ -7,6 +7,7 @@ use bevy_render::{
     extract_component::ExtractComponent,
     render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
 };
+use bevy_ui_render::ui_material::UiMaterial;
 use core::hash::Hash;
 use derive_more::derive::From;
 

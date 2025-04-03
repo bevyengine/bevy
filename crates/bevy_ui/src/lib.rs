@@ -15,6 +15,8 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
+#[cfg(feature = "bevy_ui_debug")]
+mod debug;
 #[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
 mod render;
@@ -46,12 +48,12 @@ use widget::{ImageNode, ImageNodeSize};
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_ui_debug")]
+    pub use crate::debug::UiDebugOptions;
     #[cfg(feature = "bevy_ui_picking_backend")]
     #[doc(hidden)]
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
-    #[doc(hidden)]
-    #[cfg(feature = "bevy_ui_debug")]
-    pub use crate::render::UiDebugOptions;
     #[doc(hidden)]
     pub use crate::widget::{Text, TextUiReader, TextUiWriter};
     #[doc(hidden)]

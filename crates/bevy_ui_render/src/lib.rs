@@ -6,7 +6,6 @@ pub mod ui_texture_slice_pipeline;
 
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
-pub mod ui_material;
 
 use crate::widget::ImageNode;
 use crate::{
