@@ -120,7 +120,7 @@ impl<A: smallvec::Array<Item = Entity>> MapEntities for SmallVec<A> {
 ///     fn get_mapped(&mut self, entity: Entity) -> Entity {
 ///         self.map.get(&entity).copied().unwrap_or(entity)
 ///     }
-///     
+///
 ///     fn set_mapped(&mut self, source: Entity, target: Entity) {
 ///         self.map.insert(source, target);
 ///     }
@@ -177,7 +177,7 @@ impl EntityMapper for SceneEntityMapper<'_> {
 
         // this new entity reference is specifically designed to never represent any living entity
         let new = Entity::from_raw_and_generation(
-            self.dead_start.index(),
+            self.dead_start.row(),
             IdentifierMask::inc_masked_high_by(self.dead_start.generation, self.generations),
         );
 
@@ -280,15 +280,17 @@ impl<'m> SceneEntityMapper<'m> {
 
 #[cfg(test)]
 mod tests {
+    use nonmax::NonMaxU32;
+
     use crate::{
-        entity::{Entity, EntityHashMap, EntityMapper, SceneEntityMapper},
+        entity::{Entity, EntityHashMap, EntityMapper, EntityRow, SceneEntityMapper},
         world::World,
     };
 
     #[test]
     fn entity_mapper() {
-        const FIRST_IDX: u32 = 1;
-        const SECOND_IDX: u32 = 2;
+        const FIRST_IDX: EntityRow = EntityRow::new(NonMaxU32::new(1).unwrap());
+        const SECOND_IDX: EntityRow = EntityRow::new(NonMaxU32::new(2).unwrap());
 
         let mut map = EntityHashMap::default();
         let mut world = World::new();
@@ -321,7 +323,7 @@ mod tests {
         let mut world = World::new();
 
         let dead_ref = SceneEntityMapper::world_scope(&mut map, &mut world, |_, mapper| {
-            mapper.get_mapped(Entity::from_raw(0))
+            mapper.get_mapped(Entity::from_raw(EntityRow::new(NonMaxU32::ZERO)))
         });
 
         // Next allocated entity should be a further generation on the same index

@@ -126,20 +126,20 @@ impl EntityRow {
     const PLACEHOLDER: Self = Self(NonMaxU32::MAX);
 
     /// Constructs a new [`EntityRow`] from its index.
-    const fn new(index: NonMaxU32) -> Self {
+    pub(crate) const fn new(index: NonMaxU32) -> Self {
         Self(index)
     }
 
     /// Gets the index of the entity.
     #[inline(always)]
-    pub const fn index(&self) -> u32 {
+    pub const fn index(self) -> u32 {
         self.0.get()
     }
 
     /// Gets a some bits that represent this value.
     /// The bits are opaque and should not be regarded as meaningful.
     #[inline(always)]
-    const fn to_bits(&self) -> u32 {
+    const fn to_bits(self) -> u32 {
         // SAFETY: NonMax is repr transparent.
         let underlying: NonZero<u32> = unsafe { mem::transmute(self.0) };
         underlying.get()
