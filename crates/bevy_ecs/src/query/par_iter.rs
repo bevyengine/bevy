@@ -369,7 +369,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     /// struct T;
     ///
     /// #[derive(Resource)]
-    /// struct V(UniqueEntityVec<Entity>);
+    /// struct V(UniqueEntityVec);
     ///
     /// impl<'a> IntoIterator for &'a V {
     /// // ...

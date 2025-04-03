@@ -38,12 +38,12 @@ use super::{
 ///
 /// When `T` is [`Entity`], use the [`UniqueEntityVec`] alias.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct UniqueEntityEquivalentVec<T: EntityEquivalent = Entity>(Vec<T>);
+pub struct UniqueEntityEquivalentVec<T: EntityEquivalent>(Vec<T>);
 
 /// A `Vec` that contains only unique [`Entity`].
 ///
 /// This is the default case of a [`UniqueEntityEquivalentVec`].
-pub type UniqueEntityVec = UniqueEntityEquivalentVec;
+pub type UniqueEntityVec = UniqueEntityEquivalentVec<Entity>;
 
 impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     /// Constructs a new, empty `UniqueEntityEquivalentVec<T>`.

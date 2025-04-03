@@ -37,7 +37,7 @@ use super::{
 /// When `T` is [`Entity`], use [`UniqueEntitySlice`].
 #[repr(transparent)]
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct UniqueEntityEquivalentSlice<T: EntityEquivalent = Entity>([T]);
+pub struct UniqueEntityEquivalentSlice<T: EntityEquivalent>([T]);
 
 /// A slice that contains only unique [`Entity`].
 ///
