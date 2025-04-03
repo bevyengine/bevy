@@ -86,10 +86,10 @@ impl Chunk {
 
     /// For this index in the whole buffer, returns the index of the [`Chunk`] and the index within that chunk.
     #[inline]
-    fn get_indices(full_index: u32) -> (u32, u32) {
+    fn map_to_indices(full_index: u32) -> (u32, u32) {
         // We're countint leading zeros since each chunk has power of 2 capacity.
         // So the leading zeros will be proportional to the chunk index.
-        let leading = full_idnex
+        let leading = full_index
             .leading_zeros()
             // We do a min because we skip the first `NUM_SKIPPED` powers to make space for the first chunk's entity count.
             // The -1 is because this is the number of chunks, but we want the index in the end.
@@ -98,7 +98,7 @@ impl Chunk {
         let chunk_index = Self::NUM_CHUNKS - 1 - leading;
         // We only need to cut off this particular bit.
         // The capacity is only one bit, and if other bits needed to be dropped, `leading` would have been greater
-        let slice_index = full_idnex & !Self::capacity_of_chunk(chunk_index);
+        let slice_index = full_index & !Self::capacity_of_chunk(chunk_index);
 
         (chunk_index, slice_index)
     }
@@ -327,7 +327,7 @@ impl FreeBuffer {
         let state = self.len.pop_for_state(u32::MAX);
         let len = FreeBufferLen::len_from_state(state);
         // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
-        let (chunk_index, index) = Chunk::get_indices(len);
+        let (chunk_index, index) = Chunk::map_to_indices(len);
 
         // SAFETY: index is correct.
         let chunk = unsafe { self.chunks.get_unchecked(chunk_index as usize) };
@@ -354,7 +354,7 @@ impl FreeBuffer {
         let len = self.len.pop_for_len(1);
         let index = len.checked_sub(1)?;
         // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
-        let (chunk_index, index) = Chunk::get_indices(index);
+        let (chunk_index, index) = Chunk::map_to_indices(index);
 
         // SAFETY: index is correct.
         let chunk = unsafe { self.chunks.get_unchecked(chunk_index as usize) };
@@ -413,7 +413,7 @@ impl FreeBuffer {
             let index = len.checked_sub(1)?;
 
             // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
-            let (chunk_index, index) = Chunk::get_indices(index);
+            let (chunk_index, index) = Chunk::map_to_indices(index);
 
             // SAFETY: index is correct.
             let chunk = unsafe { self.chunks.get_unchecked(chunk_index as usize) };
@@ -470,7 +470,7 @@ impl<'a> Iterator for FreeListSliceIterator<'a> {
         }
 
         let next_index = self.indices.next()?;
-        let (chunk_index, inner_index) = Chunk::get_indices(next_index);
+        let (chunk_index, inner_index) = Chunk::map_to_indices(next_index);
         // SAFETY: index is correct
         let chunk = unsafe { self.buffer.chunks.get_unchecked(chunk_index as usize) };
 
@@ -776,7 +776,7 @@ mod tests {
         ];
 
         for (input, output) in to_test {
-            assert_eq!(Chunk::get_indices(input), output);
+            assert_eq!(Chunk::map_to_indices(input), output);
         }
     }
 
