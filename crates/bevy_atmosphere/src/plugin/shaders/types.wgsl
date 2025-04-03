@@ -1,4 +1,4 @@
-#define_import_path bevy_pbr::atmosphere::types
+#define_import_path bevy_atmosphere::types
 
 struct Atmosphere {
     // Radius of the planet

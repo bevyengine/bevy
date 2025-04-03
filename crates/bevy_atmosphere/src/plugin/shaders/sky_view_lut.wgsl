@@ -1,16 +1,14 @@
-#import bevy_pbr::{
-    mesh_view_types::Lights,
-    atmosphere::{
-        types::{Atmosphere, AtmosphereSettings},
-        bindings::{atmosphere, view, settings},
-        functions::{
-            sample_atmosphere, get_local_up, AtmosphereSample,
-            sample_local_inscattering, get_local_r, view_radius,
-            max_atmosphere_distance, direction_atmosphere_to_world,
-            sky_view_lut_uv_to_zenith_azimuth, zenith_azimuth_to_ray_dir,
-            MIDPOINT_RATIO
-        },
-    }
+#import bevy_pbr::mesh_view_types::Lights
+#import bevy_atmosphere::{
+    types::{Atmosphere, AtmosphereSettings},
+    bindings::{atmosphere, view, settings},
+    functions::{
+        sample_atmosphere, get_local_up, AtmosphereSample,
+        sample_local_inscattering, get_local_r, view_radius,
+        max_atmosphere_distance, direction_atmosphere_to_world,
+        sky_view_lut_uv_to_zenith_azimuth, zenith_azimuth_to_ray_dir,
+        MIDPOINT_RATIO
+    },
 }
 
 #import bevy_render::{

@@ -1,10 +1,9 @@
-#import bevy_pbr::atmosphere::{
+#import bevy_atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
     bindings::{settings, atmosphere},
     functions::{AtmosphereSample, sample_atmosphere, get_local_r, max_atmosphere_distance, MIDPOINT_RATIO},
     bruneton_functions::{transmittance_lut_uv_to_r_mu, distance_to_bottom_atmosphere_boundary, distance_to_top_atmosphere_boundary},
 }
-
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 

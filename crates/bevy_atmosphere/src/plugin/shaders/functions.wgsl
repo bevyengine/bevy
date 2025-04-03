@@ -1,8 +1,8 @@
-#define_import_path bevy_pbr::atmosphere::functions
+#define_import_path bevy_atmosphere::functions
 
 #import bevy_render::maths::{PI, HALF_PI, PI_2, fast_acos, fast_acos_4, fast_atan2}
 
-#import bevy_pbr::atmosphere::{
+#import bevy_atmosphere::{
     types::Atmosphere,
     bindings::{
         atmosphere, settings, view, lights, transmittance_lut, transmittance_lut_sampler, 
