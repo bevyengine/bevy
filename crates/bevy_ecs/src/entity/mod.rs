@@ -410,6 +410,17 @@ impl Entity {
         Self::from_raw_and_generation(row, NonZero::<u32>::MIN)
     }
 
+    /// This is equivalent to [`from_raw`](Self::from_raw) except that it uses an index instead of an [`EntityRow`].
+    ///
+    /// Returns `None` if the index is `u32::MAX`.
+    #[inline(always)]
+    pub const fn fresh_from_index(index: u32) -> Option<Entity> {
+        match NonMaxU32::new(index) {
+            Some(index) => Some(Self::from_raw(EntityRow::new(index))),
+            None => None,
+        }
+    }
+
     /// Convert to a form convenient for passing outside of rust.
     ///
     /// Only useful for identifying entities within the same instance of an application. Do not use
