@@ -305,6 +305,7 @@ pub fn get_text_buffer<'a>(
 mod tests {
     use super::*;
     use crate::{ContentSize, FixedMeasure};
+    use bevy_ecs::entity::EntityRow;
     use bevy_math::Vec2;
     use taffy::TraversePartialTree;
 
@@ -318,7 +319,7 @@ mod tests {
     #[test]
     fn test_upsert() {
         let mut ui_surface = UiSurface::default();
-        let root_node_entity = Entity::from_raw(1);
+        let root_node_entity = Entity::from_raw(EntityRow::INDEX_ONE);
         let node = Node::default();
 
         // standard upsert
@@ -350,7 +351,7 @@ mod tests {
     #[test]
     fn test_remove_entities() {
         let mut ui_surface = UiSurface::default();
-        let root_node_entity = Entity::from_raw(1);
+        let root_node_entity = Entity::from_raw(EntityRow::INDEX_ONE);
         let node = Node::default();
 
         ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
@@ -366,7 +367,7 @@ mod tests {
     #[test]
     fn test_try_update_measure() {
         let mut ui_surface = UiSurface::default();
-        let root_node_entity = Entity::from_raw(1);
+        let root_node_entity = Entity::from_raw(EntityRow::INDEX_ONE);
         let node = Node::default();
 
         ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
@@ -381,8 +382,8 @@ mod tests {
     #[test]
     fn test_update_children() {
         let mut ui_surface = UiSurface::default();
-        let root_node_entity = Entity::from_raw(1);
-        let child_entity = Entity::from_raw(2);
+        let root_node_entity = Entity::from_raw(EntityRow::INDEX_ONE);
+        let child_entity = Entity::from_raw(EntityRow::INDEX_TWO);
         let node = Node::default();
 
         ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
@@ -402,8 +403,8 @@ mod tests {
     #[test]
     fn test_set_camera_children() {
         let mut ui_surface = UiSurface::default();
-        let root_node_entity = Entity::from_raw(1);
-        let child_entity = Entity::from_raw(2);
+        let root_node_entity = Entity::from_raw(EntityRow::INDEX_ONE);
+        let child_entity = Entity::from_raw(EntityRow::INDEX_TWO);
         let node = Node::default();
 
         ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);

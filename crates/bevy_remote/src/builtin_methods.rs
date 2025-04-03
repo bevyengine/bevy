@@ -1490,13 +1490,15 @@ mod tests {
             "Deserialized value does not match original"
         );
     }
+    use bevy_ecs::entity::EntityRow;
+
     use super::*;
 
     #[test]
     fn serialization_tests() {
         test_serialize_deserialize(BrpQueryRow {
             components: Default::default(),
-            entity: Entity::from_raw(0),
+            entity: Entity::from_raw(EntityRow::INDEX_ZERO),
             has: Default::default(),
         });
         test_serialize_deserialize(BrpListWatchingResponse::default());
@@ -1510,7 +1512,7 @@ mod tests {
             ..Default::default()
         });
         test_serialize_deserialize(BrpListParams {
-            entity: Entity::from_raw(0),
+            entity: Entity::from_raw(EntityRow::INDEX_ZERO),
         });
     }
 }

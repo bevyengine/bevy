@@ -557,7 +557,7 @@ mod parallel {
 mod test {
     use alloc::{vec, vec::Vec};
     use bevy_app::prelude::*;
-    use bevy_ecs::{prelude::*, world::CommandQueue};
+    use bevy_ecs::{entity::EntityRow, prelude::*, world::CommandQueue};
     use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
@@ -798,8 +798,8 @@ mod test {
         let translation = vec3(1.0, 0.0, 0.0);
 
         // These will be overwritten.
-        let mut child = Entity::from_raw(0);
-        let mut grandchild = Entity::from_raw(1);
+        let mut child = Entity::from_raw(EntityRow::INDEX_ZERO);
+        let mut grandchild = Entity::from_raw(EntityRow::INDEX_ONE);
         let parent = app
             .world_mut()
             .spawn(Transform::from_translation(translation))
@@ -849,7 +849,7 @@ mod test {
         );
 
         fn setup_world(world: &mut World) -> (Entity, Entity) {
-            let mut grandchild = Entity::from_raw(0);
+            let mut grandchild = Entity::from_raw(EntityRow::INDEX_ZERO);
             let child = world
                 .spawn(Transform::IDENTITY)
                 .with_children(|builder| {

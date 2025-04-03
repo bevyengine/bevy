@@ -323,7 +323,7 @@ mod tests {
         let mut world = World::new();
 
         let dead_ref = SceneEntityMapper::world_scope(&mut map, &mut world, |_, mapper| {
-            mapper.get_mapped(Entity::from_raw(EntityRow::new(NonMaxU32::ZERO)))
+            mapper.get_mapped(Entity::from_raw(EntityRow::INDEX_ZERO))
         });
 
         // Next allocated entity should be a further generation on the same index
