@@ -33,7 +33,7 @@ mod layout;
 mod stack;
 mod ui_node;
 
-use bevy_ui_render::UiPipeline;
+use bevy_ui_render::{UiPipeline, UiRenderPlugin};
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
@@ -226,20 +226,10 @@ impl Plugin for UiPlugin {
             return;
         }
 
+        app.add_plugins(UiRenderPlugin);
+
         #[cfg(feature = "bevy_ui_debug")]
         app.init_resource::<UiDebugOptions>();
-    }
-
-    fn finish(&self, app: &mut App) {
-        if !self.enable_rendering {
-            return;
-        }
-
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<UiPipeline>();
     }
 }
 
