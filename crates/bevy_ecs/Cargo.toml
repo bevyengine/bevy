@@ -35,7 +35,7 @@ reflect_functions = ["bevy_reflect", "bevy_reflect/functions"]
 reflect_auto_register = ["bevy_reflect", "bevy_reflect/auto_register"]
 
 ## Use the configurable global error handler as the default error handler.
-## 
+##
 ## This is typically used to turn panics from the ECS into loggable errors.
 ## This may be useful for production builds,
 ## but can result in a measurable performance impact, especially for commands.
@@ -111,7 +111,6 @@ bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-d
 ] }
 
 bitflags = { version = "2.3", default-features = false }
-concurrent-queue = { version = "2.5.0", default-features = false }
 disqualified = { version = "1.0", default-features = false }
 fixedbitset = { version = "0.5", default-features = false }
 serde = { version = "1", default-features = false, features = [
@@ -134,6 +133,7 @@ tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 bumpalo = "3"
 
+concurrent-queue = { version = "2.5.0", default-features = false }
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
 concurrent-queue = { version = "2.5.0", default-features = false, features = [
   "portable-atomic",

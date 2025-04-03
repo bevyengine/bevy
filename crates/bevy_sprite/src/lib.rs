@@ -118,6 +118,7 @@ impl Plugin for SpritePlugin {
                 .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
                 .init_resource::<SpriteMeta>()
                 .init_resource::<ExtractedSprites>()
+                .init_resource::<ExtractedSlices>()
                 .init_resource::<SpriteAssetEvents>()
                 .add_render_command::<Transparent2d, DrawSprite>()
                 .add_systems(
@@ -331,7 +332,7 @@ mod test {
             .world_mut()
             .spawn(Sprite {
                 rect: Some(Rect::new(0., 0., 0.5, 1.)),
-                anchor: Anchor::TopRight,
+                anchor: Anchor::TOP_RIGHT,
                 image: image_handle,
                 ..default()
             })

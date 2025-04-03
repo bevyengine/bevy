@@ -1,12 +1,12 @@
-//! TODO: Implement `RwLock`, `RwLockReadGuard`, `RwLockWriteGuard`
+//! Provides `RwLock`, `RwLockReadGuard`, `RwLockWriteGuard`
 
-pub use rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+pub use implementation::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 #[cfg(feature = "std")]
-use std::sync as rwlock;
+use std::sync as implementation;
 
 #[cfg(not(feature = "std"))]
-mod rwlock {
+mod implementation {
     use crate::sync::{LockResult, TryLockError, TryLockResult};
     use core::fmt;
 

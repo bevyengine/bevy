@@ -121,10 +121,8 @@ pub struct ReflectComponentFns {
     pub reflect: fn(FilteredEntityRef) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
     pub reflect_mut: fn(FilteredEntityMut) -> Option<Mut<dyn Reflect>>,
-    /// Function pointer implementing [`ReflectComponent::visit_entities()`].
-    pub visit_entities: fn(&dyn Reflect, &mut dyn FnMut(Entity)),
-    /// Function pointer implementing [`ReflectComponent::visit_entities_mut()`].
-    pub visit_entities_mut: fn(&mut dyn Reflect, &mut dyn FnMut(&mut Entity)),
+    /// Function pointer implementing [`ReflectComponent::map_entities()`].
+    pub map_entities: fn(&mut dyn Reflect, &mut dyn EntityMapper),
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
     ///
     /// # Safety
@@ -291,18 +289,9 @@ impl ReflectComponent {
         &self.0
     }
 
-    /// Calls a dynamic version of [`Component::visit_entities`].
-    pub fn visit_entities(&self, component: &dyn Reflect, func: &mut dyn FnMut(Entity)) {
-        (self.0.visit_entities)(component, func);
-    }
-
-    /// Calls a dynamic version of [`Component::visit_entities_mut`].
-    pub fn visit_entities_mut(
-        &self,
-        component: &mut dyn Reflect,
-        func: &mut dyn FnMut(&mut Entity),
-    ) {
-        (self.0.visit_entities_mut)(component, func);
+    /// Calls a dynamic version of [`Component::map_entities`].
+    pub fn map_entities(&self, component: &mut dyn Reflect, func: &mut dyn EntityMapper) {
+        (self.0.map_entities)(component, func);
     }
 }
 
@@ -330,19 +319,18 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             apply_or_insert_mapped: |entity,
                                      reflected_component,
                                      registry,
-                                     mapper,
+                                     mut mapper,
                                      relationship_hook_mode| {
-                let map_fn = map_function(mapper);
                 if C::Mutability::MUTABLE {
                     // SAFETY: guard ensures `C` is a mutable component
                     if let Some(mut component) = unsafe { entity.get_mut_assume_mutable::<C>() } {
                         component.apply(reflected_component.as_partial_reflect());
-                        C::visit_entities_mut(&mut component, map_fn);
+                        C::map_entities(&mut component, &mut mapper);
                     } else {
                         let mut component = entity.world_scope(|world| {
                             from_reflect_with_fallback::<C>(reflected_component, world, registry)
                         });
-                        C::visit_entities_mut(&mut component, map_fn);
+                        C::map_entities(&mut component, &mut mapper);
                         entity
                             .insert_with_relationship_hook_mode(component, relationship_hook_mode);
                     }
@@ -350,7 +338,7 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                     let mut component = entity.world_scope(|world| {
                         from_reflect_with_fallback::<C>(reflected_component, world, registry)
                     });
-                    C::visit_entities_mut(&mut component, map_fn);
+                    C::map_entities(&mut component, &mut mapper);
                     entity.insert_with_relationship_hook_mode(component, relationship_hook_mode);
                 }
             },
@@ -395,20 +383,10 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             register_component: |world: &mut World| -> ComponentId {
                 world.register_component::<C>()
             },
-            visit_entities: |reflect: &dyn Reflect, func: &mut dyn FnMut(Entity)| {
-                let component = reflect.downcast_ref::<C>().unwrap();
-                Component::visit_entities(component, func);
-            },
-            visit_entities_mut: |reflect: &mut dyn Reflect, func: &mut dyn FnMut(&mut Entity)| {
+            map_entities: |reflect: &mut dyn Reflect, mut mapper: &mut dyn EntityMapper| {
                 let component = reflect.downcast_mut::<C>().unwrap();
-                Component::visit_entities_mut(component, func);
+                Component::map_entities(component, &mut mapper);
             },
         })
-    }
-}
-
-fn map_function(mapper: &mut dyn EntityMapper) -> impl FnMut(&mut Entity) + '_ {
-    move |entity: &mut Entity| {
-        *entity = mapper.get_mapped(*entity);
     }
 }

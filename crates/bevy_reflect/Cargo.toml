@@ -115,7 +115,7 @@ derive_more = { version = "1", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
 assert_type_match = "0.1.1"
 smallvec = { version = "1.11", default-features = false, optional = true }
-glam = { version = "0.29", default-features = false, features = [
+glam = { version = "0.29.3", default-features = false, features = [
   "serde",
 ], optional = true }
 petgraph = { version = "0.7", features = ["serde-1"], optional = true }
@@ -137,7 +137,7 @@ inventory = { version = "0.3", optional = true }
 [dev-dependencies]
 ron = "0.8.0"
 rmp-serde = "1.1"
-bincode = "1.3"
+bincode = { version = "2.0", features = ["serde"] }
 serde_json = "1.0"
 serde = { version = "1", features = ["derive"] }
 static_assertions = "1.1.0"
