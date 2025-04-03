@@ -1,19 +1,20 @@
 use core::{hash::Hash, marker::PhantomData, ops::Range};
 
-use crate::ui_material::UiMaterialKey;
-use crate::*;
-use bevy_asset::*;
+use bevy_app::{App, Plugin};
 use bevy_ecs::{
+    entity::Entity,
     prelude::Component,
-    query::ROQueryItem,
+    query::{ROQueryItem, With},
+    resource::Resource,
+    schedule::IntoScheduleConfigs,
     system::{
         lifetimeless::{Read, SRes},
         *,
     },
+    world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
-use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -24,24 +25,23 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
+use bevy_render::{
+    sync_world::{MainEntity, TemporaryRenderEntity},
+    RenderApp,
+};
 use bevy_sprite::BorderRect;
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use bevy_asset::Asset;
-use bevy_render::render_resource::AsBindGroup;
-use bevy_render::render_resource::RenderPipelineDescriptor;
-use bevy_render::render_resource::ShaderRef;
-
-use bevy_asset::{Asset, AssetId, Handle};
+use crate::{stack_z_offsets, TransparentUi, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::ExtractComponent,
     render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
 };
-use core::hash::Hash;
 use derive_more::derive::From;
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`]
@@ -224,9 +224,9 @@ where
             Shader::from_wgsl
         );
         app.init_asset::<M>()
-            .register_type::<MaterialNode<M>>()
+            //.register_type::<MaterialNode<M>>()
             .add_plugins((
-                ExtractComponentPlugin::<MaterialNode<M>>::extract_visible(),
+                //ExtractComponentPlugin::<MaterialNode<M>>::extract_visible(),
                 RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
             ));
 
@@ -503,7 +503,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub transform: Mat4,
     pub rect: Rect,
     pub border: BorderRect,
-    pub border_radius: ResolvedBorderRadius,
+    pub border_radius: [f32; 4],
     pub material: AssetId<M>,
     pub clip: Option<Rect>,
     // Camera to render this UI node to. By the time it is extracted,
@@ -511,7 +511,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     // Nodes with ambiguous camera will be ignored.
     pub extracted_camera_entity: Entity,
     pub main_entity: MainEntity,
-    render_entity: Entity,
+    pub render_entity: Entity,
 }
 
 #[derive(Resource)]
@@ -662,12 +662,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
                             size: extracted_uinode.rect.size().into(),
-                            radius: [
-                                extracted_uinode.border_radius.top_left,
-                                extracted_uinode.border_radius.top_right,
-                                extracted_uinode.border_radius.bottom_right,
-                                extracted_uinode.border_radius.bottom_left,
-                            ],
+                            radius: extracted_uinode.border_radius,
                             border: [
                                 extracted_uinode.border.left,
                                 extracted_uinode.border.top,

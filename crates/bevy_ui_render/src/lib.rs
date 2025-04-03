@@ -3,15 +3,7 @@ mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
-
-#[cfg(feature = "bevy_ui_debug")]
-mod debug_overlay;
-
-use crate::widget::ImageNode;
-use crate::{
-    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
-    ComputedNodeTarget, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
-};
+use crate::box_shadow::BoxShadowSamples;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, weak_handle, AssetEvent, AssetId, Assets, Handle};
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
@@ -22,6 +14,9 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
+use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::renderer::RenderContext;
@@ -46,16 +41,13 @@ use bevy_render::{
     ExtractSchedule, Render,
 };
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
-#[cfg(feature = "bevy_ui_debug")]
-pub use debug_overlay::UiDebugOptions;
-
-use crate::{Display, Node};
-use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
+#[cfg(feature = "bevy_ui_debug")]
+pub use debug_overlay::UiDebugOptions;
 use graph::{NodeUi, SubGraphUi};
 pub use pipeline::*;
 pub use render_pass::*;
@@ -95,6 +87,35 @@ pub mod stack_z_offsets {
     pub const MATERIAL: f32 = 0.18267;
 }
 
+/// Marker for controlling whether Ui is rendered with or without anti-aliasing
+/// in a camera. By default, Ui is always anti-aliased.
+///
+/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextFont`](bevy_text::TextFont) component.
+///
+/// ```
+/// use bevy_core_pipeline::prelude::*;
+/// use bevy_ecs::prelude::*;
+/// use bevy_ui::prelude::*;
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     commands.spawn((
+///         Camera2d,
+///         // This will cause all Ui in this camera to be rendered without
+///         // anti-aliasing
+///         UiAntiAlias::Off,
+///     ));
+/// }
+/// ```
+#[derive(Component, Clone, Copy, Default, Debug, Reflect, Eq, PartialEq)]
+#[reflect(Component, Default, PartialEq, Clone)]
+pub enum UiAntiAlias {
+    /// UI will render with anti-aliasing
+    #[default]
+    On,
+    /// UI will render without anti-aliasing
+    Off,
+}
+
 pub const UI_SHADER_HANDLE: Handle<Shader> = weak_handle!("7d190d05-545b-42f5-bd85-22a0da85b0f6");
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -105,7 +126,10 @@ pub enum RenderUiSystem {
 pub struct UiRenderPlugin;
 
 impl Plugin for UiRenderPlugin {
-    fn build(app: &mut App) {
+    fn build(&self, app: &mut App) {
+        app.register_type::<BoxShadowSamples>()
+            .register_type::<UiAntiAlias>();
+
         load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -159,7 +183,7 @@ impl Plugin for UiRenderPlugin {
         app.add_plugins(BoxShadowPlugin);
     }
 
-    fn finish(app: &mut App) {
+    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -203,7 +227,7 @@ pub enum ExtractedUiItem {
         flip_y: bool,
         /// Border radius of the UI node.
         /// Ordering: top left, top right, bottom right, bottom left.
-        border_radius: ResolvedBorderRadius,
+        border_radius: [f32; 4],
         /// Border thickness of the UI node.
         /// Ordering: left, top, right, bottom.
         border: BorderRect,
@@ -232,48 +256,6 @@ impl ExtractedUiNodes {
     pub fn clear(&mut self) {
         self.uinodes.clear();
         self.glyphs.clear();
-    }
-}
-
-#[derive(SystemParam)]
-pub struct UiCameraMap<'w, 's> {
-    mapping: Query<'w, 's, RenderEntity>,
-}
-
-impl<'w, 's> UiCameraMap<'w, 's> {
-    /// Get the default camera and create the mapper
-    pub fn get_mapper(&'w self) -> UiCameraMapper<'w, 's> {
-        UiCameraMapper {
-            mapping: &self.mapping,
-            camera_entity: Entity::PLACEHOLDER,
-            render_entity: Entity::PLACEHOLDER,
-        }
-    }
-}
-
-pub struct UiCameraMapper<'w, 's> {
-    mapping: &'w Query<'w, 's, RenderEntity>,
-    camera_entity: Entity,
-    render_entity: Entity,
-}
-
-impl<'w, 's> UiCameraMapper<'w, 's> {
-    /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
-    pub fn map(&mut self, computed_target: &ComputedNodeTarget) -> Option<Entity> {
-        let camera_entity = computed_target.camera;
-        if self.camera_entity != camera_entity {
-            let Ok(new_render_camera_entity) = self.mapping.get(camera_entity) else {
-                return None;
-            };
-            self.render_entity = new_render_camera_entity;
-            self.camera_entity = camera_entity;
-        }
-
-        Some(self.render_entity)
-    }
-
-    pub fn current_camera(&self) -> Entity {
-        self.camera_entity
     }
 }
 
@@ -806,12 +788,7 @@ pub fn prepare_uinodes(
                                     uv: uvs[i].into(),
                                     color,
                                     flags: flags | shader_flags::CORNERS[i],
-                                    radius: [
-                                        border_radius.top_left,
-                                        border_radius.top_right,
-                                        border_radius.bottom_right,
-                                        border_radius.bottom_left,
-                                    ],
+                                    radius: *border_radius,
                                     border: [border.left, border.top, border.right, border.bottom],
                                     size: rect_size.xy().into(),
                                     point: points[i].into(),

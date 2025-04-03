@@ -1,5 +1,6 @@
 use core::{hash::Hash, ops::Range};
 
+use crate::TransparentUi;
 use crate::*;
 use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
@@ -28,7 +29,6 @@ use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSli
 use bevy_transform::prelude::GlobalTransform;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
-use widget::ImageNode;
 
 pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("10cd61e3-bbf7-47fa-91c8-16cbe806378c");

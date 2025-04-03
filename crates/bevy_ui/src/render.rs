@@ -1,48 +1,141 @@
+use bevy_app::App;
+use bevy_asset::AssetId;
+use bevy_asset::Assets;
+use bevy_color::Alpha;
+use bevy_color::LinearRgba;
+use bevy_ecs::entity::Entity;
+use bevy_ecs::query::AnyOf;
+use bevy_ecs::schedule::IntoScheduleConfigs;
+use bevy_ecs::schedule::SystemSet;
+use bevy_ecs::system::Commands;
+use bevy_ecs::system::Query;
+use bevy_ecs::system::Res;
+use bevy_ecs::system::ResMut;
+use bevy_ecs::system::SystemParam;
+use bevy_image::Image;
 use bevy_image::TextureAtlasLayout;
+use bevy_math::vec2;
+use bevy_math::Mat4;
+use bevy_math::Rect;
+use bevy_math::Vec2;
+use bevy_render::sync_world::RenderEntity;
 use bevy_render::sync_world::TemporaryRenderEntity;
+use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::view::InheritedVisibility;
+use bevy_render::Extract;
 use bevy_render::ExtractSchedule;
+use bevy_render::RenderApp;
+use bevy_sprite::BorderRect;
+use bevy_sprite::SpriteImageMode;
+use bevy_text::ComputedTextBlock;
+use bevy_text::PositionedGlyph;
+use bevy_text::TextColor;
+use bevy_text::TextLayoutInfo;
 use bevy_transform::components::GlobalTransform;
+use bevy_ui_render::box_shadow::ExtractedBoxShadow;
+use bevy_ui_render::box_shadow::ExtractedBoxShadows;
+use bevy_ui_render::ui_texture_slice_pipeline::ExtractedUiTextureSlice;
+use bevy_ui_render::ui_texture_slice_pipeline::ExtractedUiTextureSlices;
+use bevy_ui_render::ExtractedGlyph;
+use bevy_ui_render::ExtractedUiItem;
+use bevy_ui_render::ExtractedUiMaterialNode;
+use bevy_ui_render::ExtractedUiMaterialNodes;
+use bevy_ui_render::ExtractedUiNode;
 use bevy_ui_render::ExtractedUiNodes;
-use bevy_ui_render::UiCameraMap;
+use bevy_ui_render::NodeType;
+use bevy_ui_render::UiMaterial;
 
+use crate::widget;
 use crate::widget::ImageNode;
+use crate::BackgroundColor;
+use crate::BorderColor;
+use crate::BoxShadow;
 use crate::CalculatedClip;
 use crate::ComputedNode;
 use crate::ComputedNodeTarget;
+use crate::Display;
+use crate::MaterialNode;
+use crate::Node;
+use crate::Outline;
+use crate::ResolvedBorderRadius;
+use crate::TextShadow;
+use crate::Val;
+
+#[derive(SystemParam)]
+pub struct UiCameraMap<'w, 's> {
+    mapping: Query<'w, 's, RenderEntity>,
+}
+
+impl<'w, 's> UiCameraMap<'w, 's> {
+    /// Get the default camera and create the mapper
+    pub fn get_mapper(&'w self) -> UiCameraMapper<'w, 's> {
+        UiCameraMapper {
+            mapping: &self.mapping,
+            camera_entity: Entity::PLACEHOLDER,
+            render_entity: Entity::PLACEHOLDER,
+        }
+    }
+}
+
+pub struct UiCameraMapper<'w, 's> {
+    mapping: &'w Query<'w, 's, RenderEntity>,
+    camera_entity: Entity,
+    render_entity: Entity,
+}
+
+impl<'w, 's> UiCameraMapper<'w, 's> {
+    /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
+    pub fn map(&mut self, computed_target: &ComputedNodeTarget) -> Option<Entity> {
+        let camera_entity = computed_target.camera;
+        if self.camera_entity != camera_entity {
+            let Ok(new_render_camera_entity) = self.mapping.get(camera_entity) else {
+                return None;
+            };
+            self.render_entity = new_render_camera_entity;
+            self.camera_entity = camera_entity;
+        }
+
+        Some(self.render_entity)
+    }
+
+    pub fn current_camera(&self) -> Entity {
+        self.camera_entity
+    }
+}
 
 pub fn set_extraction_schedule(app: &mut App) {
     let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
         return;
     };
 
-    app.configure_sets(
-        ExtractSchedule,
-        (
-            ExtractUiSystem::ExtractBoxShadows,
-            ExtractUiSystem::ExtractBackgrounds,
-            ExtractUiSystem::ExtractImages,
-            ExtractUiSystem::ExtractTextureSlice,
-            ExtractUiSystem::ExtractBorders,
-            ExtractUiSystem::ExtractTextShadows,
-            ExtractUiSystem::ExtractText,
-            ExtractUiSystem::ExtractDebug,
+    render_app
+        .configure_sets(
+            ExtractSchedule,
+            (
+                ExtractUiSystem::ExtractBoxShadows,
+                ExtractUiSystem::ExtractBackgrounds,
+                ExtractUiSystem::ExtractImages,
+                ExtractUiSystem::ExtractTextureSlice,
+                ExtractUiSystem::ExtractBorders,
+                ExtractUiSystem::ExtractTextShadows,
+                ExtractUiSystem::ExtractText,
+                ExtractUiSystem::ExtractDebug,
+            )
+                .chain(),
         )
-            .chain(),
-    )
-    .add_systems(
-        ExtractSchedule,
-        (
-            extract_uinode_background_colors.in_set(ExtractUiSystem::ExtractBackgrounds),
-            extract_uinode_images.in_set(ExtractUiSystem::ExtractImages),
-            extract_uinode_borders.in_set(ExtractUiSystem::ExtractBorders),
-            extract_text_shadows.in_set(ExtractUiSystem::ExtractTextShadows),
-            extract_text_sections.in_set(ExtractUiSystem::ExtractText),
-            extract_ui_texture_slices.in_set(ExtractUiSystem::ExtractTextureSlice),
-            #[cfg(feature = "bevy_ui_debug")]
-            debug_overlay::extract_debug_overlay.in_set(ExtractUiSystem::ExtractDebug),
-        ),
-    )
+        .add_systems(
+            ExtractSchedule,
+            (
+                extract_uinode_background_colors.in_set(ExtractUiSystem::ExtractBackgrounds),
+                extract_uinode_images.in_set(ExtractUiSystem::ExtractImages),
+                extract_uinode_borders.in_set(ExtractUiSystem::ExtractBorders),
+                extract_text_shadows.in_set(ExtractUiSystem::ExtractTextShadows),
+                extract_text_sections.in_set(ExtractUiSystem::ExtractText),
+                extract_ui_texture_slices.in_set(ExtractUiSystem::ExtractTextureSlice),
+                #[cfg(feature = "bevy_ui_debug")]
+                debug_overlay::extract_debug_overlay.in_set(ExtractUiSystem::ExtractDebug),
+            ),
+        );
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -107,7 +200,7 @@ pub fn extract_uinode_background_colors(
                 flip_x: false,
                 flip_y: false,
                 border: uinode.border(),
-                border_radius: uinode.border_radius(),
+                border_radius: uinode.border_radius().into(),
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
@@ -191,7 +284,7 @@ pub fn extract_uinode_images(
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 border: uinode.border,
-                border_radius: uinode.border_radius,
+                border_radius: uinode.border_radius.into(),
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
@@ -259,7 +352,7 @@ pub fn extract_uinode_borders(
                         flip_x: false,
                         flip_y: false,
                         border: computed_node.border(),
-                        border_radius: computed_node.border_radius(),
+                        border_radius: computed_node.border_radius().into(),
                         node_type: NodeType::Border,
                     },
                     main_entity: entity.into(),
@@ -292,7 +385,7 @@ pub fn extract_uinode_borders(
                     flip_x: false,
                     flip_y: false,
                     border: BorderRect::all(computed_node.outline_width()),
-                    border_radius: computed_node.outline_radius(),
+                    border_radius: computed_node.outline_radius().into(),
                     node_type: NodeType::Border,
                 },
                 main_entity: entity.into(),
@@ -566,7 +659,7 @@ pub fn extract_shadows(
                 bounds: shadow_size + 6. * blur_radius,
                 clip: clip.map(|clip| clip.clip),
                 extracted_camera_entity,
-                radius,
+                radius: radius.into(),
                 blur_radius,
                 size: shadow_size,
                 main_entity: entity.into(),
@@ -621,7 +714,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 max: computed_node.size(),
             },
             border: computed_node.border(),
-            border_radius: computed_node.border_radius(),
+            border_radius: computed_node.border_radius.into(),
             clip: clip.map(|clip| clip.clip),
             extracted_camera_entity,
             main_entity: entity.into(),

@@ -63,7 +63,7 @@ pub mod prelude {
             ui_material::*,
             ui_node::*,
             widget::{Button, ImageNode, Label, NodeImageMode},
-            Interaction, MaterialNode, UiMaterialPlugin, UiScale,
+            Interaction, MaterialNode, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
@@ -168,8 +168,6 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
             .register_type::<Outline>()
-            .register_type::<BoxShadowSamples>()
-            .register_type::<UiAntiAlias>()
             .register_type::<TextShadow>()
             .register_type::<ComputedNodeTarget>()
             .configure_sets(

@@ -1,11 +1,6 @@
 //! Box shadows rendering
 
-use core::{hash::Hash, ops::Range};
-
-use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, ComputedNodeTarget, RenderUiSystem,
-    ResolvedBorderRadius, TransparentUi, Val,
-};
+use crate::TransparentUi;
 use bevy_app::prelude::*;
 use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
@@ -19,6 +14,8 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
+use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::RenderApp;
 use bevy_render::{
@@ -31,11 +28,38 @@ use bevy_render::{
 };
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
+use core::{hash::Hash, ops::Range};
 
-use super::{stack_z_offsets, UiCameraMap, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use super::{stack_z_offsets, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
 pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("d2991ecd-134f-4f82-adf5-0fcc86f02227");
+
+/// Number of shadow samples.
+/// A larger value will result in higher quality shadows.
+/// Default is 4, values higher than ~10 offer diminishing returns.
+///
+/// ```
+/// use bevy_core_pipeline::prelude::*;
+/// use bevy_ecs::prelude::*;
+/// use bevy_ui::prelude::*;
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     commands.spawn((
+///         Camera2d,
+///         BoxShadowSamples(6),
+///     ));
+/// }
+/// ```
+#[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
+#[reflect(Component, Default, PartialEq, Clone)]
+pub struct BoxShadowSamples(pub u32);
+
+impl Default for BoxShadowSamples {
+    fn default() -> Self {
+        Self(4)
+    }
+}
 
 /// A plugin that enables the rendering of box shadows.
 pub struct BoxShadowPlugin;
@@ -55,10 +79,6 @@ impl Plugin for BoxShadowPlugin {
                 .init_resource::<ExtractedBoxShadows>()
                 .init_resource::<BoxShadowMeta>()
                 .init_resource::<SpecializedRenderPipelines<BoxShadowPipeline>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_shadows.in_set(RenderUiSystem::ExtractBoxShadows),
-                )
                 .add_systems(
                     Render,
                     (
@@ -220,7 +240,7 @@ pub struct ExtractedBoxShadow {
     pub clip: Option<Rect>,
     pub extracted_camera_entity: Entity,
     pub color: LinearRgba,
-    pub radius: ResolvedBorderRadius,
+    pub radius: [f32; 4],
     pub blur_radius: f32,
     pub size: Vec2,
     pub main_entity: MainEntity,
@@ -377,13 +397,6 @@ pub fn prepare_shadows(
                         }
                     }
 
-                    let radius = [
-                        box_shadow.radius.top_left,
-                        box_shadow.radius.top_right,
-                        box_shadow.radius.bottom_right,
-                        box_shadow.radius.bottom_left,
-                    ];
-
                     let uvs = [
                         Vec2::new(positions_diff[0].x, positions_diff[0].y),
                         Vec2::new(
@@ -407,7 +420,7 @@ pub fn prepare_shadows(
                             uvs: uvs[i].into(),
                             vertex_color: box_shadow.color.to_f32_array(),
                             size: box_shadow.size.into(),
-                            radius,
+                            radius: box_shadow.radius,
                             blur: box_shadow.blur_radius,
                             bounds: rect_size.xy().into(),
                         });
