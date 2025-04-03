@@ -21,10 +21,10 @@ multi_threaded = ["bevy_tasks/multi_threaded", "dep:arrayvec"]
 
 ## Adds serialization support through `serde`.
 serialize = [
-	"dep:serde",
-	"bevy_utils/serde",
-	"bevy_platform_support/serialize",
-	"indexmap/serde",
+  "dep:serde",
+  "bevy_utils/serde",
+  "bevy_platform_support/serialize",
+  "indexmap/serde",
 ]
 
 ## Adds runtime reflection support using `bevy_reflect`.
@@ -72,56 +72,56 @@ async_executor = ["std", "bevy_tasks/async_executor"]
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
 std = [
-	"bevy_reflect?/std",
-	"bevy_tasks/std",
-	"bevy_utils/std",
-	"bitflags/std",
-	"concurrent-queue/std",
-	"disqualified/alloc",
-	"fixedbitset/std",
-	"indexmap/std",
-	"serde?/std",
-	"nonmax/std",
-	"arrayvec?/std",
-	"log/std",
-	"bevy_platform_support/std",
+  "bevy_reflect?/std",
+  "bevy_tasks/std",
+  "bevy_utils/std",
+  "bitflags/std",
+  "concurrent-queue/std",
+  "disqualified/alloc",
+  "fixedbitset/std",
+  "indexmap/std",
+  "serde?/std",
+  "nonmax/std",
+  "arrayvec?/std",
+  "log/std",
+  "bevy_platform_support/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
 critical-section = [
-	"bevy_tasks/critical-section",
-	"bevy_platform_support/critical-section",
-	"bevy_reflect?/critical-section",
+  "bevy_tasks/critical-section",
+  "bevy_platform_support/critical-section",
+  "bevy_reflect?/critical-section",
 ]
 
 [dependencies]
 bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
-	"smallvec",
+  "smallvec",
 ], default-features = false, optional = true }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
-	"alloc",
+  "alloc",
 ] }
 bevy_ecs_macros = { path = "macros", version = "0.16.0-dev" }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
-	"alloc",
+  "alloc",
 ] }
 
 bitflags = { version = "2.3", default-features = false }
 disqualified = { version = "1.0", default-features = false }
 fixedbitset = { version = "0.5", default-features = false }
 serde = { version = "1", default-features = false, features = [
-	"alloc",
-	"serde_derive",
+  "alloc",
+  "serde_derive",
 ], optional = true }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = [
-	"from",
-	"display",
-	"into",
-	"as_ref",
+  "from",
+  "display",
+  "into",
+  "as_ref",
 ] }
 nonmax = { version = "0.5", default-features = false }
 arrayvec = { version = "0.7.4", default-features = false, optional = true }
@@ -135,7 +135,7 @@ bumpalo = "3"
 concurrent-queue = { version = "2.5.0", default-features = false }
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
 concurrent-queue = { version = "2.5.0", default-features = false, features = [
-	"portable-atomic",
+  "portable-atomic",
 ] }
 
 [dev-dependencies]

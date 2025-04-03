@@ -11,12 +11,12 @@ rust-version = "1.86.0"
 
 [dependencies]
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev", default-features = false, features = [
-	"curve",
+  "curve",
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
 bytemuck = { version = "1", features = ["derive"] }
 serde = { version = "1.0", features = [
-	"derive",
+  "derive",
 ], default-features = false, optional = true }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
@@ -26,11 +26,11 @@ encase = { version = "0.10", default-features = false, optional = true }
 [features]
 default = ["std", "bevy_reflect", "encase"]
 std = [
-	"alloc",
-	"bevy_math/std",
-	"serde?/std",
-	"wgpu-types?/std",
-	"bevy_reflect?/std",
+  "alloc",
+  "bevy_math/std",
+  "serde?/std",
+  "wgpu-types?/std",
+  "bevy_reflect?/std",
 ]
 alloc = ["bevy_math/alloc", "serde?/alloc"]
 serialize = ["serde", "bevy_math/serialize"]

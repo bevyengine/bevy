@@ -13,12 +13,12 @@ rust-version = "1.86.0"
 glam = { version = "0.29.3", default-features = false, features = ["bytemuck"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = [
-	"from",
-	"into",
+  "from",
+  "into",
 ] }
 itertools = { version = "0.14.0", default-features = false }
 serde = { version = "1", default-features = false, features = [
-	"derive",
+  "derive",
 ], optional = true }
 libm = { version = "0.2", optional = true }
 approx = { version = "0.5", default-features = false, optional = true }
@@ -26,7 +26,7 @@ rand = { version = "0.8", default-features = false, optional = true }
 rand_distr = { version = "0.4.3", optional = true }
 smallvec = { version = "1.11" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [
-	"glam",
+  "glam",
 ], optional = true }
 variadics_please = "1.1"
 
@@ -42,21 +42,21 @@ glam = { version = "0.29.3", default-features = false, features = ["approx"] }
 [features]
 default = ["std", "rand", "curve"]
 std = [
-	"alloc",
-	"glam/std",
-	"derive_more/std",
-	"itertools/use_std",
-	"serde?/std",
-	"approx?/std",
-	"rand?/std",
-	"rand_distr?/std",
-	"bevy_reflect?/std",
+  "alloc",
+  "glam/std",
+  "derive_more/std",
+  "itertools/use_std",
+  "serde?/std",
+  "approx?/std",
+  "rand?/std",
+  "rand_distr?/std",
+  "bevy_reflect?/std",
 ]
 alloc = [
-	"itertools/use_alloc",
-	"serde?/alloc",
-	"rand?/alloc",
-	"rand_distr?/alloc",
+  "itertools/use_alloc",
+  "serde?/alloc",
+  "rand?/alloc",
+  "rand_distr?/alloc",
 ]
 
 serialize = ["dep:serde", "glam/serde"]
