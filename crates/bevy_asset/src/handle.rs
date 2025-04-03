@@ -150,7 +150,10 @@ impl<T: Asset> Clone for Handle<T> {
 
 impl<A: Asset> Handle<A> {
     /// Create a new [`Handle::Weak`] with the given [`u128`] encoding of a [`Uuid`].
-    #[deprecated(since = "0.16.0", note = "use the `weak_handle!` macro with a UUID string instead")]
+    #[deprecated(
+        since = "0.16.0",
+        note = "use the `weak_handle!` macro with a UUID string instead"
+    )]
     pub const fn weak_from_u128(value: u128) -> Self {
         Handle::Weak(AssetId::Uuid {
             uuid: Uuid::from_u128(value),

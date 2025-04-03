@@ -1532,7 +1532,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_many`](Self::get_many) for the non-panicking version.
     #[inline]
     #[track_caller]
-    #[deprecated(since = "0.16.0", note = "Use `get_many` instead and handle the Result.")]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use `get_many` instead and handle the Result."
+    )]
     pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, D>; N] {
         match self.get_many(entities) {
             Ok(items) => items,
@@ -1929,7 +1932,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`many`](Self::many) to get read-only query items.
     #[inline]
     #[track_caller]
-    #[deprecated(since = "0.16.0", note = "Use `get_many_mut` instead and handle the Result.")]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use `get_many_mut` instead and handle the Result."
+    )]
     pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [D::Item<'_>; N] {
         match self.get_many_mut(entities) {
             Ok(items) => items,
