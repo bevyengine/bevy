@@ -336,6 +336,7 @@ impl Hash for Entity {
 }
 
 #[deprecated(
+    since = "0.16.0",
     note = "This is exclusively used with the now deprecated `Entities::alloc_at_without_replacement`."
 )]
 pub(crate) enum AllocAtWithoutReplacement {
@@ -822,6 +823,7 @@ impl Entities {
     /// Returns the location of the entity currently using the given ID, if any. Location should be
     /// written immediately.
     #[deprecated(
+        since = "0.16.0",
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
     pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
@@ -859,6 +861,7 @@ impl Entities {
     ///
     /// Returns the location of the entity currently using the given ID, if any.
     #[deprecated(
+        since = "0.16.0",
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
     #[expect(
