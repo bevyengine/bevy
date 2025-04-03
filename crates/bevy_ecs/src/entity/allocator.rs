@@ -66,7 +66,8 @@ impl Slot {
             },
         };
         #[cfg(target_has_atomic = "64")]
-        return Entity::from_bits(self.inner_entity.load(Ordering::Relaxed));
+        // SAFETY: Caller ensures this was set first.
+        return unsafe { Entity::from_bits_unchecked(self.inner_entity.load(Ordering::Relaxed)) };
     }
 }
 
