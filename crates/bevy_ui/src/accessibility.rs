@@ -14,7 +14,7 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_math::Vec3Swizzles;
-use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
+use bevy_render::camera::CameraUpdateSystem;
 use bevy_transform::prelude::GlobalTransform;
 
 use accesskit::{Node, Rect, Role};
