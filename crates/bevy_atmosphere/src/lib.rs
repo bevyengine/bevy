@@ -28,7 +28,7 @@
 //! performance more finely, the [`AtmosphereSettings`] camera component
 //! manages the size of each LUT and the sample count for each ray.
 //!
-//! Given how similar it is to [`crate::volumetric_fog`], it might be expected
+//! Given how similar it is to [`VolumetricFog`](bevy_render_3d::VolumetricFog), it might be expected
 //! that these two modules would work together well. However for now using both
 //! at once is untested, and might not be physically accurate. These may be
 //! integrated into a single module in the future.
