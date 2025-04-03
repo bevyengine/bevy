@@ -45,6 +45,7 @@ use bevy_reflect::Reflect;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 pub use clone_entities::*;
+use derive_more::derive::Display;
 pub use entity_set::*;
 pub use map_entities::*;
 
@@ -114,7 +115,7 @@ type IdCursor = isize;
 /// This can be used over [`Entity`] to improve performance in some cases,
 /// but improper use can cause this to identify a different entity than intended.
 /// Use with caution.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Display)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug, Clone))]
@@ -586,7 +587,7 @@ pub struct ReserveEntitiesIterator<'a> {
     meta: &'a [EntityMeta],
 
     // Reserved indices formerly in the freelist to hand out.
-    freelist_indices: core::slice::Iter<'a, u32>,
+    freelist_indices: core::slice::Iter<'a, EntityRow>,
 
     // New Entity indices to hand out, outside the range of meta.len().
     new_indices: core::ops::Range<u32>,
@@ -598,10 +599,8 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.freelist_indices
             .next()
-            .map(|&index| {
-                // SAFETY: This came from the free list so it must be valid.
-                let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(index)) };
-                Entity::from_raw_and_generation(row, self.meta[index as usize].generation)
+            .map(|&row| {
+                Entity::from_raw_and_generation(row, self.meta[row.index() as usize].generation)
             })
             .or_else(|| {
                 self.new_indices.next().map(|index| {
@@ -676,7 +675,7 @@ pub struct Entities {
     /// [`reserve_entity`]: Entities::reserve_entity
     /// [`reserve_entities`]: Entities::reserve_entities
     /// [`flush`]: Entities::flush
-    pending: Vec<u32>,
+    pending: Vec<EntityRow>,
     free_cursor: AtomicIdCursor,
 }
 
@@ -752,17 +751,21 @@ impl Entities {
         let n = self.free_cursor.fetch_sub(1, Ordering::Relaxed);
         if n > 0 {
             // Allocate from the freelist.
-            let index = self.pending[(n - 1) as usize];
-            Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
+            let row = self.pending[(n - 1) as usize];
+            Entity::from_raw_and_generation(row, self.meta[row.index() as usize].generation)
         } else {
             // Grab a new ID, outside the range of `meta.len()`. `flush()` must
             // eventually be called to make it valid.
             //
             // As `self.free_cursor` goes more and more negative, we return IDs farther
             // and farther beyond `meta.len()`.
-            Entity::from_raw(
-                u32::try_from(self.meta.len() as IdCursor - n).expect("too many entities"),
-            )
+            let raw = self.meta.len() as IdCursor - n;
+            if raw >= u32::MAX as IdCursor {
+                panic!("too many entities");
+            }
+            // SAFETY: We just checked the bounds
+            let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(raw as u32)) };
+            Entity::from_raw(row)
         }
     }
 
@@ -777,14 +780,17 @@ impl Entities {
     /// Allocate an entity ID directly.
     pub fn alloc(&mut self) -> Entity {
         self.verify_flushed();
-        if let Some(index) = self.pending.pop() {
+        if let Some(row) = self.pending.pop() {
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
+            Entity::from_raw_and_generation(row, self.meta[row.index() as usize].generation)
         } else {
-            let index = u32::try_from(self.meta.len()).expect("too many entities");
+            let index = u32::try_from(self.meta.len())
+                .ok()
+                .and_then(NonMaxU32::new)
+                .expect("too many entities");
             self.meta.push(EntityMeta::EMPTY);
-            Entity::from_raw(index)
+            Entity::from_raw(EntityRow::new(index))
         }
     }
 
@@ -799,14 +805,17 @@ impl Entities {
         self.verify_flushed();
 
         let loc = if entity.index() as usize >= self.meta.len() {
-            self.pending
-                .extend((self.meta.len() as u32)..entity.index());
+            self.pending.extend(
+                ((self.meta.len() as u32)..entity.index())
+                    // SAFETY: The upper bound is a valid index
+                    .map(|index| EntityRow::new(unsafe { NonMaxU32::new_unchecked(index) })),
+            );
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.meta
                 .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
             None
-        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
+        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.row()) {
             self.pending.swap_remove(index);
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
@@ -840,14 +849,17 @@ impl Entities {
         self.verify_flushed();
 
         let result = if entity.index() as usize >= self.meta.len() {
-            self.pending
-                .extend((self.meta.len() as u32)..entity.index());
+            self.pending.extend(
+                ((self.meta.len() as u32)..entity.index())
+                    // SAFETY: The upper bound is a valid index
+                    .map(|index| EntityRow::new(unsafe { NonMaxU32::new_unchecked(index) })),
+            );
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.meta
                 .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
             AllocAtWithoutReplacement::DidNotExist
-        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
+        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.row()) {
             self.pending.swap_remove(index);
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
@@ -883,13 +895,13 @@ impl Entities {
         if meta.generation == NonZero::<u32>::MIN {
             warn!(
                 "Entity({}) generation wrapped on Entities::free, aliasing may occur",
-                entity.index
+                entity.row()
             );
         }
 
         let loc = mem::replace(&mut meta.location, EntityMeta::EMPTY.location);
 
-        self.pending.push(entity.index());
+        self.pending.push(entity.row());
 
         let new_free_cursor = self.pending.len() as IdCursor;
         *self.free_cursor.get_mut() = new_free_cursor;
@@ -921,7 +933,7 @@ impl Entities {
     // This will return false for entities which have been freed, even if
     // not reallocated since the generation is incremented in `free`
     pub fn contains(&self, entity: Entity) -> bool {
-        self.resolve_from_id(entity.index())
+        self.resolve_from_id(entity.row())
             .is_some_and(|e| e.generation() == entity.generation())
     }
 
@@ -987,17 +999,17 @@ impl Entities {
     /// Note: This method may return [`Entities`](Entity) which are currently free
     /// Note that [`contains`](Entities::contains) will correctly return false for freed
     /// entities, since it checks the generation
-    pub fn resolve_from_id(&self, index: u32) -> Option<Entity> {
-        let idu = index as usize;
+    pub fn resolve_from_id(&self, row: EntityRow) -> Option<Entity> {
+        let idu = row.index() as usize;
         if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
-            Some(Entity::from_raw_and_generation(index, generation))
+            Some(Entity::from_raw_and_generation(row, generation))
         } else {
             // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
             let free_cursor = self.free_cursor.load(Ordering::Relaxed);
             // If this entity was manually created, then free_cursor might be positive
             // Returning None handles that case correctly
             let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then_some(Entity::from_raw(index))
+            (idu < self.meta.len() + num_pending).then_some(Entity::from_raw(row))
         }
     }
 
@@ -1026,8 +1038,10 @@ impl Entities {
             let new_meta_len = old_meta_len + -current_free_cursor as usize;
             self.meta.resize(new_meta_len, EntityMeta::EMPTY);
             for (index, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
+                // SAFETY: the index is less than the meta length, which can not exceeded u32::MAX
+                let row = EntityRow::new(unsafe { NonMaxU32::new_unchecked(index as u32) });
                 init(
-                    Entity::from_raw_and_generation(index as u32, meta.generation),
+                    Entity::from_raw_and_generation(row, meta.generation),
                     &mut meta.location,
                 );
             }
@@ -1036,10 +1050,10 @@ impl Entities {
             0
         };
 
-        for index in self.pending.drain(new_free_cursor..) {
-            let meta = &mut self.meta[index as usize];
+        for row in self.pending.drain(new_free_cursor..) {
+            let meta = &mut self.meta[row.index() as usize];
             init(
-                Entity::from_raw_and_generation(index, meta.generation),
+                Entity::from_raw_and_generation(row, meta.generation),
                 &mut meta.location,
             );
         }
@@ -1252,8 +1266,10 @@ mod tests {
     #[test]
     fn entity_bits_roundtrip() {
         // Generation cannot be greater than 0x7FFF_FFFF else it will be an invalid Entity id
-        let e =
-            Entity::from_raw_and_generation(0xDEADBEEF, NonZero::<u32>::new(0x5AADF00D).unwrap());
+        let e = Entity::from_raw_and_generation(
+            EntityRow::new(NonMaxU32::new(0xDEADBEEF).unwrap()),
+            NonZero::<u32>::new(0x5AADF00D).unwrap(),
+        );
         assert_eq!(Entity::from_bits(e.to_bits()), e);
     }
 
@@ -1286,7 +1302,7 @@ mod tests {
 
     #[test]
     fn entity_const() {
-        const C1: Entity = Entity::from_raw(42);
+        const C1: Entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
         assert_eq!(42, C1.index());
         assert_eq!(1, C1.generation());
 
@@ -1294,7 +1310,7 @@ mod tests {
         assert_eq!(0x0000_00cc, C2.index());
         assert_eq!(0x0000_00ff, C2.generation());
 
-        const C3: u32 = Entity::from_raw(33).index();
+        const C3: u32 = Entity::from_raw(EntityRow::new(NonMaxU32::new(33).unwrap())).index();
         assert_eq!(33, C3);
 
         const C4: u32 = Entity::from_bits(0x00dd_00ff_0000_0000).generation();
@@ -1333,65 +1349,139 @@ mod tests {
     )]
     fn entity_comparison() {
         assert_eq!(
-            Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap()),
-            Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap())
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(456).unwrap()
+            ),
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(456).unwrap()
+            )
         );
         assert_ne!(
-            Entity::from_raw_and_generation(123, NonZero::<u32>::new(789).unwrap()),
-            Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap())
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(789).unwrap()
+            ),
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(456).unwrap()
+            )
         );
         assert_ne!(
-            Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap()),
-            Entity::from_raw_and_generation(123, NonZero::<u32>::new(789).unwrap())
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(456).unwrap()
+            ),
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(789).unwrap()
+            )
         );
         assert_ne!(
-            Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap()),
-            Entity::from_raw_and_generation(456, NonZero::<u32>::new(123).unwrap())
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(456).unwrap()
+            ),
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(456).unwrap()),
+                NonZero::<u32>::new(123).unwrap()
+            )
         );
 
         // ordering is by generation then by index
 
         assert!(
-            Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap())
-                >= Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap())
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(456).unwrap()
+            ) >= Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(456).unwrap()
+            )
         );
         assert!(
-            Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap())
-                <= Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap())
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(456).unwrap()
+            ) <= Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(456).unwrap()
+            )
         );
         assert!(
-            !(Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap())
-                < Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap()))
+            !(Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(456).unwrap()
+            ) < Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(456).unwrap()
+            ))
         );
         assert!(
-            !(Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap())
-                > Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap()))
+            !(Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(456).unwrap()
+            ) > Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                NonZero::<u32>::new(456).unwrap()
+            ))
         );
 
         assert!(
-            Entity::from_raw_and_generation(9, NonZero::<u32>::new(1).unwrap())
-                < Entity::from_raw_and_generation(1, NonZero::<u32>::new(9).unwrap())
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(9).unwrap()),
+                NonZero::<u32>::new(1).unwrap()
+            ) < Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(1).unwrap()),
+                NonZero::<u32>::new(9).unwrap()
+            )
         );
         assert!(
-            Entity::from_raw_and_generation(1, NonZero::<u32>::new(9).unwrap())
-                > Entity::from_raw_and_generation(9, NonZero::<u32>::new(1).unwrap())
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(1).unwrap()),
+                NonZero::<u32>::new(9).unwrap()
+            ) > Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(9).unwrap()),
+                NonZero::<u32>::new(1).unwrap()
+            )
         );
 
         assert!(
-            Entity::from_raw_and_generation(1, NonZero::<u32>::new(1).unwrap())
-                < Entity::from_raw_and_generation(2, NonZero::<u32>::new(1).unwrap())
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(1).unwrap()),
+                NonZero::<u32>::new(1).unwrap()
+            ) < Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(2).unwrap()),
+                NonZero::<u32>::new(1).unwrap()
+            )
         );
         assert!(
-            Entity::from_raw_and_generation(1, NonZero::<u32>::new(1).unwrap())
-                <= Entity::from_raw_and_generation(2, NonZero::<u32>::new(1).unwrap())
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(1).unwrap()),
+                NonZero::<u32>::new(1).unwrap()
+            ) <= Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(2).unwrap()),
+                NonZero::<u32>::new(1).unwrap()
+            )
         );
         assert!(
-            Entity::from_raw_and_generation(2, NonZero::<u32>::new(2).unwrap())
-                > Entity::from_raw_and_generation(1, NonZero::<u32>::new(2).unwrap())
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(2).unwrap()),
+                NonZero::<u32>::new(2).unwrap()
+            ) > Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(1).unwrap()),
+                NonZero::<u32>::new(2).unwrap()
+            )
         );
         assert!(
-            Entity::from_raw_and_generation(2, NonZero::<u32>::new(2).unwrap())
-                >= Entity::from_raw_and_generation(1, NonZero::<u32>::new(2).unwrap())
+            Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(2).unwrap()),
+                NonZero::<u32>::new(2).unwrap()
+            ) >= Entity::from_raw_and_generation(
+                EntityRow::new(NonMaxU32::new(1).unwrap()),
+                NonZero::<u32>::new(2).unwrap()
+            )
         );
     }
 
@@ -1403,11 +1493,15 @@ mod tests {
         let hash = EntityHash;
 
         let first_id = 0xC0FFEE << 8;
-        let first_hash = hash.hash_one(Entity::from_raw(first_id));
+        let first_hash = hash.hash_one(Entity::from_raw(EntityRow::new(
+            NonMaxU32::new(first_id).unwrap(),
+        )));
 
         for i in 1..=255 {
             let id = first_id + i;
-            let hash = hash.hash_one(Entity::from_raw(id));
+            let hash = hash.hash_one(Entity::from_raw(EntityRow::new(
+                NonMaxU32::new(id).unwrap(),
+            )));
             assert_eq!(hash.wrapping_sub(first_hash) as u32, i);
         }
     }
@@ -1419,18 +1513,22 @@ mod tests {
         let hash = EntityHash;
 
         let first_id = 0xC0FFEE;
-        let first_hash = hash.hash_one(Entity::from_raw(first_id)) >> 57;
+        let first_hash = hash.hash_one(Entity::from_raw(EntityRow::new(
+            NonMaxU32::new(first_id).unwrap(),
+        ))) >> 57;
 
         for bit in 0..u32::BITS {
             let id = first_id ^ (1 << bit);
-            let hash = hash.hash_one(Entity::from_raw(id)) >> 57;
+            let hash = hash.hash_one(Entity::from_raw(EntityRow::new(
+                NonMaxU32::new(id).unwrap(),
+            ))) >> 57;
             assert_ne!(hash, first_hash);
         }
     }
 
     #[test]
     fn entity_debug() {
-        let entity = Entity::from_raw(42);
+        let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
         let string = format!("{:?}", entity);
         assert_eq!(string, "42v1#4294967338");
 
@@ -1441,7 +1539,7 @@ mod tests {
 
     #[test]
     fn entity_display() {
-        let entity = Entity::from_raw(42);
+        let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
         let string = format!("{}", entity);
         assert_eq!(string, "42v1");
 
