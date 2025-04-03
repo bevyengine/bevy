@@ -54,9 +54,9 @@ use log::warn;
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::new();
 /// let root = world.spawn_empty().id();
-/// let child1 = world.spawn(ChildOf { parent: root }).id();
-/// let child2 = world.spawn(ChildOf { parent: root }).id();
-/// let grandchild = world.spawn(ChildOf { parent: child1 }).id();
+/// let child1 = world.spawn(ChildOf(root)).id();
+/// let child2 = world.spawn(ChildOf(root)).id();
+/// let grandchild = world.spawn(ChildOf(child1)).id();
 ///
 /// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
 /// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
@@ -96,9 +96,21 @@ use log::warn;
 )]
 #[relationship(relationship_target = Children)]
 #[doc(alias = "IsChild", alias = "Parent")]
-pub struct ChildOf {
+pub struct ChildOf(pub Entity);
+
+impl ChildOf {
     /// The parent entity of this child entity.
-    pub parent: Entity,
+    #[inline]
+    pub fn parent(&self) -> Entity {
+        self.0
+    }
+
+    /// The parent entity of this child entity.
+    #[deprecated(since = "0.16.0", note = "Use child_of.parent() instead")]
+    #[inline]
+    pub fn get(&self) -> Entity {
+        self.0
+    }
 }
 
 // TODO: We need to impl either FromWorld or Default so ChildOf can be registered as Reflect.
@@ -108,9 +120,7 @@ pub struct ChildOf {
 impl FromWorld for ChildOf {
     #[inline(always)]
     fn from_world(_world: &mut World) -> Self {
-        ChildOf {
-            parent: Entity::PLACEHOLDER,
-        }
+        ChildOf(Entity::PLACEHOLDER)
     }
 }
 
@@ -256,17 +266,26 @@ pub type ChildSpawnerCommands<'w> = RelatedSpawnerCommands<'w, ChildOf>;
 
 impl<'w> EntityWorldMut<'w> {
     /// Spawns children of this entity (with a [`ChildOf`] relationship) by taking a function that operates on a [`ChildSpawner`].
+    /// See also [`with_related`](Self::with_related).
     pub fn with_children(&mut self, func: impl FnOnce(&mut ChildSpawner)) -> &mut Self {
         self.with_related(func);
         self
     }
 
     /// Adds the given children to this entity
+    /// See also [`add_related`](Self::add_related).
     pub fn add_children(&mut self, children: &[Entity]) -> &mut Self {
         self.add_related::<ChildOf>(children)
     }
 
+    /// Insert children at specific index.
+    /// See also [`insert_related`](Self::insert_related).
+    pub fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
+        self.insert_related::<ChildOf>(index, children)
+    }
+
     /// Adds the given child to this entity
+    /// See also [`add_related`](Self::add_related).
     pub fn add_child(&mut self, child: Entity) -> &mut Self {
         self.add_related::<ChildOf>(&[child])
     }
@@ -307,7 +326,7 @@ impl<'w> EntityWorldMut<'w> {
     pub fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
         let parent = self.id();
         self.world_scope(|world| {
-            world.spawn((bundle, ChildOf { parent }));
+            world.spawn((bundle, ChildOf(parent)));
         });
         self
     }
@@ -320,12 +339,9 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use entity_mut.insert(ChildOf { parent: entity })"
-    )]
+    #[deprecated(since = "0.16.0", note = "Use entity_mut.insert(ChildOf(entity))")]
     pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
-        self.insert(ChildOf { parent });
+        self.insert(ChildOf(parent));
         self
     }
 }
@@ -343,6 +359,12 @@ impl<'a> EntityCommands<'a> {
     /// Adds the given children to this entity
     pub fn add_children(&mut self, children: &[Entity]) -> &mut Self {
         self.add_related::<ChildOf>(children)
+    }
+
+    /// Insert children at specific index.
+    /// See also [`insert_related`](Self::insert_related).
+    pub fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
+        self.insert_related::<ChildOf>(index, children)
     }
 
     /// Adds the given child to this entity
@@ -385,7 +407,7 @@ impl<'a> EntityCommands<'a> {
     /// [`with_children`]: EntityCommands::with_children
     pub fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
         let parent = self.id();
-        self.commands.spawn((bundle, ChildOf { parent }));
+        self.commands.spawn((bundle, ChildOf(parent)));
         self
     }
 
@@ -397,12 +419,9 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use entity_commands.insert(ChildOf { parent: entity })"
-    )]
+    #[deprecated(since = "0.16.0", note = "Use entity_commands.insert(ChildOf(entity))")]
     pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
-        self.insert(ChildOf { parent });
+        self.insert(ChildOf(parent));
         self
     }
 }
@@ -418,7 +437,7 @@ pub fn validate_parent_has_component<C: Component>(
         return;
     };
     if !world
-        .get_entity(child_of.parent)
+        .get_entity(child_of.parent())
         .is_ok_and(|e| e.contains::<C>())
     {
         // TODO: print name here once Name lives in bevy_ecs
@@ -518,9 +537,9 @@ mod tests {
     fn hierarchy() {
         let mut world = World::new();
         let root = world.spawn_empty().id();
-        let child1 = world.spawn(ChildOf { parent: root }).id();
-        let grandchild = world.spawn(ChildOf { parent: child1 }).id();
-        let child2 = world.spawn(ChildOf { parent: root }).id();
+        let child1 = world.spawn(ChildOf(root)).id();
+        let grandchild = world.spawn(ChildOf(child1)).id();
+        let child2 = world.spawn(ChildOf(root)).id();
 
         // Spawn
         let hierarchy = get_hierarchy(&world, root);
@@ -541,7 +560,7 @@ mod tests {
         assert_eq!(hierarchy, Node::new_with(root, vec![Node::new(child2)]));
 
         // Insert
-        world.entity_mut(child1).insert(ChildOf { parent: root });
+        world.entity_mut(child1).insert(ChildOf(root));
         let hierarchy = get_hierarchy(&world, root);
         assert_eq!(
             hierarchy,
@@ -597,10 +616,39 @@ mod tests {
     }
 
     #[test]
+    fn insert_children() {
+        let mut world = World::new();
+        let child1 = world.spawn_empty().id();
+        let child2 = world.spawn_empty().id();
+        let child3 = world.spawn_empty().id();
+        let child4 = world.spawn_empty().id();
+
+        let mut entity_world_mut = world.spawn_empty();
+
+        let first_children = entity_world_mut.add_children(&[child1, child2]);
+
+        let root = first_children.insert_children(1, &[child3, child4]).id();
+
+        let hierarchy = get_hierarchy(&world, root);
+        assert_eq!(
+            hierarchy,
+            Node::new_with(
+                root,
+                vec![
+                    Node::new(child1),
+                    Node::new(child3),
+                    Node::new(child4),
+                    Node::new(child2)
+                ]
+            )
+        );
+    }
+
+    #[test]
     fn self_parenting_invalid() {
         let mut world = World::new();
         let id = world.spawn_empty().id();
-        world.entity_mut(id).insert(ChildOf { parent: id });
+        world.entity_mut(id).insert(ChildOf(id));
         assert!(
             world.entity(id).get::<ChildOf>().is_none(),
             "invalid ChildOf relationships should self-remove"
@@ -612,7 +660,7 @@ mod tests {
         let mut world = World::new();
         let parent = world.spawn_empty().id();
         world.entity_mut(parent).despawn();
-        let id = world.spawn(ChildOf { parent }).id();
+        let id = world.spawn(ChildOf(parent)).id();
         assert!(
             world.entity(id).get::<ChildOf>().is_none(),
             "invalid ChildOf relationships should self-remove"
@@ -623,10 +671,10 @@ mod tests {
     fn reinsert_same_parent() {
         let mut world = World::new();
         let parent = world.spawn_empty().id();
-        let id = world.spawn(ChildOf { parent }).id();
-        world.entity_mut(id).insert(ChildOf { parent });
+        let id = world.spawn(ChildOf(parent)).id();
+        world.entity_mut(id).insert(ChildOf(parent));
         assert_eq!(
-            Some(&ChildOf { parent }),
+            Some(&ChildOf(parent)),
             world.entity(id).get::<ChildOf>(),
             "ChildOf should still be there"
         );
@@ -661,11 +709,11 @@ mod tests {
 
         assert_eq!(
             world.entity(child_a).get::<ChildOf>().unwrap(),
-            &ChildOf { parent }
+            &ChildOf(parent)
         );
         assert_eq!(
             world.entity(child_c).get::<ChildOf>().unwrap(),
-            &ChildOf { parent }
+            &ChildOf(parent)
         );
         assert!(world.entity(child_b).get::<ChildOf>().is_none());
     }
@@ -701,7 +749,7 @@ mod tests {
         assert_eq!(children.0, [child]);
         assert_eq!(
             world.entity(child).get::<ChildOf>().unwrap(),
-            &ChildOf { parent }
+            &ChildOf(parent)
         );
     }
 
@@ -724,11 +772,11 @@ mod tests {
 
         assert_eq!(
             world.entity(child_a).get::<ChildOf>().unwrap(),
-            &ChildOf { parent }
+            &ChildOf(parent)
         );
         assert_eq!(
             world.entity(child_b).get::<ChildOf>().unwrap(),
-            &ChildOf { parent }
+            &ChildOf(parent)
         );
         assert_eq!(
             world.entity(parent).get::<Children>().unwrap().0,
@@ -743,15 +791,15 @@ mod tests {
         );
         assert_eq!(
             world.entity(child_a).get::<ChildOf>().unwrap(),
-            &ChildOf { parent }
+            &ChildOf(parent)
         );
         assert_eq!(
             world.entity(child_c).get::<ChildOf>().unwrap(),
-            &ChildOf { parent }
+            &ChildOf(parent)
         );
         assert_eq!(
             world.entity(child_d).get::<ChildOf>().unwrap(),
-            &ChildOf { parent }
+            &ChildOf(parent)
         );
         assert_eq!(
             world.entity(parent).get::<Children>().unwrap().0,
@@ -806,11 +854,11 @@ mod tests {
 
         assert_eq!(
             world.entity(child_a).get::<ChildOf>().unwrap(),
-            &ChildOf { parent }
+            &ChildOf(parent)
         );
         assert_eq!(
             world.entity(child_b).get::<ChildOf>().unwrap(),
-            &ChildOf { parent }
+            &ChildOf(parent)
         );
         assert_eq!(
             world.entity(parent).get::<Children>().unwrap().0,
@@ -825,11 +873,11 @@ mod tests {
         );
         assert_eq!(
             world.entity(child_c).get::<ChildOf>().unwrap(),
-            &ChildOf { parent }
+            &ChildOf(parent)
         );
         assert_eq!(
             world.entity(child_d).get::<ChildOf>().unwrap(),
-            &ChildOf { parent }
+            &ChildOf(parent)
         );
         assert_eq!(
             world.entity(parent).get::<Children>().unwrap().0,
@@ -936,11 +984,10 @@ mod tests {
         let mut world = World::new();
         let parent = world.spawn_empty().id();
         let other = world.spawn_empty().id();
-        let child = world.spawn(ChildOf { parent }).id();
-        world.entity_mut(child).insert_with_relationship_hook_mode(
-            ChildOf { parent: other },
-            RelationshipHookMode::Skip,
-        );
+        let child = world.spawn(ChildOf(parent)).id();
+        world
+            .entity_mut(child)
+            .insert_with_relationship_hook_mode(ChildOf(other), RelationshipHookMode::Skip);
         assert_eq!(
             &**world.entity(parent).get::<Children>().unwrap(),
             &[child],

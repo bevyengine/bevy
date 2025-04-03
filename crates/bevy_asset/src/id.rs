@@ -1,5 +1,5 @@
 use crate::{Asset, AssetIndex};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -259,6 +259,25 @@ impl UntypedAssetId {
         match self {
             UntypedAssetId::Index { index, .. } => InternalAssetId::Index(index),
             UntypedAssetId::Uuid { uuid, .. } => InternalAssetId::Uuid(uuid),
+        }
+    }
+
+    /// Checks if [`UntypedAssetId`] has an invalid [`Uuid`].  
+    /// This is weaker than comparing equality with the untyped asset id returned
+    /// by `AssetId::invalid().untyped()` because the [`TypeId`] is ignored.
+    pub fn is_invalid(&self) -> bool {
+        #[derive(Asset, TypePath)]
+        struct DummyAsset;
+
+        match self {
+            Self::Index {
+                type_id: _,
+                index: _,
+            } => false,
+            Self::Uuid {
+                type_id: _,
+                uuid: asset_uuid,
+            } => asset_uuid == &AssetId::<DummyAsset>::INVALID_UUID,
         }
     }
 }

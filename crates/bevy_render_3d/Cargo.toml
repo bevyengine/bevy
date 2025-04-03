@@ -9,17 +9,20 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+std = ["bevy_platform_support/std", "tracing/std"]
 webgl = []
 webgpu = []
-pbr_transmission_textures = []
-pbr_multi_layer_material_textures = []
-pbr_anisotropy_texture = []
-experimental_pbr_pcss = []
-pbr_specular_textures = []
+experimental_pcss = []
 shader_format_glsl = ["bevy_render/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
-meshlet = ["dep:lz4_flex", "dep:range-alloc", "dep:half", "dep:bevy_tasks"]
+meshlet = [
+  "dep:lz4_flex",
+  "dep:range-alloc",
+  "dep:half",
+  "dep:thiserror",
+  "dep:bevy_tasks",
+]
 # Enables processing meshes into meshlet meshes
 meshlet_processor = [
   "meshlet",
@@ -40,21 +43,18 @@ bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.16.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
-  "std",
-] }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.16.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
 
 # other
 bitflags = "2.3"
 derive_more = { version = "1", default-features = false, features = ["from"] }
 fixedbitset = "0.5"
-thiserror = { version = "2", default-features = false }
+thiserror = { version = "2", default-features = false, optional = true }
 # meshlet
 lz4_flex = { version = "0.11", default-features = false, features = [
   "frame",
@@ -67,11 +67,10 @@ itertools = { version = "0.14", optional = true }
 bitvec = { version = "1", optional = true }
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive", "must_cast"] }
-radsort = "0.1"
 smallvec = "1.6"
 nonmax = "0.5"
 static_assertions = "1"
-tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracing = { version = "0.1", default-features = false }
 offset-allocator = "0.2"
 
 [lints]

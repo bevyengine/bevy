@@ -482,7 +482,7 @@ pbr_multi_layer_material_textures = [
 pbr_anisotropy_texture = ["bevy_internal/pbr_anisotropy_texture"]
 
 # Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs
-experimental_pbr_pcss = ["bevy_internal/experimental_pbr_pcss"]
+experimental_pcss = ["bevy_internal/experimental_pcss"]
 
 # Enable support for specular textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_specular_textures = ["bevy_internal/pbr_specular_textures"]
@@ -4119,7 +4119,7 @@ wasm = true
 name = "pcss"
 path = "examples/3d/pcss.rs"
 doc-scrape-examples = true
-required-features = ["experimental_pbr_pcss"]
+required-features = ["experimental_pcss"]
 
 [package.metadata.example.pcss]
 name = "Percentage-closer soft shadows"

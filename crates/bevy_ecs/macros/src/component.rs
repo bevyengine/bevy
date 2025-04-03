@@ -568,6 +568,7 @@ impl Parse for Require {
         let mut path = input.parse::<Path>()?;
         let mut last_segment_is_lower = false;
         let mut is_constructor_call = false;
+
         // Use the case of the type name to check if it's an enum
         // This doesn't match everything that can be an enum according to the rust spec
         // but it matches what clippy is OK with
@@ -595,40 +596,32 @@ impl Parse for Require {
 
         let func = if input.peek(Token![=]) {
             // If there is an '=', then this is a "function style" require
-            let _t: syn::Token![=] = input.parse()?;
+            input.parse::<Token![=]>()?;
             let expr: Expr = input.parse()?;
-            let tokens: TokenStream = quote::quote! (|| #expr).into();
-            Some(TokenStream2::from(tokens))
+            Some(quote!(|| #expr ))
         } else if input.peek(Brace) {
             // This is a "value style" named-struct-like require
             let content;
             braced!(content in input);
             let content = content.parse::<TokenStream2>()?;
-            let tokens: TokenStream = quote::quote! (|| #path { #content }).into();
-            Some(TokenStream2::from(tokens))
+            Some(quote!(|| #path { #content }))
         } else if input.peek(Paren) {
             // This is a "value style" tuple-struct-like require
             let content;
             parenthesized!(content in input);
             let content = content.parse::<TokenStream2>()?;
             is_constructor_call = last_segment_is_lower;
-            let tokens: TokenStream = quote::quote! (|| #path (#content)).into();
-            Some(TokenStream2::from(tokens))
+            Some(quote!(|| #path (#content)))
         } else if is_enum {
             // if this is an enum, then it is an inline enum component declaration
-            let tokens: TokenStream = quote::quote! (|| #path).into();
-            Some(TokenStream2::from(tokens))
+            Some(quote!(|| #path))
         } else {
             // if this isn't any of the above, then it is a component ident, which will use Default
             None
         };
-
         if is_enum || is_constructor_call {
-            let path_len = path.segments.len();
-            path = Path {
-                leading_colon: path.leading_colon,
-                segments: Punctuated::from_iter(path.segments.into_iter().take(path_len - 1)),
-            };
+            path.segments.pop();
+            path.segments.pop_punct();
         }
         Ok(Require { path, func })
     }

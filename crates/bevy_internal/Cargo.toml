@@ -17,8 +17,8 @@ trace = [
   "bevy_anti_aliasing?/trace",
   "bevy_ecs/trace",
   "bevy_log/trace",
-  "bevy_pbr?/trace",
   "bevy_render?/trace",
+  "bevy_render_3d?/trace",
   "bevy_winit?/trace",
 ]
 trace_chrome = ["bevy_log/tracing-chrome"]
@@ -81,7 +81,7 @@ symphonia-wav = ["bevy_audio/symphonia-wav"]
 # Shader formats
 shader_format_glsl = [
   "bevy_render/shader_format_glsl",
-  "bevy_pbr?/shader_format_glsl",
+  "bevy_render_3d?/shader_format_glsl",
 ]
 shader_format_spirv = ["bevy_render/shader_format_spirv"]
 shader_format_wesl = ["bevy_render/shader_format_wesl"]
@@ -91,11 +91,11 @@ serialize = [
   "bevy_color?/serialize",
   "bevy_ecs/serialize",
   "bevy_image?/serialize",
-  "bevy_input?/serialize",
-  "bevy_math?/serialize",
+  "bevy_input/serialize",
+  "bevy_math/serialize",
   "bevy_scene?/serialize",
   "bevy_time/serialize",
-  "bevy_transform?/serialize",
+  "bevy_transform/serialize",
   "bevy_ui?/serialize",
   "bevy_window?/serialize",
   "bevy_winit?/serialize",
@@ -137,7 +137,7 @@ pbr_anisotropy_texture = [
 ]
 
 # Percentage-closer soft shadows
-experimental_pbr_pcss = ["bevy_pbr?/experimental_pbr_pcss"]
+experimental_pcss = ["bevy_render_3d?/experimental_pcss"]
 
 # Specular textures in `StandardMaterial`:
 pbr_specular_textures = [
@@ -149,8 +149,8 @@ pbr_specular_textures = [
 webgl = [
   "bevy_core_pipeline?/webgl",
   "bevy_anti_aliasing?/webgl",
-  "bevy_pbr?/webgl",
   "bevy_render?/webgl",
+  "bevy_render_3d?/webgl",
   "bevy_gizmos?/webgl",
   "bevy_sprite?/webgl",
 ]
@@ -158,8 +158,8 @@ webgl = [
 webgpu = [
   "bevy_core_pipeline?/webgpu",
   "bevy_anti_aliasing?/webgpu",
-  "bevy_pbr?/webgpu",
   "bevy_render?/webgpu",
+  "bevy_render_3d?/webgpu",
   "bevy_gizmos?/webgpu",
   "bevy_sprite?/webgpu",
 ]
@@ -200,7 +200,11 @@ bevy_render = [
   "bevy_color/wgpu-types",
   "bevy_color/encase",
 ]
-bevy_render_3d = ["dep:bevy_render_3d", "bevy_gizmos?/bevy_render_3d"]
+bevy_render_3d = [
+  "bevy_render",
+  "dep:bevy_render_3d",
+  "bevy_gizmos?/bevy_render_3d",
+]
 bevy_atmosphere = ["dep:bevy_atmosphere"]
 
 # Enable assertions to check the validity of parameters passed to glam
@@ -227,10 +231,10 @@ bevy_debug_stepping = [
 ]
 
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
-meshlet = ["bevy_pbr?/meshlet"]
+meshlet = ["bevy_render_3d?/meshlet", "bevy_pbr?/meshlet"]
 
-# Enables processing meshes into meshlet meshes for bevy_pbr
-meshlet_processor = ["bevy_pbr?/meshlet_processor"]
+# Enables processing meshes into meshlet meshes for bevy_render_3d
+meshlet_processor = ["bevy_render_3d?/meshlet"]
 
 # Provides a collection of developer tools
 bevy_dev_tools = ["dep:bevy_dev_tools"]
@@ -298,6 +302,7 @@ std = [
   "bevy_math/std",
   "bevy_platform_support/std",
   "bevy_reflect/std",
+  "bevy_render_3d?/std",
   "bevy_atmosphere?/std",
   "bevy_state?/std",
   "bevy_time/std",
@@ -314,7 +319,7 @@ critical-section = [
   "bevy_app/critical-section",
   "bevy_diagnostic/critical-section",
   "bevy_ecs/critical-section",
-  "bevy_input?/critical-section",
+  "bevy_input/critical-section",
   "bevy_input_focus?/critical-section",
   "bevy_platform_support/critical-section",
   "bevy_reflect/critical-section",
@@ -340,7 +345,7 @@ async_executor = [
   "std",
   "bevy_tasks/async_executor",
   "bevy_ecs/async_executor",
-  "bevy_transform?/async_executor",
+  "bevy_transform/async_executor",
 ]
 
 # Enables use of browser APIs.
@@ -364,10 +369,11 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = fa
 ] }
 bevy_input = { path = "../bevy_input", version = "0.16.0-dev", default-features = false, features = [
   "bevy_reflect",
-], optional = true }
+] }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev", default-features = false, features = [
   "bevy_reflect",
-], optional = true }
+  "nostd-libm",
+] }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
@@ -381,7 +387,7 @@ bevy_time = { path = "../bevy_time", version = "0.16.0-dev", default-features = 
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev", default-features = false, features = [
   "bevy-support",
   "bevy_reflect",
-], optional = true }
+] }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
