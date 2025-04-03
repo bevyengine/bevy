@@ -2,9 +2,9 @@ use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d
 use crate::{
     Material, MaterialBindingId, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster,
     NotShadowReceiver, PreviousGlobalTransform, RenderMaterialBindings, RenderMaterialInstances,
-    RenderMeshMaterialIds, StandardMaterial,
+    RenderMeshMaterialIds,
 };
-use bevy_asset::{AssetEvent, AssetId, AssetServer, Assets, UntypedAssetId};
+use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
     entity::{Entities, Entity, EntityHashMap},
     event::EventReader,
@@ -113,16 +113,15 @@ impl InstanceManager {
         };
 
         let mesh_material = mesh_material_ids.mesh_material(instance);
-        let mesh_material_binding_id =
-            if mesh_material != AssetId::<StandardMaterial>::invalid().untyped() {
-                render_material_bindings
-                    .get(&mesh_material)
-                    .cloned()
-                    .unwrap_or_default()
-            } else {
-                // Use a dummy binding ID if the mesh has no material
-                MaterialBindingId::default()
-            };
+        let mesh_material_binding_id = if !mesh_material.is_invalid() {
+            render_material_bindings
+                .get(&mesh_material)
+                .cloned()
+                .unwrap_or_default()
+        } else {
+            // Use a dummy binding ID if the mesh has no material
+            MaterialBindingId::default()
+        };
 
         let mesh_uniform = MeshUniform::new(
             &transforms,
