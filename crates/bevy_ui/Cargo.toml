@@ -45,7 +45,7 @@ accesskit = "0.18"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [features]
-default = []
+default = ["bevy_ui_debug"]
 serialize = [
   "serde",
   "smallvec/serde",

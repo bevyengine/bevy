@@ -12,13 +12,12 @@ mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 use crate::box_shadow::BoxShadowSamples;
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, AssetEvent, AssetId, Assets, Handle};
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_asset::{load_internal_asset, weak_handle, AssetEvent, AssetId, Handle};
+use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::prelude::*;
-use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
 use bevy_platform_support::collections::{HashMap, HashSet};
@@ -28,7 +27,6 @@ use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::renderer::RenderContext;
 use bevy_render::sync_world::MainEntity;
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::view::RetainedViewEntity;
 use bevy_render::{
     camera::Camera,
@@ -44,17 +42,14 @@ use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
     sync_world::{RenderEntity, TemporaryRenderEntity},
     texture::GpuImage,
-    view::InheritedVisibility,
     ExtractSchedule, Render,
 };
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
-use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
-#[cfg(feature = "bevy_ui_debug")]
-pub use debug_overlay::UiDebugOptions;
+
 use graph::{NodeUi, SubGraphUi};
 pub use pipeline::*;
 pub use render_pass::*;

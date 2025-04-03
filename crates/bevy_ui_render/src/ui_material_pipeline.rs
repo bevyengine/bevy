@@ -16,33 +16,21 @@ use bevy_ecs::{
 use bevy_image::BevyDefault as _;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
-    extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     view::*,
-    Extract, ExtractSchedule, Render, RenderSet,
+    Render, RenderSet,
 };
-use bevy_render::{
-    sync_world::{MainEntity, TemporaryRenderEntity},
-    RenderApp,
-};
+use bevy_render::{sync_world::MainEntity, RenderApp};
 use bevy_sprite::BorderRect;
-use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
 use crate::{stack_z_offsets, TransparentUi, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, AssetId, AssetServer, Handle};
-use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::reflect::ReflectComponent;
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::{
-    extract_component::ExtractComponent,
-    render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
-};
-use derive_more::derive::From;
+use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`]
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level

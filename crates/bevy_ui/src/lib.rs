@@ -34,6 +34,7 @@ mod stack;
 mod ui_node;
 
 use bevy_ui_render::UiRenderPlugin;
+use debug::UiDebugOptions;
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;

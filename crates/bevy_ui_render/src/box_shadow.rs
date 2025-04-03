@@ -3,7 +3,7 @@
 use crate::TransparentUi;
 use bevy_app::prelude::*;
 use bevy_asset::*;
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{
     prelude::Component,
@@ -13,7 +13,7 @@ use bevy_ecs::{
     },
 };
 use bevy_image::BevyDefault as _;
-use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
+use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::sync_world::MainEntity;
@@ -22,11 +22,9 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::TemporaryRenderEntity,
     view::*,
-    Extract, ExtractSchedule, Render, RenderSet,
+    Render, RenderSet,
 };
-use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 use core::{hash::Hash, ops::Range};
 

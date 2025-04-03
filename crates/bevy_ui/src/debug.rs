@@ -1,6 +1,7 @@
 use crate::ui_node::ComputedNodeTarget;
 use crate::CalculatedClip;
 use crate::ComputedNode;
+use crate::UiCameraMap;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
@@ -16,12 +17,10 @@ use bevy_render::view::InheritedVisibility;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
-
-use super::ExtractedUiItem;
-use super::ExtractedUiNode;
-use super::ExtractedUiNodes;
-use super::NodeType;
-use super::UiCameraMap;
+use bevy_ui_render::ExtractedUiItem;
+use bevy_ui_render::ExtractedUiNode;
+use bevy_ui_render::ExtractedUiNodes;
+use bevy_ui_render::NodeType;
 
 /// Configuration for the UI debug overlay
 #[derive(Resource)]
@@ -105,7 +104,7 @@ pub fn extract_debug_overlay(
                 flip_x: false,
                 flip_y: false,
                 border: BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor()),
-                border_radius: uinode.border_radius(),
+                border_radius: uinode.border_radius.into(),
                 node_type: NodeType::Border,
             },
             main_entity: entity.into(),

@@ -126,6 +126,7 @@ pub fn add_ui_extraction_schedule(app: &mut App) {
         .add_systems(
             ExtractSchedule,
             (
+                extract_uinode_shadows.in_set(ExtractUiSystem::ExtractBoxShadows),
                 extract_uinode_background_colors.in_set(ExtractUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(ExtractUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(ExtractUiSystem::ExtractBorders),
@@ -133,7 +134,7 @@ pub fn add_ui_extraction_schedule(app: &mut App) {
                 extract_text_sections.in_set(ExtractUiSystem::ExtractText),
                 extract_ui_texture_slices.in_set(ExtractUiSystem::ExtractTextureSlice),
                 #[cfg(feature = "bevy_ui_debug")]
-                debug_overlay::extract_debug_overlay.in_set(ExtractUiSystem::ExtractDebug),
+                crate::debug::extract_debug_overlay.in_set(ExtractUiSystem::ExtractDebug),
             ),
         );
 }
@@ -581,7 +582,7 @@ pub fn extract_text_shadows(
     }
 }
 
-pub fn extract_shadows(
+pub fn extract_uinode_shadows(
     mut commands: Commands,
     mut extracted_box_shadows: ResMut<ExtractedBoxShadows>,
     box_shadow_query: Extract<

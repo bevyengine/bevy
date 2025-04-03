@@ -3,7 +3,7 @@ use core::{hash::Hash, ops::Range};
 use crate::TransparentUi;
 use crate::*;
 use bevy_asset::*;
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::{
     prelude::Component,
     system::{
@@ -20,13 +20,11 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::TemporaryRenderEntity,
-    texture::{GpuImage, TRANSPARENT_IMAGE_HANDLE},
+    texture::GpuImage,
     view::*,
-    Extract, ExtractSchedule, Render, RenderSet,
+    Render, RenderSet,
 };
 use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
-use bevy_transform::prelude::GlobalTransform;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
 
