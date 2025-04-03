@@ -70,6 +70,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
+|bevy_volumetrics|Provides volumetric lights, fog, and procedural atmosphere|
 |bmp|BMP image format support|
 |configurable_error_handler|Use the configurable global error handler as the default error handler.|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
