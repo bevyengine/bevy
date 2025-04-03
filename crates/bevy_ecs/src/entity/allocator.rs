@@ -218,18 +218,20 @@ impl FreeBufferLen {
         Self::len_from_state(self.state())
     }
 
-    /// Returns the number to subtract for subtracting this `num`.
+    /// Returns the number to add for subtracting this `num`.
     #[inline]
     fn encode_pop(num: u32) -> u64 {
         let encoded_diff = (num as u64) << 16;
-        // subtracting 1 will add one to the generation.
-        encoded_diff - 1
+        // In modular arithmetic, this is equivalent to the requested subtraction.
+        let to_add = u64::MAX - encoded_diff;
+        // add one to the generation.
+        to_add + 1
     }
 
     /// Subtracts `num` from the length, returning the new state.
     #[inline]
     fn pop_from_state(mut state: u64, num: u32) -> u64 {
-        state -= Self::encode_pop(num);
+        state += Self::encode_pop(num);
         // prevent generation overflow
         state &= !Self::HIGHEST_GENERATION_BIT;
         state
@@ -238,7 +240,7 @@ impl FreeBufferLen {
     /// Subtracts `num` from the length, returning the previous state.
     #[inline]
     fn pop_for_state(&self, num: u32) -> u64 {
-        let state = self.0.fetch_sub(Self::encode_pop(num), Ordering::AcqRel);
+        let state = self.0.fetch_add(Self::encode_pop(num), Ordering::AcqRel);
         // This can be relaxed since it only affects the one bit,
         // and 2^15 operations would need to happen with this never being called for an overflow to occor.
         self.0
