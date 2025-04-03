@@ -6,7 +6,7 @@ use bevy::{
     math::vec3,
     prelude::*,
     render_3d::VolumetricLight,
-    volumetric::{FogVolume, VolumetricFog},
+    volumetrics::volumetric_fog::{FogVolume, VolumetricFog},
 };
 
 const DIRECTIONAL_LIGHT_MOVEMENT_SPEED: f32 = 0.02;

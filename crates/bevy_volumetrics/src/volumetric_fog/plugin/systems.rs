@@ -22,7 +22,7 @@ use bevy_render::{
 use bevy_render_3d::{MeshPipelineViewLayoutKey, VolumetricLight};
 use bevy_transform::components::GlobalTransform;
 
-use crate::{
+use crate::volumetric_fog::{
     render::{
         ViewFogVolume, ViewVolumetricFog, ViewVolumetricFogPipelines, VolumetricFogPipeline,
         VolumetricFogPipelineKey, VolumetricFogPipelineKeyFlags, VolumetricFogUniform,

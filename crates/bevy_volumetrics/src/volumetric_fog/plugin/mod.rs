@@ -21,7 +21,7 @@ use systems::{
     prepare_volumetric_fog_pipelines, prepare_volumetric_fog_uniforms,
 };
 
-use crate::{
+use crate::volumetric_fog::{
     render::{
         NodeVolumetric, VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer,
     },

@@ -246,8 +246,8 @@ bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
 # Provides functionality for rendering in 3d
 bevy_render_3d = ["bevy_internal/bevy_render_3d"]
 
-# Provides volumetric lights and fog
-bevy_volumetric = ["bevy_internal/bevy_volumetric"]
+# Provides volumetric lights, fog, and procedural atmosphere
+bevy_volumetrics = ["bevy_internal/bevy_volumetrics"]
 
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
@@ -3945,7 +3945,7 @@ wasm = false
 name = "volumetric_fog"
 path = "examples/3d/volumetric_fog.rs"
 doc-scrape-examples = true
-required-features = ["bevy_volumetric"]
+required-features = ["bevy_volumetrics"]
 
 [package.metadata.example.volumetric_fog]
 name = "Volumetric fog"
@@ -4004,7 +4004,7 @@ wasm = true
 name = "fog_volumes"
 path = "examples/3d/fog_volumes.rs"
 doc-scrape-examples = true
-required-features = ["bevy_volumetric"]
+required-features = ["bevy_volumetrics"]
 
 [package.metadata.example.fog_volumes]
 name = "Fog volumes"
@@ -4016,7 +4016,7 @@ wasm = false
 name = "scrolling_fog"
 path = "examples/3d/scrolling_fog.rs"
 doc-scrape-examples = true
-required-features = ["bevy_volumetric"]
+required-features = ["bevy_volumetrics"]
 
 [package.metadata.example.scrolling_fog]
 name = "Scrolling fog"

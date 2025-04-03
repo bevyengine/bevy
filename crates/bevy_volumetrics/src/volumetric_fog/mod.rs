@@ -1,11 +1,3 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![forbid(unsafe_code)]
-#![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
-)]
-
 //! Volumetric fog and volumetric lighting, also known as light shafts or god
 //! rays.
 //!
@@ -48,11 +40,6 @@ use bevy_math::Vec3;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::view::Visibility;
 use bevy_transform::components::Transform;
-
-pub mod prelude {
-    #[doc(hidden)]
-    pub use crate::{FogVolume, VolumetricFog};
-}
 
 /// When placed on a [`bevy_core_pipeline::core_3d::Camera3d`], enables
 /// volumetric fog and volumetric lighting, also known as light shafts or god

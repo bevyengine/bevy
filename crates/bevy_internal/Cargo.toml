@@ -205,7 +205,7 @@ bevy_render_3d = [
   "dep:bevy_render_3d",
   "bevy_gizmos?/bevy_render_3d",
 ]
-bevy_volumetric = ["dep:bevy_volumetric"]
+bevy_volumetrics = ["dep:bevy_volumetrics"]
 
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
@@ -421,7 +421,7 @@ bevy_picking = { path = "../bevy_picking", optional = true, version = "0.16.0-de
 bevy_remote = { path = "../bevy_remote", optional = true, version = "0.16.0-dev" }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.16.0-dev" }
 bevy_render_3d = { path = "../bevy_render_3d", optional = true, version = "0.16.0-dev" }
-bevy_volumetric = { path = "../bevy_volumetric", optional = true, version = "0.16.0-dev" }
+bevy_volumetrics = { path = "../bevy_volumetrics", optional = true, version = "0.16.0-dev" }
 bevy_scene = { path = "../bevy_scene", optional = true, version = "0.16.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.16.0-dev" }
 bevy_state = { path = "../bevy_state", optional = true, version = "0.16.0-dev", default-features = false, features = [

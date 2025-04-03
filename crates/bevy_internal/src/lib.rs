@@ -74,8 +74,8 @@ pub use bevy_transform as transform;
 #[cfg(feature = "bevy_ui")]
 pub use bevy_ui as ui;
 pub use bevy_utils as utils;
-#[cfg(feature = "bevy_volumetric")]
-pub use bevy_volumetric as volumetric;
+#[cfg(feature = "bevy_volumetrics")]
+pub use bevy_volumetrics as volumetrics;
 #[cfg(feature = "bevy_window")]
 pub use bevy_window as window;
 #[cfg(feature = "bevy_winit")]

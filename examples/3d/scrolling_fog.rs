@@ -19,7 +19,7 @@ use bevy::{
     },
     prelude::*,
     render_3d::{DirectionalLightShadowMap, VolumetricLight},
-    volumetric::{FogVolume, VolumetricFog},
+    volumetrics::volumetric_fog::{FogVolume, VolumetricFog},
 };
 
 /// Initializes the example.

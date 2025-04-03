@@ -45,7 +45,7 @@ use bevy_utils::prelude::default;
 
 use bitflags::bitflags;
 
-use crate::plugin::{CUBE_MESH, PLANE_MESH, VOLUMETRIC_FOG_HANDLE};
+use crate::volumetric_fog::plugin::{CUBE_MESH, PLANE_MESH, VOLUMETRIC_FOG_HANDLE};
 
 bitflags! {
     /// Flags that describe the bind group layout used to render volumetric fog.
