@@ -1,8 +1,8 @@
 //! Provides [`HashMap`] based on [hashbrown]'s implementation.
 //! Unlike [`hashbrown::HashMap`], [`HashMap`] defaults to [`FixedHasher`]
 //! instead of [`RandomState`].
-//! This provides determinism by default with an acceptable compromise to DoS
-//! resistance in the context of a game engine.
+//! This provides determinism by default with an acceptable compromise to denial
+//! of service resistance in the context of a game engine.
 
 use core::{
     fmt::Debug,
