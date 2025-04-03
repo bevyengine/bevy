@@ -40,7 +40,6 @@ mod prepass;
 mod render;
 mod ssao;
 mod ssr;
-mod volumetric_fog;
 
 use bevy_color::{Color, LinearRgba};
 
@@ -60,7 +59,6 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
-pub use volumetric_fog::{FogVolume, VolumetricFog, VolumetricFogPlugin, VolumetricLight};
 
 /// The PBR prelude.
 ///
@@ -92,8 +90,6 @@ pub mod graph {
         /// Label for the screen space ambient occlusion render node.
         ScreenSpaceAmbientOcclusion,
         DeferredLightingPass,
-        /// Label for the volumetric lighting pass.
-        VolumetricFog,
         /// Label for the shader that transforms and culls meshes that were
         /// visible last frame.
         EarlyGpuPreprocess,
@@ -274,7 +270,6 @@ impl Plugin for MeshPipelinePlugin {
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
-                VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
                 ClusteredDecalPlugin,
             ))

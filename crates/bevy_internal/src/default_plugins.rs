@@ -40,6 +40,8 @@ plugin_group! {
         bevy_core_pipeline:::CorePipelinePlugin,
         #[cfg(feature = "bevy_render_3d")]
         bevy_render_3d:::MeshPipelinePlugin,
+        #[cfg(feature = "bevy_render_3d")]
+        bevy_volumetric::plugin:::VolumetricFogPlugin,
         #[cfg(feature = "bevy_anti_aliasing")]
         bevy_anti_aliasing:::AntiAliasingPlugin,
         #[cfg(feature = "bevy_sprite")]
