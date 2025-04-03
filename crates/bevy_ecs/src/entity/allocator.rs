@@ -212,12 +212,15 @@ impl Chunk {
 /// This stores two things: the length of the buffer (which can be negative) and a generation value to track *any* change to the length.
 ///
 /// The upper 48 bits store an unsigned integer of the length, and the lower 16 bits store the generation value.
-/// By keeping the length in the upper bits, we can add and subtract anything to them without it affecting the generation bits.
-/// When adding `x` to the length, we add `x << 16 + 1`, and when subtracting `x` from the length, we subtract `x << 16 - 1` so that the generation is incremented.
-/// Finally, to prevent the generation from ever overflowing into the length, we follow up each operation with a bit and to turn of the must significant generation bits.
+/// By keeping the length in the upper bits, we can add anything to them without it affecting the generation bits.
+/// See [`Self::encode_pop`] for how this is done.
+/// To prevent the generation from ever overflowing into the length,
+/// we follow up each operation with a bit-wise `&` to turn of the most significant generation bit, preventing overflow.
 ///
 /// Finally, to get the signed length from the unsigned 48 bit value, we simply set `u48::MAX - u32::MAX` equal to 0.
 /// This is fine since for the length to go over `u32::MAX`, the entity index would first need to be exhausted, ausing a "too many entities" panic.
+/// In theory, the length should not drop below `-u32::MAX` since doing so would cause a "too many entities" panic.
+/// However, using 48 bits provides a buffer here and allows extra flags like [`Self::DISABLING_BIT`].
 struct FreeBufferLen(AtomicU64);
 
 impl FreeBufferLen {
