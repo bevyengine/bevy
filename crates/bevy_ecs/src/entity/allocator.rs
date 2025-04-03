@@ -292,8 +292,14 @@ impl FreeBufferLen {
     fn set_len(&self, len: u32, recent_state: u64) {
         let encoded_length = (len as u64 + Self::FALSE_ZERO) << 16;
         let recent_generation = recent_state & (u16::MAX as u64 & !Self::HIGHEST_GENERATION_BIT);
+
         // This effectively adds a 2^14 to the generation, so for recent `recent_state` values, this is very safe.
+        // It is worth mentioning that doing this back to back will negate it, but in theory, we don't even need this at all.
+        // If an uneven number of free and alloc calls are made, the length will be different, so the generation is a moot point.
+        // If they are even, then at least one alloc call has been made, which would have incremented the generation in `recent_state`.
+        // So in all cases, the state is sufficiently changed such that `try_set_state` will fail when needed.
         let far_generation = recent_generation ^ (1 << 14);
+
         let fully_encoded = encoded_length | far_generation;
         self.0.store(fully_encoded, Ordering::Release);
     }
