@@ -54,6 +54,10 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
+pub mod prelude {
+    pub use crate::box_shadow::BoxShadowSamples;
+}
+
 pub mod graph {
     use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
 
@@ -465,10 +469,13 @@ pub struct UiBatch {
 
 /// The values here should match the values for the constants in `ui.wgsl`
 pub mod shader_flags {
+    /// Texture should be ignored
     pub const UNTEXTURED: u32 = 0;
+    /// Textured
     pub const TEXTURED: u32 = 1;
     /// Ordering: top left, top right, bottom right, bottom left.
     pub const CORNERS: [u32; 4] = [0, 2, 2 | 4, 4];
+    /// Is a border
     pub const BORDER: u32 = 8;
 }
 

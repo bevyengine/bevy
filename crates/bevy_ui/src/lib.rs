@@ -33,13 +33,12 @@ mod layout;
 mod stack;
 mod ui_node;
 
-use bevy_ui_render::{UiPipeline, UiRenderPlugin};
+use bevy_ui_render::UiRenderPlugin;
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
-pub use ui_material::*;
 pub use ui_node::*;
 
 use widget::{ImageNode, ImageNodeSize};
@@ -63,17 +62,18 @@ pub mod prelude {
             ui_material::*,
             ui_node::*,
             widget::{Button, ImageNode, Label, NodeImageMode},
-            Interaction, MaterialNode, UiScale,
+            Interaction, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
+        bevy_ui_render::box_shadow::BoxShadowSamples,
     };
 }
 
 use bevy_app::{prelude::*, Animation};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_render::{camera::CameraUpdateSystem, RenderApp};
+use bevy_render::camera::CameraUpdateSystem;
 use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
@@ -227,6 +227,8 @@ impl Plugin for UiPlugin {
         }
 
         app.add_plugins(UiRenderPlugin);
+
+        add_ui_extraction_schedule(app);
 
         #[cfg(feature = "bevy_ui_debug")]
         app.init_resource::<UiDebugOptions>();

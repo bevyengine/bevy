@@ -45,6 +45,7 @@ use bevy_ui_render::ExtractedUiNodes;
 use bevy_ui_render::NodeType;
 use bevy_ui_render::UiMaterial;
 
+use crate::prelude::MaterialNode;
 use crate::widget;
 use crate::widget::ImageNode;
 use crate::BackgroundColor;
@@ -54,7 +55,6 @@ use crate::CalculatedClip;
 use crate::ComputedNode;
 use crate::ComputedNodeTarget;
 use crate::Display;
-use crate::MaterialNode;
 use crate::Node;
 use crate::Outline;
 use crate::ResolvedBorderRadius;
@@ -103,7 +103,7 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
     }
 }
 
-pub fn set_extraction_schedule(app: &mut App) {
+pub fn add_ui_extraction_schedule(app: &mut App) {
     let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
         return;
     };
