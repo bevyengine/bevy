@@ -622,7 +622,7 @@ impl<'w, 's> Commands<'w, 's> {
             }
         }
     }
-  
+
     /// Adds a series of [`Bundles`](Bundle) to each [`Entity`] they are paired with,
     /// based on a batch of `(Entity, Bundle)` pairs.
     ///
