@@ -257,10 +257,7 @@ pub struct StandardMaterial {
     /// Specular transmission is implemented as a relatively expensive screen-space effect that allows occluded objects to be seen through the material,
     /// with distortion and blur effects.
     ///
-    /// - [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) can be used to enable transmissive objects
-    ///   to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
-    ///   - If a simplified approximation of specular transmission using only environment map lighting is sufficient, consider setting
-    ///     [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) to `0`.
+    /// - Requires that the camera supports specular transmission. See camera's documentation for more info.
     /// - If purely diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead,
     ///   for a much less expensive effect.
     /// - Specular transmission is rendered before alpha blending, so any material with [`AlphaMode::Blend`], [`AlphaMode::Premultiplied`], [`AlphaMode::Add`] or [`AlphaMode::Multiply`]
@@ -1511,6 +1508,19 @@ impl Material for StandardMaterial {
                 if key.bind_group_data.intersects(flags) {
                     shader_defs.push(shader_def.into());
                 }
+            }
+
+            if cfg!(feature = "pbr_transmission_textures") {
+                shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
+            }
+            if cfg!(feature = "pbr_multi_layer_material_textures") {
+                shader_defs.push("PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED".into());
+            }
+            if cfg!(feature = "pbr_anisotropy_texture") {
+                shader_defs.push("PBR_ANISOTROPY_TEXTURE_SUPPORTED".into());
+            }
+            if cfg!(feature = "pbr_specular_textures") {
+                shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
             }
         }
 

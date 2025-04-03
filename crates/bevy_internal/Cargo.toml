@@ -17,8 +17,8 @@ trace = [
   "bevy_anti_aliasing?/trace",
   "bevy_ecs/trace",
   "bevy_log/trace",
-  "bevy_pbr?/trace",
   "bevy_render?/trace",
+  "bevy_render_3d?/trace",
   "bevy_winit?/trace",
 ]
 trace_chrome = ["bevy_log/tracing-chrome"]
@@ -81,7 +81,7 @@ symphonia-wav = ["bevy_audio/symphonia-wav"]
 # Shader formats
 shader_format_glsl = [
   "bevy_render/shader_format_glsl",
-  "bevy_pbr?/shader_format_glsl",
+  "bevy_render_3d?/shader_format_glsl",
 ]
 shader_format_spirv = ["bevy_render/shader_format_spirv"]
 shader_format_wesl = ["bevy_render/shader_format_wesl"]
@@ -137,7 +137,7 @@ pbr_anisotropy_texture = [
 ]
 
 # Percentage-closer soft shadows
-experimental_pbr_pcss = ["bevy_pbr?/experimental_pbr_pcss"]
+experimental_pcss = ["bevy_render_3d?/experimental_pcss"]
 
 # Specular textures in `StandardMaterial`:
 pbr_specular_textures = [
@@ -149,8 +149,8 @@ pbr_specular_textures = [
 webgl = [
   "bevy_core_pipeline?/webgl",
   "bevy_anti_aliasing?/webgl",
-  "bevy_pbr?/webgl",
   "bevy_render?/webgl",
+  "bevy_render_3d?/webgl",
   "bevy_gizmos?/webgl",
   "bevy_sprite?/webgl",
 ]
@@ -158,8 +158,8 @@ webgl = [
 webgpu = [
   "bevy_core_pipeline?/webgpu",
   "bevy_anti_aliasing?/webgpu",
-  "bevy_pbr?/webgpu",
   "bevy_render?/webgpu",
+  "bevy_render_3d?/webgpu",
   "bevy_gizmos?/webgpu",
   "bevy_sprite?/webgpu",
 ]
@@ -200,7 +200,11 @@ bevy_render = [
   "bevy_color/wgpu-types",
   "bevy_color/encase",
 ]
-bevy_render_3d = ["dep:bevy_render_3d", "bevy_gizmos?/bevy_render_3d"]
+bevy_render_3d = [
+  "bevy_render",
+  "dep:bevy_render_3d",
+  "bevy_gizmos?/bevy_render_3d",
+]
 
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
@@ -226,10 +230,10 @@ bevy_debug_stepping = [
 ]
 
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
-meshlet = ["bevy_pbr?/meshlet"]
+meshlet = ["bevy_render_3d?/meshlet", "bevy_pbr?/meshlet"]
 
-# Enables processing meshes into meshlet meshes for bevy_pbr
-meshlet_processor = ["bevy_pbr?/meshlet_processor"]
+# Enables processing meshes into meshlet meshes for bevy_render_3d
+meshlet_processor = ["bevy_render_3d?/meshlet"]
 
 # Provides a collection of developer tools
 bevy_dev_tools = ["dep:bevy_dev_tools"]
@@ -297,6 +301,7 @@ std = [
   "bevy_math/std",
   "bevy_platform_support/std",
   "bevy_reflect/std",
+  "bevy_render_3d?/std",
   "bevy_state?/std",
   "bevy_time/std",
   "bevy_transform/std",

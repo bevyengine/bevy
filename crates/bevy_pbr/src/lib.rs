@@ -49,8 +49,9 @@ const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> =
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
-    /// Controls if the prepass is enabled for the [`StandardMaterial`].
-    /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
+    /// Controls if the prepass is enabled for the [`StandardMaterial`].  
+    /// Prepasses are run before the main pass and are used to generate things like
+    /// depth, normal, and/or motion vectors textures, among others.
     pub prepass_enabled: bool,
     /// Debugging flags that can optionally be set when constructing the renderer.
     pub debug_flags: RenderDebugFlags,

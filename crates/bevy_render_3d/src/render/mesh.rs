@@ -2344,19 +2344,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(5));
         }
 
-        if cfg!(feature = "pbr_transmission_textures") {
-            shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
-        }
-        if cfg!(feature = "pbr_multi_layer_material_textures") {
-            shader_defs.push("PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED".into());
-        }
-        if cfg!(feature = "pbr_anisotropy_texture") {
-            shader_defs.push("PBR_ANISOTROPY_TEXTURE_SUPPORTED".into());
-        }
-        if cfg!(feature = "pbr_specular_textures") {
-            shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
-        }
-
         let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
 
         if key.msaa_samples() > 1 {
@@ -2481,7 +2468,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
-        #[cfg(feature = "experimental_pbr_pcss")]
+        #[cfg(feature = "experimental_pcss")]
         shader_defs.push("PCSS_SAMPLERS_AVAILABLE".into());
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
