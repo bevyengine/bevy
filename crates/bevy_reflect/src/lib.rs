@@ -678,6 +678,10 @@ pub mod __macro_exports {
         };
     }
 
+    #[cfg(feature = "uuid")]
+    /// Re-exports [`uuid`] for [`bevy_reflect_derive::impl_reflect_opaque`] usage
+    pub use uuid;
+
     /// A wrapper trait around [`GetTypeRegistration`].
     ///
     /// This trait is used by the derive macro to recursively register all type dependencies.

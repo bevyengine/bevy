@@ -1,7 +1,7 @@
 use crate::{std_traits::ReflectDefault, ReflectDeserialize, ReflectSerialize};
 use bevy_reflect_derive::impl_reflect_opaque;
 
-impl_reflect_opaque!(::uuid::Uuid(
+impl_reflect_opaque!(::bevy_reflect::__macro_exports::uuid::Uuid(
     Serialize,
     Deserialize,
     Default,
