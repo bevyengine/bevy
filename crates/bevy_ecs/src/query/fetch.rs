@@ -324,7 +324,7 @@ pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 /// [`<Self as QueryData>::fetch`](QueryData::fetch) must always return an item whose `Entity`
 /// equals the one the function was called with.
 /// I.e.: `Self::fetch(fetch, entity, table_row).entity() == entity` always holds.
-pub unsafe trait TrustedEntityQueryData: QueryData
+pub unsafe trait EntityEquivalentQueryData: QueryData
 where
     for<'a> Self: QueryData<Item<'a>: EntityEquivalent>,
 {
@@ -408,7 +408,7 @@ unsafe impl QueryData for Entity {
 unsafe impl ReadOnlyQueryData for Entity {}
 
 /// SAFETY: `entity()` returns `self`, and `fetch` returns `entity`
-unsafe impl TrustedEntityQueryData for Entity {}
+unsafe impl EntityEquivalentQueryData for Entity {}
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
@@ -572,7 +572,7 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
 unsafe impl ReadOnlyQueryData for EntityRef<'_> {}
 
 /// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
-unsafe impl TrustedEntityQueryData for EntityRef<'_> {}
+unsafe impl EntityEquivalentQueryData for EntityRef<'_> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for EntityMut<'a> {
@@ -653,7 +653,7 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
 }
 
 /// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
-unsafe impl TrustedEntityQueryData for EntityMut<'_> {}
+unsafe impl EntityEquivalentQueryData for EntityMut<'_> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
@@ -752,7 +752,7 @@ unsafe impl<'a> QueryData for FilteredEntityRef<'a> {
 unsafe impl ReadOnlyQueryData for FilteredEntityRef<'_> {}
 
 /// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
-unsafe impl TrustedEntityQueryData for FilteredEntityRef<'_> {}
+unsafe impl EntityEquivalentQueryData for FilteredEntityRef<'_> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
@@ -847,7 +847,7 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
 }
 
 /// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
-unsafe impl TrustedEntityQueryData for FilteredEntityMut<'_> {}
+unsafe impl EntityEquivalentQueryData for FilteredEntityMut<'_> {}
 
 /// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
@@ -950,7 +950,7 @@ where
 unsafe impl<'a, B> ReadOnlyQueryData for EntityRefExcept<'a, B> where B: Bundle {}
 
 /// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
-unsafe impl<B: Bundle> TrustedEntityQueryData for EntityRefExcept<'_, B> {}
+unsafe impl<B: Bundle> EntityEquivalentQueryData for EntityRefExcept<'_, B> {}
 
 /// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
@@ -1050,7 +1050,7 @@ where
 }
 
 /// SAFETY: `entity()` returns the `entity` used to get the `UnsafeEntityCell`, and `fetch` constructs that from `entity`
-unsafe impl<B: Bundle> TrustedEntityQueryData for EntityMutExcept<'_, B> {}
+unsafe impl<B: Bundle> EntityEquivalentQueryData for EntityMutExcept<'_, B> {}
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.

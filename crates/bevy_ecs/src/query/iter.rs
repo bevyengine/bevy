@@ -4,8 +4,8 @@ use crate::{
     component::Tick,
     entity::{ContainsEntity, Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
     query::{
-        ArchetypeFilter, DebugCheckedUnwrap, QueryState, QueryStateDeref, StorageId,
-        TrustedEntityQueryData,
+        ArchetypeFilter, DebugCheckedUnwrap, EntityEquivalentQueryData, QueryState,
+        QueryStateDeref, StorageId,
     },
     storage::{Table, TableRow, Tables},
     world::unsafe_world_cell::UnsafeWorldCell,
@@ -910,8 +910,8 @@ impl<'w, D: QueryData, F: QueryFilter, S: QueryStateDeref<Data = D, Filter = F>>
 impl<'w, S: QueryStateDeref> FusedIterator for QueryIter<'w, S> {}
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once,
-// and [`TrustedEntityQueryData`] ensures that they return the original `Entity`.
-unsafe impl<'w, S: QueryStateDeref<Data: TrustedEntityQueryData>> EntitySetIterator
+// and [`EntityEquivalentQueryData`] ensures that they return the original `Entity`.
+unsafe impl<'w, S: QueryStateDeref<Data: EntityEquivalentQueryData>> EntitySetIterator
     for QueryIter<'w, S>
 {
 }
@@ -1053,8 +1053,8 @@ impl<'w, S: QueryStateDeref, I: Iterator> FusedIterator for QuerySortedIter<'w, 
 
 // SAFETY:
 // `I` stems from a collected and sorted `EntitySetIterator` ([`QueryIter`]).
-// [`TrustedEntityQueryData`] ensures that unique items return unique `Entity`s.
-unsafe impl<'w, S: QueryStateDeref<Data: TrustedEntityQueryData>, I: Iterator<Item = Entity>>
+// [`EntityEquivalentQueryData`] ensures that unique items return unique `Entity`s.
+unsafe impl<'w, S: QueryStateDeref<Data: EntityEquivalentQueryData>, I: Iterator<Item = Entity>>
     EntitySetIterator for QuerySortedIter<'w, S, I>
 {
 }
@@ -1758,10 +1758,10 @@ impl<'w, S: QueryStateDeref<Data: ReadOnlyQueryData>, I: Iterator<Item: EntityEq
 {
 }
 
-// SAFETY: [`TrustedEntityQueryData`] ensures that unique items return unique `Entity`s.
+// SAFETY: [`EntityEquivalentQueryData`] ensures that unique items return unique `Entity`s.
 unsafe impl<
         'w,
-        S: QueryStateDeref<Data: TrustedEntityQueryData + ReadOnlyQueryData>,
+        S: QueryStateDeref<Data: EntityEquivalentQueryData + ReadOnlyQueryData>,
         I: EntitySetIterator,
     > EntitySetIterator for QueryManyIter<'w, S, I>
 {
@@ -1845,8 +1845,8 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, I: EntitySetIterator> Itera
 // This is correct as [`QueryManyIter`] always returns `None` once exhausted.
 impl<'w, S: QueryStateDeref, I: EntitySetIterator> FusedIterator for QueryManyUniqueIter<'w, S, I> {}
 
-// SAFETY: [`TrustedEntityQueryData`] ensures that unique items return unique `Entity`s.
-unsafe impl<'w, S: QueryStateDeref<Data: TrustedEntityQueryData>, I: EntitySetIterator>
+// SAFETY: [`EntityEquivalentQueryData`] ensures that unique items return unique `Entity`s.
+unsafe impl<'w, S: QueryStateDeref<Data: EntityEquivalentQueryData>, I: EntitySetIterator>
     EntitySetIterator for QueryManyUniqueIter<'w, S, I>
 {
 }
