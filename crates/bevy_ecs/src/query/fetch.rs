@@ -3,7 +3,7 @@ use crate::{
     bundle::Bundle,
     change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
-    entity::{Entities, Entity, EntityLocation, TrustedEntityBorrow},
+    entity::{Entities, Entity, EntityEquivalent, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
@@ -316,7 +316,7 @@ pub unsafe trait QueryData: WorldQuery {
 /// This must only be implemented for read-only [`QueryData`]'s.
 pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 
-/// A [`QueryData`] type that produces a [`TrustedEntityBorrow`] item
+/// A [`QueryData`] type that produces a [`EntityEquivalent`] item
 /// equaling the `Entity` it is addressed by.
 ///
 /// # Safety
@@ -326,7 +326,7 @@ pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 /// I.e.: `Self::fetch(fetch, entity, table_row).entity() == entity` always holds.
 pub unsafe trait TrustedEntityQueryData: QueryData
 where
-    for<'a> Self: QueryData<Item<'a>: TrustedEntityBorrow>,
+    for<'a> Self: QueryData<Item<'a>: EntityEquivalent>,
 {
 }
 

@@ -1693,8 +1693,12 @@ impl<
     }
 }
 
-impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, I: Iterator<Item: EntityEquivalent>>
-    Iterator for QueryManyIter<'w, S, I>
+impl<
+        'w,
+        D: ReadOnlyQueryData,
+        S: QueryStateDeref<Data = D>,
+        I: Iterator<Item: EntityEquivalent>,
+    > Iterator for QueryManyIter<'w, S, I>
 {
     type Item = D::Item<'w>;
 
@@ -1749,8 +1753,8 @@ impl<
 }
 
 // This is correct as [`QueryManyIter`] always returns `None` once exhausted.
-impl<'w, S: QueryStateDeref<Data: ReadOnlyQueryData>, I: Iterator<Item: EntityEquivalent>> FusedIterator
-    for QueryManyIter<'w, S, I>
+impl<'w, S: QueryStateDeref<Data: ReadOnlyQueryData>, I: Iterator<Item: EntityEquivalent>>
+    FusedIterator for QueryManyIter<'w, S, I>
 {
 }
 
@@ -1763,7 +1767,9 @@ unsafe impl<
 {
 }
 
-impl<'w, S: QueryStateDeref, I: Iterator<Item: EntityEquivalent>> Debug for QueryManyIter<'w, S, I> {
+impl<'w, S: QueryStateDeref, I: Iterator<Item: EntityEquivalent>> Debug
+    for QueryManyIter<'w, S, I>
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryManyIter").finish()
     }
