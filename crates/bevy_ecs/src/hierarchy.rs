@@ -361,6 +361,12 @@ impl<'a> EntityCommands<'a> {
         self.add_related::<ChildOf>(children)
     }
 
+    /// Insert children at specific index.
+    /// See also [`insert_related`](Self::insert_related).
+    pub fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
+        self.insert_related::<ChildOf>(index, children)
+    }
+
     /// Adds the given child to this entity
     pub fn add_child(&mut self, child: Entity) -> &mut Self {
         self.add_related::<ChildOf>(&[child])

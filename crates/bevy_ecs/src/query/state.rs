@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-use crate::entity::UniqueEntitySlice;
+use crate::entity::UniqueEntityEquivalentSlice;
 
 use alloc::vec::{self, Vec};
 use bevy_platform_support::prelude::Box;
@@ -1721,7 +1721,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &self,
         init_accum: INIT,
         world: UnsafeWorldCell<'w>,
-        entity_list: &UniqueEntitySlice<E>,
+        entity_list: &UniqueEntityEquivalentSlice<E>,
         batch_size: usize,
         mut func: FN,
         last_run: Tick,

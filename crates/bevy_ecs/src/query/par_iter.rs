@@ -1,7 +1,7 @@
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
-    entity::{EntityEquivalent, UniqueEntityVec},
+    entity::{EntityEquivalent, UniqueEntityEquivalentVec},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -317,7 +317,7 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent
 pub struct QueryParManyUniqueIter<'w, S: QueryStateDeref, E: EntityEquivalent + Sync> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: S,
-    pub(crate) entity_list: UniqueEntityVec<E>,
+    pub(crate) entity_list: UniqueEntityEquivalentVec<E>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
@@ -368,7 +368,7 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent + Sync>
     /// struct T;
     ///
     /// #[derive(Resource)]
-    /// struct V(UniqueEntityVec<Entity>);
+    /// struct V(UniqueEntityVec);
     ///
     /// impl<'a> IntoIterator for &'a V {
     /// // ...

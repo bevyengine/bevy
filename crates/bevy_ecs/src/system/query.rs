@@ -1546,7 +1546,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateDeref<Data = D, Filter =
     /// - [`get_many`](Self::get_many) for the non-panicking version.
     #[inline]
     #[track_caller]
-    #[deprecated(note = "Use `get_many` instead and handle the Result.")]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use `get_many` instead and handle the Result."
+    )]
     pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, D>; N] {
         match self.get_many(entities) {
             Ok(items) => items,
@@ -1747,7 +1750,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateDeref<Data = D, Filter =
     ///
     /// let mut world = World::new();
     ///
-    /// let entity_set: UniqueEntityVec<_> = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_set: UniqueEntityVec = world.spawn_batch((0..3).map(A)).collect_set();
     /// let entity_set: UniqueEntityArray<3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
@@ -1943,7 +1946,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateDeref<Data = D, Filter =
     /// - [`many`](Self::many) to get read-only query items.
     #[inline]
     #[track_caller]
-    #[deprecated(note = "Use `get_many_mut` instead and handle the Result.")]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use `get_many_mut` instead and handle the Result."
+    )]
     pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [D::Item<'_>; N] {
         match self.get_many_mut(entities) {
             Ok(items) => items,
@@ -2007,7 +2013,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateDeref<Data = D, Filter =
     }
 
     /// A deprecated alias for [`single`](Self::single).
-    #[deprecated(note = "Please use `single` instead")]
+    #[deprecated(since = "0.16.0", note = "Please use `single` instead")]
     pub fn get_single(&self) -> Result<ROQueryItem<'_, D>, QuerySingleError> {
         self.single()
     }
@@ -2042,7 +2048,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateDeref<Data = D, Filter =
     }
 
     /// A deprecated alias for [`single_mut`](Self::single_mut).
-    #[deprecated(note = "Please use `single_mut` instead")]
+    #[deprecated(since = "0.16.0", note = "Please use `single_mut` instead")]
     pub fn get_single_mut(&mut self) -> Result<D::Item<'_>, QuerySingleError> {
         self.single_mut()
     }
