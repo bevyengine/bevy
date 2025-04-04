@@ -117,7 +117,7 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
     let source_state_type = sources.source_type;
     let source_state_value = sources.source_value;
 
-    let result = quote! {
+    quote! {
         impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {
             type SourceStates = #source_state_type;
 
@@ -136,9 +136,5 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
 
         impl #impl_generics #state_mutation_trait_path for #struct_name #ty_generics #where_clause {
         }
-    };
-
-    // panic!("Got Result\n{}", result.to_string());
-
-    result.into()
+    }.into()
 }
