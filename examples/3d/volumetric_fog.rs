@@ -4,8 +4,9 @@ use bevy::{
     color::palettes::css::RED,
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
     math::vec3,
-    pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
+    render_3d::VolumetricLight,
+    volumetrics::volumetric_fog::{FogVolume, VolumetricFog},
 };
 
 const DIRECTIONAL_LIGHT_MOVEMENT_SPEED: f32 = 0.02;

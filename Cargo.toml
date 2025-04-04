@@ -143,6 +143,7 @@ default = [
   "bevy_pbr",
   "bevy_picking",
   "bevy_render",
+  "bevy_render_3d",
   "bevy_scene",
   "bevy_sprite",
   "bevy_sprite_picking_backend",
@@ -241,6 +242,12 @@ bevy_picking = ["bevy_internal/bevy_picking"]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
+
+# Provides functionality for rendering in 3d
+bevy_render_3d = ["bevy_internal/bevy_render_3d"]
+
+# Provides volumetric lights, fog, and procedural atmosphere
+bevy_volumetrics = ["bevy_internal/bevy_volumetrics"]
 
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
@@ -475,7 +482,7 @@ pbr_multi_layer_material_textures = [
 pbr_anisotropy_texture = ["bevy_internal/pbr_anisotropy_texture"]
 
 # Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs
-experimental_pbr_pcss = ["bevy_internal/experimental_pbr_pcss"]
+experimental_pcss = ["bevy_internal/experimental_pcss"]
 
 # Enable support for specular textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_specular_textures = ["bevy_internal/pbr_specular_textures"]
@@ -962,6 +969,7 @@ wasm = true
 name = "atmosphere"
 path = "examples/3d/atmosphere.rs"
 doc-scrape-examples = true
+required-features = ["bevy_volumetrics"]
 
 [package.metadata.example.atmosphere]
 name = "Atmosphere"
@@ -3938,6 +3946,7 @@ wasm = false
 name = "volumetric_fog"
 path = "examples/3d/volumetric_fog.rs"
 doc-scrape-examples = true
+required-features = ["bevy_volumetrics"]
 
 [package.metadata.example.volumetric_fog]
 name = "Volumetric fog"
@@ -3996,6 +4005,7 @@ wasm = true
 name = "fog_volumes"
 path = "examples/3d/fog_volumes.rs"
 doc-scrape-examples = true
+required-features = ["bevy_volumetrics"]
 
 [package.metadata.example.fog_volumes]
 name = "Fog volumes"
@@ -4007,6 +4017,7 @@ wasm = false
 name = "scrolling_fog"
 path = "examples/3d/scrolling_fog.rs"
 doc-scrape-examples = true
+required-features = ["bevy_volumetrics"]
 
 [package.metadata.example.scrolling_fog]
 name = "Scrolling fog"
@@ -4111,7 +4122,7 @@ wasm = true
 name = "pcss"
 path = "examples/3d/pcss.rs"
 doc-scrape-examples = true
-required-features = ["experimental_pbr_pcss"]
+required-features = ["experimental_pcss"]
 
 [package.metadata.example.pcss]
 name = "Percentage-closer soft shadows"

@@ -15,9 +15,9 @@ use bevy::{
         dof::{self, DepthOfField, DepthOfFieldMode},
         tonemapping::Tonemapping,
     },
-    pbr::Lightmap,
     prelude::*,
     render::camera::PhysicalCameraParameters,
+    render_3d::Lightmap,
 };
 
 /// The increments in which the user can adjust the focal distance, in meters

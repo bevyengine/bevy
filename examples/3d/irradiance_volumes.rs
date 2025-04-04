@@ -17,11 +17,11 @@ use bevy::{
     color::palettes::css::*,
     core_pipeline::Skybox,
     math::{uvec3, vec3},
-    pbr::{
-        irradiance_volume::IrradianceVolume, ExtendedMaterial, MaterialExtension, NotShadowCaster,
-    },
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    render_3d::{
+        irradiance_volume::IrradianceVolume, ExtendedMaterial, MaterialExtension, NotShadowCaster,
+    },
     window::PrimaryWindow,
 };
 

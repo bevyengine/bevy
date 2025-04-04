@@ -7,8 +7,9 @@ use bevy::{
     color::{palettes, Color},
     gltf::GltfAssetLabel,
     math::{Dir3, Vec3},
-    pbr::{DirectionalLight, MeshMaterial3d, StandardMaterial},
+    pbr::StandardMaterial,
     prelude::{Camera3d, Children, Commands, Component, Query, Res, ResMut, Transform, Trigger},
+    render_3d::{DirectionalLight, MeshMaterial3d},
     scene::{SceneInstanceReady, SceneRoot},
     DefaultPlugins,
 };

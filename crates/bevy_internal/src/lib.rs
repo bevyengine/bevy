@@ -58,6 +58,8 @@ pub use bevy_reflect as reflect;
 pub use bevy_remote as remote;
 #[cfg(feature = "bevy_render")]
 pub use bevy_render as render;
+#[cfg(feature = "bevy_render_3d")]
+pub use bevy_render_3d as render_3d;
 #[cfg(feature = "bevy_scene")]
 pub use bevy_scene as scene;
 #[cfg(feature = "bevy_sprite")]
@@ -72,6 +74,8 @@ pub use bevy_transform as transform;
 #[cfg(feature = "bevy_ui")]
 pub use bevy_ui as ui;
 pub use bevy_utils as utils;
+#[cfg(feature = "bevy_volumetrics")]
+pub use bevy_volumetrics as volumetrics;
 #[cfg(feature = "bevy_window")]
 pub use bevy_window as window;
 #[cfg(feature = "bevy_winit")]

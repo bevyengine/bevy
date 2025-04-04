@@ -7,11 +7,11 @@ use bevy::{
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     image::ImageLoaderSettings,
     math::ops,
-    pbr::{
+    prelude::*,
+    render_3d::{
         CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
         NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
     },
-    prelude::*,
 };
 
 fn main() {

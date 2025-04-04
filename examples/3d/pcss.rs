@@ -9,12 +9,12 @@ use bevy::{
         Skybox,
     },
     math::vec3,
-    pbr::{CubemapVisibleEntities, ShadowFilteringMethod, VisibleMeshEntities},
     prelude::*,
     render::{
         camera::TemporalJitter,
         primitives::{CubemapFrusta, Frustum},
     },
+    render_3d::{CubemapVisibleEntities, ShadowFilteringMethod, VisibleMeshEntities},
 };
 
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};

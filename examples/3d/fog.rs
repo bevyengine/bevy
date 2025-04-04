@@ -16,8 +16,8 @@
 
 use bevy::{
     math::ops,
-    pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
+    render_3d::{NotShadowCaster, NotShadowReceiver},
 };
 
 fn main() {

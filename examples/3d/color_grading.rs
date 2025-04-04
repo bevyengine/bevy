@@ -7,9 +7,9 @@ use std::{
 
 use bevy::{
     ecs::system::EntityCommands,
-    pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
+    render_3d::CascadeShadowConfigBuilder,
 };
 use std::fmt::Display;
 

@@ -27,12 +27,12 @@ use bevy::{
         tonemapping::Tonemapping,
     },
     math::ops,
-    pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
     render::{
         camera::{Exposure, TemporalJitter},
         view::{ColorGrading, ColorGradingGlobal},
     },
+    render_3d::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
 };
 
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]

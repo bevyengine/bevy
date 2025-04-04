@@ -1,9 +1,9 @@
 //! Demonstrates how to combine baked and dynamic lighting.
 
 use bevy::{
-    pbr::Lightmap,
     picking::{backend::HitData, pointer::PointerInteraction},
     prelude::*,
+    render_3d::Lightmap,
     scene::SceneInstanceReady,
 };
 

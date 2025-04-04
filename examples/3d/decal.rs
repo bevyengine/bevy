@@ -5,8 +5,8 @@ mod camera_controller;
 
 use bevy::{
     core_pipeline::prepass::DepthPrepass,
-    pbr::decal::{ForwardDecal, ForwardDecalMaterial, ForwardDecalMaterialExt},
     prelude::*,
+    render_3d::decal::{ForwardDecal, ForwardDecalMaterial, ForwardDecalMaterialExt},
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
 use rand::{Rng, SeedableRng};

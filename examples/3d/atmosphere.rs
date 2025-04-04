@@ -4,9 +4,10 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
-    pbr::{light_consts::lux, Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
     prelude::*,
     render::camera::Exposure,
+    render_3d::{light_consts::lux, CascadeShadowConfigBuilder},
+    volumetrics::atmosphere::{Atmosphere, AtmosphereSettings},
 };
 
 fn main() {
