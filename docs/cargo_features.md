@@ -68,6 +68,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_dev_tools|Provides a collection of developer tools|
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_remote|Enable the Bevy Remote Protocol|
+|bevy_solari|Provides raytraced lighting|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bmp|BMP image format support|
 |configurable_error_handler|Use the configurable global error handler as the default error handler.|
