@@ -746,6 +746,7 @@ impl<'w> DeferredWorld<'w> {
             self.reborrow(),
             event,
             target,
+            target,
             components,
             &mut (),
             &mut false,
@@ -761,7 +762,7 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
         event: ComponentId,
-        mut target: Entity,
+        target: Entity,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut E,
         mut propagate: bool,
@@ -769,11 +770,14 @@ impl<'w> DeferredWorld<'w> {
     ) where
         T: Traversal<E>,
     {
+        let mut current_target = target;
+
         loop {
             Observers::invoke::<_>(
                 self.reborrow(),
                 event,
                 target,
+                current_target,
                 components.clone(),
                 data,
                 &mut propagate,
@@ -783,12 +787,12 @@ impl<'w> DeferredWorld<'w> {
                 break;
             }
             if let Some(traverse_to) = self
-                .get_entity(target)
+                .get_entity(current_target)
                 .ok()
                 .and_then(|entity| entity.get_components::<T>())
                 .and_then(|item| T::traverse(item, data))
             {
-                target = traverse_to;
+                current_target = traverse_to;
             } else {
                 break;
             }

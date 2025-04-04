@@ -71,18 +71,24 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     /// be [`Entity::PLACEHOLDER`].
     ///
     /// Observable events can target specific entities. When those events fire, they will trigger
-    /// any observers on the targeted entities. In this case, the `target()` and `observer()` are
-    /// the same, because the observer that was triggered is attached to the entity that was
-    /// targeted by the event.
+    /// any observers on the targeted entities.
     ///
     /// However, it is also possible for those events to bubble up the entity hierarchy and trigger
     /// observers on *different* entities, or trigger a global observer. In these cases, the
     /// observing entity is *different* from the entity being targeted by the event.
     ///
-    /// This is an important distinction: the entity reacting to an event is not always the same as
+    /// This is an important distinction: the entity targeted by an event is not always the same as
     /// the entity triggered by the event.
     pub fn target(&self) -> Entity {
         self.trigger.target
+    }
+
+    /// Returns the [`Entity`] that is currently being observed. It may be [`Entity::PLACEHOLDER`]
+    /// if the observer is a global observer.
+    ///
+    /// To get the entity that was targeted by the event use [`Trigger::target`].
+    pub fn current_target(&self) -> Entity {
+        self.trigger.current_target
     }
 
     /// Returns the components that triggered the observer, out of the
@@ -349,6 +355,8 @@ pub struct ObserverTrigger {
     components: SmallVec<[ComponentId; 2]>,
     /// The entity the trigger targeted.
     pub target: Entity,
+    /// The entity that is currently being observed.
+    pub current_target: Entity,
     /// The location of the source code that triggered the obserer.
     pub caller: MaybeLocation,
 }
@@ -424,6 +432,7 @@ impl Observers {
         mut world: DeferredWorld,
         event_type: ComponentId,
         target: Entity,
+        current_target: Entity,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
@@ -452,6 +461,7 @@ impl Observers {
                     event_type,
                     components: components.clone().collect(),
                     target,
+                    current_target,
                     caller,
                 },
                 data.into(),
@@ -463,7 +473,7 @@ impl Observers {
 
         // Trigger entity observers listening for this kind of trigger
         if target != Entity::PLACEHOLDER {
-            if let Some(map) = observers.entity_observers.get(&target) {
+            if let Some(map) = observers.entity_observers.get(&current_target) {
                 map.iter().for_each(&mut trigger_observer);
             }
         }
@@ -477,7 +487,7 @@ impl Observers {
                     .for_each(&mut trigger_observer);
 
                 if target != Entity::PLACEHOLDER {
-                    if let Some(map) = component_observers.entity_map.get(&target) {
+                    if let Some(map) = component_observers.entity_map.get(&current_target) {
                         map.iter().for_each(&mut trigger_observer);
                     }
                 }
@@ -882,6 +892,16 @@ mod tests {
         #[track_caller]
         fn observed(&mut self, name: &'static str) {
             self.0.push(name);
+        }
+    }
+
+    #[derive(Resource, Default)]
+    struct OrderEntity(Vec<Entity>);
+
+    impl OrderEntity {
+        #[track_caller]
+        fn observed(&mut self, id: Entity) {
+            self.0.push(id);
         }
     }
 
@@ -1409,6 +1429,42 @@ mod tests {
     }
 
     #[test]
+    fn observer_propagating_current_target() {
+        let mut world = World::new();
+        world.init_resource::<OrderEntity>();
+
+        let parent = world
+            .spawn_empty()
+            .observe(
+                |trigger: Trigger<EventPropagating>, mut res: ResMut<OrderEntity>| {
+                    res.observed(trigger.current_target());
+                    res.observed(trigger.target());
+                },
+            )
+            .id();
+
+        let child = world
+            .spawn(ChildOf(parent))
+            .observe(
+                |trigger: Trigger<EventPropagating>, mut res: ResMut<OrderEntity>| {
+                    res.observed(trigger.current_target());
+                    res.observed(trigger.target());
+                },
+            )
+            .id();
+
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+        world.trigger_targets(EventPropagating, child);
+        world.flush();
+        assert_eq!(
+            vec![child, child, parent, child],
+            world.resource::<OrderEntity>().0
+        );
+    }
+
+    #[test]
     fn observer_propagating_redundant_dispatch_same_entity() {
         let mut world = World::new();
         world.init_resource::<Order>();
@@ -1630,7 +1686,7 @@ mod tests {
 
         world.add_observer(
             |trigger: Trigger<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
-                if query.get(trigger.target()).is_ok() {
+                if query.get(trigger.current_target()).is_ok() {
                     res.observed("event");
                 }
             },
