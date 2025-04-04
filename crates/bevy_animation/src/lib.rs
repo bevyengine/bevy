@@ -1530,6 +1530,8 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 
 #[cfg(test)]
 mod tests {
+    use bevy_reflect::{DynamicMap, Map};
+
     use super::*;
 
     #[derive(Event, Reflect, Clone)]
@@ -1660,5 +1662,14 @@ mod tests {
         active_animation.last_seek_time = Some(clip.duration);
         active_animation.update(clip.duration, clip.duration); // 0.3 : 0.0
         assert_triggered_events_with(&active_animation, &clip, [0.3, 0.2]);
+    }
+
+    #[test]
+    fn test_animation_node_index_as_key_of_dynamic_map() {
+        let mut map = DynamicMap::default();
+        map.insert_boxed(
+            Box::new(AnimationNodeIndex::new(0)),
+            Box::new(ActiveAnimation::default()),
+        );
     }
 }
