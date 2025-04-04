@@ -20,6 +20,10 @@ use rand_chacha::ChaCha8Rng;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(AmbientLight {
+            brightness: 3000.0,
+            ..default()
+        })
         .add_systems(Startup, setup)
         .add_systems(Update, joint_animation)
         .run();
@@ -36,7 +40,6 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
@@ -44,10 +47,6 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(2.5, 2.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-        EnvironmentMapLight {
-            intensity: 3000.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
-        },
     ));
 
     // Create inverse bindpose matrices for a skeleton consists of 2 joints

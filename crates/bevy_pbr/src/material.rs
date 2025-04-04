@@ -34,7 +34,9 @@ use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_platform_support::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::camera::extract_cameras;
 use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
+use bevy_render::render_asset::prepare_assets;
 use bevy_render::renderer::RenderQueue;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
@@ -50,6 +52,7 @@ use bevy_render::{
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
+use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
 use tracing::error;
 
@@ -314,7 +317,7 @@ where
                     ExtractSchedule,
                     (
                         extract_mesh_materials::<M>.before(ExtractMeshesSet),
-                        extract_entities_needs_specialization::<M>,
+                        extract_entities_needs_specialization::<M>.after(extract_cameras),
                     ),
                 )
                 .add_systems(
@@ -350,9 +353,11 @@ where
                         Render,
                         (
                             check_views_lights_need_specialization.in_set(RenderSet::PrepareAssets),
+                            // specialize_shadows::<M> also needs to run after prepare_assets::<PreparedMaterial<M>>,
+                            // which is fine since ManageViews is after PrepareAssets
                             specialize_shadows::<M>
-                                .in_set(RenderSet::PrepareMeshes)
-                                .after(prepare_assets::<PreparedMaterial<M>>),
+                                .in_set(RenderSet::ManageViews)
+                                .after(prepare_lights),
                             queue_shadows::<M>
                                 .in_set(RenderSet::QueueMeshes)
                                 .after(prepare_assets::<PreparedMaterial<M>>),
@@ -704,6 +709,15 @@ fn extract_mesh_materials<M: Material>(
 pub fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
+    mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial3d<M>>>,
+    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
+    mut specialized_prepass_material_pipeline_cache: Option<
+        ResMut<SpecializedPrepassMaterialPipelineCache<M>>,
+    >,
+    mut specialized_shadow_material_pipeline_cache: Option<
+        ResMut<SpecializedShadowMaterialPipelineCache<M>>,
+    >,
+    views: Query<&ExtractedView>,
     ticks: SystemChangeTick,
 ) where
     M: Material,
@@ -711,6 +725,29 @@ pub fn extract_entities_needs_specialization<M>(
     for entity in entities_needing_specialization.iter() {
         // Update the entity's specialization tick with this run's tick
         entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
+    }
+    // Clean up any despawned entities
+    for entity in removed_mesh_material_components.read() {
+        entity_specialization_ticks.remove(&MainEntity::from(entity));
+        for view in views {
+            if let Some(cache) =
+                specialized_material_pipeline_cache.get_mut(&view.retained_view_entity)
+            {
+                cache.remove(&MainEntity::from(entity));
+            }
+            if let Some(cache) = specialized_prepass_material_pipeline_cache
+                .as_mut()
+                .and_then(|c| c.get_mut(&view.retained_view_entity))
+            {
+                cache.remove(&MainEntity::from(entity));
+            }
+            if let Some(cache) = specialized_shadow_material_pipeline_cache
+                .as_mut()
+                .and_then(|c| c.get_mut(&view.retained_view_entity))
+            {
+                cache.remove(&MainEntity::from(entity));
+            }
+        }
     }
 }
 
@@ -786,21 +823,28 @@ impl<M> Default for SpecializedMaterialViewPipelineCache<M> {
 pub fn check_entities_needing_specialization<M>(
     needs_specialization: Query<
         Entity,
-        Or<(
-            Changed<Mesh3d>,
-            AssetChanged<Mesh3d>,
-            Changed<MeshMaterial3d<M>>,
-            AssetChanged<MeshMaterial3d<M>>,
-        )>,
+        (
+            Or<(
+                Changed<Mesh3d>,
+                AssetChanged<Mesh3d>,
+                Changed<MeshMaterial3d<M>>,
+                AssetChanged<MeshMaterial3d<M>>,
+            )>,
+            With<MeshMaterial3d<M>>,
+        ),
     >,
+    mut par_local: Local<Parallel<Vec<Entity>>>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
 ) where
     M: Material,
 {
     entities_needing_specialization.clear();
-    for entity in &needs_specialization {
-        entities_needing_specialization.push(entity);
-    }
+
+    needs_specialization
+        .par_iter()
+        .for_each(|entity| par_local.borrow_local_mut().push(entity));
+
+    par_local.drain_into(&mut entities_needing_specialization);
 }
 
 pub fn specialize_material_meshes<M: Material>(
@@ -862,6 +906,9 @@ pub fn specialize_material_meshes<M: Material>(
             .or_default();
 
         for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
+            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
+                continue;
+            };
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -873,9 +920,6 @@ pub fn specialize_material_meshes<M: Material>(
             if !needs_specialization {
                 continue;
             }
-            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
-                continue;
-            };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
                 continue;
@@ -1113,7 +1157,7 @@ pub fn queue_material_meshes<M: Material>(
 
 /// Default render method used for opaque materials.
 #[derive(Default, Resource, Clone, Debug, ExtractResource, Reflect)]
-#[reflect(Resource, Default, Debug)]
+#[reflect(Resource, Default, Debug, Clone)]
 pub struct DefaultOpaqueRendererMethod(OpaqueRendererMethod);
 
 impl DefaultOpaqueRendererMethod {
@@ -1153,6 +1197,7 @@ impl DefaultOpaqueRendererMethod {
 ///
 /// If a material indicates `OpaqueRendererMethod::Auto`, `DefaultOpaqueRendererMethod` will be used.
 #[derive(Default, Clone, Copy, Debug, PartialEq, Reflect)]
+#[reflect(Default, Clone, PartialEq)]
 pub enum OpaqueRendererMethod {
     #[default]
     Forward,

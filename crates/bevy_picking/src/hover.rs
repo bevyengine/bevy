@@ -189,7 +189,7 @@ fn build_hover_map(
 /// the entity will be considered pressed. If that entity is instead being hovered by both pointers,
 /// it will be considered hovered.
 #[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq, Debug)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
 pub enum PickingInteraction {
     /// The entity is being pressed down by a pointer.
     Pressed = 2,

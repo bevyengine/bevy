@@ -1,7 +1,7 @@
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
-    entity::{EntityBorrow, TrustedEntityBorrow, UniqueEntityVec},
+    entity::{EntityEquivalent, UniqueEntityVec},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -160,7 +160,7 @@ impl<'w, D: QueryData, S: QueryStateDeref<Data = D>> QueryParIter<'w, S> {
 ///
 /// [`Entity`]: crate::entity::Entity
 /// [`Query::par_iter_many`]: crate::system::Query::par_iter_many
-pub struct QueryParManyIter<'w, S: QueryStateDeref, E: EntityBorrow> {
+pub struct QueryParManyIter<'w, S: QueryStateDeref, E: EntityEquivalent> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: S,
     pub(crate) entity_list: Vec<E>,
@@ -169,7 +169,7 @@ pub struct QueryParManyIter<'w, S: QueryStateDeref, E: EntityBorrow> {
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityBorrow + Sync>
+impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent + Sync>
     QueryParManyIter<'w, S, E>
 {
     /// Changes the batching strategy used when iterating.
@@ -314,7 +314,7 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityBorrow + S
 /// [`EntitySet`]: crate::entity::EntitySet
 /// [`Query::par_iter_many_unique`]: crate::system::Query::par_iter_many_unique
 /// [`Query::par_iter_many_unique_mut`]: crate::system::Query::par_iter_many_unique_mut
-pub struct QueryParManyUniqueIter<'w, S: QueryStateDeref, E: TrustedEntityBorrow + Sync> {
+pub struct QueryParManyUniqueIter<'w, S: QueryStateDeref, E: EntityEquivalent + Sync> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: S,
     pub(crate) entity_list: UniqueEntityVec<E>,
@@ -323,7 +323,7 @@ pub struct QueryParManyUniqueIter<'w, S: QueryStateDeref, E: TrustedEntityBorrow
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, E: TrustedEntityBorrow + Sync>
+impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent + Sync>
     QueryParManyUniqueIter<'w, S, E>
 {
     /// Changes the batching strategy used when iterating.

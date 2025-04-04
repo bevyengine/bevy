@@ -17,7 +17,7 @@ use wgpu_types::PrimitiveTopology;
 
 /// A builder used for creating a [`Mesh`] with a [`Circle`] shape.
 #[derive(Clone, Copy, Debug, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct CircleMeshBuilder {
     /// The [`Circle`] shape.
     pub circle: Circle,
@@ -101,7 +101,7 @@ impl From<Circle> for Mesh {
 /// scaled to fit the bounding box of the shape, which would be good for packed textures only including the
 /// portion of the circle that is needed to display.
 #[derive(Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 #[non_exhaustive]
 pub enum CircularMeshUvMode {
     /// Treats the shape as a mask over a circle of equal size and radius,
@@ -123,7 +123,7 @@ impl Default for CircularMeshUvMode {
 /// The resulting mesh will have a UV-map such that the center of the circle is
 /// at the center of the texture.
 #[derive(Clone, Debug, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct CircularSectorMeshBuilder {
     /// The sector shape.
     pub sector: CircularSector,
@@ -261,7 +261,7 @@ impl From<CircularSector> for Mesh {
 /// The resulting mesh will have a UV-map such that the center of the circle is
 /// at the center of the texture.
 #[derive(Clone, Copy, Debug, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct CircularSegmentMeshBuilder {
     /// The segment shape.
     pub segment: CircularSegment,
@@ -408,7 +408,7 @@ impl From<CircularSegment> for Mesh {
 /// You must verify that the `vertices` are not concave when constructing this type. You can
 /// guarantee this by creating a [`ConvexPolygon`] first, then calling [`ConvexPolygon::mesh()`].
 #[derive(Clone, Copy, Debug, Reflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Clone)]
 pub struct ConvexPolygonMeshBuilder<const N: usize> {
     pub vertices: [Vec2; N],
 }
@@ -459,7 +459,7 @@ impl<const N: usize> From<ConvexPolygon<N>> for Mesh {
 
 /// A builder used for creating a [`Mesh`] with a [`RegularPolygon`] shape.
 #[derive(Clone, Copy, Debug, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct RegularPolygonMeshBuilder {
     circumradius: f32,
     sides: u32,
@@ -533,7 +533,7 @@ impl From<RegularPolygon> for Mesh {
 
 /// A builder used for creating a [`Mesh`] with an [`Ellipse`] shape.
 #[derive(Clone, Copy, Debug, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct EllipseMeshBuilder {
     /// The [`Ellipse`] shape.
     pub ellipse: Ellipse,
@@ -638,7 +638,7 @@ impl From<Ellipse> for Mesh {
 
 /// A builder for creating a [`Mesh`] with an [`Annulus`] shape.
 #[derive(Clone, Copy, Debug, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct AnnulusMeshBuilder {
     /// The [`Annulus`] shape.
     pub annulus: Annulus,
@@ -771,7 +771,7 @@ impl From<Annulus> for Mesh {
 
 /// A builder for creating a [`Mesh`] with an [`Rhombus`] shape.
 #[derive(Clone, Copy, Debug, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct RhombusMeshBuilder {
     half_diagonals: Vec2,
 }
@@ -857,7 +857,7 @@ impl From<Rhombus> for Mesh {
 
 /// A builder used for creating a [`Mesh`] with a [`Triangle2d`] shape.
 #[derive(Clone, Copy, Debug, Default, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct Triangle2dMeshBuilder {
     triangle: Triangle2d,
 }
@@ -934,7 +934,7 @@ impl From<Triangle2d> for Mesh {
 
 /// A builder used for creating a [`Mesh`] with a [`Rectangle`] shape.
 #[derive(Clone, Copy, Debug, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct RectangleMeshBuilder {
     half_size: Vec2,
 }
@@ -1014,7 +1014,7 @@ impl From<Rectangle> for Mesh {
 
 /// A builder used for creating a [`Mesh`] with a [`Capsule2d`] shape.
 #[derive(Clone, Copy, Debug, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct Capsule2dMeshBuilder {
     /// The [`Capsule2d`] shape.
     pub capsule: Capsule2d,

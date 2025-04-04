@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, Asset, Assets, Handle};
-use bevy_ecs::component::{require, Component};
+use bevy_ecs::component::Component;
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
@@ -63,11 +63,11 @@ impl Plugin for ForwardDecalPlugin {
 /// # Usage Notes
 ///
 /// * Spawn this component on an entity with a [`crate::MeshMaterial3d`] component holding a [`ForwardDecalMaterial`].
-/// * Any camera rendering a forward decal must have the [`bevy_core_pipeline::DepthPrepass`] component.
+/// * Any camera rendering a forward decal must have the [`bevy_core_pipeline::prepass::DepthPrepass`] component.
 /// * Looking at forward decals at a steep angle can cause distortion. This can be mitigated by padding your decal's
 ///   texture with extra transparent pixels on the edges.
 #[derive(Component, Reflect)]
-#[require(Mesh3d(|| Mesh3d(FORWARD_DECAL_MESH_HANDLE)))]
+#[require(Mesh3d(FORWARD_DECAL_MESH_HANDLE))]
 pub struct ForwardDecal;
 
 /// Type alias for an extended material with a [`ForwardDecalMaterialExt`] extension.

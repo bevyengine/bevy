@@ -8,24 +8,20 @@ use bevy::{math::ops, prelude::*, render::mesh::skinning::SkinnedMesh};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(AmbientLight {
+            brightness: 750.0,
+            ..default()
+        })
         .add_systems(Startup, setup)
         .add_systems(Update, joint_animation)
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut images: ResMut<Assets<Image>>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Create a camera
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y),
-        EnvironmentMapLight {
-            intensity: 750.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
-        },
     ));
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
@@ -55,7 +51,7 @@ fn joint_animation(
     // Iter skinned mesh entity
     for child_of in &children {
         // Mesh node is the parent of the skinned mesh entity.
-        let mesh_node_entity = child_of.parent;
+        let mesh_node_entity = child_of.parent();
         // Get `Children` in the mesh node.
         let mesh_node_parent = parents.get(mesh_node_entity).unwrap();
 

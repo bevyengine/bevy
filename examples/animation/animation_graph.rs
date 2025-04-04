@@ -88,6 +88,11 @@ fn main() {
             (handle_weight_drag, update_ui, sync_weights).chain(),
         )
         .insert_resource(args)
+        .insert_resource(AmbientLight {
+            color: WHITE.into(),
+            brightness: 100.0,
+            ..default()
+        })
         .run();
 }
 
@@ -211,16 +216,11 @@ fn setup_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-10.0, 5.0, 13.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
-        EnvironmentMapLight {
-            intensity: 100.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
-        },
     ));
 
     commands.spawn((

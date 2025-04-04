@@ -16,8 +16,8 @@ bevy_color = { path = "../bevy_color", version = "0.16.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.16.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.16.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
-  "bevy",
   "petgraph",
 ] }
 bevy_render = { path = "../bevy_render", version = "0.16.0-dev" }
@@ -31,7 +31,7 @@ bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-d
 ] }
 
 # other
-petgraph = { version = "0.6", features = ["serde-1"] }
+petgraph = { version = "0.7", features = ["serde-1"] }
 ron = "0.8"
 serde = "1"
 blake3 = { version = "1.0" }
@@ -45,6 +45,7 @@ smallvec = "1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+# TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
 uuid = { version = "1.13.1", default-features = false, features = ["js"] }
 
 [lints]

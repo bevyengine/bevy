@@ -1,7 +1,7 @@
 use crate::{CalculatedClip, ComputedNode, ComputedNodeTarget, ResolvedBorderRadius, UiStack};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    entity::{Entity, EntityBorrow},
+    entity::{ContainsEntity, Entity},
     prelude::{Component, With},
     query::QueryData,
     reflect::ReflectComponent,
@@ -40,7 +40,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// - [`Button`](crate::widget::Button) which requires this component
 /// - [`RelativeCursorPosition`] to obtain the position of the cursor relative to current node
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq, Debug)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -74,7 +74,7 @@ impl Default for Interaction {
 ///
 /// The component is updated when it is in the same entity with [`Node`](crate::Node).
 #[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq, Debug)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -98,7 +98,7 @@ impl RelativeCursorPosition {
 
 /// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq, Debug)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),

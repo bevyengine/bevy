@@ -14,6 +14,8 @@ use alloc::{borrow::Cow, vec, vec::Vec};
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
+use super::SystemParamValidationError;
+
 /// A function system that runs with exclusive [`World`] access.
 ///
 /// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
@@ -111,13 +113,11 @@ where
     #[inline]
     unsafe fn run_unsafe(
         &mut self,
-        _input: SystemIn<'_, Self>,
-        _world: UnsafeWorldCell,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
     ) -> Self::Out {
-        panic!("Cannot run exclusive systems with a shared World reference");
-    }
-
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        // SAFETY: The safety is upheld by the caller.
+        let world = unsafe { world.world_mut() };
         world.last_change_tick_scope(self.system_meta.last_run, |world| {
             #[cfg(feature = "trace")]
             let _span_guard = self.system_meta.system_span.enter();
@@ -150,9 +150,12 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, _world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        _world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         // All exclusive system params are always available.
-        true
+        Ok(())
     }
 
     #[inline]

@@ -2,7 +2,7 @@ use super::{QueryData, QueryFilter, ReadOnlyQueryData, WorldQuery};
 use crate::{
     archetype::{Archetype, ArchetypeEntity, Archetypes},
     component::Tick,
-    entity::{Entities, Entity, EntityBorrow, EntitySet, EntitySetIterator},
+    entity::{ContainsEntity, Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
     query::{
         ArchetypeFilter, DebugCheckedUnwrap, QueryState, QueryStateDeref, StorageId,
         TrustedEntityQueryData,
@@ -1071,7 +1071,7 @@ impl<'w, S: QueryStateDeref, I: Iterator<Item = Entity>> Debug for QuerySortedIt
 /// Entities that don't match the query are skipped.
 ///
 /// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
-pub struct QueryManyIter<'w, S: QueryStateDeref, I: Iterator<Item: EntityBorrow>> {
+pub struct QueryManyIter<'w, S: QueryStateDeref, I: Iterator<Item: EntityEquivalent>> {
     world: UnsafeWorldCell<'w>,
     entity_iter: I,
     entities: &'w Entities,
@@ -1087,7 +1087,7 @@ impl<
         D: QueryData,
         F: QueryFilter,
         S: QueryStateDeref<Data = D, Filter = F>,
-        I: Iterator<Item: EntityBorrow>,
+        I: Iterator<Item: EntityEquivalent>,
     > QueryManyIter<'w, S, I>
 {
     /// # Safety
@@ -1126,7 +1126,7 @@ impl<
     /// It is always safe for shared access.
     #[inline(always)]
     unsafe fn fetch_next_aliased_unchecked(
-        entity_iter: impl Iterator<Item: EntityBorrow>,
+        entity_iter: impl Iterator<Item: EntityEquivalent>,
         entities: &'w Entities,
         tables: &'w Tables,
         archetypes: &'w Archetypes,
@@ -1667,7 +1667,7 @@ impl<
         'w,
         D: QueryData,
         S: QueryStateDeref<Data = D>,
-        I: DoubleEndedIterator<Item: EntityBorrow>,
+        I: DoubleEndedIterator<Item: EntityEquivalent>,
     > QueryManyIter<'w, S, I>
 {
     /// Get next result from the back of the query
@@ -1693,7 +1693,7 @@ impl<
     }
 }
 
-impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, I: Iterator<Item: EntityBorrow>>
+impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, I: Iterator<Item: EntityEquivalent>>
     Iterator for QueryManyIter<'w, S, I>
 {
     type Item = D::Item<'w>;
@@ -1726,7 +1726,7 @@ impl<
         'w,
         D: ReadOnlyQueryData,
         S: QueryStateDeref<Data = D>,
-        I: DoubleEndedIterator<Item: EntityBorrow>,
+        I: DoubleEndedIterator<Item: EntityEquivalent>,
     > DoubleEndedIterator for QueryManyIter<'w, S, I>
 {
     #[inline(always)]
@@ -1749,7 +1749,7 @@ impl<
 }
 
 // This is correct as [`QueryManyIter`] always returns `None` once exhausted.
-impl<'w, S: QueryStateDeref<Data: ReadOnlyQueryData>, I: Iterator<Item: EntityBorrow>> FusedIterator
+impl<'w, S: QueryStateDeref<Data: ReadOnlyQueryData>, I: Iterator<Item: EntityEquivalent>> FusedIterator
     for QueryManyIter<'w, S, I>
 {
 }
@@ -1763,7 +1763,7 @@ unsafe impl<
 {
 }
 
-impl<'w, S: QueryStateDeref, I: Iterator<Item: EntityBorrow>> Debug for QueryManyIter<'w, S, I> {
+impl<'w, S: QueryStateDeref, I: Iterator<Item: EntityEquivalent>> Debug for QueryManyIter<'w, S, I> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryManyIter").finish()
     }
@@ -2536,6 +2536,7 @@ impl<T> Ord for NeutralOrd<T> {
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use alloc::vec::Vec;
     use std::println;

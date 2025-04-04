@@ -14,7 +14,7 @@ fn main() {
         .init_state::<CameraActive>();
 
     // cameras
-    app.add_systems(Startup, (setup_cameras, setup_lights))
+    app.add_systems(Startup, (setup_cameras, setup_lights, setup_ambient_light))
         .add_systems(
             Update,
             (
@@ -292,27 +292,24 @@ const CIRCULAR_SEGMENT: CircularSegment = CircularSegment {
     },
 };
 
-fn setup_cameras(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+fn setup_cameras(mut commands: Commands) {
     let start_in_2d = true;
     let make_camera = |is_active| Camera {
         is_active,
         ..Default::default()
     };
 
-    commands.spawn((
-        Camera2d,
-        make_camera(start_in_2d),
-        EnvironmentMapLight {
-            intensity: 50.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
-        },
-    ));
+    commands.spawn((Camera2d, make_camera(start_in_2d)));
 
     commands.spawn((
         Camera3d::default(),
         make_camera(!start_in_2d),
         Transform::from_xyz(0.0, 10.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
     ));
+}
+
+fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
+    ambient_light.brightness = 50.0;
 }
 
 fn setup_lights(mut commands: Commands) {
@@ -371,39 +368,31 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
         .iter()
         .find_map(|(entity, camera)| camera.is_active.then_some(entity))
         .expect("run condition ensures existence");
-    commands
-        .spawn((
-            HeaderNode,
-            Node {
-                justify_self: JustifySelf::Center,
-                top: Val::Px(5.0),
-                ..Default::default()
-            },
-            UiTargetCamera(active_camera),
-        ))
-        .with_children(|p| {
-            p.spawn((
-                Text::default(),
-                HeaderText,
-                TextLayout::new_with_justify(JustifyText::Center),
-            ))
-            .with_children(|p| {
-                p.spawn(TextSpan::new("Primitive: "));
-                p.spawn(TextSpan(format!(
-                    "{text}",
-                    text = PrimitiveSelected::default()
-                )));
-                p.spawn(TextSpan::new("\n\n"));
-                p.spawn(TextSpan::new(
+    commands.spawn((
+        HeaderNode,
+        Node {
+            justify_self: JustifySelf::Center,
+            top: Val::Px(5.0),
+            ..Default::default()
+        },
+        UiTargetCamera(active_camera),
+        children![(
+            Text::default(),
+            HeaderText,
+            TextLayout::new_with_justify(JustifyText::Center),
+            children![
+                TextSpan::new("Primitive: "),
+                TextSpan(format!("{text}", text = PrimitiveSelected::default())),
+                TextSpan::new("\n\n"),
+                TextSpan::new(
                     "Press 'C' to switch between 2D and 3D mode\n\
                     Press 'Up' or 'Down' to switch to the next/previous primitive",
-                ));
-                p.spawn(TextSpan::new("\n\n"));
-                p.spawn(TextSpan::new(
-                    "(If nothing is displayed, there's no rendering support yet)",
-                ));
-            });
-        });
+                ),
+                TextSpan::new("\n\n"),
+                TextSpan::new("(If nothing is displayed, there's no rendering support yet)",),
+            ]
+        )],
+    ));
 }
 
 fn update_text(

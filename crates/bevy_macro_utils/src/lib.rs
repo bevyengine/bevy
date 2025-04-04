@@ -7,6 +7,7 @@
 
 //! A collection of helper types and functions for working on macros within the Bevy ecosystem.
 
+extern crate alloc;
 extern crate proc_macro;
 
 mod attrs;

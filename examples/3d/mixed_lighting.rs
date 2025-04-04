@@ -123,6 +123,11 @@ fn main() {
             ..default()
         }))
         .add_plugins(MeshPickingPlugin)
+        .insert_resource(AmbientLight {
+            color: ClearColor::default().0,
+            brightness: 10000.0,
+            affects_lightmapped_meshes: true,
+        })
         .init_resource::<AppStatus>()
         .add_event::<WidgetClickEvent<LightingMode>>()
         .add_event::<LightingModeChanged>()
@@ -140,28 +145,18 @@ fn main() {
 }
 
 /// Creates the scene.
-fn setup(
-    mut commands: Commands,
-    images: ResMut<Assets<Image>>,
-    asset_server: Res<AssetServer>,
-    app_status: Res<AppStatus>,
-) {
-    spawn_camera(&mut commands, images);
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
+    spawn_camera(&mut commands);
     spawn_scene(&mut commands, &asset_server);
     spawn_buttons(&mut commands);
     spawn_help_text(&mut commands, &app_status);
 }
 
 /// Spawns the 3D camera.
-fn spawn_camera(commands: &mut Commands, mut images: ResMut<Assets<Image>>) {
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(-0.7, 0.7, 1.0).looking_at(vec3(0.0, 0.3, 0.0), Vec3::Y),
-        EnvironmentMapLight {
-            intensity: 10000.0,
-            ..EnvironmentMapLight::solid_color(&mut images, ClearColor::default().0)
-        },
-    ));
+fn spawn_camera(commands: &mut Commands) {
+    commands
+        .spawn(Camera3d::default())
+        .insert(Transform::from_xyz(-0.7, 0.7, 1.0).looking_at(vec3(0.0, 0.3, 0.0), Vec3::Y));
 }
 
 /// Spawns the scene.
@@ -465,7 +460,7 @@ fn move_sphere(
     };
 
     // Grab its transform.
-    let Ok(mut transform) = transforms.get_mut(child_of.parent) else {
+    let Ok(mut transform) = transforms.get_mut(child_of.parent()) else {
         return;
     };
 

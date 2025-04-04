@@ -17,6 +17,11 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_state::<LoadingState>()
+        .insert_resource(AmbientLight {
+            color: Color::WHITE,
+            brightness: 2000.,
+            ..default()
+        })
         .add_systems(Startup, setup_assets)
         .add_systems(Startup, setup_scene)
         .add_systems(Startup, setup_ui)
@@ -180,17 +185,12 @@ fn setup_ui(mut commands: Commands) {
 fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Camera
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(10.0, 10.0, 15.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        EnvironmentMapLight {
-            intensity: 2000.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
-        },
     ));
 
     // Light

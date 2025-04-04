@@ -8,7 +8,7 @@ use tracing::info_span;
 use std::eprintln;
 
 use crate::{
-    result::{Error, SystemErrorContext},
+    error::{default_error_handler, BevyError, ErrorContext},
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
@@ -50,7 +50,7 @@ impl SystemExecutor for SingleThreadedExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(Error, SystemErrorContext),
+        error_handler: fn(BevyError, ErrorContext),
     ) {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
@@ -93,7 +93,22 @@ impl SystemExecutor for SingleThreadedExecutor {
 
             let system = &mut schedule.systems[system_index];
             if should_run {
-                let valid_params = system.validate_param(world);
+                let valid_params = match system.validate_param(world) {
+                    Ok(()) => true,
+                    Err(e) => {
+                        if !e.skipped {
+                            error_handler(
+                                e.into(),
+                                ErrorContext::System {
+                                    name: system.name(),
+                                    last_run: system.get_last_run(),
+                                },
+                            );
+                        }
+                        false
+                    }
+                };
+
                 should_run &= valid_params;
             }
 
@@ -117,7 +132,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                     if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
                         error_handler(
                             err,
-                            SystemErrorContext {
+                            ErrorContext::System {
                                 name: system.name(),
                                 last_run: system.get_last_run(),
                             },
@@ -133,7 +148,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                         if let Err(err) = __rust_begin_short_backtrace::run_unsafe(system, world) {
                             error_handler(
                                 err,
-                                SystemErrorContext {
+                                ErrorContext::System {
                                     name: system.name(),
                                     last_run: system.get_last_run(),
                                 },
@@ -144,6 +159,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             });
 
             #[cfg(feature = "std")]
+            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
                 if let Err(payload) = std::panic::catch_unwind(f) {
                     eprintln!("Encountered a panic in system `{}`!", &*system.name());
@@ -195,6 +211,8 @@ impl SingleThreadedExecutor {
 }
 
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
+    let error_handler: fn(BevyError, ErrorContext) = default_error_handler();
+
     #[expect(
         clippy::unnecessary_fold,
         reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
@@ -202,8 +220,20 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     conditions
         .iter_mut()
         .map(|condition| {
-            if !condition.validate_param(world) {
-                return false;
+            match condition.validate_param(world) {
+                Ok(()) => (),
+                Err(e) => {
+                    if !e.skipped {
+                        error_handler(
+                            e.into(),
+                            ErrorContext::System {
+                                name: condition.name(),
+                                last_run: condition.get_last_run(),
+                            },
+                        );
+                    }
+                    return false;
+                }
             }
             __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
         })

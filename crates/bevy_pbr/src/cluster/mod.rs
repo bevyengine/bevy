@@ -5,7 +5,7 @@ use core::num::NonZero;
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
-    entity::{hash_map::EntityHashMap, Entity},
+    entity::{Entity, EntityHashMap},
     query::{With, Without},
     reflect::ReflectComponent,
     resource::Resource,
@@ -66,6 +66,7 @@ const CLUSTER_COUNT_MASK: u32 = (1 << CLUSTER_COUNT_SIZE) - 1;
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward
 /// rendering
 #[derive(Debug, Copy, Clone, Reflect)]
+#[reflect(Clone)]
 pub enum ClusterFarZMode {
     /// Calculate the required maximum z-depth based on currently visible
     /// clusterable objects.  Makes better use of available clusters, speeding
@@ -78,7 +79,7 @@ pub enum ClusterFarZMode {
 
 /// Configure the depth-slicing strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone, Reflect)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub struct ClusterZConfig {
     /// Far `Z` plane of the first depth slice
     pub first_slice_depth: f32,
@@ -88,7 +89,7 @@ pub struct ClusterZConfig {
 
 /// Configuration of the clustering strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone, Component, Reflect)]
-#[reflect(Component, Debug, Default)]
+#[reflect(Component, Debug, Default, Clone)]
 pub enum ClusterConfig {
     /// Disable cluster calculations for this view
     None,

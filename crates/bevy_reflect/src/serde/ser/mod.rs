@@ -24,8 +24,9 @@ mod tests {
         serde::{ReflectSerializer, ReflectSerializerProcessor},
         PartialReflect, Reflect, ReflectSerialize, Struct, TypeRegistry,
     };
+    #[cfg(feature = "functions")]
+    use alloc::boxed::Box;
     use alloc::{
-        boxed::Box,
         string::{String, ToString},
         vec,
         vec::Vec,
@@ -348,7 +349,8 @@ mod tests {
         let registry = get_registry();
 
         let serializer = ReflectSerializer::new(&input, &registry);
-        let bytes = bincode::serialize(&serializer).unwrap();
+        let config = bincode::config::standard().with_fixed_int_encoding();
+        let bytes = bincode::serde::encode_to_vec(&serializer, config).unwrap();
 
         let expected: Vec<u8> = vec![
             1, 0, 0, 0, 0, 0, 0, 0, 41, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 114, 101, 102,
@@ -406,7 +408,7 @@ mod tests {
             some: Some(SomeStruct { foo: 999999999 }),
             none: None,
         };
-        let dynamic = value.clone_dynamic();
+        let dynamic = value.to_dynamic_struct();
         let reflect = dynamic.as_partial_reflect();
 
         let registry = get_registry();

@@ -35,7 +35,6 @@ fn setup(
     parameters: Res<Parameters>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
@@ -110,6 +109,13 @@ fn setup(
         Transform::from_xyz(1.5, 1.0, 1.5),
         Movable,
     ));
+
+    // ambient light
+    commands.insert_resource(AmbientLight {
+        color: ORANGE_RED.into(),
+        brightness: 0.02,
+        ..default()
+    });
 
     // red point light
     commands.spawn((
@@ -230,10 +236,6 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         Exposure::from_physical_camera(**parameters),
-        EnvironmentMapLight {
-            intensity: 0.02,
-            ..EnvironmentMapLight::solid_color(&mut images, ORANGE_RED.into())
-        },
     ));
 }
 

@@ -370,7 +370,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
     resource::Resource,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
+    schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
 };
@@ -383,6 +383,7 @@ use std::sync::RwLock;
 pub mod builtin_methods;
 #[cfg(feature = "http")]
 pub mod http;
+pub mod schemas;
 
 const CHANNEL_SIZE: usize = 16;
 
@@ -473,6 +474,10 @@ impl Default for RemotePlugin {
             .with_method(
                 builtin_methods::BRP_MUTATE_COMPONENT_METHOD,
                 builtin_methods::process_remote_mutate_component_request,
+            )
+            .with_method(
+                builtin_methods::RPC_DISCOVER_METHOD,
+                builtin_methods::process_remote_list_methods_request,
             )
             .with_watching_method(
                 builtin_methods::BRP_GET_AND_WATCH_METHOD,
@@ -630,6 +635,11 @@ impl RemoteMethods {
     /// Get a [`RemoteMethodSystemId`] with its method name.
     pub fn get(&self, method: &str) -> Option<&RemoteMethodSystemId> {
         self.0.get(method)
+    }
+
+    /// Get a [`Vec<String>`] with method names.
+    pub fn methods(&self) -> Vec<String> {
+        self.0.keys().cloned().collect()
     }
 }
 

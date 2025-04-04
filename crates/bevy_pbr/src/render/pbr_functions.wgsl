@@ -384,9 +384,9 @@ fn apply_pbr_lighting(
     transmissive_lighting_input.clearcoat_strength = 0.0;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 #ifdef STANDARD_MATERIAL_ANISOTROPY
-    lighting_input.anisotropy = in.anisotropy_strength;
-    lighting_input.Ta = in.anisotropy_T;
-    lighting_input.Ba = in.anisotropy_B;
+    transmissive_lighting_input.anisotropy = in.anisotropy_strength;
+    transmissive_lighting_input.Ta = in.anisotropy_T;
+    transmissive_lighting_input.Ba = in.anisotropy_B;
 #endif  // STANDARD_MATERIAL_ANISOTROPY
 #endif  // STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
 
@@ -561,6 +561,18 @@ fn apply_pbr_lighting(
 #endif
     }
 
+#ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
+    // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
+    // world position, inverted normal and view vectors, and the following simplified
+    // values for a fully diffuse transmitted light contribution approximation:
+    //
+    // perceptual_roughness = 1.0;
+    // NdotV = 1.0;
+    // F0 = vec3<f32>(0.0)
+    // diffuse_occlusion = vec3<f32>(1.0)
+    transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
+#endif
+
     // Diffuse indirect lighting can come from a variety of sources. The
     // priority goes like this:
     //
@@ -631,6 +643,9 @@ fn apply_pbr_lighting(
     }
 
 #endif  // ENVIRONMENT_MAP
+
+    // Ambient light (indirect)
+    indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
 
     // we'll use the specular component of the transmitted environment
     // light in the call to `specular_transmissive_light()` below

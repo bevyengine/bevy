@@ -25,10 +25,6 @@ fn main() {
     let args: Args = Args::from_args(&[], &[]).unwrap();
 
     let mut app = App::new();
-    #[expect(
-        deprecated,
-        reason = "Once AmbientLight is removed, the resource can be removed"
-    )]
     app.add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight::NONE);
 

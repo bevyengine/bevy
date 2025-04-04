@@ -3,7 +3,7 @@ use alloc::{vec, vec::Vec};
 use bevy_ecs::{
     resource::Resource,
     schedule::{
-        ExecutorKind, InternedScheduleLabel, IntoSystemSetConfigs, Schedule, ScheduleLabel,
+        ExecutorKind, InternedScheduleLabel, IntoScheduleConfigs, Schedule, ScheduleLabel,
         SystemSet,
     },
     system::Local,
@@ -15,6 +15,13 @@ use bevy_ecs::{
 /// By default, it will run the following schedules in the given order:
 ///
 /// On the first run of the schedule (and only on the first run), it will run:
+/// * [`StateTransition`] [^1]
+///      * This means that [`OnEnter(MyState::Foo)`] will be called *before* [`PreStartup`]
+///        if `MyState` was added to the app with `MyState::Foo` as the initial state,
+///        as well as [`OnEnter(MyComputedState)`] if it `compute`s to `Some(Self)` in `MyState::Foo`.
+///      * If you want to run systems before any state transitions, regardless of which state is the starting state,
+///        for example, for registering required components, you can add your own custom startup schedule
+///        before [`StateTransition`]. See [`MainScheduleOrder::insert_startup_before`] for more details.
 /// * [`PreStartup`]
 /// * [`Startup`]
 /// * [`PostStartup`]
@@ -22,7 +29,7 @@ use bevy_ecs::{
 /// Then it will run:
 /// * [`First`]
 /// * [`PreUpdate`]
-/// * [`StateTransition`]
+/// * [`StateTransition`] [^1]
 /// * [`RunFixedMainLoop`]
 ///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
 /// * [`Update`]
@@ -37,7 +44,11 @@ use bevy_ecs::{
 ///
 /// See [`RenderPlugin`] and [`PipelinedRenderingPlugin`] for more details.
 ///
+/// [^1]: [`StateTransition`] is inserted only if you have `bevy_state` feature enabled. It is enabled in `default` features.
+///
 /// [`StateTransition`]: https://docs.rs/bevy/latest/bevy/prelude/struct.StateTransition.html
+/// [`OnEnter(MyState::Foo)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
+/// [`OnEnter(MyComputedState)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
 /// [`RenderPlugin`]: https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html
 /// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
 /// [`SubApp`]: crate::SubApp
@@ -316,7 +327,7 @@ impl Plugin for MainSchedulePlugin {
 
         #[cfg(feature = "bevy_debug_stepping")]
         {
-            use bevy_ecs::schedule::{IntoSystemConfigs, Stepping};
+            use bevy_ecs::schedule::{IntoScheduleConfigs, Stepping};
             app.add_systems(Main, Stepping::begin_frame.before(Main::run_main));
         }
     }

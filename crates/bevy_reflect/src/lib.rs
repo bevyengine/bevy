@@ -204,8 +204,8 @@
 //!
 //! They are most commonly used as "proxies" for other types,
 //! where they contain the same data as— and therefore, represent— a concrete type.
-//! The [`PartialReflect::clone_value`] method will return a dynamic type for all non-opaque types,
-//! allowing all types to essentially be "cloned".
+//! The [`PartialReflect::to_dynamic`] method will return a dynamic type for all non-opaque types,
+//! allowing all types to essentially be "cloned" into a dynamic type.
 //! And since dynamic types themselves implement [`PartialReflect`],
 //! we may pass them around just like most other reflected types.
 //!
@@ -219,9 +219,9 @@
 //!   foo: 123
 //! });
 //!
-//! // `cloned` will be a `DynamicStruct` representing a `MyStruct`
-//! let cloned: Box<dyn PartialReflect> = original.clone_value();
-//! assert!(cloned.represents::<MyStruct>());
+//! // `dynamic` will be a `DynamicStruct` representing a `MyStruct`
+//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic();
+//! assert!(dynamic.represents::<MyStruct>());
 //! ```
 //!
 //! ## Patching
@@ -253,8 +253,8 @@
 //!   foo: 123
 //! });
 //!
-//! let cloned: Box<dyn PartialReflect> = original.clone_value();
-//! let value = cloned.try_take::<MyStruct>().unwrap(); // PANIC!
+//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic();
+//! let value = dynamic.try_take::<MyStruct>().unwrap(); // PANIC!
 //! ```
 //!
 //! To resolve this issue, we'll need to convert the dynamic type to the concrete one.
@@ -278,8 +278,8 @@
 //!   foo: 123
 //! });
 //!
-//! let cloned: Box<dyn PartialReflect> = original.clone_value();
-//! let value = <MyStruct as FromReflect>::from_reflect(&*cloned).unwrap(); // OK!
+//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic();
+//! let value = <MyStruct as FromReflect>::from_reflect(&*dynamic).unwrap(); // OK!
 //! ```
 //!
 //! When deriving, all active fields and sub-elements must also implement `FromReflect`.
@@ -568,6 +568,7 @@ extern crate alloc;
 extern crate self as bevy_reflect;
 
 mod array;
+mod error;
 mod fields;
 mod from_reflect;
 #[cfg(feature = "functions")]
@@ -633,6 +634,7 @@ pub mod prelude {
 
 pub use array::*;
 pub use enums::*;
+pub use error::*;
 pub use fields::*;
 pub use from_reflect::*;
 pub use generics::*;
@@ -943,7 +945,7 @@ mod tests {
 
         let foo = Foo { a: 1 };
         assert!(foo.reflect_hash().is_some());
-        let dynamic = foo.clone_dynamic();
+        let dynamic = foo.to_dynamic_struct();
 
         let mut map = DynamicMap::default();
         map.insert(dynamic, 11u32);
@@ -984,6 +986,331 @@ mod tests {
             .map(|value| *value.try_downcast_ref::<u32>().unwrap())
             .collect();
         assert_eq!(values, vec![1]);
+    }
+
+    /// This test ensures that we are able to reflect generic types with one or more type parameters.
+    ///
+    /// When there is an `Add` implementation for `String`, the compiler isn't able to infer the correct
+    /// type to deref to.
+    /// If we don't append the strings in the `TypePath` derive correctly (i.e. explicitly specifying the type),
+    /// we'll get a compilation error saying that "`&String` cannot be added to `String`".
+    ///
+    /// So this test just ensures that we do do that correctly.
+    ///
+    /// This problem is a known issue and is unexpectedly expected behavior:
+    /// - <https://github.com/rust-lang/rust/issues/77143>
+    /// - <https://github.com/bodil/smartstring/issues/7>
+    /// - <https://github.com/pola-rs/polars/issues/14666>
+    #[test]
+    fn should_reflect_generic() {
+        struct FakeString {}
+
+        // This implementation confuses the compiler when trying to add a `&String` to a `String`
+        impl core::ops::Add<FakeString> for String {
+            type Output = Self;
+            fn add(self, _rhs: FakeString) -> Self::Output {
+                unreachable!()
+            }
+        }
+
+        #[derive(Reflect)]
+        struct Foo<A>(A);
+
+        #[derive(Reflect)]
+        struct Bar<A, B>(A, B);
+
+        #[derive(Reflect)]
+        struct Baz<A, B, C>(A, B, C);
+    }
+
+    #[test]
+    fn should_reflect_clone() {
+        // Struct
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo(usize);
+
+        let value = Foo(123);
+        let clone = value.reflect_clone().expect("should reflect_clone struct");
+        assert_eq!(value, clone.take::<Foo>().unwrap());
+
+        // Tuple
+        let foo = (123, 4.56);
+        let clone = foo.reflect_clone().expect("should reflect_clone tuple");
+        assert_eq!(foo, clone.take::<(u32, f32)>().unwrap());
+    }
+
+    #[test]
+    fn should_reflect_clone_generic_type() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo<T, U>(T, #[reflect(ignore, clone)] PhantomData<U>);
+        #[derive(TypePath, Debug, PartialEq)]
+        struct Bar;
+
+        // `usize` will be cloned via `Reflect::reflect_clone`
+        // `PhantomData<Bar>` will be cloned via `Clone::clone`
+        let value = Foo::<usize, Bar>(123, PhantomData);
+        let clone = value
+            .reflect_clone()
+            .expect("should reflect_clone generic struct");
+        assert_eq!(value, clone.take::<Foo<usize, Bar>>().unwrap());
+    }
+
+    #[test]
+    fn should_reflect_clone_with_clone() {
+        // A custom clone function to verify that the `#[reflect(Clone)]` container attribute
+        // takes precedence over the `#[reflect(clone)]` field attribute.
+        #[expect(
+            dead_code,
+            reason = "if things are working correctly, this function should never be called"
+        )]
+        fn custom_clone(_value: &usize) -> usize {
+            panic!("should not be called");
+        }
+
+        // Tuple Struct
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        #[reflect(Clone)]
+        struct Foo(#[reflect(clone = "custom_clone")] usize);
+
+        let value = Foo(123);
+        let clone = value
+            .reflect_clone()
+            .expect("should reflect_clone tuple struct");
+        assert_eq!(value, clone.take::<Foo>().unwrap());
+
+        // Struct
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        #[reflect(Clone)]
+        struct Bar {
+            #[reflect(clone = "custom_clone")]
+            value: usize,
+        }
+
+        let value = Bar { value: 123 };
+        let clone = value.reflect_clone().expect("should reflect_clone struct");
+        assert_eq!(value, clone.take::<Bar>().unwrap());
+
+        // Enum
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        #[reflect(Clone)]
+        enum Baz {
+            Unit,
+            Tuple(#[reflect(clone = "custom_clone")] usize),
+            Struct {
+                #[reflect(clone = "custom_clone")]
+                value: usize,
+            },
+        }
+
+        let value = Baz::Unit;
+        let clone = value
+            .reflect_clone()
+            .expect("should reflect_clone unit variant");
+        assert_eq!(value, clone.take::<Baz>().unwrap());
+
+        let value = Baz::Tuple(123);
+        let clone = value
+            .reflect_clone()
+            .expect("should reflect_clone tuple variant");
+        assert_eq!(value, clone.take::<Baz>().unwrap());
+
+        let value = Baz::Struct { value: 123 };
+        let clone = value
+            .reflect_clone()
+            .expect("should reflect_clone struct variant");
+        assert_eq!(value, clone.take::<Baz>().unwrap());
+    }
+
+    #[test]
+    fn should_custom_reflect_clone() {
+        #[derive(Reflect, Debug, PartialEq)]
+        #[reflect(Clone(clone_foo))]
+        struct Foo(usize);
+
+        fn clone_foo(foo: &Foo) -> Foo {
+            Foo(foo.0 + 198)
+        }
+
+        let foo = Foo(123);
+        let clone = foo.reflect_clone().unwrap();
+        assert_eq!(Foo(321), clone.take::<Foo>().unwrap());
+    }
+
+    #[test]
+    fn should_not_clone_ignored_fields() {
+        // Tuple Struct
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Foo(#[reflect(ignore)] usize);
+
+        let foo = Foo(123);
+        let clone = foo.reflect_clone();
+        assert_eq!(
+            clone.unwrap_err(),
+            ReflectCloneError::FieldNotCloneable {
+                field: FieldId::Unnamed(0),
+                variant: None,
+                container_type_path: Cow::Borrowed(Foo::type_path()),
+            }
+        );
+
+        // Struct
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Bar {
+            #[reflect(ignore)]
+            value: usize,
+        }
+
+        let bar = Bar { value: 123 };
+        let clone = bar.reflect_clone();
+        assert_eq!(
+            clone.unwrap_err(),
+            ReflectCloneError::FieldNotCloneable {
+                field: FieldId::Named(Cow::Borrowed("value")),
+                variant: None,
+                container_type_path: Cow::Borrowed(Bar::type_path()),
+            }
+        );
+
+        // Enum
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        enum Baz {
+            Tuple(#[reflect(ignore)] usize),
+            Struct {
+                #[reflect(ignore)]
+                value: usize,
+            },
+        }
+
+        let baz = Baz::Tuple(123);
+        let clone = baz.reflect_clone();
+        assert_eq!(
+            clone.unwrap_err(),
+            ReflectCloneError::FieldNotCloneable {
+                field: FieldId::Unnamed(0),
+                variant: Some(Cow::Borrowed("Tuple")),
+                container_type_path: Cow::Borrowed(Baz::type_path()),
+            }
+        );
+
+        let baz = Baz::Struct { value: 123 };
+        let clone = baz.reflect_clone();
+        assert_eq!(
+            clone.unwrap_err(),
+            ReflectCloneError::FieldNotCloneable {
+                field: FieldId::Named(Cow::Borrowed("value")),
+                variant: Some(Cow::Borrowed("Struct")),
+                container_type_path: Cow::Borrowed(Baz::type_path()),
+            }
+        );
+    }
+
+    #[test]
+    fn should_clone_ignored_fields_with_clone_attributes() {
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Foo(#[reflect(ignore, clone)] usize);
+
+        let foo = Foo(123);
+        let clone = foo.reflect_clone().unwrap();
+        assert_eq!(Foo(123), clone.take::<Foo>().unwrap());
+
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Bar(#[reflect(ignore, clone = "clone_usize")] usize);
+
+        fn clone_usize(this: &usize) -> usize {
+            *this + 198
+        }
+
+        let bar = Bar(123);
+        let clone = bar.reflect_clone().unwrap();
+        assert_eq!(Bar(321), clone.take::<Bar>().unwrap());
+    }
+
+    #[test]
+    fn should_composite_reflect_clone() {
+        #[derive(Reflect, Debug, PartialEq)]
+        enum MyEnum {
+            Unit,
+            Tuple(
+                Foo,
+                #[reflect(ignore, clone)] Bar,
+                #[reflect(clone = "clone_baz")] Baz,
+            ),
+            Struct {
+                foo: Foo,
+                #[reflect(ignore, clone)]
+                bar: Bar,
+                #[reflect(clone = "clone_baz")]
+                baz: Baz,
+            },
+        }
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo {
+            #[reflect(clone = "clone_bar")]
+            bar: Bar,
+            baz: Baz,
+        }
+
+        #[derive(Reflect, Default, Clone, Debug, PartialEq)]
+        #[reflect(Clone)]
+        struct Bar(String);
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Baz(String);
+
+        fn clone_bar(bar: &Bar) -> Bar {
+            Bar(format!("{}!", bar.0))
+        }
+
+        fn clone_baz(baz: &Baz) -> Baz {
+            Baz(format!("{}!", baz.0))
+        }
+
+        let my_enum = MyEnum::Unit;
+        let clone = my_enum.reflect_clone().unwrap();
+        assert_eq!(MyEnum::Unit, clone.take::<MyEnum>().unwrap());
+
+        let my_enum = MyEnum::Tuple(
+            Foo {
+                bar: Bar("bar".to_string()),
+                baz: Baz("baz".to_string()),
+            },
+            Bar("bar".to_string()),
+            Baz("baz".to_string()),
+        );
+        let clone = my_enum.reflect_clone().unwrap();
+        assert_eq!(
+            MyEnum::Tuple(
+                Foo {
+                    bar: Bar("bar!".to_string()),
+                    baz: Baz("baz".to_string()),
+                },
+                Bar("bar".to_string()),
+                Baz("baz!".to_string()),
+            ),
+            clone.take::<MyEnum>().unwrap()
+        );
+
+        let my_enum = MyEnum::Struct {
+            foo: Foo {
+                bar: Bar("bar".to_string()),
+                baz: Baz("baz".to_string()),
+            },
+            bar: Bar("bar".to_string()),
+            baz: Baz("baz".to_string()),
+        };
+        let clone = my_enum.reflect_clone().unwrap();
+        assert_eq!(
+            MyEnum::Struct {
+                foo: Foo {
+                    bar: Bar("bar!".to_string()),
+                    baz: Baz("baz".to_string()),
+                },
+                bar: Bar("bar".to_string()),
+                baz: Baz("baz!".to_string()),
+            },
+            clone.take::<MyEnum>().unwrap()
+        );
     }
 
     #[test]
@@ -1206,7 +1533,7 @@ mod tests {
         list.push(3isize);
         list.push(4isize);
         list.push(5isize);
-        foo_patch.insert("c", list.clone_dynamic());
+        foo_patch.insert("c", list.to_dynamic_list());
 
         let mut map = DynamicMap::default();
         map.insert(2usize, 3i8);
@@ -1215,7 +1542,7 @@ mod tests {
 
         let mut bar_patch = DynamicStruct::default();
         bar_patch.insert("x", 2u32);
-        foo_patch.insert("e", bar_patch.clone_dynamic());
+        foo_patch.insert("e", bar_patch.to_dynamic_struct());
 
         let mut tuple = DynamicTuple::default();
         tuple.insert(2i32);
@@ -1542,22 +1869,22 @@ mod tests {
     #[test]
     fn not_dynamic_names() {
         let list = Vec::<usize>::new();
-        let dyn_list = list.clone_dynamic();
+        let dyn_list = list.to_dynamic_list();
         assert_ne!(dyn_list.reflect_type_path(), Vec::<usize>::type_path());
 
         let array = [b'0'; 4];
-        let dyn_array = array.clone_dynamic();
+        let dyn_array = array.to_dynamic_array();
         assert_ne!(dyn_array.reflect_type_path(), <[u8; 4]>::type_path());
 
         let map = HashMap::<usize, String>::default();
-        let dyn_map = map.clone_dynamic();
+        let dyn_map = map.to_dynamic_map();
         assert_ne!(
             dyn_map.reflect_type_path(),
             HashMap::<usize, String>::type_path()
         );
 
         let tuple = (0usize, "1".to_string(), 2.0f32);
-        let mut dyn_tuple = tuple.clone_dynamic();
+        let mut dyn_tuple = tuple.to_dynamic_tuple();
         dyn_tuple.insert::<usize>(3);
         assert_ne!(
             dyn_tuple.reflect_type_path(),
@@ -1569,13 +1896,13 @@ mod tests {
             a: usize,
         }
         let struct_ = TestStruct { a: 0 };
-        let dyn_struct = struct_.clone_dynamic();
+        let dyn_struct = struct_.to_dynamic_struct();
         assert_ne!(dyn_struct.reflect_type_path(), TestStruct::type_path());
 
         #[derive(Reflect)]
         struct TestTupleStruct(usize);
         let tuple_struct = TestTupleStruct(0);
-        let dyn_tuple_struct = tuple_struct.clone_dynamic();
+        let dyn_tuple_struct = tuple_struct.to_dynamic_tuple_struct();
         assert_ne!(
             dyn_tuple_struct.reflect_type_path(),
             TestTupleStruct::type_path()
@@ -1960,7 +2287,7 @@ mod tests {
     #[test]
     fn should_permit_valid_represented_type_for_dynamic() {
         let type_info = <[i32; 2] as Typed>::type_info();
-        let mut dynamic_array = [123; 2].clone_dynamic();
+        let mut dynamic_array = [123; 2].to_dynamic_array();
         dynamic_array.set_represented_type(Some(type_info));
     }
 
@@ -1968,7 +2295,7 @@ mod tests {
     #[should_panic(expected = "expected TypeInfo::Array but received")]
     fn should_prohibit_invalid_represented_type_for_dynamic() {
         let type_info = <(i32, i32) as Typed>::type_info();
-        let mut dynamic_array = [123; 2].clone_dynamic();
+        let mut dynamic_array = [123; 2].to_dynamic_array();
         dynamic_array.set_represented_type(Some(type_info));
     }
 
@@ -2352,6 +2679,14 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
+    fn should_allow_empty_enums() {
+        #[derive(Reflect)]
+        enum Empty {}
+
+        assert_impl_all!(Empty: Reflect);
+    }
+
+    #[test]
     fn recursive_typed_storage_does_not_hang() {
         #[derive(Reflect)]
         struct Recurse<T>(T);
@@ -2508,7 +2843,7 @@ bevy_reflect::tests::Test {
             map,
             value: 12,
         }
-        .clone_dynamic();
+        .to_dynamic_struct();
 
         // test unknown DynamicStruct
         let mut test_unknown_struct = DynamicStruct::default();

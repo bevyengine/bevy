@@ -79,13 +79,12 @@ pub mod prelude {
 }
 
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
-use bevy_asset::{weak_handle, Asset, AssetApp, AssetId, Assets, Handle};
+use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_ecs::{
     resource::Resource,
-    schedule::{IntoSystemConfigs, SystemSet},
+    schedule::{IntoScheduleConfigs, SystemSet},
     system::{Res, ResMut},
 };
-use bevy_math::{Vec3, Vec4};
 use bevy_reflect::TypePath;
 
 #[cfg(all(
@@ -99,6 +98,7 @@ use crate::{config::ErasedGizmoConfigGroup, gizmos::GizmoBuffer};
 #[cfg(feature = "bevy_render")]
 use {
     crate::retained::extract_linegizmos,
+    bevy_asset::{weak_handle, AssetId},
     bevy_ecs::{
         component::Component,
         entity::Entity,
@@ -108,7 +108,7 @@ use {
             Commands, SystemParamItem,
         },
     },
-    bevy_math::{Affine3, Affine3A},
+    bevy_math::{Affine3, Affine3A, Vec4},
     bevy_render::{
         extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -132,9 +132,9 @@ use {
 use bevy_render::render_resource::{VertexAttribute, VertexBufferLayout, VertexStepMode};
 use bevy_time::Fixed;
 use bevy_utils::TypeIdMap;
-use config::{
-    DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoLineJoint,
-};
+#[cfg(feature = "bevy_render")]
+use config::GizmoLineJoint;
+use config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore};
 use core::{any::TypeId, marker::PhantomData, mem};
 use gizmos::{GizmoStorage, Swap};
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
@@ -503,7 +503,7 @@ struct LineGizmoUniform {
     line_scale: f32,
     /// WebGL2 structs must be 16 byte aligned.
     #[cfg(feature = "webgl")]
-    _padding: Vec3,
+    _padding: bevy_math::Vec3,
 }
 
 /// A collection of gizmos.

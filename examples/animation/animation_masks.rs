@@ -2,7 +2,7 @@
 
 use bevy::{
     animation::{AnimationTarget, AnimationTargetId},
-    color::palettes::css::LIGHT_GRAY,
+    color::palettes::css::{LIGHT_GRAY, WHITE},
     prelude::*,
 };
 use std::collections::HashSet;
@@ -105,6 +105,11 @@ fn main() {
         .add_systems(Update, setup_animation_graph_once_loaded)
         .add_systems(Update, handle_button_toggles)
         .add_systems(Update, update_ui)
+        .insert_resource(AmbientLight {
+            color: WHITE.into(),
+            brightness: 100.0,
+            ..default()
+        })
         .init_resource::<AppState>()
         .run();
 }
@@ -115,17 +120,12 @@ fn setup_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Spawn the camera.
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-15.0, 10.0, 20.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
-        EnvironmentMapLight {
-            intensity: 100.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
-        },
     ));
 
     // Spawn the light.

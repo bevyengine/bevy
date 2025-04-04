@@ -3,10 +3,10 @@ use core::any::Any;
 
 use crate::{
     component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
+    error::{default_error_handler, ErrorContext},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
-    result::{DefaultSystemErrorHandler, SystemErrorContext},
     system::{IntoObserverSystem, ObserverSystem},
     world::DeferredWorld,
 };
@@ -273,7 +273,7 @@ pub struct Observer {
     system: Box<dyn Any + Send + Sync + 'static>,
     descriptor: ObserverDescriptor,
     hook_on_add: ComponentHook,
-    error_handler: Option<fn(Error, SystemErrorContext)>,
+    error_handler: Option<fn(BevyError, ErrorContext)>,
 }
 
 impl Observer {
@@ -321,8 +321,8 @@ impl Observer {
 
     /// Set the error handler to use for this observer.
     ///
-    /// See the [`result` module-level documentation](crate::result) for more information.
-    pub fn with_error_handler(mut self, error_handler: fn(Error, SystemErrorContext)) -> Self {
+    /// See the [`error` module-level documentation](crate::error) for more information.
+    pub fn with_error_handler(mut self, error_handler: fn(BevyError, ErrorContext)) -> Self {
         self.error_handler = Some(error_handler);
         self
     }
@@ -402,20 +402,34 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     // - `update_archetype_component_access` is called first
     // - there are no outstanding references to world except a private component
     // - system is an `ObserverSystem` so won't mutate world beyond the access of a `DeferredWorld`
+    //   and is never exclusive
     // - system is the same type erased system from above
     unsafe {
         (*system).update_archetype_component_access(world);
-        if (*system).validate_param_unsafe(world) {
-            if let Err(err) = (*system).run_unsafe(trigger, world) {
-                error_handler(
-                    err,
-                    SystemErrorContext {
-                        name: (*system).name(),
-                        last_run: (*system).get_last_run(),
-                    },
-                );
-            };
-            (*system).queue_deferred(world.into_deferred());
+        match (*system).validate_param_unsafe(world) {
+            Ok(()) => {
+                if let Err(err) = (*system).run_unsafe(trigger, world) {
+                    error_handler(
+                        err,
+                        ErrorContext::Observer {
+                            name: (*system).name(),
+                            last_run: (*system).get_last_run(),
+                        },
+                    );
+                };
+                (*system).queue_deferred(world.into_deferred());
+            }
+            Err(e) => {
+                if !e.skipped {
+                    error_handler(
+                        e.into(),
+                        ErrorContext::Observer {
+                            name: (*system).name(),
+                            last_run: (*system).get_last_run(),
+                        },
+                    );
+                }
+            }
         }
     }
 }
@@ -435,7 +449,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     world.commands().queue(move |world: &mut World| {
         let event_id = E::register_component_id(world);
         let mut components = Vec::new();
-        B::component_ids(&mut world.components, &mut |id| {
+        B::component_ids(&mut world.components_registrator(), &mut |id| {
             components.push(id);
         });
         let mut descriptor = ObserverDescriptor {
@@ -444,7 +458,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             ..Default::default()
         };
 
-        let error_handler = world.get_resource_or_init::<DefaultSystemErrorHandler>().0;
+        let error_handler = default_error_handler();
 
         // Initialize System
         let system: *mut dyn ObserverSystem<E, B> =
@@ -509,7 +523,7 @@ mod tests {
 
         let mut world = World::default();
         world.init_resource::<Ran>();
-        let observer = Observer::new(system).with_error_handler(crate::result::ignore);
+        let observer = Observer::new(system).with_error_handler(crate::error::ignore);
         world.spawn(observer);
         Schedule::default().run(&mut world);
         world.trigger(TriggerEvent);
