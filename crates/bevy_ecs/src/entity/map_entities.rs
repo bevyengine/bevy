@@ -280,23 +280,19 @@ impl<'m> SceneEntityMapper<'m> {
 
 #[cfg(test)]
 mod tests {
-    use nonmax::NonMaxU32;
 
     use crate::{
-        entity::{Entity, EntityHashMap, EntityMapper, EntityRow, SceneEntityMapper},
+        entity::{Entity, EntityHashMap, EntityMapper, SceneEntityMapper},
         world::World,
     };
 
     #[test]
     fn entity_mapper() {
-        const FIRST_IDX: EntityRow = EntityRow::new(NonMaxU32::new(1).unwrap());
-        const SECOND_IDX: EntityRow = EntityRow::new(NonMaxU32::new(2).unwrap());
-
         let mut map = EntityHashMap::default();
         let mut world = World::new();
         let mut mapper = SceneEntityMapper::new(&mut map, &mut world);
 
-        let mapped_ent = Entity::from_raw(FIRST_IDX);
+        let mapped_ent = Entity::fresh_from_index(1).unwrap();
         let dead_ref = mapper.get_mapped(mapped_ent);
 
         assert_eq!(
@@ -305,7 +301,9 @@ mod tests {
             "should persist the allocated mapping from the previous line"
         );
         assert_eq!(
-            mapper.get_mapped(Entity::from_raw(SECOND_IDX)).index(),
+            mapper
+                .get_mapped(Entity::fresh_from_index(2).unwrap())
+                .index(),
             dead_ref.index(),
             "should re-use the same index for further dead refs"
         );
@@ -323,7 +321,7 @@ mod tests {
         let mut world = World::new();
 
         let dead_ref = SceneEntityMapper::world_scope(&mut map, &mut world, |_, mapper| {
-            mapper.get_mapped(Entity::from_raw(EntityRow::INDEX_ZERO))
+            mapper.get_mapped(Entity::fresh_from_index(0).unwrap())
         });
 
         // Next allocated entity should be a further generation on the same index

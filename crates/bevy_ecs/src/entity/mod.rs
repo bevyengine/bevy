@@ -125,15 +125,6 @@ pub struct EntityRow(NonMaxU32);
 impl EntityRow {
     const PLACEHOLDER: Self = Self(NonMaxU32::MAX);
 
-    /// The row at index zero. This exists to make tests easier, but should never be used in an practice.
-    pub const INDEX_ZERO: Self = Self(NonMaxU32::ZERO);
-
-    /// The row at index one. This exists to make tests easier, but should never be used in an practice.
-    pub const INDEX_ONE: Self = Self(NonMaxU32::ONE);
-
-    /// The row at index one. This exists to make tests easier, but should never be used in an practice.
-    pub const INDEX_TWO: Self = Self(NonMaxU32::new(2).unwrap());
-
     /// Constructs a new [`EntityRow`] from its index.
     pub const fn new(index: NonMaxU32) -> Self {
         Self(index)

@@ -344,7 +344,6 @@ with UI components as a child of an entity without UI components, your UI layout
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::entity::EntityRow;
     use taffy::TraversePartialTree;
 
     use bevy_asset::{AssetEvent, Assets};
@@ -1040,7 +1039,7 @@ mod tests {
 
         let (mut world, ..) = setup_ui_test_world();
 
-        let root_node_entity = Entity::from_raw(EntityRow::INDEX_ONE);
+        let root_node_entity = Entity::fresh_from_index(1).unwrap();
 
         struct TestSystemParam {
             root_node_entity: Entity,

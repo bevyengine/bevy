@@ -1881,7 +1881,6 @@ impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D
 mod tests {
     use crate::{
         component::Component,
-        entity::EntityRow,
         entity_disabling::DefaultQueryFilters,
         prelude::*,
         system::{QueryLens, RunSystemOnce},
@@ -1895,7 +1894,7 @@ mod tests {
         let world_2 = World::new();
 
         let mut query_state = world_1.query::<Entity>();
-        let _panics = query_state.get(&world_2, Entity::from_raw(EntityRow::INDEX_ZERO));
+        let _panics = query_state.get(&world_2, Entity::fresh_from_index(0).unwrap());
     }
 
     #[test]
