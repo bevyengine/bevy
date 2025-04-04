@@ -142,6 +142,15 @@ where
     }
 }
 
+impl<T, const N: usize> From<[T; N]> for HashSet<T, FixedHasher>
+where
+    T: Eq + Hash,
+{
+    fn from(value: [T; N]) -> Self {
+        value.into_iter().collect()
+    }
+}
+
 impl<T, S> From<crate::collections::HashMap<T, (), S>> for HashSet<T, S> {
     #[inline]
     fn from(value: crate::collections::HashMap<T, (), S>) -> Self {
