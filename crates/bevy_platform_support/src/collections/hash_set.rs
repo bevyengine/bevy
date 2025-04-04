@@ -883,6 +883,20 @@ where
     pub fn allocation_size(&self) -> usize {
         self.0.allocation_size()
     }
+
+    /// Takes the inner [`HashSet`](hb::HashSet) out of this wrapper.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_platform_support::collections::HashSet;
+    /// let map: HashSet<&'static str> = HashSet::new();
+    /// let map: hashbrown::HashSet<&'static str> = map.into_inner();
+    /// ```
+    #[inline]
+    pub fn into_inner(self) -> hb::HashSet<T, S> {
+        self.0
+    }
 }
 
 impl<T, S> BitOr<&HashSet<T, S>> for &HashSet<T, S>

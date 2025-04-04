@@ -1099,4 +1099,18 @@ where
     pub fn allocation_size(&self) -> usize {
         self.0.allocation_size()
     }
+
+    /// Takes the inner [`HashMap`](hb::HashMap) out of this wrapper.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_platform_support::collections::HashMap;
+    /// let map: HashMap<&'static str, usize> = HashMap::new();
+    /// let map: hashbrown::HashMap<&'static str, usize> = map.into_inner();
+    /// ```
+    #[inline]
+    pub fn into_inner(self) -> hb::HashMap<K, V, S> {
+        self.0
+    }
 }
