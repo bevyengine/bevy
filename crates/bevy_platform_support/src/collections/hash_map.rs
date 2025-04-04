@@ -1107,7 +1107,7 @@ where
     /// ```rust
     /// # use bevy_platform_support::collections::HashMap;
     /// let map: HashMap<&'static str, usize> = HashMap::new();
-    /// let map: hashbrown::HashMap<&'static str, usize> = map.into_inner();
+    /// let map: hashbrown::HashMap<&'static str, usize, _> = map.into_inner();
     /// ```
     #[inline]
     pub fn into_inner(self) -> hb::HashMap<K, V, S> {

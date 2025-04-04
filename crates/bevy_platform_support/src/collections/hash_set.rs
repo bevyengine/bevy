@@ -891,7 +891,7 @@ where
     /// ```rust
     /// # use bevy_platform_support::collections::HashSet;
     /// let map: HashSet<&'static str> = HashSet::new();
-    /// let map: hashbrown::HashSet<&'static str> = map.into_inner();
+    /// let map: hashbrown::HashSet<&'static str, _> = map.into_inner();
     /// ```
     #[inline]
     pub fn into_inner(self) -> hb::HashSet<T, S> {
