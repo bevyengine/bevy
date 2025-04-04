@@ -6,7 +6,6 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
 /// Configures the “classic” computer graphics [distance fog](https://en.wikipedia.org/wiki/Distance_fog) effect,
 /// in which objects appear progressively more covered in atmospheric haze the further away they are from the camera.
-/// Affects meshes rendered via the PBR [`StandardMaterial`](crate::StandardMaterial).
 ///
 /// ## Falloff
 ///
@@ -23,8 +22,8 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::prelude::*;
+/// # use bevy_render_3d::prelude::*;
 /// # use bevy_core_pipeline::prelude::*;
-/// # use bevy_pbr::prelude::*;
 /// # use bevy_color::Color;
 /// # fn system(mut commands: Commands) {
 /// commands.spawn((
@@ -44,7 +43,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// ## Material Override
 ///
 /// Once enabled for a specific camera, the fog effect can also be disabled for individual
-/// [`StandardMaterial`](crate::StandardMaterial) instances via the `fog_enabled` flag.
+/// [`Material`](crate::Material) instances that have fog pipeline enabled.
 #[derive(Debug, Clone, Component, Reflect, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component, Default, Debug, Clone)]
@@ -261,7 +260,7 @@ pub enum FogFalloff {
     /// For a density value of `D`, the following two falloff modes will produce identical visual results:
     ///
     /// ```
-    /// # use bevy_pbr::prelude::*;
+    /// # use bevy_render_3d::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # const D: f32 = 0.5;
     /// #

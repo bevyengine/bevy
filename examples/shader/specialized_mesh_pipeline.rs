@@ -10,10 +10,6 @@ use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{component::Tick, system::StaticSystemParam},
     math::{vec3, vec4},
-    pbr::{
-        DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
-        SetMeshBindGroup, SetMeshViewBindGroup,
-    },
     prelude::*,
     render::{
         batching::{
@@ -40,6 +36,10 @@ use bevy::{
         view::NoIndirectDrawing,
         view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilityClass},
         Render, RenderApp, RenderSet,
+    },
+    render_3d::{
+        DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
+        SetMeshBindGroup, SetMeshViewBindGroup,
     },
 };
 

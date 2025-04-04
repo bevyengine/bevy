@@ -11,13 +11,13 @@ use bevy::{
     },
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
     image::{ImageSampler, ImageSamplerDescriptor},
-    pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
         camera::TemporalJitter,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
+    render_3d::CascadeShadowConfigBuilder,
 };
 
 fn main() {

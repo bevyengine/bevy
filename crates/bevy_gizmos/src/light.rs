@@ -22,8 +22,8 @@ use bevy_math::{
     primitives::{Cone, Sphere},
     Isometry3d, Quat, Vec3,
 };
-use bevy_pbr::{DirectionalLight, PointLight, SpotLight};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render_3d::{DirectionalLight, PointLight, SpotLight};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
 
 use crate::{

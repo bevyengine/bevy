@@ -30,6 +30,7 @@ bevy_mesh = { path = "../bevy_mesh", version = "0.16.0-dev" }
 bevy_pbr = { path = "../bevy_pbr", version = "0.16.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.16.0-dev" }
+bevy_render_3d = { path = "../bevy_render_3d", version = "0.16.0-dev" }
 bevy_scene = { path = "../bevy_scene", version = "0.16.0-dev", features = [
   "bevy_render",
 ] }

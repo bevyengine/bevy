@@ -4,10 +4,11 @@
 
 use bevy::{
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    pbr::{NotShadowCaster, PbrPlugin},
+    pbr::PbrPlugin,
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    render_3d::NotShadowCaster,
 };
 
 /// This example uses a shader source file from the assets subdirectory

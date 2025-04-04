@@ -3,11 +3,11 @@ mod prepass_bindings;
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, material_bind_groups::MaterialBindGroupAllocator,
-    queue_material_meshes, setup_morph_and_skinning_defs, skin, DrawMesh,
-    EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey, MeshLayouts,
-    MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, RenderLightmaps,
-    RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
-    SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
+    setup_morph_and_skinning_defs, skin, DrawMesh, EntitySpecializationTicks, Material,
+    MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
+    OpaqueRendererMethod, PreparedMaterial, RenderLightmaps, RenderMaterialInstances,
+    RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup,
+    SetMeshBindGroup, ShadowView,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -203,6 +203,13 @@ where
                 );
         }
 
+        render_app.configure_sets(
+            Render,
+            PrepassSet::QueuePrepass
+                .in_set(RenderSet::QueueMeshes)
+                .ambiguous_with(PrepassSet::QueuePrepass),
+        );
+
         render_app
             .init_resource::<ViewPrepassSpecializationTicks>()
             .init_resource::<ViewKeyPrepassCache>()
@@ -221,10 +228,8 @@ where
                         .after(prepare_assets::<RenderMesh>)
                         .after(collect_meshes_for_gpu_building),
                     queue_prepass_material_meshes::<M>
-                        .in_set(RenderSet::QueueMeshes)
-                        .after(prepare_assets::<PreparedMaterial<M>>)
-                        // queue_material_meshes only writes to `material_bind_group_id`, which `queue_prepass_material_meshes` doesn't read
-                        .ambiguous_with(queue_material_meshes::<StandardMaterial>),
+                        .in_set(PrepassSet::QueuePrepass)
+                        .after(prepare_assets::<PreparedMaterial<M>>),
                 ),
             );
 
@@ -238,6 +243,11 @@ where
                 .run_if(resource_exists::<InstanceManager>),
         );
     }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum PrepassSet {
+    QueuePrepass,
 }
 
 #[derive(Resource)]

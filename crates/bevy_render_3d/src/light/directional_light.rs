@@ -45,7 +45,7 @@ use super::*;
 ///
 /// ```
 /// # use bevy_app::prelude::*;
-/// # use bevy_pbr::DirectionalLightShadowMap;
+/// # use bevy_render_3d::DirectionalLightShadowMap;
 /// App::new()
 ///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
 /// ```
@@ -97,7 +97,7 @@ pub struct DirectionalLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
-    #[cfg(feature = "experimental_pbr_pcss")]
+    #[cfg(feature = "experimental_pcss")]
     pub soft_shadow_size: Option<f32>,
 
     /// Whether this directional light contributes diffuse lighting to meshes
@@ -138,7 +138,7 @@ impl Default for DirectionalLight {
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             affects_lightmapped_mesh_diffuse: true,
-            #[cfg(feature = "experimental_pbr_pcss")]
+            #[cfg(feature = "experimental_pcss")]
             soft_shadow_size: None,
         }
     }

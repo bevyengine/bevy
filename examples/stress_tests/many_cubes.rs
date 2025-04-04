@@ -14,7 +14,6 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
-    pbr::NotShadowCaster,
     prelude::*,
     render::{
         batching::NoAutomaticBatching,
@@ -22,6 +21,7 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
         view::{NoCpuCulling, NoFrustumCulling, NoIndirectDrawing},
     },
+    render_3d::NotShadowCaster,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };

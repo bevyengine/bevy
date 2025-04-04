@@ -1,6 +1,8 @@
+use core::marker::PhantomData;
+
 use crate::{
     ExtendedMaterial, Material, MaterialExtension, MaterialExtensionKey, MaterialExtensionPipeline,
-    MaterialPlugin, StandardMaterial,
+    MaterialPlugin,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, Asset, Assets, Handle};
@@ -23,9 +25,18 @@ const FORWARD_DECAL_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("f8dfbef4-d88b-42ae-9af4-d9661e9f1648");
 
 /// Plugin to render [`ForwardDecal`]s.
-pub struct ForwardDecalPlugin;
+pub struct ForwardDecalPlugin<M: Material>(PhantomData<M>);
 
-impl Plugin for ForwardDecalPlugin {
+impl<M: Material> Default for ForwardDecalPlugin<M> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<M: Material> Plugin for ForwardDecalPlugin<M>
+where
+    MaterialPlugin<ForwardDecalMaterial<M>>: Plugin,
+{
     fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
@@ -46,7 +57,7 @@ impl Plugin for ForwardDecalPlugin {
                 .unwrap(),
         );
 
-        app.add_plugins(MaterialPlugin::<ForwardDecalMaterial<StandardMaterial>> {
+        app.add_plugins(MaterialPlugin::<ForwardDecalMaterial<M>> {
             prepass_enabled: false,
             shadows_enabled: false,
             debug_flags: RenderDebugFlags::default(),
@@ -73,8 +84,6 @@ pub struct ForwardDecal;
 /// Type alias for an extended material with a [`ForwardDecalMaterialExt`] extension.
 ///
 /// Make sure to register the [`MaterialPlugin`] for this material in your app setup.
-///
-/// [`StandardMaterial`] comes with out of the box support for forward decals.
 #[expect(type_alias_bounds, reason = "Type alias generics not yet stable")]
 pub type ForwardDecalMaterial<B: Material> = ExtendedMaterial<B, ForwardDecalMaterialExt>;
 

@@ -58,7 +58,7 @@ pub struct SpotLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
-    #[cfg(feature = "experimental_pbr_pcss")]
+    #[cfg(feature = "experimental_pcss")]
     pub soft_shadows_enabled: bool,
 
     /// Whether this spot light contributes diffuse lighting to meshes with
@@ -135,7 +135,7 @@ impl Default for SpotLight {
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,
             inner_angle: 0.0,
             outer_angle: core::f32::consts::FRAC_PI_4,
-            #[cfg(feature = "experimental_pbr_pcss")]
+            #[cfg(feature = "experimental_pcss")]
             soft_shadows_enabled: false,
         }
     }

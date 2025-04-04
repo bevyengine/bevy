@@ -174,10 +174,10 @@ pub const MAX_CASCADES_PER_LIGHT: usize = 1;
 #[derive(Resource, Clone)]
 pub struct ShadowSamplers {
     pub point_light_comparison_sampler: Sampler,
-    #[cfg(feature = "experimental_pbr_pcss")]
+    #[cfg(feature = "experimental_pcss")]
     pub point_light_linear_sampler: Sampler,
     pub directional_light_comparison_sampler: Sampler,
-    #[cfg(feature = "experimental_pbr_pcss")]
+    #[cfg(feature = "experimental_pcss")]
     pub directional_light_linear_sampler: Sampler,
 }
 
@@ -201,7 +201,7 @@ impl FromWorld for ShadowSamplers {
                 compare: Some(CompareFunction::GreaterEqual),
                 ..base_sampler_descriptor
             }),
-            #[cfg(feature = "experimental_pbr_pcss")]
+            #[cfg(feature = "experimental_pcss")]
             point_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
             directional_light_comparison_sampler: render_device.create_sampler(
                 &SamplerDescriptor {
@@ -209,7 +209,7 @@ impl FromWorld for ShadowSamplers {
                     ..base_sampler_descriptor
                 },
             ),
-            #[cfg(feature = "experimental_pbr_pcss")]
+            #[cfg(feature = "experimental_pcss")]
             directional_light_linear_sampler: render_device
                 .create_sampler(&base_sampler_descriptor),
         }
@@ -331,9 +331,9 @@ pub fn extract_lights(
             spot_light_angles: None,
             volumetric: volumetric_light.is_some(),
             affects_lightmapped_mesh_diffuse: point_light.affects_lightmapped_mesh_diffuse,
-            #[cfg(feature = "experimental_pbr_pcss")]
+            #[cfg(feature = "experimental_pcss")]
             soft_shadows_enabled: point_light.soft_shadows_enabled,
-            #[cfg(not(feature = "experimental_pbr_pcss"))]
+            #[cfg(not(feature = "experimental_pcss"))]
             soft_shadows_enabled: false,
         };
         point_lights_values.push((
@@ -397,9 +397,9 @@ pub fn extract_lights(
                         volumetric: volumetric_light.is_some(),
                         affects_lightmapped_mesh_diffuse: spot_light
                             .affects_lightmapped_mesh_diffuse,
-                        #[cfg(feature = "experimental_pbr_pcss")]
+                        #[cfg(feature = "experimental_pcss")]
                         soft_shadows_enabled: spot_light.soft_shadows_enabled,
-                        #[cfg(not(feature = "experimental_pbr_pcss"))]
+                        #[cfg(not(feature = "experimental_pcss"))]
                         soft_shadows_enabled: false,
                     },
                     render_visible_entities,
@@ -477,9 +477,9 @@ pub fn extract_lights(
                     volumetric: volumetric_light.is_some(),
                     affects_lightmapped_mesh_diffuse: directional_light
                         .affects_lightmapped_mesh_diffuse,
-                    #[cfg(feature = "experimental_pbr_pcss")]
+                    #[cfg(feature = "experimental_pcss")]
                     soft_shadow_size: directional_light.soft_shadow_size,
-                    #[cfg(not(feature = "experimental_pbr_pcss"))]
+                    #[cfg(not(feature = "experimental_pcss"))]
                     soft_shadow_size: None,
                     shadows_enabled: directional_light.shadows_enabled,
                     shadow_depth_bias: directional_light.shadow_depth_bias,

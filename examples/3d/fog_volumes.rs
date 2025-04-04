@@ -7,8 +7,8 @@
 
 use bevy::{
     math::vec3,
-    pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
+    render_3d::{FogVolume, VolumetricFog, VolumetricLight},
 };
 
 /// Entry point.
