@@ -130,7 +130,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     for (i, field) in fields.iter().enumerate() {
         field_attrs.push(field.attrs.clone());
         field_visibilities.push(field.vis.clone());
-        field_idents.push(field.ident.clone().unwrap_or(format_ident!("f{i}")));
+        field_idents.push(field.ident.clone().unwrap_or_else(|| format_ident!("f{i}")));
 
         let field_ty = field.ty.clone();
         field_types.push(quote!(#field_ty));
