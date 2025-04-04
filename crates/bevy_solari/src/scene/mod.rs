@@ -1,5 +1,6 @@
 mod binder;
 mod blas;
+mod extract;
 mod types;
 
 pub use types::RaytracingMesh3d;
@@ -15,10 +16,11 @@ use bevy_render::{
     render_resource::BufferUsages,
     renderer::RenderDevice,
     settings::WgpuFeatures,
-    Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use binder::{prepare_raytracing_scene_bindings, RaytracingSceneBindings};
 use blas::{manage_blas, BlasManager};
+use extract::extract_raytracing_scene;
 use tracing::warn;
 
 pub struct RaytracingScenePlugin;
@@ -49,6 +51,7 @@ impl Plugin for RaytracingScenePlugin {
         render_app
             .init_resource::<BlasManager>()
             .init_resource::<RaytracingSceneBindings>()
+            .add_systems(ExtractSchedule, extract_raytracing_scene)
             .add_systems(
                 Render,
                 (

@@ -11,6 +11,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
 };
+use bevy_transform::components::GlobalTransform;
 use std::num::{NonZeroU32, NonZeroU64};
 
 const MAX_MESH_COUNT: Option<NonZeroU32> = NonZeroU32::new(2u32.pow(16));
@@ -23,7 +24,11 @@ pub struct RaytracingSceneBindings {
 }
 
 pub fn prepare_raytracing_scene_bindings(
-    instances: Query<(&RaytracingMesh3d, &MeshMaterial3d<StandardMaterial>)>,
+    instances: Query<(
+        &RaytracingMesh3d,
+        &MeshMaterial3d<StandardMaterial>,
+        &GlobalTransform,
+    )>,
     mesh_allocator: Res<MeshAllocator>,
     blas_manager: Res<BlasManager>,
     render_device: Res<RenderDevice>,
@@ -49,7 +54,7 @@ pub fn prepare_raytracing_scene_bindings(
     let mut transforms = StorageBuffer::<Vec<Mat4>>::default();
 
     let mut instance_index = 0;
-    for (mesh, material) in &instances {
+    for (mesh, _material, transform) in &instances {
         if let Some(blas) = blas_manager.get(&mesh.id()) {
             let vertex_slice = mesh_allocator.mesh_vertex_slice(&mesh.id()).unwrap();
             let index_slice = mesh_allocator.mesh_index_slice(&mesh.id()).unwrap();
@@ -65,14 +70,15 @@ pub fn prepare_raytracing_scene_bindings(
                 size: NonZeroU64::new(index_slice.range.len() as u64),
             });
 
+            let transform = transform.compute_matrix();
             *tlas.get_mut_single(instance_index).unwrap() = Some(TlasInstance::new(
                 blas,
-                tlas_transform(todo!()),
+                tlas_transform(&transform),
                 instance_index as u32,
                 0xFF,
             ));
 
-            transforms.get_mut().push(todo!());
+            transforms.get_mut().push(transform);
 
             instance_index += 1;
         }
@@ -89,11 +95,11 @@ pub fn prepare_raytracing_scene_bindings(
     raytracing_scene_bindings.bind_group = Some(render_device.create_bind_group(
         "raytracing_scene_bind_group",
         &raytracing_scene_bindings.bind_group_layout,
-        &BindGroupEntries::sequential((
-            vertex_buffers.as_slice(),
-            index_buffers.as_slice(),
-            tlas.as_binding(),
-            transforms.binding().unwrap(),
+        &BindGroupEntries::with_indices((
+            (0, vertex_buffers.as_slice()),
+            (1, index_buffers.as_slice()),
+            (4, tlas.as_binding()),
+            (5, transforms.binding().unwrap()),
         )),
     ));
 }
@@ -145,18 +151,8 @@ impl FromWorld for RaytracingSceneBindings {
                 ty: BindingType::AccelerationStructure,
                 count: None,
             },
-            // BindGroupLayoutEntry {
-            //     binding: 5,
-            //     visibility: ShaderStages::COMPUTE,
-            //     ty: BindingType::Buffer {
-            //         ty: BufferBindingType::Storage { read_only: true },
-            //         has_dynamic_offset: false,
-            //         min_binding_size: None,
-            //     },
-            //     count: None,
-            // },
             BindGroupLayoutEntry {
-                binding: 6,
+                binding: 5,
                 visibility: ShaderStages::COMPUTE,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Storage { read_only: true },
@@ -165,6 +161,16 @@ impl FromWorld for RaytracingSceneBindings {
                 },
                 count: None,
             },
+            // BindGroupLayoutEntry {
+            //     binding: 6,
+            //     visibility: ShaderStages::COMPUTE,
+            //     ty: BindingType::Buffer {
+            //         ty: BufferBindingType::Storage { read_only: true },
+            //         has_dynamic_offset: false,
+            //         min_binding_size: None,
+            //     },
+            //     count: None,
+            // },
         ];
 
         Self {
