@@ -61,12 +61,12 @@ pub fn prepare_raytracing_scene_bindings(
 
             vertex_buffers.push(BufferBinding {
                 buffer: &vertex_slice.buffer,
-                offset: vertex_slice.range.start as u64,
+                offset: vertex_slice.range.start as u64 * 48,
                 size: NonZeroU64::new(vertex_slice.range.len() as u64),
             });
             index_buffers.push(BufferBinding {
                 buffer: &index_slice.buffer,
-                offset: index_slice.range.start as u64,
+                offset: index_slice.range.start as u64 * 4,
                 size: NonZeroU64::new(index_slice.range.len() as u64),
             });
 
