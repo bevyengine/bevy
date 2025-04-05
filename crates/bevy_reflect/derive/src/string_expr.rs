@@ -80,7 +80,7 @@ impl StringExpr {
         let owned = self.into_owned();
         let borrowed = other.into_borrowed();
         Self::Owned(quote! {
-            #owned + #borrowed
+            ::core::ops::Add::<&str>::add(#owned, #borrowed)
         })
     }
 }

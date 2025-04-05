@@ -11,7 +11,6 @@ do
   pushd "$crate"
   cargo publish
   popd
-  sleep 20
 done
 
 popd

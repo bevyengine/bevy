@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use core::mem::MaybeUninit;
 
 use crate::{
-    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet, Entity, EntityDoesNotExistError},
+    entity::{Entity, EntityDoesNotExistError, EntityHashMap, EntityHashSet},
     error::Result,
     world::{
         error::EntityMutableFetchError, unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef,
@@ -39,8 +39,8 @@ impl<'w> EntityFetcher<'w> {
     /// - Pass an [`Entity`] to receive a single [`EntityRef`].
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityRef>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityRef`]s.
-    /// - Pass a reference to a [`EntityHashSet`](crate::entity::hash_map::EntityHashMap) to receive an
-    ///   [`EntityHashMap<EntityRef>`](crate::entity::hash_map::EntityHashMap).
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityRef>`](crate::entity::EntityHashMap).
     ///
     /// # Errors
     ///
@@ -71,8 +71,8 @@ impl<'w> EntityFetcher<'w> {
     ///      such as adding or removing components, or despawning the entity.
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`](crate::entity::hash_map::EntityHashMap) to receive an
-    ///   [`EntityHashMap<EntityMut>`](crate::entity::hash_map::EntityHashMap).
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
     /// # Errors
     ///
     /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.

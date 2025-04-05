@@ -7,8 +7,8 @@ mod intersections;
 use bevy_derive::{Deref, DerefMut};
 
 use bevy_math::{bounding::Aabb3d, Ray3d};
+use bevy_mesh::Mesh;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::mesh::Mesh;
 
 use intersections::*;
 pub use intersections::{ray_aabb_intersection_3d, ray_mesh_intersection, RayMeshHit};

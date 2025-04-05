@@ -20,7 +20,7 @@ use bevy_app::{First, Plugin, Update};
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::hash_map::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
+    entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
 };
 use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_platform_support::collections::HashSet;
