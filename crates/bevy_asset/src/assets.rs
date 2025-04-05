@@ -9,10 +9,12 @@ use bevy_ecs::{
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{Reflect, TypePath};
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
+use std::ops::Deref;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
+use bevy_ecs::change_detection::Mut;
 
 /// A generational runtime-only identifier for a specific [`Asset`] stored in [`Assets`]. This is optimized for efficient runtime
 /// usage and is not suitable for identifying assets across app runs.
@@ -426,15 +428,39 @@ impl<A: Asset> Assets<A> {
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
     pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+        let id = id.into();
+        let result = self.get_mut_untracked(id);
+        if result.is_some() {
+            self.queued_events.push(AssetEvent::Modified { id });
+        }
+        result
+    }
+
+    #[inline]
+    pub fn get_mut_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
         let id: AssetId<A> = id.into();
         let result = match id {
             AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
             AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
         };
-        if result.is_some() {
-            self.queued_events.push(AssetEvent::Modified { id });
-        }
         result
+    }
+
+    #[inline]
+    pub fn map_asset_unchanged(self: Mut<Self>, id: impl Into<AssetId<A>>) -> Option<AssetMut<A>> {
+        let id: AssetId<A> = id.into();
+        match id {
+            AssetId { index, .. } => if !self.dense_storage.contains(index) {
+                return None;
+            },
+            AssetId::Uuid { uuid } => if !self.hash_map.contains(&uuid) {
+                return None;
+            },
+        };
+        Some(AssetMut {
+            id,
+            assets: self,
+        })
     }
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists.
@@ -593,6 +619,31 @@ impl<A: Asset> Assets<A> {
     /// [`asset_events`]: Self::asset_events
     pub(crate) fn asset_events_condition(assets: Res<Self>) -> bool {
         !assets.queued_events.is_empty()
+    }
+}
+
+pub struct AssetMut<'a, A: Asset> {
+    id: AssetId<A>,
+    assets: Mut<'a, Assets<A>>,
+}
+
+impl<A: Asset> Deref for AssetMut<'_, A> {
+    type Target = A;
+    
+    fn deref(&self) -> &Self::Target {
+        unsafe {
+            // SAFETY: It's impossible to get an `AssetMut` if the asset does not exist.
+            self.assets.get(self.id).unwrap_unchecked()
+        }
+    }
+}
+
+impl<A: Asset> std::ops::DerefMut for AssetMut<'_, A> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe {
+            // SAFETY: It's impossible to get an `AssetMut` if the asset does not exist.
+            self.assets.get_mut(self.id).unwrap_unchecked()
+        }
     }
 }
 
