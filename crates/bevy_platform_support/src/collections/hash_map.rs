@@ -160,6 +160,15 @@ where
     }
 }
 
+impl<K, V, const N: usize> From<[(K, V); N]> for HashMap<K, V, FixedHasher>
+where
+    K: Eq + Hash,
+{
+    fn from(arr: [(K, V); N]) -> Self {
+        arr.into_iter().collect()
+    }
+}
+
 impl<K, V, S> From<hb::HashMap<K, V, S>> for HashMap<K, V, S> {
     #[inline]
     fn from(value: hb::HashMap<K, V, S>) -> Self {
