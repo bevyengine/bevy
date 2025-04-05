@@ -1,8 +1,8 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
-    ColorToPacked, Gray, Luminance, Mix, StandardColor,
+    color_difference::EuclideanDistance, Alpha, ColorToComponents, ColorToPacked, Gray, Luminance,
+    StandardColor,
 };
-use bevy_math::{ops, Vec3, Vec4};
+use bevy_math::{curve::InterpolateCurve, ops, Interpolate, InterpolateStable, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
@@ -36,8 +36,6 @@ pub struct LinearRgba {
 }
 
 impl StandardColor for LinearRgba {}
-
-impl_componentwise_vector_space!(LinearRgba, [red, green, blue, alpha]);
 
 impl LinearRgba {
     /// A fully black color with full alpha.
@@ -147,10 +145,10 @@ impl LinearRgba {
         let target_luminance = (luminance + amount).clamp(0.0, 1.0);
         if target_luminance < luminance {
             let adjustment = (luminance - target_luminance) / luminance;
-            self.mix_assign(Self::new(0.0, 0.0, 0.0, self.alpha), adjustment);
+            self.interp_assign(&Self::new(0.0, 0.0, 0.0, self.alpha), adjustment);
         } else if target_luminance > luminance {
             let adjustment = (target_luminance - luminance) / (1. - luminance);
-            self.mix_assign(Self::new(1.0, 1.0, 1.0, self.alpha), adjustment);
+            self.interp_assign(&Self::new(1.0, 1.0, 1.0, self.alpha), adjustment);
         }
     }
 
@@ -160,6 +158,16 @@ impl LinearRgba {
     /// `A` will be the most significant byte and `R` the least significant.
     pub fn as_u32(&self) -> u32 {
         u32::from_le_bytes(self.to_u8_array())
+    }
+
+    /// Scales the color components (not alpha) by the given factor.
+    pub fn scale_by(self, factor: f32) -> Self {
+        Self {
+            red: self.red * factor,
+            green: self.green * factor,
+            blue: self.green * factor,
+            alpha: self.alpha,
+        }
     }
 }
 
@@ -204,9 +212,9 @@ impl Luminance for LinearRgba {
     }
 }
 
-impl Mix for LinearRgba {
+impl Interpolate for LinearRgba {
     #[inline]
-    fn mix(&self, other: &Self, factor: f32) -> Self {
+    fn interp(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
         Self {
             red: self.red * n_factor + other.red * factor,
@@ -216,6 +224,9 @@ impl Mix for LinearRgba {
         }
     }
 }
+
+impl InterpolateStable for LinearRgba {}
+impl InterpolateCurve for LinearRgba {}
 
 impl Gray for LinearRgba {
     const BLACK: Self = Self::BLACK;

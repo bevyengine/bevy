@@ -194,7 +194,7 @@ where
             | InterpolationDatum::RightTail(v) => Either::Left(v.iter().copied()),
 
             InterpolationDatum::Between(u, v, s) => {
-                let interpolated = u.iter().zip(v.iter()).map(move |(x, y)| x.lerp(*y, s));
+                let interpolated = u.iter().zip(v.iter()).map(move |(x, y)| x.interp(y, s));
                 Either::Right(interpolated)
             }
         }

@@ -317,9 +317,9 @@ fn sample_triangle_boundary<P: NormedVectorSpace, R: Rng + ?Sized>(
 
     if let Ok(dist) = WeightedIndex::new([ab.norm(), ac.norm(), bc.norm()]) {
         match dist.sample(rng) {
-            0 => a.lerp(b, t),
-            1 => a.lerp(c, t),
-            2 => b.lerp(c, t),
+            0 => a.interp(&b, t),
+            1 => a.interp(&c, t),
+            2 => b.interp(&c, t),
             _ => unreachable!(),
         }
     } else {

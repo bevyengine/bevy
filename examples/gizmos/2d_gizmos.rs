@@ -2,7 +2,11 @@
 
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
-use bevy::{color::palettes::css::*, math::Isometry2d, prelude::*};
+use bevy::{
+    color::palettes::css::*,
+    math::{Interpolate, Isometry2d},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -74,7 +78,7 @@ fn draw_example_collection(
     let times_and_colors = (0..=resolution)
         .map(|n| n as f32 / resolution as f32)
         .map(|t| (t - 0.5) * 600.0)
-        .map(|t| (t, TEAL.mix(&HOT_PINK, (t + 300.0) / 600.0)));
+        .map(|t| (t, TEAL.interp(&HOT_PINK, (t + 300.0) / 600.0)));
     gizmos.curve_gradient_2d(curve, times_and_colors);
 
     my_gizmos

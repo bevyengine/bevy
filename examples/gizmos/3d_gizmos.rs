@@ -3,7 +3,7 @@
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::{color::palettes::css::*, math::Interpolate, prelude::*};
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
@@ -153,7 +153,7 @@ fn draw_example_collection(
     let times_and_colors = (0..=resolution)
         .map(|n| n as f32 / resolution as f32)
         .map(|t| t * 5.0)
-        .map(|t| (t, TEAL.mix(&HOT_PINK, t / 5.0)));
+        .map(|t| (t, TEAL.interp(&HOT_PINK, t / 5.0)));
     gizmos.curve_gradient_3d(curve, times_and_colors);
 
     my_gizmos.sphere(Vec3::new(1., 0.5, 0.), 0.5, RED);

@@ -9,12 +9,11 @@
 
 extern crate alloc;
 
-pub mod animatable;
 pub mod animation_curves;
+pub mod blend;
 pub mod gltf_curves;
 pub mod graph;
 pub mod transition;
-mod util;
 
 use core::{
     any::TypeId,
@@ -52,8 +51,8 @@ use uuid::Uuid;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        animatable::*, animation_curves::*, graph::*, transition::*, AnimationClip,
-        AnimationPlayer, AnimationPlugin, VariableCurve,
+        animation_curves::*, blend::*, graph::*, transition::*, AnimationClip, AnimationPlayer,
+        AnimationPlugin, VariableCurve,
     };
 }
 
