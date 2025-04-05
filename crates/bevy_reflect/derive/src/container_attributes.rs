@@ -25,6 +25,7 @@ mod kw {
     syn::custom_keyword!(Hash);
     syn::custom_keyword!(Clone);
     syn::custom_keyword!(no_field_bounds);
+    syn::custom_keyword!(no_auto_register);
     syn::custom_keyword!(opaque);
 }
 
@@ -184,6 +185,7 @@ pub(crate) struct ContainerAttributes {
     type_path_attrs: TypePathAttrs,
     custom_where: Option<WhereClause>,
     no_field_bounds: bool,
+    no_auto_register: bool,
     custom_attributes: CustomAttributes,
     is_opaque: bool,
     idents: Vec<Ident>,
@@ -240,6 +242,8 @@ impl ContainerAttributes {
             self.parse_no_field_bounds(input)
         } else if lookahead.peek(kw::Clone) {
             self.parse_clone(input)
+        } else if lookahead.peek(kw::no_auto_register) {
+            self.parse_no_auto_register(input)
         } else if lookahead.peek(kw::Debug) {
             self.parse_debug(input)
         } else if lookahead.peek(kw::Hash) {
@@ -375,6 +379,16 @@ impl ContainerAttributes {
     fn parse_no_field_bounds(&mut self, input: ParseStream) -> syn::Result<()> {
         input.parse::<kw::no_field_bounds>()?;
         self.no_field_bounds = true;
+        Ok(())
+    }
+
+    /// Parse `no_auto_register` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(no_auto_register)]`
+    fn parse_no_auto_register(&mut self, input: ParseStream) -> syn::Result<()> {
+        input.parse::<kw::no_auto_register>()?;
+        self.no_auto_register = true;
         Ok(())
     }
 
@@ -581,6 +595,12 @@ impl ContainerAttributes {
     /// Returns true if the `no_field_bounds` attribute was found on this type.
     pub fn no_field_bounds(&self) -> bool {
         self.no_field_bounds
+    }
+
+    /// Returns true if the `no_auto_register` attribute was found on this type.
+    #[cfg(feature = "auto_register")]
+    pub fn no_auto_register(&self) -> bool {
+        self.no_auto_register
     }
 
     /// Returns true if the `opaque` attribute was found on this type.
