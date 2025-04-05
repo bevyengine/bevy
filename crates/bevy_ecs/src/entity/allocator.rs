@@ -170,13 +170,13 @@ impl Chunk {
 /// This is a buffer that has been split into chunks, so that each chunk is pinned in memory.
 /// Conceptually, each chunk is put end-to-end to form the buffer.
 /// This will expand in capacity as needed, but a separate system must track the length of the list in the buffer.
-struct ChunkedBuffer([Chunk; Self::NUM_CHUNKS as usize]);
+struct FreeBuffer([Chunk; Self::NUM_CHUNKS as usize]);
 
-impl ChunkedBuffer {
+impl FreeBuffer {
     const NUM_CHUNKS: u32 = 24;
     const NUM_SKIPPED: u32 = u32::BITS - Self::NUM_CHUNKS;
 
-    /// Constructs a empty [`ChunkedBuffer`].
+    /// Constructs a empty [`FreeBuffer`].
     const fn new() -> Self {
         Self([const { Chunk::new() }; Self::NUM_CHUNKS as usize])
     }
@@ -249,8 +249,8 @@ impl ChunkedBuffer {
     ///
     /// [`Self::set`] must have been called on these indices before to initialize memory.
     #[inline]
-    unsafe fn iter(&self, indices: core::ops::RangeInclusive<u32>) -> ChunkedBufferIterator {
-        ChunkedBufferIterator {
+    unsafe fn iter(&self, indices: core::ops::RangeInclusive<u32>) -> FreeBufferIterator {
+        FreeBufferIterator {
             buffer: self,
             indices,
             current: [].iter(),
@@ -258,7 +258,7 @@ impl ChunkedBuffer {
     }
 }
 
-impl Drop for ChunkedBuffer {
+impl Drop for FreeBuffer {
     fn drop(&mut self) {
         for index in 0..Self::NUM_CHUNKS {
             let capacity = Self::capacity_of_chunk(index);
@@ -268,18 +268,18 @@ impl Drop for ChunkedBuffer {
     }
 }
 
-/// An iterator over a [`ChunkedBuffer`].
+/// An iterator over a [`FreeBuffer`].
 ///
 /// # Safety
 ///
-/// [`ChunkedBuffer::set`] must have been called on these indices before to initialize memory.
-struct ChunkedBufferIterator<'a> {
-    buffer: &'a ChunkedBuffer,
+/// [`FreeBuffer::set`] must have been called on these indices before to initialize memory.
+struct FreeBufferIterator<'a> {
+    buffer: &'a FreeBuffer,
     indices: core::ops::RangeInclusive<u32>,
     current: core::slice::Iter<'a, Slot>,
 }
 
-impl<'a> Iterator for ChunkedBufferIterator<'a> {
+impl<'a> Iterator for FreeBufferIterator<'a> {
     type Item = Entity;
 
     #[inline]
@@ -306,8 +306,8 @@ impl<'a> Iterator for ChunkedBufferIterator<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for ChunkedBufferIterator<'a> {}
-impl<'a> core::iter::FusedIterator for ChunkedBufferIterator<'a> {}
+impl<'a> ExactSizeIterator for FreeBufferIterator<'a> {}
+impl<'a> core::iter::FusedIterator for FreeBufferIterator<'a> {}
 
 /// This stores two things: the length of the buffer (which can be negative) and a generation value to track *any* change to the length.
 ///
@@ -321,9 +321,9 @@ impl<'a> core::iter::FusedIterator for ChunkedBufferIterator<'a> {}
 /// This is fine since for the length to go over `u32::MAX`, the entity index would first need to be exhausted, ausing a "too many entities" panic.
 /// In theory, the length should not drop below `-u32::MAX` since doing so would cause a "too many entities" panic.
 /// However, using 48 bits provides a buffer here and allows extra flags like [`Self::DISABLING_BIT`].
-struct FreeBufferLen(AtomicU64);
+struct FreeCount(AtomicU64);
 
-impl FreeBufferLen {
+impl FreeCount {
     /// The bit of the u64 with the highest bit of the u16 generation.
     const HIGHEST_GENERATION_BIT: u64 = 1 << 15;
     /// The u48 encoded length considers this value to be 0. Lower values are considered negative.
@@ -443,20 +443,20 @@ impl FreeBufferLen {
 }
 
 /// This is conceptually like a `Vec<Entity>` that stores entities pending reuse.
-struct FreeBuffer {
+struct FreeList {
     /// The actual buffer of [`Slot`]s.
     /// Conceptually, this is like the `RawVec` for this `Vec`.
-    buffer: ChunkedBuffer,
+    buffer: FreeBuffer,
     /// The length of the free buffer
-    len: FreeBufferLen,
+    len: FreeCount,
 }
 
-impl FreeBuffer {
-    /// Constructs a empty [`FreeBuffer`].
+impl FreeList {
+    /// Constructs a empty [`FreeList`].
     fn new() -> Self {
         Self {
-            buffer: ChunkedBuffer::new(),
-            len: FreeBufferLen::new_zero_len(),
+            buffer: FreeBuffer::new(),
+            len: FreeCount::new_zero_len(),
         }
     }
 
@@ -481,7 +481,7 @@ impl FreeBuffer {
         let state = self.len.disable_len_for_state();
 
         // Push onto the buffer
-        let len = FreeBufferLen::len_from_state(state);
+        let len = FreeCount::len_from_state(state);
         // SAFETY: Caller ensures this does not conflict with `free` or `alloc` calls,
         // and we just disabled remote allocation.
         unsafe {
@@ -514,7 +514,7 @@ impl FreeBuffer {
     ///
     /// This must not conflict with [`Self::free`] calls for the duration of the returned iterator.
     #[inline]
-    unsafe fn alloc_many(&self, count: u32) -> ChunkedBufferIterator {
+    unsafe fn alloc_many(&self, count: u32) -> FreeBufferIterator {
         // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
         let len = self.len.pop_for_len(count);
         let index = len.saturating_sub(count);
@@ -546,26 +546,26 @@ impl FreeBuffer {
         // We get around this by only updating `len` after the read is complete.
         // But that means something else could be trying to allocate the same index!
         // So we need a `len.compare_exchange` loop to ensure the index is unique.
-        // Because we keep a generation value in the `FreeBufferLen`, if any of these things happen, we simply try again.
+        // Because we keep a generation value in the `FreeCount`, if any of these things happen, we simply try again.
 
         let mut state = self.len.state();
         loop {
             // The state is only disabled when freeing.
             // If a free is happening, we need to wait for the new entity to be ready on the free buffer.
             // Then, we can allocate it.
-            if FreeBufferLen::is_state_disabled(state) {
+            if FreeCount::is_state_disabled(state) {
                 core::hint::spin_loop();
                 state = self.len.state();
                 continue;
             }
 
-            let len = FreeBufferLen::len_from_state(state);
+            let len = FreeCount::len_from_state(state);
             let index = len.checked_sub(1)?;
 
             // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
             let entity = unsafe { self.buffer.get(index) };
 
-            let ideal_state = FreeBufferLen::pop_from_state(state, 1);
+            let ideal_state = FreeCount::pop_from_state(state, 1);
             match self.len.try_set_state(state, ideal_state) {
                 Ok(_) => return Some(entity),
                 Err(new_state) => state = new_state,
@@ -577,7 +577,7 @@ impl FreeBuffer {
 /// This stores allocation data shared by all entity allocators.
 struct SharedAllocator {
     /// The entities pending reuse
-    free: FreeBuffer,
+    free: FreeList,
     /// The next value of [`Entity::index`] to give out if needed.
     next_entity_index: AtomicU32,
     /// If true, the [`Self::next_entity_index`] has been incremented before,
@@ -626,7 +626,7 @@ impl SharedAllocator {
     ///
     /// # Safety
     ///
-    /// This must not conflict with [`FreeBuffer::free`] calls.
+    /// This must not conflict with [`FreeList::free`] calls.
     #[inline]
     unsafe fn alloc(&self) -> Entity {
         // SAFETY: assured by caller
@@ -637,7 +637,7 @@ impl SharedAllocator {
     ///
     /// # Safety
     ///
-    /// This must not conflict with [`FreeBuffer::free`] calls for the duration of the iterator.
+    /// This must not conflict with [`FreeList::free`] calls for the duration of the iterator.
     #[inline]
     unsafe fn alloc_many(&self, count: u32) -> AllocEntitiesIterator {
         let reused = self.free.alloc_many(count);
@@ -661,7 +661,7 @@ impl SharedAllocator {
 
     fn new() -> Self {
         Self {
-            free: FreeBuffer::new(),
+            free: FreeList::new(),
             next_entity_index: AtomicU32::new(0),
             entity_index_given: AtomicBool::new(false),
         }
@@ -751,7 +751,7 @@ impl core::fmt::Debug for Allocator {
 /// **NOTE:** Dropping will leak the remaining entities!
 pub struct AllocEntitiesIterator<'a> {
     new: core::ops::RangeInclusive<u32>,
-    reused: ChunkedBufferIterator<'a>,
+    reused: FreeBufferIterator<'a>,
 }
 
 impl<'a> Iterator for AllocEntitiesIterator<'a> {
@@ -830,8 +830,8 @@ mod tests {
     /// Ensure the total capacity of [`OwnedBuffer`] is `u32::MAX + 1`, since the max *index* of an [`Entity`] is `u32::MAX`.
     #[test]
     fn chunk_capacity_sums() {
-        let total: u64 = (0..ChunkedBuffer::NUM_CHUNKS)
-            .map(ChunkedBuffer::capacity_of_chunk)
+        let total: u64 = (0..FreeBuffer::NUM_CHUNKS)
+            .map(FreeBuffer::capacity_of_chunk)
             .map(|x| x as u64)
             .sum();
         let expected = u32::MAX as u64 + 1;
@@ -857,13 +857,13 @@ mod tests {
         ];
 
         for (input, output) in to_test {
-            assert_eq!(ChunkedBuffer::index_info(input), output);
+            assert_eq!(FreeBuffer::index_info(input), output);
         }
     }
 
     #[test]
     fn buffer_len_encoding() {
-        let len = FreeBufferLen::new_zero_len();
+        let len = FreeCount::new_zero_len();
         assert_eq!(len.len(), 0);
         assert_eq!(len.pop_for_len(200), 0);
         len.set_len(5, 0);
