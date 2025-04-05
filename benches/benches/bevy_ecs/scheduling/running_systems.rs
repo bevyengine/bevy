@@ -20,25 +20,25 @@ pub fn empty_systems(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
-    for amount in 0..5 {
+    for amount in [0, 2, 4] {
         let mut schedule = Schedule::default();
         for _ in 0..amount {
             schedule.add_systems(empty);
         }
         schedule.run(&mut world);
-        group.bench_function(format!("{:03}_systems", amount), |bencher| {
+        group.bench_function(format!("{}_systems", amount), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
         });
     }
-    for amount in 1..21 {
+    for amount in [10, 100, 1_000] {
         let mut schedule = Schedule::default();
-        for _ in 0..amount {
+        for _ in 0..(amount / 5) {
             schedule.add_systems((empty, empty, empty, empty, empty));
         }
         schedule.run(&mut world);
-        group.bench_function(format!("{:03}_systems", 5 * amount), |bencher| {
+        group.bench_function(format!("{}_systems", amount), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -67,23 +67,21 @@ pub fn busy_systems(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("busy_systems");
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(3));
-    for entity_bunches in 1..6 {
+    for entity_bunches in [1, 3, 5] {
         world.spawn_batch((0..4 * ENTITY_BUNCH).map(|_| (A(0.0), B(0.0))));
         world.spawn_batch((0..4 * ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), D(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
-        for system_amount in 0..5 {
+        for system_amount in [3, 9, 15] {
             let mut schedule = Schedule::default();
-            schedule.add_systems((ab, cd, ce));
-            for _ in 0..system_amount {
+            for _ in 0..(system_amount / 3) {
                 schedule.add_systems((ab, cd, ce));
             }
             schedule.run(&mut world);
             group.bench_function(
                 format!(
                     "{:02}x_entities_{:02}_systems",
-                    entity_bunches,
-                    3 * system_amount + 3
+                    entity_bunches, system_amount
                 ),
                 |bencher| {
                     bencher.iter(|| {
@@ -119,22 +117,20 @@ pub fn contrived(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("contrived");
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(3));
-    for entity_bunches in 1..6 {
+    for entity_bunches in [1, 3, 5] {
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), D(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (C(0.0), D(0.0))));
-        for system_amount in 0..5 {
+        for system_amount in [3, 9, 15] {
             let mut schedule = Schedule::default();
-            schedule.add_systems((s_0, s_1, s_2));
-            for _ in 0..system_amount {
+            for _ in 0..(system_amount / 3) {
                 schedule.add_systems((s_0, s_1, s_2));
             }
             schedule.run(&mut world);
             group.bench_function(
                 format!(
                     "{:02}x_entities_{:02}_systems",
-                    entity_bunches,
-                    3 * system_amount + 3
+                    entity_bunches, system_amount
                 ),
                 |bencher| {
                     bencher.iter(|| {
