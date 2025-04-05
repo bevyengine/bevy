@@ -2758,14 +2758,16 @@ impl World {
     ///
     /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
     /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
-    ///  /// # Example
+    /// # Example
     /// ```
     /// use bevy_ecs::prelude::*;
     /// use std::any::TypeId;
+    /// 
     /// #[derive(Resource)]
     /// struct A(u32);
     /// #[derive(Component)]
     /// struct B(u32);
+    /// 
     /// let mut world = World::new();
     /// world.insert_resource(A(1));
     /// let entity = world.spawn(B(1)).id();
@@ -2776,29 +2778,11 @@ impl World {
     /// world.resource_scope_by_id(component_id, |world: &mut World, mut a: Mut<A>| {
     ///     let b = world.get_mut::<B>(entity).unwrap();
     ///     a.0 += b.0;
+    ///     assert!(world.get_resource::<A>().is_none(), "Should not be able to access A inside this scope.");
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
-    ///
-    /// See also [`try_resource_scope_by_id`](Self::try_resource_scope_by_id).
-    #[track_caller]
     pub fn resource_scope_by_id<R: Resource, U>(
-        &mut self,
-        id: ComponentId,
-        f: impl FnOnce(&mut World, Mut<R>) -> U,
-    ) -> U {
-        self.try_resource_scope_by_id(id, f)
-            .unwrap_or_else(|| panic!("resource with ComponentId {} does not exist.", id.index()))
-    }
-
-    /// Temporarily removes the requested resource from this [`World`] if it exists, runs custom user code,
-    /// then re-adds the resource before returning. Returns `None` if the resource does not exist in this [`World`].
-    ///
-    /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
-    /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
-    ///
-    /// See also [`resource_scope_by_id`](Self::resource_scope_by_id).
-    pub fn try_resource_scope_by_id<R: Resource, U>(
         &mut self,
         id: ComponentId,
         f: impl FnOnce(&mut World, Mut<R>) -> U,
