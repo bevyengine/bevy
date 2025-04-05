@@ -1,9 +1,45 @@
-use super::{
-    asset::{Meshlet, MeshletBoundingSpheres, MeshletSimplificationError},
-    persistent_buffer::PersistentGpuBufferable,
-};
+use crate::meshlet::asset::{BvhNode, MeshletCullData};
+
+use super::{asset::Meshlet, persistent_buffer::PersistentGpuBufferable};
 use alloc::sync::Arc;
 use bevy_math::Vec2;
+use bevy_render::render_resource::BufferAddress;
+
+impl PersistentGpuBufferable for Arc<[BvhNode]> {
+    type Metadata = u32;
+
+    fn size_in_bytes(&self) -> usize {
+        self.len() * size_of::<BvhNode>()
+    }
+
+    fn write_bytes_le(
+        &self,
+        base_meshlet_index: Self::Metadata,
+        buffer_slice: &mut [u8],
+        buffer_offset: BufferAddress,
+    ) {
+        let size = size_of::<BvhNode>();
+        let base_bvh_node_index = (buffer_offset / size as u64) as u32;
+        for (i, node) in self.iter().enumerate() {
+            let i = i * size;
+            let bytes = bytemuck::cast::<_, [u8; size_of::<BvhNode>()]>(BvhNode {
+                aabbs: node.aabbs,
+                lod_bounds: node.lod_bounds,
+                parent_errors: node.parent_errors,
+                child_offsets: std::array::from_fn(|i| {
+                    node.child_offsets[i]
+                        + if node.child_counts[i] == u8::MAX {
+                            base_meshlet_index
+                        } else {
+                            base_bvh_node_index
+                        }
+                }),
+                child_counts: node.child_counts,
+            });
+            buffer_slice[i..(i + size)].clone_from_slice(&bytes);
+        }
+    }
+}
 
 impl PersistentGpuBufferable for Arc<[Meshlet]> {
     type Metadata = (u64, u64, u64);
@@ -16,6 +52,7 @@ impl PersistentGpuBufferable for Arc<[Meshlet]> {
         &self,
         (vertex_position_offset, vertex_attribute_offset, index_offset): Self::Metadata,
         buffer_slice: &mut [u8],
+        _: BufferAddress,
     ) {
         let vertex_position_offset = (vertex_position_offset * 8) as u32;
         let vertex_attribute_offset = (vertex_attribute_offset as usize / size_of::<u32>()) as u32;
@@ -37,6 +74,18 @@ impl PersistentGpuBufferable for Arc<[Meshlet]> {
     }
 }
 
+impl PersistentGpuBufferable for Arc<[MeshletCullData]> {
+    type Metadata = ();
+
+    fn size_in_bytes(&self) -> usize {
+        self.len() * size_of::<MeshletCullData>()
+    }
+
+    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8], _: BufferAddress) {
+        buffer_slice.clone_from_slice(bytemuck::cast_slice(self));
+    }
+}
+
 impl PersistentGpuBufferable for Arc<[u8]> {
     type Metadata = ();
 
@@ -44,7 +93,7 @@ impl PersistentGpuBufferable for Arc<[u8]> {
         self.len()
     }
 
-    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8]) {
+    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8], _: BufferAddress) {
         buffer_slice.clone_from_slice(self);
     }
 }
@@ -56,7 +105,7 @@ impl PersistentGpuBufferable for Arc<[u32]> {
         self.len() * size_of::<u32>()
     }
 
-    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8]) {
+    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8], _: BufferAddress) {
         buffer_slice.clone_from_slice(bytemuck::cast_slice(self));
     }
 }
@@ -68,31 +117,7 @@ impl PersistentGpuBufferable for Arc<[Vec2]> {
         self.len() * size_of::<Vec2>()
     }
 
-    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8]) {
-        buffer_slice.clone_from_slice(bytemuck::cast_slice(self));
-    }
-}
-
-impl PersistentGpuBufferable for Arc<[MeshletBoundingSpheres]> {
-    type Metadata = ();
-
-    fn size_in_bytes(&self) -> usize {
-        self.len() * size_of::<MeshletBoundingSpheres>()
-    }
-
-    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8]) {
-        buffer_slice.clone_from_slice(bytemuck::cast_slice(self));
-    }
-}
-
-impl PersistentGpuBufferable for Arc<[MeshletSimplificationError]> {
-    type Metadata = ();
-
-    fn size_in_bytes(&self) -> usize {
-        self.len() * size_of::<MeshletSimplificationError>()
-    }
-
-    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8]) {
+    fn write_bytes_le(&self, _: Self::Metadata, buffer_slice: &mut [u8], _: BufferAddress) {
         buffer_slice.clone_from_slice(bytemuck::cast_slice(self));
     }
 }

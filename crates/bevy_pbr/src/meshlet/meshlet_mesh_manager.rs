@@ -1,8 +1,6 @@
-use super::{
-    asset::{Meshlet, MeshletBoundingSpheres, MeshletSimplificationError},
-    persistent_buffer::PersistentGpuBuffer,
-    MeshletMesh,
-};
+use crate::meshlet::asset::{BvhNode, MeshletCullData};
+
+use super::{asset::Meshlet, persistent_buffer::PersistentGpuBuffer, MeshletMesh};
 use alloc::sync::Arc;
 use bevy_asset::{AssetId, Assets};
 use bevy_ecs::{
@@ -25,10 +23,10 @@ pub struct MeshletMeshManager {
     pub vertex_normals: PersistentGpuBuffer<Arc<[u32]>>,
     pub vertex_uvs: PersistentGpuBuffer<Arc<[Vec2]>>,
     pub indices: PersistentGpuBuffer<Arc<[u8]>>,
+    pub bvh_nodes: PersistentGpuBuffer<Arc<[BvhNode]>>,
     pub meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
-    pub meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSpheres]>>,
-    pub meshlet_simplification_errors: PersistentGpuBuffer<Arc<[MeshletSimplificationError]>>,
-    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, [Range<BufferAddress>; 7]>,
+    pub meshlet_cull_data: PersistentGpuBuffer<Arc<[MeshletCullData]>>,
+    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, ([Range<BufferAddress>; 7], u32)>,
 }
 
 impl FromWorld for MeshletMeshManager {
@@ -39,26 +37,21 @@ impl FromWorld for MeshletMeshManager {
             vertex_normals: PersistentGpuBuffer::new("meshlet_vertex_normals", render_device),
             vertex_uvs: PersistentGpuBuffer::new("meshlet_vertex_uvs", render_device),
             indices: PersistentGpuBuffer::new("meshlet_indices", render_device),
+            bvh_nodes: PersistentGpuBuffer::new("meshlet_bvh_nodes", render_device),
             meshlets: PersistentGpuBuffer::new("meshlets", render_device),
-            meshlet_bounding_spheres: PersistentGpuBuffer::new(
-                "meshlet_bounding_spheres",
-                render_device,
-            ),
-            meshlet_simplification_errors: PersistentGpuBuffer::new(
-                "meshlet_simplification_errors",
-                render_device,
-            ),
+            meshlet_cull_data: PersistentGpuBuffer::new("meshlet_cull_data", render_device),
             meshlet_mesh_slices: HashMap::default(),
         }
     }
 }
 
 impl MeshletMeshManager {
+    // Returns the index of the root BVH node, as well as the depth of the BVH.
     pub fn queue_upload_if_needed(
         &mut self,
         asset_id: AssetId<MeshletMesh>,
         assets: &mut Assets<MeshletMesh>,
-    ) -> Range<u32> {
+    ) -> (u32, u32) {
         let queue_meshlet_mesh = |asset_id: &AssetId<MeshletMesh>| {
             let meshlet_mesh = assets.remove_untracked(*asset_id).expect(
                 "MeshletMesh asset was already unloaded but is not registered with MeshletMeshManager",
@@ -84,51 +77,56 @@ impl MeshletMeshManager {
                     indices_slice.start,
                 ),
             );
-            let meshlet_bounding_spheres_slice = self
-                .meshlet_bounding_spheres
-                .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres), ());
-            let meshlet_simplification_errors_slice = self
-                .meshlet_simplification_errors
-                .queue_write(Arc::clone(&meshlet_mesh.meshlet_simplification_errors), ());
+            let base_meshlet_index = (meshlets_slice.start / size_of::<Meshlet>() as u64) as u32;
+            let bvh_node_slice = self
+                .bvh_nodes
+                .queue_write(Arc::clone(&meshlet_mesh.bvh), base_meshlet_index);
+            let meshlet_cull_data_slice = self
+                .meshlet_cull_data
+                .queue_write(Arc::clone(&meshlet_mesh.meshlet_cull_data), ());
 
-            [
-                vertex_positions_slice,
-                vertex_normals_slice,
-                vertex_uvs_slice,
-                indices_slice,
-                meshlets_slice,
-                meshlet_bounding_spheres_slice,
-                meshlet_simplification_errors_slice,
-            ]
+            (
+                [
+                    vertex_positions_slice,
+                    vertex_normals_slice,
+                    vertex_uvs_slice,
+                    indices_slice,
+                    bvh_node_slice,
+                    meshlets_slice,
+                    meshlet_cull_data_slice,
+                ],
+                meshlet_mesh.bvh_depth,
+            )
         };
 
         // If the MeshletMesh asset has not been uploaded to the GPU yet, queue it for uploading
-        let [_, _, _, _, meshlets_slice, _, _] = self
+        let ([_, _, _, _, bvh_node_slice, _, _], bvh_depth) = self
             .meshlet_mesh_slices
             .entry(asset_id)
             .or_insert_with_key(queue_meshlet_mesh)
             .clone();
 
-        let meshlets_slice_start = meshlets_slice.start as u32 / size_of::<Meshlet>() as u32;
-        let meshlets_slice_end = meshlets_slice.end as u32 / size_of::<Meshlet>() as u32;
-        meshlets_slice_start..meshlets_slice_end
+        (
+            (bvh_node_slice.start / size_of::<BvhNode>() as u64) as u32,
+            bvh_depth,
+        )
     }
 
     pub fn remove(&mut self, asset_id: &AssetId<MeshletMesh>) {
-        if let Some(
-            [vertex_positions_slice, vertex_normals_slice, vertex_uvs_slice, indices_slice, meshlets_slice, meshlet_bounding_spheres_slice, meshlet_simplification_errors_slice],
-        ) = self.meshlet_mesh_slices.remove(asset_id)
+        if let Some((
+            [vertex_positions_slice, vertex_normals_slice, vertex_uvs_slice, indices_slice, bvh_node_slice, meshlets_slice, meshlet_cull_data_slice],
+            _,
+        )) = self.meshlet_mesh_slices.remove(asset_id)
         {
             self.vertex_positions
                 .mark_slice_unused(vertex_positions_slice);
             self.vertex_normals.mark_slice_unused(vertex_normals_slice);
             self.vertex_uvs.mark_slice_unused(vertex_uvs_slice);
             self.indices.mark_slice_unused(indices_slice);
+            self.bvh_nodes.mark_slice_unused(bvh_node_slice);
             self.meshlets.mark_slice_unused(meshlets_slice);
-            self.meshlet_bounding_spheres
-                .mark_slice_unused(meshlet_bounding_spheres_slice);
-            self.meshlet_simplification_errors
-                .mark_slice_unused(meshlet_simplification_errors_slice);
+            self.meshlet_cull_data
+                .mark_slice_unused(meshlet_cull_data_slice);
         }
     }
 }
@@ -152,12 +150,12 @@ pub fn perform_pending_meshlet_mesh_writes(
         .indices
         .perform_writes(&render_queue, &render_device);
     meshlet_mesh_manager
+        .bvh_nodes
+        .perform_writes(&render_queue, &render_device);
+    meshlet_mesh_manager
         .meshlets
         .perform_writes(&render_queue, &render_device);
     meshlet_mesh_manager
-        .meshlet_bounding_spheres
-        .perform_writes(&render_queue, &render_device);
-    meshlet_mesh_manager
-        .meshlet_simplification_errors
+        .meshlet_cull_data
         .perform_writes(&render_queue, &render_device);
 }

@@ -17,15 +17,16 @@ use bevy_render::{
     render_resource::StorageBuffer, sync_world::MainEntity, view::RenderLayers, MainWorld,
 };
 use bevy_transform::components::GlobalTransform;
-use core::ops::{DerefMut, Range};
+use core::ops::DerefMut;
 
 /// Manages data for each entity with a [`MeshletMesh`].
 #[derive(Resource)]
 pub struct InstanceManager {
     /// Amount of instances in the scene.
     pub scene_instance_count: u32,
-    /// Amount of clusters in the scene.
-    pub scene_cluster_count: u32,
+    /// The max BVH depth of any instance in the scene. This is used to control the number of
+    /// dependent dispatches emitted for BVH traversal.
+    pub max_bvh_depth: u32,
 
     /// Per-instance [`MainEntity`], [`RenderLayers`], and [`NotShadowCaster`].
     pub instances: Vec<(MainEntity, RenderLayers, bool)>,
@@ -33,10 +34,8 @@ pub struct InstanceManager {
     pub instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
     /// Per-instance material ID.
     pub instance_material_ids: StorageBuffer<Vec<u32>>,
-    /// Per-instance count of meshlets in the instance's [`MeshletMesh`].
-    pub instance_meshlet_counts: StorageBuffer<Vec<u32>>,
-    /// Per-instance index to the start of the instance's slice of the meshlets buffer.
-    pub instance_meshlet_slice_starts: StorageBuffer<Vec<u32>>,
+    /// Per-instance index to the root node of the instance's BVH.
+    pub instance_bvh_root_nodes: StorageBuffer<Vec<u32>>,
     /// Per-view per-instance visibility bit. Used for [`RenderLayers`] and [`NotShadowCaster`] support.
     pub view_instance_visibility: EntityHashMap<StorageBuffer<Vec<u32>>>,
 
@@ -52,7 +51,7 @@ impl InstanceManager {
     pub fn new() -> Self {
         Self {
             scene_instance_count: 0,
-            scene_cluster_count: 0,
+            max_bvh_depth: 0,
 
             instances: Vec::new(),
             instance_uniforms: {
@@ -65,14 +64,9 @@ impl InstanceManager {
                 buffer.set_label(Some("meshlet_instance_material_ids"));
                 buffer
             },
-            instance_meshlet_counts: {
+            instance_bvh_root_nodes: {
                 let mut buffer = StorageBuffer::default();
-                buffer.set_label(Some("meshlet_instance_meshlet_counts"));
-                buffer
-            },
-            instance_meshlet_slice_starts: {
-                let mut buffer = StorageBuffer::default();
-                buffer.set_label(Some("meshlet_instance_meshlet_slice_starts"));
+                buffer.set_label(Some("meshlet_instance_bvh_root_nodes"));
                 buffer
             },
             view_instance_visibility: EntityHashMap::default(),
@@ -86,7 +80,8 @@ impl InstanceManager {
     pub fn add_instance(
         &mut self,
         instance: MainEntity,
-        meshlets_slice: Range<u32>,
+        root_bvh_node: u32,
+        bvh_depth: u32,
         transform: &GlobalTransform,
         previous_transform: Option<&PreviousGlobalTransform>,
         render_layers: Option<&RenderLayers>,
@@ -140,15 +135,10 @@ impl InstanceManager {
         ));
         self.instance_uniforms.get_mut().push(mesh_uniform);
         self.instance_material_ids.get_mut().push(0);
-        self.instance_meshlet_counts
-            .get_mut()
-            .push(meshlets_slice.len() as u32);
-        self.instance_meshlet_slice_starts
-            .get_mut()
-            .push(meshlets_slice.start);
+        self.instance_bvh_root_nodes.get_mut().push(root_bvh_node);
 
         self.scene_instance_count += 1;
-        self.scene_cluster_count += meshlets_slice.len() as u32;
+        self.max_bvh_depth = self.max_bvh_depth.max(bvh_depth);
     }
 
     /// Get the material ID for a [`crate::Material`].
@@ -168,13 +158,12 @@ impl InstanceManager {
 
     pub fn reset(&mut self, entities: &Entities) {
         self.scene_instance_count = 0;
-        self.scene_cluster_count = 0;
+        self.max_bvh_depth = 0;
 
         self.instances.clear();
         self.instance_uniforms.get_mut().clear();
         self.instance_material_ids.get_mut().clear();
-        self.instance_meshlet_counts.get_mut().clear();
-        self.instance_meshlet_slice_starts.get_mut().clear();
+        self.instance_bvh_root_nodes.get_mut().clear();
         self.view_instance_visibility
             .retain(|view_entity, _| entities.contains(*view_entity));
         self.view_instance_visibility
@@ -233,6 +222,7 @@ pub fn extract_meshlet_mesh_entities(
     }
 
     // Iterate over every instance
+    // TODO: Switch to change events to not upload every instance every frame.
     for (
         instance,
         meshlet_mesh,
@@ -252,13 +242,14 @@ pub fn extract_meshlet_mesh_entities(
         }
 
         // Upload the instance's MeshletMesh asset data if not done already done
-        let meshlets_slice =
+        let (root_bvh_node, bvh_depth) =
             meshlet_mesh_manager.queue_upload_if_needed(meshlet_mesh.id(), &mut assets);
 
         // Add the instance's data to the instance manager
         instance_manager.add_instance(
             instance.into(),
-            meshlets_slice,
+            root_bvh_node,
+            bvh_depth,
             transform,
             previous_transform,
             render_layers,
