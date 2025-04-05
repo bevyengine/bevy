@@ -4,7 +4,17 @@ version = "0.16.0-dev"
 edition = "2024"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
-exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
+include = [
+  "/docs/**",
+  "/docs-rs/**",
+  "/examples/**",
+  "/src/**",
+  "/tests/**",
+  "/tests-integration",
+  "/LICENSE-APACHE",
+  "/LICENSE-MIT",
+  "/README.md",
+]
 homepage = "https://bevyengine.org"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
