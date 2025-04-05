@@ -1071,7 +1071,7 @@ impl EntityDoesNotExistError {
 /// regarding an entity that did not exist.
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct EntityDoesNotExistDetails {
-    location: MaybeLocation<Option<&'static Location<'static>>>,
+    pub(crate) location: MaybeLocation<Option<&'static Location<'static>>>,
 }
 
 impl fmt::Display for EntityDoesNotExistDetails {
