@@ -13,8 +13,12 @@ use core::{
     },
 };
 
-use crate::hash::FixedHasher;
 use hashbrown::{hash_set as hb, Equivalent};
+
+use crate::hash::FixedHasher;
+
+#[cfg(feature = "rayon")]
+use rayon::prelude::{FromParallelIterator, IntoParallelIterator, ParallelExtend};
 
 // Re-exports to match `std::collections::hash_set`
 pub use hb::{Difference, Drain, Intersection, IntoIter, Iter, SymmetricDifference, Union};
@@ -213,6 +217,60 @@ where
         D: serde::Deserializer<'de>,
     {
         Ok(Self(serde::Deserialize::deserialize(deserializer)?))
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<T, S, U> FromParallelIterator<U> for HashSet<T, S>
+where
+    hb::HashSet<T, S>: FromParallelIterator<U>,
+    U: Send,
+{
+    fn from_par_iter<P>(par_iter: P) -> Self
+    where
+        P: IntoParallelIterator<Item = U>,
+    {
+        Self(<hb::HashSet<T, S> as FromParallelIterator<U>>::from_par_iter(par_iter))
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<'a, T, S> IntoParallelIterator for HashSet<T, S>
+where
+    hb::HashSet<T, S>: IntoParallelIterator,
+{
+    type Item = <hb::HashSet<T, S> as IntoParallelIterator>::Item;
+    type Iter = <hb::HashSet<T, S> as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        self.0.into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<'a, T: Sync, S> IntoParallelIterator for &'a HashSet<T, S>
+where
+    &'a hb::HashSet<T, S>: IntoParallelIterator,
+{
+    type Item = <&'a hb::HashSet<T, S> as IntoParallelIterator>::Item;
+    type Iter = <&'a hb::HashSet<T, S> as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        (&self.0).into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<'a, T, S, U> ParallelExtend<U> for HashSet<T, S>
+where
+    hb::HashSet<T, S>: ParallelExtend<U>,
+    U: Send,
+{
+    fn par_extend<I>(&mut self, par_iter: I)
+    where
+        I: IntoParallelIterator<Item = U>,
+    {
+        <hb::HashSet<T, S> as ParallelExtend<U>>::par_extend(&mut self.0, par_iter);
     }
 }
 

@@ -10,8 +10,12 @@ use core::{
     ops::{Deref, DerefMut, Index},
 };
 
-use crate::hash::FixedHasher;
 use hashbrown::{hash_map as hb, Equivalent};
+
+use crate::hash::FixedHasher;
+
+#[cfg(feature = "rayon")]
+use rayon::prelude::{FromParallelIterator, IntoParallelIterator, ParallelExtend};
 
 // Re-exports to match `std::collections::hash_map`
 pub use {
@@ -224,6 +228,73 @@ where
         D: serde::Deserializer<'de>,
     {
         Ok(Self(serde::Deserialize::deserialize(deserializer)?))
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<K, V, S, T> FromParallelIterator<T> for HashMap<K, V, S>
+where
+    hb::HashMap<K, V, S>: FromParallelIterator<T>,
+    T: Send,
+{
+    fn from_par_iter<P>(par_iter: P) -> Self
+    where
+        P: IntoParallelIterator<Item = T>,
+    {
+        Self(<hb::HashMap<K, V, S> as FromParallelIterator<T>>::from_par_iter(par_iter))
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<'a, K, V, S> IntoParallelIterator for HashMap<K, V, S>
+where
+    hb::HashMap<K, V, S>: IntoParallelIterator,
+{
+    type Item = <hb::HashMap<K, V, S> as IntoParallelIterator>::Item;
+    type Iter = <hb::HashMap<K, V, S> as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        self.0.into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<'a, K: Sync, V: Sync, S> IntoParallelIterator for &'a HashMap<K, V, S>
+where
+    &'a hb::HashMap<K, V, S>: IntoParallelIterator,
+{
+    type Item = <&'a hb::HashMap<K, V, S> as IntoParallelIterator>::Item;
+    type Iter = <&'a hb::HashMap<K, V, S> as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        (&self.0).into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<'a, K: Sync, V: Sync, S> IntoParallelIterator for &'a mut HashMap<K, V, S>
+where
+    &'a mut hb::HashMap<K, V, S>: IntoParallelIterator,
+{
+    type Item = <&'a mut hb::HashMap<K, V, S> as IntoParallelIterator>::Item;
+    type Iter = <&'a mut hb::HashMap<K, V, S> as IntoParallelIterator>::Iter;
+
+    fn into_par_iter(self) -> Self::Iter {
+        (&mut self.0).into_par_iter()
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<'a, K, V, S, T> ParallelExtend<T> for HashMap<K, V, S>
+where
+    hb::HashMap<K, V, S>: ParallelExtend<T>,
+    T: Send,
+{
+    fn par_extend<I>(&mut self, par_iter: I)
+    where
+        I: IntoParallelIterator<Item = T>,
+    {
+        <hb::HashMap<K, V, S> as ParallelExtend<T>>::par_extend(&mut self.0, par_iter);
     }
 }
 

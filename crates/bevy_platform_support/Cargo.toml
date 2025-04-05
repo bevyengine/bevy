@@ -16,6 +16,9 @@ default = ["std"]
 ## Adds serialization support through `serde`.
 serialize = ["dep:serde", "hashbrown/serde"]
 
+## Adds integration with Rayon.
+rayon = ["dep:rayon", "hashbrown/rayon"]
+
 # Platform Compatibility
 
 ## Allows access to the `std` crate. Enabling this feature will prevent compilation
@@ -59,6 +62,7 @@ hashbrown = { version = "0.15.1", features = [
   "raw-entry",
 ], optional = true, default-features = false }
 serde = { version = "1", default-features = false, optional = true }
+rayon = { version = "1", default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { version = "1.1", default-features = false, optional = true }
