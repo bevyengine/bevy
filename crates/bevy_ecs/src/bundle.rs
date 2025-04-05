@@ -1420,6 +1420,8 @@ impl<'w> BundleSpawner<'w> {
         table.reserve(additional);
     }
 
+    /// **Note:** This will not cause eny entities to be freed.
+    ///
     /// # Safety
     /// `entity` must be allocated (but non-existent), `T` must match this [`BundleInfo`]'s type
     #[inline]
