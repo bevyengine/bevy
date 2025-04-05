@@ -119,7 +119,7 @@ impl Chunk {
     ///
     /// # Safety
     ///
-    /// [`Self::set`] must have been called on this index before.
+    /// [`Self::set`] must have been called on this index before, ensuring it is in bounds and the chunk is initialized.
     #[inline]
     unsafe fn get(&self, index: u32) -> Entity {
         // SAFETY: caller ensure we are init.
@@ -127,15 +127,14 @@ impl Chunk {
         // SAFETY: caller ensures we are in bounds (because `set` must be in bounds)
         let target = unsafe { &*head.add(index as usize) };
 
-        // SAFETY: caller ensures `set` was called.
-        unsafe { target.get_entity() }
+        target.get_entity()
     }
 
     /// Gets a slice of indices.
     ///
     /// # Safety
     ///
-    /// [`Self::set`] must have been called on these indices before.
+    /// [`Self::set`] must have been called on these indices before, ensuring it is in bounds and the chunk is initialized.
     #[inline]
     unsafe fn get_slice(&self, index: u32, ideal_len: u32, index_of_self: u32) -> &[Slot] {
         let cap = Self::capacity_of_chunk(index_of_self);
@@ -497,10 +496,6 @@ impl Drop for FreeBuffer {
 }
 
 /// A list that iterates the [`FreeBuffer`].
-///
-/// # Safety
-///
-/// Must be constructed to only iterate slots that have been initialized.
 struct FreeListSliceIterator<'a> {
     buffer: &'a FreeBuffer,
     indices: core::ops::RangeInclusive<u32>,
@@ -513,10 +508,7 @@ impl<'a> Iterator for FreeListSliceIterator<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(sliced) = self.current.next() {
-            // SAFETY: Ensured by constructor
-            unsafe {
-                return Some(sliced.get_entity());
-            }
+            return Some(sliced.get_entity());
         }
 
         let next_index = self.indices.next()?;
@@ -529,8 +521,7 @@ impl<'a> Iterator for FreeListSliceIterator<'a> {
         self.indices = (*self.indices.start() + slice.len() as u32 - 1)..=(*self.indices.end());
 
         self.current = slice.iter();
-        // SAFETY: Ensured by constructor
-        unsafe { Some(self.current.next()?.get_entity()) }
+        Some(self.current.next()?.get_entity())
     }
 
     #[inline]
