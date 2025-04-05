@@ -73,41 +73,10 @@ struct Chunk {
 }
 
 impl Chunk {
-    const NUM_CHUNKS: u32 = 24;
-    const NUM_SKIPPED: u32 = u32::BITS - Self::NUM_CHUNKS;
-
     const fn new() -> Self {
         Self {
             first: AtomicPtr::new(core::ptr::null_mut()),
         }
-    }
-
-    /// Computes the capacity of the chunk at this index within [`Self::NUM_CHUNKS`].
-    /// The first 2 have length 512 (2^9) and the last has length (2^31)
-    #[inline]
-    fn capacity_of_chunk(chunk_index: u32) -> u32 {
-        // We do this because we're skipping the first `NUM_SKIPPED` powers, so we need to make up for them by doubling the first index.
-        // This is why the first 2 indices both have a capacity of 256.
-        let corrected = chunk_index.max(1);
-        // We add NUM_SKIPPED because the total capacity should be as if [`Self::NUM_CHUNKS`] were 32.
-        // This skips the first NUM_SKIPPED powers.
-        let corrected = corrected + Self::NUM_SKIPPED;
-        // This bit shift is just 2^corrected.
-        1 << corrected
-    }
-
-    /// For this index in the whole buffer, returns the index of the [`Chunk`] and the index within that chunk.
-    #[inline]
-    fn map_to_indices(full_index: u32) -> (u32, u32) {
-        // We do a `saturating_sub` because we skip the first `NUM_SKIPPED` powers to make space for the first chunk's entity count.
-        // The -1 is because this is the number of chunks, but we want the index in the end.
-        // We store chunks in smallest to biggest order, so we need to reverse it.
-        let chunk_index = (Self::NUM_CHUNKS - 1).saturating_sub(full_index.leading_zeros());
-        // We only need to cut off this particular bit.
-        // The capacity is only one bit, and if other bits needed to be dropped, `leading` would have been greater
-        let slice_index = full_index & !Self::capacity_of_chunk(chunk_index);
-
-        (chunk_index, slice_index)
     }
 
     /// Gets the entity at the index within this chunk.
@@ -131,9 +100,8 @@ impl Chunk {
     ///
     /// [`Self::set`] must have been called on these indices before, ensuring it is in bounds and the chunk is initialized.
     #[inline]
-    unsafe fn get_slice(&self, index: u32, ideal_len: u32, index_of_self: u32) -> &[Slot] {
-        let cap = Self::capacity_of_chunk(index_of_self);
-        let after_index_slice_len = cap - index;
+    unsafe fn get_slice(&self, index: u32, ideal_len: u32, chunk_capacity: u32) -> &[Slot] {
+        let after_index_slice_len = chunk_capacity - index;
         let len = after_index_slice_len.min(ideal_len) as usize;
 
         // SAFETY: caller ensure we are init.
@@ -151,8 +119,8 @@ impl Chunk {
     /// Index must be in bounds.
     /// Access does not conflict with another [`Self::get`].
     #[inline]
-    unsafe fn set(&self, index: u32, entity: Entity, index_of_self: u32) {
-        let head = self.ptr().unwrap_or_else(|| self.init(index_of_self));
+    unsafe fn set(&self, index: u32, entity: Entity, chunk_capacity: u32) {
+        let head = self.ptr().unwrap_or_else(|| self.init(chunk_capacity));
         // SAFETY: caller ensures it is in bounds and we are not fighting with other `set` calls or `get` calls.
         // A race condition is therefore impossible.
         let target = unsafe { &*head.add(index as usize) };
@@ -166,11 +134,10 @@ impl Chunk {
     ///
     /// This must not be called concurrently.
     #[cold]
-    unsafe fn init(&self, index: u32) -> *mut Slot {
-        let cap = Self::capacity_of_chunk(index);
+    unsafe fn init(&self, chunk_capacity: u32) -> *mut Slot {
         let mut buff = ManuallyDrop::new(Vec::new());
-        buff.reserve_exact(cap as usize);
-        buff.resize_with(cap as usize, Slot::empty);
+        buff.reserve_exact(chunk_capacity as usize);
+        buff.resize_with(chunk_capacity as usize, Slot::empty);
         let ptr = buff.as_mut_ptr();
         self.first.store(ptr, Ordering::Relaxed);
         ptr
@@ -181,12 +148,12 @@ impl Chunk {
     /// # Safety
     ///
     /// This must not be called concurrently.
-    unsafe fn dealloc(&self, index: u32) {
+    /// `chunk_capacity` must be the same as it was initialized with.
+    unsafe fn dealloc(&self, chunk_capacity: u32) {
         if let Some(to_drop) = self.ptr() {
-            let cap = Self::capacity_of_chunk(index) as usize;
             // SAFETY: This was created in [`Self::init`] from a standard Vec.
             unsafe {
-                Vec::from_raw_parts(to_drop, cap, cap);
+                Vec::from_raw_parts(to_drop, chunk_capacity as usize, chunk_capacity as usize);
             }
         }
     }
@@ -198,6 +165,147 @@ impl Chunk {
         (!ptr.is_null()).then_some(ptr)
     }
 }
+
+/// This is a buffer that has been split into chunks, so that each chunk is pinned in memory.
+/// Conceptually, each chunk is put end-to-end to form the buffer.
+/// This will expand in capacity as needed, but a separate system must track the length of the list in the buffer.
+struct ChunkedBuffer([Chunk; Self::NUM_CHUNKS as usize]);
+
+impl ChunkedBuffer {
+    const NUM_CHUNKS: u32 = 24;
+    const NUM_SKIPPED: u32 = u32::BITS - Self::NUM_CHUNKS;
+
+    const fn new() -> Self {
+        Self([const { Chunk::new() }; Self::NUM_CHUNKS as usize])
+    }
+
+    /// Computes the capacity of the chunk at this index within [`Self::NUM_CHUNKS`].
+    /// The first 2 have length 512 (2^9) and the last has length (2^31)
+    #[inline]
+    fn capacity_of_chunk(chunk_index: u32) -> u32 {
+        // We do this because we're skipping the first `NUM_SKIPPED` powers, so we need to make up for them by doubling the first index.
+        // This is why the first 2 indices both have a capacity of 256.
+        let corrected = chunk_index.max(1);
+        // We add NUM_SKIPPED because the total capacity should be as if [`Self::NUM_CHUNKS`] were 32.
+        // This skips the first NUM_SKIPPED powers.
+        let corrected = corrected + Self::NUM_SKIPPED;
+        // This bit shift is just 2^corrected.
+        1 << corrected
+    }
+
+    /// For this index in the whole buffer, returns the index of the [`Chunk`], the index within that chunk, and the capacity of that chunk.
+    #[inline]
+    fn index_info(full_index: u32) -> (u32, u32, u32) {
+        // We do a `saturating_sub` because we skip the first `NUM_SKIPPED` powers to make space for the first chunk's entity count.
+        // The -1 is because this is the number of chunks, but we want the index in the end.
+        // We store chunks in smallest to biggest order, so we need to reverse it.
+        let chunk_index = (Self::NUM_CHUNKS - 1).saturating_sub(full_index.leading_zeros());
+        let chunk_capacity = Self::capacity_of_chunk(chunk_index);
+        // We only need to cut off this particular bit.
+        // The capacity is only one bit, and if other bits needed to be dropped, `leading` would have been greater
+        let index_in_chunk = full_index & !chunk_capacity;
+
+        (chunk_index, index_in_chunk, chunk_capacity)
+    }
+
+    /// For this index in the whole buffer, returns the [`Chunk`], the index within that chunk, and the capacity of that chunk.
+    #[inline]
+    fn index_in_chunk(&self, full_index: u32) -> (&Chunk, u32, u32) {
+        let (chunk_index, index_in_chunk, chunk_capacity) = Self::index_info(full_index);
+        // SAFETY: The chunk index is correct
+        let chunk = unsafe { self.0.get_unchecked(chunk_index as usize) };
+        (chunk, index_in_chunk, chunk_capacity)
+    }
+
+    /// Gets the entity at an index.
+    ///
+    /// # Safety
+    ///
+    /// [`set`](Self::set) must have been called on this index to initialize the its memory.
+    unsafe fn get(&self, full_index: u32) -> Entity {
+        let (chunk, index, _) = self.index_in_chunk(full_index);
+        // SAFETY: Caller ensures this index was set
+        unsafe { chunk.get(index) }
+    }
+
+    /// Sets an entity at an index.
+    ///
+    /// # Safety
+    ///
+    /// This must not be called concurrently.
+    /// Access does not conflict with another [`Self::get`].
+    #[inline]
+    unsafe fn set(&self, full_index: u32, entity: Entity) {
+        let (chunk, index, chunk_capacity) = self.index_in_chunk(full_index);
+        // SAFETY: Ensured by caller and that the index is correct.
+        unsafe { chunk.set(index, entity, chunk_capacity) }
+    }
+
+    /// Iterates the entities in these indices.
+    ///
+    /// # Safety
+    ///
+    /// [`Self::set`] must have been called on these indices before to initialize memory.
+    #[inline]
+    unsafe fn iter(&self, indices: core::ops::RangeInclusive<u32>) -> ChunkedBufferIterator {
+        ChunkedBufferIterator {
+            buffer: self,
+            indices,
+            current: [].iter(),
+        }
+    }
+}
+
+impl Drop for ChunkedBuffer {
+    fn drop(&mut self) {
+        for index in 0..Self::NUM_CHUNKS {
+            let capacity = Self::capacity_of_chunk(index);
+            // SAFETY: we have `&mut` and the capacity is correct.
+            unsafe { self.0[index as usize].dealloc(capacity) };
+        }
+    }
+}
+
+/// An iterator over a [`ChunkedBuffer`].
+///
+/// # Safety
+///
+/// [`ChunkedBuffer::set`] must have been called on these indices before to initialize memory.
+struct ChunkedBufferIterator<'a> {
+    buffer: &'a ChunkedBuffer,
+    indices: core::ops::RangeInclusive<u32>,
+    current: core::slice::Iter<'a, Slot>,
+}
+
+impl<'a> Iterator for ChunkedBufferIterator<'a> {
+    type Item = Entity;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(found) = self.current.next() {
+            return Some(found.get_entity());
+        }
+
+        let next_index = self.indices.next()?;
+        let (chunk, index, chunk_capacity) = self.buffer.index_in_chunk(next_index);
+
+        // SAFETY: Assured by constructor
+        let slice = unsafe { chunk.get_slice(index, self.len() as u32 + 1, chunk_capacity) };
+        self.indices = (*self.indices.start() + slice.len() as u32 - 1)..=(*self.indices.end());
+
+        self.current = slice.iter();
+        Some(self.current.next()?.get_entity())
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.indices.end().saturating_sub(*self.indices.start()) as usize;
+        (len, Some(len))
+    }
+}
+
+impl<'a> ExactSizeIterator for ChunkedBufferIterator<'a> {}
+impl<'a> core::iter::FusedIterator for ChunkedBufferIterator<'a> {}
 
 /// This stores two things: the length of the buffer (which can be negative) and a generation value to track *any* change to the length.
 ///
@@ -334,9 +442,9 @@ impl FreeBufferLen {
 
 /// This is conceptually like a `Vec<Entity>` that stores entities pending reuse.
 struct FreeBuffer {
-    /// The chunks of the free list.
-    /// Put end-to-end, these chunks form a list of free entities.
-    chunks: [Chunk; Chunk::NUM_CHUNKS as usize],
+    /// The actual buffer of [`Slot`]s.
+    /// Conceptually, this is like the `RawVec` for this `Vec`.
+    buffer: ChunkedBuffer,
     /// The length of the free buffer
     len: FreeBufferLen,
 }
@@ -361,19 +469,16 @@ impl FreeBuffer {
     unsafe fn free(&self, entity: Entity) {
         // Disable remote allocation.
         let state = self.len.disable_len_for_state();
+
+        // Push onto the buffer
         let len = FreeBufferLen::len_from_state(state);
-        // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
-        let (chunk_index, index) = Chunk::map_to_indices(len);
-
-        // SAFETY: index is correct.
-        let chunk = unsafe { self.chunks.get_unchecked(chunk_index as usize) };
-
-        // SAFETY: Caller ensures this is not concurrent. The index is correct.
-        // This can not confluct with a `get` because we already disabled remote allocation.
+        // SAFETY: Caller ensures this does not conflict with `free` or `alloc` calls,
+        // and we just disabled remote allocation.
         unsafe {
-            chunk.set(index, entity, chunk_index);
+            self.buffer.set(len, entity);
         }
 
+        // Update length
         let new_len = len + 1;
         self.len.set_len(new_len, state);
     }
@@ -388,14 +493,9 @@ impl FreeBuffer {
         // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
         let len = self.len.pop_for_len(1);
         let index = len.checked_sub(1)?;
-        // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
-        let (chunk_index, index) = Chunk::map_to_indices(index);
-
-        // SAFETY: index is correct.
-        let chunk = unsafe { self.chunks.get_unchecked(chunk_index as usize) };
 
         // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
-        Some(unsafe { chunk.get(index) })
+        Some(unsafe { self.buffer.get(index) })
     }
 
     /// Allocates an as many [`Entity`]s from the free list as are available, up to `count`.
@@ -404,7 +504,7 @@ impl FreeBuffer {
     ///
     /// This must not conflict with [`Self::free`] calls for the duration of the returned iterator.
     #[inline]
-    unsafe fn alloc_many(&self, count: u32) -> FreeListSliceIterator {
+    unsafe fn alloc_many(&self, count: u32) -> ChunkedBufferIterator {
         // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
         let len = self.len.pop_for_len(count);
         let index = len.saturating_sub(count);
@@ -423,11 +523,7 @@ impl FreeBuffer {
         };
 
         // SAFETY: The indices are all less then the length.
-        FreeListSliceIterator {
-            buffer: self,
-            indices,
-            current: [].iter(),
-        }
+        unsafe { self.buffer.iter(indices) }
     }
 
     /// Allocates an [`Entity`] from the free list if one is available and it is safe to do so.
@@ -456,14 +552,8 @@ impl FreeBuffer {
             let len = FreeBufferLen::len_from_state(state);
             let index = len.checked_sub(1)?;
 
-            // We can cast to u32 safely because if it were to overflow, there would already be too many entities.
-            let (chunk_index, index) = Chunk::map_to_indices(index);
-
-            // SAFETY: index is correct.
-            let chunk = unsafe { self.chunks.get_unchecked(chunk_index as usize) };
-
             // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
-            let entity = unsafe { chunk.get(index) };
+            let entity = unsafe { self.buffer.get(index) };
 
             let ideal_state = FreeBufferLen::pop_from_state(state, 1);
             match self.len.try_set_state(state, ideal_state) {
@@ -475,59 +565,11 @@ impl FreeBuffer {
 
     fn new() -> Self {
         Self {
-            chunks: [const { Chunk::new() }; Chunk::NUM_CHUNKS as usize],
+            buffer: ChunkedBuffer::new(),
             len: FreeBufferLen::new_zero_len(),
         }
     }
 }
-
-impl Drop for FreeBuffer {
-    fn drop(&mut self) {
-        for index in 0..Chunk::NUM_CHUNKS {
-            // SAFETY: we have `&mut`
-            unsafe { self.chunks[index as usize].dealloc(index) };
-        }
-    }
-}
-
-/// A list that iterates the [`FreeBuffer`].
-struct FreeListSliceIterator<'a> {
-    buffer: &'a FreeBuffer,
-    indices: core::ops::RangeInclusive<u32>,
-    current: core::slice::Iter<'a, Slot>,
-}
-
-impl<'a> Iterator for FreeListSliceIterator<'a> {
-    type Item = Entity;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(sliced) = self.current.next() {
-            return Some(sliced.get_entity());
-        }
-
-        let next_index = self.indices.next()?;
-        let (chunk_index, inner_index) = Chunk::map_to_indices(next_index);
-        // SAFETY: index is correct
-        let chunk = unsafe { self.buffer.chunks.get_unchecked(chunk_index as usize) };
-
-        // SAFETY: Assured by constructor
-        let slice = unsafe { chunk.get_slice(inner_index, self.len() as u32 + 1, chunk_index) };
-        self.indices = (*self.indices.start() + slice.len() as u32 - 1)..=(*self.indices.end());
-
-        self.current = slice.iter();
-        Some(self.current.next()?.get_entity())
-    }
-
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.indices.end().saturating_sub(*self.indices.start()) as usize;
-        (len, Some(len))
-    }
-}
-
-impl<'a> ExactSizeIterator for FreeListSliceIterator<'a> {}
-impl<'a> core::iter::FusedIterator for FreeListSliceIterator<'a> {}
 
 /// This stores allocation data shared by all entity allocators.
 struct SharedAllocator {
@@ -706,7 +748,7 @@ impl core::fmt::Debug for Allocator {
 /// **NOTE:** Dropping will leak the remaining entities!
 pub struct AllocEntitiesIterator<'a> {
     new: core::ops::RangeInclusive<u32>,
-    reused: FreeListSliceIterator<'a>,
+    reused: ChunkedBufferIterator<'a>,
 }
 
 impl<'a> Iterator for AllocEntitiesIterator<'a> {
@@ -785,11 +827,11 @@ mod tests {
     /// Ensure the total capacity of [`OwnedBuffer`] is `u32::MAX + 1`, since the max *index* of an [`Entity`] is `u32::MAX`.
     #[test]
     fn chunk_capacity_sums() {
-        let total: usize = (0..Chunk::NUM_CHUNKS)
-            .map(Chunk::capacity_of_chunk)
-            .map(|x| x as usize)
+        let total: u64 = (0..ChunkedBuffer::NUM_CHUNKS)
+            .map(ChunkedBuffer::capacity_of_chunk)
+            .map(|x| x as u64)
             .sum();
-        let expected = u32::MAX as usize + 1;
+        let expected = u32::MAX as u64 + 1;
         assert_eq!(total, expected);
     }
 
@@ -797,22 +839,22 @@ mod tests {
     #[test]
     fn chunk_indexing() {
         let to_test = vec![
-            (0, (0, 0)), // index 0 cap = 512
-            (1, (0, 1)),
-            (256, (0, 256)),
-            (511, (0, 511)),
-            (512, (1, 0)), // index 1 cap = 512
-            (1023, (1, 511)),
-            (1024, (2, 0)), // index 2 cap = 1024
-            (1025, (2, 1)),
-            (2047, (2, 1023)),
-            (2048, (3, 0)), // index 3 cap = 2048
-            (4095, (3, 2047)),
-            (4096, (4, 0)), // index 3 cap = 4096
+            (0, (0, 0, 512)), // index 0 cap = 512
+            (1, (0, 1, 512)),
+            (256, (0, 256, 512)),
+            (511, (0, 511, 512)),
+            (512, (1, 0, 512)), // index 1 cap = 512
+            (1023, (1, 511, 512)),
+            (1024, (2, 0, 1024)), // index 2 cap = 1024
+            (1025, (2, 1, 1024)),
+            (2047, (2, 1023, 1024)),
+            (2048, (3, 0, 2048)), // index 3 cap = 2048
+            (4095, (3, 2047, 2048)),
+            (4096, (4, 0, 4096)), // index 3 cap = 4096
         ];
 
         for (input, output) in to_test {
-            assert_eq!(Chunk::map_to_indices(input), output);
+            assert_eq!(ChunkedBuffer::index_info(input), output);
         }
     }
 
