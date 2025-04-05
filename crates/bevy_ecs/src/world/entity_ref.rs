@@ -2952,6 +2952,16 @@ impl<'w> EntityWorldMut<'w> {
             .entity_get_spawned_or_despawned_by(self.entity)
             .map(|location| location.unwrap())
     }
+
+    /// Returns a new instance with a shorter lifetime.
+    /// This is useful if you have `&mut EntityWorldMut`, but you need `EntityWorldMut`.
+    pub fn reborrow(&mut self) -> EntityWorldMut<'_> {
+        EntityWorldMut {
+            world: &mut *self.world,
+            entity: self.entity,
+            location: self.location,
+        }
+    }
 }
 
 /// # Safety
