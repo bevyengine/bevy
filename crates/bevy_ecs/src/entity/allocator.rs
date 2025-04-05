@@ -76,7 +76,7 @@ impl Chunk {
     const NUM_CHUNKS: u32 = 24;
     const NUM_SKIPPED: u32 = u32::BITS - Self::NUM_CHUNKS;
 
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             first: AtomicPtr::new(core::ptr::null_mut()),
         }
@@ -475,7 +475,7 @@ impl FreeBuffer {
 
     fn new() -> Self {
         Self {
-            chunks: core::array::from_fn(|_index| Chunk::new()),
+            chunks: [const { Chunk::new() }; Chunk::NUM_CHUNKS as usize],
             len: FreeBufferLen::new_zero_len(),
         }
     }
