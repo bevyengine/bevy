@@ -1,4 +1,7 @@
-use core::hash::BuildHasher;
+use core::{
+    hash::BuildHasher,
+    ops::{Deref, DerefMut},
+};
 
 use crate::entity::{hash_set::EntityHashSet, index_set::EntityIndexSet, Entity};
 use alloc::vec::Vec;
@@ -487,7 +490,7 @@ impl RelationshipSourceCollection for EntityIndexSet {
     }
 
     fn reserve(&mut self, additional: usize) {
-        self.0.reserve(additional);
+        self.deref_mut().reserve(additional);
     }
 
     fn with_capacity(capacity: usize) -> Self {
@@ -499,7 +502,7 @@ impl RelationshipSourceCollection for EntityIndexSet {
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
-        self.0.shift_remove(&entity)
+        self.deref_mut().shift_remove(&entity)
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
@@ -507,15 +510,15 @@ impl RelationshipSourceCollection for EntityIndexSet {
     }
 
     fn len(&self) -> usize {
-        self.0.len()
+        self.deref().len()
     }
 
     fn clear(&mut self) {
-        self.0.clear();
+        self.deref_mut().clear();
     }
 
     fn shrink_to_fit(&mut self) {
-        self.0.shrink_to_fit();
+        self.deref_mut().shrink_to_fit();
     }
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
