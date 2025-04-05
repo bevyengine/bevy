@@ -49,14 +49,9 @@ impl Slot {
         self.inner_entity.store(entity.to_bits(), Ordering::Relaxed);
     }
 
-    /// Gets the stored entity.
-    ///
-    /// # Safety
-    ///
-    /// This slot *must* have been [`set_entity`](Self::set_entity) before this.
-    /// Otherwise, the entity may be invalid or meaningless.
+    /// Gets the stored entity. The result be [`Entity::PLACEHODLER`] unless [`set`](Self::set) has been called.
     #[inline]
-    unsafe fn get_entity(&self) -> Entity {
+    fn get_entity(&self) -> Entity {
         #[cfg(not(target_has_atomic = "64"))]
         return Entity {
             index: self.entity_index.load(Ordering::Relaxed),
@@ -66,7 +61,7 @@ impl Slot {
             },
         };
         #[cfg(target_has_atomic = "64")]
-        // SAFETY: Caller ensures this was set first.
+        // SAFETY: This is always sourced from a proper entity.
         return unsafe { Entity::from_bits_unchecked(self.inner_entity.load(Ordering::Relaxed)) };
     }
 }
