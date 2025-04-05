@@ -12,7 +12,7 @@ use bevy_reflect::{FromReflect, FromType, PartialReflect};
 /// [`EntityMapper`]: crate::entity::EntityMapper
 #[derive(Clone)]
 pub struct ReflectMapEntities {
-    map_entities: fn(&mut dyn PartialReflect, &mut dyn EntityMapper),
+    map_entities: fn(&mut (dyn PartialReflect + Send + Sync), &mut dyn EntityMapper),
 }
 
 impl ReflectMapEntities {
@@ -20,12 +20,16 @@ impl ReflectMapEntities {
     ///
     /// # Panics
     /// Panics if the type of the reflected value doesn't match.
-    pub fn map_entities(&self, reflected: &mut dyn PartialReflect, mapper: &mut dyn EntityMapper) {
+    pub fn map_entities(
+        &self,
+        reflected: &mut (dyn PartialReflect + Send + Sync),
+        mapper: &mut dyn EntityMapper,
+    ) {
         (self.map_entities)(reflected, mapper);
     }
 }
 
-impl<C: FromReflect + MapEntities> FromType<C> for ReflectMapEntities {
+impl<C: FromReflect + Send + Sync + MapEntities> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
         ReflectMapEntities {
             map_entities: |reflected, mut mapper| {

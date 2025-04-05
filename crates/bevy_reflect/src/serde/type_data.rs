@@ -87,7 +87,7 @@ impl SerializationData {
     /// let serialization_data = registry.get_type_data::<SerializationData>(TypeId::of::<MyStruct>()).unwrap();
     /// assert_eq!(789, serialization_data.generate_default(1).unwrap().take::<i32>().unwrap());
     /// ```
-    pub fn generate_default(&self, index: usize) -> Option<Box<dyn Reflect>> {
+    pub fn generate_default(&self, index: usize) -> Option<Box<dyn Reflect + Send + Sync>> {
         self.skipped_fields
             .get(&index)
             .map(SkippedField::generate_default)
@@ -107,7 +107,7 @@ impl SerializationData {
     ///
     /// Each item in the iterator is a tuple containing:
     /// 1. The reflected index of the field
-    /// 2. The (de)serialization metadata of the field  
+    /// 2. The (de)serialization metadata of the field
     pub fn iter_skipped(&self) -> Iter<'_, usize, SkippedField> {
         self.skipped_fields.iter()
     }
@@ -116,7 +116,7 @@ impl SerializationData {
 /// Data needed for (de)serialization of a skipped field.
 #[derive(Debug, Clone)]
 pub struct SkippedField {
-    default_fn: fn() -> Box<dyn Reflect>,
+    default_fn: fn() -> Box<dyn Reflect + Send + Sync>,
 }
 
 impl SkippedField {
@@ -125,12 +125,12 @@ impl SkippedField {
     /// # Arguments
     ///
     /// * `default_fn`: A function pointer used to generate a default instance of the field.
-    pub fn new(default_fn: fn() -> Box<dyn Reflect>) -> Self {
+    pub fn new(default_fn: fn() -> Box<dyn Reflect + Send + Sync>) -> Self {
         Self { default_fn }
     }
 
     /// Generates a default instance of the field.
-    pub fn generate_default(&self) -> Box<dyn Reflect> {
+    pub fn generate_default(&self) -> Box<dyn Reflect + Send + Sync> {
         (self.default_fn)()
     }
 }

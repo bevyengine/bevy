@@ -37,7 +37,7 @@ fn main() {
     // This trait object also gives us access to all the methods in the `PartialReflect` trait too.
     // The underlying type is still the same (in this case, `Player`),
     // but now we've hidden that information from the compiler.
-    let reflected: Box<dyn Reflect> = Box::new(player);
+    let reflected: Box<dyn Reflect + Send + Sync> = Box::new(player);
 
     // Because it's the same type under the hood, we can still downcast it back to the original type.
     assert!(reflected.downcast_ref::<Player>().is_some());
@@ -45,14 +45,14 @@ fn main() {
     // We can attempt to clone our value using `PartialReflect::reflect_clone`.
     // This will recursively call `PartialReflect::reflect_clone` on all fields of the type.
     // Or, if we had registered `ReflectClone` using `#[reflect(Clone)]`, it would simply call `Clone::clone` directly.
-    let cloned: Box<dyn Reflect> = reflected.reflect_clone().unwrap();
+    let cloned: Box<dyn Reflect + Send + Sync> = reflected.reflect_clone().unwrap();
     assert_eq!(cloned.downcast_ref::<Player>(), Some(&Player { id: 123 }));
 
     // Another way we can "clone" our data is by converting it to a dynamic type.
     // Notice here we bind it as a `dyn PartialReflect` instead of `dyn Reflect`.
     // This is because it returns a dynamic type that simply represents the original type.
     // In this case, because `Player` is a struct, it will return a `DynamicStruct`.
-    let dynamic: Box<dyn PartialReflect> = reflected.to_dynamic();
+    let dynamic: Box<dyn PartialReflect + Send + Sync> = reflected.to_dynamic();
     assert!(dynamic.is_dynamic());
 
     // And if we try to convert it back to a `dyn Reflect` trait object, we'll get `None`.
@@ -114,7 +114,7 @@ fn main() {
             .data::<ReflectDefault>()
             .expect("`ReflectDefault` should be registered");
 
-        let mut value: Box<dyn Reflect> = reflect_default.default();
+        let mut value: Box<dyn Reflect + Send + Sync> = reflect_default.default();
         value.apply(deserialized.as_ref());
 
         let identifiable: &dyn Identifiable = reflect_identifiable.get(value.as_reflect()).unwrap();
@@ -134,7 +134,7 @@ fn main() {
             .data::<ReflectFromReflect>()
             .expect("`ReflectFromReflect` should be registered");
 
-        let value: Box<dyn Reflect> = reflect_from_reflect
+        let value: Box<dyn Reflect + Send + Sync> = reflect_from_reflect
             .from_reflect(deserialized.as_ref())
             .unwrap();
         let identifiable: &dyn Identifiable = reflect_identifiable.get(value.as_reflect()).unwrap();

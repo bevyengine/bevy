@@ -434,7 +434,7 @@ impl SubApp {
     /// See [`App::register_type_data`].
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type_data<
-        T: bevy_reflect::Reflect + bevy_reflect::TypePath,
+        T: bevy_reflect::Reflect + Send + Sync + bevy_reflect::TypePath,
         D: bevy_reflect::TypeData + bevy_reflect::FromType<T>,
     >(
         &mut self,

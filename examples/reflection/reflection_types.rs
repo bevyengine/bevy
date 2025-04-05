@@ -67,7 +67,7 @@ enum F {
 fn setup() {
     let mut z = <HashMap<_, _>>::default();
     z.insert("Hello".to_string(), 1.0);
-    let value: Box<dyn Reflect> = Box::new(A {
+    let value: Box<dyn Reflect + Send + Sync> = Box::new(A {
         x: 1,
         y: vec![1, 2],
         z,

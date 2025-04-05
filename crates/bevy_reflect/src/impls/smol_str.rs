@@ -18,9 +18,9 @@ mod tests {
 
     #[test]
     fn should_partial_eq_smolstr() {
-        let a: &dyn PartialReflect = &SmolStr::new("A");
-        let a2: &dyn PartialReflect = &SmolStr::new("A");
-        let b: &dyn PartialReflect = &SmolStr::new("B");
+        let a: &(dyn PartialReflect + Send + Sync) = &SmolStr::new("A");
+        let a2: &(dyn PartialReflect + Send + Sync) = &SmolStr::new("A");
+        let b: &(dyn PartialReflect + Send + Sync) = &SmolStr::new("B");
         assert_eq!(Some(true), a.reflect_partial_eq(a2));
         assert_eq!(Some(false), a.reflect_partial_eq(b));
     }

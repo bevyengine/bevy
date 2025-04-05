@@ -37,14 +37,14 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let apply_impl = if let Some(remote_ty) = meta.remote_ty() {
         let ty = remote_ty.type_path();
         quote! {
-            if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#ty>(value) {
+            if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect + Send + Sync>::try_downcast_ref::<#ty>(value) {
                 *self = Self(#FQClone::clone(value));
                 return #FQResult::Ok(());
             }
         }
     } else {
         quote! {
-            if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<Self>(value) {
+            if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect + Send + Sync>::try_downcast_ref::<Self>(value) {
                 *self = #FQClone::clone(value);
                 return #FQResult::Ok(());
             }
@@ -78,14 +78,14 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
             }
 
             #[inline]
-            fn to_dynamic(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect> {
+            fn to_dynamic(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect + Send + Sync> {
                 #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#FQClone::clone(self))
             }
 
              #[inline]
             fn try_apply(
                 &mut self,
-                value: &dyn #bevy_reflect_path::PartialReflect
+                value: &(dyn #bevy_reflect_path::PartialReflect + Send + Sync)
             ) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
                 #apply_impl
 

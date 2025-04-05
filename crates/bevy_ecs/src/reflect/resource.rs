@@ -47,25 +47,28 @@ pub struct ReflectResource(ReflectResourceFns);
 #[derive(Clone)]
 pub struct ReflectResourceFns {
     /// Function pointer implementing [`ReflectResource::insert()`].
-    pub insert: fn(&mut World, &dyn PartialReflect, &TypeRegistry),
+    pub insert: fn(&mut World, &(dyn PartialReflect + Send + Sync), &TypeRegistry),
     /// Function pointer implementing [`ReflectResource::apply()`].
-    pub apply: fn(&mut World, &dyn PartialReflect),
+    pub apply: fn(&mut World, &(dyn PartialReflect + Send + Sync)),
     /// Function pointer implementing [`ReflectResource::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut World, &dyn PartialReflect, &TypeRegistry),
+    pub apply_or_insert: fn(&mut World, &(dyn PartialReflect + Send + Sync), &TypeRegistry),
     /// Function pointer implementing [`ReflectResource::remove()`].
     pub remove: fn(&mut World),
     /// Function pointer implementing [`ReflectResource::reflect()`].
-    pub reflect:
-        for<'w> fn(FilteredResources<'w, '_>) -> Result<&'w dyn Reflect, ResourceFetchError>,
+    pub reflect: for<'w> fn(
+        FilteredResources<'w, '_>,
+    ) -> Result<&'w (dyn Reflect + Send + Sync), ResourceFetchError>,
     /// Function pointer implementing [`ReflectResource::reflect_mut()`].
     pub reflect_mut: for<'w> fn(
         FilteredResourcesMut<'w, '_>,
-    ) -> Result<Mut<'w, dyn Reflect>, ResourceFetchError>,
+    )
+        -> Result<Mut<'w, dyn Reflect + Send + Sync>, ResourceFetchError>,
     /// Function pointer implementing [`ReflectResource::reflect_unchecked_mut()`].
     ///
     /// # Safety
     /// The function may only be called with an [`UnsafeWorldCell`] that can be used to mutably access the relevant resource.
-    pub reflect_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>) -> Option<Mut<'_, dyn Reflect>>,
+    pub reflect_unchecked_mut:
+        unsafe fn(UnsafeWorldCell<'_>) -> Option<Mut<'_, dyn Reflect + Send + Sync>>,
     /// Function pointer implementing [`ReflectResource::copy()`].
     pub copy: fn(&World, &mut World, &TypeRegistry),
     /// Function pointer implementing [`ReflectResource::register_resource()`].
@@ -88,7 +91,7 @@ impl ReflectResource {
     pub fn insert(
         &self,
         world: &mut World,
-        resource: &dyn PartialReflect,
+        resource: &(dyn PartialReflect + Send + Sync),
         registry: &TypeRegistry,
     ) {
         (self.0.insert)(world, resource, registry);
@@ -99,7 +102,7 @@ impl ReflectResource {
     /// # Panics
     ///
     /// Panics if there is no [`Resource`] of the given type.
-    pub fn apply(&self, world: &mut World, resource: &dyn PartialReflect) {
+    pub fn apply(&self, world: &mut World, resource: &(dyn PartialReflect + Send + Sync)) {
         (self.0.apply)(world, resource);
     }
 
@@ -107,7 +110,7 @@ impl ReflectResource {
     pub fn apply_or_insert(
         &self,
         world: &mut World,
-        resource: &dyn PartialReflect,
+        resource: &(dyn PartialReflect + Send + Sync),
         registry: &TypeRegistry,
     ) {
         (self.0.apply_or_insert)(world, resource, registry);
@@ -124,7 +127,7 @@ impl ReflectResource {
     pub fn reflect<'w, 's>(
         &self,
         resources: impl Into<FilteredResources<'w, 's>>,
-    ) -> Result<&'w dyn Reflect, ResourceFetchError> {
+    ) -> Result<&'w (dyn Reflect + Send + Sync), ResourceFetchError> {
         (self.0.reflect)(resources.into())
     }
 
@@ -134,7 +137,7 @@ impl ReflectResource {
     pub fn reflect_mut<'w, 's>(
         &self,
         resources: impl Into<FilteredResourcesMut<'w, 's>>,
-    ) -> Result<Mut<'w, dyn Reflect>, ResourceFetchError> {
+    ) -> Result<Mut<'w, dyn Reflect + Send + Sync>, ResourceFetchError> {
         (self.0.reflect_mut)(resources.into())
     }
 
@@ -146,7 +149,7 @@ impl ReflectResource {
     pub unsafe fn reflect_unchecked_mut<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
-    ) -> Option<Mut<'w, dyn Reflect>> {
+    ) -> Option<Mut<'w, dyn Reflect + Send + Sync>> {
         // SAFETY: caller promises to uphold uniqueness guarantees
         unsafe { (self.0.reflect_unchecked_mut)(world) }
     }
@@ -229,17 +232,21 @@ impl<R: Resource + FromReflect + TypePath> FromType<R> for ReflectResource {
             remove: |world| {
                 world.remove_resource::<R>();
             },
-            reflect: |world| world.get::<R>().map(|res| res.into_inner() as &dyn Reflect),
+            reflect: |world| {
+                world
+                    .get::<R>()
+                    .map(|res| res.into_inner() as &(dyn Reflect + Send + Sync))
+            },
             reflect_mut: |world| {
                 world
                     .into_mut::<R>()
-                    .map(|res| res.map_unchanged(|value| value as &mut dyn Reflect))
+                    .map(|res| res.map_unchanged(|value| value as &mut (dyn Reflect + Send + Sync)))
             },
             reflect_unchecked_mut: |world| {
                 // SAFETY: all usages of `reflect_unchecked_mut` guarantee that there is either a single mutable
                 // reference or multiple immutable ones alive at any given point
                 let res = unsafe { world.get_resource_mut::<R>() };
-                res.map(|res| res.map_unchanged(|value| value as &mut dyn Reflect))
+                res.map(|res| res.map_unchanged(|value| value as &mut (dyn Reflect + Send + Sync)))
             },
             copy: |source_world, destination_world, registry| {
                 let source_resource = source_world.resource::<R>();

@@ -39,7 +39,7 @@ use crate::{
 /// foo.insert_boxed(Box::new(123_u32));
 /// assert_eq!(foo.len(), 1);
 ///
-/// let field: &dyn PartialReflect = foo.get(&123_u32).unwrap();
+/// let field: &(dyn PartialReflect + Send + Sync) = foo.get(&123_u32).unwrap();
 /// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123_u32));
 /// ```
 ///
@@ -51,7 +51,10 @@ pub trait Set: PartialReflect {
     /// Returns a reference to the value.
     ///
     /// If no value is contained, returns `None`.
-    fn get(&self, value: &dyn PartialReflect) -> Option<&dyn PartialReflect>;
+    fn get(
+        &self,
+        value: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<&(dyn PartialReflect + Send + Sync)>;
 
     /// Returns the number of elements in the set.
     fn len(&self) -> usize;
@@ -62,12 +65,12 @@ pub trait Set: PartialReflect {
     }
 
     /// Returns an iterator over the values of the set.
-    fn iter(&self) -> Box<dyn Iterator<Item = &dyn PartialReflect> + '_>;
+    fn iter(&self) -> Box<dyn Iterator<Item = &(dyn PartialReflect + Send + Sync)> + '_>;
 
     /// Drain the values of this set to get a vector of owned values.
     ///
     /// After calling this function, `self` will be empty.
-    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect + Send + Sync>>;
 
     /// Clones the set, producing a [`DynamicSet`].
     #[deprecated(since = "0.16.0", note = "use `to_dynamic_set` instead")]
@@ -89,16 +92,16 @@ pub trait Set: PartialReflect {
     ///
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
-    fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool;
+    fn insert_boxed(&mut self, value: Box<dyn PartialReflect + Send + Sync>) -> bool;
 
     /// Removes a value from the set.
     ///
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
-    fn remove(&mut self, value: &dyn PartialReflect) -> bool;
+    fn remove(&mut self, value: &(dyn PartialReflect + Send + Sync)) -> bool;
 
     /// Checks if the given value is contained in the set
-    fn contains(&self, value: &dyn PartialReflect) -> bool;
+    fn contains(&self, value: &(dyn PartialReflect + Send + Sync)) -> bool;
 }
 
 /// A container for compile-time set info.
@@ -113,7 +116,7 @@ pub struct SetInfo {
 
 impl SetInfo {
     /// Create a new [`SetInfo`].
-    pub fn new<TSet: Set + TypePath, TValue: Reflect + TypePath>() -> Self {
+    pub fn new<TSet: Set + TypePath, TValue: Reflect + Send + Sync + TypePath>() -> Self {
         Self {
             ty: Type::of::<TSet>(),
             generics: Generics::new(),
@@ -151,7 +154,7 @@ impl SetInfo {
 #[derive(Default)]
 pub struct DynamicSet {
     represented_type: Option<&'static TypeInfo>,
-    hash_table: HashTable<Box<dyn PartialReflect>>,
+    hash_table: HashTable<Box<dyn PartialReflect + Send + Sync>>,
 }
 
 impl DynamicSet {
@@ -175,17 +178,17 @@ impl DynamicSet {
     }
 
     /// Inserts a typed value into the set.
-    pub fn insert<V: Reflect>(&mut self, value: V) {
+    pub fn insert<V: Reflect + Send + Sync + Send + Sync>(&mut self, value: V) {
         self.insert_boxed(Box::new(value));
     }
 
-    fn internal_hash(value: &dyn PartialReflect) -> u64 {
+    fn internal_hash(value: &(dyn PartialReflect + Send + Sync)) -> u64 {
         value.reflect_hash().expect(&hash_error!(value))
     }
 
     fn internal_eq(
-        value: &dyn PartialReflect,
-    ) -> impl FnMut(&Box<dyn PartialReflect>) -> bool + '_ {
+        value: &(dyn PartialReflect + Send + Sync),
+    ) -> impl FnMut(&Box<dyn PartialReflect + Send + Sync>) -> bool + '_ {
         |other| {
             value
                 .reflect_partial_eq(&**other)
@@ -195,7 +198,10 @@ impl DynamicSet {
 }
 
 impl Set for DynamicSet {
-    fn get(&self, value: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
+    fn get(
+        &self,
+        value: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<&(dyn PartialReflect + Send + Sync)> {
         self.hash_table
             .find(Self::internal_hash(value), Self::internal_eq(value))
             .map(|value| &**value)
@@ -205,16 +211,16 @@ impl Set for DynamicSet {
         self.hash_table.len()
     }
 
-    fn iter(&self) -> Box<dyn Iterator<Item = &dyn PartialReflect> + '_> {
+    fn iter(&self) -> Box<dyn Iterator<Item = &(dyn PartialReflect + Send + Sync)> + '_> {
         let iter = self.hash_table.iter().map(|v| &**v);
         Box::new(iter)
     }
 
-    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect + Send + Sync>> {
         self.hash_table.drain().collect::<Vec<_>>()
     }
 
-    fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool {
+    fn insert_boxed(&mut self, value: Box<dyn PartialReflect + Send + Sync>) -> bool {
         assert_eq!(
             value.reflect_partial_eq(&*value),
             Some(true),
@@ -239,14 +245,14 @@ impl Set for DynamicSet {
         }
     }
 
-    fn remove(&mut self, value: &dyn PartialReflect) -> bool {
+    fn remove(&mut self, value: &(dyn PartialReflect + Send + Sync)) -> bool {
         self.hash_table
             .find_entry(Self::internal_hash(value), Self::internal_eq(value))
             .map(HashTableOccupiedEntry::remove)
             .is_ok()
     }
 
-    fn contains(&self, value: &dyn PartialReflect) -> bool {
+    fn contains(&self, value: &(dyn PartialReflect + Send + Sync)) -> bool {
         self.hash_table
             .find(Self::internal_hash(value), Self::internal_eq(value))
             .is_some()
@@ -260,40 +266,42 @@ impl PartialReflect for DynamicSet {
     }
 
     #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect + Send + Sync> {
         self
     }
 
     #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
+    fn as_partial_reflect(&self) -> &(dyn PartialReflect + Send + Sync) {
         self
     }
 
     #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+    fn as_partial_reflect_mut(&mut self) -> &mut (dyn PartialReflect + Send + Sync) {
         self
     }
 
     #[inline]
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Err(self)
     }
 
     #[inline]
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+    fn try_as_reflect(&self) -> Option<&(dyn Reflect + Send + Sync)> {
         None
     }
 
     #[inline]
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+    fn try_as_reflect_mut(&mut self) -> Option<&mut (dyn Reflect + Send + Sync)> {
         None
     }
 
-    fn apply(&mut self, value: &dyn PartialReflect) {
+    fn apply(&mut self, value: &(dyn PartialReflect + Send + Sync)) {
         set_apply(self, value);
     }
 
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+    fn try_apply(&mut self, value: &(dyn PartialReflect + Send + Sync)) -> Result<(), ApplyError> {
         set_try_apply(self, value)
     }
 
@@ -313,7 +321,7 @@ impl PartialReflect for DynamicSet {
         ReflectOwned::Set(self)
     }
 
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &(dyn PartialReflect + Send + Sync)) -> Option<bool> {
         set_partial_eq(self, value)
     }
 
@@ -337,8 +345,8 @@ impl Debug for DynamicSet {
     }
 }
 
-impl FromIterator<Box<dyn PartialReflect>> for DynamicSet {
-    fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(values: I) -> Self {
+impl FromIterator<Box<dyn PartialReflect + Send + Sync>> for DynamicSet {
+    fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect + Send + Sync>>>(values: I) -> Self {
         let mut this = Self {
             represented_type: None,
             hash_table: HashTable::new(),
@@ -352,7 +360,7 @@ impl FromIterator<Box<dyn PartialReflect>> for DynamicSet {
     }
 }
 
-impl<T: Reflect> FromIterator<T> for DynamicSet {
+impl<T: Reflect + Send + Sync + Send + Sync> FromIterator<T> for DynamicSet {
     fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
         let mut this = Self {
             represented_type: None,
@@ -368,7 +376,7 @@ impl<T: Reflect> FromIterator<T> for DynamicSet {
 }
 
 impl IntoIterator for DynamicSet {
-    type Item = Box<dyn PartialReflect>;
+    type Item = Box<dyn PartialReflect + Send + Sync>;
     type IntoIter = bevy_platform_support::collections::hash_table::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -377,10 +385,13 @@ impl IntoIterator for DynamicSet {
 }
 
 impl<'a> IntoIterator for &'a DynamicSet {
-    type Item = &'a dyn PartialReflect;
+    type Item = &'a (dyn PartialReflect + Send + Sync);
     type IntoIter = core::iter::Map<
-        bevy_platform_support::collections::hash_table::Iter<'a, Box<dyn PartialReflect>>,
-        fn(&'a Box<dyn PartialReflect>) -> Self::Item,
+        bevy_platform_support::collections::hash_table::Iter<
+            'a,
+            Box<dyn PartialReflect + Send + Sync>,
+        >,
+        fn(&'a Box<dyn PartialReflect + Send + Sync>) -> Self::Item,
     >;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -398,7 +409,7 @@ impl<'a> IntoIterator for &'a DynamicSet {
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
-pub fn set_partial_eq<M: Set>(a: &M, b: &dyn PartialReflect) -> Option<bool> {
+pub fn set_partial_eq<M: Set>(a: &M, b: &(dyn PartialReflect + Send + Sync)) -> Option<bool> {
     let ReflectRef::Set(set) = b.reflect_ref() else {
         return Some(false);
     };
@@ -430,7 +441,7 @@ pub fn set_partial_eq<M: Set>(a: &M, b: &dyn PartialReflect) -> Option<bool> {
 ///
 /// let mut my_set = HashSet::new();
 /// my_set.insert(String::from("Hello"));
-/// println!("{:#?}", &my_set as &dyn Reflect);
+/// println!("{:#?}", &my_set as &(dyn Reflect + Send + Sync));
 ///
 /// // Output:
 ///
@@ -455,7 +466,7 @@ pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> core::fmt::Result 
 ///
 /// This function panics if `b` is not a reflected set.
 #[inline]
-pub fn set_apply<M: Set>(a: &mut M, b: &dyn PartialReflect) {
+pub fn set_apply<M: Set>(a: &mut M, b: &(dyn PartialReflect + Send + Sync)) {
     if let ReflectRef::Set(set_value) = b.reflect_ref() {
         for b_value in set_value.iter() {
             if a.get(b_value).is_none() {
@@ -477,7 +488,10 @@ pub fn set_apply<M: Set>(a: &mut M, b: &dyn PartialReflect) {
 /// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a reflected set or if
 /// applying elements to each other fails.
 #[inline]
-pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), ApplyError> {
+pub fn set_try_apply<S: Set>(
+    a: &mut S,
+    b: &(dyn PartialReflect + Send + Sync),
+) -> Result<(), ApplyError> {
     let set_value = b.reflect_ref().as_set()?;
 
     for b_value in set_value.iter() {

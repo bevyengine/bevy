@@ -948,9 +948,10 @@ pub fn process_remote_mutate_component_request(
 
     // Get the reflected representation of the value to be inserted
     // into the component.
-    let value: Box<dyn PartialReflect> = TypedReflectDeserializer::new(value_type, &type_registry)
-        .deserialize(&value)
-        .map_err(BrpError::component_error)?;
+    let value: Box<dyn PartialReflect + Send + Sync> =
+        TypedReflectDeserializer::new(value_type, &type_registry)
+            .deserialize(&value)
+            .map_err(BrpError::component_error)?;
 
     // Apply the mutation.
     reflected
@@ -998,7 +999,7 @@ pub fn process_remote_mutate_resource_request(
         })?;
 
     // Use the field's type registration to deserialize the given value.
-    let deserialized_value: Box<dyn PartialReflect> =
+    let deserialized_value: Box<dyn PartialReflect + Send + Sync> =
         TypedReflectDeserializer::new(value_registration, &type_registry)
             .deserialize(&value)
             .map_err(BrpError::resource_error)?;
@@ -1372,14 +1373,14 @@ fn reflect_component_from_id(
 fn deserialize_components(
     type_registry: &TypeRegistry,
     components: HashMap<String, Value>,
-) -> AnyhowResult<Vec<Box<dyn PartialReflect>>> {
+) -> AnyhowResult<Vec<Box<dyn PartialReflect + Send + Sync>>> {
     let mut reflect_components = vec![];
 
     for (component_path, component) in components {
         let Some(component_type) = type_registry.get_with_type_path(&component_path) else {
             return Err(anyhow!("Unknown component type: `{}`", component_path));
         };
-        let reflected: Box<dyn PartialReflect> =
+        let reflected: Box<dyn PartialReflect + Send + Sync> =
             TypedReflectDeserializer::new(component_type, type_registry)
                 .deserialize(&component)
                 .map_err(|err| anyhow!("{component_path} is invalid: {err}"))?;
@@ -1395,11 +1396,11 @@ fn deserialize_resource(
     type_registry: &TypeRegistry,
     resource_path: &str,
     value: Value,
-) -> AnyhowResult<Box<dyn PartialReflect>> {
+) -> AnyhowResult<Box<dyn PartialReflect + Send + Sync>> {
     let Some(resource_type) = type_registry.get_with_type_path(resource_path) else {
         return Err(anyhow!("Unknown resource type: `{}`", resource_path));
     };
-    let reflected: Box<dyn PartialReflect> =
+    let reflected: Box<dyn PartialReflect + Send + Sync> =
         TypedReflectDeserializer::new(resource_type, type_registry)
             .deserialize(&value)
             .map_err(|err| anyhow!("{resource_path} is invalid: {err}"))?;
@@ -1411,7 +1412,7 @@ fn deserialize_resource(
 fn insert_reflected_components(
     type_registry: &TypeRegistry,
     mut entity_world_mut: EntityWorldMut,
-    reflect_components: Vec<Box<dyn PartialReflect>>,
+    reflect_components: Vec<Box<dyn PartialReflect + Send + Sync>>,
 ) -> AnyhowResult<()> {
     for reflected in reflect_components {
         let reflect_component =

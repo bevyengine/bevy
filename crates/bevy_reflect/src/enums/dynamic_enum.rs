@@ -205,7 +205,7 @@ impl DynamicEnum {
 }
 
 impl Enum for DynamicEnum {
-    fn field(&self, name: &str) -> Option<&dyn PartialReflect> {
+    fn field(&self, name: &str) -> Option<&(dyn PartialReflect + Send + Sync)> {
         if let DynamicVariant::Struct(data) = &self.variant {
             data.field(name)
         } else {
@@ -213,7 +213,7 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect> {
+    fn field_at(&self, index: usize) -> Option<&(dyn PartialReflect + Send + Sync)> {
         if let DynamicVariant::Tuple(data) = &self.variant {
             data.field(index)
         } else {
@@ -221,7 +221,7 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect> {
+    fn field_mut(&mut self, name: &str) -> Option<&mut (dyn PartialReflect + Send + Sync)> {
         if let DynamicVariant::Struct(data) = &mut self.variant {
             data.field_mut(name)
         } else {
@@ -229,7 +229,7 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
+    fn field_at_mut(&mut self, index: usize) -> Option<&mut (dyn PartialReflect + Send + Sync)> {
         if let DynamicVariant::Tuple(data) = &mut self.variant {
             data.field_mut(index)
         } else {
@@ -298,34 +298,36 @@ impl PartialReflect for DynamicEnum {
     }
 
     #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect + Send + Sync> {
         self
     }
 
     #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
+    fn as_partial_reflect(&self) -> &(dyn PartialReflect + Send + Sync) {
         self
     }
 
     #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+    fn as_partial_reflect_mut(&mut self) -> &mut (dyn PartialReflect + Send + Sync) {
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Err(self)
     }
 
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+    fn try_as_reflect(&self) -> Option<&(dyn Reflect + Send + Sync)> {
         None
     }
 
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+    fn try_as_reflect_mut(&mut self) -> Option<&mut (dyn Reflect + Send + Sync)> {
         None
     }
 
     #[inline]
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+    fn try_apply(&mut self, value: &(dyn PartialReflect + Send + Sync)) -> Result<(), ApplyError> {
         let value = value.reflect_ref().as_enum()?;
 
         if Enum::variant_name(self) == value.variant_name() {
@@ -399,7 +401,7 @@ impl PartialReflect for DynamicEnum {
     }
 
     #[inline]
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &(dyn PartialReflect + Send + Sync)) -> Option<bool> {
         enum_partial_eq(self, value)
     }
 

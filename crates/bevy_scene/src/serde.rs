@@ -158,7 +158,7 @@ impl<'a> Serialize for EntitySerializer<'a> {
 /// Note: The entries are sorted by type path before they're serialized.
 pub struct SceneMapSerializer<'a> {
     /// List of boxed values of unique type to serialize.
-    pub entries: &'a [Box<dyn PartialReflect>],
+    pub entries: &'a [Box<dyn PartialReflect + Send + Sync>],
     /// Type registry in which the types used in `entries` are registered.
     pub registry: &'a TypeRegistry,
 }
@@ -245,7 +245,7 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
     where
         A: SeqAccess<'de>,
     {
-        let resources = seq
+        let resources: Vec<Box<dyn PartialReflect + Send + Sync>> = seq
             .next_element_seed(SceneMapDeserializer {
                 registry: self.type_registry,
             })?
@@ -437,7 +437,7 @@ pub struct SceneMapDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a> {
-    type Value = Vec<Box<dyn PartialReflect>>;
+    type Value = Vec<Box<dyn PartialReflect + Send + Sync>>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -454,7 +454,7 @@ struct SceneMapVisitor<'a> {
 }
 
 impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
-    type Value = Vec<Box<dyn PartialReflect>>;
+    type Value = Vec<Box<dyn PartialReflect + Send + Sync>>;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("map of reflect types")

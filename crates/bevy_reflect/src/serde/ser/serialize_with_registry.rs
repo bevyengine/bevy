@@ -49,7 +49,7 @@ pub trait SerializeWithRegistry {
 #[derive(Clone)]
 pub struct ReflectSerializeWithRegistry {
     serialize: for<'a> fn(
-        value: &'a dyn Reflect,
+        value: &'a (dyn Reflect + Send + Sync),
         registry: &'a TypeRegistry,
     ) -> Box<dyn erased_serde::Serialize + 'a>,
 }
@@ -58,7 +58,7 @@ impl ReflectSerializeWithRegistry {
     /// Serialize a [`Reflect`] type with this type data's custom [`SerializeWithRegistry`] implementation.
     pub fn serialize<S>(
         &self,
-        value: &dyn Reflect,
+        value: &(dyn Reflect + Send + Sync),
         serializer: S,
         registry: &TypeRegistry,
     ) -> Result<S::Ok, S::Error>
@@ -69,10 +69,12 @@ impl ReflectSerializeWithRegistry {
     }
 }
 
-impl<T: Reflect + SerializeWithRegistry> FromType<T> for ReflectSerializeWithRegistry {
+impl<T: Reflect + Send + Sync + SerializeWithRegistry + Send + Sync> FromType<T>
+    for ReflectSerializeWithRegistry
+{
     fn from_type() -> Self {
         Self {
-            serialize: |value: &dyn Reflect, registry| {
+            serialize: |value: &(dyn Reflect + Send + Sync), registry| {
                 let value = value.downcast_ref::<T>().unwrap_or_else(|| {
                     panic!(
                         "Expected value to be of type {} but received {}",

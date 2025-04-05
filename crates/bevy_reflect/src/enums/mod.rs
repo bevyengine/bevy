@@ -494,7 +494,7 @@ mod tests {
 
     #[test]
     fn enum_should_apply() {
-        let mut value: Box<dyn Reflect> = Box::new(MyEnum::A);
+        let mut value: Box<dyn Reflect + Send + Sync> = Box::new(MyEnum::A);
 
         // === MyEnum::A -> MyEnum::A === //
         value.apply(&MyEnum::A);
@@ -549,7 +549,7 @@ mod tests {
 
     #[test]
     fn enum_should_set() {
-        let mut value: Box<dyn Reflect> = Box::new(MyEnum::A);
+        let mut value: Box<dyn Reflect + Send + Sync> = Box::new(MyEnum::A);
 
         // === MyEnum::A -> MyEnum::A === //
         value.set(Box::new(MyEnum::A)).unwrap();
@@ -620,71 +620,71 @@ mod tests {
             C2 { value: f32 },
         }
 
-        let a: &dyn PartialReflect = &TestEnum::A;
-        let b: &dyn PartialReflect = &TestEnum::A;
+        let a: &(dyn PartialReflect + Send + Sync) = &TestEnum::A;
+        let b: &(dyn PartialReflect + Send + Sync) = &TestEnum::A;
         assert!(
             a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::A == TestEnum::A"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::A;
-        let b: &dyn PartialReflect = &TestEnum::A1;
+        let a: &(dyn PartialReflect + Send + Sync) = &TestEnum::A;
+        let b: &(dyn PartialReflect + Send + Sync) = &TestEnum::A1;
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::A != TestEnum::A1"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::B(123);
-        let b: &dyn PartialReflect = &TestEnum::B(123);
+        let a: &(dyn PartialReflect + Send + Sync) = &TestEnum::B(123);
+        let b: &(dyn PartialReflect + Send + Sync) = &TestEnum::B(123);
         assert!(
             a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) == TestEnum::B(123)"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::B(123);
-        let b: &dyn PartialReflect = &TestEnum::B(321);
+        let a: &(dyn PartialReflect + Send + Sync) = &TestEnum::B(123);
+        let b: &(dyn PartialReflect + Send + Sync) = &TestEnum::B(321);
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) != TestEnum::B(321)"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::B(123);
-        let b: &dyn PartialReflect = &TestEnum::B1(123);
+        let a: &(dyn PartialReflect + Send + Sync) = &TestEnum::B(123);
+        let b: &(dyn PartialReflect + Send + Sync) = &TestEnum::B1(123);
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) != TestEnum::B1(123)"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::B(123);
-        let b: &dyn PartialReflect = &TestEnum::B2(123, 123);
+        let a: &(dyn PartialReflect + Send + Sync) = &TestEnum::B(123);
+        let b: &(dyn PartialReflect + Send + Sync) = &TestEnum::B2(123, 123);
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) != TestEnum::B2(123, 123)"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
-        let b: &dyn PartialReflect = &TestEnum::C { value: 123 };
+        let a: &(dyn PartialReflect + Send + Sync) = &TestEnum::C { value: 123 };
+        let b: &(dyn PartialReflect + Send + Sync) = &TestEnum::C { value: 123 };
         assert!(
             a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} == TestEnum::C{{value: 123}}"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
-        let b: &dyn PartialReflect = &TestEnum::C { value: 321 };
+        let a: &(dyn PartialReflect + Send + Sync) = &TestEnum::C { value: 123 };
+        let b: &(dyn PartialReflect + Send + Sync) = &TestEnum::C { value: 321 };
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} != TestEnum::C{{value: 321}}"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
-        let b: &dyn PartialReflect = &TestEnum::C1 { value: 123 };
+        let a: &(dyn PartialReflect + Send + Sync) = &TestEnum::C { value: 123 };
+        let b: &(dyn PartialReflect + Send + Sync) = &TestEnum::C1 { value: 123 };
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} != TestEnum::C1{{value: 123}}"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
-        let b: &dyn PartialReflect = &TestEnum::C2 { value: 1.23 };
+        let a: &(dyn PartialReflect + Send + Sync) = &TestEnum::C { value: 123 };
+        let b: &(dyn PartialReflect + Send + Sync) = &TestEnum::C2 { value: 1.23 };
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} != TestEnum::C2{{value: 1.23}}"

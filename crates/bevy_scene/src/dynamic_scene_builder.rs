@@ -59,7 +59,7 @@ use bevy_utils::default;
 ///
 /// [`Reflect`]: bevy_reflect::Reflect
 pub struct DynamicSceneBuilder<'w> {
-    extracted_resources: BTreeMap<ComponentId, Box<dyn PartialReflect>>,
+    extracted_resources: BTreeMap<ComponentId, Box<dyn PartialReflect + Send + Sync>>,
     extracted_scene: BTreeMap<Entity, DynamicEntity>,
     component_filter: SceneFilter,
     resource_filter: SceneFilter,

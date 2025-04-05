@@ -53,7 +53,7 @@ pub struct ReflectDeserializeWithRegistry {
     deserialize: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
         registry: &TypeRegistry,
-    ) -> Result<Box<dyn PartialReflect>, erased_serde::Error>,
+    ) -> Result<Box<dyn PartialReflect + Send + Sync>, erased_serde::Error>,
 }
 
 impl ReflectDeserializeWithRegistry {
@@ -62,7 +62,7 @@ impl ReflectDeserializeWithRegistry {
         &self,
         deserializer: D,
         registry: &TypeRegistry,
-    ) -> Result<Box<dyn PartialReflect>, D::Error>
+    ) -> Result<Box<dyn PartialReflect + Send + Sync>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -71,7 +71,7 @@ impl ReflectDeserializeWithRegistry {
     }
 }
 
-impl<T: PartialReflect + for<'de> DeserializeWithRegistry<'de>> FromType<T>
+impl<T: PartialReflect + Send + Sync + for<'de> DeserializeWithRegistry<'de>> FromType<T>
     for ReflectDeserializeWithRegistry
 {
     fn from_type() -> Self {

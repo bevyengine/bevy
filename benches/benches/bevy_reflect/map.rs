@@ -53,7 +53,7 @@ fn map_apply<M, MBase, MPatch, F1, F2, F3>(
 ) where
     M: Measurement,
     MBase: Map,
-    MPatch: Map,
+    MPatch: Map + Send + Sync,
     F1: Fn(usize) -> F2,
     F2: Fn() -> MBase,
     F3: Fn(usize) -> MPatch,

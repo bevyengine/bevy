@@ -347,7 +347,7 @@ where
 impl<P: Send + Sync + 'static, C> AnimationCurve for AnimatableCurve<P, C>
 where
     P: AnimatableProperty + Clone,
-    C: AnimationCompatibleCurve<P::Property> + Clone,
+    C: AnimationCompatibleCurve<P::Property> + Clone + Send + Sync,
 {
     fn clone_value(&self) -> Box<dyn AnimationCurve> {
         Box::new(self.clone())
@@ -469,7 +469,7 @@ struct WeightsCurveEvaluator {
 
 impl<C> AnimationCurve for WeightsCurve<C>
 where
-    C: IterableCurve<f32> + Debug + Clone + Reflectable,
+    C: IterableCurve<f32> + Debug + Clone + Reflectable + Send + Sync,
 {
     fn clone_value(&self) -> Box<dyn AnimationCurve> {
         Box::new(self.clone())

@@ -42,7 +42,7 @@ pub trait ReflectCommandExt {
     /// // A resource that can hold any component that implements reflect as a boxed reflect component
     /// #[derive(Resource)]
     /// struct Prefab {
-    ///     data: Box<dyn Reflect>,
+    ///     data: Box<dyn Reflect + Send + Sync>,
     /// }
     /// #[derive(Component, Reflect, Default)]
     /// #[reflect(Component)]
@@ -64,9 +64,9 @@ pub trait ReflectCommandExt {
     ///     mut prefab: ResMut<Prefab>
     ///     ) {
     ///     // Create a set of new boxed reflect components to use
-    ///     let boxed_reflect_component_a: Box<dyn Reflect> = Box::new(ComponentA(916));
-    ///     let boxed_reflect_component_b: Box<dyn Reflect>  = Box::new(ComponentB("NineSixteen".to_string()));
-    ///     let boxed_reflect_bundle_a: Box<dyn Reflect> = Box::new(BundleA {
+    ///     let boxed_reflect_component_a: Box<dyn Reflect + Send + Sync> = Box::new(ComponentA(916));
+    ///     let boxed_reflect_component_b: Box<dyn Reflect + Send + Sync>  = Box::new(ComponentB("NineSixteen".to_string()));
+    ///     let boxed_reflect_bundle_a: Box<dyn Reflect + Send + Sync> = Box::new(BundleA {
     ///         a: ComponentA(24),
     ///         b: ComponentB("Twenty-Four".to_string()),
     ///     });
@@ -85,7 +85,7 @@ pub trait ReflectCommandExt {
     ///         .insert_reflect(prefab.data.reflect_clone().unwrap().into_partial_reflect());
     /// }
     /// ```
-    fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self;
+    fn insert_reflect(&mut self, component: Box<dyn PartialReflect + Send + Sync>) -> &mut Self;
 
     /// Same as [`insert_reflect`](ReflectCommandExt::insert_reflect), but using the `T` resource as type registry instead of
     /// `AppTypeRegistry`.
@@ -99,7 +99,7 @@ pub trait ReflectCommandExt {
     /// - The given [`Resource`] is removed from the [`World`] before the command is applied.
     fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
-        component: Box<dyn PartialReflect>,
+        component: Box<dyn PartialReflect + Send + Sync>,
     ) -> &mut Self;
 
     /// Removes from the entity the component or bundle with the given type name registered in [`AppTypeRegistry`].
@@ -132,7 +132,7 @@ pub trait ReflectCommandExt {
     /// #[derive(Resource)]
     /// struct Prefab{
     ///     entity: Entity,
-    ///     data: Box<dyn Reflect>,
+    ///     data: Box<dyn Reflect + Send + Sync>,
     /// }
     /// #[derive(Component, Reflect, Default)]
     /// #[reflect(Component)]
@@ -169,7 +169,7 @@ pub trait ReflectCommandExt {
 }
 
 impl ReflectCommandExt for EntityCommands<'_> {
-    fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self {
+    fn insert_reflect(&mut self, component: Box<dyn PartialReflect + Send + Sync>) -> &mut Self {
         self.queue(move |mut entity: EntityWorldMut| {
             entity.insert_reflect(component);
         })
@@ -177,7 +177,7 @@ impl ReflectCommandExt for EntityCommands<'_> {
 
     fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
-        component: Box<dyn PartialReflect>,
+        component: Box<dyn PartialReflect + Send + Sync>,
     ) -> &mut Self {
         self.queue(move |mut entity: EntityWorldMut| {
             entity.insert_reflect_with_registry::<T>(component);
@@ -220,7 +220,10 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Prefer to use the typed [`EntityWorldMut::insert`] if possible. Adding a reflected component
     /// is much slower.
-    pub fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self {
+    pub fn insert_reflect(
+        &mut self,
+        component: Box<dyn PartialReflect + Send + Sync>,
+    ) -> &mut Self {
         self.assert_not_despawned();
         let entity_id = self.id();
         self.world_scope(|world| {
@@ -248,7 +251,7 @@ impl<'w> EntityWorldMut<'w> {
     /// - If the given [`Resource`] is not present in the [`World`].
     pub fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
-        component: Box<dyn PartialReflect>,
+        component: Box<dyn PartialReflect + Send + Sync>,
     ) -> &mut Self {
         self.assert_not_despawned();
         let entity_id = self.id();
@@ -342,7 +345,7 @@ fn insert_reflect_with_registry_ref(
     world: &mut World,
     entity: Entity,
     type_registry: &TypeRegistry,
-    component: Box<dyn PartialReflect>,
+    component: Box<dyn PartialReflect + Send + Sync>,
 ) {
     let type_info = component
         .get_represented_type_info()
@@ -444,7 +447,8 @@ mod tests {
         let entity2 = commands.spawn_empty().id();
         let entity3 = commands.spawn_empty().id();
 
-        let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn PartialReflect>;
+        let boxed_reflect_component_a =
+            Box::new(ComponentA(916)) as Box<dyn PartialReflect + Send + Sync>;
         let boxed_reflect_component_a_clone = boxed_reflect_component_a.reflect_clone().unwrap();
         let boxed_reflect_component_a_dynamic = boxed_reflect_component_a.to_dynamic();
 
@@ -488,7 +492,8 @@ mod tests {
 
         let entity = commands.spawn_empty().id();
 
-        let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn PartialReflect>;
+        let boxed_reflect_component_a =
+            Box::new(ComponentA(916)) as Box<dyn PartialReflect + Send + Sync>;
 
         commands
             .entity(entity)
@@ -518,7 +523,7 @@ mod tests {
 
         let entity = commands.spawn(ComponentA(0)).id();
 
-        let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn Reflect>;
+        let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn Reflect + Send + Sync>;
 
         commands
             .entity(entity)
@@ -547,7 +552,7 @@ mod tests {
 
         let entity = commands.spawn(ComponentA(0)).id();
 
-        let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn Reflect>;
+        let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn Reflect + Send + Sync>;
 
         commands
             .entity(entity)
@@ -578,7 +583,7 @@ mod tests {
         let bundle = Box::new(BundleA {
             a: ComponentA(31),
             b: ComponentB(20),
-        }) as Box<dyn PartialReflect>;
+        }) as Box<dyn PartialReflect + Send + Sync>;
         commands.entity(entity).insert_reflect(bundle);
 
         system_state.apply(&mut world);
@@ -608,7 +613,7 @@ mod tests {
         let bundle = Box::new(BundleA {
             a: ComponentA(31),
             b: ComponentB(20),
-        }) as Box<dyn PartialReflect>;
+        }) as Box<dyn PartialReflect + Send + Sync>;
 
         commands
             .entity(entity)
@@ -644,7 +649,7 @@ mod tests {
         let boxed_reflect_bundle_a = Box::new(BundleA {
             a: ComponentA(1),
             b: ComponentB(23),
-        }) as Box<dyn Reflect>;
+        }) as Box<dyn Reflect + Send + Sync>;
 
         commands
             .entity(entity)
@@ -682,7 +687,7 @@ mod tests {
         let boxed_reflect_bundle_a = Box::new(BundleA {
             a: ComponentA(1),
             b: ComponentB(23),
-        }) as Box<dyn Reflect>;
+        }) as Box<dyn Reflect + Send + Sync>;
 
         commands
             .entity(entity)

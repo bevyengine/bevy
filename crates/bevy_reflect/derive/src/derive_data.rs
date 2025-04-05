@@ -768,7 +768,7 @@ impl<'a> ReflectStruct<'a> {
         Some(quote! {
             #[inline]
             #[allow(unreachable_code, reason = "Ignored fields without a `clone` attribute will early-return with an error")]
-            fn reflect_clone(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+            fn reflect_clone(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect + Send + Sync>, #bevy_reflect_path::ReflectCloneError> {
                  #FQResult::Ok(#bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#ctor))
             }
         })
@@ -955,7 +955,7 @@ impl<'a> ReflectEnum<'a> {
         Some(quote! {
             #[inline]
             #[allow(unreachable_code, reason = "Ignored fields without a `clone` attribute will early-return with an error")]
-            fn reflect_clone(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+            fn reflect_clone(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect + Send + Sync>, #bevy_reflect_path::ReflectCloneError> {
                 #body
             }
         })

@@ -9,7 +9,7 @@ mod missing_attribute {
     use bevy_reflect::{FromReflect, GetTypeRegistration, reflect_remote};
 
     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-    struct MyOuter<T: FromReflect + GetTypeRegistration> {
+    struct MyOuter<T: FromReflect + Send + Sync + GetTypeRegistration> {
         // Reason: Missing `#[reflect(remote = ...)]` attribute
         pub inner: super::external_crate::TheirInner<T>,
     }
@@ -28,7 +28,7 @@ mod incorrect_inner_type {
     //~| ERROR: `TheirInner<T>` does not implement `TypePath` so cannot provide dynamic type path information
     //~| ERROR: `TheirInner<T>` does not implement `TypePath` so cannot provide dynamic type path information
     //~| ERROR: `?` operator has incompatible types
-    struct MyOuter<T: FromReflect + GetTypeRegistration> {
+    struct MyOuter<T: FromReflect + Send + Sync + GetTypeRegistration> {
         // Reason: Should not use `MyInner<T>` directly
         pub inner: MyInner<T>,
         //~^ ERROR: mismatched types
@@ -44,7 +44,7 @@ mod mismatched_remote_type {
     #[reflect_remote(super::external_crate::TheirOuter<T>)]
     //~^ ERROR: mismatched types
     //~| ERROR: mismatched types
-    struct MyOuter<T: FromReflect + GetTypeRegistration> {
+    struct MyOuter<T: FromReflect + Send + Sync + GetTypeRegistration> {
         // Reason: Should be `MyInner<T>`
         #[reflect(remote = MyOuter<T>)]
         //~^ ERROR: mismatched types
@@ -62,7 +62,7 @@ mod mismatched_remote_generic {
     //~^ ERROR: `?` operator has incompatible types
     //~| ERROR: mismatched types
     //~| ERROR: mismatched types
-    struct MyOuter<T: FromReflect + GetTypeRegistration> {
+    struct MyOuter<T: FromReflect + Send + Sync + GetTypeRegistration> {
         // Reason: `TheirOuter::inner` is not defined as `TheirInner<bool>`
         #[reflect(remote = MyInner<bool>)]
         pub inner: super::external_crate::TheirInner<bool>,

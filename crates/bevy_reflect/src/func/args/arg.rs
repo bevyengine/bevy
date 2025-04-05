@@ -82,7 +82,7 @@ impl<'a> Arg<'a> {
     /// let value = args.take_owned::<u32>().unwrap();
     /// assert_eq!(value, 123);
     /// ```
-    pub fn take_owned<T: Reflect + TypePath>(self) -> Result<T, ArgError> {
+    pub fn take_owned<T: Reflect + Send + Sync + TypePath>(self) -> Result<T, ArgError> {
         match self.value {
             ArgValue::Owned(arg) => arg.try_take().map_err(|arg| ArgError::UnexpectedType {
                 index: self.index,
@@ -117,7 +117,7 @@ impl<'a> Arg<'a> {
     /// let value = args.take_ref::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
-    pub fn take_ref<T: Reflect + TypePath>(self) -> Result<&'a T, ArgError> {
+    pub fn take_ref<T: Reflect + Send + Sync + TypePath>(self) -> Result<&'a T, ArgError> {
         match self.value {
             ArgValue::Owned(_) => Err(ArgError::InvalidOwnership {
                 index: self.index,
@@ -156,7 +156,7 @@ impl<'a> Arg<'a> {
     /// let value = args.take_mut::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
-    pub fn take_mut<T: Reflect + TypePath>(self) -> Result<&'a mut T, ArgError> {
+    pub fn take_mut<T: Reflect + Send + Sync + TypePath>(self) -> Result<&'a mut T, ArgError> {
         match self.value {
             ArgValue::Owned(_) => Err(ArgError::InvalidOwnership {
                 index: self.index,
@@ -185,7 +185,7 @@ impl<'a> Arg<'a> {
     pub fn is<T: TypePath>(&self) -> bool {
         self.value
             .try_as_reflect()
-            .map(<dyn Reflect>::is::<T>)
+            .map(<dyn Reflect + Send + Sync>::is::<T>)
             .unwrap_or_default()
     }
 }
@@ -196,13 +196,13 @@ impl<'a> Arg<'a> {
 /// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug)]
 pub enum ArgValue<'a> {
-    Owned(Box<dyn PartialReflect>),
-    Ref(&'a dyn PartialReflect),
-    Mut(&'a mut dyn PartialReflect),
+    Owned(Box<dyn PartialReflect + Send + Sync>),
+    Ref(&'a (dyn PartialReflect + Send + Sync)),
+    Mut(&'a mut (dyn PartialReflect + Send + Sync)),
 }
 
 impl<'a> Deref for ArgValue<'a> {
-    type Target = dyn PartialReflect;
+    type Target = dyn PartialReflect + Send + Sync;
 
     fn deref(&self) -> &Self::Target {
         match self {

@@ -73,7 +73,7 @@ impl SerializationDataDef {
 pub(crate) struct SkippedFieldDef {
     /// The default function for this field.
     ///
-    /// This is of type `fn() -> Box<dyn Reflect>`.
+    /// This is of type `fn() -> Box<dyn Reflect + Send + Sync>`.
     default_fn: proc_macro2::TokenStream,
 }
 

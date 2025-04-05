@@ -199,7 +199,7 @@ mod tests {
         use serde::{Deserializer, Serialize, Serializer};
 
         #[reflect_trait]
-        trait Enemy: Reflect + Debug {
+        trait Enemy: Reflect + Send + Sync + Debug {
             #[expect(dead_code, reason = "this method is purely for testing purposes")]
             fn hp(&self) -> u8;
         }
@@ -449,7 +449,9 @@ mod tests {
             let nested_tuple_struct_with_skip =
                 Enum::NestedTupleStructWithSkip(TupleStructWithSkip(6, 7));
 
-            fn assert_serialize<T: Reflect + FromReflect + Serialize + PartialEq + Debug>(
+            fn assert_serialize<
+                T: Reflect + Send + Sync + FromReflect + Send + Sync + Serialize + PartialEq + Debug,
+            >(
                 value: &T,
                 registry: &TypeRegistry,
             ) {

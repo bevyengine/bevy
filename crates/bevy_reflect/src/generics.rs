@@ -166,7 +166,7 @@ pub struct ConstParamInfo {
     ty: Type,
     // Rust currently only allows certain primitive types in const generic position,
     // meaning that `Reflect` is guaranteed to be implemented for the default value.
-    default: Option<Arc<dyn Reflect>>,
+    default: Option<Arc<dyn Reflect + Send + Sync>>,
 }
 
 impl ConstParamInfo {
@@ -180,7 +180,7 @@ impl ConstParamInfo {
     }
 
     /// Sets the default value for the parameter.
-    pub fn with_default<T: Reflect + 'static>(mut self, default: T) -> Self {
+    pub fn with_default<T: Reflect + Send + Sync + 'static>(mut self, default: T) -> Self {
         let arc = Arc::new(default);
 
         #[cfg(not(target_has_atomic = "ptr"))]
@@ -191,7 +191,8 @@ impl ConstParamInfo {
         // SAFETY:
         // - Coercion from `T` to `dyn Reflect` is valid as `T: Reflect + 'static`
         // - `Arc::from_raw` receives a valid pointer from a previous call to `Arc::into_raw`
-        let arc = unsafe { Arc::from_raw(Arc::into_raw(arc) as *const dyn Reflect) };
+        let arc =
+            unsafe { Arc::from_raw(Arc::into_raw(arc) as *const (dyn Reflect + Send + Sync)) };
 
         self.default = Some(arc);
         self
@@ -220,7 +221,7 @@ impl ConstParamInfo {
     ///
     /// assert_eq!(default.downcast_ref::<usize>().unwrap(), &10);
     /// ```
-    pub fn default(&self) -> Option<&dyn Reflect> {
+    pub fn default(&self) -> Option<&(dyn Reflect + Send + Sync)> {
         self.default.as_deref()
     }
 

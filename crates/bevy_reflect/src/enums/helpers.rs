@@ -26,7 +26,10 @@ pub fn enum_hash<TEnum: Enum>(value: &TEnum) -> Option<u64> {
 ///   [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two field
 ///   values.
 #[inline]
-pub fn enum_partial_eq<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) -> Option<bool> {
+pub fn enum_partial_eq<TEnum: Enum + ?Sized>(
+    a: &TEnum,
+    b: &(dyn PartialReflect + Send + Sync),
+) -> Option<bool> {
     // Both enums?
     let ReflectRef::Enum(b) = b.reflect_ref() else {
         return Some(false);
@@ -90,7 +93,7 @@ pub fn enum_partial_eq<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) 
 ///   C {value: i32}
 /// }
 ///
-/// let my_enum: &dyn Reflect = &MyEnum::B(123);
+/// let my_enum: &(dyn Reflect + Send + Sync) = &MyEnum::B(123);
 /// println!("{:#?}", my_enum);
 ///
 /// // Output:

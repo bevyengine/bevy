@@ -34,7 +34,7 @@ use core::{
 ///
 /// assert_eq!(foo.field_len(), 1);
 ///
-/// let field: &dyn PartialReflect = foo.field(0).unwrap();
+/// let field: &(dyn PartialReflect + Send + Sync) = foo.field(0).unwrap();
 /// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
 /// ```
 ///
@@ -42,12 +42,12 @@ use core::{
 /// [reflection]: crate
 pub trait TupleStruct: PartialReflect {
     /// Returns a reference to the value of the field with index `index` as a
-    /// `&dyn Reflect`.
-    fn field(&self, index: usize) -> Option<&dyn PartialReflect>;
+    /// `&(dyn Reflect + Send + Sync)`.
+    fn field(&self, index: usize) -> Option<&(dyn PartialReflect + Send + Sync)>;
 
     /// Returns a mutable reference to the value of the field with index `index`
-    /// as a `&mut dyn Reflect`.
-    fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
+    /// as a `&mut (dyn Reflect + Send + Sync)`.
+    fn field_mut(&mut self, index: usize) -> Option<&mut (dyn PartialReflect + Send + Sync)>;
 
     /// Returns the number of fields in the tuple struct.
     fn field_len(&self) -> usize;
@@ -92,7 +92,7 @@ impl TupleStructInfo {
     /// # Arguments
     ///
     /// * `fields`: The fields of this struct in the order they are defined
-    pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
+    pub fn new<T: Reflect + Send + Sync + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
             ty: Type::of::<T>(),
             generics: Generics::new(),
@@ -161,7 +161,7 @@ impl<'a> TupleStructFieldIter<'a> {
 }
 
 impl<'a> Iterator for TupleStructFieldIter<'a> {
-    type Item = &'a dyn PartialReflect;
+    type Item = &'a (dyn PartialReflect + Send + Sync);
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.tuple_struct.field(self.index);
@@ -198,32 +198,41 @@ impl<'a> ExactSizeIterator for TupleStructFieldIter<'a> {}
 pub trait GetTupleStructField {
     /// Returns a reference to the value of the field with index `index`,
     /// downcast to `T`.
-    fn get_field<T: Reflect>(&self, index: usize) -> Option<&T>;
+    fn get_field<T: Reflect + Send + Sync + Send + Sync>(&self, index: usize) -> Option<&T>;
 
     /// Returns a mutable reference to the value of the field with index
     /// `index`, downcast to `T`.
-    fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T>;
+    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(
+        &mut self,
+        index: usize,
+    ) -> Option<&mut T>;
 }
 
 impl<S: TupleStruct> GetTupleStructField for S {
-    fn get_field<T: Reflect>(&self, index: usize) -> Option<&T> {
+    fn get_field<T: Reflect + Send + Sync + Send + Sync>(&self, index: usize) -> Option<&T> {
         self.field(index)
             .and_then(|value| value.try_downcast_ref::<T>())
     }
 
-    fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T> {
+    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(
+        &mut self,
+        index: usize,
+    ) -> Option<&mut T> {
         self.field_mut(index)
             .and_then(|value| value.try_downcast_mut::<T>())
     }
 }
 
 impl GetTupleStructField for dyn TupleStruct {
-    fn get_field<T: Reflect>(&self, index: usize) -> Option<&T> {
+    fn get_field<T: Reflect + Send + Sync + Send + Sync>(&self, index: usize) -> Option<&T> {
         self.field(index)
             .and_then(|value| value.try_downcast_ref::<T>())
     }
 
-    fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T> {
+    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(
+        &mut self,
+        index: usize,
+    ) -> Option<&mut T> {
         self.field_mut(index)
             .and_then(|value| value.try_downcast_mut::<T>())
     }
@@ -233,7 +242,7 @@ impl GetTupleStructField for dyn TupleStruct {
 #[derive(Default)]
 pub struct DynamicTupleStruct {
     represented_type: Option<&'static TypeInfo>,
-    fields: Vec<Box<dyn PartialReflect>>,
+    fields: Vec<Box<dyn PartialReflect + Send + Sync>>,
 }
 
 impl DynamicTupleStruct {
@@ -257,24 +266,24 @@ impl DynamicTupleStruct {
     }
 
     /// Appends an element with value `value` to the tuple struct.
-    pub fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) {
+    pub fn insert_boxed(&mut self, value: Box<dyn PartialReflect + Send + Sync>) {
         self.fields.push(value);
     }
 
     /// Appends a typed element with value `value` to the tuple struct.
-    pub fn insert<T: PartialReflect>(&mut self, value: T) {
+    pub fn insert<T: PartialReflect + Send + Sync>(&mut self, value: T) {
         self.insert_boxed(Box::new(value));
     }
 }
 
 impl TupleStruct for DynamicTupleStruct {
     #[inline]
-    fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
+    fn field(&self, index: usize) -> Option<&(dyn PartialReflect + Send + Sync)> {
         self.fields.get(index).map(|field| &**field)
     }
 
     #[inline]
-    fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
+    fn field_mut(&mut self, index: usize) -> Option<&mut (dyn PartialReflect + Send + Sync)> {
         self.fields.get_mut(index).map(|field| &mut **field)
     }
 
@@ -299,33 +308,35 @@ impl PartialReflect for DynamicTupleStruct {
     }
 
     #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect + Send + Sync> {
         self
     }
 
     #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
+    fn as_partial_reflect(&self) -> &(dyn PartialReflect + Send + Sync) {
         self
     }
 
     #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+    fn as_partial_reflect_mut(&mut self) -> &mut (dyn PartialReflect + Send + Sync) {
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Err(self)
     }
 
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+    fn try_as_reflect(&self) -> Option<&(dyn Reflect + Send + Sync)> {
         None
     }
 
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+    fn try_as_reflect_mut(&mut self) -> Option<&mut (dyn Reflect + Send + Sync)> {
         None
     }
 
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+    fn try_apply(&mut self, value: &(dyn PartialReflect + Send + Sync)) -> Result<(), ApplyError> {
         let tuple_struct = value.reflect_ref().as_tuple_struct()?;
 
         for (i, value) in tuple_struct.iter_fields().enumerate() {
@@ -358,7 +369,7 @@ impl PartialReflect for DynamicTupleStruct {
     }
 
     #[inline]
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &(dyn PartialReflect + Send + Sync)) -> Option<bool> {
         tuple_struct_partial_eq(self, value)
     }
 
@@ -391,8 +402,8 @@ impl From<DynamicTuple> for DynamicTupleStruct {
     }
 }
 
-impl FromIterator<Box<dyn PartialReflect>> for DynamicTupleStruct {
-    fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(fields: I) -> Self {
+impl FromIterator<Box<dyn PartialReflect + Send + Sync>> for DynamicTupleStruct {
+    fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect + Send + Sync>>>(fields: I) -> Self {
         Self {
             represented_type: None,
             fields: fields.into_iter().collect(),
@@ -401,7 +412,7 @@ impl FromIterator<Box<dyn PartialReflect>> for DynamicTupleStruct {
 }
 
 impl IntoIterator for DynamicTupleStruct {
-    type Item = Box<dyn PartialReflect>;
+    type Item = Box<dyn PartialReflect + Send + Sync>;
     type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -410,7 +421,7 @@ impl IntoIterator for DynamicTupleStruct {
 }
 
 impl<'a> IntoIterator for &'a DynamicTupleStruct {
-    type Item = &'a dyn PartialReflect;
+    type Item = &'a (dyn PartialReflect + Send + Sync);
     type IntoIter = TupleStructFieldIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -429,7 +440,7 @@ impl<'a> IntoIterator for &'a DynamicTupleStruct {
 #[inline]
 pub fn tuple_struct_partial_eq<S: TupleStruct + ?Sized>(
     a: &S,
-    b: &dyn PartialReflect,
+    b: &(dyn PartialReflect + Send + Sync),
 ) -> Option<bool> {
     let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
         return Some(false);
@@ -461,7 +472,7 @@ pub fn tuple_struct_partial_eq<S: TupleStruct + ?Sized>(
 /// #[derive(Reflect)]
 /// struct MyTupleStruct(usize);
 ///
-/// let my_tuple_struct: &dyn Reflect = &MyTupleStruct(123);
+/// let my_tuple_struct: &(dyn Reflect + Send + Sync) = &MyTupleStruct(123);
 /// println!("{:#?}", my_tuple_struct);
 ///
 /// // Output:
