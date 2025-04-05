@@ -25,6 +25,10 @@
 //! at once is untested, and might not be physically accurate. These may be
 //! integrated into a single module in the future.
 //!
+//! On web platforms, atmosphere rendering will look slightly different. Specifically, when calculating how light travels
+//! through the atmosphere, we use a simpler averaging technique instead of the more
+//! complex blending operations. This difference will be resolved for WebGPU in a future release.
+//!
 //! [Shadertoy]: https://www.shadertoy.com/view/slSXRW
 //!
 //! [Unreal Engine Implementation]: https://github.com/sebh/UnrealEngineSkyAtmosphere
@@ -46,8 +50,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
-    renderer::RenderDevice,
-    settings::WgpuFeatures,
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -159,15 +161,6 @@ impl Plugin for AtmospherePlugin {
         };
 
         let render_adapter = render_app.world().resource::<RenderAdapter>();
-        let render_device = render_app.world().resource::<RenderDevice>();
-
-        if !render_device
-            .features()
-            .contains(WgpuFeatures::DUAL_SOURCE_BLENDING)
-        {
-            warn!("AtmospherePlugin not loaded. GPU lacks support for dual-source blending.");
-            return;
-        }
 
         if !render_adapter
             .get_downlevel_capabilities()

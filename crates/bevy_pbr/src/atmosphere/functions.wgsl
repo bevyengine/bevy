@@ -277,11 +277,11 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
 
 const SUN_ANGULAR_SIZE: f32 = 0.0174533; // angular diameter of sun in radians
 
-fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> vec3<f32> {
+fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     let r = view_radius();
     let mu_view = ray_dir_ws.y;
     let shadow_factor = f32(!ray_intersects_ground(r, mu_view));
-    var sun_illuminance = vec3(0.0);
+    var sun_radiance = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
@@ -289,9 +289,9 @@ fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> ve
         let pixel_size = fwidth(angle_to_sun);
         let factor = smoothstep(0.0, -pixel_size * ROOT_2, angle_to_sun - SUN_ANGULAR_SIZE * 0.5);
         let sun_solid_angle = (SUN_ANGULAR_SIZE * SUN_ANGULAR_SIZE) * 4.0 * FRAC_PI;
-        sun_illuminance += ((*light).color.rgb / sun_solid_angle) * factor * shadow_factor;
+        sun_radiance += ((*light).color.rgb / sun_solid_angle) * factor * shadow_factor;
     }
-    return sun_illuminance * transmittance * view.exposure;
+    return sun_radiance;
 }
 
 // TRANSFORM UTILITIES
