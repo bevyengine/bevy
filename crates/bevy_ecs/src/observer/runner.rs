@@ -12,9 +12,6 @@ use crate::{
 };
 use bevy_ptr::PtrMut;
 
-/// Contains [`Observer`] information. This defines how a given observer behaves. It is the
-/// "source of truth" for a given observer entity's behavior.
-
 /// Type for function that is run when an observer is triggered.
 ///
 /// Typically refers to the default runner that runs the system stored in the associated [`Observer`] component,
@@ -232,8 +229,6 @@ impl Observer {
                             observe.error_handler = Some(default_error_handler());
                         }
                         world.register_observer(entity);
-                    } else {
-                        return;
                     }
                 });
             },
@@ -425,8 +420,6 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
                 (*system).initialize(world);
             }
             world.register_observer(entity);
-        } else {
-            return;
         }
     });
 }
