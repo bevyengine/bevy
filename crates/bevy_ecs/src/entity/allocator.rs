@@ -8,8 +8,6 @@ use bevy_platform_support::{
 use core::mem::ManuallyDrop;
 use log::warn;
 
-use crate::query::DebugCheckedUnwrap;
-
 use super::{Entity, EntitySetIterator};
 
 /// This is the item we store in the free list.
@@ -87,9 +85,10 @@ impl Chunk {
     /// [`Self::set`] must have been called on this index before, ensuring it is in bounds and the chunk is initialized.
     #[inline]
     unsafe fn get(&self, index: u32) -> Entity {
-        // SAFETY: caller ensure we are init.
-        let head = unsafe { self.ptr().debug_checked_unwrap() };
-        // SAFETY: caller ensures we are in bounds (because `set` must be in bounds)
+        // Relaxed is fine since caller ensures we are iitialized already.
+        // In order for the caller to guarantee that, they must have an ordering that orders this get after the required `set`.
+        let head = self.first.load(Ordering::Relaxed);
+        // SAFETY: caller ensures we are in bounds and init (because `set` must be in bounds)
         let target = unsafe { &*head.add(index as usize) };
 
         target.get_entity()
@@ -105,10 +104,11 @@ impl Chunk {
         let after_index_slice_len = chunk_capacity - index;
         let len = after_index_slice_len.min(ideal_len) as usize;
 
-        // SAFETY: caller ensure we are init.
-        let head = unsafe { self.ptr().debug_checked_unwrap() };
+        // Relaxed is fine since caller ensures we are iitialized already.
+        // In order for the caller to guarantee that, they must have an ordering that orders this get after the required `set`.
+        let head = self.first.load(Ordering::Relaxed);
 
-        // SAFETY: The chunk was allocated via a `Vec` and the index is within the capacity.
+        // SAFETY: Caller ensures we are init, so the chunk was allocated via a `Vec` and the index is within the capacity.
         unsafe { core::slice::from_raw_parts(head, len) }
     }
 
@@ -121,7 +121,14 @@ impl Chunk {
     /// Access does not conflict with another [`Self::get`].
     #[inline]
     unsafe fn set(&self, index: u32, entity: Entity, chunk_capacity: u32) {
-        let head = self.ptr().unwrap_or_else(|| self.init(chunk_capacity));
+        // Relaxed is fine here since this is not called concurrently and does not conflict with a `get`.
+        let ptr = self.first.load(Ordering::Relaxed);
+        let head = if ptr.is_null() {
+            self.init(chunk_capacity)
+        } else {
+            ptr
+        };
+
         // SAFETY: caller ensures it is in bounds and we are not fighting with other `set` calls or `get` calls.
         // A race condition is therefore impossible.
         let target = unsafe { &*head.add(index as usize) };
@@ -140,6 +147,7 @@ impl Chunk {
         buff.reserve_exact(chunk_capacity as usize);
         buff.resize_with(chunk_capacity as usize, Slot::empty);
         let ptr = buff.as_mut_ptr();
+        // Relaxed is fine here since this is not called concurrently.
         self.first.store(ptr, Ordering::Relaxed);
         ptr
     }
@@ -151,19 +159,14 @@ impl Chunk {
     /// This must not be called concurrently.
     /// `chunk_capacity` must be the same as it was initialized with.
     unsafe fn dealloc(&self, chunk_capacity: u32) {
-        if let Some(to_drop) = self.ptr() {
+        // Relaxed is fine here since this is not called concurrently.
+        let to_drop = self.first.load(Ordering::Relaxed);
+        if !to_drop.is_null() {
             // SAFETY: This was created in [`Self::init`] from a standard Vec.
             unsafe {
                 Vec::from_raw_parts(to_drop, chunk_capacity as usize, chunk_capacity as usize);
             }
         }
-    }
-
-    /// Returns [`Self::first`] if it is valid.
-    #[inline]
-    fn ptr(&self) -> Option<*mut Slot> {
-        let ptr = self.first.load(Ordering::Relaxed);
-        (!ptr.is_null()).then_some(ptr)
     }
 }
 
