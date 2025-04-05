@@ -119,11 +119,11 @@ impl ExtractComponent for MotionBlur {
 #[doc(hidden)]
 #[derive(Component, ShaderType, Clone)]
 pub struct MotionBlurUniform {
-    pub shutter_angle: f32,
-    pub samples: u32,
+    shutter_angle: f32,
+    samples: u32,
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     // WebGL2 structs must be 16 byte aligned.
-    pub _webgl2_padding: bevy_math::Vec2,
+    _webgl2_padding: bevy_math::Vec2,
 }
 
 pub const MOTION_BLUR_SHADER_HANDLE: Handle<Shader> =
