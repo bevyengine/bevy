@@ -14,4 +14,4 @@ Although you probably shouldn't be making entities manually, it is sometimes use
 + let entity = Entity::fresh_from_index(1).unwrap();
 ```
 
-If you are creating entities manually in production, don't do that! Use `Entities::alloc` instead. But if you must create one manually, either reuse a `EntityRow` you know to be valid by using `Entity::from_raw` and `Entity::row`, or handle the error case of `None` returning from `Entity::fresh_from_index(my_idnex)`.
+If you are creating entities manually in production, don't do that! Use `Entities::alloc` instead. But if you must create one manually, either reuse a `EntityRow` you know to be valid by using `Entity::from_raw` and `Entity::row`, or handle the error case of `None` returning from `Entity::fresh_from_index(my_index)`.
