@@ -1,14 +1,9 @@
 //! Box shadows rendering
 
-use core::{hash::Hash, ops::Range};
-
-use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, ComputedNodeTarget, RenderUiSystem,
-    ResolvedBorderRadius, TransparentUi, Val,
-};
+use crate::TransparentUi;
 use bevy_app::prelude::*;
 use bevy_asset::*;
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{
     prelude::Component,
@@ -18,24 +13,51 @@ use bevy_ecs::{
     },
 };
 use bevy_image::BevyDefault as _;
-use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
+use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
+use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::RenderApp;
 use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::TemporaryRenderEntity,
     view::*,
-    Extract, ExtractSchedule, Render, RenderSet,
+    Render, RenderSet,
 };
-use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
+use core::{hash::Hash, ops::Range};
 
-use super::{stack_z_offsets, UiCameraMap, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use super::{stack_z_offsets, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
 pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("d2991ecd-134f-4f82-adf5-0fcc86f02227");
+
+/// Number of shadow samples.
+/// A larger value will result in higher quality shadows.
+/// Default is 4, values higher than ~10 offer diminishing returns.
+///
+/// ```
+/// use bevy_core_pipeline::prelude::*;
+/// use bevy_ecs::prelude::*;
+/// use bevy_ui::prelude::*;
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     commands.spawn((
+///         Camera2d,
+///         BoxShadowSamples(6),
+///     ));
+/// }
+/// ```
+#[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
+#[reflect(Component, Default, PartialEq, Clone)]
+pub struct BoxShadowSamples(pub u32);
+
+impl Default for BoxShadowSamples {
+    fn default() -> Self {
+        Self(4)
+    }
+}
 
 /// A plugin that enables the rendering of box shadows.
 pub struct BoxShadowPlugin;
@@ -55,10 +77,6 @@ impl Plugin for BoxShadowPlugin {
                 .init_resource::<ExtractedBoxShadows>()
                 .init_resource::<BoxShadowMeta>()
                 .init_resource::<SpecializedRenderPipelines<BoxShadowPipeline>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_shadows.in_set(RenderUiSystem::ExtractBoxShadows),
-                )
                 .add_systems(
                     Render,
                     (
@@ -220,7 +238,7 @@ pub struct ExtractedBoxShadow {
     pub clip: Option<Rect>,
     pub extracted_camera_entity: Entity,
     pub color: LinearRgba,
-    pub radius: ResolvedBorderRadius,
+    pub radius: [f32; 4],
     pub blur_radius: f32,
     pub size: Vec2,
     pub main_entity: MainEntity,
@@ -231,93 +249,6 @@ pub struct ExtractedBoxShadow {
 #[derive(Resource, Default)]
 pub struct ExtractedBoxShadows {
     pub box_shadows: Vec<ExtractedBoxShadow>,
-}
-
-pub fn extract_shadows(
-    mut commands: Commands,
-    mut extracted_box_shadows: ResMut<ExtractedBoxShadows>,
-    box_shadow_query: Extract<
-        Query<(
-            Entity,
-            &ComputedNode,
-            &GlobalTransform,
-            &InheritedVisibility,
-            &BoxShadow,
-            Option<&CalculatedClip>,
-            &ComputedNodeTarget,
-        )>,
-    >,
-    camera_map: Extract<UiCameraMap>,
-) {
-    let mut mapping = camera_map.get_mapper();
-
-    for (entity, uinode, transform, visibility, box_shadow, clip, camera) in &box_shadow_query {
-        // Skip if no visible shadows
-        if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
-            continue;
-        }
-
-        let Some(extracted_camera_entity) = mapping.map(camera) else {
-            continue;
-        };
-
-        let ui_physical_viewport_size = camera.physical_size.as_vec2();
-
-        let scale_factor = uinode.inverse_scale_factor.recip();
-
-        for drop_shadow in box_shadow.iter() {
-            if drop_shadow.color.is_fully_transparent() {
-                continue;
-            }
-
-            let resolve_val = |val, base, scale_factor| match val {
-                Val::Auto => 0.,
-                Val::Px(px) => px * scale_factor,
-                Val::Percent(percent) => percent / 100. * base,
-                Val::Vw(percent) => percent / 100. * ui_physical_viewport_size.x,
-                Val::Vh(percent) => percent / 100. * ui_physical_viewport_size.y,
-                Val::VMin(percent) => percent / 100. * ui_physical_viewport_size.min_element(),
-                Val::VMax(percent) => percent / 100. * ui_physical_viewport_size.max_element(),
-            };
-
-            let spread_x = resolve_val(drop_shadow.spread_radius, uinode.size().x, scale_factor);
-            let spread_ratio = (spread_x + uinode.size().x) / uinode.size().x;
-
-            let spread = vec2(spread_x, uinode.size().y * spread_ratio - uinode.size().y);
-
-            let blur_radius = resolve_val(drop_shadow.blur_radius, uinode.size().x, scale_factor);
-            let offset = vec2(
-                resolve_val(drop_shadow.x_offset, uinode.size().x, scale_factor),
-                resolve_val(drop_shadow.y_offset, uinode.size().y, scale_factor),
-            );
-
-            let shadow_size = uinode.size() + spread;
-            if shadow_size.cmple(Vec2::ZERO).any() {
-                continue;
-            }
-
-            let radius = ResolvedBorderRadius {
-                top_left: uinode.border_radius.top_left * spread_ratio,
-                top_right: uinode.border_radius.top_right * spread_ratio,
-                bottom_left: uinode.border_radius.bottom_left * spread_ratio,
-                bottom_right: uinode.border_radius.bottom_right * spread_ratio,
-            };
-
-            extracted_box_shadows.box_shadows.push(ExtractedBoxShadow {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                stack_index: uinode.stack_index,
-                transform: transform.compute_matrix() * Mat4::from_translation(offset.extend(0.)),
-                color: drop_shadow.color.into(),
-                bounds: shadow_size + 6. * blur_radius,
-                clip: clip.map(|clip| clip.clip),
-                extracted_camera_entity,
-                radius,
-                blur_radius,
-                size: shadow_size,
-                main_entity: entity.into(),
-            });
-        }
-    }
 }
 
 #[expect(
@@ -464,13 +395,6 @@ pub fn prepare_shadows(
                         }
                     }
 
-                    let radius = [
-                        box_shadow.radius.top_left,
-                        box_shadow.radius.top_right,
-                        box_shadow.radius.bottom_right,
-                        box_shadow.radius.bottom_left,
-                    ];
-
                     let uvs = [
                         Vec2::new(positions_diff[0].x, positions_diff[0].y),
                         Vec2::new(
@@ -494,7 +418,7 @@ pub fn prepare_shadows(
                             uvs: uvs[i].into(),
                             vertex_color: box_shadow.color.to_f32_array(),
                             size: box_shadow.size.into(),
-                            radius,
+                            radius: box_shadow.radius,
                             blur: box_shadow.blur_radius,
                             bounds: rect_size.xy().into(),
                         });
