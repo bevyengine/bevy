@@ -19,8 +19,8 @@ const MAX_MESH_COUNT: Option<NonZeroU32> = NonZeroU32::new(2u32.pow(16));
 
 #[derive(Resource)]
 pub struct RaytracingSceneBindings {
-    bind_group: Option<BindGroup>,
-    bind_group_layout: BindGroupLayout,
+    pub bind_group: Option<BindGroup>,
+    pub bind_group_layout: BindGroupLayout,
 }
 
 pub fn prepare_raytracing_scene_bindings(

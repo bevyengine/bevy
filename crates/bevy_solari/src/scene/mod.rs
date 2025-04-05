@@ -3,9 +3,12 @@ mod blas;
 mod extract;
 mod types;
 
+pub use binder::RaytracingSceneBindings;
 pub use types::RaytracingMesh3d;
 
+use crate::SolariPlugin;
 use bevy_app::{App, Plugin};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_render::{
     mesh::{
@@ -13,20 +16,29 @@ use bevy_render::{
         RenderMesh,
     },
     render_asset::prepare_assets,
-    render_resource::BufferUsages,
+    render_resource::{BufferUsages, Shader},
     renderer::RenderDevice,
-    settings::WgpuFeatures,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use binder::{prepare_raytracing_scene_bindings, RaytracingSceneBindings};
+use binder::prepare_raytracing_scene_bindings;
 use blas::{manage_blas, BlasManager};
 use extract::extract_raytracing_scene;
 use tracing::warn;
+
+const RAYTRACING_SCENE_BINDINGS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("9a69dbce-d718-4d10-841b-4025b28b525c");
 
 pub struct RaytracingScenePlugin;
 
 impl Plugin for RaytracingScenePlugin {
     fn build(&self, app: &mut App) {
+        load_internal_asset!(
+            app,
+            RAYTRACING_SCENE_BINDINGS_SHADER_HANDLE,
+            "raytracing_scene_bindings.wgsl",
+            Shader::from_wgsl
+        );
+
         app.register_type::<RaytracingMesh3d>();
     }
 
@@ -35,10 +47,10 @@ impl Plugin for RaytracingScenePlugin {
 
         let render_device = render_app.world().resource::<RenderDevice>();
         let features = render_device.features();
-        if !features.contains(Self::required_wgpu_features()) {
+        if !features.contains(SolariPlugin::required_wgpu_features()) {
             warn!(
-                "SolariScenePlugin not loaded. GPU lacks support for required features: {:?}.",
-                Self::required_wgpu_features().difference(features)
+                "RaytracingScenePlugin not loaded. GPU lacks support for required features: {:?}.",
+                SolariPlugin::required_wgpu_features().difference(features)
             );
             return;
         }
@@ -62,17 +74,5 @@ impl Plugin for RaytracingScenePlugin {
                     prepare_raytracing_scene_bindings.in_set(RenderSet::PrepareBindGroups),
                 ),
             );
-    }
-}
-
-impl RaytracingScenePlugin {
-    /// [`WgpuFeatures`] required for this plugin to function.
-    pub fn required_wgpu_features() -> WgpuFeatures {
-        WgpuFeatures::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE
-            | WgpuFeatures::BUFFER_BINDING_ARRAY
-            | WgpuFeatures::TEXTURE_BINDING_ARRAY
-            | WgpuFeatures::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING
-            | WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING
-            | WgpuFeatures::PARTIALLY_BOUND_BINDING_ARRAY
     }
 }

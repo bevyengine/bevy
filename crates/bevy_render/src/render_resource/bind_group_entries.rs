@@ -147,6 +147,13 @@ impl<'a> IntoBinding<'a> for &'a TextureView {
     }
 }
 
+impl<'a> IntoBinding<'a> for &'a wgpu::TextureView {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        BindingResource::TextureView(self)
+    }
+}
+
 impl<'a> IntoBinding<'a> for &'a [&'a wgpu::TextureView] {
     #[inline]
     fn into_binding(self) -> BindingResource<'a> {

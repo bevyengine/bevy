@@ -1,3 +1,5 @@
+#define_import_path bevy_solari::scene_bindings
+
 struct PackedVertex {
     a: vec4<f32>,
     b: vec4<f32>,
