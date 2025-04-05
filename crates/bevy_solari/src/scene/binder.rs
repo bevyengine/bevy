@@ -84,6 +84,10 @@ pub fn prepare_raytracing_scene_bindings(
         }
     }
 
+    if vertex_buffers.is_empty() {
+        return;
+    }
+
     transforms.write_buffer(&render_device, &render_queue);
 
     let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
