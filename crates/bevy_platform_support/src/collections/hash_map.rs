@@ -309,9 +309,7 @@ impl<K, V, S> HashMap<K, V, S> {
             hash_builder,
         ))
     }
-}
 
-impl<K, V, S> HashMap<K, V, S> {
     /// Returns a reference to the map's [`BuildHasher`], or `S` parameter.
     ///
     /// Refer to [`hasher`](hb::HashMap::hasher) for further details.
@@ -686,6 +684,20 @@ impl<K, V, S> HashMap<K, V, S> {
     #[inline]
     pub fn into_values(self) -> IntoValues<K, V> {
         self.0.into_values()
+    }
+
+    /// Takes the inner [`HashMap`](hb::HashMap) out of this wrapper.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_platform_support::collections::HashMap;
+    /// let map: HashMap<&'static str, usize> = HashMap::new();
+    /// let map: hashbrown::HashMap<&'static str, usize, _> = map.into_inner();
+    /// ```
+    #[inline]
+    pub fn into_inner(self) -> hb::HashMap<K, V, S> {
+        self.0
     }
 }
 
@@ -1100,17 +1112,96 @@ where
         self.0.allocation_size()
     }
 
-    /// Takes the inner [`HashMap`](hb::HashMap) out of this wrapper.
+    /// Insert a key-value pair into the map without checking
+    /// if the key already exists in the map.
     ///
-    /// # Examples
+    /// Refer to [`insert_unique_unchecked`](hb::HashMap::insert_unique_unchecked) for further details.
     ///
-    /// ```rust
-    /// # use bevy_platform_support::collections::HashMap;
-    /// let map: HashMap<&'static str, usize> = HashMap::new();
-    /// let map: hashbrown::HashMap<&'static str, usize, _> = map.into_inner();
-    /// ```
+    /// # Safety
+    ///
+    /// This operation is safe if a key does not exist in the map.
+    ///
+    /// However, if a key exists in the map already, the behavior is unspecified:
+    /// this operation may panic, loop forever, or any following operation with the map
+    /// may panic, loop forever or return arbitrary result.
+    ///
+    /// That said, this operation (and following operations) are guaranteed to
+    /// not violate memory safety.
+    ///
+    /// However this operation is still unsafe because the resulting `HashMap`
+    /// may be passed to unsafe code which does expect the map to behave
+    /// correctly, and would cause unsoundness as a result.
+    #[expect(
+        unsafe_code,
+        reason = "re-exporting unsafe method from Hashbrown requires unsafe code"
+    )]
     #[inline]
-    pub fn into_inner(self) -> hb::HashMap<K, V, S> {
-        self.0
+    pub unsafe fn insert_unique_unchecked(&mut self, key: K, value: V) -> (&K, &mut V) {
+        // SAFETY: safety contract is ensured by the caller.
+        unsafe { self.0.insert_unique_unchecked(key, value) }
+    }
+
+    /// Attempts to get mutable references to `N` values in the map at once, without validating that
+    /// the values are unique.
+    ///
+    /// Refer to [`get_many_unchecked_mut`](hb::HashMap::get_many_unchecked_mut) for further details.
+    ///
+    /// Returns an array of length `N` with the results of each query. `None` will be used if
+    /// the key is missing.
+    ///
+    /// For a safe alternative see [`get_many_mut`](`HashMap::get_many_mut`).
+    ///
+    /// # Safety
+    ///
+    /// Calling this method with overlapping keys is *[undefined behavior]* even if the resulting
+    /// references are not used.
+    ///
+    /// [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+    #[expect(
+        unsafe_code,
+        reason = "re-exporting unsafe method from Hashbrown requires unsafe code"
+    )]
+    #[inline]
+    pub unsafe fn get_many_unchecked_mut<Q, const N: usize>(
+        &mut self,
+        keys: [&Q; N],
+    ) -> [Option<&'_ mut V>; N]
+    where
+        Q: Hash + Equivalent<K> + ?Sized,
+    {
+        // SAFETY: safety contract is ensured by the caller.
+        unsafe { self.0.get_many_unchecked_mut(keys) }
+    }
+
+    /// Attempts to get mutable references to `N` values in the map at once, with immutable
+    /// references to the corresponding keys, without validating that the values are unique.
+    ///
+    /// Refer to [`get_many_key_value_unchecked_mut`](hb::HashMap::get_many_key_value_unchecked_mut) for further details.
+    ///
+    /// Returns an array of length `N` with the results of each query. `None` will be returned if
+    /// any of the keys are missing.
+    ///
+    /// For a safe alternative see [`get_many_key_value_mut`](`HashMap::get_many_key_value_mut`).
+    ///
+    /// # Safety
+    ///
+    /// Calling this method with overlapping keys is *[undefined behavior]* even if the resulting
+    /// references are not used.
+    ///
+    /// [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+    #[expect(
+        unsafe_code,
+        reason = "re-exporting unsafe method from Hashbrown requires unsafe code"
+    )]
+    #[inline]
+    pub unsafe fn get_many_key_value_unchecked_mut<Q, const N: usize>(
+        &mut self,
+        keys: [&Q; N],
+    ) -> [Option<(&'_ K, &'_ mut V)>; N]
+    where
+        Q: Hash + Equivalent<K> + ?Sized,
+    {
+        // SAFETY: safety contract is ensured by the caller.
+        unsafe { self.0.get_many_key_value_unchecked_mut(keys) }
     }
 }

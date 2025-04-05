@@ -458,9 +458,7 @@ impl<T, S> HashSet<T, S> {
     pub fn clear(&mut self) {
         self.0.clear();
     }
-}
 
-impl<T, S> HashSet<T, S> {
     /// Creates a new empty hash set which will use the given hasher to hash
     /// keys.
     ///
@@ -504,15 +502,27 @@ impl<T, S> HashSet<T, S> {
     pub fn with_capacity_and_hasher(capacity: usize, hasher: S) -> Self {
         Self(hb::HashSet::with_capacity_and_hasher(capacity, hasher))
     }
-}
 
-impl<T, S> HashSet<T, S> {
     /// Returns a reference to the set's [`BuildHasher`].
     ///
     /// Refer to [`hasher`](hb::HashSet::hasher) for further details.
     #[inline]
     pub fn hasher(&self) -> &S {
         self.0.hasher()
+    }
+
+    /// Takes the inner [`HashSet`](hb::HashSet) out of this wrapper.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_platform_support::collections::HashSet;
+    /// let map: HashSet<&'static str> = HashSet::new();
+    /// let map: hashbrown::HashSet<&'static str, _> = map.into_inner();
+    /// ```
+    #[inline]
+    pub fn into_inner(self) -> hb::HashSet<T, S> {
+        self.0
     }
 }
 
@@ -884,18 +894,32 @@ where
         self.0.allocation_size()
     }
 
-    /// Takes the inner [`HashSet`](hb::HashSet) out of this wrapper.
+    /// Insert a value the set without checking if the value already exists in the set.
     ///
-    /// # Examples
+    /// Refer to [`insert_unique_unchecked`](hb::HashSet::insert_unique_unchecked) for further details.
     ///
-    /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
-    /// let map: HashSet<&'static str> = HashSet::new();
-    /// let map: hashbrown::HashSet<&'static str, _> = map.into_inner();
-    /// ```
+    /// # Safety
+    ///
+    /// This operation is safe if a value does not exist in the set.
+    ///
+    /// However, if a value exists in the set already, the behavior is unspecified:
+    /// this operation may panic, loop forever, or any following operation with the set
+    /// may panic, loop forever or return arbitrary result.
+    ///
+    /// That said, this operation (and following operations) are guaranteed to
+    /// not violate memory safety.
+    ///
+    /// However this operation is still unsafe because the resulting `HashSet`
+    /// may be passed to unsafe code which does expect the set to behave
+    /// correctly, and would cause unsoundness as a result.
+    #[expect(
+        unsafe_code,
+        reason = "re-exporting unsafe method from Hashbrown requires unsafe code"
+    )]
     #[inline]
-    pub fn into_inner(self) -> hb::HashSet<T, S> {
-        self.0
+    pub unsafe fn insert_unique_unchecked(&mut self, value: T) -> &T {
+        // SAFETY: safety contract is ensured by the caller.
+        unsafe { self.0.insert_unique_unchecked(value) }
     }
 }
 
