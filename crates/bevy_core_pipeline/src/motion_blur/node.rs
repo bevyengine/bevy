@@ -15,7 +15,7 @@ use crate::prepass::ViewPrepassTextures;
 
 use super::{
     pipeline::{MotionBlurPipeline, MotionBlurPipelineId},
-    MotionBlur, MotionBlurUniform,
+    MotionBlurUniform,
 };
 
 #[derive(Default)]
@@ -26,7 +26,7 @@ impl ViewNode for MotionBlurNode {
         &'static ViewTarget,
         &'static MotionBlurPipelineId,
         &'static ViewPrepassTextures,
-        &'static MotionBlur,
+        &'static MotionBlurUniform,
         &'static Msaa,
     );
     fn run(

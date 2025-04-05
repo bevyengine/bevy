@@ -104,18 +104,15 @@ impl Default for MotionBlur {
 impl ExtractComponent for MotionBlur {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
-    type Out = (Self, MotionBlurUniform);
+    type Out = MotionBlurUniform;
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
-        Some((
-            item.clone(),
-            MotionBlurUniform {
-                shutter_angle: item.shutter_angle,
-                samples: item.samples,
-                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-                _webgl2_padding: Default::default(),
-            },
-        ))
+        Some(MotionBlurUniform {
+            shutter_angle: item.shutter_angle,
+            samples: item.samples,
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+            _webgl2_padding: Default::default(),
+        })
     }
 }
 
