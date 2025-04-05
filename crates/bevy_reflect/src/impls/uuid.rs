@@ -10,3 +10,12 @@ impl_reflect_opaque!(::uuid::Uuid(
     PartialEq,
     Hash
 ));
+
+impl_reflect_opaque!(::uuid::NonNilUuid(
+    Serialize,
+    Deserialize,
+    Clone,
+    Debug,
+    PartialEq,
+    Hash
+));
