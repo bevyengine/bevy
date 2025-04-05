@@ -52,7 +52,7 @@ The default feature set enables most of the expected features of a game engine, 
 |vorbis|OGG/VORBIS audio format support|
 |webgl2|Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.|
 |x11|X11 display server support|
-|zstd|For KTX2 supercompression|
+|zstd_native|For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd)|
 
 ### Optional Features
 
@@ -70,6 +70,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bmp|BMP image format support|
+|compressed_image_saver|Enables compressed KTX2 UASTC texture output on the asset processor|
 |configurable_error_handler|Use the configurable global error handler as the default error handler.|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
 |dds|DDS compressed texture support|
@@ -126,3 +127,4 @@ The default feature set enables most of the expected features of a game engine, 
 |webgpu|Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.|
 |webp|WebP image format support|
 |zlib|For KTX2 supercompression|
+|zstd_rust|For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd)|

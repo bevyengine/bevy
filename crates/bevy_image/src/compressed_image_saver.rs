@@ -3,6 +3,7 @@ use crate::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSett
 use bevy_asset::saver::{AssetSaver, SavedAsset};
 use futures_lite::AsyncWriteExt;
 use thiserror::Error;
+use wgpu_types::TextureFormat;
 
 pub struct CompressedImageSaver;
 
@@ -13,6 +14,8 @@ pub enum CompressedImageSaverError {
     Io(#[from] std::io::Error),
     #[error("Cannot compress an uninitialized image")]
     UninitializedImage,
+    #[error("Cannot compress {0:?}")]
+    UnsupportedFormat(TextureFormat),
 }
 
 impl AssetSaver for CompressedImageSaver {
@@ -28,7 +31,12 @@ impl AssetSaver for CompressedImageSaver {
         image: SavedAsset<'_, Self::Asset>,
         _settings: &Self::Settings,
     ) -> Result<ImageLoaderSettings, Self::Error> {
-        let is_srgb = image.texture_descriptor.format.is_srgb();
+        if image.data.is_none() {
+            return Err(CompressedImageSaverError::UninitializedImage);
+        }
+
+        let source_format = image.texture_descriptor.format;
+        let is_srgb = source_format.is_srgb();
 
         let compressed_basis_data = {
             let mut compressor_params = basis_universal::CompressorParams::new();
@@ -41,13 +49,34 @@ impl AssetSaver for CompressedImageSaver {
             };
             compressor_params.set_color_space(color_space);
             compressor_params.set_uastc_quality_level(basis_universal::UASTC_QUALITY_DEFAULT);
+            compressor_params.set_create_ktx2_file(true);
 
-            let mut source_image = compressor_params.source_image_mut(0);
-            let size = image.size();
-            let Some(ref data) = image.data else {
-                return Err(CompressedImageSaverError::UninitializedImage);
-            };
-            source_image.init(data, size.x, size.y, 4);
+            match source_format {
+                TextureFormat::R32Float | TextureFormat::Rg32Float | TextureFormat::Rgba32Float => {
+                    compressor_params.set_hdr(true);
+                    compressor_params
+                        .set_basis_format(basis_universal::BasisTextureFormat::UASTC_HDR_4x4);
+                    compressor_params.set_hdr_favor_uastc(true);
+                    compressor_params.set_hdr_mode(basis_universal::HdrMode::HDR_UASTC_HDR_4x4);
+                    let mut source_image = compressor_params.source_hdr_image_mut(0);
+                    let size = image.size();
+                    let data = image.data.as_ref().unwrap().as_slice();
+                    let channel_count = match source_format {
+                        TextureFormat::R32Float => 1,
+                        TextureFormat::Rg32Float => 2,
+                        TextureFormat::Rgba32Float => 4,
+                        _ => unreachable!(),
+                    };
+                    source_image.init(data, size.x, size.y, channel_count);
+                }
+                TextureFormat::Rgba8Unorm | TextureFormat::Rgba8UnormSrgb => {
+                    let mut source_image = compressor_params.source_image_mut(0);
+                    let size = image.size();
+                    let data = image.data.as_ref().unwrap().as_slice();
+                    source_image.init(data, size.x, size.y, 4);
+                }
+                format => return Err(CompressedImageSaverError::UnsupportedFormat(format)),
+            }
 
             let mut compressor = basis_universal::Compressor::new(4);
             #[expect(
@@ -60,12 +89,12 @@ impl AssetSaver for CompressedImageSaver {
                 compressor.init(&compressor_params);
                 compressor.process().unwrap();
             }
-            compressor.basis_file().to_vec()
+            compressor.ktx2_file().to_vec()
         };
 
         writer.write_all(&compressed_basis_data).await?;
         Ok(ImageLoaderSettings {
-            format: ImageFormatSetting::Format(ImageFormat::Basis),
+            format: ImageFormatSetting::Format(ImageFormat::Ktx2),
             is_srgb,
             sampler: image.sampler.clone(),
             asset_usage: image.asset_usage,
