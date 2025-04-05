@@ -37,7 +37,7 @@ impl Plugin for RaytracingScenePlugin {
         let features = render_device.features();
         if !features.contains(Self::required_wgpu_features()) {
             warn!(
-                "SolariScenePlugin not loaded. GPU lacks support for required feature: {:?}.",
+                "SolariScenePlugin not loaded. GPU lacks support for required features: {:?}.",
                 Self::required_wgpu_features().difference(features)
             );
             return;
