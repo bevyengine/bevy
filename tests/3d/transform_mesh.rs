@@ -93,31 +93,21 @@ fn setup_meshes(
         .with_generated_tangents()
         .unwrap();
 
-    let original_mesh_handle = Mesh3d(mesh_assets.add(original_mesh));
+    let original_mesh = mesh_assets.add(original_mesh);
+    let transformed_mesh = mesh_assets.add(transformed_mesh);
+    let recalculated_mesh = mesh_assets.add(recalculated_mesh);
 
-    commands.spawn((
-        Transform::from_xyz(-4.5, 0.0, -10.0),
-        original_mesh_handle.clone(),
-        material.clone(),
-    ));
-
-    commands.spawn((
-        Transform::from_xyz(-1.5, 0.0, -10.0),
-        Mesh3d(mesh_assets.add(transformed_mesh)),
-        material.clone(),
-    ));
-
-    commands.spawn((
-        Transform::from_xyz(1.5, 0.0, -10.0),
-        Mesh3d(mesh_assets.add(recalculated_mesh)),
-        material.clone(),
-    ));
-
-    commands.spawn((
-        Transform::from_xyz(4.5, 0.0, -10.0) * transform,
-        original_mesh_handle.clone(),
-        material.clone(),
-    ));
+    for (mesh_handle, transform) in [
+        (&original_mesh, Transform::from_xyz(-4.5, 0.0, -10.0)),
+        (&transformed_mesh, Transform::from_xyz(-1.5, 0.0, -10.0)),
+        (&recalculated_mesh, Transform::from_xyz(1.5, 0.0, -10.0)),
+        (
+            &original_mesh,
+            Transform::from_xyz(4.5, 0.0, -10.0) * transform,
+        ),
+    ] {
+        commands.spawn((Mesh3d(mesh_handle.clone()), transform, material.clone()));
+    }
 }
 
 fn animate_light(mut lights: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
