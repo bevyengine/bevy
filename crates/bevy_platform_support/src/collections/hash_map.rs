@@ -246,7 +246,7 @@ where
 }
 
 #[cfg(feature = "rayon")]
-impl<'a, K, V, S> IntoParallelIterator for HashMap<K, V, S>
+impl<K, V, S> IntoParallelIterator for HashMap<K, V, S>
 where
     hb::HashMap<K, V, S>: IntoParallelIterator,
 {
@@ -285,7 +285,7 @@ where
 }
 
 #[cfg(feature = "rayon")]
-impl<'a, K, V, S, T> ParallelExtend<T> for HashMap<K, V, S>
+impl<K, V, S, T> ParallelExtend<T> for HashMap<K, V, S>
 where
     hb::HashMap<K, V, S>: ParallelExtend<T>,
     T: Send,

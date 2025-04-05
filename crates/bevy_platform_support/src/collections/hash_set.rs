@@ -235,7 +235,7 @@ where
 }
 
 #[cfg(feature = "rayon")]
-impl<'a, T, S> IntoParallelIterator for HashSet<T, S>
+impl<T, S> IntoParallelIterator for HashSet<T, S>
 where
     hb::HashSet<T, S>: IntoParallelIterator,
 {
@@ -261,7 +261,7 @@ where
 }
 
 #[cfg(feature = "rayon")]
-impl<'a, T, S, U> ParallelExtend<U> for HashSet<T, S>
+impl<T, S, U> ParallelExtend<U> for HashSet<T, S>
 where
     hb::HashSet<T, S>: ParallelExtend<U>,
     U: Send,
