@@ -660,7 +660,7 @@ impl SharedAllocator {
         let start_new = self.next_entity_index.fetch_add(missing, Ordering::Relaxed);
 
         let new_next_entity_index = start_new + missing;
-        if new_next_entity_index < missing {
+        if new_next_entity_index < missing || start_new == 0 {
             self.check_overflow();
         }
 
