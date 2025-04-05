@@ -315,13 +315,6 @@ impl ObserverDescriptor {
         self
     }
 
-    pub(crate) fn merge(&mut self, descriptor: &ObserverDescriptor) {
-        self.events.extend(descriptor.events.iter().copied());
-        self.components
-            .extend(descriptor.components.iter().copied());
-        self.entities.extend(descriptor.entities.iter().copied());
-    }
-
     /// Returns the `events` that the observer is watching.
     pub fn events(&self) -> &[ComponentId] {
         &self.events
@@ -1363,13 +1356,14 @@ mod tests {
         world.init_resource::<Order>();
         let event_a = OnRemove::register_component_id(&mut world);
 
-        let observe = Observer::with_dynamic_runner(|mut world, _trigger, _ptr, _propagate| {
-            world.resource_mut::<Order>().observed("event_a");
-        });
-        world.spawn(
-            // SAFETY: we registered `event_a` above and it matches the type of EventA
-            unsafe { observe.with_event(event_a) },
-        );
+        // SAFETY: we registered `event_a` above and it matches the type of EventA
+        let observe = unsafe {
+            Observer::with_dynamic_runner(|mut world, _trigger, _ptr, _propagate| {
+                world.resource_mut::<Order>().observed("event_a");
+            })
+            .with_event(event_a)
+        };
+        world.spawn(observe);
 
         world.commands().queue(move |world: &mut World| {
             // SAFETY: we registered `event_a` above and it matches the type of EventA

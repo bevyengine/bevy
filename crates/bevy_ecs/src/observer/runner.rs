@@ -293,7 +293,7 @@ impl Component for Observer {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
     fn on_add() -> Option<ComponentHook> {
-        Some(|mut world, context| {
+        Some(|world, context| {
             let Some(observe) = world.get::<Self>(context.entity) else {
                 return;
             };
