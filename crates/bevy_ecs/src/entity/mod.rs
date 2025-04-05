@@ -318,30 +318,6 @@ impl Entity {
         IdentifierMask::pack_into_u64(self.index, self.generation.get())
     }
 
-    /// Same as [`from_bits`](Self::from_bits), but unchecked and faster.
-    ///
-    /// # Safety
-    ///
-    /// `bits` must come from [`Self::to_bits`].
-    #[expect(
-        clippy::allow_attributes,
-        reason = "This is only used on some platforms."
-    )]
-    #[allow(dead_code, reason = "This is only used on some platforms.")]
-    pub(crate) const unsafe fn from_bits_unchecked(bits: u64) -> Self {
-        match Self::try_from_bits(bits) {
-            Ok(entity) => entity,
-            Err(_) => {
-                #[cfg(not(debug_assertions))]
-                // SAFETY: Ensured by caller.
-                unsafe {
-                    hint::unreachable_unchecked()
-                }
-                panic!("Unreachable code. `Entity::from_bits_unchecked` called dincorrectly.")
-            }
-        }
-    }
-
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.

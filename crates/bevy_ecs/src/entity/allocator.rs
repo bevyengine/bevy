@@ -60,7 +60,9 @@ impl Slot {
         };
         #[cfg(target_has_atomic = "64")]
         // SAFETY: This is always sourced from a proper entity.
-        return unsafe { Entity::from_bits_unchecked(self.inner_entity.load(Ordering::Relaxed)) };
+        return unsafe {
+            Entity::try_from_bits(self.inner_entity.load(Ordering::Relaxed)).unwrap_unchecked()
+        };
     }
 }
 
