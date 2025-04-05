@@ -8,7 +8,6 @@ use bevy_math::{Vec2, Vec3};
 use bevy_reflect::TypePath;
 use bevy_tasks::block_on;
 use bytemuck::{Pod, Zeroable};
-use half::f16;
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
 use std::io::{Read, Write};
 use thiserror::Error;
@@ -17,7 +16,7 @@ use thiserror::Error;
 const MESHLET_MESH_ASSET_MAGIC: u64 = 1717551717668;
 
 /// The current version of the [`MeshletMesh`] asset format.
-pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
+pub const MESHLET_MESH_ASSET_VERSION: u64 = 2;
 
 /// A mesh that has been pre-processed into multiple small clusters of triangles called meshlets.
 ///
@@ -47,12 +46,33 @@ pub struct MeshletMesh {
     pub(crate) vertex_uvs: Arc<[Vec2]>,
     /// Triangle indices for meshlets.
     pub(crate) indices: Arc<[u8]>,
+    /// The BVH8 used for culling and LOD selection of the meshlets. The root is at index 0.
+    pub(crate) bvh: Arc<[BvhNode]>,
     /// The list of meshlets making up this mesh.
     pub(crate) meshlets: Arc<[Meshlet]>,
     /// Spherical bounding volumes.
-    pub(crate) meshlet_bounding_spheres: Arc<[MeshletBoundingSpheres]>,
-    /// Meshlet group and parent group simplification errors.
-    pub(crate) meshlet_simplification_errors: Arc<[MeshletSimplificationError]>,
+    pub(crate) meshlet_cull_data: Arc<[MeshletCullData]>,
+    /// The depth of the culling BVH, used to determine the number of dispatches at runtime.
+    pub(crate) bvh_depth: u32,
+}
+
+/// A single BVH8 node in the BVH used for culling and LOD selection of a [`MeshletMesh`].
+#[derive(Copy, Clone, Default, Pod, Zeroable)]
+#[repr(C)]
+pub struct BvhNode {
+    /// The tight AABBs of this node's children, used for frustum and occlusion during BVH
+    /// traversal.
+    pub aabbs: [MeshletAabb; 8],
+    /// The LOD bounding spheres of this node's children, used for LOD selection during BVH
+    /// traversal.
+    pub lod_bounds: [MeshletBoundingSphere; 8],
+    /// The parent errors of this node's children, used for LOD selection during BVH
+    /// traversal.
+    pub parent_errors: [f32; 8],
+    /// The child offsets in the respective buffer for each child of this node.     
+    pub child_offsets: [u32; 8],
+    /// If `u8::MAX`, it indicates that the child of each children is a BVH node, otherwise it is the number of meshlets in the group.
+    pub child_counts: [u8; 8],
 }
 
 /// A single meshlet within a [`MeshletMesh`].
@@ -91,31 +111,29 @@ pub struct Meshlet {
 /// Bounding spheres used for culling and choosing level of detail for a [`Meshlet`].
 #[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
-pub struct MeshletBoundingSpheres {
-    /// Bounding sphere used for frustum and occlusion culling for this meshlet.
-    pub culling_sphere: MeshletBoundingSphere,
+pub struct MeshletCullData {
+    /// Tight bounding box, used for frustum and occlusion culling for this meshlet.
+    pub aabb: MeshletAabb,
     /// Bounding sphere used for determining if this meshlet's group is at the correct level of detail for a given view.
     pub lod_group_sphere: MeshletBoundingSphere,
-    /// Bounding sphere used for determining if this meshlet's parent group is at the correct level of detail for a given view.
-    pub lod_parent_group_sphere: MeshletBoundingSphere,
+    /// The world-space error of this meshlet.
+    pub error: f32,
+}
+
+/// An axis-aligned bounding box used for a [`Meshlet`].
+#[derive(Copy, Clone, Default, Pod, Zeroable)]
+#[repr(C)]
+pub struct MeshletAabb {
+    pub center: Vec3,
+    pub half_extent: Vec3,
 }
 
 /// A spherical bounding volume used for a [`Meshlet`].
-#[derive(Copy, Clone, Pod, Zeroable)]
+#[derive(Copy, Clone, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct MeshletBoundingSphere {
     pub center: Vec3,
     pub radius: f32,
-}
-
-/// Simplification error used for choosing level of detail for a [`Meshlet`].
-#[derive(Copy, Clone, Pod, Zeroable)]
-#[repr(C)]
-pub struct MeshletSimplificationError {
-    /// Simplification error used for determining if this meshlet's group is at the correct level of detail for a given view.
-    pub group_error: f16,
-    /// Simplification error used for determining if this meshlet's parent group is at the correct level of detail for a given view.
-    pub parent_group_error: f16,
 }
 
 /// An [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
@@ -149,9 +167,10 @@ impl AssetSaver for MeshletMeshSaver {
         write_slice(&asset.vertex_normals, &mut writer)?;
         write_slice(&asset.vertex_uvs, &mut writer)?;
         write_slice(&asset.indices, &mut writer)?;
+        write_slice(&asset.bvh, &mut writer)?;
         write_slice(&asset.meshlets, &mut writer)?;
-        write_slice(&asset.meshlet_bounding_spheres, &mut writer)?;
-        write_slice(&asset.meshlet_simplification_errors, &mut writer)?;
+        write_slice(&asset.meshlet_cull_data, &mut writer)?;
+        writer.write_all(bytemuck::bytes_of(&asset.bvh_depth))?;
         writer.finish()?;
 
         Ok(())
@@ -190,18 +209,22 @@ impl AssetLoader for MeshletMeshLoader {
         let vertex_normals = read_slice(reader)?;
         let vertex_uvs = read_slice(reader)?;
         let indices = read_slice(reader)?;
+        let bvh = read_slice(reader)?;
         let meshlets = read_slice(reader)?;
-        let meshlet_bounding_spheres = read_slice(reader)?;
-        let meshlet_simplification_errors = read_slice(reader)?;
+        let meshlet_cull_data = read_slice(reader)?;
+        let mut bytes = [0u8; 4];
+        reader.read_exact(&mut bytes)?;
+        let bvh_depth = u32::from_be_bytes(bytes);
 
         Ok(MeshletMesh {
             vertex_positions,
             vertex_normals,
             vertex_uvs,
             indices,
+            bvh,
             meshlets,
-            meshlet_bounding_spheres,
-            meshlet_simplification_errors,
+            meshlet_cull_data,
+            bvh_depth,
         })
     }
 
