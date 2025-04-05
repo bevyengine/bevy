@@ -1,6 +1,6 @@
-#define_import_path bevy_sprite::mesh2d_functions
+#define_import_path bevy_render_2d::mesh2d_functions
 
-#import bevy_sprite::{
+#import bevy_render_2d::{
     mesh2d_view_bindings::view,
     mesh2d_bindings::mesh,
 }
