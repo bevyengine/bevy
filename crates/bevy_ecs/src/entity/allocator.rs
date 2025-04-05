@@ -339,29 +339,28 @@ impl PackedFreeCount {
     }
 
     /// Gets the encoded length.
+    #[inline]
     const fn length(self) -> u32 {
         let unsigned_length = self.0 & Self::LENGTH_MASK;
         unsigned_length.saturating_sub(Self::LENGTH_0) as u32
     }
 
     /// Returns whether or not the count is disabled.
+    #[inline]
     const fn is_disabled(self) -> bool {
         (self.0 & Self::DISABLING_BIT) > 0
     }
 
     /// Changes only the length of this count to `length`.
+    #[inline]
     const fn with_length(self, length: u32) -> Self {
         // Just turns on the "considered zero" bit since this is non-negative.
         let length = length as u64 | Self::LENGTH_0;
         Self(self.0 & !Self::LENGTH_MASK | length)
     }
 
-    /// Manually changes the generation.
-    const fn change_generation(self) -> Self {
-        Self(self.0.wrapping_sub(Self::GENERATION_LEAST_BIT))
-    }
-
     /// For popping `num` off the count, subtract the resulting u64.
+    #[inline]
     const fn encode_pop(num: u32) -> u64 {
         let subtract_length = num as u64;
         // Also subtract one from the generation bit.
@@ -369,6 +368,7 @@ impl PackedFreeCount {
     }
 
     /// Returns the count after popping off `num` elements.
+    #[inline]
     const fn pop(self, num: u32) -> Self {
         Self(self.0.wrapping_sub(Self::encode_pop(num)))
     }
