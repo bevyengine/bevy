@@ -140,9 +140,8 @@ impl EntityRow {
     /// The bits are opaque and should not be regarded as meaningful.
     #[inline(always)]
     const fn to_bits(self) -> u32 {
-        // SAFETY: NonMax is repr transparent.
-        let underlying: NonZero<u32> = unsafe { mem::transmute::<NonMaxU32, NonZero<u32>>(self.0) };
-        underlying.get()
+        // SAFETY: NonMax and NonZero are repr transparent.
+        unsafe { mem::transmute::<NonMaxU32, u32>(self.0) }
     }
 
     /// Reconstruct an [`EntityRow`] previously destructured with [`EntityRow::to_bits`].
