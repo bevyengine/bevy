@@ -513,6 +513,7 @@ impl core::ops::IndexMut<usize> for ParsedPath {
 mod tests {
     use super::*;
     use crate::*;
+    use alloc::string::String;
     use alloc::vec;
 
     #[derive(Reflect, PartialEq, Debug)]
@@ -526,6 +527,8 @@ mod tests {
         struct_variant: F,
         array: [i32; 3],
         tuple: (bool, f32),
+        string_map: std::collections::HashMap<String, String>,
+        usize_map: std::collections::HashMap<usize, usize>,
     }
 
     #[derive(Reflect, PartialEq, Debug)]
@@ -566,6 +569,10 @@ mod tests {
             struct_variant: F::Şķràźÿ { 東京: 'm' },
             array: [86, 75, 309],
             tuple: (true, 1.23),
+            string_map: vec![("foo".into(), "bar".into()), ("baz".into(), "qux".into())]
+                .into_iter()
+                .collect(),
+            usize_map: vec![(0, 1), (1, 2), (2, 3)].into_iter().collect(),
         }
     }
 
@@ -582,14 +589,19 @@ mod tests {
 
     type StaticError = ReflectPathError<'static>;
 
-    fn invalid_access(
-        offset: usize,
-        actual: ReflectKind,
-        expected: ReflectKind,
-        access: &'static str,
-    ) -> StaticError {
+    fn invalid_access(offset: usize, actual: ReflectKind, access: &'static str) -> StaticError {
         ReflectPathError::InvalidAccess(AccessError {
-            kind: AccessErrorKind::IncompatibleTypes { actual, expected },
+            kind: AccessErrorKind::UnsupportedAccess {
+                base: actual,
+                access: ParsedPath::parse_static(access)
+                    .unwrap()
+                    .0
+                    .into_iter()
+                    .last()
+                    .unwrap()
+                    .access
+                    .clone(),
+            },
             access: ParsedPath::parse_static(access).unwrap()[1].access.clone(),
             offset: Some(offset),
         })
@@ -748,6 +760,8 @@ mod tests {
         assert_eq!(*a.path::<f32>("x.łørđ.mосква").unwrap(), 3.14);
         assert_eq!(*a.path::<f32>("y[1].mосква").unwrap(), 2.0);
         assert_eq!(*a.path::<usize>("z.0.1").unwrap(), 42);
+        assert_eq!(*a.path::<usize>("z.0[1]").unwrap(), 42);
+        assert_eq!(*a.path::<usize>("z[0][1]").unwrap(), 42);
         assert_eq!(*a.path::<usize>("x#0").unwrap(), 10);
         assert_eq!(*a.path::<f32>("x#1#0").unwrap(), 3.14);
 
@@ -757,6 +771,7 @@ mod tests {
         assert_eq!(*a.path::<char>("struct_variant#0").unwrap(), 'm');
 
         assert_eq!(*a.path::<i32>("array[2]").unwrap(), 309);
+        assert_eq!(*a.path::<i32>("array.2").unwrap(), 309);
 
         assert_eq!(*a.path::<f32>("tuple.1").unwrap(), 1.23);
         *a.path_mut::<f32>("tuple.1").unwrap() = 3.21;
@@ -767,6 +782,23 @@ mod tests {
 
         *a.path_mut::<u32>("tuple_variant.0").unwrap() = 1337;
         assert_eq!(a.tuple_variant, F::Tuple(1337, 321));
+
+        assert_eq!(
+            *a.path::<String>("string_map.foo").unwrap(),
+            String::from("bar")
+        );
+        assert_eq!(
+            *a.path::<String>("string_map.baz").unwrap(),
+            String::from("qux")
+        );
+
+        assert_eq!(*a.path::<usize>("usize_map[0]").unwrap(), 1);
+        assert_eq!(*a.path::<usize>("usize_map[1]").unwrap(), 2);
+        assert_eq!(*a.path::<usize>("usize_map[2]").unwrap(), 3);
+
+        assert_eq!(*a.path::<usize>("usize_map.0").unwrap(), 1);
+        assert_eq!(*a.path::<usize>("usize_map.1").unwrap(), 2);
+        assert_eq!(*a.path::<usize>("usize_map.2").unwrap(), 3);
 
         assert_eq!(
             a.reflect_path("x.notreal").err().unwrap(),
@@ -792,11 +824,11 @@ mod tests {
         );
         assert_eq!(
             a.reflect_path("x[0]").err().unwrap(),
-            invalid_access(2, ReflectKind::Struct, ReflectKind::List, "x[0]")
+            invalid_access(2, ReflectKind::Struct, "x[0]")
         );
         assert_eq!(
             a.reflect_path("y.x").err().unwrap(),
-            invalid_access(2, ReflectKind::List, ReflectKind::Struct, "y.x")
+            invalid_access(2, ReflectKind::List, "y.x")
         );
     }
 
