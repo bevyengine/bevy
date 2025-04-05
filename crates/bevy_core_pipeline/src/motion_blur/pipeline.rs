@@ -26,7 +26,7 @@ use bevy_render::{
 
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 
-use super::{MotionBlur, MOTION_BLUR_SHADER_HANDLE};
+use super::{MotionBlurUniform, MOTION_BLUR_SHADER_HANDLE};
 
 #[derive(Resource)]
 pub struct MotionBlurPipeline {
@@ -49,7 +49,7 @@ impl MotionBlurPipeline {
                 // Linear Sampler
                 sampler(SamplerBindingType::Filtering),
                 // Motion blur settings uniform input
-                uniform_buffer_sized(false, Some(MotionBlur::min_size())),
+                uniform_buffer_sized(false, Some(MotionBlurUniform::min_size())),
                 // Globals uniform input
                 uniform_buffer_sized(false, Some(GlobalsUniform::min_size())),
             ),
@@ -67,7 +67,7 @@ impl MotionBlurPipeline {
                 // Linear Sampler
                 sampler(SamplerBindingType::Filtering),
                 // Motion blur settings uniform input
-                uniform_buffer_sized(false, Some(MotionBlur::min_size())),
+                uniform_buffer_sized(false, Some(MotionBlurUniform::min_size())),
                 // Globals uniform input
                 uniform_buffer_sized(false, Some(GlobalsUniform::min_size())),
             ),
@@ -155,7 +155,7 @@ pub(crate) fn prepare_motion_blur_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<MotionBlurPipeline>>,
     pipeline: Res<MotionBlurPipeline>,
-    views: Query<(Entity, &ExtractedView, &Msaa), With<MotionBlur>>,
+    views: Query<(Entity, &ExtractedView, &Msaa), With<MotionBlurUniform>>,
 ) {
     for (entity, view, msaa) in &views {
         let pipeline_id = pipelines.specialize(
