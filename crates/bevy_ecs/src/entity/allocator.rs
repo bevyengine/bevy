@@ -320,9 +320,9 @@ impl<'a> core::iter::FusedIterator for FreeBufferIterator<'a> {}
 /// - The 34th bit stores a flag that indicates if the count has been disabled/suspended.
 /// - The remaining 30 bits are the generation. The generation just differentiate different versions of the state that happen to encode the same length.
 #[derive(Clone, Copy)]
-struct PackedFreeCount(u64);
+struct FreeCountState(u64);
 
-impl PackedFreeCount {
+impl FreeCountState {
     /// When this bit is on, the count is disabled.
     /// This is used to prevent remote allocations from running at the same time as a free operation.
     const DISABLING_BIT: u64 = 1 << 33;
@@ -391,51 +391,51 @@ struct FreeCount(AtomicU64);
 impl FreeCount {
     /// Constructs a length of 0.
     const fn new_zero_len() -> Self {
-        Self(AtomicU64::new(PackedFreeCount::new_zero_len().0))
+        Self(AtomicU64::new(FreeCountState::new_zero_len().0))
     }
 
-    /// Gets the current count of the buffer.
+    /// Gets the current state of the buffer.
     #[inline]
-    fn count(&self, order: Ordering) -> PackedFreeCount {
-        PackedFreeCount(self.0.load(order))
+    fn state(&self, order: Ordering) -> FreeCountState {
+        FreeCountState(self.0.load(order))
     }
 
-    /// Subtracts `num` from the length, returning the previous count.
+    /// Subtracts `num` from the length, returning the previous state.
     ///
-    /// **NOTE:** Caller should be careful that changing the count is allowed and that the count is not disabled.
+    /// **NOTE:** Caller should be careful that changing the state is allowed and that the state is not disabled.
     #[inline]
-    fn pop_for_count(&self, num: u32, order: Ordering) -> PackedFreeCount {
-        let to_sub = PackedFreeCount::encode_pop(num);
+    fn pop_for_state(&self, num: u32, order: Ordering) -> FreeCountState {
+        let to_sub = FreeCountState::encode_pop(num);
         let raw = self.0.fetch_sub(to_sub, order);
-        PackedFreeCount(raw)
+        FreeCountState(raw)
     }
 
-    /// Marks the count as disabled, returning the previous count
+    /// Marks the state as disabled, returning the previous state
     #[inline]
-    fn disable_len_for_count(&self, order: Ordering) -> PackedFreeCount {
+    fn disable_len_for_state(&self, order: Ordering) -> FreeCountState {
         // We don't care about the generation here since this changes the value anyway.
-        PackedFreeCount(self.0.fetch_or(PackedFreeCount::DISABLING_BIT, order))
+        FreeCountState(self.0.fetch_or(FreeCountState::DISABLING_BIT, order))
     }
 
-    /// Sets the length explicitly. Caller must be careful that the length has not changed since getting the count and setting it.
+    /// Sets the length explicitly. Caller must be careful that the length has not changed since getting the state and setting it.
     #[inline]
-    fn set_count_risky(&self, count: PackedFreeCount, order: Ordering) {
-        self.0.store(count.0, order);
+    fn set_state_risky(&self, state: FreeCountState, order: Ordering) {
+        self.0.store(state.0, order);
     }
 
-    /// Attempts to update the count, returning the new [`PackedFreeCount`] if it fails.
+    /// Attempts to update the state, returning the new [`PackedFreeCount`] if it fails.
     #[inline]
-    fn try_set_count(
+    fn try_set_state(
         &self,
-        expected_current_count: PackedFreeCount,
-        target_count: PackedFreeCount,
+        expected_current_state: FreeCountState,
+        target_state: FreeCountState,
         success: Ordering,
         failure: Ordering,
-    ) -> Result<(), PackedFreeCount> {
+    ) -> Result<(), FreeCountState> {
         self.0
-            .compare_exchange(expected_current_count.0, target_count.0, success, failure)
+            .compare_exchange(expected_current_state.0, target_state.0, success, failure)
             .map(|_| ())
-            .map_err(PackedFreeCount)
+            .map_err(FreeCountState)
     }
 }
 
@@ -465,7 +465,7 @@ impl FreeList {
     #[inline]
     unsafe fn num_free(&self) -> u32 {
         // Relaxed would probably be fine here, but this is more precise.
-        self.len.count(Ordering::Acquire).length()
+        self.len.state(Ordering::Acquire).length()
     }
 
     /// Frees the `entity` allowing it to be reused.
@@ -476,7 +476,7 @@ impl FreeList {
     #[inline]
     unsafe fn free(&self, entity: Entity) {
         // Disable remote allocation.
-        let state = self.len.disable_len_for_count(Ordering::Acquire);
+        let state = self.len.disable_len_for_state(Ordering::Acquire);
 
         // Push onto the buffer
         let len = state.length();
@@ -492,7 +492,7 @@ impl FreeList {
         // We don't need to change the generation since this will change the length.
         // If, from a `remote_alloc` perspective, this does not change the length (i.e. this changes it *back* to what it was),
         // then `alloc` must have been called, which changes the generation.
-        self.len.set_count_risky(new_state, Ordering::Release);
+        self.len.set_state_risky(new_state, Ordering::Release);
     }
 
     /// Allocates an [`Entity`] from the free list if one is available.
@@ -503,7 +503,7 @@ impl FreeList {
     #[inline]
     unsafe fn alloc(&self) -> Option<Entity> {
         // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
-        let len = self.len.pop_for_count(1, Ordering::AcqRel).length();
+        let len = self.len.pop_for_state(1, Ordering::AcqRel).length();
         let index = len.checked_sub(1)?;
 
         // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
@@ -518,7 +518,7 @@ impl FreeList {
     #[inline]
     unsafe fn alloc_many(&self, count: u32) -> FreeBufferIterator {
         // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
-        let len = self.len.pop_for_count(count, Ordering::AcqRel).length();
+        let len = self.len.pop_for_state(count, Ordering::AcqRel).length();
         let index = len.saturating_sub(count);
 
         let indices = if index < len {
@@ -550,14 +550,14 @@ impl FreeList {
         // So we need a `len.compare_exchange` loop to ensure the index is unique.
         // Because we keep a generation value in the `FreeCount`, if any of these things happen, we simply try again.
 
-        let mut state = self.len.count(Ordering::Acquire);
+        let mut state = self.len.state(Ordering::Acquire);
         loop {
             // The state is only disabled when freeing.
             // If a free is happening, we need to wait for the new entity to be ready on the free buffer.
             // Then, we can allocate it.
             if state.is_disabled() {
                 core::hint::spin_loop();
-                state = self.len.count(Ordering::Acquire);
+                state = self.len.state(Ordering::Acquire);
                 continue;
             }
 
@@ -570,7 +570,7 @@ impl FreeList {
             let ideal_state = state.pop(1);
             match self
                 .len
-                .try_set_count(state, ideal_state, Ordering::AcqRel, Ordering::Acquire)
+                .try_set_state(state, ideal_state, Ordering::AcqRel, Ordering::Acquire)
             {
                 Ok(_) => return Some(entity),
                 Err(new_state) => state = new_state,
@@ -891,15 +891,15 @@ mod tests {
     #[test]
     fn buffer_len_encoding() {
         let len = FreeCount::new_zero_len();
-        assert_eq!(len.count(Ordering::Relaxed).length(), 0);
-        assert_eq!(len.pop_for_count(200, Ordering::Relaxed).length(), 0);
-        len.set_count_risky(
-            PackedFreeCount::new_zero_len().with_length(5),
+        assert_eq!(len.state(Ordering::Relaxed).length(), 0);
+        assert_eq!(len.pop_for_state(200, Ordering::Relaxed).length(), 0);
+        len.set_state_risky(
+            FreeCountState::new_zero_len().with_length(5),
             Ordering::Relaxed,
         );
-        assert_eq!(len.pop_for_count(2, Ordering::Relaxed).length(), 5);
-        assert_eq!(len.pop_for_count(2, Ordering::Relaxed).length(), 3);
-        assert_eq!(len.pop_for_count(2, Ordering::Relaxed).length(), 1);
-        assert_eq!(len.pop_for_count(2, Ordering::Relaxed).length(), 0);
+        assert_eq!(len.pop_for_state(2, Ordering::Relaxed).length(), 5);
+        assert_eq!(len.pop_for_state(2, Ordering::Relaxed).length(), 3);
+        assert_eq!(len.pop_for_state(2, Ordering::Relaxed).length(), 1);
+        assert_eq!(len.pop_for_state(2, Ordering::Relaxed).length(), 0);
     }
 }
