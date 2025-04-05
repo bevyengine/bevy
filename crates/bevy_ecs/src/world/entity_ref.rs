@@ -2952,6 +2952,22 @@ impl<'w> EntityWorldMut<'w> {
             .entity_get_spawned_or_despawned_by(self.entity)
             .map(|location| location.unwrap())
     }
+
+    /// Reborrows this entity in a temporary scope.
+    /// This is useful for executing a function that requires a `EntityWorldMut`
+    /// but you do not want to move out the entity ownership.
+    pub fn reborrow_scope<U>(&mut self, f: impl FnOnce(EntityWorldMut) -> U) -> U {
+        let Self {
+            entity, location, ..
+        } = *self;
+        self.world_scope(move |world| {
+            f(EntityWorldMut {
+                world,
+                entity,
+                location,
+            })
+        })
+    }
 }
 
 /// # Safety
