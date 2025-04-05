@@ -964,7 +964,7 @@ impl RemoteEntities {
         }
     }
     /// Allocates an [`Entity`]. Note that if the source [`Entities`] has been cleared or dropped, this will return a garbage value.
-    /// Use [`is_closed`] to ensure the entities are valid before using them!
+    /// Use [`is_closed`](Self::is_closed) to ensure the entities are valid before using them!
     ///
     /// The caller takes responsibility for eventually setting the [`EntityLocation`],
     /// usually via [`flush_entity`](crate::world::World::flush_entity).
@@ -973,7 +973,7 @@ impl RemoteEntities {
     }
 
     /// Reserves an [`Entity`]. Note that if the source [`Entities`] has been cleared or dropped, this will return a garbage value.
-    /// Use [`is_closed`] to ensure the entities are valid before using them!
+    /// Use [`is_closed`](Self::is_closed) to ensure the entities are valid before using them!
     ///
     /// This also queues it to be flushed after [`Entities::queue_remote_pending_to_be_flushed`] is called.
     /// If waiting for that is not an option, it is also possible to set the [`EntityLocation`] manually,

@@ -47,7 +47,7 @@ impl Slot {
         self.inner_entity.store(entity.to_bits(), Ordering::Relaxed);
     }
 
-    /// Gets the stored entity. The result be [`Entity::PLACEHODLER`] unless [`set`](Self::set) has been called.
+    /// Gets the stored entity. The result be [`Entity::PLACEHOLDER`] unless [`set_entity`](Self::set_entity) has been called.
     #[inline]
     fn get_entity(&self) -> Entity {
         #[cfg(not(target_has_atomic = "64"))]
