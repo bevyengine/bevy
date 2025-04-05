@@ -953,33 +953,6 @@ pub struct RemoteEntities {
 }
 
 impl RemoteEntities {
-    /// Allocates an [`Entity`] if the source [`Entities`] is still linked to this [`RemoteEntities`].
-    ///
-    /// The caller takes responsibility for eventually setting the [`EntityLocation`],
-    /// usually via [`flush_entity`](crate::world::World::flush_entity).
-    pub fn alloc(&self) -> Option<Entity> {
-        self.allocator.alloc()
-    }
-
-    /// Reserves an [`Entity`] if the source [`Entities`] is still linked to this [`RemoteEntities`].
-    ///
-    /// This also queues it to be flushed after [`Entities::queue_remote_pending_to_be_flushed`] is called.
-    /// If waiting for that is not an option, it is also possible to set the [`EntityLocation`] manually,
-    /// usually via [`flush_entity`](crate::world::World::flush_entity).
-    pub fn reserve(&self) -> Option<Entity> {
-        self.alloc()
-            .inspect(|entity| self.pending.queue_flush(*entity))
-    }
-
-    /// Returns true if this [`RemoteEntities`] is still connected to its source [`Entities`].
-    /// This will return `false` if its source has been dropped or [`Entities::clear`]ed.
-    ///
-    /// Note that this does not guarantee immediately calling [`Self::alloc`] will return `Some`,
-    /// as this can close at any time.
-    pub fn is_closed(&self) -> bool {
-        self.allocator.is_closed()
-    }
-
     /// Creates a new [`RemoteEntities`] with this [`Entities`] as its source.
     /// Note that this can be closed at any time,
     /// so before using an allocated [`Entity`],
@@ -989,6 +962,36 @@ impl RemoteEntities {
             allocator: RemoteAllocator::new(&source.allocator),
             pending: source.pending.remote.clone(),
         }
+    }
+    /// Allocates an [`Entity`]. Note that if the source [`Entities`] has been cleared or dropped, this will return a garbage value.
+    /// Use [`is_closed`] to ensure the entities are valid before using them!
+    ///
+    /// The caller takes responsibility for eventually setting the [`EntityLocation`],
+    /// usually via [`flush_entity`](crate::world::World::flush_entity).
+    pub fn alloc(&self) -> Entity {
+        self.allocator.alloc()
+    }
+
+    /// Reserves an [`Entity`]. Note that if the source [`Entities`] has been cleared or dropped, this will return a garbage value.
+    /// Use [`is_closed`] to ensure the entities are valid before using them!
+    ///
+    /// This also queues it to be flushed after [`Entities::queue_remote_pending_to_be_flushed`] is called.
+    /// If waiting for that is not an option, it is also possible to set the [`EntityLocation`] manually,
+    /// usually via [`flush_entity`](crate::world::World::flush_entity).
+    pub fn reserve(&self) -> Entity {
+        let entity = self.alloc();
+        self.pending.queue_flush(entity);
+        entity
+    }
+
+    /// Returns true if this [`RemoteEntities`] is still connected to its source [`Entities`].
+    /// This will return `false` if its source has been dropped or [`Entities::clear`]ed.
+    ///
+    /// Note that this can be closed immediately after returning false.
+    ///
+    /// Holding a reference to the source [`Entities`] while calling this will ensure the value does not change unknowingly.
+    pub fn is_closed(&self) -> bool {
+        self.allocator.is_closed()
     }
 }
 

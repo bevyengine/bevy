@@ -2,7 +2,7 @@ use bevy_platform_support::{
     prelude::Vec,
     sync::{
         atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicU64, Ordering},
-        Arc, Weak,
+        Arc,
     },
 };
 use core::mem::ManuallyDrop;
@@ -583,9 +583,21 @@ struct SharedAllocator {
     /// If true, the [`Self::next_entity_index`] has been incremented before,
     /// so if it hits or passes zero again, an overflow has occored.
     entity_index_given: AtomicBool,
+    /// Tracks whether or not the primary [`Allocator`] has been closed or not.
+    is_closed: AtomicBool,
 }
 
 impl SharedAllocator {
+    /// Constructs a [`SharedAllocator`]
+    fn new() -> Self {
+        Self {
+            free: FreeList::new(),
+            next_entity_index: AtomicU32::new(0),
+            entity_index_given: AtomicBool::new(false),
+            is_closed: AtomicBool::new(false),
+        }
+    }
+
     /// The total number of indices given out.
     #[inline]
     fn total_entity_indices(&self) -> u64 {
@@ -659,12 +671,14 @@ impl SharedAllocator {
             .unwrap_or_else(|| self.alloc_new_index())
     }
 
-    fn new() -> Self {
-        Self {
-            free: FreeList::new(),
-            next_entity_index: AtomicU32::new(0),
-            entity_index_given: AtomicBool::new(false),
-        }
+    /// Marks the allocator as closed, but it will still function normally.
+    fn close(&self) {
+        self.is_closed.store(true, Ordering::Release);
+    }
+
+    /// Returns true if [`Self::close`] has been called.
+    fn is_closed(&self) -> bool {
+        self.is_closed.load(Ordering::Acquire)
     }
 }
 
@@ -674,6 +688,7 @@ pub struct Allocator {
 }
 
 impl Allocator {
+    /// Constructs a new [`Allocator`]
     pub fn new() -> Self {
         Self {
             shared: Arc::new(SharedAllocator::new()),
@@ -737,6 +752,12 @@ impl Allocator {
     }
 }
 
+impl Drop for Allocator {
+    fn drop(&mut self) {
+        self.shared.close();
+    }
+}
+
 impl core::fmt::Debug for Allocator {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct(core::any::type_name::<Self>())
@@ -791,34 +812,32 @@ impl Drop for AllocEntitiesIterator<'_> {
 /// As a result, using this will be slower than [`Allocator`] but this offers additional freedoms.
 #[derive(Clone)]
 pub struct RemoteAllocator {
-    // PERF: We could avoid the extra 2 atomic ops from upgrading and then dropping the `Weak`,
-    // But this provides more safety and allows memory to be freed earlier.
-    shared: Weak<SharedAllocator>,
+    shared: Arc<SharedAllocator>,
 }
 
 impl RemoteAllocator {
+    /// Creates a new [`RemoteAllocator`] with the provided [`Allocator`] source.
+    /// If the source is ever destroyed, [`Self::alloc`] will yield garbage values.
+    /// Be sure to use [`Self::is_closed`] to determine if it is safe to use these entities.
+    pub fn new(source: &Allocator) -> Self {
+        Self {
+            shared: source.shared.clone(),
+        }
+    }
+
     /// Allocates an entity remotely.
     /// This is not guaranteed to reuse a freed entity, even if one exists.
     ///
     /// This will return [`None`] if the source [`Allocator`] is destroyed.
     #[inline]
-    pub fn alloc(&self) -> Option<Entity> {
-        self.shared
-            .upgrade()
-            .map(|allocator| allocator.remote_alloc())
+    pub fn alloc(&self) -> Entity {
+        self.shared.remote_alloc()
     }
 
     /// Returns whether or not this [`RemoteAllocator`] is still connected to its source [`Allocator`].
+    /// Note that this could close immediately after the function returns false, so be careful.
     pub fn is_closed(&self) -> bool {
-        self.shared.strong_count() > 0
-    }
-
-    /// Creates a new [`RemoteAllocator`] with the provided [`Allocator`] source.
-    /// If the source is ever destroyed, [`Self::alloc`] will yield [`None`].
-    pub fn new(source: &Allocator) -> Self {
-        Self {
-            shared: Arc::downgrade(&source.shared),
-        }
+        self.shared.is_closed()
     }
 }
 
