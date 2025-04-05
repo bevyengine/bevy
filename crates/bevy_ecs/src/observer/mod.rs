@@ -1654,7 +1654,7 @@ mod tests {
         fn on_add(trigger: Trigger<OnAdd, A>, mut commands: Commands) {
             commands
                 .entity(trigger.target())
-                .with_related::<crate::hierarchy::ChildOf>(|rsc| {
+                .with_relationships::<crate::hierarchy::ChildOf>(|rsc| {
                     rsc.spawn_empty();
                 });
         }

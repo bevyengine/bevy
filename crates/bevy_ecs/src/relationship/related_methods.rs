@@ -13,8 +13,17 @@ use core::{marker::PhantomData, mem};
 use super::OrderedRelationshipSourceCollection;
 
 impl<'w> EntityWorldMut<'w> {
+    /// Spawns a entity related to this entity (with the `R` relationship) by taking a bundle
+    pub fn with_related<R: Relationship>(&mut self, bundle: impl Bundle) -> &mut Self {
+        let parent = self.id();
+        self.world_scope(|world| {
+            world.spawn((bundle, R::from(parent)));
+        });
+        self
+    }
+
     /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
-    pub fn with_related<R: Relationship>(
+    pub fn with_relationships<R: Relationship>(
         &mut self,
         func: impl FnOnce(&mut RelatedSpawner<R>),
     ) -> &mut Self {
@@ -322,8 +331,15 @@ impl<'w> EntityWorldMut<'w> {
 }
 
 impl<'a> EntityCommands<'a> {
+    /// Spawns a entity related to this entity (with the `R` relationship) by taking a bundle
+    pub fn with_related<R: Relationship>(&mut self, bundle: impl Bundle) -> &mut Self {
+        let parent = self.id();
+        self.commands.spawn((bundle, R::from(parent)));
+        self
+    }
+
     /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
-    pub fn with_related<R: Relationship>(
+    pub fn with_relationships<R: Relationship>(
         &mut self,
         func: impl FnOnce(&mut RelatedSpawnerCommands<R>),
     ) -> &mut Self {
@@ -340,23 +356,6 @@ impl<'a> EntityCommands<'a> {
 
         self.queue(move |mut entity: EntityWorldMut| {
             entity.add_related::<R>(&related);
-        })
-    }
-
-    /// Relates the given entities to this entity with the relation `R`, starting at this particular index.
-    ///
-    /// If the `related` has duplicates, a related entity will take the index of its last occurrence in `related`.
-    /// If the indices go out of bounds, they will be clamped into bounds.
-    /// This will not re-order existing related entities unless they are in `related`.
-    pub fn insert_related<R: Relationship>(&mut self, index: usize, related: &[Entity]) -> &mut Self
-    where
-        <R::RelationshipTarget as RelationshipTarget>::Collection:
-            OrderedRelationshipSourceCollection,
-    {
-        let related: Box<[Entity]> = related.into();
-
-        self.queue(move |mut entity: EntityWorldMut| {
-            entity.insert_related::<R>(index, &related);
         })
     }
 
