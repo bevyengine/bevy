@@ -131,9 +131,7 @@ fn build_over_map(
         .filter(|e| !cancelled_pointers.contains(&e.pointer))
     {
         let pointer = entities_under_pointer.pointer;
-        let layer_map = pointer_over_map
-            .entry(pointer)
-            .or_insert_with(BTreeMap::new);
+        let layer_map = pointer_over_map.entry(pointer).or_default();
         for (entity, pick_data) in entities_under_pointer.picks.iter() {
             let layer = entities_under_pointer.order;
             let hits = layer_map.entry(FloatOrd(layer)).or_default();

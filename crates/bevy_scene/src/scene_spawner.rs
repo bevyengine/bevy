@@ -331,10 +331,7 @@ impl SceneSpawner {
                 Ok(_) => {
                     self.spawned_instances
                         .insert(instance_id, InstanceInfo { entity_map });
-                    let spawned = self
-                        .spawned_dynamic_scenes
-                        .entry(handle.id())
-                        .or_insert_with(HashSet::default);
+                    let spawned = self.spawned_dynamic_scenes.entry(handle.id()).or_default();
                     spawned.insert(instance_id);
 
                     // Scenes with parents need more setup before they are ready.
