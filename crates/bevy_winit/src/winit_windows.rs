@@ -145,7 +145,14 @@ impl WinitWindows {
 
         #[cfg(target_os = "ios")]
         {
+            use crate::converters::convert_screen_edge;
             use winit::platform::ios::WindowAttributesExtIOS;
+
+            let preferred_edge =
+                convert_screen_edge(window.preferred_screen_edges_deferring_system_gestures);
+
+            winit_window_attributes = winit_window_attributes
+                .with_preferred_screen_edges_deferring_system_gestures(preferred_edge);
             winit_window_attributes = winit_window_attributes
                 .with_prefers_home_indicator_hidden(window.prefers_home_indicator_hidden);
             winit_window_attributes = winit_window_attributes
