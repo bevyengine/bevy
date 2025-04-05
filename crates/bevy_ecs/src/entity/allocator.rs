@@ -73,6 +73,7 @@ struct Chunk {
 }
 
 impl Chunk {
+    /// Constructs a null [`Chunk`].
     const fn new() -> Self {
         Self {
             first: AtomicPtr::new(core::ptr::null_mut()),
@@ -175,6 +176,7 @@ impl ChunkedBuffer {
     const NUM_CHUNKS: u32 = 24;
     const NUM_SKIPPED: u32 = u32::BITS - Self::NUM_CHUNKS;
 
+    /// Constructs a empty [`ChunkedBuffer`].
     const fn new() -> Self {
         Self([const { Chunk::new() }; Self::NUM_CHUNKS as usize])
     }
@@ -329,15 +331,15 @@ impl FreeBufferLen {
     /// This bit is off only when the length has been entirely disabled.
     const DISABLING_BIT: u64 = 1 << 63;
 
+    /// Constructs a length of 0.
+    const fn new_zero_len() -> Self {
+        Self(AtomicU64::new(Self::FALSE_ZERO << 16))
+    }
+
     /// Gets the current state of the buffer.
     #[inline]
     fn state(&self) -> u64 {
         self.0.load(Ordering::Acquire)
-    }
-
-    /// Constructs a length of 0.
-    fn new_zero_len() -> Self {
-        Self(AtomicU64::new(Self::FALSE_ZERO << 16))
     }
 
     /// Gets the length from a given state. Returns 0 if the length is negative or zero.
@@ -450,6 +452,14 @@ struct FreeBuffer {
 }
 
 impl FreeBuffer {
+    /// Constructs a empty [`FreeBuffer`].
+    fn new() -> Self {
+        Self {
+            buffer: ChunkedBuffer::new(),
+            len: FreeBufferLen::new_zero_len(),
+        }
+    }
+
     /// Gets the number of free entities.
     ///
     /// # Safety
@@ -560,13 +570,6 @@ impl FreeBuffer {
                 Ok(_) => return Some(entity),
                 Err(new_state) => state = new_state,
             }
-        }
-    }
-
-    fn new() -> Self {
-        Self {
-            buffer: ChunkedBuffer::new(),
-            len: FreeBufferLen::new_zero_len(),
         }
     }
 }
