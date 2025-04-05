@@ -99,15 +99,10 @@ impl Chunk {
     /// For this index in the whole buffer, returns the index of the [`Chunk`] and the index within that chunk.
     #[inline]
     fn map_to_indices(full_index: u32) -> (u32, u32) {
-        // We're countint leading zeros since each chunk has power of 2 capacity.
-        // So the leading zeros will be proportional to the chunk index.
-        let leading = full_index
-            .leading_zeros()
-            // We do a min because we skip the first `NUM_SKIPPED` powers to make space for the first chunk's entity count.
-            // The -1 is because this is the number of chunks, but we want the index in the end.
-            .min(Self::NUM_CHUNKS - 1);
+        // We do a `saturating_sub` because we skip the first `NUM_SKIPPED` powers to make space for the first chunk's entity count.
+        // The -1 is because this is the number of chunks, but we want the index in the end.
         // We store chunks in smallest to biggest order, so we need to reverse it.
-        let chunk_index = Self::NUM_CHUNKS - 1 - leading;
+        let chunk_index = (Self::NUM_CHUNKS - 1).saturating_sub(full_index.leading_zeros());
         // We only need to cut off this particular bit.
         // The capacity is only one bit, and if other bits needed to be dropped, `leading` would have been greater
         let slice_index = full_index & !Self::capacity_of_chunk(chunk_index);
