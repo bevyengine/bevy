@@ -887,10 +887,6 @@ mod tests {
 
     #[test]
     fn load_dependencies() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let dir = Dir::default();
 
         let a_path = "a.cool.ron";
@@ -1195,10 +1191,6 @@ mod tests {
 
     #[test]
     fn failure_load_states() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let dir = Dir::default();
 
         let a_path = "a.cool.ron";
@@ -1328,10 +1320,6 @@ mod tests {
 
     #[test]
     fn dependency_load_states() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let a_path = "a.cool.ron";
         let a_ron = r#"
 (
@@ -1467,10 +1455,6 @@ mod tests {
 
     #[test]
     fn manual_asset_management() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let dir = Dir::default();
         let dep_path = "dep.cool.ron";
 
@@ -1568,10 +1552,6 @@ mod tests {
 
     #[test]
     fn load_folder() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let dir = Dir::default();
 
         let a_path = "text/a.cool.ron";
