@@ -658,10 +658,13 @@ impl SharedAllocator {
         let reused = self.free.alloc_many(count);
         let missing = count - reused.len() as u32;
         let start_new = self.next_entity_index.fetch_add(missing, Ordering::Relaxed);
-        if start_new < missing {
+
+        let new_next_entity_index = start_new + missing;
+        if new_next_entity_index < missing {
             self.check_overflow();
         }
-        let new = start_new..=(start_new + missing);
+
+        let new = start_new..=(start_new + missing - 1);
         AllocEntitiesIterator { new, reused }
     }
 
