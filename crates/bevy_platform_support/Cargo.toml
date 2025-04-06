@@ -14,7 +14,10 @@ default = ["std"]
 # Functionality
 
 ## Adds serialization support through `serde`.
-serialize = ["hashbrown/serde"]
+serialize = ["dep:serde", "hashbrown/serde"]
+
+## Adds integration with Rayon.
+rayon = ["dep:rayon", "hashbrown/rayon"]
 
 # Platform Compatibility
 
@@ -28,10 +31,11 @@ std = [
   "portable-atomic-util/std",
   "spin/std",
   "foldhash/std",
+  "serde?/std",
 ]
 
 ## Allows access to the `alloc` crate.
-alloc = ["portable-atomic-util/alloc", "dep:hashbrown"]
+alloc = ["portable-atomic-util/alloc", "dep:hashbrown", "serde?/alloc"]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
@@ -57,6 +61,8 @@ hashbrown = { version = "0.15.1", features = [
   "equivalent",
   "raw-entry",
 ], optional = true, default-features = false }
+serde = { version = "1", default-features = false, optional = true }
+rayon = { version = "1", default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { version = "1.1", default-features = false, optional = true }
