@@ -606,21 +606,28 @@ pub enum EaseFunction {
     Elastic(f32),
 }
 
+// Implements `Curve<f32>` by calling a function in `easing_functions`.
+macro_rules! impl_ease_unit_struct {
+    ($ty: ty, $fn: ident) => {
+        impl Curve<f32> for $ty {
+            #[inline]
+            fn domain(&self) -> Interval {
+                Interval::UNIT
+            }
+
+            #[inline]
+            fn sample_unchecked(&self, t: f32) -> f32 {
+                easing_functions::$fn(t)
+            }
+        }
+    };
+}
+
 /// TODO
 #[derive(Copy, Clone)]
 pub struct SmoothStep;
 
-impl Curve<f32> for SmoothStep {
-    #[inline]
-    fn domain(&self) -> Interval {
-        Interval::UNIT
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> f32 {
-        easing_functions::smoothstep(t)
-    }
-}
+impl_ease_unit_struct!(SmoothStep, smoothstep);
 
 mod easing_functions {
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
