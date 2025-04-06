@@ -1197,7 +1197,7 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct MaybeLocation<T: ?Sized = &'static Location<'static>> {
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     marker: PhantomData<T>,
     #[cfg(feature = "track_location")]
     value: T,

@@ -18,9 +18,21 @@ use core::{
 ///
 /// Events can also be "triggered" on a [`World`], which will then cause any [`Observer`] of that trigger to run.
 ///
-/// This trait can be derived.
-///
 /// Events must be thread-safe.
+///
+/// ## Derive
+/// This trait can be derived.
+/// Adding `auto_propagate` sets [`Self::AUTO_PROPAGATE`] to true.
+/// Adding `traversal = "X"` sets [`Self::Traversal`] to be of type "X".
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(Event)]
+/// #[event(auto_propagate)]
+/// struct MyEvent;
+/// ```
+///
 ///
 /// [`World`]: crate::world::World
 /// [`ComponentId`]: crate::component::ComponentId
@@ -81,7 +93,7 @@ pub trait Event: Send + Sync + 'static {
 ///
 /// This exists so we can easily get access to a unique [`ComponentId`] for each [`Event`] type,
 /// without requiring that [`Event`] types implement [`Component`] directly.
-/// [`ComponentId`] is used internally as a unique identitifier for events because they are:
+/// [`ComponentId`] is used internally as a unique identifier for events because they are:
 ///
 /// - Unique to each event type.
 /// - Can be quickly generated and looked up.
@@ -98,14 +110,18 @@ struct EventWrapperComponent<E: Event + ?Sized>(PhantomData<E>);
 /// sent to the point it was processed. `EventId`s increase monotonically by send order.
 ///
 /// [`World`]: crate::world::World
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, Debug, PartialEq, Hash)
+)]
 pub struct EventId<E: Event> {
     /// Uniquely identifies the event associated with this ID.
     // This value corresponds to the order in which each event was added to the world.
     pub id: usize,
     /// The source code location that triggered this event.
     pub caller: MaybeLocation,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(super) _marker: PhantomData<E>,
 }
 

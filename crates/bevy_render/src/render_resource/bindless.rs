@@ -189,8 +189,8 @@ pub struct BindlessBufferDescriptor {
     /// `BINDLESS_INDEX` in `#[uniform(BINDLESS_INDEX, StandardMaterialUniform,
     /// bindless(BINDING_NUMBER)]`.
     pub bindless_index: BindlessIndex,
-    /// The size of the buffer in bytes.
-    pub size: usize,
+    /// The size of the buffer in bytes, if known.
+    pub size: Option<usize>,
 }
 
 /// Describes the layout of the bindless index table, which maps bindless

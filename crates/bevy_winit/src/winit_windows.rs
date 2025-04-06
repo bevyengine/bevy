@@ -1,11 +1,11 @@
 use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::entity::Entity;
 
-use bevy_ecs::entity::hash_map::EntityHashMap;
+use bevy_ecs::entity::EntityHashMap;
 use bevy_platform_support::collections::HashMap;
 use bevy_window::{
-    CursorGrabMode, MonitorSelection, Window, WindowMode, WindowPosition, WindowResolution,
-    WindowWrapper,
+    CursorGrabMode, MonitorSelection, VideoModeSelection, Window, WindowMode, WindowPosition,
+    WindowResolution, WindowWrapper,
 };
 use tracing::warn;
 
@@ -61,8 +61,7 @@ impl WinitWindows {
 
         let maybe_selected_monitor = &match window.mode {
             WindowMode::BorderlessFullscreen(monitor_selection)
-            | WindowMode::Fullscreen(monitor_selection)
-            | WindowMode::SizedFullscreen(monitor_selection) => select_monitor(
+            | WindowMode::Fullscreen(monitor_selection, _) => select_monitor(
                 monitors,
                 event_loop.primary_monitor(),
                 None,
@@ -74,23 +73,22 @@ impl WinitWindows {
         winit_window_attributes = match window.mode {
             WindowMode::BorderlessFullscreen(_) => winit_window_attributes
                 .with_fullscreen(Some(Fullscreen::Borderless(maybe_selected_monitor.clone()))),
-            WindowMode::Fullscreen(_) => {
+            WindowMode::Fullscreen(monitor_selection, video_mode_selection) => {
                 let select_monitor = &maybe_selected_monitor
                     .clone()
                     .expect("Unable to get monitor.");
-                let videomode = get_best_videomode(select_monitor);
-                winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(videomode)))
-            }
-            WindowMode::SizedFullscreen(_) => {
-                let select_monitor = &maybe_selected_monitor
-                    .clone()
-                    .expect("Unable to get monitor.");
-                let videomode = get_fitting_videomode(
-                    select_monitor,
-                    window.width() as u32,
-                    window.height() as u32,
-                );
-                winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(videomode)))
+
+                if let Some(video_mode) =
+                    get_selected_videomode(select_monitor, &video_mode_selection)
+                {
+                    winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(video_mode)))
+                } else {
+                    warn!(
+                        "Could not find valid fullscreen video mode for {:?} {:?}",
+                        monitor_selection, video_mode_selection
+                    );
+                    winit_window_attributes
+                }
             }
             WindowMode::Windowed => {
                 if let Some(position) = winit_window_position(
@@ -112,14 +110,16 @@ impl WinitWindows {
             }
         };
 
+        // It's crucial to avoid setting the window's final visibility here;
+        // as explained above, the window must be invisible until the AccessKit
+        // adapter is created.
         winit_window_attributes = winit_window_attributes
             .with_window_level(convert_window_level(window.window_level))
             .with_theme(window.window_theme.map(convert_window_theme))
             .with_resizable(window.resizable)
             .with_enabled_buttons(convert_enabled_buttons(window.enabled_buttons))
             .with_decorations(window.decorations)
-            .with_transparent(window.transparent)
-            .with_visible(window.visible);
+            .with_transparent(window.transparent);
 
         #[cfg(target_os = "windows")]
         {
@@ -278,6 +278,7 @@ impl WinitWindows {
         let winit_window = event_loop.create_window(winit_window_attributes).unwrap();
         let name = window.title.clone();
         prepare_accessibility_for_window(
+            event_loop,
             &winit_window,
             entity,
             name,
@@ -285,6 +286,10 @@ impl WinitWindows {
             adapters,
             handlers,
         );
+
+        // Now that the AccessKit adapter is created, it's safe to show
+        // the window.
+        winit_window.set_visible(window.visible);
 
         // Do not set the grab mode on window creation if it's none. It can fail on mobile.
         if window.cursor_options.grab_mode != CursorGrabMode::None {
@@ -337,30 +342,35 @@ impl WinitWindows {
     }
 }
 
-/// Gets the "best" video mode which fits the given dimensions.
-///
-/// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
-pub fn get_fitting_videomode(monitor: &MonitorHandle, width: u32, height: u32) -> VideoModeHandle {
-    monitor
-        .video_modes()
-        .max_by_key(|x| {
-            (
-                x.size().width.abs_diff(width),
-                x.size().height.abs_diff(height),
-                x.refresh_rate_millihertz(),
-            )
-        })
-        .unwrap()
+/// Returns some [`winit::monitor::VideoModeHandle`] given a [`MonitorHandle`] and a
+/// [`VideoModeSelection`] or None if no valid matching video mode was found.
+pub fn get_selected_videomode(
+    monitor: &MonitorHandle,
+    selection: &VideoModeSelection,
+) -> Option<VideoModeHandle> {
+    match selection {
+        VideoModeSelection::Current => get_current_videomode(monitor),
+        VideoModeSelection::Specific(specified) => monitor.video_modes().find(|mode| {
+            mode.size().width == specified.physical_size.x
+                && mode.size().height == specified.physical_size.y
+                && mode.refresh_rate_millihertz() == specified.refresh_rate_millihertz
+                && mode.bit_depth() == specified.bit_depth
+        }),
+    }
 }
 
-/// Gets the "best" video-mode handle from a monitor.
+/// Gets a monitor's current video-mode.
 ///
-/// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
-pub fn get_best_videomode(monitor: &MonitorHandle) -> VideoModeHandle {
+/// TODO: When Winit 0.31 releases this function can be removed and replaced with
+/// `MonitorHandle::current_video_mode()`
+fn get_current_videomode(monitor: &MonitorHandle) -> Option<VideoModeHandle> {
     monitor
         .video_modes()
-        .max_by_key(|x| (x.size(), x.refresh_rate_millihertz()))
-        .unwrap()
+        .filter(|mode| {
+            mode.size() == monitor.size()
+                && Some(mode.refresh_rate_millihertz()) == monitor.refresh_rate_millihertz()
+        })
+        .max_by_key(VideoModeHandle::bit_depth)
 }
 
 pub(crate) fn attempt_grab(

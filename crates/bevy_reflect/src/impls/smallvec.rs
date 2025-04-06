@@ -1,14 +1,14 @@
-use alloc::{boxed::Box, vec::Vec};
-use bevy_reflect_derive::impl_type_path;
-use core::any::Any;
-use smallvec::{Array as SmallArray, SmallVec};
-
 use crate::{
     utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType, Generics, GetTypeRegistration,
     List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect, ReflectFromPtr, ReflectKind,
     ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo, TypePath, TypeRegistration,
     Typed,
 };
+use alloc::{borrow::Cow, boxed::Box, string::ToString, vec::Vec};
+use bevy_reflect::ReflectCloneError;
+use bevy_reflect_derive::impl_type_path;
+use core::any::Any;
+use smallvec::{Array as SmallArray, SmallVec};
 
 impl<T: SmallArray + TypePath + Send + Sync> List for SmallVec<T>
 where
@@ -134,8 +134,20 @@ where
         ReflectOwned::List(self)
     }
 
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(
+            self.iter()
+                .map(|value| {
+                    value
+                        .reflect_clone()?
+                        .take()
+                        .map_err(|_| ReflectCloneError::FailedDowncast {
+                            expected: Cow::Borrowed(<T::Item as TypePath>::type_path()),
+                            received: Cow::Owned(value.reflect_type_path().to_string()),
+                        })
+                })
+                .collect::<Result<Self, ReflectCloneError>>()?,
+        ))
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {

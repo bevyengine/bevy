@@ -88,7 +88,6 @@ mod sealed {
 /// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
 /// # impl Reflect for Foo {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
@@ -176,7 +175,6 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
 /// # impl<T: Reflect + Typed + TypePath> Reflect for Foo<T> {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }

@@ -71,7 +71,7 @@ use {
 /// Reading and checking against the current set of pressed buttons:
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
-/// # use bevy_ecs::{prelude::{IntoSystemConfigs, Res, Resource, resource_changed}, schedule::Condition};
+/// # use bevy_ecs::{prelude::{IntoScheduleConfigs, Res, Resource, resource_changed}, schedule::Condition};
 /// # use bevy_input::{ButtonInput, prelude::{KeyCode, MouseButton}};
 ///
 /// fn main() {

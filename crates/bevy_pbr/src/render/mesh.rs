@@ -37,7 +37,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntityHashSet,
-    texture::DefaultImageSampler,
+    texture::{DefaultImageSampler, GpuImage},
     view::{
         self, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
         ViewTarget, ViewUniformOffset, ViewVisibility, VisibilityRange,
@@ -49,7 +49,6 @@ use bevy_utils::{default, Parallel, TypeIdMap};
 use core::any::TypeId;
 use core::mem::size_of;
 use material_bind_groups::MaterialBindingId;
-use render::skin;
 use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
@@ -938,7 +937,7 @@ impl RenderMeshInstances {
     }
 
     /// Returns the ID of the mesh asset attached to the given entity, if any.
-    pub(crate) fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
+    pub fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => instances.mesh_asset_id(entity),
             RenderMeshInstances::GpuBuilding(ref instances) => instances.mesh_asset_id(entity),
@@ -1163,13 +1162,19 @@ impl RenderMeshInstanceGpuBuilder {
         // yet loaded. In that case, add the mesh to
         // `meshes_to_reextract_next_frame` and bail.
         let mesh_material = mesh_material_ids.mesh_material(entity);
-        let mesh_material_binding_id = match render_material_bindings.get(&mesh_material) {
-            Some(binding_id) => *binding_id,
-            None => {
-                meshes_to_reextract_next_frame.insert(entity);
-                return None;
-            }
-        };
+        let mesh_material_binding_id =
+            if mesh_material != AssetId::<StandardMaterial>::invalid().untyped() {
+                match render_material_bindings.get(&mesh_material) {
+                    Some(binding_id) => *binding_id,
+                    None => {
+                        meshes_to_reextract_next_frame.insert(entity);
+                        return None;
+                    }
+                }
+            } else {
+                // Use a dummy material binding ID.
+                MaterialBindingId::default()
+            };
         self.shared.material_bindings_index = mesh_material_binding_id;
 
         let lightmap_slot = match render_lightmaps.render_lightmaps.get(&entity) {
@@ -1643,7 +1648,7 @@ fn extract_mesh_for_gpu_building(
 /// [`crate::material::queue_material_meshes`] check the skin and morph target
 /// tables for each mesh, but that would be too slow in the hot mesh queuing
 /// loop.
-fn set_mesh_motion_vector_flags(
+pub(crate) fn set_mesh_motion_vector_flags(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     skin_uniforms: Res<SkinUniforms>,
     morph_indices: Res<MorphIndices>,
@@ -1865,7 +1870,7 @@ impl FromWorld for MeshPipeline {
                 &render_device,
                 &render_adapter,
             ),
-            skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device),
+            skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device),
         }
     }
 }
@@ -1905,7 +1910,7 @@ impl GetBatchData for MeshPipeline {
     type CompareData = (
         MaterialBindGroupIndex,
         AssetId<Mesh>,
-        Option<AssetId<Image>>,
+        Option<LightmapSlabIndex>,
     );
 
     type BufferData = MeshUniform;
@@ -1946,7 +1951,7 @@ impl GetBatchData for MeshPipeline {
             mesh_instance.should_batch().then_some((
                 material_bind_group_index.group,
                 mesh_instance.mesh_asset_id,
-                maybe_lightmap.map(|lightmap| lightmap.image),
+                maybe_lightmap.map(|lightmap| lightmap.slab_index),
             )),
         ))
     }
@@ -1976,7 +1981,7 @@ impl GetFullBatchData for MeshPipeline {
             mesh_instance.should_batch().then_some((
                 mesh_instance.material_bindings_index.group,
                 mesh_instance.mesh_asset_id,
-                maybe_lightmap.map(|lightmap| lightmap.image),
+                maybe_lightmap.map(|lightmap| lightmap.slab_index),
             )),
         ))
     }
@@ -3004,7 +3009,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             offset_count += 1;
         }
         if let Some(current_skin_index) = current_skin_byte_offset {
-            if skin::skins_use_uniform_buffers(&render_device) {
+            if skins_use_uniform_buffers(&render_device) {
                 dynamic_offsets[offset_count] = current_skin_index.byte_offset;
                 offset_count += 1;
             }
@@ -3017,7 +3022,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         // Attach motion vectors if needed.
         if has_motion_vector_prepass {
             // Attach the previous skin index for motion vector computation.
-            if skin::skins_use_uniform_buffers(&render_device) {
+            if skins_use_uniform_buffers(&render_device) {
                 if let Some(current_skin_byte_offset) = current_skin_byte_offset {
                     dynamic_offsets[offset_count] = current_skin_byte_offset.byte_offset;
                     offset_count += 1;

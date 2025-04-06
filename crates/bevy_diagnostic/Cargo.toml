@@ -26,7 +26,7 @@ serialize = [
 dynamic_linking = []
 
 ## Adds integration with `sysinfo`.
-sysinfo_plugin = ["sysinfo", "dep:bevy_tasks"]
+sysinfo_plugin = ["sysinfo"]
 
 # Platform Compatibility
 
@@ -40,7 +40,7 @@ std = [
   "bevy_platform_support/std",
   "bevy_time/std",
   "bevy_utils/std",
-  "bevy_tasks?/std",
+  "bevy_tasks/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -51,7 +51,7 @@ critical-section = [
   "bevy_platform_support/critical-section",
   "bevy_time/critical-section",
   "bevy_utils/critical-section",
-  "bevy_tasks?/critical-section",
+  "bevy_tasks/critical-section",
 ]
 
 [dependencies]
@@ -62,7 +62,7 @@ bevy_time = { path = "../bevy_time", version = "0.16.0-dev", default-features = 
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
@@ -77,14 +77,14 @@ log = { version = "0.4", default-features = false }
 # macOS
 [target.'cfg(all(target_os="macos"))'.dependencies]
 # Some features of sysinfo are not supported by apple. This will disable those features on apple devices
-sysinfo = { version = "0.33.0", optional = true, default-features = false, features = [
+sysinfo = { version = "0.34.0", optional = true, default-features = false, features = [
   "apple-app-store",
   "system",
 ] }
 
 # Only include when on linux/windows/android/freebsd
 [target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "android", target_os = "freebsd"))'.dependencies]
-sysinfo = { version = "0.33.0", optional = true, default-features = false, features = [
+sysinfo = { version = "0.34.0", optional = true, default-features = false, features = [
   "system",
 ] }
 

@@ -4,7 +4,8 @@
 //! by adding [`Pickable::IGNORE`].
 //!
 //! To make mesh picking entirely opt-in, set [`MeshPickingSettings::require_markers`]
-//! to `true` and add a [`RayCastPickable`] component to the desired camera and target entities.
+//! to `true` and add [`MeshPickingCamera`] and [`Pickable`] components to the desired camera and
+//! target entities.
 //!
 //! To manually perform mesh ray casts independent of picking, use the [`MeshRayCast`] system parameter.
 //!
@@ -26,12 +27,19 @@ use bevy_reflect::prelude::*;
 use bevy_render::{prelude::*, view::RenderLayers};
 use ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility, SimplifiedMesh};
 
+/// An optional component that marks cameras that should be used in the [`MeshPickingPlugin`].
+///
+/// Only needed if [`MeshPickingSettings::require_markers`] is set to `true`, and ignored otherwise.
+#[derive(Debug, Clone, Default, Component, Reflect)]
+#[reflect(Debug, Default, Component)]
+pub struct MeshPickingCamera;
+
 /// Runtime settings for the [`MeshPickingPlugin`].
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
 pub struct MeshPickingSettings {
-    /// When set to `true` ray casting will only happen between cameras and entities marked with
-    /// [`RayCastPickable`]. `false` by default.
+    /// When set to `true` ray casting will only consider cameras marked with
+    /// [`MeshPickingCamera`] and entities marked with [`Pickable`]. `false` by default.
     ///
     /// This setting is provided to give you fine-grained control over which cameras and entities
     /// should be used by the mesh picking backend at runtime.
@@ -54,12 +62,6 @@ impl Default for MeshPickingSettings {
     }
 }
 
-/// An optional component that marks cameras and target entities that should be used in the [`MeshPickingPlugin`].
-/// Only needed if [`MeshPickingSettings::require_markers`] is set to `true`, and ignored otherwise.
-#[derive(Debug, Clone, Default, Component, Reflect)]
-#[reflect(Component, Default)]
-pub struct RayCastPickable;
-
 /// Adds the mesh picking backend to your app.
 #[derive(Clone, Default)]
 pub struct MeshPickingPlugin;
@@ -67,7 +69,8 @@ pub struct MeshPickingPlugin;
 impl Plugin for MeshPickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MeshPickingSettings>()
-            .register_type::<(RayCastPickable, MeshPickingSettings, SimplifiedMesh)>()
+            .register_type::<MeshPickingSettings>()
+            .register_type::<SimplifiedMesh>()
             .add_systems(PreUpdate, update_hits.in_set(PickSet::Backend));
     }
 }
@@ -76,18 +79,18 @@ impl Plugin for MeshPickingPlugin {
 pub fn update_hits(
     backend_settings: Res<MeshPickingSettings>,
     ray_map: Res<RayMap>,
-    picking_cameras: Query<(&Camera, Option<&RayCastPickable>, Option<&RenderLayers>)>,
+    picking_cameras: Query<(&Camera, Has<MeshPickingCamera>, Option<&RenderLayers>)>,
     pickables: Query<&Pickable>,
-    marked_targets: Query<&RayCastPickable>,
+    marked_targets: Query<&Pickable>,
     layers: Query<&RenderLayers>,
     mut ray_cast: MeshRayCast,
     mut output: EventWriter<PointerHits>,
 ) {
-    for (&ray_id, &ray) in ray_map.map().iter() {
-        let Ok((camera, cam_pickable, cam_layers)) = picking_cameras.get(ray_id.camera) else {
+    for (&ray_id, &ray) in ray_map.iter() {
+        let Ok((camera, cam_can_pick, cam_layers)) = picking_cameras.get(ray_id.camera) else {
             continue;
         };
-        if backend_settings.require_markers && cam_pickable.is_none() {
+        if backend_settings.require_markers && !cam_can_pick {
             continue;
         }
 

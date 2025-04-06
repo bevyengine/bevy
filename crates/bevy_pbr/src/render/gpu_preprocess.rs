@@ -22,7 +22,7 @@ use bevy_ecs::{
     prelude::resource_exists,
     query::{Has, Or, QueryState, With, Without},
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -66,9 +66,6 @@ use super::{ShadowView, ViewLightEntities};
 /// The handle to the `mesh_preprocess.wgsl` compute shader.
 pub const MESH_PREPROCESS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("c8579292-cf92-43b5-9c5a-ec5bd4e44d12");
-/// The handle to the `mesh_preprocess_types.wgsl` compute shader.
-pub const MESH_PREPROCESS_TYPES_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("06f797ef-a106-4098-9a2e-20a73aa182e2");
 /// The handle to the `reset_indirect_batch_sets.wgsl` compute shader.
 pub const RESET_INDIRECT_BATCH_SETS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("045fb176-58e2-4e76-b241-7688d761bb23");
@@ -444,18 +441,6 @@ impl Plugin for GpuMeshPreprocessPlugin {
             app,
             RESET_INDIRECT_BATCH_SETS_SHADER_HANDLE,
             "reset_indirect_batch_sets.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            BUILD_INDIRECT_PARAMS_SHADER_HANDLE,
-            "build_indirect_params.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            BUILD_INDIRECT_PARAMS_SHADER_HANDLE,
-            "build_indirect_params.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(

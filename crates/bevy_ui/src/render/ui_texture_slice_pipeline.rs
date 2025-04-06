@@ -372,9 +372,8 @@ pub fn queue_ui_slices(
             draw_function,
             pipeline,
             entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),
-            sort_key: (
-                FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::TEXTURE_SLICE),
-                extracted_slicer.render_entity.index(),
+            sort_key: FloatOrd(
+                extracted_slicer.stack_index as f32 + stack_z_offsets::TEXTURE_SLICE,
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
@@ -649,7 +648,7 @@ pub fn prepare_ui_slices(
         ui_meta.vertices.write_buffer(&render_device, &render_queue);
         ui_meta.indices.write_buffer(&render_device, &render_queue);
         *previous_len = batches.len();
-        commands.insert_or_spawn_batch(batches);
+        commands.try_insert_batch(batches);
     }
     extracted_slices.slices.clear();
 }

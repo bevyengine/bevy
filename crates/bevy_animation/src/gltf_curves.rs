@@ -111,6 +111,7 @@ impl<T> CubicKeyframeCurve<T> {
 /// A keyframe-defined curve that uses cubic spline interpolation, special-cased for quaternions
 /// since it uses `Vec4` internally.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub struct CubicRotationCurve {
     // Note: The sample width here should be 3.
     core: ChunkedUnevenCore<Vec4>,
@@ -372,8 +373,9 @@ impl<T> WideCubicKeyframeCurve<T> {
 /// recommended to use its implementation of the [`IterableCurve`] trait, which allows iterating
 /// directly over information derived from the curve without allocating.
 ///
-/// [`MorphWeights`]: bevy_render::prelude::MorphWeights
+/// [`MorphWeights`]: bevy_mesh::morph::MorphWeights
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub enum WeightsCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
     /// only a single keyframe are interpreted.

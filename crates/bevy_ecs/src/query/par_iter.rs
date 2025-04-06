@@ -1,7 +1,7 @@
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
-    entity::{EntityBorrow, TrustedEntityBorrow, UniqueEntityVec},
+    entity::{EntityEquivalent, UniqueEntityEquivalentVec},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -160,7 +160,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 ///
 /// [`Entity`]: crate::entity::Entity
 /// [`Query::par_iter_many`]: crate::system::Query::par_iter_many
-pub struct QueryParManyIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityBorrow> {
+pub struct QueryParManyIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<D, F>,
     pub(crate) entity_list: Vec<E>,
@@ -169,7 +169,7 @@ pub struct QueryParManyIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityBorro
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     QueryParManyIter<'w, 's, D, F, E>
 {
     /// Changes the batching strategy used when iterating.
@@ -314,22 +314,17 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
 /// [`EntitySet`]: crate::entity::EntitySet
 /// [`Query::par_iter_many_unique`]: crate::system::Query::par_iter_many_unique
 /// [`Query::par_iter_many_unique_mut`]: crate::system::Query::par_iter_many_unique_mut
-pub struct QueryParManyUniqueIter<
-    'w,
-    's,
-    D: QueryData,
-    F: QueryFilter,
-    E: TrustedEntityBorrow + Sync,
-> {
+pub struct QueryParManyUniqueIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
+{
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<D, F>,
-    pub(crate) entity_list: UniqueEntityVec<E>,
+    pub(crate) entity_list: UniqueEntityEquivalentVec<E>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
+impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     QueryParManyUniqueIter<'w, 's, D, F, E>
 {
     /// Changes the batching strategy used when iterating.
@@ -374,7 +369,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     /// struct T;
     ///
     /// #[derive(Resource)]
-    /// struct V(UniqueEntityVec<Entity>);
+    /// struct V(UniqueEntityVec);
     ///
     /// impl<'a> IntoIterator for &'a V {
     /// // ...

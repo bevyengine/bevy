@@ -45,6 +45,9 @@ use widget::{ImageNode, ImageNodeSize};
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[cfg(feature = "bevy_ui_picking_backend")]
+    #[doc(hidden)]
+    pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
     #[doc(hidden)]
     #[cfg(feature = "bevy_ui_debug")]
     pub use crate::render::UiDebugOptions;
@@ -79,17 +82,12 @@ pub struct UiPlugin {
     /// If set to false, the UI's rendering systems won't be added to the `RenderApp` and no UI elements will be drawn.
     /// The layout and interaction components will still be updated as normal.
     pub enable_rendering: bool,
-    /// Whether to add the UI picking backend to the app.
-    #[cfg(feature = "bevy_ui_picking_backend")]
-    pub add_picking: bool,
 }
 
 impl Default for UiPlugin {
     fn default() -> Self {
         Self {
             enable_rendering: true,
-            #[cfg(feature = "bevy_ui_picking_backend")]
-            add_picking: true,
         }
     }
 }
@@ -170,6 +168,7 @@ impl Plugin for UiPlugin {
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
             .register_type::<TextShadow>()
+            .register_type::<ComputedNodeTarget>()
             .configure_sets(
                 PostUpdate,
                 (
@@ -185,6 +184,9 @@ impl Plugin for UiPlugin {
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             );
+
+        #[cfg(feature = "bevy_ui_picking_backend")]
+        app.add_plugins(picking_backend::UiPickingPlugin);
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystem::Layout)
@@ -218,11 +220,6 @@ impl Plugin for UiPlugin {
             ),
         );
         build_text_interop(app);
-
-        #[cfg(feature = "bevy_ui_picking_backend")]
-        if self.add_picking {
-            app.add_plugins(picking_backend::UiPickingPlugin);
-        }
 
         if !self.enable_rendering {
             return;

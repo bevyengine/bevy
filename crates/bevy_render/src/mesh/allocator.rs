@@ -12,7 +12,7 @@ use bevy_asset::AssetId;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
@@ -358,7 +358,10 @@ pub fn allocate_and_free_meshes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
-    // Process newly-added meshes.
+    // Process removed or modified meshes.
+    mesh_allocator.free_meshes(&extracted_meshes);
+
+    // Process newly-added or modified meshes.
     mesh_allocator.allocate_meshes(
         &mesh_allocator_settings,
         &extracted_meshes,
@@ -366,9 +369,6 @@ pub fn allocate_and_free_meshes(
         &render_device,
         &render_queue,
     );
-
-    // Process removed meshes.
-    mesh_allocator.free_meshes(&extracted_meshes);
 }
 
 impl MeshAllocator {
@@ -607,9 +607,17 @@ impl MeshAllocator {
         }
     }
 
+    /// Frees allocations for meshes that were removed or modified this frame.
     fn free_meshes(&mut self, extracted_meshes: &ExtractedAssets<RenderMesh>) {
         let mut empty_slabs = <HashSet<_>>::default();
-        for mesh_id in &extracted_meshes.removed {
+
+        // TODO: Consider explicitly reusing allocations for changed meshes of the same size
+        let meshes_to_free = extracted_meshes
+            .removed
+            .iter()
+            .chain(extracted_meshes.modified.iter());
+
+        for mesh_id in meshes_to_free {
             if let Some(slab_id) = self.mesh_id_to_vertex_slab.remove(mesh_id) {
                 self.free_allocation_in_slab(mesh_id, slab_id, &mut empty_slabs);
             }

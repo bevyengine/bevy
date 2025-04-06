@@ -6,7 +6,7 @@ use crate::{
 use bevy_platform_support::time::Instant;
 use core::time::Duration;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 use {
     alloc::{boxed::Box, rc::Rc},
     core::cell::RefCell,
@@ -77,7 +77,7 @@ impl Plugin for ScheduleRunnerPlugin {
             let plugins_state = app.plugins_state();
             if plugins_state != PluginsState::Cleaned {
                 while app.plugins_state() == PluginsState::Adding {
-                    #[cfg(all(not(target_arch = "wasm32"), feature = "bevy_tasks"))]
+                    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
                     bevy_tasks::tick_global_task_pools_on_main_thread();
                 }
                 app.finish();
@@ -118,58 +118,55 @@ impl Plugin for ScheduleRunnerPlugin {
                         Ok(None)
                     };
 
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        loop {
-                            match tick(&mut app, wait) {
-                                Ok(Some(_delay)) => {
-                                    #[cfg(feature = "std")]
-                                    std::thread::sleep(_delay);
+                    cfg_if::cfg_if! {
+                        if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+                            fn set_timeout(callback: &Closure<dyn FnMut()>, dur: Duration) {
+                                web_sys::window()
+                                    .unwrap()
+                                    .set_timeout_with_callback_and_timeout_and_arguments_0(
+                                        callback.as_ref().unchecked_ref(),
+                                        dur.as_millis() as i32,
+                                    )
+                                    .expect("Should register `setTimeout`.");
+                            }
+                            let asap = Duration::from_millis(1);
+
+                            let exit = Rc::new(RefCell::new(AppExit::Success));
+                            let closure_exit = exit.clone();
+
+                            let mut app = Rc::new(app);
+                            let moved_tick_closure = Rc::new(RefCell::new(None));
+                            let base_tick_closure = moved_tick_closure.clone();
+
+                            let tick_app = move || {
+                                let app = Rc::get_mut(&mut app).unwrap();
+                                let delay = tick(app, wait);
+                                match delay {
+                                    Ok(delay) => set_timeout(
+                                        moved_tick_closure.borrow().as_ref().unwrap(),
+                                        delay.unwrap_or(asap),
+                                    ),
+                                    Err(code) => {
+                                        closure_exit.replace(code);
+                                    }
                                 }
-                                Ok(None) => continue,
-                                Err(exit) => return exit,
+                            };
+                            *base_tick_closure.borrow_mut() =
+                                Some(Closure::wrap(Box::new(tick_app) as Box<dyn FnMut()>));
+                            set_timeout(base_tick_closure.borrow().as_ref().unwrap(), asap);
+
+                            exit.take()
+                        } else {
+                            loop {
+                                match tick(&mut app, wait) {
+                                    Ok(Some(delay)) => {
+                                        bevy_platform_support::thread::sleep(delay);
+                                    }
+                                    Ok(None) => continue,
+                                    Err(exit) => return exit,
+                                }
                             }
                         }
-                    }
-
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        fn set_timeout(callback: &Closure<dyn FnMut()>, dur: Duration) {
-                            web_sys::window()
-                                .unwrap()
-                                .set_timeout_with_callback_and_timeout_and_arguments_0(
-                                    callback.as_ref().unchecked_ref(),
-                                    dur.as_millis() as i32,
-                                )
-                                .expect("Should register `setTimeout`.");
-                        }
-                        let asap = Duration::from_millis(1);
-
-                        let exit = Rc::new(RefCell::new(AppExit::Success));
-                        let closure_exit = exit.clone();
-
-                        let mut app = Rc::new(app);
-                        let moved_tick_closure = Rc::new(RefCell::new(None));
-                        let base_tick_closure = moved_tick_closure.clone();
-
-                        let tick_app = move || {
-                            let app = Rc::get_mut(&mut app).unwrap();
-                            let delay = tick(app, wait);
-                            match delay {
-                                Ok(delay) => set_timeout(
-                                    moved_tick_closure.borrow().as_ref().unwrap(),
-                                    delay.unwrap_or(asap),
-                                ),
-                                Err(code) => {
-                                    closure_exit.replace(code);
-                                }
-                            }
-                        };
-                        *base_tick_closure.borrow_mut() =
-                            Some(Closure::wrap(Box::new(tick_app) as Box<dyn FnMut()>));
-                        set_timeout(base_tick_closure.borrow().as_ref().unwrap(), asap);
-
-                        exit.take()
                     }
                 }
             }

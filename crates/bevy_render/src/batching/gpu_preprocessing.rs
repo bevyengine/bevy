@@ -8,7 +8,7 @@ use bevy_ecs::{
     prelude::Entity,
     query::{Has, With},
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{Query, Res, ResMut, StaticSystemParam},
     world::{FromWorld, World},
 };
@@ -1107,7 +1107,8 @@ impl FromWorld for GpuPreprocessingSupport {
             DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW
         );
 
-        let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0
+        let max_supported_mode = if !feature_support
+            || device.limits().max_compute_workgroup_size_x == 0
             || is_non_supported_android_device(adapter)
         {
             GpuPreprocessingMode::None

@@ -3,7 +3,7 @@ use bevy_math::{Affine3A, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
 use core::ops::Mul;
 
 #[cfg(feature = "bevy-support")]
-use bevy_ecs::{component::Component, prelude::require};
+use bevy_ecs::component::Component;
 
 #[cfg(feature = "bevy_reflect")]
 use {bevy_ecs::reflect::ReflectComponent, bevy_reflect::prelude::*};
@@ -27,7 +27,10 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
     } else if length_error_squared > 2e-4 {
         // Length error is approximately 1e-4 or more.
         #[cfg(feature = "std")]
-        eprintln!("Warning: {message}",);
+        #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
+        {
+            eprintln!("Warning: {message}",);
+        }
     }
 }
 
@@ -37,7 +40,7 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
-///     [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
+///   [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
@@ -60,11 +63,15 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy-support", derive(Component), require(GlobalTransform))]
+#[cfg_attr(
+    feature = "bevy-support",
+    derive(Component),
+    require(GlobalTransform, TransformTreeChanged)
+)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Component, Default, PartialEq, Debug)
+    reflect(Component, Default, PartialEq, Debug, Clone)
 )]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
@@ -641,3 +648,20 @@ impl Mul<Vec3> for Transform {
         self.transform_point(value)
     }
 }
+
+/// An optimization for transform propagation. This ZST marker component uses change detection to
+/// mark all entities of the hierarchy as "dirty" if any of their descendants have a changed
+/// `Transform`. If this component is *not* marked `is_changed()`, propagation will halt.
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy-support", derive(Component))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Default, PartialEq, Debug)
+)]
+#[cfg_attr(
+    all(feature = "bevy_reflect", feature = "serialize"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct TransformTreeChanged;

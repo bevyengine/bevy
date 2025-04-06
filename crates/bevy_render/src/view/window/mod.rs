@@ -4,7 +4,7 @@ use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::{entity::hash_map::EntityHashMap, prelude::*};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_platform_support::collections::HashSet;
 use bevy_utils::default;
 use bevy_window::{
@@ -304,9 +304,7 @@ const DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY: u32 = 2;
 pub fn create_surfaces(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS's
-    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: Option<
-        NonSend<bevy_app::NonSendMarker>,
-    >,
+    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: bevy_ecs::system::NonSendMarker,
     windows: Res<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_instance: Res<RenderInstance>,

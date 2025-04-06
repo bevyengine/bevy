@@ -21,9 +21,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.16.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
-  "bevy",
-] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.16.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", version = "0.16.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
@@ -35,7 +33,7 @@ bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-d
 ] }
 
 # other
-cosmic-text = { version = "0.12", features = ["shape-run-cache"] }
+cosmic-text = { version = "0.13", features = ["shape-run-cache"] }
 thiserror = { version = "2", default-features = false }
 serde = { version = "1", features = ["derive"] }
 smallvec = "1.13"

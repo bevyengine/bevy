@@ -11,12 +11,14 @@ keywords = ["bevy"]
 [features]
 default = ["bevy_reflect"]
 
-bevy_reflect = ["dep:bevy_reflect", "bevy_math/bevy_reflect"]
+# bevy_reflect can't optional as it's needed for TypePath
+# this feature only control reflection in bevy_image
+bevy_reflect = ["bevy_math/bevy_reflect"]
 
 # Image formats
 basis-universal = ["dep:basis-universal"]
 bmp = ["image/bmp"]
-dds = ["ddsfile", "bevy_core_pipeline/dds"]
+dds = ["ddsfile"]
 exr = ["image/exr"]
 ff = ["image/ff"]
 gif = ["image/gif"]
@@ -49,9 +51,7 @@ bevy_color = { path = "../bevy_color", version = "0.16.0-dev", features = [
   "wgpu-types",
 ] }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
-  "bevy",
-], optional = true }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "std",
@@ -73,7 +73,7 @@ ddsfile = { version = "0.5.2", optional = true }
 ktx2 = { version = "0.3.0", optional = true }
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
-ruzstd = { version = "0.7.0", optional = true }
+ruzstd = { version = "0.8.0", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
 basis-universal = { version = "0.3.0", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
@@ -81,8 +81,6 @@ half = { version = "2.4.1" }
 
 [dev-dependencies]
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
-bevy_sprite = { path = "../bevy_sprite", version = "0.16.0-dev" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.16.0-dev" }
 
 [lints]
 workspace = true
