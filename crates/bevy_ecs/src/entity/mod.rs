@@ -67,9 +67,9 @@ pub mod unique_array;
 pub mod unique_slice;
 pub mod unique_vec;
 
-pub use unique_array::UniqueEntityArray;
-pub use unique_slice::UniqueEntitySlice;
-pub use unique_vec::UniqueEntityVec;
+pub use unique_array::{UniqueEntityArray, UniqueEntityEquivalentArray};
+pub use unique_slice::{UniqueEntityEquivalentSlice, UniqueEntitySlice};
+pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
