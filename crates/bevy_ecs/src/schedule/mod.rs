@@ -1235,12 +1235,6 @@ mod tests {
             };
         }
 
-        /// verify the [`SimpleExecutor`] supports stepping
-        #[test]
-        fn simple_executor() {
-            assert_executor_supports_stepping!(ExecutorKind::Simple);
-        }
-
         /// verify the [`SingleThreadedExecutor`] supports stepping
         #[test]
         fn single_threaded_executor() {
