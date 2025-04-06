@@ -11,7 +11,7 @@ use crate::{
     },
     entity::{
         Entity, EntityBorrow, EntityCloner, EntityClonerBuilder, EntityLocation,
-        TrustedEntityBorrow,
+        TrustedEntityBorrow, EntityEquivalent
     },
     event::Event,
     observer::Observer,
@@ -413,14 +413,14 @@ impl Hash for EntityRef<'_> {
     }
 }
 
-impl EntityBorrow for EntityRef<'_> {
+impl ContainsEntity for EntityRef<'_> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl TrustedEntityBorrow for EntityRef<'_> {}
+unsafe impl EntityEquivalent for EntityRef<'_> {}
 
 /// Provides mutable access to a single entity and all of its components.
 ///
@@ -822,6 +822,39 @@ impl<'w> EntityMut<'w> {
         unsafe { component_ids.fetch_mut(self.cell) }
     }
 
+    /// Returns [untyped mutable reference(s)](MutUntyped) to component(s) for
+    /// the current entity, based on the given [`ComponentId`]s.
+    /// Assumes the given [`ComponentId`]s refer to mutable components.
+    ///
+    /// **You should prefer to use the typed API [`EntityMut::get_mut_assume_mutable`] where
+    /// possible and only use this in cases where the actual component types
+    /// are not known at compile time.**
+    ///
+    /// Unlike [`EntityMut::get_mut_assume_mutable`], this returns untyped reference(s) to
+    /// component(s), and it's the job of the caller to ensure the correct
+    /// type(s) are dereferenced (if necessary).
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`EntityComponentError::MissingComponent`] if the entity does
+    ///   not have a component.
+    /// - Returns [`EntityComponentError::AliasedMutability`] if a component
+    ///   is requested multiple times.
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the provided [`ComponentId`]s must refer to mutable components.
+    #[inline]
+    pub unsafe fn get_mut_assume_mutable_by_id<F: DynamicComponentFetch>(
+        &mut self,
+        component_ids: F,
+    ) -> Result<F::Mut<'_>, EntityComponentError> {
+        // SAFETY:
+        // - `&mut self` ensures that no references exist to this entity's components.
+        // - We have exclusive access to all components of this entity.
+        unsafe { component_ids.fetch_mut_assume_mutable(self.cell) }
+    }
+
     /// Returns [untyped mutable reference](MutUntyped) to component for
     /// the current entity, based on the given [`ComponentId`].
     ///
@@ -848,6 +881,36 @@ impl<'w> EntityMut<'w> {
         // - The caller must ensure simultaneous access is limited
         // - to components that are mutually independent.
         unsafe { component_ids.fetch_mut(self.cell) }
+    }
+
+    /// Returns [untyped mutable reference](MutUntyped) to component for
+    /// the current entity, based on the given [`ComponentId`].
+    /// Assumes the given [`ComponentId`]s refer to mutable components.
+    ///
+    /// Unlike [`EntityMut::get_mut_assume_mutable_by_id`], this method borrows &self instead of
+    /// &mut self, allowing the caller to access multiple components simultaneously.
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`EntityComponentError::MissingComponent`] if the entity does
+    ///   not have a component.
+    /// - Returns [`EntityComponentError::AliasedMutability`] if a component
+    ///   is requested multiple times.
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
+    /// - no other references to the component exist at the same time
+    /// - the provided [`ComponentId`]s must refer to mutable components.
+    #[inline]
+    pub unsafe fn get_mut_assume_mutable_by_id_unchecked<F: DynamicComponentFetch>(
+        &self,
+        component_ids: F,
+    ) -> Result<F::Mut<'_>, EntityComponentError> {
+        // SAFETY:
+        // - The caller must ensure simultaneous access is limited
+        // - to components that are mutually independent.
+        unsafe { component_ids.fetch_mut_assume_mutable(self.cell) }
     }
 
     /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
@@ -881,6 +944,40 @@ impl<'w> EntityMut<'w> {
         // - consuming `self` ensures that no references exist to this entity's components.
         // - We have exclusive access to all components of this entity.
         unsafe { component_ids.fetch_mut(self.cell) }
+    }
+
+    /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
+    /// to component(s) with lifetime `'w` for the current entity, based on the
+    /// given [`ComponentId`]s.
+    /// Assumes the given [`ComponentId`]s refer to mutable components.
+    ///
+    /// **You should prefer to use the typed API [`EntityMut::into_mut_assume_mutable`] where
+    /// possible and only use this in cases where the actual component types
+    /// are not known at compile time.**
+    ///
+    /// Unlike [`EntityMut::into_mut_assume_mutable`], this returns untyped reference(s) to
+    /// component(s), and it's the job of the caller to ensure the correct
+    /// type(s) are dereferenced (if necessary).
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`EntityComponentError::MissingComponent`] if the entity does
+    ///   not have a component.
+    /// - Returns [`EntityComponentError::AliasedMutability`] if a component
+    ///   is requested multiple times.
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the provided [`ComponentId`]s must refer to mutable components.
+    #[inline]
+    pub unsafe fn into_mut_assume_mutable_by_id<F: DynamicComponentFetch>(
+        self,
+        component_ids: F,
+    ) -> Result<F::Mut<'w>, EntityComponentError> {
+        // SAFETY:
+        // - consuming `self` ensures that no references exist to this entity's components.
+        // - We have exclusive access to all components of this entity.
+        unsafe { component_ids.fetch_mut_assume_mutable(self.cell) }
     }
 
     /// Returns the source code location from which this entity has been spawned.
@@ -967,14 +1064,14 @@ impl Hash for EntityMut<'_> {
     }
 }
 
-impl EntityBorrow for EntityMut<'_> {
+impl ContainsEntity for EntityMut<'_> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl TrustedEntityBorrow for EntityMut<'_> {}
+unsafe impl EntityEquivalent for EntityMut<'_> {}
 
 /// A mutable reference to a particular [`Entity`], and the entire world.
 ///
@@ -1300,6 +1397,38 @@ impl<'w> EntityWorldMut<'w> {
         Some(result)
     }
 
+    /// Temporarily removes a [`Component`] `T` from this [`Entity`] and runs the
+    /// provided closure on it, returning the result if `T` was available.
+    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut`](EntityWorldMut::get_mut).
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[inline]
+    pub fn modify_component_by_id<R>(
+        &mut self,
+        component_id: ComponentId,
+        f: impl for<'a> FnOnce(MutUntyped<'a>) -> R,
+    ) -> Option<R> {
+        self.assert_not_despawned();
+
+        let result = self
+            .world
+            .modify_component_by_id(self.entity, component_id, f)
+            .expect("entity access must be valid")?;
+
+        self.update_location();
+
+        Some(result)
+    }
+
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     ///
@@ -1322,6 +1451,23 @@ impl<'w> EntityWorldMut<'w> {
     pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.into_unsafe_entity_cell().get_mut() }
+    }
+
+    /// Consumes `self` and gets mutable access to the component of type `T`
+    /// with the world `'w` lifetime for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    ///
+    /// # Safety
+    ///
+    /// - `T` must be a mutable component
+    #[inline]
+    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
+        // SAFETY: consuming `self` implies exclusive access
+        unsafe { self.into_unsafe_entity_cell().get_mut_assume_mutable() }
     }
 
     /// Gets a reference to the resource of the given type
@@ -1485,6 +1631,41 @@ impl<'w> EntityWorldMut<'w> {
         self.as_mutable().into_mut_by_id(component_ids)
     }
 
+    /// Returns [untyped mutable reference(s)](MutUntyped) to component(s) for
+    /// the current entity, based on the given [`ComponentId`]s.
+    /// Assumes the given [`ComponentId`]s refer to mutable components.
+    ///
+    /// **You should prefer to use the typed API [`EntityWorldMut::get_mut_assume_mutable`] where
+    /// possible and only use this in cases where the actual component types
+    /// are not known at compile time.**
+    ///
+    /// Unlike [`EntityWorldMut::get_mut_assume_mutable`], this returns untyped reference(s) to
+    /// component(s), and it's the job of the caller to ensure the correct
+    /// type(s) are dereferenced (if necessary).
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`EntityComponentError::MissingComponent`] if the entity does
+    ///   not have a component.
+    /// - Returns [`EntityComponentError::AliasedMutability`] if a component
+    ///   is requested multiple times.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the provided [`ComponentId`]s must refer to mutable components.
+    #[inline]
+    pub unsafe fn get_mut_assume_mutable_by_id<F: DynamicComponentFetch>(
+        &mut self,
+        component_ids: F,
+    ) -> Result<F::Mut<'_>, EntityComponentError> {
+        self.as_mutable()
+            .into_mut_assume_mutable_by_id(component_ids)
+    }
+
     /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
     /// to component(s) with lifetime `'w` for the current entity, based on the
     /// given [`ComponentId`]s.
@@ -1517,6 +1698,42 @@ impl<'w> EntityWorldMut<'w> {
         component_ids: F,
     ) -> Result<F::Mut<'w>, EntityComponentError> {
         self.into_mutable().into_mut_by_id(component_ids)
+    }
+
+    /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
+    /// to component(s) with lifetime `'w` for the current entity, based on the
+    /// given [`ComponentId`]s.
+    /// Assumes the given [`ComponentId`]s refer to mutable components.
+    ///
+    /// **You should prefer to use the typed API [`EntityWorldMut::into_mut_assume_mutable`] where
+    /// possible and only use this in cases where the actual component types
+    /// are not known at compile time.**
+    ///
+    /// Unlike [`EntityWorldMut::into_mut_assume_mutable`], this returns untyped reference(s) to
+    /// component(s), and it's the job of the caller to ensure the correct
+    /// type(s) are dereferenced (if necessary).
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`EntityComponentError::MissingComponent`] if the entity does
+    ///   not have a component.
+    /// - Returns [`EntityComponentError::AliasedMutability`] if a component
+    ///   is requested multiple times.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the provided [`ComponentId`]s must refer to mutable components.
+    #[inline]
+    pub unsafe fn into_mut_assume_mutable_by_id<F: DynamicComponentFetch>(
+        self,
+        component_ids: F,
+    ) -> Result<F::Mut<'w>, EntityComponentError> {
+        self.into_mutable()
+            .into_mut_assume_mutable_by_id(component_ids)
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -3254,14 +3471,14 @@ impl Hash for FilteredEntityRef<'_> {
     }
 }
 
-impl EntityBorrow for FilteredEntityRef<'_> {
+impl ContainsEntity for FilteredEntityRef<'_> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl TrustedEntityBorrow for FilteredEntityRef<'_> {}
+unsafe impl EntityEquivalent for FilteredEntityRef<'_> {}
 
 /// Provides mutable access to a single entity and some of its components defined by the contained [`Access`].
 ///
@@ -3597,14 +3814,14 @@ impl Hash for FilteredEntityMut<'_> {
     }
 }
 
-impl EntityBorrow for FilteredEntityMut<'_> {
+impl ContainsEntity for FilteredEntityMut<'_> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl TrustedEntityBorrow for FilteredEntityMut<'_> {}
+unsafe impl EntityEquivalent for FilteredEntityMut<'_> {}
 
 /// Error type returned by [`TryFrom`] conversions from filtered entity types
 /// ([`FilteredEntityRef`]/[`FilteredEntityMut`]) to full-access entity types
@@ -3830,14 +4047,14 @@ impl<B: Bundle> Hash for EntityRefExcept<'_, B> {
     }
 }
 
-impl<B: Bundle> EntityBorrow for EntityRefExcept<'_, B> {
+impl<B: Bundle> ContainsEntity for EntityRefExcept<'_, B> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl<B: Bundle> TrustedEntityBorrow for EntityRefExcept<'_, B> {}
+unsafe impl<B: Bundle> EntityEquivalent for EntityRefExcept<'_, B> {}
 
 /// Provides mutable access to all components of an entity, with the exception
 /// of an explicit set.
@@ -4040,14 +4257,14 @@ impl<B: Bundle> Hash for EntityMutExcept<'_, B> {
     }
 }
 
-impl<B: Bundle> EntityBorrow for EntityMutExcept<'_, B> {
+impl<B: Bundle> ContainsEntity for EntityMutExcept<'_, B> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl<B: Bundle> TrustedEntityBorrow for EntityMutExcept<'_, B> {}
+unsafe impl<B: Bundle> EntityEquivalent for EntityMutExcept<'_, B> {}
 
 fn bundle_contains_component<B>(components: &Components, query_id: ComponentId) -> bool
 where
@@ -4179,6 +4396,26 @@ pub unsafe trait DynamicComponentFetch {
         self,
         cell: UnsafeEntityCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityComponentError>;
+
+    /// Returns untyped mutable reference(s) to the component(s) with the
+    /// given [`ComponentId`]s, as determined by `self`.
+    /// Assumes all [`ComponentId`]s refer to mutable components.
+    ///
+    /// # Safety
+    ///
+    /// It is the caller's responsibility to ensure that:
+    /// - The given [`UnsafeEntityCell`] has mutable access to the fetched components.
+    /// - No other references to the fetched components exist at the same time.
+    /// - The requested components are all mutable.
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`EntityComponentError::MissingComponent`] if a component is missing from the entity.
+    /// - Returns [`EntityComponentError::AliasedMutability`] if a component is requested multiple times.
+    unsafe fn fetch_mut_assume_mutable(
+        self,
+        cell: UnsafeEntityCell<'_>,
+    ) -> Result<Self::Mut<'_>, EntityComponentError>;
 }
 
 // SAFETY:
@@ -4204,6 +4441,15 @@ unsafe impl DynamicComponentFetch for ComponentId {
         unsafe { cell.get_mut_by_id(self) }
             .map_err(|_| EntityComponentError::MissingComponent(self))
     }
+
+    unsafe fn fetch_mut_assume_mutable(
+        self,
+        cell: UnsafeEntityCell<'_>,
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
+        // SAFETY: caller ensures that the cell has mutable access to the component.
+        unsafe { cell.get_mut_assume_mutable_by_id(self) }
+            .map_err(|_| EntityComponentError::MissingComponent(self))
+    }
 }
 
 // SAFETY:
@@ -4225,6 +4471,13 @@ unsafe impl<const N: usize> DynamicComponentFetch for [ComponentId; N] {
         cell: UnsafeEntityCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityComponentError> {
         <&Self>::fetch_mut(&self, cell)
+    }
+
+    unsafe fn fetch_mut_assume_mutable(
+        self,
+        cell: UnsafeEntityCell<'_>,
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
+        <&Self>::fetch_mut_assume_mutable(&self, cell)
     }
 }
 
@@ -4280,6 +4533,34 @@ unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
 
         Ok(ptrs)
     }
+
+    unsafe fn fetch_mut_assume_mutable(
+        self,
+        cell: UnsafeEntityCell<'_>,
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
+        // Check for duplicate component IDs.
+        for i in 0..self.len() {
+            for j in 0..i {
+                if self[i] == self[j] {
+                    return Err(EntityComponentError::AliasedMutability(self[i]));
+                }
+            }
+        }
+
+        let mut ptrs = [const { MaybeUninit::uninit() }; N];
+        for (ptr, &id) in core::iter::zip(&mut ptrs, self) {
+            *ptr = MaybeUninit::new(
+                // SAFETY: caller ensures that the cell has mutable access to the component.
+                unsafe { cell.get_mut_assume_mutable_by_id(id) }
+                    .map_err(|_| EntityComponentError::MissingComponent(id))?,
+            );
+        }
+
+        // SAFETY: Each ptr was initialized in the loop above.
+        let ptrs = ptrs.map(|ptr| unsafe { MaybeUninit::assume_init(ptr) });
+
+        Ok(ptrs)
+    }
 }
 
 // SAFETY:
@@ -4326,6 +4607,30 @@ unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
         }
         Ok(ptrs)
     }
+
+    unsafe fn fetch_mut_assume_mutable(
+        self,
+        cell: UnsafeEntityCell<'_>,
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
+        // Check for duplicate component IDs.
+        for i in 0..self.len() {
+            for j in 0..i {
+                if self[i] == self[j] {
+                    return Err(EntityComponentError::AliasedMutability(self[i]));
+                }
+            }
+        }
+
+        let mut ptrs = Vec::with_capacity(self.len());
+        for &id in self {
+            ptrs.push(
+                // SAFETY: caller ensures that the cell has mutable access to the component.
+                unsafe { cell.get_mut_assume_mutable_by_id(id) }
+                    .map_err(|_| EntityComponentError::MissingComponent(id))?,
+            );
+        }
+        Ok(ptrs)
+    }
 }
 
 // SAFETY:
@@ -4360,6 +4665,22 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
                 id,
                 // SAFETY: caller ensures that the cell has mutable access to the component.
                 unsafe { cell.get_mut_by_id(id) }
+                    .map_err(|_| EntityComponentError::MissingComponent(id))?,
+            );
+        }
+        Ok(ptrs)
+    }
+
+    unsafe fn fetch_mut_assume_mutable(
+        self,
+        cell: UnsafeEntityCell<'_>,
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
+        let mut ptrs = HashMap::with_capacity_and_hasher(self.len(), Default::default());
+        for &id in self {
+            ptrs.insert(
+                id,
+                // SAFETY: caller ensures that the cell has mutable access to the component.
+                unsafe { cell.get_mut_assume_mutable_by_id(id) }
                     .map_err(|_| EntityComponentError::MissingComponent(id))?,
             );
         }
@@ -5619,7 +5940,7 @@ mod tests {
         struct A;
 
         #[derive(Component, Clone, PartialEq, Debug, Default)]
-        #[require(C(|| C(3)))]
+        #[require(C(3))]
         struct B;
 
         #[derive(Component, Clone, PartialEq, Debug, Default)]

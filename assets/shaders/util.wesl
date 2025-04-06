@@ -40,5 +40,5 @@ fn make_polka_dots(pos: vec2<f32>, time: f32) -> vec4<f32> {
         is_dot = step(dist_from_center, 0.3 + wave_normalized * 0.2);
     }
 
-    return vec4<f32>(dot_color * is_dot, is_dot);
+    return vec4<f32>(dot_color * is_dot, 1.0);
 }

@@ -143,8 +143,8 @@
 //!     on entities in order for them to be included in results.
 //!   - `without` (optional): An array of fully-qualified type names of components that must *not* be
 //!     present on entities in order for them to be included in results.
-//!   - `strict` (optional): A flag to enable strict mode which will fail if any one of the
-//!     components is not present or can not be reflected. Defaults to false.
+//! - `strict` (optional): A flag to enable strict mode which will fail if any one of the components
+//!   is not present or can not be reflected. Defaults to false.
 //!
 //! `result`: An array, each of which is an object containing:
 //! - `entity`: The ID of a query-matching entity.
@@ -558,7 +558,7 @@ impl Plugin for RemotePlugin {
 }
 
 /// Schedule that contains all systems to process Bevy Remote Protocol requests
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct RemoteLast;
 
 /// The systems sets of the [`RemoteLast`] schedule.

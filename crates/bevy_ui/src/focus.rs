@@ -1,7 +1,7 @@
 use crate::{CalculatedClip, ComputedNode, ComputedNodeTarget, ResolvedBorderRadius, UiStack};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    entity::{Entity, EntityBorrow},
+    entity::{ContainsEntity, Entity},
     prelude::{Component, With},
     query::QueryData,
     reflect::ReflectComponent,

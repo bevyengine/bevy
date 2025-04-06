@@ -60,6 +60,7 @@ use bevy_ecs::{
 /// [`Observer`]: crate::observer::Observer
 #[derive(SystemParam)]
 pub struct EventWriter<'w, E: Event> {
+    #[system_param(validation_message = "Event not initialized")]
     events: ResMut<'w, Events<E>>,
 }
 

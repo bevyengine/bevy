@@ -150,8 +150,6 @@ impl AssetLoader for ImageLoader {
             }
         };
         Ok(Image::from_buffer(
-            #[cfg(all(debug_assertions, feature = "dds"))]
-            load_context.path().display().to_string(),
             &bytes,
             image_type,
             self.supported_compressed_formats,

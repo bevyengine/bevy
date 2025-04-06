@@ -1,14 +1,23 @@
 //! This example demonstrates how fallible parameters can prevent their systems
 //! from running if their acquiry conditions aren't met.
 //!
-//! Fallible parameters include:
-//! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist.
-//! - [`Single<D, F>`] - There must be exactly one matching entity.
-//! - [`Option<Single<D, F>>`] - There must be zero or one matching entity.
-//! - [`Populated<D, F>`] - There must be at least one matching entity.
+//! Fallible system parameters include:
+//! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist, and the [`GLOBAL_ERROR_HANDLER`] will be called if it doesn't.
+//! - [`Single<D, F>`] - There must be exactly one matching entity, but the system will be silently skipped otherwise.
+//! - [`Option<Single<D, F>>`] - There must be zero or one matching entity. The system will be silently skipped if there are more.
+//! - [`Populated<D, F>`] - There must be at least one matching entity, but the system will be silently skipped otherwise.
 //!
-//! To learn more about setting the fallback behavior for when a parameter fails to be fetched,
+//! Other system parameters, such as [`Query`], will never fail validation: returning a query with no matching entities is valid.
+//!
+//! The result of failed system parameter validation is determined by the [`SystemParamValidationError`] returned
+//! by [`SystemParam::validate_param`] for each system parameter.
+//! Each system will pass if all of its parameters are valid, or else return [`SystemParamValidationError`] for the first failing parameter.
+//!
+//! To learn more about setting the fallback behavior for [`SystemParamValidationError`] failures,
 //! please see the `error_handling.rs` example.
+//!
+//! [`SystemParamValidationError`]: bevy::ecs::system::SystemParamValidationError
+//! [`SystemParam::validate_param`]: bevy::ecs::system::SystemParam::validate_param
 
 use bevy::ecs::error::{warn, GLOBAL_ERROR_HANDLER};
 use bevy::prelude::*;
@@ -111,7 +120,7 @@ fn user_input(
 }
 
 // System that moves the enemies in a circle.
-// Only runs if there are enemies.
+// Only runs if there are enemies, due to the `Populated` parameter.
 fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
     for (mut transform, mut target) in &mut *enemies {
         target.rotation += target.rotation_speed * time.delta_secs();
