@@ -3,6 +3,7 @@ use core::{
     any::{Any, TypeId},
     fmt::Debug,
 };
+use petgraph::algo::TarjanScc;
 use smallvec::SmallVec;
 
 use bevy_platform_support::collections::{HashMap, HashSet};
@@ -14,7 +15,6 @@ use crate::schedule::set::*;
 
 mod graph_map;
 mod node;
-mod tarjan_scc;
 
 pub use graph_map::{DiGraph, Direction, UnGraph};
 pub use node::NodeId;
@@ -139,7 +139,7 @@ pub(crate) fn check_graph(graph: &DiGraph, topological_order: &[NodeId]) -> Chec
         topsorted.add_node(node);
         // insert nodes as successors to their predecessors
         for pred in graph.neighbors_directed(node, Direction::Incoming) {
-            topsorted.add_edge(pred, node);
+            topsorted.add_edge(pred, node, ());
         }
     }
 
@@ -168,8 +168,8 @@ pub(crate) fn check_graph(graph: &DiGraph, topological_order: &[NodeId]) -> Chec
             debug_assert!(index_a < index_b);
             if !visited[index_b] {
                 // edge <a, b> is not redundant
-                transitive_reduction.add_edge(a, b);
-                transitive_closure.add_edge(a, b);
+                transitive_reduction.add_edge(a, b, ());
+                transitive_closure.add_edge(a, b, ());
                 reachable.insert(index(index_a, index_b, n));
 
                 let successors = transitive_closure
@@ -180,7 +180,7 @@ pub(crate) fn check_graph(graph: &DiGraph, topological_order: &[NodeId]) -> Chec
                     debug_assert!(index_b < index_c);
                     if !visited[index_c] {
                         visited.insert(index_c);
-                        transitive_closure.add_edge(a, c);
+                        transitive_closure.add_edge(a, c, ());
                         reachable.insert(index(index_a, index_c, n));
                     }
                 }
@@ -230,7 +230,7 @@ pub(crate) fn check_graph(graph: &DiGraph, topological_order: &[NodeId]) -> Chec
 /// [1]: https://doi.org/10.1137/0204007
 pub fn simple_cycles_in_component(graph: &DiGraph, scc: &[NodeId]) -> Vec<Vec<NodeId>> {
     let mut cycles = vec![];
-    let mut sccs = vec![SmallVec::from_slice(scc)];
+    let mut sccs = vec![SmallVec::<[NodeId; 4]>::from_slice(scc)];
 
     while let Some(mut scc) = sccs.pop() {
         // only look at nodes and edges in this strongly-connected component
@@ -242,7 +242,7 @@ pub fn simple_cycles_in_component(graph: &DiGraph, scc: &[NodeId]) -> Vec<Vec<No
         for &node in &scc {
             for successor in graph.neighbors(node) {
                 if subgraph.contains_node(successor) {
-                    subgraph.add_edge(node, successor);
+                    subgraph.add_edge(node, successor, ());
                 }
             }
         }
@@ -324,7 +324,12 @@ pub fn simple_cycles_in_component(graph: &DiGraph, scc: &[NodeId]) -> Vec<Vec<No
         subgraph.remove_node(root);
 
         // divide remainder into smaller SCCs
-        sccs.extend(subgraph.iter_sccs().filter(|scc| scc.len() > 1));
+        let mut tarjan = TarjanScc::<NodeId>::new();
+        tarjan.run(&subgraph, |scc| {
+            if scc.len() > 1 {
+                sccs.push(SmallVec::from_slice(scc));
+            }
+        });
     }
 
     cycles
