@@ -1199,8 +1199,8 @@ mod tests {
 
         let f0 = SmoothStep;
         let f1 = EaseFunction::SmoothStep;
-        let f2 = EasingCurve::new(0.0, 1.0, f0);
-        let f3 = EasingCurve::new(0.0, 1.0, f1);
+        let f2 = EasingCurve::new(0.0, 1.0, SmoothStep);
+        let f3 = EasingCurve::new(0.0, 1.0, EaseFunction::SmoothStep);
 
         assert_eq!(f0.domain(), f1.domain());
         assert_eq!(f0.domain(), f2.domain());
@@ -1208,12 +1208,12 @@ mod tests {
 
         [
             -1.0,
+            -f32::MIN_POSITIVE,
             0.0,
             0.5,
             1.0,
-            2.0,
-            -f32::MIN_POSITIVE,
             1.0 + f32::EPSILON,
+            2.0,
         ]
         .into_iter()
         .for_each(|t| {
