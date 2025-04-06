@@ -4,7 +4,7 @@ use bevy_ecs::{
     system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_math::Mat4;
+use bevy_math::{Mat4, UVec4};
 use bevy_pbr::{MeshMaterial3d, StandardMaterial};
 use bevy_render::{
     mesh::allocator::MeshAllocator,
@@ -12,7 +12,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_transform::components::GlobalTransform;
-use std::num::{NonZeroU32, NonZeroU64};
+use std::num::NonZeroU32;
 
 const MAX_MESH_COUNT: Option<NonZeroU32> = NonZeroU32::new(2u32.pow(16));
 // const MAX_TEXTURE_COUNT: Option<NonZeroU32> = NonZeroU32::new(10_000);
@@ -51,6 +51,7 @@ pub fn prepare_raytracing_scene_bindings(
             max_instances: instances.iter().len() as u32,
         },
     ));
+    let mut geometry_slices = StorageBuffer::<Vec<UVec4>>::default();
     let mut transforms = StorageBuffer::<Vec<Mat4>>::default();
 
     let mut instance_index = 0;
@@ -59,16 +60,14 @@ pub fn prepare_raytracing_scene_bindings(
             let vertex_slice = mesh_allocator.mesh_vertex_slice(&mesh.id()).unwrap();
             let index_slice = mesh_allocator.mesh_index_slice(&mesh.id()).unwrap();
 
-            vertex_buffers.push(BufferBinding {
-                buffer: &vertex_slice.buffer,
-                offset: vertex_slice.range.start as u64 * 48,
-                size: NonZeroU64::new(vertex_slice.range.len() as u64),
-            });
-            index_buffers.push(BufferBinding {
-                buffer: &index_slice.buffer,
-                offset: index_slice.range.start as u64 * 4,
-                size: NonZeroU64::new(index_slice.range.len() as u64),
-            });
+            vertex_buffers.push(vertex_slice.buffer.as_entire_buffer_binding());
+            index_buffers.push(index_slice.buffer.as_entire_buffer_binding());
+            geometry_slices.get_mut().push(UVec4::new(
+                vertex_slice.range.start,
+                vertex_slice.range.end,
+                index_slice.range.start,
+                index_slice.range.end,
+            ));
 
             let transform = transform.compute_matrix();
             *tlas.get_mut_single(instance_index).unwrap() = Some(TlasInstance::new(
@@ -88,6 +87,7 @@ pub fn prepare_raytracing_scene_bindings(
         return;
     }
 
+    geometry_slices.write_buffer(&render_device, &render_queue);
     transforms.write_buffer(&render_device, &render_queue);
 
     let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
@@ -103,7 +103,8 @@ pub fn prepare_raytracing_scene_bindings(
             (0, vertex_buffers.as_slice()),
             (1, index_buffers.as_slice()),
             (4, tlas.as_binding()),
-            (5, transforms.binding().unwrap()),
+            (5, geometry_slices.binding().unwrap()),
+            (6, transforms.binding().unwrap()),
         )),
     ));
 }
@@ -165,16 +166,16 @@ impl FromWorld for RaytracingSceneBindings {
                 },
                 count: None,
             },
-            // BindGroupLayoutEntry {
-            //     binding: 6,
-            //     visibility: ShaderStages::COMPUTE,
-            //     ty: BindingType::Buffer {
-            //         ty: BufferBindingType::Storage { read_only: true },
-            //         has_dynamic_offset: false,
-            //         min_binding_size: None,
-            //     },
-            //     count: None,
-            // },
+            BindGroupLayoutEntry {
+                binding: 6,
+                visibility: ShaderStages::COMPUTE,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
         ];
 
         Self {
