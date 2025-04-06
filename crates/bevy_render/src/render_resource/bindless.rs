@@ -225,7 +225,7 @@ pub struct BindlessIndex(pub u32);
 /// `bindless_slab_resource_limit` specifies the resolved
 /// [`BindlessSlabResourceLimit`] value.
 pub fn create_bindless_bind_group_layout_entries(
-    bindless_resource_count: u32,
+    bindless_index_table_length: u32,
     bindless_slab_resource_limit: u32,
     bindless_index_table_binding_number: BindingNumber,
 ) -> Vec<BindGroupLayoutEntry> {
@@ -241,7 +241,7 @@ pub fn create_bindless_bind_group_layout_entries(
         // Start with the bindless index table, bound to binding number 0.
         storage_buffer_read_only_sized(
             false,
-            NonZeroU64::new(bindless_resource_count as u64 * size_of::<u32>() as u64),
+            NonZeroU64::new(bindless_index_table_length as u64 * size_of::<u32>() as u64),
         )
         .build(*bindless_index_table_binding_number, ShaderStages::all()),
         // Continue with the common bindless resource arrays.

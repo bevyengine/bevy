@@ -1034,8 +1034,6 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             ),
         };
 
-    let bindless_resource_count = bindless_resource_types.len() as u32;
-
     Ok(TokenStream::from(quote! {
         #(#field_struct_impls)*
 
@@ -1081,9 +1079,11 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 let mut #bind_group_layout_entries = Vec::new();
                 match #actual_bindless_slot_count {
                     Some(bindless_slot_count) => {
+                        let bindless_index_table_range = #bindless_index_table_range;
                         #bind_group_layout_entries.extend(
                             #render_path::render_resource::create_bindless_bind_group_layout_entries(
-                                #bindless_resource_count,
+                                bindless_index_table_range.end.0 -
+                                    bindless_index_table_range.start.0,
                                 bindless_slot_count.into(),
                                 #bindless_index_table_binding_number,
                             ).into_iter()

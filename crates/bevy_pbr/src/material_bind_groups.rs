@@ -662,6 +662,10 @@ where
             .copied()
     }
 
+    fn table_length(&self) -> u32 {
+        self.index_range.end.0 - self.index_range.start.0
+    }
+
     /// Updates the binding index table for a single material.
     ///
     /// The `allocated_resource_slots` map contains a mapping from the
@@ -673,9 +677,8 @@ where
         &mut self,
         slot: MaterialBindGroupSlot,
         allocated_resource_slots: &HashMap<BindlessIndex, u32>,
-        bindless_descriptor: &BindlessDescriptor,
     ) {
-        let table_len = bindless_descriptor.resources.len();
+        let table_len = self.table_length() as usize;
         let range = (slot.0 as usize * table_len)..((slot.0 as usize + 1) * table_len);
         while self.buffer.len() < range.end {
             self.buffer.push(0);
@@ -797,11 +800,7 @@ where
     ) -> MaterialBindingId {
         for (slab_index, slab) in self.slabs.iter_mut().enumerate() {
             trace!("Trying to allocate in slab {}", slab_index);
-            match slab.try_allocate(
-                unprepared_bind_group,
-                &self.bindless_descriptor,
-                self.slab_capacity,
-            ) {
+            match slab.try_allocate(unprepared_bind_group, self.slab_capacity) {
                 Ok(slot) => {
                     return MaterialBindingId {
                         group: MaterialBindGroupIndex(slab_index as u32),
@@ -821,11 +820,7 @@ where
             .slabs
             .last_mut()
             .expect("We just pushed a slab")
-            .try_allocate(
-                unprepared_bind_group,
-                &self.bindless_descriptor,
-                self.slab_capacity,
-            )
+            .try_allocate(unprepared_bind_group, self.slab_capacity)
         else {
             panic!("An allocation into an empty slab should always succeed")
         };
@@ -906,7 +901,6 @@ where
     fn try_allocate(
         &mut self,
         unprepared_bind_group: UnpreparedBindGroup<M::Data>,
-        bindless_descriptor: &BindlessDescriptor,
         slot_capacity: u32,
     ) -> Result<MaterialBindGroupSlot, UnpreparedBindGroup<M::Data>> {
         // Locate pre-existing resources, and determine how many free slots we need.
@@ -945,7 +939,7 @@ where
 
         // Serialize the allocated resource slots.
         for bindless_index_table in &mut self.bindless_index_tables {
-            bindless_index_table.set(slot, &allocated_resource_slots, bindless_descriptor);
+            bindless_index_table.set(slot, &allocated_resource_slots);
         }
 
         // Insert extra data.
