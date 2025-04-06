@@ -7,10 +7,15 @@ description = "A refreshingly simple data-driven game engine and app framework"
 include = [
   "/docs/**",
   "/docs-rs/**",
+  # Examples are shown alongside the documentation on docs.rs
   "/examples/**",
+  # However, these files just waste space.
+  "!/examples/no_std/README.md",
+  "!/examples/stress_tests/README.md",
+  "!/examples/wasm/**",
+  "!/examples/README.md",
   "/src/**",
   "/tests/**",
-  "/tests-integration",
   "/LICENSE-APACHE",
   "/LICENSE-MIT",
   "/README.md",
