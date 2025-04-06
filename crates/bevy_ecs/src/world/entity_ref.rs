@@ -10,8 +10,7 @@ use crate::{
         StorageType,
     },
     entity::{
-        Entity, EntityBorrow, EntityCloner, EntityClonerBuilder, EntityLocation,
-        TrustedEntityBorrow, EntityEquivalent
+        ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent, EntityLocation,
     },
     event::Event,
     observer::Observer,
