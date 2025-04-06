@@ -2,7 +2,7 @@ use crate::{
     archetype::Archetype,
     component::{ComponentId, Components, Tick},
     query::FilteredAccess,
-    storage::Table,
+    storage::{Table, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use variadics_please::all_tuples;
@@ -98,8 +98,14 @@ pub unsafe trait WorldQuery {
     /// # Safety
     ///
     /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
+    /// - `table_id` must match `table`.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        table: &'w Table,
+        table_id: TableId,
+    );
 
     /// Sets available accesses for implementors with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
     /// or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
@@ -192,11 +198,11 @@ macro_rules! impl_tuple_world_query {
             }
 
             #[inline]
-            unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+            unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table, table_id: TableId) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
-                $(unsafe { $name::set_table($name, $state, table); })*
+                $(unsafe { $name::set_table($name, $state, table, table_id); })*
             }
 
 

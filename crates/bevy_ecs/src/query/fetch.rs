@@ -5,7 +5,7 @@ use crate::{
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
-    storage::{ComponentSparseSet, Table, TableRow},
+    storage::{ComponentSparseSet, Table, TableId, TableRow},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
         FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
@@ -350,7 +350,12 @@ unsafe impl WorldQuery for Entity {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    unsafe fn set_table<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _table: &'w Table,
+        _table_id: TableId,
+    ) {
     }
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
@@ -427,7 +432,12 @@ unsafe impl WorldQuery for EntityLocation {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    unsafe fn set_table<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _table: &'w Table,
+        _table_id: TableId,
+    ) {
     }
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
@@ -503,7 +513,12 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    unsafe fn set_table<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _table: &'w Table,
+        _table_id: TableId,
+    ) {
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -584,7 +599,12 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    unsafe fn set_table<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _table: &'w Table,
+        _table_id: TableId,
+    ) {
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -665,7 +685,12 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, _: &'w Table) {
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        _: &'w Table,
+        _table_id: TableId,
+    ) {
         fetch.1.clone_from(&state.access);
     }
 
@@ -761,7 +786,12 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, _: &'w Table) {
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        _: &'w Table,
+        _table_id: TableId,
+    ) {
         fetch.1.clone_from(&state.access);
     }
 
@@ -853,7 +883,7 @@ where
     ) {
     }
 
-    unsafe fn set_table<'w>(_: &mut Self::Fetch<'w>, _: &Self::State, _: &'w Table) {}
+    unsafe fn set_table<'w>(_: &mut Self::Fetch<'w>, _: &Self::State, _: &'w Table, _: TableId) {}
 
     fn update_component_access(
         state: &Self::State,
@@ -953,7 +983,7 @@ where
     ) {
     }
 
-    unsafe fn set_table<'w>(_: &mut Self::Fetch<'w>, _: &Self::State, _: &'w Table) {}
+    unsafe fn set_table<'w>(_: &mut Self::Fetch<'w>, _: &Self::State, _: &'w Table, _: TableId) {}
 
     fn update_component_access(
         state: &Self::State,
@@ -1051,7 +1081,12 @@ unsafe impl WorldQuery for &Archetype {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    unsafe fn set_table<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _table: &'w Table,
+        _table_id: TableId,
+    ) {
     }
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
@@ -1160,13 +1195,14 @@ unsafe impl<T: Component> WorldQuery for &T {
     unsafe fn set_archetype<'w>(
         fetch: &mut ReadFetch<'w, T>,
         component_id: &ComponentId,
-        _archetype: &'w Archetype,
+        archetype: &'w Archetype,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
+            let table_id = archetype.table_id();
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                Self::set_table(fetch, component_id, table);
+                Self::set_table(fetch, component_id, table, table_id);
             }
         }
     }
@@ -1176,6 +1212,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         fetch: &mut ReadFetch<'w, T>,
         &component_id: &ComponentId,
         table: &'w Table,
+        table_id: TableId,
     ) {
         let table_data = Some(
             table
@@ -1329,13 +1366,13 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     unsafe fn set_archetype<'w>(
         fetch: &mut RefFetch<'w, T>,
         component_id: &ComponentId,
-        _archetype: &'w Archetype,
+        archetype: &'w Archetype,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                Self::set_table(fetch, component_id, table);
+                Self::set_table(fetch, component_id, table, archetype.table_id());
             }
         }
     }
@@ -1345,6 +1382,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         fetch: &mut RefFetch<'w, T>,
         &component_id: &ComponentId,
         table: &'w Table,
+        _table_id: TableId,
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
         let table_data = Some((
@@ -1524,13 +1562,13 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     unsafe fn set_archetype<'w>(
         fetch: &mut WriteFetch<'w, T>,
         component_id: &ComponentId,
-        _archetype: &'w Archetype,
+        archetype: &'w Archetype,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                Self::set_table(fetch, component_id, table);
+                Self::set_table(fetch, component_id, table, archetype.table_id());
             }
         }
     }
@@ -1540,6 +1578,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         fetch: &mut WriteFetch<'w, T>,
         &component_id: &ComponentId,
         table: &'w Table,
+        _table_id: TableId,
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
         let table_data = Some((
@@ -1687,8 +1726,13 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 
     #[inline]
     // Forwarded to `&mut T`
-    unsafe fn set_table<'w>(fetch: &mut WriteFetch<'w, T>, state: &ComponentId, table: &'w Table) {
-        <&mut T as WorldQuery>::set_table(fetch, state, table);
+    unsafe fn set_table<'w>(
+        fetch: &mut WriteFetch<'w, T>,
+        state: &ComponentId,
+        table: &'w Table,
+        table_id: TableId,
+    ) {
+        <&mut T as WorldQuery>::set_table(fetch, state, table, table_id);
     }
 
     // NOT forwarded to `&mut T`
@@ -1812,12 +1856,17 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(fetch: &mut OptionFetch<'w, T>, state: &T::State, table: &'w Table) {
+    unsafe fn set_table<'w>(
+        fetch: &mut OptionFetch<'w, T>,
+        state: &T::State,
+        table: &'w Table,
+        table_id: TableId,
+    ) {
         fetch.matches = T::matches_component_set(state, &|id| table.has_column(id));
         if fetch.matches {
             // SAFETY: The invariants are upheld by the caller.
             unsafe {
-                T::set_table(&mut fetch.fetch, state, table);
+                T::set_table(&mut fetch.fetch, state, table, table_id);
             }
         }
     }
@@ -1989,7 +2038,12 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        table: &'w Table,
+        _table_id: TableId,
+    ) {
         *fetch = table.has_column(*state);
     }
 
@@ -2161,14 +2215,14 @@ macro_rules! impl_anytuple_fetch {
             }
 
             #[inline]
-            unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+            unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table, _table_id: TableId) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
                 $(
                     $name.1 = $name::matches_component_set($state, &|id| _table.has_column(id));
                     if $name.1 {
                         // SAFETY: The invariants are required to be upheld by the caller.
-                        unsafe { $name::set_table(&mut $name.0, $state, _table); }
+                        unsafe { $name::set_table(&mut $name.0, $state, _table, _table_id); }
                     }
                 )*
             }
@@ -2314,7 +2368,13 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     }
 
     #[inline(always)]
-    unsafe fn set_table<'w>(_fetch: &mut (), _state: &D::State, _table: &Table) {}
+    unsafe fn set_table<'w>(
+        _fetch: &mut (),
+        _state: &D::State,
+        _table: &Table,
+        _table_id: TableId,
+    ) {
+    }
 
     fn update_component_access(_state: &D::State, _access: &mut FilteredAccess<ComponentId>) {}
 
@@ -2385,7 +2445,12 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     ) {
     }
 
-    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    unsafe fn set_table<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _table: &'w Table,
+        _table_id: TableId,
+    ) {
     }
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}

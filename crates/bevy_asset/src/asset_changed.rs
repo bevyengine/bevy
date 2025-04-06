@@ -5,6 +5,7 @@
 
 use crate::{AsAssetId, Asset, AssetId};
 use bevy_ecs::component::Components;
+use bevy_ecs::storage::TableId;
 use bevy_ecs::{
     archetype::Archetype,
     component::{ComponentId, Tick},
@@ -216,11 +217,16 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         }
     }
 
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        table: &'w Table,
+        table_id: TableId,
+    ) {
         if let Some(inner) = &mut fetch.inner {
             // SAFETY: We delegate to the inner `set_table` for `A`
             unsafe {
-                <&A>::set_table(inner, &state.asset_id, table);
+                <&A>::set_table(inner, &state.asset_id, table, table_id);
             }
         }
     }
