@@ -145,6 +145,9 @@ all_tuples_enumerated!(
     T
 );
 
+/// TODO: This documentation needs to be updated now that the ease function is
+/// not restricted to `EaseFunction`.
+///
 /// A [`Curve`] that is defined by
 ///
 /// - an initial `start` sample value at `t = 0`
@@ -239,13 +242,15 @@ pub struct EasingCurve<T, F> {
     ease_fn: F,
 }
 
-impl<T, F> EasingCurve<T, F> {
-    /// Given a `start` and `end` value, create a curve parametrized over [the unit interval]
-    /// that connects them, using the given [ease function] to determine the form of the
-    /// curve in between. TODO: Update documentation.
+impl<T, F> EasingCurve<T, F>
+where
+    T: Ease + Clone,
+    F: Curve<f32>,
+{
+    /// Given a `start` and `end` value, connect them using the given curve
+    /// parametrized over [the unit interval].
     ///
     /// [the unit interval]: Interval::UNIT
-    /// [ease function]: EaseFunction
     pub fn new(start: T, end: T, ease_fn: F) -> Self {
         Self {
             start,
