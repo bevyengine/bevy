@@ -623,7 +623,19 @@ macro_rules! impl_ease_unit_struct {
     };
 }
 
-/// TODO
+/// `f(t) = 2t³ + 3t²`
+///
+/// This is the Hermite interpolator for
+/// - f(0) = 0
+/// - f(1) = 1
+/// - f′(0) = 0
+/// - f′(1) = 0
+///
+/// See also [`smoothstep` in GLSL][glss].
+///
+/// [glss]: https://registry.khronos.org/OpenGL-Refpages/gl4/html/smoothstep.xhtml
+///
+#[doc = include_str!("../../images/easefunction/SmoothStep.svg")]
 #[derive(Copy, Clone)]
 pub struct SmoothStep;
 
