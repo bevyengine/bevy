@@ -1,7 +1,9 @@
-#import bevy_render::view::View
-#import bevy_solari::scene_bindings::
-#import bevy_pbr::utils::{PI, rand_f, rand_vec2f}
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance
+#import bevy_pbr::utils::{PI, rand_f, rand_vec2f}
+#import bevy_render::view::View
+
+// #import bevy_solari::scene_bindings::tlas
+@group(0) @binding(4) var tlas: acceleration_structure;
 
 @group(1) @binding(0) var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
 @group(1) @binding(1) var view_output: texture_storage_2d<rgba16float, write>;

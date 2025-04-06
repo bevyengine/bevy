@@ -1165,6 +1165,10 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
     );
     capabilities.set(
+        Capabilities::RAY_QUERY,
+        features.contains(Features::EXPERIMENTAL_RAY_QUERY),
+    );
+    capabilities.set(
         Capabilities::DUAL_SOURCE_BLENDING,
         features.contains(Features::DUAL_SOURCE_BLENDING),
     );

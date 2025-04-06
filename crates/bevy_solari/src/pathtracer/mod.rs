@@ -59,7 +59,7 @@ impl Plugin for PathtracingPlugin {
                 Core3d,
                 node::graph::PathtracerNode,
             )
-            .add_render_graph_edges(Core3d, (node::graph::PathtracerNode, Node3d::EndMainPass));
+            .add_render_graph_edges(Core3d, (Node3d::EndMainPass, node::graph::PathtracerNode));
     }
 }
 

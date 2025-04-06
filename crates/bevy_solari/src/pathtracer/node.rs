@@ -63,7 +63,7 @@ impl ViewNode for PathtracerNode {
             &self.bind_group_layout,
             &BindGroupEntries::sequential((
                 &accumulation_texture.0.default_view,
-                view_target.get_color_attachment().view,
+                view_target.get_unsampled_color_attachment().view,
                 view_uniforms,
             )),
         );

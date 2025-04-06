@@ -5,7 +5,7 @@ mod camera_controller;
 
 use bevy::{
     prelude::*,
-    render::mesh::Indices,
+    render::{camera::CameraMainTextureUsages, mesh::Indices, render_resource::TextureUsages},
     scene::SceneInstanceReady,
     solari::{
         pathtracer::Pathtracer,
@@ -45,6 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         CameraController::default(),
         Pathtracer,
+        CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
         Transform::from_matrix(Mat4 {
             x_axis: Vec4::new(0.99480534, 0.0, -0.10179563, 0.0),
             y_axis: Vec4::new(-0.019938117, 0.98063105, -0.19484669, 0.0),
