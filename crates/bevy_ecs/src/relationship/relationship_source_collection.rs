@@ -3,7 +3,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use crate::entity::{hash_set::EntityHashSet, index_set::EntityIndexSet, Entity};
+use crate::entity::{Entity, EntityHashSet, EntityIndexSet};
 use alloc::vec::Vec;
 use indexmap::IndexSet;
 use smallvec::SmallVec;

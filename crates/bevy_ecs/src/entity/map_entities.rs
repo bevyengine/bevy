@@ -12,7 +12,7 @@ use bevy_platform_support::collections::HashSet;
 use core::hash::BuildHasher;
 use smallvec::SmallVec;
 
-use super::index_set::EntityIndexSet;
+use super::EntityIndexSet;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -51,7 +51,7 @@ use super::index_set::EntityIndexSet;
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
-    /// Implementers should look up any and all [`Entity`] values stored within `self` and
+    /// Implementors should look up any and all [`Entity`] values stored within `self` and
     /// update them to the mapped values via `entity_mapper`.
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E);
 }
@@ -125,7 +125,7 @@ impl<A: smallvec::Array<Item = Entity>> MapEntities for SmallVec<A> {
 ///
 /// More generally, this can be used to map [`Entity`] references between any two [`Worlds`](World).
 ///
-/// This is used by [`MapEntities`] implementers.
+/// This is used by [`MapEntities`] implementors.
 ///
 /// ## Example
 ///
