@@ -136,10 +136,5 @@ pub fn empty_schedule_run(criterion: &mut Criterion) {
         bencher.iter(|| schedule.run(app.world_mut()));
     });
 
-    let mut schedule = Schedule::default();
-    schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::Simple);
-    group.bench_function("Simple", |bencher| {
-        bencher.iter(|| schedule.run(app.world_mut()));
-    });
     group.finish();
 }

@@ -1,12 +1,11 @@
 #[cfg(feature = "std")]
 mod multi_threaded;
-mod simple;
 mod single_threaded;
 
 use alloc::{borrow::Cow, vec, vec::Vec};
 use core::any::TypeId;
 
-pub use self::{simple::SimpleExecutor, single_threaded::SingleThreadedExecutor};
+pub use self::single_threaded::SingleThreadedExecutor;
 
 #[cfg(feature = "std")]
 pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
@@ -51,9 +50,6 @@ pub enum ExecutorKind {
     /// other things, or just trying minimize overhead.
     #[cfg_attr(any(target_arch = "wasm32", not(feature = "multi_threaded")), default)]
     SingleThreaded,
-    /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_deferred`](crate::system::System::apply_deferred)
-    /// immediately after running each system.
-    Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
     #[cfg(feature = "std")]
     #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi_threaded"), default)]
@@ -324,11 +320,8 @@ mod tests {
     #[derive(Component)]
     struct TestComponent;
 
-    const EXECUTORS: [ExecutorKind; 3] = [
-        ExecutorKind::Simple,
-        ExecutorKind::SingleThreaded,
-        ExecutorKind::MultiThreaded,
-    ];
+    const EXECUTORS: [ExecutorKind; 2] =
+        [ExecutorKind::SingleThreaded, ExecutorKind::MultiThreaded];
 
     #[derive(Resource, Default)]
     struct TestState {
@@ -375,17 +368,6 @@ mod tests {
     }
 
     fn look_for_missing_resource(_res: Res<TestState>) {}
-
-    #[test]
-    #[should_panic]
-    fn missing_resource_panics_simple() {
-        let mut world = World::new();
-        let mut schedule = Schedule::default();
-
-        schedule.set_executor_kind(ExecutorKind::Simple);
-        schedule.add_systems(look_for_missing_resource);
-        schedule.run(&mut world);
-    }
 
     #[test]
     #[should_panic]
