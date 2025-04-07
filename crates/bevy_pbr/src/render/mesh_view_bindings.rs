@@ -1446,7 +1446,7 @@ pub(super) fn fetch_transmission_sampler_bind_group<'b>(
     Ok(transmission_sampler.into_binding().into())
 }
 
-pub(super) fn fetch_order_independet_transparency_layers_bind_group<'b>(
+pub(super) fn fetch_order_independent_transparency_layers_bind_group<'b>(
     world: &'b World,
     view: Entity,
 ) -> Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError> {
@@ -1471,7 +1471,7 @@ pub(super) fn fetch_order_independet_transparency_layers_bind_group<'b>(
     }
 }
 
-pub(super) fn fetch_order_independet_transparency_layer_ids_bind_group<'b>(
+pub(super) fn fetch_order_independent_transparency_layer_ids_bind_group<'b>(
     world: &'b World,
     view: Entity,
 ) -> Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError> {
@@ -1496,7 +1496,7 @@ pub(super) fn fetch_order_independet_transparency_layer_ids_bind_group<'b>(
     }
 }
 
-pub(super) fn fetch_order_independet_transparency_settings_bind_group<'b>(
+pub(super) fn fetch_order_independent_transparency_settings_bind_group<'b>(
     world: &'b World,
     view: Entity,
 ) -> Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError> {

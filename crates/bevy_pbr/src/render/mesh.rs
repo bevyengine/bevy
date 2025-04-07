@@ -59,9 +59,9 @@ use render::{
     fetch_irradiance_volume_sampler_bind_group, fetch_irradiance_volume_texture_bind_group,
     fetch_light_meta_bind_group, fetch_light_probes_bind_group,
     fetch_motion_vector_texture_view_bind_group, fetch_normal_texture_view_bind_group,
-    fetch_order_independet_transparency_layer_ids_bind_group,
-    fetch_order_independet_transparency_layers_bind_group,
-    fetch_order_independet_transparency_settings_bind_group,
+    fetch_order_independent_transparency_layer_ids_bind_group,
+    fetch_order_independent_transparency_layers_bind_group,
+    fetch_order_independent_transparency_settings_bind_group,
     fetch_screen_space_reflection_buffer_bind_group,
     fetch_shadow_binding_directional_light_bind_group, fetch_shadow_binding_point_light_bind_group,
     fetch_shadow_sampler_directional_light_comparison_sampler_bind_group,
@@ -342,13 +342,13 @@ impl Plugin for MeshRenderPlugin {
                 .push_source(33, fetch_transmission_sampler_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(34, fetch_order_independet_transparency_layers_bind_group)
+                .push_source(34, fetch_order_independent_transparency_layers_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(35, fetch_order_independet_transparency_layer_ids_bind_group)
+                .push_source(35, fetch_order_independent_transparency_layer_ids_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(36, fetch_order_independet_transparency_settings_bind_group)
+                .push_source(36, fetch_order_independent_transparency_settings_bind_group)
                 .unwrap();
             render_app.insert_resource(bind_group_sources);
 
