@@ -99,7 +99,7 @@ pub fn dds_buffer_to_image(
     image.data = if let Some(transcode_format) = transcode_format {
         match transcode_format {
             TranscodeFormat::Rgb8 => {
-                let data = dds
+                let data: Vec<_> = dds
                     .data
                     .chunks_exact(3)
                     .flat_map(|pixel| [pixel[0], pixel[1], pixel[2], u8::MAX])

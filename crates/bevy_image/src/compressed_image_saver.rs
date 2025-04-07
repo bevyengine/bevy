@@ -44,9 +44,10 @@ impl AssetSaver for CompressedImageSaver {
 
             let mut source_image = compressor_params.source_image_mut(0);
             let size = image.size();
-            let Some(ref data) = image.data else {
+            if !image.is_initialized() {
                 return Err(CompressedImageSaverError::UninitializedImage);
-            };
+            }
+            let data = image.data.as_ref();
             source_image.init(data, size.x, size.y, 4);
 
             let mut compressor = basis_universal::Compressor::new(4);
