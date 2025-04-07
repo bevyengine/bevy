@@ -18,7 +18,7 @@ use crate::{
     sync_world::MainEntity,
 };
 use bevy_app::{Plugin, PostUpdate};
-use bevy_asset::prelude::*;
+use bevy_asset::{prelude::*, AssetEvents};
 use bevy_ecs::{hierarchy::validate_parent_has_component, prelude::*};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
@@ -339,9 +339,17 @@ impl Plugin for VisibilityPlugin {
         app.register_type::<VisibilityClass>()
             .configure_sets(
                 PostUpdate,
-                (CalculateBounds, UpdateFrusta, VisibilityPropagate)
+                (UpdateFrusta, VisibilityPropagate)
                     .before(CheckVisibility)
                     .after(TransformSystem::TransformPropagate),
+            )
+            .configure_sets(
+                PostUpdate,
+                (CalculateBounds)
+                    .before(CheckVisibility)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(AssetEvents)
+                    .ambiguous_with(CalculateBounds),
             )
             .configure_sets(
                 PostUpdate,
