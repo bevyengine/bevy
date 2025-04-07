@@ -11,6 +11,7 @@ pub mod prelude {
 }
 
 mod image;
+mod image_mut;
 pub use self::image::*;
 #[cfg(feature = "basis-universal")]
 mod basis;
@@ -29,6 +30,7 @@ mod ktx2;
 mod texture_atlas;
 mod texture_atlas_builder;
 
+pub use bytes;
 #[cfg(feature = "basis-universal")]
 pub use compressed_image_saver::*;
 #[cfg(feature = "dds")]

@@ -15,7 +15,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::{bytes::Bytes, BevyDefault, Image};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
@@ -212,7 +212,7 @@ impl Plugin for PostProcessingPlugin {
                     depth_or_array_layers: 1,
                 },
                 TextureDimension::D2,
-                DEFAULT_CHROMATIC_ABERRATION_LUT_DATA.to_vec(),
+                Bytes::from_static(&DEFAULT_CHROMATIC_ABERRATION_LUT_DATA),
                 TextureFormat::Rgba8UnormSrgb,
                 RenderAssetUsages::RENDER_WORLD,
             ),

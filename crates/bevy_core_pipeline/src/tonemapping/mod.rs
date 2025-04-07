@@ -2,7 +2,7 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, weak_handle, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
+use bevy_image::{bytes::Bytes, CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
@@ -461,9 +461,8 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
 
 pub fn lut_placeholder() -> Image {
     let format = TextureFormat::Rgba8Unorm;
-    let data = vec![255, 0, 255, 255];
     Image {
-        data: Some(data),
+        data: Bytes::from_static(&[255, 0, 255, 255]),
         texture_descriptor: TextureDescriptor {
             size: Extent3d {
                 width: 1,

@@ -67,7 +67,7 @@ impl AssetLoader for HdrTextureLoader {
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
-            rgba_data,
+            rgba_data.into(),
             format,
             settings.asset_usage,
         ))

@@ -266,7 +266,7 @@ pub fn ktx2_buffer_to_image(
     // error cases have been handled
     let mut image = Image::default();
     image.texture_descriptor.format = texture_format;
-    image.data = Some(wgpu_data.into_iter().flatten().collect::<Vec<_>>());
+    image.data = wgpu_data.into_iter().flatten().collect::<Vec<_>>().into();
     image.texture_descriptor.size = Extent3d {
         width,
         height,

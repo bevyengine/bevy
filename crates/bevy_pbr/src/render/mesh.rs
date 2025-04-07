@@ -1837,9 +1837,14 @@ impl FromWorld for MeshPipeline {
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
+
+            if !image.is_initialized() {
+                panic!("Image was created without data");
+            }
+
             render_queue.write_texture(
                 texture.as_image_copy(),
-                image.data.as_ref().expect("Image was created without data"),
+                &image.data,
                 TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(image.width() * format_size as u32),

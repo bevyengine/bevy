@@ -681,7 +681,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                         depth_or_array_layers: 1,
                     },
                     wgpu::TextureDimension::D2,
-                    result,
+                    result.into(),
                     texture_format,
                     RenderAssetUsages::RENDER_WORLD,
                 ),

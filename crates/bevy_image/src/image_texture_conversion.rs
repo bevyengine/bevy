@@ -154,7 +154,7 @@ impl Image {
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
-            data,
+            data.into(),
             format,
             asset_usage,
         )
@@ -172,24 +172,25 @@ impl Image {
     pub fn try_into_dynamic(self) -> Result<DynamicImage, IntoDynamicImageError> {
         let width = self.width();
         let height = self.height();
-        let Some(data) = self.data else {
+        if self.is_initialized() {
             return Err(IntoDynamicImageError::UninitializedImage);
-        };
+        }
+        let data = self.data;
         match self.texture_descriptor.format {
             TextureFormat::R8Unorm => {
-                ImageBuffer::from_raw(width, height, data).map(DynamicImage::ImageLuma8)
+                ImageBuffer::from_raw(width, height, Vec::from(data)).map(DynamicImage::ImageLuma8)
             }
             TextureFormat::Rg8Unorm => {
-                ImageBuffer::from_raw(width, height, data).map(DynamicImage::ImageLumaA8)
+                ImageBuffer::from_raw(width, height, Vec::from(data)).map(DynamicImage::ImageLumaA8)
             }
             TextureFormat::Rgba8UnormSrgb => {
-                ImageBuffer::from_raw(width, height, data).map(DynamicImage::ImageRgba8)
+                ImageBuffer::from_raw(width, height, Vec::from(data)).map(DynamicImage::ImageRgba8)
             }
             // This format is commonly used as the format for the swapchain texture
             // This conversion is added here to support screenshots
             TextureFormat::Bgra8UnormSrgb | TextureFormat::Bgra8Unorm => {
                 ImageBuffer::from_raw(width, height, {
-                    let mut data = data;
+                    let mut data = Vec::from(data);
                     for bgra in data.chunks_exact_mut(4) {
                         bgra.swap(0, 2);
                     }

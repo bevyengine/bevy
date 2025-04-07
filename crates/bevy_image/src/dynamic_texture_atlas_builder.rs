@@ -1,6 +1,8 @@
 use crate::{Image, TextureAtlasLayout, TextureFormatPixelInfo as _};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{URect, UVec2};
+use bytes::BytesMut;
+use core::mem;
 use guillotiere::{size2, Allocation, AtlasAllocator};
 use thiserror::Error;
 use tracing::error;
@@ -89,12 +91,15 @@ impl DynamicTextureAtlasBuilder {
         let rect_width = rect.width() as usize;
         let format_size = atlas_texture.texture_descriptor.format.pixel_size();
 
-        let Some(ref mut atlas_data) = atlas_texture.data else {
+        if !atlas_texture.is_initialized() {
             return Err(DynamicTextureAtlasBuilderError::UninitializedAtlas);
-        };
-        let Some(ref data) = texture.data else {
-            return Err(DynamicTextureAtlasBuilderError::UninitializedSourceTexture);
-        };
+        }
+        if !texture.is_initialized() {
+            return Err(DynamicTextureAtlasBuilderError::UninitializedAtlas);
+        }
+        // This may allocated if `atlas_texture` is readonly.
+        let mut atlas_data: BytesMut = mem::take(&mut atlas_texture.data).into();
+        let data = &texture.data;
         for (texture_y, bound_y) in (rect.min.y..rect.max.y).map(|i| i as usize).enumerate() {
             let begin = (bound_y * atlas_width + rect.min.x as usize) * format_size;
             let end = begin + rect_width * format_size;
@@ -102,6 +107,7 @@ impl DynamicTextureAtlasBuilder {
             let texture_end = texture_begin + rect_width * format_size;
             atlas_data[begin..end].copy_from_slice(&data[texture_begin..texture_end]);
         }
+        atlas_texture.data = atlas_data.into();
         Ok(())
     }
 }

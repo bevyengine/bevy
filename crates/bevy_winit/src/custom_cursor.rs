@@ -141,21 +141,26 @@ pub(crate) fn calculate_effective_rect(
 ///
 /// Only supports rgba8 and rgba32float formats.
 pub(crate) fn extract_rgba_pixels(image: &Image) -> Option<Vec<u8>> {
+    if !image.is_initialized() {
+        return None;
+    }
     match image.texture_descriptor.format {
         TextureFormat::Rgba8Unorm
         | TextureFormat::Rgba8UnormSrgb
         | TextureFormat::Rgba8Snorm
         | TextureFormat::Rgba8Uint
-        | TextureFormat::Rgba8Sint => Some(image.data.clone()?),
-        TextureFormat::Rgba32Float => image.data.as_ref().map(|data| {
-            data.chunks(4)
+        | TextureFormat::Rgba8Sint => Some(image.data.to_vec()),
+        TextureFormat::Rgba32Float => Some(
+            image
+                .data
+                .chunks(4)
                 .map(|chunk| {
                     let chunk = chunk.try_into().unwrap();
                     let num = bytemuck::cast_ref::<[u8; 4], f32>(chunk);
                     ops::round(num.clamp(0.0, 1.0) * 255.0) as u8
                 })
-                .collect()
-        }),
+                .collect(),
+        ),
         _ => None,
     }
 }
@@ -239,7 +244,7 @@ mod tests {
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
-            data.to_vec(),
+            data.to_vec().into(),
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::default(),
         )
@@ -366,7 +371,7 @@ mod tests {
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
-            bytemuck::cast_slice(&float_data).to_vec(),
+            bytemuck::cast_slice(&float_data).to_vec().into(),
             TextureFormat::Rgba32Float,
             RenderAssetUsages::default(),
         )

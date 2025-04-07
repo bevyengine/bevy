@@ -255,7 +255,7 @@ impl FontAtlasSet {
                     depth_or_array_layers: 1,
                 },
                 TextureDimension::D2,
-                data,
+                data.into(),
                 TextureFormat::Rgba8UnormSrgb,
                 RenderAssetUsages::MAIN_WORLD,
             ),

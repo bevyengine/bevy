@@ -56,6 +56,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
     );
 
+    let mut image_mut = image.to_mut();
     // To make it extra fancy, we can set the Alpha of each pixel,
     // so that it fades out in a circular fashion.
     for y in 0..IMAGE_HEIGHT {
@@ -69,12 +70,12 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             // (it is the 4th byte of each pixel, as per our `TextureFormat`)
 
             // Find our pixel by its coordinates
-            let pixel_bytes = image.pixel_bytes_mut(UVec3::new(x, y, 0)).unwrap();
+            let pixel_bytes = image_mut.pixel_bytes_mut(UVec3::new(x, y, 0)).unwrap();
             // Convert our f32 to u8
             pixel_bytes[3] = (a * u8::MAX as f32) as u8;
         }
     }
-
+    drop(image_mut);
     // Add it to Bevy's assets, so it can be used for rendering
     // this will give us a handle we can use
     // (to display it in a sprite, or as part of UI, etc.)
@@ -136,9 +137,11 @@ fn draw(
     }
 
     // Set the new color, but keep old alpha value from image.
-    image
-        .set_color_at(x, y, draw_color.with_alpha(old_color.alpha()))
-        .unwrap();
+    if let Some(mut image) = image.as_mut() {
+        image
+            .set_color_at(x, y, draw_color.with_alpha(old_color.alpha()))
+            .unwrap();
+    }
 
     *i += 1;
 }

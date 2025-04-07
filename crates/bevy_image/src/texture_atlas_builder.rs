@@ -1,6 +1,8 @@
 use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_math::{URect, UVec2};
 use bevy_platform_support::collections::HashMap;
+use bytes::BytesMut;
+use core::mem;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
@@ -119,12 +121,15 @@ impl<'a> TextureAtlasBuilder<'a> {
         let atlas_width = atlas_texture.width() as usize;
         let format_size = atlas_texture.texture_descriptor.format.pixel_size();
 
-        let Some(ref mut atlas_data) = atlas_texture.data else {
+        if !atlas_texture.is_initialized() {
             return Err(TextureAtlasBuilderError::UninitializedAtlas);
-        };
-        let Some(ref data) = texture.data else {
+        }
+        if !texture.is_initialized() {
             return Err(TextureAtlasBuilderError::UninitializedSourceTexture);
-        };
+        }
+        // May allocate if readonly.
+        let mut atlas_data: BytesMut = mem::take(&mut atlas_texture.data).into();
+        let data = &texture.data;
         for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
             let begin = (bound_y * atlas_width + rect_x) * format_size;
             let end = begin + rect_width * format_size;
@@ -132,6 +137,7 @@ impl<'a> TextureAtlasBuilder<'a> {
             let texture_end = texture_begin + rect_width * format_size;
             atlas_data[begin..end].copy_from_slice(&data[texture_begin..texture_end]);
         }
+        atlas_texture.data = atlas_data.into();
         Ok(())
     }
 
@@ -244,7 +250,8 @@ impl<'a> TextureAtlasBuilder<'a> {
                         vec![
                             0;
                             self.format.pixel_size() * (current_width * current_height) as usize
-                        ],
+                        ]
+                        .into(),
                         self.format,
                         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
                     );

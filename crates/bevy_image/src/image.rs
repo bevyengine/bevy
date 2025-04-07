@@ -10,12 +10,12 @@ use bevy_reflect::TypePath;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use bevy_asset::{Asset, RenderAssetUsages};
-use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
+use bevy_color::Color;
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
-use core::hash::Hash;
+use bytes::Bytes;
+use core::{hash::Hash, mem};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::warn;
 use wgpu_types::{
     AddressMode, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
     SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
@@ -346,7 +346,7 @@ pub struct Image {
     /// If the image is being used as a storage texture which doesn't need to be initialized by the
     /// CPU, then this should be `None`
     /// Otherwise, it should always be `Some`
-    pub data: Option<Vec<u8>>,
+    pub data: Bytes,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
@@ -700,7 +700,7 @@ impl Default for Image {
     /// default is a 1x1x1 all '1.0' texture
     fn default() -> Self {
         let mut image = Image::default_uninit();
-        image.data = Some(vec![255; image.texture_descriptor.format.pixel_size()]);
+        image.data = Bytes::from_static(&[255, 255, 255, 255]);
         image
     }
 }
@@ -711,10 +711,14 @@ impl Image {
     /// # Panics
     /// Panics if the length of the `data`, volume of the `size` and the size of the `format`
     /// do not match.
+    ///
+    /// # About Bytes
+    /// [`Bytes`] accepts both readonly and mutable data. To create a mutable image, call `Into` on `Vec<u8>` or `Box<[u8]>`.
+    /// To use static readonly data, use [`Bytes::from_static`]. [`Bytes::from_owner`] can be used for spicy mmap shenanigans.
     pub fn new(
         size: Extent3d,
         dimension: TextureDimension,
-        data: Vec<u8>,
+        data: Bytes,
         format: TextureFormat,
         asset_usage: RenderAssetUsages,
     ) -> Self {
@@ -724,7 +728,7 @@ impl Image {
             "Pixel data, size and format have to match",
         );
         let mut image = Image::new_uninit(size, dimension, format, asset_usage);
-        image.data = Some(data);
+        image.data = data;
         image
     }
 
@@ -736,7 +740,7 @@ impl Image {
         asset_usage: RenderAssetUsages,
     ) -> Self {
         Image {
-            data: None,
+            data: Bytes::new(),
             texture_descriptor: TextureDescriptor {
                 size,
                 format,
@@ -753,6 +757,20 @@ impl Image {
         }
     }
 
+    /// Returns `true` if the image is considered uninitialized.
+    ///
+    /// If data is equivalent to [`Bytes::new`], it is considered uninitialized.
+    pub fn is_initialized(&self) -> bool {
+        self.data.is_unique() || !self.data.is_empty()
+    }
+
+    /// Returns `true` if the image is readonly.
+    ///
+    /// Non-readonly images can be created from calling `Into` on `Vec<u8>`.
+    pub fn is_readonly(&self) -> bool {
+        !self.data.is_unique()
+    }
+
     /// A transparent white 1x1x1 image.
     ///
     /// Contrast to [`Image::default`], which is opaque.
@@ -762,7 +780,6 @@ impl Image {
         // If this changes, this function will need to be updated.
         let format = TextureFormat::bevy_default();
         debug_assert!(format.pixel_size() == 4);
-        let data = vec![255, 255, 255, 0];
         Image::new(
             Extent3d {
                 width: 1,
@@ -770,7 +787,7 @@ impl Image {
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
-            data,
+            Bytes::from_static(&[255, 255, 255, 0]),
             format,
             RenderAssetUsages::default(),
         )
@@ -853,13 +870,16 @@ impl Image {
     /// Does not properly resize the contents of the image, but only its internal `data` buffer.
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
-        if let Some(ref mut data) = self.data {
+        let len = size.volume() * self.texture_descriptor.format.pixel_size();
+        if len < self.data.len() {
+            self.data.truncate(len);
+        } else {
+            let mut data: Vec<_> = mem::take(&mut self.data).into();
             data.resize(
                 size.volume() * self.texture_descriptor.format.pixel_size(),
                 0,
             );
-        } else {
-            warn!("Resized an uninitialized image. Directly modify image.texture_descriptor.size instead");
+            self.data = data.into();
         }
     }
 
@@ -1032,18 +1052,8 @@ impl Image {
     #[inline(always)]
     pub fn pixel_bytes(&self, coords: UVec3) -> Option<&[u8]> {
         let len = self.texture_descriptor.format.pixel_size();
-        let data = self.data.as_ref()?;
-        self.pixel_data_offset(coords)
-            .map(|start| &data[start..(start + len)])
-    }
-
-    /// Get a mutable reference to the data bytes where a specific pixel's value is stored
-    #[inline(always)]
-    pub fn pixel_bytes_mut(&mut self, coords: UVec3) -> Option<&mut [u8]> {
-        let len = self.texture_descriptor.format.pixel_size();
         let offset = self.pixel_data_offset(coords);
-        let data = self.data.as_mut()?;
-        offset.map(|start| &mut data[start..(start + len)])
+        offset.map(|start| &self.data[start..(start + len)])
     }
 
     /// Read the color of a specific pixel (1D texture).
@@ -1104,67 +1114,67 @@ impl Image {
         }
     }
 
-    /// Change the color of a specific pixel (1D texture).
-    ///
-    /// See [`set_color_at`](Self::set_color_at) for more details.
-    #[inline(always)]
-    pub fn set_color_at_1d(&mut self, x: u32, color: Color) -> Result<(), TextureAccessError> {
-        if self.texture_descriptor.dimension != TextureDimension::D1 {
-            return Err(TextureAccessError::WrongDimension);
-        }
-        self.set_color_at_internal(UVec3::new(x, 0, 0), color)
-    }
+    // /// Change the color of a specific pixel (1D texture).
+    // ///
+    // /// See [`set_color_at`](Self::set_color_at) for more details.
+    // #[inline(always)]
+    // pub fn set_color_at_1d(&mut self, x: u32, color: Color) -> Result<(), TextureAccessError> {
+    //     if self.texture_descriptor.dimension != TextureDimension::D1 {
+    //         return Err(TextureAccessError::WrongDimension);
+    //     }
+    //     self.set_color_at_internal(UVec3::new(x, 0, 0), color)
+    // }
 
-    /// Change the color of a specific pixel (2D texture).
-    ///
-    /// This function will find the raw byte data of a specific pixel and
-    /// change it according to a [`Color`] you provide. The [`Color`] struct
-    /// will be encoded into the [`Image`]'s [`TextureFormat`].
-    ///
-    /// Supports many of the common [`TextureFormat`]s:
-    ///  - RGBA/BGRA 8-bit unsigned integer, both sRGB and Linear
-    ///  - 16-bit and 32-bit unsigned integer (with possibly-limited precision, as [`Color`] uses `f32`)
-    ///  - 16-bit and 32-bit float
-    ///
-    /// Be careful: writing to non-f32 [`TextureFormat`]s is lossy! The data has to be converted,
-    /// so if you read it back using `get_color_at`, the `Color` you get will not equal the value
-    /// you used when writing it using this function.
-    ///
-    /// For R and RG formats, only the respective values from the linear RGB [`Color`] will be used.
-    ///
-    /// Other [`TextureFormat`]s are unsupported, such as:
-    ///  - block-compressed formats
-    ///  - non-byte-aligned formats like 10-bit
-    ///  - signed integer formats
-    #[inline(always)]
-    pub fn set_color_at(&mut self, x: u32, y: u32, color: Color) -> Result<(), TextureAccessError> {
-        if self.texture_descriptor.dimension != TextureDimension::D2 {
-            return Err(TextureAccessError::WrongDimension);
-        }
-        self.set_color_at_internal(UVec3::new(x, y, 0), color)
-    }
+    // /// Change the color of a specific pixel (2D texture).
+    // ///
+    // /// This function will find the raw byte data of a specific pixel and
+    // /// change it according to a [`Color`] you provide. The [`Color`] struct
+    // /// will be encoded into the [`Image`]'s [`TextureFormat`].
+    // ///
+    // /// Supports many of the common [`TextureFormat`]s:
+    // ///  - RGBA/BGRA 8-bit unsigned integer, both sRGB and Linear
+    // ///  - 16-bit and 32-bit unsigned integer (with possibly-limited precision, as [`Color`] uses `f32`)
+    // ///  - 16-bit and 32-bit float
+    // ///
+    // /// Be careful: writing to non-f32 [`TextureFormat`]s is lossy! The data has to be converted,
+    // /// so if you read it back using `get_color_at`, the `Color` you get will not equal the value
+    // /// you used when writing it using this function.
+    // ///
+    // /// For R and RG formats, only the respective values from the linear RGB [`Color`] will be used.
+    // ///
+    // /// Other [`TextureFormat`]s are unsupported, such as:
+    // ///  - block-compressed formats
+    // ///  - non-byte-aligned formats like 10-bit
+    // ///  - signed integer formats
+    // #[inline(always)]
+    // pub fn set_color_at(&mut self, x: u32, y: u32, color: Color) -> Result<(), TextureAccessError> {
+    //     if self.texture_descriptor.dimension != TextureDimension::D2 {
+    //         return Err(TextureAccessError::WrongDimension);
+    //     }
+    //     self.set_color_at_internal(UVec3::new(x, y, 0), color)
+    // }
 
-    /// Change the color of a specific pixel (2D texture with layers or 3D texture).
-    ///
-    /// See [`set_color_at`](Self::set_color_at) for more details.
-    #[inline(always)]
-    pub fn set_color_at_3d(
-        &mut self,
-        x: u32,
-        y: u32,
-        z: u32,
-        color: Color,
-    ) -> Result<(), TextureAccessError> {
-        match (
-            self.texture_descriptor.dimension,
-            self.texture_descriptor.size.depth_or_array_layers,
-        ) {
-            (TextureDimension::D3, _) | (TextureDimension::D2, 2..) => {
-                self.set_color_at_internal(UVec3::new(x, y, z), color)
-            }
-            _ => Err(TextureAccessError::WrongDimension),
-        }
-    }
+    // /// Change the color of a specific pixel (2D texture with layers or 3D texture).
+    // ///
+    // /// See [`set_color_at`](Self::set_color_at) for more details.
+    // #[inline(always)]
+    // pub fn set_color_at_3d(
+    //     &mut self,
+    //     x: u32,
+    //     y: u32,
+    //     z: u32,
+    //     color: Color,
+    // ) -> Result<(), TextureAccessError> {
+    //     match (
+    //         self.texture_descriptor.dimension,
+    //         self.texture_descriptor.size.depth_or_array_layers,
+    //     ) {
+    //         (TextureDimension::D3, _) | (TextureDimension::D2, 2..) => {
+    //             self.set_color_at_internal(UVec3::new(x, y, z), color)
+    //         }
+    //         _ => Err(TextureAccessError::WrongDimension),
+    //     }
+    // }
 
     #[inline(always)]
     fn get_color_at_internal(&self, coords: UVec3) -> Result<Color, TextureAccessError> {
@@ -1306,171 +1316,6 @@ impl Image {
                 self.texture_descriptor.format,
             )),
         }
-    }
-
-    #[inline(always)]
-    fn set_color_at_internal(
-        &mut self,
-        coords: UVec3,
-        color: Color,
-    ) -> Result<(), TextureAccessError> {
-        let format = self.texture_descriptor.format;
-
-        let Some(bytes) = self.pixel_bytes_mut(coords) else {
-            return Err(TextureAccessError::OutOfBounds {
-                x: coords.x,
-                y: coords.y,
-                z: coords.z,
-            });
-        };
-
-        // NOTE: GPUs are always Little Endian.
-        // Make sure to respect that when we convert color values to bytes.
-        match format {
-            TextureFormat::Rgba8UnormSrgb => {
-                let [r, g, b, a] = Srgba::from(color).to_f32_array();
-                bytes[0] = (r * u8::MAX as f32) as u8;
-                bytes[1] = (g * u8::MAX as f32) as u8;
-                bytes[2] = (b * u8::MAX as f32) as u8;
-                bytes[3] = (a * u8::MAX as f32) as u8;
-            }
-            TextureFormat::Rgba8Unorm | TextureFormat::Rgba8Uint => {
-                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
-                bytes[0] = (r * u8::MAX as f32) as u8;
-                bytes[1] = (g * u8::MAX as f32) as u8;
-                bytes[2] = (b * u8::MAX as f32) as u8;
-                bytes[3] = (a * u8::MAX as f32) as u8;
-            }
-            TextureFormat::Bgra8UnormSrgb => {
-                let [r, g, b, a] = Srgba::from(color).to_f32_array();
-                bytes[0] = (b * u8::MAX as f32) as u8;
-                bytes[1] = (g * u8::MAX as f32) as u8;
-                bytes[2] = (r * u8::MAX as f32) as u8;
-                bytes[3] = (a * u8::MAX as f32) as u8;
-            }
-            TextureFormat::Bgra8Unorm => {
-                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
-                bytes[0] = (b * u8::MAX as f32) as u8;
-                bytes[1] = (g * u8::MAX as f32) as u8;
-                bytes[2] = (r * u8::MAX as f32) as u8;
-                bytes[3] = (a * u8::MAX as f32) as u8;
-            }
-            TextureFormat::Rgba16Float => {
-                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
-                bytes[0..2].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(r)));
-                bytes[2..4].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(g)));
-                bytes[4..6].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(b)));
-                bytes[6..8].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(a)));
-            }
-            TextureFormat::Rgba32Float => {
-                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
-                bytes[0..4].copy_from_slice(&f32::to_le_bytes(r));
-                bytes[4..8].copy_from_slice(&f32::to_le_bytes(g));
-                bytes[8..12].copy_from_slice(&f32::to_le_bytes(b));
-                bytes[12..16].copy_from_slice(&f32::to_le_bytes(a));
-            }
-            TextureFormat::Rgba16Unorm | TextureFormat::Rgba16Uint => {
-                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
-                let [r, g, b, a] = [
-                    (r * u16::MAX as f32) as u16,
-                    (g * u16::MAX as f32) as u16,
-                    (b * u16::MAX as f32) as u16,
-                    (a * u16::MAX as f32) as u16,
-                ];
-                bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
-                bytes[2..4].copy_from_slice(&u16::to_le_bytes(g));
-                bytes[4..6].copy_from_slice(&u16::to_le_bytes(b));
-                bytes[6..8].copy_from_slice(&u16::to_le_bytes(a));
-            }
-            TextureFormat::Rgba32Uint => {
-                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
-                let [r, g, b, a] = [
-                    (r * u32::MAX as f32) as u32,
-                    (g * u32::MAX as f32) as u32,
-                    (b * u32::MAX as f32) as u32,
-                    (a * u32::MAX as f32) as u32,
-                ];
-                bytes[0..4].copy_from_slice(&u32::to_le_bytes(r));
-                bytes[4..8].copy_from_slice(&u32::to_le_bytes(g));
-                bytes[8..12].copy_from_slice(&u32::to_le_bytes(b));
-                bytes[12..16].copy_from_slice(&u32::to_le_bytes(a));
-            }
-            TextureFormat::R8Unorm | TextureFormat::R8Uint => {
-                // Convert to grayscale with minimal loss if color is already gray
-                let linear = LinearRgba::from(color);
-                let luminance = Xyza::from(linear).y;
-                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
-                bytes[0] = (r * u8::MAX as f32) as u8;
-            }
-            TextureFormat::R16Unorm | TextureFormat::R16Uint => {
-                // Convert to grayscale with minimal loss if color is already gray
-                let linear = LinearRgba::from(color);
-                let luminance = Xyza::from(linear).y;
-                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
-                let r = (r * u16::MAX as f32) as u16;
-                bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
-            }
-            TextureFormat::R32Uint => {
-                // Convert to grayscale with minimal loss if color is already gray
-                let linear = LinearRgba::from(color);
-                let luminance = Xyza::from(linear).y;
-                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
-                // go via f64 to avoid imprecision
-                let r = (r as f64 * u32::MAX as f64) as u32;
-                bytes[0..4].copy_from_slice(&u32::to_le_bytes(r));
-            }
-            TextureFormat::R16Float => {
-                // Convert to grayscale with minimal loss if color is already gray
-                let linear = LinearRgba::from(color);
-                let luminance = Xyza::from(linear).y;
-                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
-                let x = half::f16::from_f32(r);
-                bytes[0..2].copy_from_slice(&half::f16::to_le_bytes(x));
-            }
-            TextureFormat::R32Float => {
-                // Convert to grayscale with minimal loss if color is already gray
-                let linear = LinearRgba::from(color);
-                let luminance = Xyza::from(linear).y;
-                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
-                bytes[0..4].copy_from_slice(&f32::to_le_bytes(r));
-            }
-            TextureFormat::Rg8Unorm | TextureFormat::Rg8Uint => {
-                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
-                bytes[0] = (r * u8::MAX as f32) as u8;
-                bytes[1] = (g * u8::MAX as f32) as u8;
-            }
-            TextureFormat::Rg16Unorm | TextureFormat::Rg16Uint => {
-                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
-                let r = (r * u16::MAX as f32) as u16;
-                let g = (g * u16::MAX as f32) as u16;
-                bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
-                bytes[2..4].copy_from_slice(&u16::to_le_bytes(g));
-            }
-            TextureFormat::Rg32Uint => {
-                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
-                // go via f64 to avoid imprecision
-                let r = (r as f64 * u32::MAX as f64) as u32;
-                let g = (g as f64 * u32::MAX as f64) as u32;
-                bytes[0..4].copy_from_slice(&u32::to_le_bytes(r));
-                bytes[4..8].copy_from_slice(&u32::to_le_bytes(g));
-            }
-            TextureFormat::Rg16Float => {
-                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
-                bytes[0..2].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(r)));
-                bytes[2..4].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(g)));
-            }
-            TextureFormat::Rg32Float => {
-                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
-                bytes[0..4].copy_from_slice(&f32::to_le_bytes(r));
-                bytes[4..8].copy_from_slice(&f32::to_le_bytes(g));
-            }
-            _ => {
-                return Err(TextureAccessError::UnsupportedTextureFormat(
-                    self.texture_descriptor.format,
-                ));
-            }
-        }
-        Ok(())
     }
 }
 
@@ -1704,26 +1549,5 @@ mod test {
             image.get_color_at(5, 10),
             Err(TextureAccessError::OutOfBounds { x: 5, y: 10, z: 0 })
         ));
-    }
-
-    #[test]
-    fn get_set_pixel_2d_with_layers() {
-        let mut image = Image::new_fill(
-            Extent3d {
-                width: 5,
-                height: 10,
-                depth_or_array_layers: 3,
-            },
-            TextureDimension::D2,
-            &[0, 0, 0, 255],
-            TextureFormat::Rgba8Unorm,
-            RenderAssetUsages::MAIN_WORLD,
-        );
-        image.set_color_at_3d(0, 0, 0, Color::WHITE).unwrap();
-        assert!(matches!(image.get_color_at_3d(0, 0, 0), Ok(Color::WHITE)));
-        image.set_color_at_3d(2, 3, 1, Color::WHITE).unwrap();
-        assert!(matches!(image.get_color_at_3d(2, 3, 1), Ok(Color::WHITE)));
-        image.set_color_at_3d(4, 9, 2, Color::WHITE).unwrap();
-        assert!(matches!(image.get_color_at_3d(4, 9, 2), Ok(Color::WHITE)));
     }
 }

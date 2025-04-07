@@ -61,6 +61,7 @@ bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-d
 image = { version = "0.25.2", default-features = false }
 
 # misc
+bytes = "1.10.1"
 bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5" }
 wgpu-types = { version = "24", default-features = false }

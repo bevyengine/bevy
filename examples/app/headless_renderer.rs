@@ -499,17 +499,15 @@ fn update(
                         * img_bytes.texture_descriptor.format.pixel_size();
                     let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
                     if row_bytes == aligned_row_bytes {
-                        img_bytes.data.as_mut().unwrap().clone_from(&image_data);
+                        img_bytes.data = core::mem::take(&mut image_data).into();
                     } else {
                         // shrink data to original image size
-                        img_bytes.data = Some(
-                            image_data
-                                .chunks(aligned_row_bytes)
-                                .take(img_bytes.height() as usize)
-                                .flat_map(|row| &row[..row_bytes.min(row.len())])
-                                .cloned()
-                                .collect(),
-                        );
+                        img_bytes.data = image_data
+                            .chunks(aligned_row_bytes)
+                            .take(img_bytes.height() as usize)
+                            .flat_map(|row| &row[..row_bytes.min(row.len())])
+                            .cloned()
+                            .collect();
                     }
 
                     // Create RGBA Image Buffer

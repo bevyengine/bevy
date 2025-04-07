@@ -114,7 +114,7 @@ fn fallback_image_new(
             render_queue,
             &image.texture_descriptor,
             TextureDataOrder::default(),
-            &image.data.expect("Image has no data"),
+            &image.data,
         )
     } else {
         render_device.create_texture(&image.texture_descriptor)
