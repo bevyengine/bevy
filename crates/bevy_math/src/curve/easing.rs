@@ -145,9 +145,6 @@ all_tuples_enumerated!(
     T
 );
 
-/// TODO: This documentation needs to be updated now that the ease function is
-/// not restricted to `EaseFunction`.
-///
 /// A [`Curve`] that is defined by
 ///
 /// - an initial `start` sample value at `t = 0`
@@ -236,22 +233,20 @@ all_tuples_enumerated!(
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct EasingCurve<T, F> {
+pub struct EasingCurve<T> {
     start: T,
     end: T,
-    ease_fn: F,
+    ease_fn: EaseFunction,
 }
 
-impl<T, F> EasingCurve<T, F>
-where
-    T: Ease + Clone,
-    F: Curve<f32>,
-{
-    /// Given a `start` and `end` value, connect them using the given curve
-    /// parametrized over [the unit interval].
+impl<T> EasingCurve<T> {
+    /// Given a `start` and `end` value, create a curve parametrized over [the unit interval]
+    /// that connects them, using the given [ease function] to determine the form of the
+    /// curve in between.
     ///
     /// [the unit interval]: Interval::UNIT
-    pub fn new(start: T, end: T, ease_fn: F) -> Self {
+    /// [ease function]: EaseFunction
+    pub fn new(start: T, end: T, ease_fn: EaseFunction) -> Self {
         Self {
             start,
             end,
@@ -260,10 +255,9 @@ where
     }
 }
 
-impl<T, F> Curve<T> for EasingCurve<T, F>
+impl<T> Curve<T> for EasingCurve<T>
 where
     T: Ease + Clone,
-    F: Curve<f32>,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -272,7 +266,7 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
-        let remapped_t = self.ease_fn.sample_unchecked(t);
+        let remapped_t = self.ease_fn.eval(t);
         T::interpolating_curve_unbounded(self.start.clone(), self.end.clone())
             .sample_unchecked(remapped_t)
     }
@@ -1223,12 +1217,10 @@ mod tests {
 
         let f0 = SmoothStep;
         let f1 = EaseFunction::SmoothStep;
-        let f2 = EasingCurve::new(0.0, 1.0, SmoothStep);
-        let f3 = EasingCurve::new(0.0, 1.0, EaseFunction::SmoothStep);
+        let f2 = EasingCurve::new(0.0, 1.0, EaseFunction::SmoothStep);
 
         assert_eq!(f0.domain(), f1.domain());
         assert_eq!(f0.domain(), f2.domain());
-        assert_eq!(f0.domain(), f3.domain());
 
         [
             -1.0,
@@ -1243,11 +1235,9 @@ mod tests {
         .for_each(|t| {
             assert_eq!(f0.sample(t), f1.sample(t));
             assert_eq!(f0.sample(t), f2.sample(t));
-            assert_eq!(f0.sample(t), f3.sample(t));
 
             assert_eq!(f0.sample_clamped(t), f1.sample_clamped(t));
             assert_eq!(f0.sample_clamped(t), f2.sample_clamped(t));
-            assert_eq!(f0.sample_clamped(t), f3.sample_clamped(t));
         });
     }
 }
