@@ -345,7 +345,10 @@ impl Plugin for MeshRenderPlugin {
                 .push_source(34, fetch_order_independent_transparency_layers_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(35, fetch_order_independent_transparency_layer_ids_bind_group)
+                .push_source(
+                    35,
+                    fetch_order_independent_transparency_layer_ids_bind_group,
+                )
                 .unwrap();
             bind_group_sources
                 .push_source(36, fetch_order_independent_transparency_settings_bind_group)
