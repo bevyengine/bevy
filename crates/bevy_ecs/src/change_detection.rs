@@ -123,6 +123,10 @@ pub trait DetectChangesMut: DetectChanges {
 
     /// Flags this value as having been added.
     ///
+    /// It is not normally necessary to call this method.
+    /// The 'added' tick is set when the value is first added,
+    /// and is not normally changed afterwards.
+    ///
     /// **Note**: This operation cannot be undone.
     fn set_added(&mut self);
 
