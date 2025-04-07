@@ -691,11 +691,24 @@ fn extract_wireframe_2d_camera(
 pub fn extract_wireframe_entities_needing_specialization(
     entities_needing_specialization: Extract<Res<WireframeEntitiesNeedingSpecialization>>,
     mut entity_specialization_ticks: ResMut<WireframeEntitySpecializationTicks>,
+    views: Query<&ExtractedView>,
+    mut specialized_wireframe_pipeline_cache: ResMut<SpecializedWireframePipelineCache>,
+    mut removed_meshes_query: Extract<RemovedComponents<Mesh2d>>,
     ticks: SystemChangeTick,
 ) {
     for entity in entities_needing_specialization.iter() {
         // Update the entity's specialization tick with this run's tick
         entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
+    }
+
+    for entity in removed_meshes_query.read() {
+        for view in &views {
+            if let Some(specialized_wireframe_pipeline_cache) =
+                specialized_wireframe_pipeline_cache.get_mut(&view.retained_view_entity)
+            {
+                specialized_wireframe_pipeline_cache.remove(&MainEntity::from(entity));
+            }
+        }
     }
 }
 
