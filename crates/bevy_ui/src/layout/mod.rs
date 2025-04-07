@@ -12,9 +12,10 @@ use bevy_ecs::{
     system::{Commands, Query, ResMut},
     world::Ref,
 };
-use bevy_math::Vec2;
+
+use bevy_math::{Mat4, Vec2};
 use bevy_sprite::BorderRect;
-use bevy_transform::components::Transform;
+use bevy_transform::components::GlobalTransform;
 use thiserror::Error;
 use tracing::warn;
 use ui_surface::UiSurface;
@@ -81,10 +82,10 @@ pub fn ui_layout_system(
     )>,
     computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,
     ui_children: UiChildren,
-    mut node_transform_query: Query<(
+    mut node_update_query: Query<(
         &mut ComputedNode,
-        &mut Transform,
         &Node,
+        &mut GlobalTransform,
         Option<&LayoutConfig>,
         Option<&BorderRadius>,
         Option<&Outline>,
@@ -175,7 +176,8 @@ with UI components as a child of an entity without UI components, your UI layout
             &mut ui_surface,
             true,
             None,
-            &mut node_transform_query,
+            Mat4::IDENTITY,
+            &mut node_update_query,
             &ui_children,
             computed_target.scale_factor.recip(),
             Vec2::ZERO,
@@ -190,10 +192,11 @@ with UI components as a child of an entity without UI components, your UI layout
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
         root_size: Option<Vec2>,
-        node_transform_query: &mut Query<(
+        mut transform: Mat4,
+        node_update_query: &mut Query<(
             &mut ComputedNode,
-            &mut Transform,
             &Node,
+            &mut GlobalTransform,
             Option<&LayoutConfig>,
             Option<&BorderRadius>,
             Option<&Outline>,
@@ -206,13 +209,13 @@ with UI components as a child of an entity without UI components, your UI layout
     ) {
         if let Ok((
             mut node,
-            mut transform,
             style,
+            mut global_transform,
             maybe_layout_config,
             maybe_border_radius,
             maybe_outline,
             maybe_scroll_position,
-        )) = node_transform_query.get_mut(entity)
+        )) = node_update_query.get_mut(entity)
         {
             let use_rounding = maybe_layout_config
                 .map(|layout_config| layout_config.use_rounding)
@@ -253,6 +256,15 @@ with UI components as a child of an entity without UI components, your UI layout
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
             node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
 
+            let mut node_transform = style.transform;
+            node_transform.translation /= inverse_target_scale_factor;
+            transform *=
+                node_transform.compute_matrix() * Mat4::from_translation(node_center.extend(0.));
+            let new_global_transform = GlobalTransform::from(transform);
+            if new_global_transform != *global_transform {
+                *global_transform = new_global_transform;
+            }
+
             let viewport_size = root_size.unwrap_or(node.size);
 
             if let Some(border_radius) = maybe_border_radius {
@@ -286,10 +298,6 @@ with UI components as a child of an entity without UI components, your UI layout
                 .resolve(node.size().x, viewport_size)
                 .unwrap_or(0.)
                 .max(0.);
-            }
-
-            if transform.translation.truncate() != node_center {
-                transform.translation = node_center.extend(0.);
             }
 
             let scroll_position: Vec2 = maybe_scroll_position
@@ -331,7 +339,8 @@ with UI components as a child of an entity without UI components, your UI layout
                     ui_surface,
                     use_rounding,
                     Some(viewport_size),
-                    node_transform_query,
+                    transform,
+                    node_update_query,
                     ui_children,
                     inverse_target_scale_factor,
                     layout_size,
