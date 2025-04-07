@@ -42,10 +42,12 @@ pub use sprite::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
+use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{load_internal_asset, weak_handle, AssetEvents, Assets, Handle};
 use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
+use bevy_math::Vec2;
 use bevy_render::{
     batching::sort_binned_render_phase,
     mesh::{Mesh, Mesh2d, MeshAabb},
@@ -163,24 +165,43 @@ pub fn calculate_bounds_2d(
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
-    meshes_without_aabb: Query<(Entity, &Mesh2d), (Without<Aabb>, Without<NoFrustumCulling>)>,
-    sprites_to_recalculate_aabb: Query<
-        (Entity, &Sprite),
+    new_mesh_aabb: Query<(Entity, &Mesh2d), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    mut update_mesh_aabb: Query<
+        (&Mesh2d, &mut Aabb),
         (
-            Or<(Without<Aabb>, Changed<Sprite>)>,
+            Or<(AssetChanged<Mesh2d>, Changed<Mesh2d>)>,
             Without<NoFrustumCulling>,
+            Without<Sprite>, // disjoint mutable query
+        ),
+    >,
+    new_sprite_aabb: Query<(Entity, &Sprite), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    mut update_sprite_aabb: Query<
+        (&Sprite, &mut Aabb),
+        (
+            Changed<Sprite>,
+            Without<NoFrustumCulling>,
+            Without<Mesh2d>, // disjoint mutable query
         ),
     >,
 ) {
-    for (entity, mesh_handle) in &meshes_without_aabb {
-        if let Some(mesh) = meshes.get(&mesh_handle.0) {
+    for (entity, mesh_handle) in &new_mesh_aabb {
+        if let Some(mesh) = meshes.get(mesh_handle) {
             if let Some(aabb) = mesh.compute_aabb() {
                 commands.entity(entity).try_insert(aabb);
             }
         }
     }
-    for (entity, sprite) in &sprites_to_recalculate_aabb {
-        if let Some(size) = sprite
+
+    for (mesh_handle, mut old_aabb) in &mut update_mesh_aabb {
+        if let Some(mesh) = meshes.get(mesh_handle) {
+            if let Some(aabb) = mesh.compute_aabb() {
+                *old_aabb = aabb;
+            }
+        }
+    }
+
+    let sprite_size = |sprite: &Sprite| -> Option<Vec2> {
+        sprite
             .custom_size
             .or_else(|| sprite.rect.map(|rect| rect.size()))
             .or_else(|| match &sprite.texture_atlas {
@@ -191,13 +212,27 @@ pub fn calculate_bounds_2d(
                     .texture_rect(&atlases)
                     .map(|rect| rect.size().as_vec2()),
             })
-        {
-            let aabb = Aabb {
-                center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
-                half_extents: (0.5 * size).extend(0.0).into(),
-            };
-            commands.entity(entity).try_insert(aabb);
-        }
+    };
+
+    for (size, (entity, sprite)) in new_sprite_aabb
+        .iter()
+        .filter_map(|(entity, sprite)| sprite_size(sprite).zip(Some((entity, sprite))))
+    {
+        let aabb = Aabb {
+            center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
+            half_extents: (0.5 * size).extend(0.0).into(),
+        };
+        commands.entity(entity).try_insert(aabb);
+    }
+
+    for (size, (sprite, mut old_aabb)) in update_sprite_aabb
+        .iter_mut()
+        .filter_map(|(sprite, aabb)| sprite_size(sprite).zip(Some((sprite, aabb))))
+    {
+        *old_aabb = Aabb {
+            center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
+            half_extents: (0.5 * size).extend(0.0).into(),
+        };
     }
 }
 

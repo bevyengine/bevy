@@ -10,14 +10,6 @@ use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
 pub use render_layers::*;
 
-use bevy_app::{Plugin, PostUpdate};
-use bevy_asset::Assets;
-use bevy_ecs::{hierarchy::validate_parent_has_component, prelude::*};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_transform::{components::GlobalTransform, TransformSystem};
-use bevy_utils::{Parallel, TypeIdMap};
-use smallvec::SmallVec;
-
 use super::NoCpuCulling;
 use crate::{
     camera::{Camera, CameraProjection, Projection},
@@ -25,6 +17,13 @@ use crate::{
     primitives::{Aabb, Frustum, Sphere},
     sync_world::MainEntity,
 };
+use bevy_app::{Plugin, PostUpdate};
+use bevy_asset::prelude::*;
+use bevy_ecs::{hierarchy::validate_parent_has_component, prelude::*};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_utils::{Parallel, TypeIdMap};
+use smallvec::SmallVec;
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
 ///
@@ -369,12 +368,27 @@ impl Plugin for VisibilityPlugin {
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    without_aabb: Query<(Entity, &Mesh3d), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    new_aabb: Query<(Entity, &Mesh3d), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    mut update_aabb: Query<
+        (&Mesh3d, &mut Aabb),
+        (
+            Or<(AssetChanged<Mesh3d>, Changed<Mesh3d>)>,
+            Without<NoFrustumCulling>,
+        ),
+    >,
 ) {
-    for (entity, mesh_handle) in &without_aabb {
+    for (entity, mesh_handle) in &new_aabb {
         if let Some(mesh) = meshes.get(mesh_handle) {
             if let Some(aabb) = mesh.compute_aabb() {
                 commands.entity(entity).try_insert(aabb);
+            }
+        }
+    }
+
+    for (mesh_handle, mut old_aabb) in &mut update_aabb {
+        if let Some(mesh) = meshes.get(mesh_handle) {
+            if let Some(aabb) = mesh.compute_aabb() {
+                *old_aabb = aabb;
             }
         }
     }
