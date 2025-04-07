@@ -605,82 +605,108 @@ pub fn prepare_mesh_view_bind_groups(
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
 ) {
+    const MIN_VIEW_FOR_PARALLEL: usize = 4;
     let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
-    commands.insert_batch(
-        task_pool
-            .scope(|scope| {
-                for view in views {
-                    let mesh_pipeline_ref = &mesh_pipeline;
-                    let names_ref = &names;
-                    let sources_ref = &sources;
-                    let render_device_ref = &render_device;
+    if views.iter().len() <= MIN_VIEW_FOR_PARALLEL {
+        for view in views {
+            if let Some((view, view_bind_group)) = prepare_mesh_bind_groups_task(
+                world,
+                view,
+                &sources,
+                &mesh_pipeline,
+                &render_device,
+                &names,
+            ) {
+                commands.entity(view).insert(view_bind_group);
+            }
+        }
+    } else {
+        commands.insert_batch(
+            task_pool
+                .scope(|scope| {
+                    for view in views {
+                        let mesh_pipeline_ref = &mesh_pipeline;
+                        let names_ref = &names;
+                        let sources_ref = &sources;
+                        let render_device_ref = &render_device;
 
-                    scope.spawn(async move {
-                        let layout_key = sources_ref
-                            .layout_key
-                            .iter()
-                            .map(|key_source| key_source(world, view))
-                            .reduce(|key, cur| key | cur)
-                            .unwrap_or_else(MeshPipelineViewLayoutKey::empty);
-                        let layout = mesh_pipeline_ref.get_view_layout(layout_key);
+                        scope.spawn(async move {
+                            prepare_mesh_bind_groups_task(
+                                world,
+                                view,
+                                sources_ref,
+                                mesh_pipeline_ref,
+                                render_device_ref,
+                                names_ref,
+                            )
+                        });
+                    }
+                })
+                .into_iter()
+                .flatten(),
+        );
+    }
+}
 
-                        let required = sources_ref
-                            .fetchers
-                            .iter()
-                            .map(|(binding, fetcher)| {
-                                fetcher(world, view).map(|resource| (*binding, resource))
-                            })
-                            .filter(|res| !matches!(res, Err(MeshViewBindGroupFetchError::Skipped)))
-                            .collect::<Result<Vec<_>, _>>()
-                            .inspect_err(|err| {
-                                tracing::error!(
-                                    "{}: {}",
-                                    names_ref
-                                        .get(view)
-                                        .map(|name| format!("{}({})", name, view))
-                                        .unwrap_or(view.to_string()),
-                                    err
-                                );
-                            })
-                            .ok()?;
+fn prepare_mesh_bind_groups_task(
+    world: &World,
+    view: Entity,
+    sources: &MeshViewBindGroupSources,
+    mesh_pipeline: &MeshPipeline,
+    render_device: &RenderDevice,
+    names: &Query<&Name, (With<ExtractedView>, With<ExtractedCamera>)>,
+) -> Option<(Entity, MeshViewBindGroup)> {
+    let layout_key = sources
+        .layout_key
+        .iter()
+        .map(|key_source| key_source(world, view))
+        .reduce(|key, cur| key | cur)
+        .unwrap_or_else(MeshPipelineViewLayoutKey::empty);
+    let layout = mesh_pipeline.get_view_layout(layout_key);
 
-                        // BTreeMap because it already sorts keys
-                        let mut entries = BTreeMap::new();
-                        for (binding, resource) in &required {
-                            let br = match resource {
-                                WrappedBindingResource::BindingResource(br) => br.clone(),
-                                WrappedBindingResource::OwnedTextureView(tv) => tv.into_binding(),
-                                WrappedBindingResource::OwnedTextureViewArray(v) => {
-                                    v.into_binding()
-                                }
-                            };
-                            entries.insert(*binding, br);
-                        }
+    let required = sources
+        .fetchers
+        .iter()
+        .map(|(binding, fetcher)| fetcher(world, view).map(|resource| (*binding, resource)))
+        .filter(|res| !matches!(res, Err(MeshViewBindGroupFetchError::Skipped)))
+        .collect::<Result<Vec<_>, _>>()
+        .inspect_err(|err| {
+            tracing::error!(
+                "{}: {}",
+                names
+                    .get(view)
+                    .map(|name| format!("{}({})", name, view))
+                    .unwrap_or(view.to_string()),
+                err
+            );
+        })
+        .ok()?;
 
-                        let entries = entries.into_iter().fold(
-                            DynamicBindGroupEntries::default(),
-                            |mut entries, (binding, resource)| {
-                                entries.push(binding, resource);
-                                entries
-                            },
-                        );
+    // BTreeMap because it already sorts keys
+    let mut entries = BTreeMap::new();
+    for (binding, resource) in &required {
+        let br = match resource {
+            WrappedBindingResource::BindingResource(br) => br.clone(),
+            WrappedBindingResource::OwnedTextureView(tv) => tv.into_binding(),
+            WrappedBindingResource::OwnedTextureViewArray(v) => v.into_binding(),
+        };
+        entries.insert(*binding, br);
+    }
 
-                        Some((
-                            view,
-                            MeshViewBindGroup {
-                                value: render_device_ref.create_bind_group(
-                                    "mesh_view_bind_group",
-                                    layout,
-                                    &entries,
-                                ),
-                            },
-                        ))
-                    });
-                }
-            })
-            .into_iter()
-            .flatten(),
+    let entries = entries.into_iter().fold(
+        DynamicBindGroupEntries::default(),
+        |mut entries, (binding, resource)| {
+            entries.push(binding, resource);
+            entries
+        },
     );
+
+    Some((
+        view,
+        MeshViewBindGroup {
+            value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),
+        },
+    ))
 }
 
 pub(super) fn set_msaa_mesh_pipeline_view_layout_key(
