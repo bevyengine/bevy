@@ -25,6 +25,7 @@ use bevy_platform_support::collections::{hash_map::Entry, HashMap};
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 use bevy_render::render_resource::binding_types::texture_cube;
 use bevy_render::{
+    camera::ExtractedCamera,
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
@@ -598,8 +599,8 @@ impl Error for BindingAlreadyInUse {}
 pub fn prepare_mesh_view_bind_groups(
     mut commands: Commands,
     world: &World,
-    views: Query<Entity, With<ExtractedView>>,
-    names: Query<&Name, With<ExtractedView>>,
+    views: Query<Entity, (With<ExtractedView>, With<ExtractedCamera>)>,
+    names: Query<&Name, (With<ExtractedView>, With<ExtractedCamera>)>,
     sources: Res<MeshViewBindGroupSources>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
