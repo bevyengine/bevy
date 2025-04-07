@@ -14,6 +14,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    name::Name,
     query::With,
     resource::Resource,
     system::{Commands, Query, Res},
@@ -598,6 +599,7 @@ pub fn prepare_mesh_view_bind_groups(
     mut commands: Commands,
     world: &World,
     views: Query<Entity, With<ExtractedView>>,
+    names: Query<&Name, With<ExtractedView>>,
     sources: Res<MeshViewBindGroupSources>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
@@ -608,6 +610,7 @@ pub fn prepare_mesh_view_bind_groups(
             .scope(|scope| {
                 for view in views {
                     let mesh_pipeline_ref = &mesh_pipeline;
+                    let names_ref = &names;
                     let sources_ref = &sources;
                     let render_device_ref = &render_device;
 
@@ -628,7 +631,16 @@ pub fn prepare_mesh_view_bind_groups(
                             })
                             .filter(|res| !matches!(res, Err(MeshViewBindGroupFetchError::Skipped)))
                             .collect::<Result<Vec<_>, _>>()
-                            .inspect_err(|err| tracing::error!("{}", err))
+                            .inspect_err(|err| {
+                                tracing::error!(
+                                    "{}: {}",
+                                    names_ref
+                                        .get(view)
+                                        .map(ToString::to_string)
+                                        .unwrap_or(view.to_string()),
+                                    err
+                                );
+                            })
                             .ok()?;
 
                         // BTreeMap because it already sorts keys
