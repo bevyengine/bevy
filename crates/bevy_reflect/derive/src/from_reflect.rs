@@ -269,16 +269,45 @@ fn get_active_fields(
                     }
                 };
 
+                let conversions: Vec<_> = field
+                    .attrs
+                    .conversions
+                    .iter()
+                    .map(|conversion| {
+                        let path = &conversion.path;
+
+                        let get_value = into_remote(quote! {
+                            <#path as #bevy_reflect_path::FromReflect>::from_reflect(field)
+                        });
+
+                        match &conversion.func {
+                            Some(func) => quote! {
+                                if let #FQOption::Some(field) = #get_value {
+                                    Some((#func)(field).into())
+                                }
+                            },
+                            None => quote! {
+                                if let #FQOption::Some(field) = #get_value {
+                                    Some(field.into())
+                                }
+                            },
+                        }
+                    })
+                    .collect();
+
                 let value = match &field.attrs.default {
                     DefaultBehavior::Func(path) => {
                         let value = into_remote(quote! {
                             <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
                         });
+
                         quote! {
-                            if let #FQOption::Some(field) = #get_field {
-                                #value
-                            } else {
-                                #FQOption::Some(#path())
+                            {
+                                if let #FQOption::Some(field) = #get_field {
+                                    #(#conversions else)* { #value }
+                                } else {
+                                    #FQOption::Some(#path())
+                                }
                             }
                         }
                     }
@@ -286,20 +315,26 @@ fn get_active_fields(
                         let value = into_remote(quote! {
                             <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
                         });
+
                         quote! {
-                            if let #FQOption::Some(field) = #get_field {
-                                #value
-                            } else {
-                                #FQOption::Some(#FQDefault::default())
+                            {
+                                if let #FQOption::Some(field) = #get_field {
+                                    #(#conversions else)* { #value }
+                                } else {
+                                    #FQOption::Some(#FQDefault::default())
+                                }
                             }
                         }
                     }
                     DefaultBehavior::Required => {
                         let value = into_remote(quote! {
-                            <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field?)
+                            <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
                         });
                         quote! {
-                            #value
+                            {
+                                let field = #get_field?;
+                                #(#conversions else)* { #value }
+                            }
                         }
                     }
                 };
