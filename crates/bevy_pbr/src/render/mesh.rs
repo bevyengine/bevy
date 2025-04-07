@@ -50,32 +50,18 @@ use core::any::TypeId;
 use core::mem::size_of;
 use material_bind_groups::MaterialBindingId;
 use render::{
-    fetch_cluster_object_index_bind_group, fetch_cluster_offsets_and_counts_bind_group,
-    fetch_decal_sampler_bind_group, fetch_decal_texture_views_bind_group, fetch_decals_bind_group,
-    fetch_deferred_texture_view_bind_group, fetch_depth_texture_view_bind_group,
-    fetch_environment_map_diffuse_view_bind_group, fetch_environment_map_sampler_bind_group,
-    fetch_environment_map_specular_view_bind_group, fetch_environment_map_uniform_bind_group,
-    fetch_fog_meta_bind_group, fetch_global_buffers_bind_group, fetch_global_light_meta_bind_group,
-    fetch_irradiance_volume_sampler_bind_group, fetch_irradiance_volume_texture_bind_group,
+    fetch_cluster_bind_group, fetch_decals_bind_group, fetch_deferred_texture_view_bind_group,
+    fetch_depth_texture_view_bind_group, fetch_directional_light_shadow_bind_group,
+    fetch_environment_map_bind_group, fetch_fog_meta_bind_group, fetch_global_buffers_bind_group,
+    fetch_global_light_meta_bind_group, fetch_irradiance_volume_bind_group,
     fetch_light_meta_bind_group, fetch_light_probes_bind_group,
     fetch_motion_vector_texture_view_bind_group, fetch_normal_texture_view_bind_group,
-    fetch_order_independent_transparency_layer_ids_bind_group,
-    fetch_order_independent_transparency_layers_bind_group,
-    fetch_order_independent_transparency_settings_bind_group,
-    fetch_screen_space_reflection_buffer_bind_group,
-    fetch_shadow_binding_directional_light_bind_group, fetch_shadow_binding_point_light_bind_group,
-    fetch_shadow_sampler_directional_light_comparison_sampler_bind_group,
-    fetch_shadow_sampler_point_light_comparison_sampler_bind_group, fetch_ssao_bind_group,
-    fetch_tonemapping_luts_sampler_bind_group, fetch_tonemapping_luts_texture_view_bind_group,
-    fetch_transmission_sampler_bind_group, fetch_transmission_texture_view_bind_group,
-    fetch_view_uniforms_bind_group, fetch_visibility_ranges_bind_group,
+    fetch_order_independent_transparency_bind_group, fetch_point_light_shadow_bind_group,
+    fetch_screen_space_reflection_buffer_bind_group, fetch_ssao_bind_group,
+    fetch_tonemapping_luts_view_bind_group, fetch_transmission_bind_group,
+    fetch_view_uniforms_bind_group, fetch_visibility_ranges_bind_group, lock_bind_group_sources,
     set_msaa_mesh_pipeline_view_layout_key, set_oit_mesh_pipeline_view_layout_key,
     set_prepass_mesh_pipeline_view_layout_key,
-};
-#[cfg(feature = "experimental_pbr_pcss")]
-use render::{
-    fetch_shadow_sampler_directional_light_linear_sampler_bind_group,
-    fetch_shadow_sampler_point_light_linear_sampler_bind_group,
 };
 use tracing::{error, warn};
 
@@ -224,136 +210,81 @@ impl Plugin for MeshRenderPlugin {
             bind_group_sources.push_key(set_oit_mesh_pipeline_view_layout_key);
 
             bind_group_sources
-                .push_source(0, fetch_view_uniforms_bind_group)
+                .push_source(0..=0, fetch_view_uniforms_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(1, fetch_light_meta_bind_group)
+                .push_source(1..=1, fetch_light_meta_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(2, fetch_shadow_binding_point_light_bind_group)
+                .push_source(2..=4, fetch_point_light_shadow_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(
-                    3,
-                    fetch_shadow_sampler_point_light_comparison_sampler_bind_group,
-                )
-                .unwrap();
-            #[cfg(feature = "experimental_pbr_pcss")]
-            bind_group_sources
-                .push_source(
-                    4,
-                    fetch_shadow_sampler_point_light_linear_sampler_bind_group,
-                )
+                .push_source(5..=7, fetch_directional_light_shadow_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(5, fetch_shadow_binding_directional_light_bind_group)
+                .push_source(8..=8, fetch_global_light_meta_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(
-                    6,
-                    fetch_shadow_sampler_directional_light_comparison_sampler_bind_group,
-                )
-                .unwrap();
-            #[cfg(feature = "experimental_pbr_pcss")]
-            bind_group_sources
-                .push_source(
-                    7,
-                    fetch_shadow_sampler_directional_light_linear_sampler_bind_group,
-                )
+                .push_source(9..=10, fetch_cluster_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(8, fetch_global_light_meta_bind_group)
+                .push_source(11..=11, fetch_global_buffers_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(9, fetch_cluster_object_index_bind_group)
+                .push_source(12..=12, fetch_fog_meta_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(10, fetch_cluster_offsets_and_counts_bind_group)
+                .push_source(13..=13, fetch_light_probes_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(11, fetch_global_buffers_bind_group)
+                .push_source(14..=14, fetch_visibility_ranges_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(12, fetch_fog_meta_bind_group)
+                .push_source(15..=15, fetch_screen_space_reflection_buffer_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(13, fetch_light_probes_bind_group)
+                .push_source(16..=16, fetch_ssao_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(14, fetch_visibility_ranges_bind_group)
-                .unwrap();
-            bind_group_sources
-                .push_source(15, fetch_screen_space_reflection_buffer_bind_group)
-                .unwrap();
-            bind_group_sources
-                .push_source(16, fetch_ssao_bind_group)
-                .unwrap();
-            bind_group_sources
-                .push_source(17, fetch_environment_map_diffuse_view_bind_group)
-                .unwrap();
-            bind_group_sources
-                .push_source(18, fetch_environment_map_specular_view_bind_group)
-                .unwrap();
-            bind_group_sources
-                .push_source(19, fetch_environment_map_sampler_bind_group)
-                .unwrap();
-            bind_group_sources
-                .push_source(20, fetch_environment_map_uniform_bind_group)
+                .push_source(17..=20, fetch_environment_map_bind_group)
                 .unwrap();
             if IRRADIANCE_VOLUMES_ARE_USABLE {
                 bind_group_sources
-                    .push_source(21, fetch_irradiance_volume_texture_bind_group)
-                    .unwrap();
-                bind_group_sources
-                    .push_source(22, fetch_irradiance_volume_sampler_bind_group)
+                    .push_source(21..=22, fetch_irradiance_volume_bind_group)
                     .unwrap();
             }
             bind_group_sources
-                .push_source(23, fetch_decals_bind_group)
+                .push_source(23..=25, fetch_decals_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(24, fetch_decal_texture_views_bind_group)
+                .push_source(26..=27, fetch_tonemapping_luts_view_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(25, fetch_decal_sampler_bind_group)
+                .push_source(28..=28, fetch_depth_texture_view_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(26, fetch_tonemapping_luts_texture_view_bind_group)
+                .push_source(29..=29, fetch_normal_texture_view_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(27, fetch_tonemapping_luts_sampler_bind_group)
+                .push_source(30..=30, fetch_motion_vector_texture_view_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(28, fetch_depth_texture_view_bind_group)
+                .push_source(31..=31, fetch_deferred_texture_view_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(29, fetch_normal_texture_view_bind_group)
+                .push_source(32..=33, fetch_transmission_bind_group)
                 .unwrap();
             bind_group_sources
-                .push_source(30, fetch_motion_vector_texture_view_bind_group)
-                .unwrap();
-            bind_group_sources
-                .push_source(31, fetch_deferred_texture_view_bind_group)
-                .unwrap();
-            bind_group_sources
-                .push_source(32, fetch_transmission_texture_view_bind_group)
-                .unwrap();
-            bind_group_sources
-                .push_source(33, fetch_transmission_sampler_bind_group)
-                .unwrap();
-            bind_group_sources
-                .push_source(34, fetch_order_independent_transparency_layers_bind_group)
-                .unwrap();
-            bind_group_sources
-                .push_source(
-                    35,
-                    fetch_order_independent_transparency_layer_ids_bind_group,
-                )
-                .unwrap();
-            bind_group_sources
-                .push_source(36, fetch_order_independent_transparency_settings_bind_group)
+                .push_source(34..=36, fetch_order_independent_transparency_bind_group)
                 .unwrap();
             render_app.insert_resource(bind_group_sources);
+
+            render_app.add_systems(
+                ExtractSchedule,
+                lock_bind_group_sources.run_if(
+                    resource_exists::<MeshViewBindGroupSources<BuildingMeshViewBindGroupSource>>,
+                ),
+            );
 
             render_app
                 .init_resource::<MorphUniforms>()
