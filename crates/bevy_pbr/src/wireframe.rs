@@ -740,7 +740,7 @@ pub fn specialize_wireframes(
     pipeline_cache: Res<PipelineCache>,
     ticks: SystemChangeTick,
 ) {
-    // Record the retained IDs of all shadow views so that we can expire old
+    // Record the retained IDs of all views so that we can expire old
     // pipeline IDs.
     let mut all_views: HashSet<RetainedViewEntity, FixedHasher> = HashSet::default();
 
