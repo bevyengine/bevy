@@ -65,7 +65,7 @@ impl AssetLoader for ExrTextureLoader {
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
-            buf,
+            buf.into(),
             format,
             settings.asset_usage,
         ))

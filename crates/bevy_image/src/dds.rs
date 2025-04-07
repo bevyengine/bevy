@@ -104,7 +104,7 @@ pub fn dds_buffer_to_image(
                     .chunks_exact(3)
                     .flat_map(|pixel| [pixel[0], pixel[1], pixel[2], u8::MAX])
                     .collect();
-                Some(data)
+                data.into()
             }
             _ => {
                 return Err(TextureError::TranscodeError(format!(
@@ -113,7 +113,7 @@ pub fn dds_buffer_to_image(
             }
         }
     } else {
-        Some(dds.data)
+        dds.data.into()
     };
 
     Ok(image)
