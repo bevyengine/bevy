@@ -36,9 +36,7 @@ use bevy_render::{
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
-    render_graph::{
-        NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
-    },
+    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_phase::{
         AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
         CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
@@ -131,13 +129,13 @@ impl Plugin for WireframePlugin {
             .add_render_command::<Wireframe3d, DrawWireframe3d>()
             .init_resource::<RenderWireframeInstances>()
             .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
-            .add_render_graph_node::<ViewNodeRunner<Wireframe3dNode>>(Core3d, Wireframe3dLabel)
+            .add_render_graph_node::<ViewNodeRunner<Wireframe3dNode>>(Core3d, Node3d::Wireframe)
             .add_render_graph_edges(
                 Core3d,
                 (
-                    Node3d::StartDebugPass,
-                    Wireframe3dLabel,
-                    Node3d::EndDebugPass,
+                    Node3d::EndMainPass,
+                    Node3d::Wireframe,
+                    Node3d::PostProcessing,
                 ),
             )
             .add_systems(
@@ -368,9 +366,6 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
         Ok(descriptor)
     }
 }
-
-#[derive(RenderLabel, Debug, Clone, Hash, PartialEq, Eq)]
-struct Wireframe3dLabel;
 
 #[derive(Default)]
 struct Wireframe3dNode;

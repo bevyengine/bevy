@@ -36,9 +36,7 @@ use bevy_render::{
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
-    render_graph::{
-        NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
-    },
+    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_phase::{
         AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
         CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, InputUniformIndex, PhaseItem,
@@ -130,13 +128,13 @@ impl Plugin for Wireframe2dPlugin {
             .add_render_command::<Wireframe2dPhaseItem, DrawWireframe2d>()
             .init_resource::<RenderWireframeInstances>()
             .init_resource::<SpecializedMeshPipelines<Wireframe2dPipeline>>()
-            .add_render_graph_node::<ViewNodeRunner<Wireframe2dNode>>(Core2d, Wireframe2dLabel)
+            .add_render_graph_node::<ViewNodeRunner<Wireframe2dNode>>(Core2d, Node2d::Wireframe)
             .add_render_graph_edges(
                 Core2d,
                 (
-                    Node2d::StartDebugPass,
-                    Wireframe2dLabel,
-                    Node2d::EndDebugPass,
+                    Node2d::EndMainPass,
+                    Node2d::Wireframe,
+                    Node2d::PostProcessing,
                 ),
             )
             .add_systems(
@@ -367,9 +365,6 @@ impl SpecializedMeshPipeline for Wireframe2dPipeline {
         Ok(descriptor)
     }
 }
-
-#[derive(RenderLabel, Debug, Clone, Hash, PartialEq, Eq)]
-struct Wireframe2dLabel;
 
 #[derive(Default)]
 struct Wireframe2dNode;

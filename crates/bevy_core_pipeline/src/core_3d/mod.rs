@@ -28,8 +28,7 @@ pub mod graph {
         MainTransmissivePass,
         MainTransparentPass,
         EndMainPass,
-        StartDebugPass,
-        EndDebugPass,
+        Wireframe,
         LateDownsampleDepth,
         Taa,
         MotionBlur,
@@ -210,8 +209,6 @@ impl Plugin for Core3dPlugin {
                 Node3d::MainTransparentPass,
             )
             .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPass)
-            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::StartDebugPass)
-            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndDebugPass)
             .add_render_graph_node::<ViewNodeRunner<DepthOfFieldNode>>(Core3d, Node3d::DepthOfField)
             .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core3d, Node3d::Tonemapping)
             .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPassPostProcessing)
@@ -230,8 +227,6 @@ impl Plugin for Core3dPlugin {
                     Node3d::MainTransmissivePass,
                     Node3d::MainTransparentPass,
                     Node3d::EndMainPass,
-                    Node3d::StartDebugPass,
-                    Node3d::EndDebugPass,
                     Node3d::Tonemapping,
                     Node3d::EndMainPassPostProcessing,
                     Node3d::Upscaling,
