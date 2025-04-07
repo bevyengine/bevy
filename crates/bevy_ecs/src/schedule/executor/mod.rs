@@ -56,7 +56,7 @@ pub enum ExecutorKind {
     /// immediately after running each system.
     #[deprecated(
         since = "0.17.0",
-        note = "This is almost never the right scheduler to use, and it is becoming a code quality concern. See https://github.com/bevyengine/bevy/issues/18453"
+        note = "Use SingleThreaded instead. See https://github.com/bevyengine/bevy/issues/18453 for motivation."
     )]
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
