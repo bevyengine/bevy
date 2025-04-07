@@ -540,12 +540,27 @@ impl FreeList {
         // Because we keep a generation value in the `FreeCount`, if any of these things happen, we simply try again.
 
         let mut state = self.len.state(Ordering::Acquire);
+        #[cfg(feature = "std")]
+        let mut attempts = 0u32;
         loop {
             // The state is only disabled when freeing.
             // If a free is happening, we need to wait for the new entity to be ready on the free buffer.
             // Then, we can allocate it.
             if state.is_disabled() {
+                // Spin 64 times before yielding.
+                #[cfg(feature = "std")]
+                if attempts % 64 == 0 {
+                    attempts += 1;
+                    // scheduler probably isn't running the thead doing the `free` call, so yield so it can finish.
+                    std::thread::yield_now();
+                } else {
+                    attempts += 1;
+                    core::hint::spin_loop();
+                }
+
+                #[cfg(not(feature = "std"))]
                 core::hint::spin_loop();
+
                 state = self.len.state(Ordering::Acquire);
                 continue;
             }
