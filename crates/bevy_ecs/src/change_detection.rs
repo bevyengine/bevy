@@ -138,8 +138,8 @@ pub trait DetectChangesMut: DetectChanges {
     /// Manually sets the added tick recording the time when this data was last added.
     ///
     /// # Warning
-    /// The caveats of [set_last_changed](DetectChangesMut::set_last_changed) apply, with the additional caveat
-    /// that unexpected behavior may occur should added be ahead of changed.
+    /// The caveats of [`set_last_changed`](DetectChangesMut::set_last_changed) apply, with the additional caveat
+    /// that unexpected behavior may occur should added be ahead of changed. This does not modify the changed tick in any way.
     fn set_last_added(&mut self, last_added: Tick);
 
     /// Manually bypasses change detection, allowing you to mutate the underlying value without updating the change tick.
