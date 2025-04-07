@@ -385,13 +385,13 @@ pub fn calculate_bounds(
         }
     }
 
-    for (mesh_handle, mut old_aabb) in &mut update_aabb {
-        if let Some(mesh) = meshes.get(mesh_handle) {
-            if let Some(aabb) = mesh.compute_aabb() {
+    update_aabb
+        .par_iter_mut()
+        .for_each(|(mesh_handle, mut old_aabb)| {
+            if let Some(aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
                 *old_aabb = aabb;
             }
-        }
-    }
+        });
 }
 
 /// Updates [`Frustum`].

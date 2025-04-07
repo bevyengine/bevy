@@ -192,13 +192,13 @@ pub fn calculate_bounds_2d(
         }
     }
 
-    for (mesh_handle, mut old_aabb) in &mut update_mesh_aabb {
-        if let Some(mesh) = meshes.get(mesh_handle) {
-            if let Some(aabb) = mesh.compute_aabb() {
+    update_mesh_aabb
+        .par_iter_mut()
+        .for_each(|(mesh_handle, mut old_aabb)| {
+            if let Some(aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
                 *old_aabb = aabb;
             }
-        }
-    }
+        });
 
     let sprite_size = |sprite: &Sprite| -> Option<Vec2> {
         sprite
@@ -225,15 +225,16 @@ pub fn calculate_bounds_2d(
         commands.entity(entity).try_insert(aabb);
     }
 
-    for (size, (sprite, mut old_aabb)) in update_sprite_aabb
-        .iter_mut()
-        .filter_map(|(sprite, aabb)| sprite_size(sprite).zip(Some((sprite, aabb))))
-    {
-        *old_aabb = Aabb {
-            center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
-            half_extents: (0.5 * size).extend(0.0).into(),
-        };
-    }
+    update_sprite_aabb
+        .par_iter_mut()
+        .for_each(|(sprite, mut aabb)| {
+            if let Some(size) = sprite_size(sprite) {
+                *aabb = Aabb {
+                    center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
+                    half_extents: (0.5 * size).extend(0.0).into(),
+                };
+            }
+        });
 }
 
 #[cfg(test)]
