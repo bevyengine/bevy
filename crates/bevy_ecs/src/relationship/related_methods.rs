@@ -10,6 +10,8 @@ use crate::{
 use bevy_platform_support::prelude::{Box, Vec};
 use core::{marker::PhantomData, mem};
 
+use super::OrderedRelationshipSourceCollection;
+
 impl<'w> EntityWorldMut<'w> {
     /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
     pub fn with_related<R: Relationship>(
@@ -33,6 +35,64 @@ impl<'w> EntityWorldMut<'w> {
                 world.entity_mut(*related).insert(R::from(id));
             }
         });
+        self
+    }
+
+    /// Relates the given entities to this entity with the relation `R`, starting at this particular index.
+    ///
+    /// If the `related` has duplicates, a related entity will take the index of its last occurrence in `related`.
+    /// If the indices go out of bounds, they will be clamped into bounds.
+    /// This will not re-order existing related entities unless they are in `related`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    /// let e0 = world.spawn_empty().id();
+    /// let e1 = world.spawn_empty().id();
+    /// let e2 = world.spawn_empty().id();
+    /// let e3 = world.spawn_empty().id();
+    /// let e4 = world.spawn_empty().id();
+    ///
+    /// let mut main_entity = world.spawn_empty();
+    /// main_entity.add_related::<ChildOf>(&[e0, e1, e2, e2]);
+    /// main_entity.insert_related::<ChildOf>(1, &[e0, e3, e4, e4]);
+    /// let main_id = main_entity.id();
+    ///
+    /// let relationship_source = main_entity.get::<Children>().unwrap().collection();
+    /// assert_eq!(relationship_source, &[e1, e0, e3, e2, e4]);
+    /// ```
+    pub fn insert_related<R: Relationship>(&mut self, index: usize, related: &[Entity]) -> &mut Self
+    where
+        <R::RelationshipTarget as RelationshipTarget>::Collection:
+            OrderedRelationshipSourceCollection,
+    {
+        let id = self.id();
+        self.world_scope(|world| {
+            for (offset, related) in related.iter().enumerate() {
+                let index = index + offset;
+                if world
+                    .get::<R>(*related)
+                    .is_some_and(|relationship| relationship.get() == id)
+                {
+                    world
+                        .get_mut::<R::RelationshipTarget>(id)
+                        .expect("hooks should have added relationship target")
+                        .collection_mut_risky()
+                        .place(*related, index);
+                } else {
+                    world.entity_mut(*related).insert(R::from(id));
+                    world
+                        .get_mut::<R::RelationshipTarget>(id)
+                        .expect("hooks should have added relationship target")
+                        .collection_mut_risky()
+                        .place_most_recent(index);
+                }
+            }
+        });
+
         self
     }
 

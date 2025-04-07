@@ -139,6 +139,96 @@ impl FromWorld for ChildOf {
 #[doc(alias = "IsParent")]
 pub struct Children(Vec<Entity>);
 
+impl Children {
+    /// Swaps the child at `a_index` with the child at `b_index`.
+    #[inline]
+    pub fn swap(&mut self, a_index: usize, b_index: usize) {
+        self.0.swap(a_index, b_index);
+    }
+
+    /// Sorts children [stably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
+    /// in place using the provided comparator function.
+    ///
+    /// For the underlying implementation, see [`slice::sort_by`].
+    ///
+    /// For the unstable version, see [`sort_unstable_by`](Children::sort_unstable_by).
+    ///
+    /// See also [`sort_by_key`](Children::sort_by_key), [`sort_by_cached_key`](Children::sort_by_cached_key).
+    #[inline]
+    pub fn sort_by<F>(&mut self, compare: F)
+    where
+        F: FnMut(&Entity, &Entity) -> core::cmp::Ordering,
+    {
+        self.0.sort_by(compare);
+    }
+
+    /// Sorts children [stably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
+    /// in place using the provided key extraction function.
+    ///
+    /// For the underlying implementation, see [`slice::sort_by_key`].
+    ///
+    /// For the unstable version, see [`sort_unstable_by_key`](Children::sort_unstable_by_key).
+    ///
+    /// See also [`sort_by`](Children::sort_by), [`sort_by_cached_key`](Children::sort_by_cached_key).
+    #[inline]
+    pub fn sort_by_key<K, F>(&mut self, compare: F)
+    where
+        F: FnMut(&Entity) -> K,
+        K: Ord,
+    {
+        self.0.sort_by_key(compare);
+    }
+
+    /// Sorts children [stably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
+    /// in place using the provided key extraction function. Only evaluates each key at most
+    /// once per sort, caching the intermediate results in memory.
+    ///
+    /// For the underlying implementation, see [`slice::sort_by_cached_key`].
+    ///
+    /// See also [`sort_by`](Children::sort_by), [`sort_by_key`](Children::sort_by_key).
+    #[inline]
+    pub fn sort_by_cached_key<K, F>(&mut self, compare: F)
+    where
+        F: FnMut(&Entity) -> K,
+        K: Ord,
+    {
+        self.0.sort_by_cached_key(compare);
+    }
+
+    /// Sorts children [unstably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
+    /// in place using the provided comparator function.
+    ///
+    /// For the underlying implementation, see [`slice::sort_unstable_by`].
+    ///
+    /// For the stable version, see [`sort_by`](Children::sort_by).
+    ///
+    /// See also [`sort_unstable_by_key`](Children::sort_unstable_by_key).
+    #[inline]
+    pub fn sort_unstable_by<F>(&mut self, compare: F)
+    where
+        F: FnMut(&Entity, &Entity) -> core::cmp::Ordering,
+    {
+        self.0.sort_unstable_by(compare);
+    }
+
+    /// Sorts children [unstably](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability)
+    /// in place using the provided key extraction function.
+    ///
+    /// For the underlying implementation, see [`slice::sort_unstable_by_key`].
+    ///
+    /// For the stable version, see [`sort_by_key`](Children::sort_by_key).
+    ///
+    /// See also [`sort_unstable_by`](Children::sort_unstable_by).
+    #[inline]
+    pub fn sort_unstable_by_key<K, F>(&mut self, compare: F)
+    where
+        F: FnMut(&Entity) -> K,
+        K: Ord,
+    {
+        self.0.sort_unstable_by_key(compare);
+    }
+}
+
 impl<'a> IntoIterator for &'a Children {
     type Item = <Self::IntoIter as Iterator>::Item;
 
@@ -166,17 +256,26 @@ pub type ChildSpawnerCommands<'w> = RelatedSpawnerCommands<'w, ChildOf>;
 
 impl<'w> EntityWorldMut<'w> {
     /// Spawns children of this entity (with a [`ChildOf`] relationship) by taking a function that operates on a [`ChildSpawner`].
+    /// See also [`with_related`](Self::with_related).
     pub fn with_children(&mut self, func: impl FnOnce(&mut ChildSpawner)) -> &mut Self {
         self.with_related(func);
         self
     }
 
     /// Adds the given children to this entity
+    /// See also [`add_related`](Self::add_related).
     pub fn add_children(&mut self, children: &[Entity]) -> &mut Self {
         self.add_related::<ChildOf>(children)
     }
 
+    /// Insert children at specific index.
+    /// See also [`insert_related`](Self::insert_related).
+    pub fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
+        self.insert_related::<ChildOf>(index, children)
+    }
+
     /// Adds the given child to this entity
+    /// See also [`add_related`](Self::add_related).
     pub fn add_child(&mut self, child: Entity) -> &mut Self {
         self.add_related::<ChildOf>(&[child])
     }
@@ -503,6 +602,35 @@ mod tests {
         assert_eq!(
             hierarchy,
             Node::new_with(root, vec![Node::new(child1), Node::new(child2)])
+        );
+    }
+
+    #[test]
+    fn insert_children() {
+        let mut world = World::new();
+        let child1 = world.spawn_empty().id();
+        let child2 = world.spawn_empty().id();
+        let child3 = world.spawn_empty().id();
+        let child4 = world.spawn_empty().id();
+
+        let mut entity_world_mut = world.spawn_empty();
+
+        let first_children = entity_world_mut.add_children(&[child1, child2]);
+
+        let root = first_children.insert_children(1, &[child3, child4]).id();
+
+        let hierarchy = get_hierarchy(&world, root);
+        assert_eq!(
+            hierarchy,
+            Node::new_with(
+                root,
+                vec![
+                    Node::new(child1),
+                    Node::new(child3),
+                    Node::new(child4),
+                    Node::new(child2)
+                ]
+            )
         );
     }
 
