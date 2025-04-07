@@ -1607,4 +1607,81 @@ mod tests {
             assert_eq!(f0.sample_clamped(t), f2.sample_clamped(t));
         });
     }
+
+    #[test]
+    fn unit_structs_match_function() {
+        // Test that the unit structs match `EaseFunction`.
+
+        for t in [-1.0, 0.0, 0.25, 0.5, 0.75, 1.0, 2.0] {
+            assert_eq!(Linear.sample(t), EaseFunction::Linear.sample(t));
+            assert_eq!(QuadraticIn.sample(t), EaseFunction::QuadraticIn.sample(t));
+            assert_eq!(QuadraticOut.sample(t), EaseFunction::QuadraticOut.sample(t));
+            assert_eq!(
+                QuadraticInOut.sample(t),
+                EaseFunction::QuadraticInOut.sample(t)
+            );
+            assert_eq!(CubicIn.sample(t), EaseFunction::CubicIn.sample(t));
+            assert_eq!(CubicOut.sample(t), EaseFunction::CubicOut.sample(t));
+            assert_eq!(CubicInOut.sample(t), EaseFunction::CubicInOut.sample(t));
+            assert_eq!(QuarticIn.sample(t), EaseFunction::QuarticIn.sample(t));
+            assert_eq!(QuarticOut.sample(t), EaseFunction::QuarticOut.sample(t));
+            assert_eq!(QuarticInOut.sample(t), EaseFunction::QuarticInOut.sample(t));
+            assert_eq!(QuinticIn.sample(t), EaseFunction::QuinticIn.sample(t));
+            assert_eq!(QuinticOut.sample(t), EaseFunction::QuinticOut.sample(t));
+            assert_eq!(QuinticInOut.sample(t), EaseFunction::QuinticInOut.sample(t));
+            assert_eq!(SmoothStepIn.sample(t), EaseFunction::SmoothStepIn.sample(t));
+            assert_eq!(
+                SmoothStepOut.sample(t),
+                EaseFunction::SmoothStepOut.sample(t)
+            );
+            assert_eq!(SmoothStep.sample(t), EaseFunction::SmoothStep.sample(t));
+            assert_eq!(
+                SmootherStepIn.sample(t),
+                EaseFunction::SmootherStepIn.sample(t)
+            );
+            assert_eq!(
+                SmootherStepOut.sample(t),
+                EaseFunction::SmootherStepOut.sample(t)
+            );
+            assert_eq!(SmootherStep.sample(t), EaseFunction::SmootherStep.sample(t));
+            assert_eq!(SineIn.sample(t), EaseFunction::SineIn.sample(t));
+            assert_eq!(SineOut.sample(t), EaseFunction::SineOut.sample(t));
+            assert_eq!(SineInOut.sample(t), EaseFunction::SineInOut.sample(t));
+            assert_eq!(CircularIn.sample(t), EaseFunction::CircularIn.sample(t));
+            assert_eq!(CircularOut.sample(t), EaseFunction::CircularOut.sample(t));
+            assert_eq!(
+                CircularInOut.sample(t),
+                EaseFunction::CircularInOut.sample(t)
+            );
+            assert_eq!(
+                ExponentialIn.sample(t),
+                EaseFunction::ExponentialIn.sample(t)
+            );
+            assert_eq!(
+                ExponentialOut.sample(t),
+                EaseFunction::ExponentialOut.sample(t)
+            );
+            assert_eq!(
+                ExponentialInOut.sample(t),
+                EaseFunction::ExponentialInOut.sample(t)
+            );
+            assert_eq!(ElasticIn.sample(t), EaseFunction::ElasticIn.sample(t));
+            assert_eq!(ElasticOut.sample(t), EaseFunction::ElasticOut.sample(t));
+            assert_eq!(ElasticInOut.sample(t), EaseFunction::ElasticInOut.sample(t));
+            assert_eq!(BackIn.sample(t), EaseFunction::BackIn.sample(t));
+            assert_eq!(BackOut.sample(t), EaseFunction::BackOut.sample(t));
+            assert_eq!(BackInOut.sample(t), EaseFunction::BackInOut.sample(t));
+            assert_eq!(BounceIn.sample(t), EaseFunction::BounceIn.sample(t));
+            assert_eq!(BounceOut.sample(t), EaseFunction::BounceOut.sample(t));
+            assert_eq!(BounceInOut.sample(t), EaseFunction::BounceInOut.sample(t));
+            assert_eq!(
+                Steps(4, JumpAt::Start).sample(t),
+                EaseFunction::Steps(4, JumpAt::Start).sample(t)
+            );
+            assert_eq!(
+                Elastic(50.0).sample(t),
+                EaseFunction::Elastic(50.0).sample(t)
+            );
+        }
+    }
 }
