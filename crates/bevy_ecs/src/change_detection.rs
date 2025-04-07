@@ -71,6 +71,9 @@ pub trait DetectChanges {
     /// [`SystemParam`](crate::system::SystemParam).
     fn last_changed(&self) -> Tick;
 
+    /// Returns the change tick recording the time this data was added.
+    fn added(&self) -> Tick;
+
     /// The location that last caused this to change.
     fn changed_by(&self) -> MaybeLocation;
 }
@@ -118,6 +121,12 @@ pub trait DetectChangesMut: DetectChanges {
     /// **Note**: This operation cannot be undone.
     fn set_changed(&mut self);
 
+    /// Flags this value as having been added.
+    /// This is equivalent to removing and reinserting the value.
+    ///
+    /// **Note**: This operation cannot be undone.
+    fn set_added(&mut self);
+
     /// Manually sets the change tick recording the time when this data was last mutated.
     ///
     /// # Warning
@@ -125,6 +134,13 @@ pub trait DetectChangesMut: DetectChanges {
     /// If you merely want to flag this data as changed, use [`set_changed`](DetectChangesMut::set_changed) instead.
     /// If you want to avoid triggering change detection, use [`bypass_change_detection`](DetectChangesMut::bypass_change_detection) instead.
     fn set_last_changed(&mut self, last_changed: Tick);
+
+    /// Manually sets the added tick recording the time when this data was last added.
+    ///
+    /// # Warning
+    /// The caveats of [set_last_changed](DetectChangesMut::set_last_changed) apply, with the additional caveat
+    /// that unexpected behavior may occur should added be ahead of changed.
+    fn set_last_added(&mut self, last_added: Tick);
 
     /// Manually bypasses change detection, allowing you to mutate the underlying value without updating the change tick.
     ///
@@ -341,6 +357,11 @@ macro_rules! change_detection_impl {
             }
 
             #[inline]
+            fn added(&self) -> Tick {
+                *self.ticks.added
+            }
+
+            #[inline]
             fn changed_by(&self) -> MaybeLocation {
                 self.changed_by.copied()
             }
@@ -378,8 +399,23 @@ macro_rules! change_detection_mut_impl {
 
             #[inline]
             #[track_caller]
+            fn set_added(&mut self) {
+                *self.ticks.changed = self.ticks.this_run;
+                *self.ticks.added = self.ticks.this_run;
+                self.changed_by.assign(MaybeLocation::caller());
+            }
+
+            #[inline]
+            #[track_caller]
             fn set_last_changed(&mut self, last_changed: Tick) {
                 *self.ticks.changed = last_changed;
+                self.changed_by.assign(MaybeLocation::caller());
+            }
+
+            #[inline]
+            #[track_caller]
+            fn set_last_added(&mut self, last_added: Tick) {
+                *self.ticks.added = last_added;
                 self.changed_by.assign(MaybeLocation::caller());
             }
 
@@ -1139,6 +1175,11 @@ impl<'w> DetectChanges for MutUntyped<'w> {
     fn changed_by(&self) -> MaybeLocation {
         self.changed_by.copied()
     }
+
+    #[inline]
+    fn added(&self) -> Tick {
+        *self.ticks.added
+    }
 }
 
 impl<'w> DetectChangesMut for MutUntyped<'w> {
@@ -1153,8 +1194,23 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
 
     #[inline]
     #[track_caller]
+    fn set_added(&mut self) {
+        *self.ticks.changed = self.ticks.this_run;
+        *self.ticks.added = self.ticks.this_run;
+        self.changed_by.assign(MaybeLocation::caller());
+    }
+
+    #[inline]
+    #[track_caller]
     fn set_last_changed(&mut self, last_changed: Tick) {
         *self.ticks.changed = last_changed;
+        self.changed_by.assign(MaybeLocation::caller());
+    }
+
+    #[inline]
+    #[track_caller]
+    fn set_last_added(&mut self, last_added: Tick) {
+        *self.ticks.added = last_added;
         self.changed_by.assign(MaybeLocation::caller());
     }
 
