@@ -4338,3 +4338,6 @@ name = "`no_std` Compatible Library"
 description = "Example library compatible with `std` and `no_std` targets"
 category = "Embedded"
 wasm = true
+
+[patch.crates-io]
+naga_oil = { git = "https://github.com/JMS55/naga_oil", branch = "solari6" }
