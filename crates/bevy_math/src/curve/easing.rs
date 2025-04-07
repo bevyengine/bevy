@@ -1,7 +1,33 @@
-//! Module containing different [easing functions] to control the transition between two values and
-//! the [`EasingCurve`] struct to make use of them.
+//! Module containing different easing functions to control the transition between two values.
 //!
-//! [easing functions]: EaseFunction
+//! There are several ways to use the easing functions. The most general is
+//! [`EasingCurve`], which can interpolate between any two values via an
+//! [`EaseFunction`] chosen at runtime or compile time.
+//!
+//! ```
+//! # use bevy_math::prelude::*;
+//! let f = EaseFunction::SmoothStep;
+//! let c = EasingCurve::new(Vec2::new(1.0, 2.0), Vec2::new(5.0, 10.0), f);
+//!
+//! let interpolated = c.sample(0.2);
+//! ```
+//!
+//! [`EaseFunction`] can also be used directly to interpolate between zero and one.
+//!
+//! ```
+//! # use bevy_math::prelude::*;
+//! let f = EaseFunction::SmoothStep;
+//!
+//! let interpolated = f.sample(0.2);
+//! ```
+//!
+//! Finally, each function has a dedicated struct that interpolates between zero
+//! and one, for example [`SmoothStep`].
+//!
+//! ```
+//! # use bevy_math::prelude::*;
+//! let interpolated = SmoothStep.sample(0.2);
+//! ```
 
 use crate::{
     curve::{Curve, CurveExt, FunctionCurve, Interval},
