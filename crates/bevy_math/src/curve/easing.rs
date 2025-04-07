@@ -631,23 +631,6 @@ pub enum EaseFunction {
     Elastic(f32),
 }
 
-// Implements `Curve<f32>` by calling a function in `easing_functions`.
-macro_rules! impl_ease_unit_struct {
-    ($ty: ty, $fn: ident) => {
-        impl Curve<f32> for $ty {
-            #[inline]
-            fn domain(&self) -> Interval {
-                Interval::UNIT
-            }
-
-            #[inline]
-            fn sample_unchecked(&self, t: f32) -> f32 {
-                easing_functions::$fn(t)
-            }
-        }
-    };
-}
-
 /// `f(t) = t`
 ///
 #[doc = include_str!("../../images/easefunction/Linear.svg")]
@@ -944,6 +927,23 @@ pub struct Steps(usize, JumpAt);
 #[doc = include_str!("../../images/easefunction/Elastic.svg")]
 #[derive(Copy, Clone)]
 pub struct Elastic(f32);
+
+// Implements `Curve<f32>` by calling a function in `easing_functions`.
+macro_rules! impl_ease_unit_struct {
+    ($ty: ty, $fn: ident) => {
+        impl Curve<f32> for $ty {
+            #[inline]
+            fn domain(&self) -> Interval {
+                Interval::UNIT
+            }
+
+            #[inline]
+            fn sample_unchecked(&self, t: f32) -> f32 {
+                easing_functions::$fn(t)
+            }
+        }
+    };
+}
 
 impl_ease_unit_struct!(Linear, linear);
 impl_ease_unit_struct!(QuadraticIn, quadratic_in);
