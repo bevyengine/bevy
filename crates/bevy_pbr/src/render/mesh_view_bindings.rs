@@ -636,7 +636,7 @@ pub fn prepare_mesh_view_bind_groups(
                                     "{}: {}",
                                     names_ref
                                         .get(view)
-                                        .map(ToString::to_string)
+                                        .map(|name| format!("{}({})", name, view))
                                         .unwrap_or(view.to_string()),
                                     err
                                 );
