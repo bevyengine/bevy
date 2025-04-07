@@ -140,6 +140,22 @@ impl DynamicEnum {
         self.variant = variant.into();
     }
 
+    /// Get a reference to the [`DynamicVariant`] contained in `self`.
+    pub fn variant(&self) -> &DynamicVariant {
+        &self.variant
+    }
+
+    /// Get a mutable reference to the [`DynamicVariant`] contained in `self`.
+    ///
+    /// Using the mut reference to switch to a different variant will ___not___ update the
+    /// internal tracking of the variant name and index.
+    ///
+    /// If you want to switch variants, prefer one of the setters:
+    /// [`DynamicEnum::set_variant`] or [`DynamicEnum::set_variant_with_index`].
+    pub fn variant_mut(&mut self) -> &mut DynamicVariant {
+        &mut self.variant
+    }
+
     /// Create a [`DynamicEnum`] from an existing one.
     ///
     /// This is functionally the same as [`DynamicEnum::from_ref`] except it takes an owned value.
