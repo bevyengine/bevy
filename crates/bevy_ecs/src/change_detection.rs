@@ -122,7 +122,6 @@ pub trait DetectChangesMut: DetectChanges {
     fn set_changed(&mut self);
 
     /// Flags this value as having been added.
-    /// This is equivalent to removing and reinserting the value.
     ///
     /// **Note**: This operation cannot be undone.
     fn set_added(&mut self);
