@@ -1,4 +1,4 @@
-use crate::meshlet::asset::{MeshletAabb, MeshletCullData};
+use crate::meshlet::asset::{MeshletAabb, MeshletAabbErrorOffset, MeshletCullData};
 
 use super::asset::{BvhNode, Meshlet, MeshletBoundingSphere, MeshletMesh};
 use alloc::borrow::Cow;
@@ -206,7 +206,7 @@ impl MeshletMesh {
             bvh.add_lod(first_group, &all_groups);
         }
 
-        let (bvh, depth) = bvh.build(&mut meshlets, &mut all_groups);
+        let (bvh, aabb, depth) = bvh.build(&mut meshlets, &mut all_groups);
 
         // Copy vertex attributes per meshlet and compress
         let mut vertex_positions = BitVec::<u32, Lsb0>::new();
@@ -238,11 +238,11 @@ impl MeshletMesh {
             meshlet_cull_data: temp_cull_data
                 .into_iter()
                 .map(|cull_data| MeshletCullData {
-                    aabb: aabb_to_meshlet(cull_data.aabb),
+                    aabb: aabb_to_meshlet(cull_data.aabb, cull_data.error, None),
                     lod_group_sphere: sphere_to_meshlet(cull_data.lod_group_sphere),
-                    error: cull_data.error,
                 })
                 .collect(),
+            aabb,
             bvh_depth: depth,
         })
     }
@@ -914,10 +914,9 @@ impl BvhBuilder {
             if child.group != u32::MAX {
                 let group = &groups[child.group as usize];
                 let out = &mut out[onode];
-                out.aabbs[i] = aabb_to_meshlet(group.aabb);
+                out.aabbs[i] =
+                    aabb_to_meshlet(group.aabb, group.parent_error, Some(group.meshlets[0]));
                 out.lod_bounds[i] = sphere_to_meshlet(group.lod_bounds);
-                out.parent_errors[i] = group.parent_error;
-                out.child_offsets[i] = group.meshlets[0];
                 out.child_counts[i] = group.meshlets[1] as _;
             } else {
                 let child_id = self.build_inner(groups, out, max_depth, child_id, depth + 1);
@@ -933,7 +932,7 @@ impl BvhBuilder {
                         child.aabbs[i].center,
                         child.aabbs[i].half_extent,
                     ));
-                    parent_error = parent_error.max(child.parent_errors[i]);
+                    parent_error = parent_error.max(child.aabbs[i].error);
                 }
                 let lod_bounds = merge_spheres((0..8).filter_map(|i| {
                     if child.child_counts[i] > 0 {
@@ -947,10 +946,8 @@ impl BvhBuilder {
                 }));
 
                 let out = &mut out[onode];
-                out.aabbs[i] = aabb_to_meshlet(aabb);
+                out.aabbs[i] = aabb_to_meshlet(aabb, parent_error, Some(child_id));
                 out.lod_bounds[i] = sphere_to_meshlet(lod_bounds);
-                out.parent_errors[i] = parent_error;
-                out.child_offsets[i] = child_id;
                 out.child_counts[i] = u8::MAX;
             }
         }
@@ -962,10 +959,10 @@ impl BvhBuilder {
         let node = &out[node as usize];
         for i in 0..8 {
             if node.child_counts[i] == u8::MAX {
-                self.mark_reachable(out, reachable, node.child_offsets[i]);
+                self.mark_reachable(out, reachable, node.aabbs[i].child_offset);
             } else {
                 for m in 0..node.child_counts[i] as u32 {
-                    reachable[(m + node.child_offsets[i]) as usize] = true;
+                    reachable[(m + node.aabbs[i].child_offset) as usize] = true;
                 }
             }
         }
@@ -975,7 +972,7 @@ impl BvhBuilder {
         mut self,
         meshlets: &mut Meshlets,
         groups: &mut Vec<TempMeshletGroup>,
-    ) -> (Vec<BvhNode>, u32) {
+    ) -> (Vec<BvhNode>, MeshletAabb, u32) {
         // The BVH requires group meshlets to be contiguous, so remap them first.
         let mut remap = Vec::with_capacity(meshlets.meshlets.len());
         for group in groups.iter_mut() {
@@ -991,22 +988,34 @@ impl BvhBuilder {
         meshlets.meshlets = remap;
 
         let mut out = vec![];
+        let mut aabb = aabb_default();
         let mut max_depth = 0;
 
         if self.nodes.len() == 1 {
             let mut o = BvhNode::default();
             let group = &groups[0];
-            o.aabbs[0] = aabb_to_meshlet(group.aabb);
+            o.aabbs[0] = aabb_to_meshlet(group.aabb, group.parent_error, Some(group.meshlets[0]));
             o.lod_bounds[0] = sphere_to_meshlet(group.lod_bounds);
-            o.parent_errors[0] = group.parent_error;
-            o.child_offsets[0] = group.meshlets[0];
             o.child_counts[0] = group.meshlets[1] as _;
             out.push(o);
+            aabb = group.aabb;
             max_depth = 1;
         } else {
             let root = self.build_temp();
             let root = self.build_inner(&groups, &mut out, &mut max_depth, root, 1);
             assert_eq!(root, 0, "root must be 0");
+
+            let root = &out[0];
+            for i in 0..8 {
+                if root.child_counts[i] == 0 {
+                    break;
+                }
+
+                aabb = aabb.merge(&Aabb3d::new(
+                    root.aabbs[i].center,
+                    root.aabbs[i].half_extent,
+                ));
+            }
         }
 
         let mut reachable = vec![false; meshlets.meshlets.len()];
@@ -1016,7 +1025,14 @@ impl BvhBuilder {
             "all meshlets must be reachable"
         );
 
-        (out, max_depth)
+        (
+            out,
+            MeshletAabb {
+                center: aabb.center().into(),
+                half_extent: aabb.half_size().into(),
+            },
+            max_depth,
+        )
     }
 }
 
@@ -1027,10 +1043,12 @@ fn aabb_default() -> Aabb3d {
     }
 }
 
-fn aabb_to_meshlet(aabb: Aabb3d) -> MeshletAabb {
-    MeshletAabb {
+fn aabb_to_meshlet(aabb: Aabb3d, error: f32, offset: Option<u32>) -> MeshletAabbErrorOffset {
+    MeshletAabbErrorOffset {
         center: aabb.center().into(),
+        error,
         half_extent: aabb.half_size().into(),
+        child_offset: offset.unwrap_or(0),
     }
 }
 

@@ -1,8 +1,8 @@
 use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
 use crate::{
-    material::DUMMY_MESH_MATERIAL, MaterialBindingId, MeshFlags, MeshTransforms, MeshUniform,
-    NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform, RenderMaterialBindings,
-    RenderMaterialInstances,
+    meshlet::asset::MeshletAabb, Material, MaterialBindingId, MeshFlags, MeshTransforms,
+    MeshUniform, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
+    RenderMaterialBindings, RenderMaterialInstances, RenderMeshMaterialIds, StandardMaterial,
 };
 use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
@@ -32,6 +32,8 @@ pub struct InstanceManager {
     pub instances: Vec<(MainEntity, RenderLayers, bool)>,
     /// Per-instance [`MeshUniform`].
     pub instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
+    /// Per-instance model-space AABB.
+    pub instance_aabbs: StorageBuffer<Vec<MeshletAabb>>,
     /// Per-instance material ID.
     pub instance_material_ids: StorageBuffer<Vec<u32>>,
     /// Per-instance index to the root node of the instance's BVH.
@@ -59,6 +61,11 @@ impl InstanceManager {
                 buffer.set_label(Some("meshlet_instance_uniforms"));
                 buffer
             },
+            instance_aabbs: {
+                let mut buffer = StorageBuffer::default();
+                buffer.set_label(Some("meshlet_instance_aabbs"));
+                buffer
+            },
             instance_material_ids: {
                 let mut buffer = StorageBuffer::default();
                 buffer.set_label(Some("meshlet_instance_material_ids"));
@@ -81,6 +88,7 @@ impl InstanceManager {
         &mut self,
         instance: MainEntity,
         root_bvh_node: u32,
+        aabb: MeshletAabb,
         bvh_depth: u32,
         transform: &GlobalTransform,
         previous_transform: Option<&PreviousGlobalTransform>,
@@ -134,6 +142,7 @@ impl InstanceManager {
             not_shadow_caster,
         ));
         self.instance_uniforms.get_mut().push(mesh_uniform);
+        self.instance_aabbs.get_mut().push(aabb);
         self.instance_material_ids.get_mut().push(0);
         self.instance_bvh_root_nodes.get_mut().push(root_bvh_node);
 
@@ -242,13 +251,14 @@ pub fn extract_meshlet_mesh_entities(
         }
 
         // Upload the instance's MeshletMesh asset data if not done already done
-        let (root_bvh_node, bvh_depth) =
+        let (root_bvh_node, aabb, bvh_depth) =
             meshlet_mesh_manager.queue_upload_if_needed(meshlet_mesh.id(), &mut assets);
 
         // Add the instance's data to the instance manager
         instance_manager.add_instance(
             instance.into(),
             root_bvh_node,
+            aabb,
             bvh_depth,
             transform,
             previous_transform,

@@ -1,4 +1,4 @@
-use crate::meshlet::asset::{BvhNode, MeshletCullData};
+use crate::meshlet::asset::{BvhNode, MeshletAabb, MeshletCullData};
 
 use super::{asset::Meshlet, persistent_buffer::PersistentGpuBuffer, MeshletMesh};
 use alloc::sync::Arc;
@@ -26,7 +26,8 @@ pub struct MeshletMeshManager {
     pub bvh_nodes: PersistentGpuBuffer<Arc<[BvhNode]>>,
     pub meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
     pub meshlet_cull_data: PersistentGpuBuffer<Arc<[MeshletCullData]>>,
-    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, ([Range<BufferAddress>; 7], u32)>,
+    meshlet_mesh_slices:
+        HashMap<AssetId<MeshletMesh>, ([Range<BufferAddress>; 7], MeshletAabb, u32)>,
 }
 
 impl FromWorld for MeshletMeshManager {
@@ -51,7 +52,7 @@ impl MeshletMeshManager {
         &mut self,
         asset_id: AssetId<MeshletMesh>,
         assets: &mut Assets<MeshletMesh>,
-    ) -> (u32, u32) {
+    ) -> (u32, MeshletAabb, u32) {
         let queue_meshlet_mesh = |asset_id: &AssetId<MeshletMesh>| {
             let meshlet_mesh = assets.remove_untracked(*asset_id).expect(
                 "MeshletMesh asset was already unloaded but is not registered with MeshletMeshManager",
@@ -95,12 +96,13 @@ impl MeshletMeshManager {
                     meshlets_slice,
                     meshlet_cull_data_slice,
                 ],
+                meshlet_mesh.aabb,
                 meshlet_mesh.bvh_depth,
             )
         };
 
         // If the MeshletMesh asset has not been uploaded to the GPU yet, queue it for uploading
-        let ([_, _, _, _, bvh_node_slice, _, _], bvh_depth) = self
+        let ([_, _, _, _, bvh_node_slice, _, _], aabb, bvh_depth) = self
             .meshlet_mesh_slices
             .entry(asset_id)
             .or_insert_with_key(queue_meshlet_mesh)
@@ -108,6 +110,7 @@ impl MeshletMeshManager {
 
         (
             (bvh_node_slice.start / size_of::<BvhNode>() as u64) as u32,
+            aabb,
             bvh_depth,
         )
     }
@@ -115,6 +118,7 @@ impl MeshletMeshManager {
     pub fn remove(&mut self, asset_id: &AssetId<MeshletMesh>) {
         if let Some((
             [vertex_positions_slice, vertex_normals_slice, vertex_uvs_slice, indices_slice, bvh_node_slice, meshlets_slice, meshlet_cull_data_slice],
+            _,
             _,
         )) = self.meshlet_mesh_slices.remove(asset_id)
         {

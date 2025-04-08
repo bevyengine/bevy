@@ -6,6 +6,7 @@ use bevy_asset::{
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::TypePath;
+use bevy_render::render_resource::ShaderType;
 use bevy_tasks::block_on;
 use bytemuck::{Pod, Zeroable};
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
@@ -52,6 +53,9 @@ pub struct MeshletMesh {
     pub(crate) meshlets: Arc<[Meshlet]>,
     /// Spherical bounding volumes.
     pub(crate) meshlet_cull_data: Arc<[MeshletCullData]>,
+    /// The tight AABB of the meshlet mesh, used for frustum and occlusion culling at the instance
+    /// level.
+    pub(crate) aabb: MeshletAabb,
     /// The depth of the culling BVH, used to determine the number of dispatches at runtime.
     pub(crate) bvh_depth: u32,
 }
@@ -62,15 +66,10 @@ pub struct MeshletMesh {
 pub struct BvhNode {
     /// The tight AABBs of this node's children, used for frustum and occlusion during BVH
     /// traversal.
-    pub aabbs: [MeshletAabb; 8],
+    pub aabbs: [MeshletAabbErrorOffset; 8],
     /// The LOD bounding spheres of this node's children, used for LOD selection during BVH
     /// traversal.
     pub lod_bounds: [MeshletBoundingSphere; 8],
-    /// The parent errors of this node's children, used for LOD selection during BVH
-    /// traversal.
-    pub parent_errors: [f32; 8],
-    /// The child offsets in the respective buffer for each child of this node.     
-    pub child_offsets: [u32; 8],
     /// If `u8::MAX`, it indicates that the child of each children is a BVH node, otherwise it is the number of meshlets in the group.
     pub child_counts: [u8; 8],
 }
@@ -113,19 +112,27 @@ pub struct Meshlet {
 #[repr(C)]
 pub struct MeshletCullData {
     /// Tight bounding box, used for frustum and occlusion culling for this meshlet.
-    pub aabb: MeshletAabb,
+    pub aabb: MeshletAabbErrorOffset,
     /// Bounding sphere used for determining if this meshlet's group is at the correct level of detail for a given view.
     pub lod_group_sphere: MeshletBoundingSphere,
-    /// The world-space error of this meshlet.
-    pub error: f32,
 }
 
 /// An axis-aligned bounding box used for a [`Meshlet`].
-#[derive(Copy, Clone, Default, Pod, Zeroable)]
+#[derive(Copy, Clone, Default, Pod, Zeroable, ShaderType)]
 #[repr(C)]
 pub struct MeshletAabb {
     pub center: Vec3,
     pub half_extent: Vec3,
+}
+
+// An axis-aligned bounding box used for a [`Meshlet`].
+#[derive(Copy, Clone, Default, Pod, Zeroable, ShaderType)]
+#[repr(C)]
+pub struct MeshletAabbErrorOffset {
+    pub center: Vec3,
+    pub error: f32,
+    pub half_extent: Vec3,
+    pub child_offset: u32,
 }
 
 /// A spherical bounding volume used for a [`Meshlet`].
@@ -170,6 +177,7 @@ impl AssetSaver for MeshletMeshSaver {
         write_slice(&asset.bvh, &mut writer)?;
         write_slice(&asset.meshlets, &mut writer)?;
         write_slice(&asset.meshlet_cull_data, &mut writer)?;
+        writer.write_all(bytemuck::bytes_of(&asset.aabb))?;
         writer.write_all(bytemuck::bytes_of(&asset.bvh_depth))?;
         writer.finish()?;
 
@@ -212,9 +220,12 @@ impl AssetLoader for MeshletMeshLoader {
         let bvh = read_slice(reader)?;
         let meshlets = read_slice(reader)?;
         let meshlet_cull_data = read_slice(reader)?;
+        let mut bytes = [0u8; 24];
+        reader.read_exact(&mut bytes)?;
+        let aabb = bytemuck::cast(bytes);
         let mut bytes = [0u8; 4];
         reader.read_exact(&mut bytes)?;
-        let bvh_depth = u32::from_be_bytes(bytes);
+        let bvh_depth = u32::from_le_bytes(bytes);
 
         Ok(MeshletMesh {
             vertex_positions,
@@ -224,6 +235,7 @@ impl AssetLoader for MeshletMeshLoader {
             bvh,
             meshlets,
             meshlet_cull_data,
+            aabb,
             bvh_depth,
         })
     }

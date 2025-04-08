@@ -12,10 +12,14 @@ use bevy_render::render_resource::*;
 
 pub const MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("a4bf48e4-5605-4d1c-987e-29c7b1ec95dc");
-pub const MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("80ccea4a-8234-4ee0-af74-77b3cad503cf");
-pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("d71c5879-97fa-49d1-943e-ed9162fe8adb");
+pub const MESHLET_CULL_SHARED_HANDLE: Handle<Shader> =
+    weak_handle!("6e05f79e-9633-4313-9a63-215dd67c6caf");
+pub const MESHLET_INSTANCE_CULLING_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("479c1bc3-e220-44a4-a894-ddc116f59db5");
+pub const MESHLET_BVH_CULLING_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("1191f402-e1be-4e8c-9da6-25c27cdaac05");
+pub const MESHLET_MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("c740c588-4d25-4a8a-a112-48757077e821");
 pub const MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("68cc6826-8321-43d1-93d5-4f61f0456c13");
 pub const MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE: Handle<Shader> =
@@ -27,11 +31,14 @@ pub const MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE: Handle<Shader> =
 
 #[derive(Resource)]
 pub struct MeshletPipelines {
-    fill_cluster_buffers: CachedComputePipelineId,
     clear_visibility_buffer: CachedComputePipelineId,
     clear_visibility_buffer_shadow_view: CachedComputePipelineId,
-    cull_first: CachedComputePipelineId,
-    cull_second: CachedComputePipelineId,
+    first_instance_cull: CachedComputePipelineId,
+    second_instance_cull: CachedComputePipelineId,
+    first_bvh_cull: CachedComputePipelineId,
+    second_bvh_cull: CachedComputePipelineId,
+    first_meshlet_cull: CachedComputePipelineId,
+    second_meshlet_cull: CachedComputePipelineId,
     downsample_depth_first: CachedComputePipelineId,
     downsample_depth_second: CachedComputePipelineId,
     downsample_depth_first_shadow_view: CachedComputePipelineId,
@@ -50,16 +57,28 @@ pub struct MeshletPipelines {
 impl FromWorld for MeshletPipelines {
     fn from_world(world: &mut World) -> Self {
         let resource_manager = world.resource::<ResourceManager>();
-        let fill_cluster_buffers_bind_group_layout = resource_manager
-            .fill_cluster_buffers_bind_group_layout
-            .clone();
         let clear_visibility_buffer_bind_group_layout = resource_manager
             .clear_visibility_buffer_bind_group_layout
             .clone();
         let clear_visibility_buffer_shadow_view_bind_group_layout = resource_manager
             .clear_visibility_buffer_shadow_view_bind_group_layout
             .clone();
-        let cull_layout = resource_manager.culling_bind_group_layout.clone();
+        let first_instance_cull_bind_group_layout = resource_manager
+            .first_instance_cull_bind_group_layout
+            .clone();
+        let second_instance_cull_bind_group_layout = resource_manager
+            .second_instance_cull_bind_group_layout
+            .clone();
+        let first_bvh_cull_bind_group_layout =
+            resource_manager.first_bvh_cull_bind_group_layout.clone();
+        let second_bvh_cull_bind_group_layout =
+            resource_manager.second_bvh_cull_bind_group_layout.clone();
+        let first_meshlet_cull_bind_group_layout = resource_manager
+            .first_meshlet_cull_bind_group_layout
+            .clone();
+        let second_meshlet_cull_bind_group_layout = resource_manager
+            .second_meshlet_cull_bind_group_layout
+            .clone();
         let downsample_depth_layout = resource_manager.downsample_depth_bind_group_layout.clone();
         let downsample_depth_shadow_view_layout = resource_manager
             .downsample_depth_shadow_view_bind_group_layout
@@ -85,21 +104,6 @@ impl FromWorld for MeshletPipelines {
         let pipeline_cache = world.resource_mut::<PipelineCache>();
 
         Self {
-            fill_cluster_buffers: pipeline_cache.queue_compute_pipeline(
-                ComputePipelineDescriptor {
-                    label: Some("meshlet_fill_cluster_buffers_pipeline".into()),
-                    layout: vec![fill_cluster_buffers_bind_group_layout],
-                    push_constant_ranges: vec![PushConstantRange {
-                        stages: ShaderStages::COMPUTE,
-                        range: 0..4,
-                    }],
-                    shader: MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
-                    shader_defs: vec!["MESHLET_FILL_CLUSTER_BUFFERS_PASS".into()],
-                    entry_point: "fill_cluster_buffers".into(),
-                    zero_initialize_workgroup_memory: false,
-                },
-            ),
-
             clear_visibility_buffer: pipeline_cache.queue_compute_pipeline(
                 ComputePipelineDescriptor {
                     label: Some("meshlet_clear_visibility_buffer_pipeline".into()),
@@ -130,32 +134,98 @@ impl FromWorld for MeshletPipelines {
                 },
             ),
 
-            cull_first: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-                label: Some("meshlet_culling_first_pipeline".into()),
-                layout: vec![cull_layout.clone()],
+            first_instance_cull: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("meshlet_first_instance_cull_pipeline".into()),
+                layout: vec![first_instance_cull_bind_group_layout.clone()],
+                push_constant_ranges: vec![PushConstantRange {
+                    stages: ShaderStages::COMPUTE,
+                    range: 0..4,
+                }],
+                shader: MESHLET_INSTANCE_CULLING_SHADER_HANDLE,
+                shader_defs: vec![
+                    "MESHLET_INSTANCE_CULLING_PASS".into(),
+                    "MESHLET_FIRST_CULLING_PASS".into(),
+                ],
+                entry_point: "cull_instances".into(),
+                zero_initialize_workgroup_memory: false,
+            }),
+
+            second_instance_cull: pipeline_cache.queue_compute_pipeline(
+                ComputePipelineDescriptor {
+                    label: Some("meshlet_second_instance_cull_pipeline".into()),
+                    layout: vec![second_instance_cull_bind_group_layout.clone()],
+                    push_constant_ranges: vec![PushConstantRange {
+                        stages: ShaderStages::COMPUTE,
+                        range: 0..4,
+                    }],
+                    shader: MESHLET_INSTANCE_CULLING_SHADER_HANDLE,
+                    shader_defs: vec![
+                        "MESHLET_INSTANCE_CULLING_PASS".into(),
+                        "MESHLET_SECOND_CULLING_PASS".into(),
+                    ],
+                    entry_point: "cull_instances".into(),
+                    zero_initialize_workgroup_memory: false,
+                },
+            ),
+
+            first_bvh_cull: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("meshlet_first_bvh_cull_pipeline".into()),
+                layout: vec![first_bvh_cull_bind_group_layout.clone()],
                 push_constant_ranges: vec![PushConstantRange {
                     stages: ShaderStages::COMPUTE,
                     range: 0..8,
                 }],
-                shader: MESHLET_CULLING_SHADER_HANDLE,
+                shader: MESHLET_BVH_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
-                    "MESHLET_CULLING_PASS".into(),
+                    "MESHLET_BVH_CULLING_PASS".into(),
+                    "MESHLET_FIRST_CULLING_PASS".into(),
+                ],
+                entry_point: "cull_bvh".into(),
+                zero_initialize_workgroup_memory: false,
+            }),
+
+            second_bvh_cull: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("meshlet_second_bvh_cull_pipeline".into()),
+                layout: vec![second_bvh_cull_bind_group_layout.clone()],
+                push_constant_ranges: vec![PushConstantRange {
+                    stages: ShaderStages::COMPUTE,
+                    range: 0..8,
+                }],
+                shader: MESHLET_BVH_CULLING_SHADER_HANDLE,
+                shader_defs: vec![
+                    "MESHLET_BVH_CULLING_PASS".into(),
+                    "MESHLET_SECOND_CULLING_PASS".into(),
+                ],
+                entry_point: "cull_bvh".into(),
+                zero_initialize_workgroup_memory: false,
+            }),
+
+            first_meshlet_cull: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("meshlet_first_meshlet_cull_pipeline".into()),
+                layout: vec![first_meshlet_cull_bind_group_layout.clone()],
+                push_constant_ranges: vec![PushConstantRange {
+                    stages: ShaderStages::COMPUTE,
+                    range: 0..4,
+                }],
+                shader: MESHLET_MESHLET_CULLING_SHADER_HANDLE,
+                shader_defs: vec![
+                    "MESHLET_MESHLET_CULLING_PASS".into(),
                     "MESHLET_FIRST_CULLING_PASS".into(),
                 ],
                 entry_point: "cull_clusters".into(),
                 zero_initialize_workgroup_memory: false,
             }),
 
-            cull_second: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-                label: Some("meshlet_culling_second_pipeline".into()),
-                layout: vec![cull_layout],
+            second_meshlet_cull: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("meshlet_second_meshlet_cull_pipeline".into()),
+                layout: vec![second_meshlet_cull_bind_group_layout.clone()],
                 push_constant_ranges: vec![PushConstantRange {
                     stages: ShaderStages::COMPUTE,
-                    range: 0..8,
+                    range: 0..4,
                 }],
-                shader: MESHLET_CULLING_SHADER_HANDLE,
+                shader: MESHLET_MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
-                    "MESHLET_CULLING_PASS".into(),
+                    "MESHLET_MESHLET_CULLING_PASS".into(),
                     "MESHLET_SECOND_CULLING_PASS".into(),
                 ],
                 entry_point: "cull_clusters".into(),
@@ -504,6 +574,9 @@ impl MeshletPipelines {
         &ComputePipeline,
         &ComputePipeline,
         &ComputePipeline,
+        &ComputePipeline,
+        &ComputePipeline,
+        &ComputePipeline,
         &RenderPipeline,
         &RenderPipeline,
         &RenderPipeline,
@@ -515,11 +588,14 @@ impl MeshletPipelines {
         let pipeline_cache = world.get_resource::<PipelineCache>()?;
         let pipeline = world.get_resource::<Self>()?;
         Some((
-            pipeline_cache.get_compute_pipeline(pipeline.fill_cluster_buffers)?,
             pipeline_cache.get_compute_pipeline(pipeline.clear_visibility_buffer)?,
             pipeline_cache.get_compute_pipeline(pipeline.clear_visibility_buffer_shadow_view)?,
-            pipeline_cache.get_compute_pipeline(pipeline.cull_first)?,
-            pipeline_cache.get_compute_pipeline(pipeline.cull_second)?,
+            pipeline_cache.get_compute_pipeline(pipeline.first_instance_cull)?,
+            pipeline_cache.get_compute_pipeline(pipeline.second_instance_cull)?,
+            pipeline_cache.get_compute_pipeline(pipeline.first_bvh_cull)?,
+            pipeline_cache.get_compute_pipeline(pipeline.second_bvh_cull)?,
+            pipeline_cache.get_compute_pipeline(pipeline.first_meshlet_cull)?,
+            pipeline_cache.get_compute_pipeline(pipeline.second_meshlet_cull)?,
             pipeline_cache.get_compute_pipeline(pipeline.downsample_depth_first)?,
             pipeline_cache.get_compute_pipeline(pipeline.downsample_depth_second)?,
             pipeline_cache.get_compute_pipeline(pipeline.downsample_depth_first_shadow_view)?,

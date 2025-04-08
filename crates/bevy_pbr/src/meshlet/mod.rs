@@ -172,13 +172,25 @@ impl Plugin for MeshletPlugin {
         );
         load_internal_asset!(
             app,
-            MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
-            "fill_cluster_buffers.wgsl",
+            MESHLET_CULL_SHARED_HANDLE,
+            "meshlet_cull_shared.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
-            MESHLET_CULLING_SHADER_HANDLE,
+            MESHLET_INSTANCE_CULLING_SHADER_HANDLE,
+            "cull_instances.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESHLET_BVH_CULLING_SHADER_HANDLE,
+            "cull_bvh.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESHLET_MESHLET_CULLING_SHADER_HANDLE,
             "cull_clusters.wgsl",
             Shader::from_wgsl
         );

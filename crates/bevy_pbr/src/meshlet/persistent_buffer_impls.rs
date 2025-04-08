@@ -1,4 +1,4 @@
-use crate::meshlet::asset::{BvhNode, MeshletCullData};
+use crate::meshlet::asset::{BvhNode, MeshletAabbErrorOffset, MeshletCullData};
 
 use super::{asset::Meshlet, persistent_buffer::PersistentGpuBufferable};
 use alloc::sync::Arc;
@@ -23,17 +23,21 @@ impl PersistentGpuBufferable for Arc<[BvhNode]> {
         for (i, node) in self.iter().enumerate() {
             let i = i * size;
             let bytes = bytemuck::cast::<_, [u8; size_of::<BvhNode>()]>(BvhNode {
-                aabbs: node.aabbs,
-                lod_bounds: node.lod_bounds,
-                parent_errors: node.parent_errors,
-                child_offsets: std::array::from_fn(|i| {
-                    node.child_offsets[i]
-                        + if node.child_counts[i] == u8::MAX {
-                            base_meshlet_index
-                        } else {
-                            base_bvh_node_index
-                        }
+                aabbs: std::array::from_fn(|i| {
+                    let aabb = node.aabbs[i];
+                    MeshletAabbErrorOffset {
+                        center: aabb.center,
+                        error: aabb.error,
+                        half_extent: aabb.half_extent,
+                        child_offset: aabb.child_offset
+                            + if node.child_counts[i] == u8::MAX {
+                                base_meshlet_index
+                            } else {
+                                base_bvh_node_index
+                            },
+                    }
                 }),
+                lod_bounds: node.lod_bounds,
                 child_counts: node.child_counts,
             });
             buffer_slice[i..(i + size)].clone_from_slice(&bytes);
