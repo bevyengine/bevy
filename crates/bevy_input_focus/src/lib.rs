@@ -217,9 +217,9 @@ pub enum InputFocusSet {
 /// Sets the initial focus to the primary window, if any.
 pub fn set_initial_focus(
     mut input_focus: ResMut<InputFocus>,
-    window: When<Single<Entity, With<PrimaryWindow>>>,
+    window: Single<Entity, With<PrimaryWindow>>,
 ) {
-    input_focus.0 = Some(**window);
+    input_focus.0 = Some(*window);
 }
 
 /// System which dispatches bubbled input events to the focused entity, or to the primary window
