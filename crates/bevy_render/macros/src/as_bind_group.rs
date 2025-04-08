@@ -142,7 +142,10 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             return Ok(());
                         }
 
-                        Err(Error::new_spanned(attr, "Expected `limit` or `index_table`"))
+                        Err(Error::new_spanned(
+                            attr,
+                            "Expected `limit` or `index_table`",
+                        ))
                     })?;
                 }
             }
