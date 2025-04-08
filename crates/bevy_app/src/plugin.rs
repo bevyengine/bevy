@@ -1,5 +1,8 @@
-use crate::App;
-use core::any::Any;
+use crate::{App, PluginContext};
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::String;
+use core::{any::Any, pin::Pin};
 use downcast_rs::{impl_downcast, Downcast};
 
 /// A collection of Bevy app logic and configuration.
@@ -20,6 +23,7 @@ use downcast_rs::{impl_downcast, Downcast};
 /// * once the app started, it will wait for all registered [`Plugin::ready`] to return `true`
 /// * it will then call all registered [`Plugin::finish`]
 /// * and call all registered [`Plugin::cleanup`]
+/// * finally, it will run [`Plugin::build_async`] for all plugins concurrently
 ///
 /// ## Defining a plugin.
 ///
@@ -54,9 +58,44 @@ use downcast_rs::{impl_downcast, Downcast};
 /// }
 /// # fn damp_flickering() {}
 /// ```
-pub trait Plugin: Downcast + Any + Send + Sync {
+///
+/// If you depend on data added by another plugin, define `build_async`:
+///
+/// ```rust
+/// # use bevy_app::*;
+/// # use bevy_ecs::resource::Resource;
+/// # #[derive(Resource)]
+/// # struct Settings {
+/// #    pub flicker_damping: bool,
+/// # }
+/// # struct AccessibilityPlugin;
+///
+/// impl Plugin for AccessibilityPlugin {
+///     async fn build_async(self: Box<Self>, mut ctx: PluginContext<'_>) {
+///         // Wait until another plugin makes the resource available
+///         let settings = ctx.resource::<Settings>().await.unwrap();
+///         if settings.flicker_damping {
+///             drop(settings);
+///             ctx.app().add_systems(PostUpdate, damp_flickering);
+///         }
+///     }
+/// }
+/// # fn damp_flickering() {}
+/// ```
+pub trait Plugin: Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
-    fn build(&self, app: &mut App);
+    ///
+    /// This runs concurrently with other plugins (but in a single thread), so you can use the
+    /// methods on [`PluginContext`] to wait for data to be made available by other plugins.
+    fn build_async<'ctx>(
+        self: Box<Self>,
+        _ctx: PluginContext<'ctx>,
+    ) -> impl Future<Output = ()> + 'ctx {
+        async {}
+    }
+
+    /// Configures the [`App`] to which this plugin is added.
+    fn build(&self, _app: &mut App) {}
 
     /// Has the plugin finished its setup? This can be useful for plugins that need something
     /// asynchronous to happen before they can finish their setup, like the initialization of a renderer.
@@ -91,11 +130,78 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     }
 }
 
-impl_downcast!(Plugin);
-
 impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {
     fn build(&self, app: &mut App) {
         self(app);
+    }
+}
+
+/// Dyn-compatible version of [`Plugin`].
+pub trait ErasedPlugin: Downcast + Send + Sync {
+    /// See [`Plugin::build_async`].
+    fn build_async<'a>(
+        self: Box<Self>,
+        ctx: PluginContext<'a>,
+    ) -> Pin<Box<dyn Future<Output = String> + 'a>>;
+
+    /// See [`Plugin::build`].
+    fn build(&self, app: &mut App);
+
+    /// See [`Plugin::ready`].
+    fn ready(&self, app: &App) -> bool;
+
+    /// See [`Plugin::finish`].
+    fn finish(&self, app: &mut App);
+
+    /// See [`Plugin::cleanup`].
+    fn cleanup(&self, app: &mut App);
+
+    /// See [`Plugin::name`].
+    fn name(&self) -> &str;
+
+    /// See [`Plugin::is_unique`].
+    fn is_unique(&self) -> bool;
+}
+
+impl_downcast!(ErasedPlugin);
+
+impl<P> ErasedPlugin for P
+where
+    P: Plugin,
+{
+    fn build_async<'ctx>(
+        self: Box<Self>,
+        ctx: PluginContext<'ctx>,
+    ) -> Pin<Box<dyn Future<Output = String> + 'ctx>> {
+        Box::pin(async move {
+            let name = <P as Plugin>::name(&*self).to_owned();
+            <P as Plugin>::build_async(self, ctx).await;
+            name
+        })
+    }
+
+    fn build(&self, app: &mut App) {
+        Plugin::build(self, app);
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        Plugin::ready(self, app)
+    }
+
+    fn finish(&self, app: &mut App) {
+        Plugin::finish(self, app);
+    }
+
+    fn cleanup(&self, app: &mut App) {
+        Plugin::cleanup(self, app);
+    }
+
+    fn name(&self) -> &str {
+        Plugin::name(self)
+    }
+
+    fn is_unique(&self) -> bool {
+        Plugin::is_unique(self)
     }
 }
 
@@ -108,6 +214,8 @@ pub enum PluginsState {
     Ready,
     /// Finish has been executed for all plugins added.
     Finished,
+    /// Cleanup is running.
+    Cleaning,
     /// Cleanup has been executed for all plugins added.
     Cleaned,
 }
@@ -131,7 +239,7 @@ mod sealed {
     use alloc::boxed::Box;
     use variadics_please::all_tuples;
 
-    use crate::{App, AppError, Plugin, PluginGroup};
+    use crate::{App, AppError, ErasedPlugin, PluginGroup};
 
     pub trait Plugins<Marker> {
         fn add_to_app(self, app: &mut App);
@@ -141,7 +249,7 @@ mod sealed {
     pub struct PluginGroupMarker;
     pub struct PluginsTupleMarker;
 
-    impl<P: Plugin> Plugins<PluginMarker> for P {
+    impl<P: ErasedPlugin> Plugins<PluginMarker> for P {
         #[track_caller]
         fn add_to_app(self, app: &mut App) {
             if let Err(AppError::DuplicatePlugin { plugin_name }) =
