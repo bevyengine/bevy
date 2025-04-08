@@ -12,13 +12,13 @@ use super::{resources::State, states::States};
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] enters the provided state.
 ///
 /// This schedule ignores identity transitions.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnEnter<S: States>(pub S);
 
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] exits the provided state.
 ///
 /// This schedule ignores identity transitions.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnExit<S: States>(pub S);
 
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`]
@@ -27,7 +27,7 @@ pub struct OnExit<S: States>(pub S);
 /// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
 ///
 /// This schedule will run on identity transitions.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnTransition<S: States> {
     /// The state being exited.
     pub exited: S,
@@ -52,7 +52,7 @@ pub struct OnTransition<S: States> {
 ///
 /// [`PreStartup`]: https://docs.rs/bevy/latest/bevy/prelude/struct.PreStartup.html
 /// [`PreUpdate`]: https://docs.rs/bevy/latest/bevy/prelude/struct.PreUpdate.html
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct StateTransition;
 
 /// Event sent when any state transition of `S` happens.
