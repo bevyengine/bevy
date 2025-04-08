@@ -4166,12 +4166,12 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "transform_mesh"
-path = "tests/3d/transform_mesh.rs"
+name = "test_transform_mesh"
+path = "tests/3d/test_transform_mesh.rs"
 doc-scrape-examples = true
 required-features = ["pbr_anisotropy_texture"]
 
-[package.metadata.example.transform_mesh]
+[package.metadata.example.test_transform_mesh]
 hidden = true
 
 [profile.wasm-release]
