@@ -1657,7 +1657,7 @@ fn extract_mesh_for_gpu_building(
 /// [`crate::material::queue_material_meshes`] check the skin and morph target
 /// tables for each mesh, but that would be too slow in the hot mesh queuing
 /// loop.
-fn set_mesh_motion_vector_flags(
+pub(crate) fn set_mesh_motion_vector_flags(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     skin_uniforms: Res<SkinUniforms>,
     morph_indices: Res<MorphIndices>,

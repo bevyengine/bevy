@@ -3,11 +3,11 @@ mod prepass_bindings;
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, material_bind_groups::MaterialBindGroupAllocator,
-    setup_morph_and_skinning_defs, skin, DrawMesh, EntitySpecializationTicks, Material,
-    MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
-    OpaqueRendererMethod, PreparedMaterial, RenderLightmaps, RenderMaterialInstances,
-    RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup,
-    SetMeshBindGroup, ShadowView,
+    set_mesh_motion_vector_flags, setup_morph_and_skinning_defs, skin, DrawMesh,
+    EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey, MeshLayouts,
+    MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, RenderLightmaps,
+    RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
+    SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -226,7 +226,8 @@ where
                         .in_set(RenderSet::PrepareMeshes)
                         .after(prepare_assets::<PreparedMaterial<M>>)
                         .after(prepare_assets::<RenderMesh>)
-                        .after(collect_meshes_for_gpu_building),
+                        .after(collect_meshes_for_gpu_building)
+                        .after(set_mesh_motion_vector_flags),
                     queue_prepass_material_meshes::<M>
                         .in_set(PrepassSet::QueuePrepass)
                         .after(prepare_assets::<PreparedMaterial<M>>),
