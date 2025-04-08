@@ -15,7 +15,7 @@ However, the `before` ordering is implicit in `SimpleExecutor` if `A` is added t
 The dueling behavior between ordering systems based on when they were added to a schedule as opposed to using ordering constraints is difficult to maintain and can be confusing, especially for new users.
 But, if you have a strong preference for the existing behavior of `SimpleExecutor`, please make an issue and we can discuss your needs.
 
-If you were using `SimpleExecutor`, consider upgrading to `SingleThreadedExecutor` instead, or try `MultiThreadedExecutor` if if fits the schedule.
+If you were using `SimpleExecutor`, consider upgrading to `SingleThreadedExecutor` instead, or try `MultiThreadedExecutor` if it fits the schedule.
 The `MultiThreadedExecutor` is great at large schedules and async heavy work, and the `SingleThreadedExecutor` is good at smaller schedules or schedules that have fewer parallelizable systems.
 So what was `SimpleExecutor` good at? Not much. That's why we plan to remove it. Removing it will reduce some maintenance and consistency burdens, allowing us to focus on more exciting features!
 
