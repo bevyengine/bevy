@@ -91,9 +91,20 @@ pub mod light_consts {
     }
 }
 
+/// Controls the resolution of [`PointLight`] shadow maps.
+///
+/// ```
+/// # use bevy_app::prelude::*;
+/// # use bevy_pbr::PointLightShadowMap;
+/// App::new()
+///     .insert_resource(PointLightShadowMap { size: 2048 });
+/// ```
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource, Debug, Default, Clone)]
 pub struct PointLightShadowMap {
+    /// The shadow map texture's width and height in pixels.
+    ///
+    /// Defaults to `1024`.
     pub size: usize,
 }
 
@@ -108,9 +119,19 @@ impl Default for PointLightShadowMap {
 pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>;
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
+///
+/// ```
+/// # use bevy_app::prelude::*;
+/// # use bevy_pbr::DirectionalLightShadowMap;
+/// App::new()
+///     .insert_resource(DirectionalLightShadowMap { size: 4096 });
+/// ```
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource, Debug, Default, Clone)]
 pub struct DirectionalLightShadowMap {
+    /// The shadow map texture's width and height in pixels.
+    ///
+    /// Defaults to `2048`.
     pub size: usize,
 }
 
