@@ -136,6 +136,7 @@ const _: () = {
         unsafe fn new_archetype(
             state: &mut Self::State,
             archetype: &bevy_ecs::archetype::Archetype,
+            inherited_components: &bevy_ecs::inheritance::InheritedComponents,
             system_meta: &mut bevy_ecs::system::SystemMeta,
         ) {
             // SAFETY: Caller guarantees the archetype is from the world used in `init_state`
@@ -143,6 +144,7 @@ const _: () = {
                 <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::new_archetype(
                     &mut state.state,
                     archetype,
+                    inherited_components,
                     system_meta,
                 );
             };

@@ -3,6 +3,7 @@ use crate::{
     component::{ComponentId, Tick},
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
+    inheritance::InheritedComponents,
     prelude::FromWorld,
     query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
     storage::{SparseSetIndex, TableId},
@@ -185,8 +186,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             // SAFETY: The state was just initialized from the `world` above, and the archetypes being added
             // come directly from the same world.
             unsafe {
-                if state.new_archetype_internal(archetype) {
-                    state.update_archetype_component_access(archetype, access);
+                if state.new_archetype_internal(archetype, &world.inherited_components) {
+                    state.update_archetype_component_access(
+                        archetype,
+                        &world.inherited_components,
+                        access,
+                    );
                 }
             }
         }
@@ -538,7 +543,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 // SAFETY: The validate_world call ensures that the world is the same the QueryState
                 // was initialized from.
                 unsafe {
-                    self.new_archetype_internal(archetype);
+                    self.new_archetype_internal(archetype, world.inherited_components());
                 }
             }
         } else {
@@ -573,7 +578,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     // SAFETY: The validate_world call ensures that the world is the same the QueryState
                     // was initialized from.
                     unsafe {
-                        self.new_archetype_internal(archetype);
+                        self.new_archetype_internal(archetype, world.inherited_components());
                     }
                 }
             }
@@ -612,13 +617,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub unsafe fn new_archetype(
         &mut self,
         archetype: &Archetype,
+        inherited_components: &InheritedComponents,
         access: &mut Access<ArchetypeComponentId>,
     ) {
         // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from.
-        let matches = unsafe { self.new_archetype_internal(archetype) };
+        let matches = unsafe { self.new_archetype_internal(archetype, inherited_components) };
         if matches {
             // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from.
-            unsafe { self.update_archetype_component_access(archetype, access) };
+            unsafe {
+                self.update_archetype_component_access(archetype, inherited_components, access);
+            };
         }
     }
 
@@ -630,11 +638,32 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// # Safety
     /// `archetype` must be from the `World` this state was initialized from.
-    unsafe fn new_archetype_internal(&mut self, archetype: &Archetype) -> bool {
-        if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
-            && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
-            && self.matches_component_set(&|id| archetype.contains(id))
-        {
+    unsafe fn new_archetype_internal(
+        &mut self,
+        archetype: &Archetype,
+        inherited_components: &InheritedComponents,
+    ) -> bool {
+        let is_matching = if archetype.has_inherited_components() {
+            let inherited_components = inherited_components
+                .archetype_inherited_components
+                .get(&archetype.id())
+                .unwrap();
+            D::matches_component_set(&self.fetch_state, &|id| {
+                archetype.contains(id) || inherited_components.contains_key(&id)
+            }) && F::matches_component_set(&self.filter_state, &|id| {
+                archetype.contains(id) || inherited_components.contains_key(&id)
+            }) && self.matches_component_set(&|id| {
+                archetype.contains(id) || inherited_components.contains_key(&id)
+            }) && !inherited_components
+                .keys()
+                .any(|id| self.component_access.access.has_component_write(*id))
+        } else {
+            D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
+                && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
+                && self.matches_component_set(&|id| archetype.contains(id))
+        };
+
+        if is_matching {
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow_and_insert(archetype_index);
@@ -681,13 +710,28 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub unsafe fn update_archetype_component_access(
         &mut self,
         archetype: &Archetype,
+        inherited_components: &InheritedComponents,
         access: &mut Access<ArchetypeComponentId>,
     ) {
         // As a fast path, we can iterate directly over the components involved
         // if the `access` is finite.
         if let Ok(iter) = self.component_access.access.try_iter_component_access() {
             iter.for_each(|component_access| {
-                if let Some(id) = archetype.get_archetype_component_id(*component_access.index()) {
+                if let Some(id) = archetype
+                    .get_archetype_component_id(*component_access.index())
+                    .or_else(|| {
+                        if archetype.has_inherited_components() {
+                            inherited_components
+                                .archetype_inherited_components
+                                .get(&archetype.id())
+                                .and_then(|map| {
+                                    map.get(component_access.index()).map(|(_, id)| *id)
+                                })
+                        } else {
+                            None
+                        }
+                    })
+                {
                     match component_access {
                         ComponentAccessKind::Archetypal(_) => {}
                         ComponentAccessKind::Shared(_) => {
@@ -699,12 +743,25 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     }
                 }
             });
-
             return;
         }
 
+        let empty_map = Default::default();
         for (component_id, archetype_component_id) in
-            archetype.components_with_archetype_component_id()
+            archetype.components_with_archetype_component_id().chain(
+                if archetype.has_inherited_components() {
+                    inherited_components
+                        .archetype_inherited_components
+                        .get(&archetype.id())
+                        .unwrap_or(&empty_map)
+                } else {
+                    &empty_map
+                }
+                .iter()
+                .map(|(component_id, (_, archetype_component_id))| {
+                    (*component_id, *archetype_component_id)
+                }),
+            )
         {
             if self
                 .component_access
