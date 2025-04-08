@@ -3,10 +3,10 @@ use super::{
     PipelineCache, RenderPipeline, RenderPipelineDescriptor,
 };
 use bevy_ecs::{
-    system::Resource,
+    resource::Resource,
     world::{FromWorld, World},
 };
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 use core::{hash::Hash, marker::PhantomData};
 
 pub use bevy_render_macros::{HasBaseDescriptor, Specialize};
