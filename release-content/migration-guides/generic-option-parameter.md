@@ -1,6 +1,6 @@
 ---
 title: Generic `Option` Parameter
-pull_requests: [TODO]
+pull_requests: [18766]
 ---
 
 `Option<Single<D, F>>` will now resolve to `None` if there are multiple entities matching the query.
