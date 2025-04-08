@@ -40,6 +40,7 @@ pub mod error;
 pub mod event;
 pub mod hierarchy;
 pub mod identifier;
+pub mod inheritance;
 pub mod intern;
 pub mod label;
 pub mod name;
