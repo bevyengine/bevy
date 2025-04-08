@@ -1,5 +1,5 @@
 use super::{blas::BlasManager, extract::StandardMaterialAssets, RaytracingMesh3d};
-use bevy_asset::AssetId;
+use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
     resource::Resource,
     system::{Query, Res, ResMut},
@@ -67,57 +67,32 @@ pub fn prepare_raytracing_scene_bindings(
     let mut material_id_map: HashMap<AssetId<StandardMaterial>, u32, FixedHasher> =
         HashMap::default();
     let mut material_id = 0;
+    let mut process_texture = |texture_handle: &Option<Handle<_>>| -> Option<u32> {
+        match texture_handle {
+            Some(texture_handle) => match texture_assets.get(texture_handle.id()) {
+                Some(texture) => {
+                    let (texture_id, is_new) =
+                        textures.push_if_absent(texture.texture_view.deref(), texture_handle.id());
+                    if is_new {
+                        samplers.push(texture.sampler.deref());
+                    }
+                    Some(texture_id)
+                }
+                None => None,
+            },
+            None => Some(u32::MAX),
+        }
+    };
     for (asset_id, material) in material_assets.iter() {
-        let mut base_color_texture_id = u32::MAX;
-        if let Some(base_color_texture_handle) = &material.base_color_texture {
-            match texture_assets.get(base_color_texture_handle.id()) {
-                Some(base_color_texture) => {
-                    let (texture_id, new) = textures.push_if_absent(
-                        base_color_texture.texture_view.deref(),
-                        base_color_texture_handle.id(),
-                    );
-                    base_color_texture_id = texture_id;
-                    if new {
-                        samplers.push(base_color_texture.sampler.deref());
-                    }
-                }
-                None => continue,
-            }
-        }
-
-        let mut normal_map_texture_id = u32::MAX;
-        if let Some(normal_map_texture_handle) = &material.normal_map_texture {
-            match texture_assets.get(normal_map_texture_handle.id()) {
-                Some(normal_map_texture) => {
-                    let (texture_id, new) = textures.push_if_absent(
-                        normal_map_texture.texture_view.deref(),
-                        normal_map_texture_handle.id(),
-                    );
-                    normal_map_texture_id = texture_id;
-                    if new {
-                        samplers.push(normal_map_texture.sampler.deref());
-                    }
-                }
-                None => continue,
-            }
-        }
-
-        let mut emissive_texture_id = u32::MAX;
-        if let Some(emissive_texture_handle) = &material.emissive_texture {
-            match texture_assets.get(emissive_texture_handle.id()) {
-                Some(emissive_texture) => {
-                    let (texture_id, new) = textures.push_if_absent(
-                        emissive_texture.texture_view.deref(),
-                        emissive_texture_handle.id(),
-                    );
-                    emissive_texture_id = texture_id;
-                    if new {
-                        samplers.push(emissive_texture.sampler.deref());
-                    }
-                }
-                None => continue,
-            }
-        }
+        let Some(base_color_texture_id) = process_texture(&material.base_color_texture) else {
+            continue;
+        };
+        let Some(normal_map_texture_id) = process_texture(&material.normal_map_texture) else {
+            continue;
+        };
+        let Some(emissive_texture_id) = process_texture(&material.emissive_texture) else {
+            continue;
+        };
 
         material_id_map.insert(*asset_id, material_id);
         material_id += 1;
@@ -311,14 +286,14 @@ impl<T, I: Eq + Hash> CachedBindingArray<T, I> {
     }
 
     fn push_if_absent(&mut self, item: T, item_id: I) -> (u32, bool) {
-        let mut new = false;
+        let mut is_new = false;
         let i = *self.map.entry(item_id).or_insert_with(|| {
-            new = true;
+            is_new = true;
             let i = self.vec.len() as u32;
             self.vec.push(item);
             i
         });
-        (i, new)
+        (i, is_new)
     }
 
     fn is_empty(&self) -> bool {
