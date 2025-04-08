@@ -849,6 +849,7 @@ pub fn check_entities_needing_specialization<M>(
 }
 
 pub fn specialize_material_meshes<M: Material>(
+    params: SpecializeMeshParams<M>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_mesh_instances: Res<RenderMeshInstances>,
@@ -870,12 +871,10 @@ pub fn specialize_material_meshes<M: Material>(
     ),
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline: Res<MaterialPipeline<M>>,
-    pipeline_cache: Res<PipelineCache>,
     ticks: SystemChangeTick,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -910,7 +909,10 @@ pub fn specialize_material_meshes<M: Material>(
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let entity_tick = params
+                .entity_specialization_ticks
+                .get(visible_entity)
+                .unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
@@ -980,7 +982,8 @@ pub fn specialize_material_meshes<M: Material>(
                     .get_extra_data(material.binding.slot)
                     .clone(),
             };
-            let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, key, &mesh.layout);
+            let pipeline_id =
+                pipelines.specialize(&params.pipeline_cache, &pipeline, key, &mesh.layout);
             let pipeline_id = match pipeline_id {
                 Ok(id) => id,
                 Err(err) => {

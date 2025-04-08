@@ -1718,6 +1718,7 @@ pub fn check_views_lights_need_specialization(
 }
 
 pub fn specialize_shadows<M: Material>(
+    params: SpecializeMeshParams<M>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     (
         render_meshes,
@@ -1734,7 +1735,6 @@ pub fn specialize_shadows<M: Material>(
     ),
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
     view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
@@ -1747,7 +1747,6 @@ pub fn specialize_shadows<M: Material>(
     light_key_cache: Res<LightKeyCache>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedShadowMaterialPipelineCache<M>>,
     light_specialization_ticks: Res<LightSpecializationTicks>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
     ticks: SystemChangeTick,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -1812,7 +1811,10 @@ pub fn specialize_shadows<M: Material>(
                 let Some(material_asset_id) = render_material_instances.get(&visible_entity) else {
                     continue;
                 };
-                let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
+                let entity_tick = params
+                    .entity_specialization_ticks
+                    .get(&visible_entity)
+                    .unwrap();
                 let last_specialized_tick = view_specialized_material_pipeline_cache
                     .get(&visible_entity)
                     .map(|(tick, _)| *tick);
@@ -1870,7 +1872,7 @@ pub fn specialize_shadows<M: Material>(
                     _ => MeshPipelineKey::NONE,
                 };
                 let pipeline_id = pipelines.specialize(
-                    &pipeline_cache,
+                    &params.pipeline_cache,
                     &prepass_pipeline,
                     MaterialPipelineKey {
                         mesh_key,

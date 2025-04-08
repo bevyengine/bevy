@@ -1,13 +1,14 @@
 mod prepass_bindings;
 
+use crate::SpecializeMeshParams;
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, material_bind_groups::MaterialBindGroupAllocator,
     queue_material_meshes, set_mesh_motion_vector_flags, setup_morph_and_skinning_defs, skin,
-    DrawMesh, EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey,
-    MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
-    RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances,
-    RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
+    DrawMesh, Material, MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline,
+    MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, RenderLightmaps,
+    RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
+    SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -869,6 +870,7 @@ pub fn check_prepass_views_need_specialization(
 }
 
 pub fn specialize_prepass_material_meshes<M>(
+    params: SpecializeMeshParams<M>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_mesh_instances: Res<RenderMeshInstances>,
@@ -902,7 +904,6 @@ pub fn specialize_prepass_material_meshes<M>(
         mut pipelines,
         pipeline_cache,
         view_specialization_ticks,
-        entity_specialization_ticks,
     ): (
         ResMut<SpecializedPrepassMaterialPipelineCache<M>>,
         SystemChangeTick,
@@ -910,7 +911,6 @@ pub fn specialize_prepass_material_meshes<M>(
         ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
         Res<PipelineCache>,
         Res<ViewPrepassSpecializationTicks>,
-        Res<EntitySpecializationTicks<M>>,
     ),
 ) where
     M: Material,
@@ -941,7 +941,10 @@ pub fn specialize_prepass_material_meshes<M>(
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let entity_tick = params
+                .entity_specialization_ticks
+                .get(visible_entity)
+                .unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
