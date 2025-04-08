@@ -823,6 +823,17 @@ category = "2D Rendering"
 wasm = false
 
 [[example]]
+name = "tilemap_chunk"
+path = "examples/2d/tilemap_chunk.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.tilemap_chunk]
+name = "Tilemap Chunk"
+description = "Renders a tilemap chunk"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "transparency_2d"
 path = "examples/2d/transparency_2d.rs"
 doc-scrape-examples = true
