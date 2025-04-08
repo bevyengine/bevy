@@ -3082,7 +3082,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         // it's compiled. Otherwise, our mesh instance data won't be present.
         if let Some(preprocess_pipelines) = preprocess_pipelines {
             if !has_preprocess_bind_group
-                || !preprocess_pipelines.pipelines_are_loaded(&pipeline_cache, &preprocessing_support)
+                || !preprocess_pipelines
+                    .pipelines_are_loaded(&pipeline_cache, &preprocessing_support)
             {
                 return RenderCommandResult::Skip;
             }

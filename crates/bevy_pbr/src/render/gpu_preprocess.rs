@@ -26,7 +26,9 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_render::batching::gpu_preprocessing::{GpuPreprocessingMode, IndirectParametersGpuMetadata, UntypedPhaseIndirectParametersBuffers};
+use bevy_render::batching::gpu_preprocessing::{
+    GpuPreprocessingMode, IndirectParametersGpuMetadata, UntypedPhaseIndirectParametersBuffers,
+};
 use bevy_render::{
     batching::gpu_preprocessing::{
         BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingSupport,
