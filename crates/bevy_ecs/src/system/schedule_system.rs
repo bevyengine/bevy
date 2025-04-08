@@ -9,7 +9,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
-use super::{IntoSystem, ValidationOutcome};
+use super::{IntoSystem, SystemParamValidationError};
 
 /// A wrapper system to change a system that returns `()` to return `Ok(())` to make it into a [`ScheduleSystem`]
 pub struct InfallibleSystemWrapper<S: System<In = (), Out = ()>>(S);
@@ -66,12 +66,6 @@ impl<S: System<In = (), Out = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
-        self.0.run(input, world);
-        Ok(())
-    }
-
-    #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         self.0.apply_deferred(world);
     }
@@ -82,7 +76,10 @@ impl<S: System<In = (), Out = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> ValidationOutcome {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         self.0.validate_param_unsafe(world)
     }
 

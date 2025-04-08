@@ -11,14 +11,15 @@ Bevy asks authors (and reviewers) to write a draft migration guide as part of th
 ## Where to put your migration guides
 
 Each major Bevy version (e.g. 0.12, or 2.0) will get its own migration guide.
-The draft migration guides are organized into a folder of the same name inside of `bevyengine/bevy/working-migration-guides`.
+The draft migration guides for the current cycle are organized in the `bevyengine/bevy/release-content/migration-guides` folder.
 
-When we publish our first release candidate for a cycle, these notes are moved from `bevyengine/bevy`, and into `bevyengine/bevy-website`,
+When we publish our first release candidate for a cycle, these notes are merged together and moved from `bevyengine/bevy` into `bevyengine/bevy-website`,
 where they will receive a final editing pass.
 
-## What to put in your draft migration guide
+If your PR introduces a new breaking change relative to the previous version, you should start a new guide by copying [the template](./migration_guides_template.md) into a new file in the `migration-guides` folder.
+You should also update the existing migration guides in the other files, if your change effects them.
 
-A `template.md` file is provided in `bevyengine/bevy/working-migration-guides`: copy-paste that to get started!
+## What to put in your draft migration guide
 
 Migration guides are intended to briefly communicate:
 
@@ -49,3 +50,8 @@ Rust provides a very helpful [`#[deprecated]` attribute](https://doc.rust-lang.o
 This can be a nice a tool to ease migrations, because it downgrades errors to warnings and makes the migration information available right in the user's IDE.
 
 However, it's not always possible to use this attribute, and Bevy does not consider it to be a substitute to a migration guide entry.
+
+```rust
+#[deprecated(since = "0.17.0", note = "This message will appear in the deprecation warning.")]
+struct MyStruct;
+```

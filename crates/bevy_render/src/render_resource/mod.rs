@@ -55,10 +55,10 @@ pub use wgpu::{
     ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages, StencilFaceState,
     StencilOperation, StencilState, StorageTextureAccess, StoreOp, TexelCopyBufferInfo,
     TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect, TextureDescriptor,
-    TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-    TextureView as WgpuTextureView, TextureViewDescriptor, TextureViewDimension, VertexAttribute,
-    VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
-    VertexStepMode, COPY_BUFFER_ALIGNMENT,
+    TextureDimension, TextureFormat, TextureFormatFeatureFlags, TextureFormatFeatures,
+    TextureSampleType, TextureUsages, TextureView as WgpuTextureView, TextureViewDescriptor,
+    TextureViewDimension, VertexAttribute, VertexBufferLayout as RawVertexBufferLayout,
+    VertexFormat, VertexState as RawVertexState, VertexStepMode, COPY_BUFFER_ALIGNMENT,
 };
 
 pub use crate::mesh::VertexBufferLayout;
