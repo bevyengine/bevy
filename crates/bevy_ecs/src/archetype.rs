@@ -25,6 +25,7 @@ use crate::{
     entity::{Entity, EntityLocation},
     observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
+    world::{INHERITED, INHERIT_FROM},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform_support::collections::HashMap;
@@ -360,6 +361,8 @@ bitflags::bitflags! {
         const ON_REPLACE_OBSERVER = (1 << 7);
         const ON_REMOVE_OBSERVER = (1 << 8);
         const ON_DESPAWN_OBSERVER = (1 << 9);
+        const HAS_INHERITED_COMPONENTS = (1 << 10);
+        const IS_INHERITED= (1 << 11);
     }
 }
 
@@ -408,10 +411,16 @@ impl Archetype {
             // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the same
             // sorted order, so the index of the `Column` in the `Table` is the same as the index of the
             // component in the `table_components` vector
-            component_index
-                .entry(component_id)
-                .or_default()
-                .insert(id, ArchetypeRecord { column: Some(idx) });
+            component_index.entry(component_id).or_default().insert(
+                id,
+                ArchetypeRecord {
+                    column: Some(idx),
+                    is_inherited: false,
+                },
+            );
+            if component_id == INHERIT_FROM {
+                flags.set(ArchetypeFlags::HAS_INHERITED_COMPONENTS, true);
+            }
         }
 
         for (component_id, archetype_component_id) in sparse_set_components {
@@ -426,10 +435,16 @@ impl Archetype {
                     archetype_component_id,
                 },
             );
-            component_index
-                .entry(component_id)
-                .or_default()
-                .insert(id, ArchetypeRecord { column: None });
+            component_index.entry(component_id).or_default().insert(
+                id,
+                ArchetypeRecord {
+                    column: None,
+                    is_inherited: false,
+                },
+            );
+            if component_id == INHERITED {
+                flags.set(ArchetypeFlags::IS_INHERITED, true);
+            }
         }
         Self {
             id,
@@ -719,6 +734,23 @@ impl Archetype {
     pub fn has_despawn_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_DESPAWN_OBSERVER)
     }
+
+    #[inline]
+    /// Returns `true` if this archetype has components inherited from another archetype.
+    ///
+    /// Use [`crate::inheritance::InheritedComponents`] to get get the list of inherited components.
+    pub fn has_inherited_components(&self) -> bool {
+        self.flags()
+            .contains(ArchetypeFlags::HAS_INHERITED_COMPONENTS)
+    }
+
+    #[inline]
+    /// Returns `true` if this archetype is inherited by any other archetypes.
+    ///
+    /// Use [`crate::inheritance::InheritedComponents`] to get get the list of inherited components.
+    pub fn is_inherited(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::IS_INHERITED)
+    }
 }
 
 /// The next [`ArchetypeId`] in an [`Archetypes`] collection.
@@ -810,6 +842,7 @@ pub struct ArchetypeRecord {
         reason = "Currently unused, but planned to be used to implement a component index to improve performance of fragmenting relations."
     )]
     pub(crate) column: Option<usize>,
+    pub(crate) is_inherited: bool,
 }
 
 impl Archetypes {
