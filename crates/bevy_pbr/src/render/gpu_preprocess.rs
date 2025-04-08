@@ -26,9 +26,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_render::batching::gpu_preprocessing::{
-    IndirectParametersGpuMetadata, UntypedPhaseIndirectParametersBuffers,
-};
+use bevy_render::batching::gpu_preprocessing::{GpuPreprocessingMode, IndirectParametersGpuMetadata, UntypedPhaseIndirectParametersBuffers};
 use bevy_render::{
     batching::gpu_preprocessing::{
         BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingSupport,
@@ -1173,26 +1171,41 @@ fn run_build_indirect_parameters_node(
 impl PreprocessPipelines {
     /// Returns true if the preprocessing and indirect parameters pipelines have
     /// been loaded or false otherwise.
-    pub(crate) fn pipelines_are_loaded(&self, pipeline_cache: &PipelineCache) -> bool {
-        self.direct_preprocess.is_loaded(pipeline_cache)
-            && self
-                .gpu_frustum_culling_preprocess
-                .is_loaded(pipeline_cache)
-            && self
-                .early_gpu_occlusion_culling_preprocess
-                .is_loaded(pipeline_cache)
-            && self
-                .late_gpu_occlusion_culling_preprocess
-                .is_loaded(pipeline_cache)
-            && self
-                .gpu_frustum_culling_build_indexed_indirect_params
-                .is_loaded(pipeline_cache)
-            && self
-                .gpu_frustum_culling_build_non_indexed_indirect_params
-                .is_loaded(pipeline_cache)
-            && self.early_phase.is_loaded(pipeline_cache)
-            && self.late_phase.is_loaded(pipeline_cache)
-            && self.main_phase.is_loaded(pipeline_cache)
+    pub(crate) fn pipelines_are_loaded(
+        &self,
+        pipeline_cache: &PipelineCache,
+        preprocessing_support: &GpuPreprocessingSupport,
+    ) -> bool {
+        match preprocessing_support.max_supported_mode {
+            GpuPreprocessingMode::None => false,
+            GpuPreprocessingMode::PreprocessingOnly => {
+                self.direct_preprocess.is_loaded(pipeline_cache)
+                    && self
+                        .gpu_frustum_culling_preprocess
+                        .is_loaded(pipeline_cache)
+            }
+            GpuPreprocessingMode::Culling => {
+                self.direct_preprocess.is_loaded(pipeline_cache)
+                    && self
+                        .gpu_frustum_culling_preprocess
+                        .is_loaded(pipeline_cache)
+                    && self
+                        .early_gpu_occlusion_culling_preprocess
+                        .is_loaded(pipeline_cache)
+                    && self
+                        .late_gpu_occlusion_culling_preprocess
+                        .is_loaded(pipeline_cache)
+                    && self
+                        .gpu_frustum_culling_build_indexed_indirect_params
+                        .is_loaded(pipeline_cache)
+                    && self
+                        .gpu_frustum_culling_build_non_indexed_indirect_params
+                        .is_loaded(pipeline_cache)
+                    && self.early_phase.is_loaded(pipeline_cache)
+                    && self.late_phase.is_loaded(pipeline_cache)
+                    && self.main_phase.is_loaded(pipeline_cache)
+            }
+        }
     }
 }
 
@@ -1495,6 +1508,7 @@ pub fn prepare_preprocess_pipelines(
         SpecializedComputePipelines<BuildIndirectParametersPipeline>,
     >,
     preprocess_pipelines: ResMut<PreprocessPipelines>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     let preprocess_pipelines = preprocess_pipelines.into_inner();
 
@@ -1508,22 +1522,25 @@ pub fn prepare_preprocess_pipelines(
         &mut specialized_preprocess_pipelines,
         PreprocessPipelineKey::FRUSTUM_CULLING,
     );
-    preprocess_pipelines
-        .early_gpu_occlusion_culling_preprocess
-        .prepare(
-            &pipeline_cache,
-            &mut specialized_preprocess_pipelines,
-            PreprocessPipelineKey::FRUSTUM_CULLING
-                | PreprocessPipelineKey::OCCLUSION_CULLING
-                | PreprocessPipelineKey::EARLY_PHASE,
-        );
-    preprocess_pipelines
-        .late_gpu_occlusion_culling_preprocess
-        .prepare(
-            &pipeline_cache,
-            &mut specialized_preprocess_pipelines,
-            PreprocessPipelineKey::FRUSTUM_CULLING | PreprocessPipelineKey::OCCLUSION_CULLING,
-        );
+
+    if gpu_preprocessing_support.is_culling_supported() {
+        preprocess_pipelines
+            .early_gpu_occlusion_culling_preprocess
+            .prepare(
+                &pipeline_cache,
+                &mut specialized_preprocess_pipelines,
+                PreprocessPipelineKey::FRUSTUM_CULLING
+                    | PreprocessPipelineKey::OCCLUSION_CULLING
+                    | PreprocessPipelineKey::EARLY_PHASE,
+            );
+        preprocess_pipelines
+            .late_gpu_occlusion_culling_preprocess
+            .prepare(
+                &pipeline_cache,
+                &mut specialized_preprocess_pipelines,
+                PreprocessPipelineKey::FRUSTUM_CULLING | PreprocessPipelineKey::OCCLUSION_CULLING,
+            );
+    }
 
     let mut build_indirect_parameters_pipeline_key = BuildIndirectParametersPipelineKey::empty();
 
@@ -1552,6 +1569,10 @@ pub fn prepare_preprocess_pipelines(
             &mut specialized_build_indirect_parameters_pipelines,
             build_indirect_parameters_pipeline_key,
         );
+
+    if !gpu_preprocessing_support.is_culling_supported() {
+        return;
+    }
 
     for (preprocess_phase_pipelines, build_indirect_parameters_phase_pipeline_key) in [
         (

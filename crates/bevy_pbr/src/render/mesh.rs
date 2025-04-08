@@ -3057,6 +3057,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         SRes<PipelineCache>,
         SRes<MeshAllocator>,
         Option<SRes<PreprocessPipelines>>,
+        SRes<GpuPreprocessingSupport>,
     );
     type ViewQuery = Has<PreprocessBindGroups>;
     type ItemQuery = ();
@@ -3072,6 +3073,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             pipeline_cache,
             mesh_allocator,
             preprocess_pipelines,
+            preprocessing_support,
         ): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -3080,7 +3082,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         // it's compiled. Otherwise, our mesh instance data won't be present.
         if let Some(preprocess_pipelines) = preprocess_pipelines {
             if !has_preprocess_bind_group
-                || !preprocess_pipelines.pipelines_are_loaded(&pipeline_cache)
+                || !preprocess_pipelines.pipelines_are_loaded(&pipeline_cache, &preprocessing_support)
             {
                 return RenderCommandResult::Skip;
             }
