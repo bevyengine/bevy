@@ -321,6 +321,7 @@ pub(crate) struct RenderSkyPipelineId(pub CachedRenderPipelineId);
 pub(crate) struct RenderSkyPipelineKey {
     pub msaa_samples: u32,
     pub hdr: bool,
+    pub dual_source_blending: bool,
 }
 
 impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
@@ -335,6 +336,15 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
         if key.hdr {
             shader_defs.push("TONEMAP_IN_SHADER".into());
         }
+        if key.dual_source_blending {
+            shader_defs.push("DUAL_SOURCE_BLENDING".into());
+        }
+
+        let dst_factor = if key.dual_source_blending {
+            BlendFactor::Src1
+        } else {
+            BlendFactor::SrcAlpha
+        };
 
         RenderPipelineDescriptor {
             label: Some(format!("render_sky_pipeline_{}", key.msaa_samples).into()),
@@ -362,7 +372,7 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
                     blend: Some(BlendState {
                         color: BlendComponent {
                             src_factor: BlendFactor::One,
-                            dst_factor: BlendFactor::Src1,
+                            dst_factor,
                             operation: BlendOperation::Add,
                         },
                         alpha: BlendComponent {

@@ -13,6 +13,7 @@ use bevy_render::{
         TextureDimension, TextureFormat, TextureUsages,
     },
     renderer::{RenderDevice, RenderQueue},
+    settings::WgpuFeatures,
     texture::TextureCache,
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniforms},
 };
@@ -40,6 +41,7 @@ pub fn queue_render_sky_pipelines(
     pipeline_cache: Res<PipelineCache>,
     layouts: Res<RenderSkyBindGroupLayouts>,
     mut specializer: ResMut<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>,
+    render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
     for (entity, camera, msaa) in &views {
@@ -49,6 +51,9 @@ pub fn queue_render_sky_pipelines(
             RenderSkyPipelineKey {
                 msaa_samples: msaa.samples(),
                 hdr: camera.hdr,
+                dual_source_blending: render_device
+                    .features()
+                    .contains(WgpuFeatures::DUAL_SOURCE_BLENDING),
             },
         );
         commands.entity(entity).insert(RenderSkyPipelineId(id));

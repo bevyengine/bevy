@@ -327,7 +327,8 @@ where
                             .in_set(RenderSet::PrepareMeshes)
                             .after(prepare_assets::<PreparedMaterial<M>>)
                             .after(prepare_assets::<RenderMesh>)
-                            .after(collect_meshes_for_gpu_building),
+                            .after(collect_meshes_for_gpu_building)
+                            .after(set_mesh_motion_vector_flags),
                         queue_material_meshes::<M>
                             .in_set(RenderSet::QueueMeshes)
                             .after(prepare_assets::<PreparedMaterial<M>>),

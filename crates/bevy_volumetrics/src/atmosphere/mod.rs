@@ -25,6 +25,10 @@
 //! at once is untested, and might not be physically accurate. These may be
 //! integrated into a single module in the future.
 //!
+//! On web platforms, atmosphere rendering will look slightly different. Specifically, when calculating how light travels
+//! through the atmosphere, we use a simpler averaging technique instead of the more
+//! complex blending operations. This difference will be resolved for WebGPU in a future release.
+//!
 //! [Shadertoy]: https://www.shadertoy.com/view/slSXRW
 //!
 //! [Unreal Engine Implementation]: https://github.com/sebh/UnrealEngineSkyAtmosphere

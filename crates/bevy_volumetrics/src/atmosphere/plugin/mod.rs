@@ -12,8 +12,7 @@ use bevy_render::{
     render_resource::{
         DownlevelFlags, Shader, SpecializedRenderPipelines, TextureFormat, TextureUsages,
     },
-    renderer::{RenderAdapter, RenderDevice},
-    settings::WgpuFeatures,
+    renderer::RenderAdapter,
     Render, RenderApp, RenderSet,
 };
 
@@ -115,15 +114,6 @@ impl Plugin for AtmospherePlugin {
         };
 
         let render_adapter = render_app.world().resource::<RenderAdapter>();
-        let render_device = render_app.world().resource::<RenderDevice>();
-
-        if !render_device
-            .features()
-            .contains(WgpuFeatures::DUAL_SOURCE_BLENDING)
-        {
-            warn!("AtmospherePlugin not loaded. GPU lacks support for dual-source blending.");
-            return;
-        }
 
         if !render_adapter
             .get_downlevel_capabilities()

@@ -5,7 +5,7 @@
         sample_transmittance_lut, sample_transmittance_lut_segment,
         sample_sky_view_lut, direction_world_to_atmosphere,
         uv_to_ray_direction, uv_to_ndc, sample_aerial_view_lut,
-        view_radius, sample_sun_illuminance, ndc_to_camera_dist
+        view_radius, sample_sun_radiance, ndc_to_camera_dist
     },
 };
 #import bevy_render::view::View;
@@ -20,7 +20,9 @@
 
 struct RenderSkyOutput {
     @location(0) inscattering: vec4<f32>,
+#ifdef DUAL_SOURCE_BLENDING
     @location(0) @second_blend_source transmittance: vec4<f32>,
+#endif
 }
 
 @fragment
@@ -33,15 +35,24 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
 
     var transmittance: vec3<f32>;
     var inscattering: vec3<f32>;
+
+    let sun_radiance = sample_sun_radiance(ray_dir_ws.xyz);
+
     if depth == 0.0 {
         let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws.xyz);
         transmittance = sample_transmittance_lut(r, mu);
         inscattering += sample_sky_view_lut(r, ray_dir_as);
-        inscattering += sample_sun_illuminance(ray_dir_ws.xyz, transmittance);
+        inscattering += sun_radiance * transmittance * view.exposure;
     } else {
         let t = ndc_to_camera_dist(vec3(uv_to_ndc(in.uv), depth));
         inscattering = sample_aerial_view_lut(in.uv, t);
         transmittance = sample_transmittance_lut_segment(r, mu, t);
     }
+#ifdef DUAL_SOURCE_BLENDING
     return RenderSkyOutput(vec4(inscattering, 0.0), vec4(transmittance, 1.0));
+#else
+    let mean_transmittance = (transmittance.r + transmittance.g + transmittance.b) / 3.0;
+    return RenderSkyOutput(vec4(inscattering, mean_transmittance));
+#endif
+    
 }
