@@ -37,7 +37,7 @@ pub enum ReadLogError {
     InvalidLine(String),
     /// A file-system-based error occurred while reading the log file.
     #[error("Failed to read log file: {0}")]
-    Io(#[from] futures_io::Error),
+    Io(#[from] bevy_platform_support::io::Error),
 }
 
 /// An error that occurs when writing to the [`ProcessorTransactionLog`] fails.
@@ -47,7 +47,7 @@ pub enum ReadLogError {
 )]
 pub struct WriteLogError {
     log_entry: LogEntry,
-    error: futures_io::Error,
+    error: bevy_platform_support::io::Error,
 }
 
 /// An error that occurs when validating the [`ProcessorTransactionLog`] fails.
@@ -92,13 +92,13 @@ impl ProcessorTransactionLog {
         base_path.join(LOG_PATH)
     }
     /// Create a new, fresh log file. This will delete the previous log file if it exists.
-    pub(crate) async fn new() -> Result<Self, futures_io::Error> {
+    pub(crate) async fn new() -> Result<Self, bevy_platform_support::io::Error> {
         let path = Self::full_log_path();
         match async_fs::remove_file(&path).await {
             Ok(_) => { /* successfully removed file */ }
             Err(err) => {
                 // if the log file is not found, we assume we are starting in a fresh (or good) state
-                if err.kind() != futures_io::ErrorKind::NotFound {
+                if err.kind() != bevy_platform_support::io::ErrorKind::NotFound {
                     error!("Failed to remove previous log file {}", err);
                 }
             }
@@ -118,7 +118,7 @@ impl ProcessorTransactionLog {
         let mut file = match File::open(Self::full_log_path()).await {
             Ok(file) => file,
             Err(err) => {
-                if err.kind() == futures_io::ErrorKind::NotFound {
+                if err.kind() == bevy_platform_support::io::ErrorKind::NotFound {
                     // if the log file doesn't exist, this is equivalent to an empty file
                     return Ok(log_lines);
                 }
@@ -215,7 +215,7 @@ impl ProcessorTransactionLog {
             })
     }
 
-    async fn write(&mut self, line: &str) -> Result<(), futures_io::Error> {
+    async fn write(&mut self, line: &str) -> Result<(), bevy_platform_support::io::Error> {
         self.log_file.write_all(line.as_bytes()).await?;
         self.log_file.flush().await?;
         Ok(())

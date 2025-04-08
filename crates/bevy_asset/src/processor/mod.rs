@@ -59,8 +59,8 @@ use crate::{
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, sync::Arc, vec, vec::Vec};
 use bevy_ecs::prelude::*;
 use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform_support::io::ErrorKind;
 use bevy_tasks::IoTaskPool;
-use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use parking_lot::RwLock;
 use std::path::{Path, PathBuf};
@@ -217,7 +217,7 @@ impl AssetProcessor {
     ///   (if the latest version of the asset has not been processed).
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     pub fn process_assets(&self) {
-        let start_time = std::time::Instant::now();
+        let start_time = bevy_platform_support::time::Instant::now();
         debug!("Processing Assets");
         IoTaskPool::get().scope(|scope| {
             scope.spawn(async move {
@@ -232,7 +232,7 @@ impl AssetProcessor {
         // This must happen _after_ the scope resolves or it will happen "too early"
         // Don't move this into the async scope above! process_assets is a blocking/sync function this is fine
         bevy_tasks::block_on(self.finish_processing_assets());
-        let end_time = std::time::Instant::now();
+        let end_time = bevy_platform_support::time::Instant::now();
         debug!("Processing finished in {:?}", end_time - start_time);
     }
 

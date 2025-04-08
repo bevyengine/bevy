@@ -16,6 +16,7 @@ extern crate std;
 extern crate alloc;
 
 pub mod hash;
+pub mod io;
 pub mod sync;
 pub mod thread;
 pub mod time;
