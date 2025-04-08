@@ -7,6 +7,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
     entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
+    inheritance::InheritedComponents,
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -294,6 +295,14 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.bundles
+    }
+
+    /// Retrieves this world's [`InheritedComponents`] collection.
+    #[inline]
+    pub fn inherited_components(self) -> &'w InheritedComponents {
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.inherited_components
     }
 
     /// Gets the current change tick of this world.
@@ -822,6 +831,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 T::STORAGE_TYPE,
                 self.entity,
                 self.location,
+                true,
             )
             .map(|(value, cells, caller)| Ref {
                 // SAFETY: returned component is of type T
@@ -943,6 +953,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 T::STORAGE_TYPE,
                 self.entity,
                 self.location,
+                false,
             )
             .map(|(value, cells, caller)| Mut {
                 // SAFETY: returned component is of type T
@@ -974,7 +985,21 @@ impl<'w> UnsafeEntityCell<'w> {
                 .get(location.archetype_id)
                 .debug_checked_unwrap()
         };
-        if Q::matches_component_set(&state, &|id| archetype.contains(id)) {
+
+        let archetype_inherited_components = if archetype.has_inherited_components() {
+            self.world
+                .inherited_components()
+                .archetype_inherited_components
+                .get(&archetype.id())
+        } else {
+            None
+        };
+
+        if Q::matches_component_set(&state, &|id| {
+            archetype.contains(id)
+                || archetype_inherited_components
+                    .is_some_and(|components| components.contains_key(&id))
+        }) {
             // SAFETY: state was initialized above using the world passed into this function
             let mut fetch = unsafe {
                 Q::init_fetch(
@@ -1066,6 +1091,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 info.storage_type(),
                 self.entity,
                 self.location,
+                false,
             )
             .map(|(value, cells, caller)| MutUntyped {
                 // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
@@ -1114,6 +1140,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 info.storage_type(),
                 self.entity,
                 self.location,
+                false,
             )
             .map(|(value, cells, caller)| MutUntyped {
                 // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
@@ -1202,6 +1229,16 @@ unsafe fn get_component(
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get(entity),
     }
+    .or_else(|| {
+        let archetype = world.archetypes().get(location.archetype_id)?;
+        let (base, ..) = *world
+            .inherited_components()
+            .archetype_inherited_components
+            .get(&archetype.id())?
+            .get(&component_id)?;
+        let location = world.entities().get(base)?;
+        get_component(world, component_id, storage_type, base, location)
+    })
 }
 
 /// Get an untyped pointer to a particular [`Component`] and its [`ComponentTicks`]
@@ -1218,6 +1255,7 @@ unsafe fn get_component_and_ticks(
     storage_type: StorageType,
     entity: Entity,
     location: EntityLocation,
+    include_inherited: bool,
 ) -> Option<(
     Ptr<'_>,
     TickCells<'_>,
@@ -1228,23 +1266,40 @@ unsafe fn get_component_and_ticks(
             let table = world.fetch_table(location)?;
 
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-            Some((
-                table.get_component(component_id, location.table_row)?,
-                TickCells {
-                    added: table
-                        .get_added_tick(component_id, location.table_row)
-                        .debug_checked_unwrap(),
-                    changed: table
-                        .get_changed_tick(component_id, location.table_row)
-                        .debug_checked_unwrap(),
-                },
-                table
-                    .get_changed_by(component_id, location.table_row)
-                    .map(|changed_by| changed_by.debug_checked_unwrap()),
-            ))
+            table
+                .get_component(component_id, location.table_row)
+                .map(|ptr| {
+                    (
+                        ptr,
+                        TickCells {
+                            added: table
+                                .get_added_tick(component_id, location.table_row)
+                                .debug_checked_unwrap(),
+                            changed: table
+                                .get_changed_tick(component_id, location.table_row)
+                                .debug_checked_unwrap(),
+                        },
+                        table
+                            .get_changed_by(component_id, location.table_row)
+                            .map(|changed_by| changed_by.debug_checked_unwrap()),
+                    )
+                })
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_with_ticks(entity),
     }
+    .or_else(|| {
+        if !include_inherited {
+            return None;
+        }
+        let archetype = world.archetypes().get(location.archetype_id)?;
+        let (base, ..) = *world
+            .inherited_components()
+            .archetype_inherited_components
+            .get(&archetype.id())?
+            .get(&component_id)?;
+        let location = world.entities().get(base)?;
+        get_component_and_ticks(world, component_id, storage_type, base, location, false)
+    })
 }
 
 /// Get an untyped pointer to the [`ComponentTicks`] on a particular [`Entity`]
@@ -1271,6 +1326,16 @@ unsafe fn get_ticks(
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_ticks(entity),
     }
+    .or_else(|| {
+        let archetype = world.archetypes().get(location.archetype_id)?;
+        let (base, ..) = *world
+            .inherited_components()
+            .archetype_inherited_components
+            .get(&archetype.id())?
+            .get(&component_id)?;
+        let location = world.entities().get(base)?;
+        get_ticks(world, component_id, storage_type, base, location)
+    })
 }
 
 impl ContainsEntity for UnsafeEntityCell<'_> {
