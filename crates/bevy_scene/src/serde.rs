@@ -515,14 +515,13 @@ mod tests {
         DynamicScene, DynamicSceneBuilder,
     };
     use bevy_ecs::{
-        entity::{hash_map::EntityHashMap, Entity},
+        entity::{Entity, EntityHashMap},
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
         reflect::AppTypeRegistry,
         world::FromWorld,
     };
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-    use bincode::Options;
     use serde::{de::DeserializeSeed, Deserialize, Serialize};
     use std::io::BufReader;
 
@@ -763,12 +762,12 @@ mod tests {
 
         let bar_to_foo = dst_world
             .query_filtered::<&MyEntityRef, Without<Foo>>()
-            .get_single(&dst_world)
+            .single(&dst_world)
             .cloned()
             .unwrap();
         let foo = dst_world
             .query_filtered::<Entity, With<Foo>>()
-            .get_single(&dst_world)
+            .single(&dst_world)
             .unwrap();
 
         assert_eq!(foo, bar_to_foo.0);
@@ -793,7 +792,7 @@ mod tests {
         deserialized_scene
             .write_to_world(&mut world, &mut EntityHashMap::default())
             .unwrap();
-        assert_eq!(&qux, world.query::<&Qux>().single(&world));
+        assert_eq!(&qux, world.query::<&Qux>().single(&world).unwrap());
     }
 
     #[test]
@@ -894,8 +893,9 @@ mod tests {
 
         let scene = DynamicScene::from_world(&world);
 
+        let config = bincode::config::standard().with_fixed_int_encoding();
         let scene_serializer = SceneSerializer::new(&scene, registry);
-        let serialized_scene = bincode::serialize(&scene_serializer).unwrap();
+        let serialized_scene = bincode::serde::encode_to_vec(&scene_serializer, config).unwrap();
 
         assert_eq!(
             vec![
@@ -913,10 +913,9 @@ mod tests {
             type_registry: registry,
         };
 
-        let deserialized_scene = bincode::DefaultOptions::new()
-            .with_fixint_encoding()
-            .deserialize_seed(scene_deserializer, &serialized_scene)
-            .unwrap();
+        let (deserialized_scene, _read_bytes) =
+            bincode::serde::seed_decode_from_slice(scene_deserializer, &serialized_scene, config)
+                .unwrap();
 
         assert_eq!(1, deserialized_scene.entities.len());
         assert_scene_eq(&scene, &deserialized_scene);

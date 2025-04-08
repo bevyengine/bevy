@@ -102,11 +102,13 @@ impl MeshletMesh {
                 },
             })
             .collect::<Vec<_>>();
-        let mut simplification_errors = iter::repeat(MeshletSimplificationError {
-            group_error: f16::ZERO,
-            parent_group_error: f16::MAX,
-        })
-        .take(meshlets.len())
+        let mut simplification_errors = iter::repeat_n(
+            MeshletSimplificationError {
+                group_error: f16::ZERO,
+                parent_group_error: f16::MAX,
+            },
+            meshlets.len(),
+        )
         .collect::<Vec<_>>();
 
         let mut vertex_locks = vec![false; vertices.vertex_count];
@@ -187,13 +189,13 @@ impl MeshletMesh {
                         },
                     }
                 }));
-                simplification_errors.extend(
-                    iter::repeat(MeshletSimplificationError {
+                simplification_errors.extend(iter::repeat_n(
+                    MeshletSimplificationError {
                         group_error,
                         parent_group_error: f16::MAX,
-                    })
-                    .take(new_meshlet_ids.len()),
-                );
+                    },
+                    new_meshlet_ids.len(),
+                ));
             }
 
             // Set simplification queue to the list of newly created meshlets

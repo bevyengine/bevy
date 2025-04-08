@@ -88,7 +88,6 @@ struct UiTextureSliceVertex {
 pub struct UiTextureSlicerBatch {
     pub range: Range<u32>,
     pub image: AssetId<Image>,
-    pub camera: Entity,
 }
 
 #[derive(Resource)]
@@ -373,9 +372,8 @@ pub fn queue_ui_slices(
             draw_function,
             pipeline,
             entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),
-            sort_key: (
-                FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::TEXTURE_SLICE),
-                extracted_slicer.render_entity.index(),
+            sort_key: FloatOrd(
+                extracted_slicer.stack_index as f32 + stack_z_offsets::TEXTURE_SLICE,
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
@@ -446,8 +444,6 @@ pub fn prepare_ui_slices(
                         || (batch_image_handle != AssetId::default()
                             && texture_slices.image != AssetId::default()
                             && batch_image_handle != texture_slices.image)
-                        || existing_batch.as_ref().map(|(_, b)| b.camera)
-                            != Some(texture_slices.extracted_camera_entity)
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_item_index = item_index;
@@ -457,7 +453,6 @@ pub fn prepare_ui_slices(
                             let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
                                 image: texture_slices.image,
-                                camera: texture_slices.extracted_camera_entity,
                             };
 
                             batches.push((item.entity(), new_batch));
@@ -653,7 +648,7 @@ pub fn prepare_ui_slices(
         ui_meta.vertices.write_buffer(&render_device, &render_queue);
         ui_meta.indices.write_buffer(&render_device, &render_queue);
         *previous_len = batches.len();
-        commands.insert_or_spawn_batch(batches);
+        commands.try_insert_batch(batches);
     }
     extracted_slices.slices.clear();
 }

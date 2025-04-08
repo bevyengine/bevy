@@ -234,7 +234,7 @@ impl ShapeSample for Rectangle {
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
         let primary_side = rng.gen_range(-1.0..1.0);
-        let other_side = if rng.gen() { -1.0 } else { 1.0 };
+        let other_side = if rng.r#gen() { -1.0 } else { 1.0 };
 
         if self.half_size.x + self.half_size.y > 0.0 {
             if rng.gen_bool((self.half_size.x / (self.half_size.x + self.half_size.y)) as f64) {
@@ -261,7 +261,7 @@ impl ShapeSample for Cuboid {
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
         let primary_side1 = rng.gen_range(-1.0..1.0);
         let primary_side2 = rng.gen_range(-1.0..1.0);
-        let other_side = if rng.gen() { -1.0 } else { 1.0 };
+        let other_side = if rng.r#gen() { -1.0 } else { 1.0 };
 
         if let Ok(dist) = WeightedIndex::new([
             self.half_size.y * self.half_size.z,
@@ -425,7 +425,7 @@ impl ShapeSample for Cylinder {
         if self.radius + 2.0 * self.half_height > 0.0 {
             if rng.gen_bool((self.radius / (self.radius + 2.0 * self.half_height)) as f64) {
                 let Vec2 { x, y: z } = self.base().sample_interior(rng);
-                if rng.gen() {
+                if rng.r#gen() {
                     Vec3::new(x, self.half_height, z)
                 } else {
                     Vec3::new(x, -self.half_height, z)

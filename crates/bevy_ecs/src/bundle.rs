@@ -11,13 +11,14 @@ use crate::{
     },
     change_detection::MaybeLocation,
     component::{
-        Component, ComponentId, Components, RequiredComponentConstructor, RequiredComponents,
-        StorageType, Tick,
+        Component, ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor,
+        RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
+    relationship::RelationshipHookMode,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, EntityWorldMut, ON_ADD, ON_INSERT, ON_REPLACE},
 };
@@ -30,7 +31,7 @@ use variadics_please::all_tuples;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
-/// Implementors of the `Bundle` trait are called 'bundles'.
+/// Implementers of the `Bundle` trait are called 'bundles'.
 ///
 /// Each bundle represents a static set of [`Component`] types.
 /// Currently, bundles can only contain one of each [`Component`], and will
@@ -71,7 +72,7 @@ use variadics_please::all_tuples;
 /// That is, if the entity does not have all the components of the bundle, those
 /// which are present will be removed.
 ///
-/// # Implementors
+/// # Implementers
 ///
 /// Every type which implements [`Component`] also implements `Bundle`, since
 /// [`Component`] types can be added to or removed from an entity.
@@ -150,14 +151,14 @@ use variadics_please::all_tuples;
 pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
-    fn component_ids(components: &mut Components, ids: &mut impl FnMut(ComponentId));
+    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId));
 
     /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
 
     /// Registers components that are required by the components in this [`Bundle`].
     fn register_required_components(
-        _components: &mut Components,
+        _components: &mut ComponentsRegistrator,
         _required_components: &mut RequiredComponents,
     );
 }
@@ -222,12 +223,12 @@ pub trait BundleEffect {
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
 unsafe impl<C: Component> Bundle for C {
-    fn component_ids(components: &mut Components, ids: &mut impl FnMut(ComponentId)) {
+    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         ids(components.register_component::<C>());
     }
 
     fn register_required_components(
-        components: &mut Components,
+        components: &mut ComponentsRegistrator,
         required_components: &mut RequiredComponents,
     ) {
         let component_id = components.register_component::<C>();
@@ -287,7 +288,7 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            fn component_ids(components: &mut Components,  ids: &mut impl FnMut(ComponentId)){
+            fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
                 $(<$name as Bundle>::component_ids(components, ids);)*
             }
 
@@ -296,7 +297,7 @@ macro_rules! tuple_impl {
             }
 
             fn register_required_components(
-                components: &mut Components,
+                components: &mut ComponentsRegistrator,
                 required_components: &mut RequiredComponents,
             ) {
                 $(<$name as Bundle>::register_required_components(components, required_components);)*
@@ -998,9 +999,12 @@ impl<'w> BundleInserter<'w> {
         archetype_id: ArchetypeId,
         change_tick: Tick,
     ) -> Self {
+        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
             .bundles
-            .register_info::<T>(&mut world.components, &mut world.storages);
+            .register_info::<T>(&mut registrator, &mut world.storages);
         // SAFETY: We just ensured this bundle exists
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
     }
@@ -1100,6 +1104,7 @@ impl<'w> BundleInserter<'w> {
         bundle: T,
         insert_mode: InsertMode,
         caller: MaybeLocation,
+        relationship_hook_mode: RelationshipHookMode,
     ) -> (EntityLocation, T::Effect) {
         let bundle_info = self.bundle_info.as_ref();
         let archetype_after_insert = self.archetype_after_insert.as_ref();
@@ -1125,6 +1130,7 @@ impl<'w> BundleInserter<'w> {
                     entity,
                     archetype_after_insert.iter_existing(),
                     caller,
+                    relationship_hook_mode,
                 );
             }
         }
@@ -1312,6 +1318,7 @@ impl<'w> BundleInserter<'w> {
                         entity,
                         archetype_after_insert.iter_inserted(),
                         caller,
+                        relationship_hook_mode,
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
@@ -1330,6 +1337,7 @@ impl<'w> BundleInserter<'w> {
                         entity,
                         archetype_after_insert.iter_added(),
                         caller,
+                        relationship_hook_mode,
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
@@ -1365,9 +1373,12 @@ pub(crate) struct BundleSpawner<'w> {
 impl<'w> BundleSpawner<'w> {
     #[inline]
     pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
+        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
             .bundles
-            .register_info::<T>(&mut world.components, &mut world.storages);
+            .register_info::<T>(&mut registrator, &mut world.storages);
         // SAFETY: we initialized this bundle_id in `init_info`
         unsafe { Self::new_with_id(world, bundle_id, change_tick) }
     }
@@ -1474,6 +1485,7 @@ impl<'w> BundleSpawner<'w> {
                 entity,
                 bundle_info.iter_contributed_components(),
                 caller,
+                RelationshipHookMode::Run,
             );
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
@@ -1569,11 +1581,11 @@ impl Bundles {
     /// Also registers all the components in the bundle.
     pub(crate) fn register_info<T: Bundle>(
         &mut self,
-        components: &mut Components,
+        components: &mut ComponentsRegistrator,
         storages: &mut Storages,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
-        let id = *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
+        *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let mut component_ids= Vec::new();
             T::component_ids(components, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
@@ -1585,8 +1597,7 @@ impl Bundles {
                 unsafe { BundleInfo::new(core::any::type_name::<T>(), storages, components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id
-        });
-        id
+        })
     }
 
     /// Registers a new [`BundleInfo`], which contains both explicit and required components for a statically known type.
@@ -1594,7 +1605,7 @@ impl Bundles {
     /// Also registers all the components in the bundle.
     pub(crate) fn register_contributed_bundle_info<T: Bundle>(
         &mut self,
-        components: &mut Components,
+        components: &mut ComponentsRegistrator,
         storages: &mut Storages,
     ) -> BundleId {
         if let Some(id) = self.contributed_bundle_ids.get(&TypeId::of::<T>()).cloned() {

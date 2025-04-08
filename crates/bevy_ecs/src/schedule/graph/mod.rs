@@ -62,7 +62,7 @@ pub(crate) enum Ambiguity {
 
 /// Metadata about how the node fits in the schedule graph
 #[derive(Default)]
-pub(crate) struct GraphInfo {
+pub struct GraphInfo {
     /// the sets that the node belongs to (hierarchy)
     pub(crate) hierarchy: Vec<InternedSystemSet>,
     /// the sets that the node depends on (must run before or after)
@@ -276,7 +276,7 @@ pub fn simple_cycles_in_component(graph: &DiGraph, scc: &[NodeId]) -> Vec<Vec<No
         stack.clear();
         stack.push((root, subgraph.neighbors(root)));
         while !stack.is_empty() {
-            let (ref node, successors) = stack.last_mut().unwrap();
+            let &mut (ref node, ref mut successors) = stack.last_mut().unwrap();
             if let Some(next) = successors.next() {
                 if next == root {
                     // found a cycle

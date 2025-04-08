@@ -1,6 +1,5 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
-use bevy_render::render_phase::InputUniformIndex;
 
 use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
 use bevy_core_pipeline::tonemapping::DebandDither;
@@ -25,7 +24,7 @@ use bevy_render::prelude::Msaa;
 use bevy_render::RenderSet::PrepareAssets;
 use bevy_render::{
     batching::{
-        gpu_preprocessing::IndirectParametersMetadata,
+        gpu_preprocessing::IndirectParametersCpuMetadata,
         no_gpu_preprocessing::{
             self, batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
             write_batched_instance_buffer, BatchedInstanceBuffer,
@@ -39,7 +38,8 @@ use bevy_render::{
     },
     render_asset::RenderAssets,
     render_phase::{
-        PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult, TrackedRenderPass,
+        sweep_old_entities, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
+        TrackedRenderPass,
     },
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
@@ -115,6 +115,11 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_systems(
                     Render,
                     (
+                        (
+                            sweep_old_entities::<Opaque2d>,
+                            sweep_old_entities::<AlphaMask2d>,
+                        )
+                            .in_set(RenderSet::QueueSweep),
                         batch_and_prepare_binned_render_phase::<Opaque2d, Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResources),
                         batch_and_prepare_binned_render_phase::<AlphaMask2d, Mesh2dPipeline>
@@ -475,7 +480,6 @@ impl GetFullBatchData for Mesh2dPipeline {
     }
 
     fn write_batch_indirect_parameters_metadata(
-        input_index: InputUniformIndex,
         indexed: bool,
         base_output_index: u32,
         batch_set_index: Option<NonMaxU32>,
@@ -485,22 +489,22 @@ impl GetFullBatchData for Mesh2dPipeline {
         // Note that `IndirectParameters` covers both of these structures, even
         // though they actually have distinct layouts. See the comment above that
         // type for more information.
-        let indirect_parameters = IndirectParametersMetadata {
-            mesh_index: *input_index,
+        let indirect_parameters = IndirectParametersCpuMetadata {
             base_output_index,
             batch_set_index: match batch_set_index {
                 None => !0,
                 Some(batch_set_index) => u32::from(batch_set_index),
             },
-            early_instance_count: 0,
-            late_instance_count: 0,
         };
 
         if indexed {
-            indirect_parameters_buffer.set_indexed(indirect_parameters_offset, indirect_parameters);
+            indirect_parameters_buffer
+                .indexed
+                .set(indirect_parameters_offset, indirect_parameters);
         } else {
             indirect_parameters_buffer
-                .set_non_indexed(indirect_parameters_offset, indirect_parameters);
+                .non_indexed
+                .set(indirect_parameters_offset, indirect_parameters);
         }
     }
 }

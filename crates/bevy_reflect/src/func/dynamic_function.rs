@@ -94,7 +94,7 @@ impl<'env> DynamicFunction<'env> {
     ) -> Self {
         let arc = Arc::new(func);
 
-        #[cfg(feature = "portable-atomic")]
+        #[cfg(not(target_has_atomic = "ptr"))]
         #[expect(
             unsafe_code,
             reason = "unsized coercion is an unstable feature for non-std types"
@@ -358,7 +358,7 @@ impl Function for DynamicFunction<'static> {
         self.call(args)
     }
 
-    fn clone_dynamic(&self) -> DynamicFunction<'static> {
+    fn to_dynamic_function(&self) -> DynamicFunction<'static> {
         self.clone()
     }
 }
@@ -395,7 +395,7 @@ impl PartialReflect for DynamicFunction<'static> {
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
         match value.reflect_ref() {
             ReflectRef::Function(func) => {
-                *self = func.clone_dynamic();
+                *self = func.to_dynamic_function();
                 Ok(())
             }
             _ => Err(ApplyError::MismatchedTypes {
@@ -419,10 +419,6 @@ impl PartialReflect for DynamicFunction<'static> {
 
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Function(self)
-    }
-
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone())
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -562,14 +558,14 @@ mod tests {
         assert_eq!(greet.name().unwrap(), "greet");
         assert_eq!(clone.name().unwrap(), "greet");
 
-        let clone_value = clone
+        let cloned_value = clone
             .call(ArgList::default().with_ref(&String::from("world")))
             .unwrap()
             .unwrap_owned()
             .try_take::<String>()
             .unwrap();
 
-        assert_eq!(clone_value, "Hello, world!");
+        assert_eq!(cloned_value, "Hello, world!");
     }
 
     #[test]

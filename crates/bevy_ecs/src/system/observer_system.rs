@@ -4,15 +4,15 @@ use core::marker::PhantomData;
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
+    error::Result,
     prelude::{Bundle, Trigger},
     query::Access,
-    result::Result,
     schedule::{Fallible, Infallible},
     system::{input::SystemIn, System},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
-use super::IntoSystem;
+use super::{IntoSystem, SystemParamValidationError};
 
 /// Implemented for [`System`]s that have a [`Trigger`] as the first argument.
 pub trait ObserverSystem<E: 'static, B: Bundle, Out = Result>:
@@ -139,12 +139,6 @@ where
     }
 
     #[inline]
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
-        self.observer.run(input, world);
-        Ok(())
-    }
-
-    #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         self.observer.apply_deferred(world);
     }
@@ -155,7 +149,10 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         self.observer.validate_param_unsafe(world)
     }
 

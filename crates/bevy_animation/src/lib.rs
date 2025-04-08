@@ -96,23 +96,26 @@ impl VariableCurve {
 /// Because animation clips refer to targets by UUID, they can target any
 /// [`AnimationTarget`] with that ID.
 #[derive(Asset, Reflect, Clone, Debug, Default)]
+#[reflect(Clone, Default)]
 pub struct AnimationClip {
     // This field is ignored by reflection because AnimationCurves can contain things that are not reflect-able
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     curves: AnimationCurves,
     events: AnimationEvents,
     duration: f32,
 }
 
 #[derive(Reflect, Debug, Clone)]
+#[reflect(Clone)]
 struct TimedAnimationEvent {
     time: f32,
     event: AnimationEvent,
 }
 
 #[derive(Reflect, Debug, Clone)]
+#[reflect(Clone)]
 struct AnimationEvent {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     trigger: AnimationEventFn,
 }
 
@@ -124,6 +127,7 @@ impl AnimationEvent {
 
 #[derive(Reflect, Clone)]
 #[reflect(opaque)]
+#[reflect(Clone, Default, Debug)]
 struct AnimationEventFn(Arc<dyn Fn(&mut Commands, Entity, f32, f32) + Send + Sync>);
 
 impl Default for AnimationEventFn {
@@ -139,6 +143,7 @@ impl Debug for AnimationEventFn {
 }
 
 #[derive(Reflect, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
+#[reflect(Clone)]
 enum AnimationEventTarget {
     Root,
     Node(AnimationTargetId),
@@ -172,6 +177,7 @@ pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHa
 ///
 /// [UUID]: https://en.wikipedia.org/wiki/Universally_unique_identifier
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug, Serialize, Deserialize)]
+#[reflect(Clone)]
 pub struct AnimationTargetId(pub Uuid);
 
 impl Hash for AnimationTargetId {
@@ -203,7 +209,7 @@ impl Hash for AnimationTargetId {
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
 #[derive(Clone, Copy, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Clone)]
 pub struct AnimationTarget {
     /// The ID of this animation target.
     ///
@@ -425,6 +431,7 @@ impl AnimationClip {
 
 /// Repetition behavior of an animation.
 #[derive(Reflect, Debug, PartialEq, Eq, Copy, Clone, Default)]
+#[reflect(Clone, Default)]
 pub enum RepeatAnimation {
     /// The animation will finish after running once.
     #[default]
@@ -462,6 +469,7 @@ pub enum AnimationEvaluationError {
 ///
 /// A stopped animation is considered no longer active.
 #[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Clone, Default)]
 pub struct ActiveAnimation {
     /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
     weight: f32,
@@ -674,10 +682,9 @@ impl ActiveAnimation {
 /// Automatically added to any root animations of a scene when it is
 /// spawned.
 #[derive(Component, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct AnimationPlayer {
     active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
-    blend_weights: HashMap<AnimationNodeIndex, f32>,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -685,13 +692,11 @@ impl Clone for AnimationPlayer {
     fn clone(&self) -> Self {
         Self {
             active_animations: self.active_animations.clone(),
-            blend_weights: self.blend_weights.clone(),
         }
     }
 
     fn clone_from(&mut self, source: &Self) {
         self.active_animations.clone_from(&source.active_animations);
-        self.blend_weights.clone_from(&source.blend_weights);
     }
 }
 
@@ -1525,6 +1530,8 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 
 #[cfg(test)]
 mod tests {
+    use bevy_reflect::{DynamicMap, Map};
+
     use super::*;
 
     #[derive(Event, Reflect, Clone)]
@@ -1655,5 +1662,14 @@ mod tests {
         active_animation.last_seek_time = Some(clip.duration);
         active_animation.update(clip.duration, clip.duration); // 0.3 : 0.0
         assert_triggered_events_with(&active_animation, &clip, [0.3, 0.2]);
+    }
+
+    #[test]
+    fn test_animation_node_index_as_key_of_dynamic_map() {
+        let mut map = DynamicMap::default();
+        map.insert_boxed(
+            Box::new(AnimationNodeIndex::new(0)),
+            Box::new(ActiveAnimation::default()),
+        );
     }
 }

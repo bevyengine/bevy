@@ -9,10 +9,10 @@ use crate::{
 use super::ComputedNode;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    entity::{hash_set::EntityHashSet, Entity},
+    entity::Entity,
     hierarchy::ChildOf,
     query::{Changed, With},
-    system::{Commands, Local, Query, Res},
+    system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
 use bevy_render::camera::Camera;
@@ -139,9 +139,7 @@ pub fn update_ui_context_system(
     mut computed_target_query: Query<&mut ComputedNodeTarget>,
     ui_children: UiChildren,
     reparented_nodes: Query<(Entity, &ChildOf), (Changed<ChildOf>, With<ComputedNodeTarget>)>,
-    mut visited: Local<EntityHashSet>,
 ) {
-    visited.clear();
     let default_camera_entity = default_ui_camera.get();
 
     for root_entity in ui_root_nodes.iter() {
@@ -172,12 +170,11 @@ pub fn update_ui_context_system(
             },
             &ui_children,
             &mut computed_target_query,
-            &mut visited,
         );
     }
 
     for (entity, child_of) in reparented_nodes.iter() {
-        let Ok(computed_target) = computed_target_query.get(child_of.0) else {
+        let Ok(computed_target) = computed_target_query.get(child_of.parent()) else {
             continue;
         };
 
@@ -186,7 +183,6 @@ pub fn update_ui_context_system(
             *computed_target,
             &ui_children,
             &mut computed_target_query,
-            &mut visited,
         );
     }
 }
@@ -196,24 +192,14 @@ fn update_contexts_recursively(
     inherited_computed_target: ComputedNodeTarget,
     ui_children: &UiChildren,
     query: &mut Query<&mut ComputedNodeTarget>,
-    visited: &mut EntityHashSet,
 ) {
-    if !visited.insert(entity) {
-        return;
-    }
     if query
         .get_mut(entity)
         .map(|mut computed_target| computed_target.set_if_neq(inherited_computed_target))
         .unwrap_or(false)
     {
         for child in ui_children.iter_ui_children(entity) {
-            update_contexts_recursively(
-                child,
-                inherited_computed_target,
-                ui_children,
-                query,
-                visited,
-            );
+            update_contexts_recursively(child, inherited_computed_target, ui_children, query);
         }
     }
 }
@@ -225,7 +211,7 @@ mod tests {
     use bevy_core_pipeline::core_2d::Camera2d;
     use bevy_ecs::event::Events;
     use bevy_ecs::hierarchy::ChildOf;
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::world::World;
     use bevy_image::Image;

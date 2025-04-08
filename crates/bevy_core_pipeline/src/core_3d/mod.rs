@@ -19,7 +19,8 @@ pub mod graph {
         EarlyPrepass,
         EarlyDownsampleDepth,
         LatePrepass,
-        DeferredPrepass,
+        EarlyDeferredPrepass,
+        LateDeferredPrepass,
         CopyDeferredLightingId,
         EndPrepasses,
         StartMainPass,
@@ -112,7 +113,8 @@ use tracing::warn;
 use crate::{
     core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
     deferred::{
-        copy_lighting_id::CopyDeferredLightingIdNode, node::DeferredGBufferPrepassNode,
+        copy_lighting_id::CopyDeferredLightingIdNode,
+        node::{EarlyDeferredGBufferPrepassNode, LateDeferredGBufferPrepassNode},
         AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
         DEFERRED_PREPASS_FORMAT,
     },
@@ -179,9 +181,13 @@ impl Plugin for Core3dPlugin {
             .add_render_sub_graph(Core3d)
             .add_render_graph_node::<ViewNodeRunner<EarlyPrepassNode>>(Core3d, Node3d::EarlyPrepass)
             .add_render_graph_node::<ViewNodeRunner<LatePrepassNode>>(Core3d, Node3d::LatePrepass)
-            .add_render_graph_node::<ViewNodeRunner<DeferredGBufferPrepassNode>>(
+            .add_render_graph_node::<ViewNodeRunner<EarlyDeferredGBufferPrepassNode>>(
                 Core3d,
-                Node3d::DeferredPrepass,
+                Node3d::EarlyDeferredPrepass,
+            )
+            .add_render_graph_node::<ViewNodeRunner<LateDeferredGBufferPrepassNode>>(
+                Core3d,
+                Node3d::LateDeferredPrepass,
             )
             .add_render_graph_node::<ViewNodeRunner<CopyDeferredLightingIdNode>>(
                 Core3d,
@@ -210,8 +216,9 @@ impl Plugin for Core3dPlugin {
                 Core3d,
                 (
                     Node3d::EarlyPrepass,
+                    Node3d::EarlyDeferredPrepass,
                     Node3d::LatePrepass,
-                    Node3d::DeferredPrepass,
+                    Node3d::LateDeferredPrepass,
                     Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
                     Node3d::StartMainPass,
@@ -943,7 +950,6 @@ fn configure_occlusion_culling_view_targets(
             With<OcclusionCulling>,
             Without<NoIndirectDrawing>,
             With<DepthPrepass>,
-            Without<DeferredPrepass>,
         ),
     >,
 ) {

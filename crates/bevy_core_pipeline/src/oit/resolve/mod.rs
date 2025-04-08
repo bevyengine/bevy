@@ -6,7 +6,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_derive::Deref;
 use bevy_ecs::{
-    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
+    entity::{EntityHashMap, EntityHashSet},
     prelude::*,
 };
 use bevy_image::BevyDefault as _;
@@ -33,6 +33,9 @@ pub const OIT_RESOLVE_SHADER_HANDLE: Handle<Shader> =
 /// Contains the render node used to run the resolve pass.
 pub mod node;
 
+/// Minimum required value of `wgpu::Limits::max_storage_buffers_per_shader_stage`.
+pub const OIT_REQUIRED_STORAGE_BUFFERS: u32 = 2;
+
 /// Plugin needed to resolve the Order Independent Transparency (OIT) buffer to the screen.
 pub struct OitResolvePlugin;
 impl Plugin for OitResolvePlugin {
@@ -50,14 +53,11 @@ impl Plugin for OitResolvePlugin {
             return;
         };
 
-        if !render_app
-            .world()
-            .resource::<RenderAdapter>()
-            .get_downlevel_capabilities()
-            .flags
-            .contains(DownlevelFlags::FRAGMENT_WRITABLE_STORAGE)
-        {
-            warn!("OrderIndependentTransparencyPlugin not loaded. GPU lacks support: DownlevelFlags::FRAGMENT_WRITABLE_STORAGE.");
+        if !is_oit_supported(
+            render_app.world().resource::<RenderAdapter>(),
+            render_app.world().resource::<RenderDevice>(),
+            true,
+        ) {
             return;
         }
 
@@ -71,6 +71,34 @@ impl Plugin for OitResolvePlugin {
             )
             .init_resource::<OitResolvePipeline>();
     }
+}
+
+pub fn is_oit_supported(adapter: &RenderAdapter, device: &RenderDevice, warn: bool) -> bool {
+    if !adapter
+        .get_downlevel_capabilities()
+        .flags
+        .contains(DownlevelFlags::FRAGMENT_WRITABLE_STORAGE)
+    {
+        if warn {
+            warn!("OrderIndependentTransparencyPlugin not loaded. GPU lacks support: DownlevelFlags::FRAGMENT_WRITABLE_STORAGE.");
+        }
+        return false;
+    }
+
+    let max_storage_buffers_per_shader_stage = device.limits().max_storage_buffers_per_shader_stage;
+
+    if max_storage_buffers_per_shader_stage < OIT_REQUIRED_STORAGE_BUFFERS {
+        if warn {
+            warn!(
+                max_storage_buffers_per_shader_stage,
+                OIT_REQUIRED_STORAGE_BUFFERS,
+                "OrderIndependentTransparencyPlugin not loaded. RenderDevice lacks support: max_storage_buffers_per_shader_stage < OIT_REQUIRED_STORAGE_BUFFERS."
+            );
+        }
+        return false;
+    }
+
+    true
 }
 
 /// Bind group for the OIT resolve pass.

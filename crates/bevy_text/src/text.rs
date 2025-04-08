@@ -29,7 +29,7 @@ impl Default for CosmicBuffer {
 ///
 /// Returned by [`ComputedTextBlock::entities`].
 #[derive(Debug, Copy, Clone, Reflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Clone)]
 pub struct TextEntity {
     /// The entity.
     pub entity: Entity,
@@ -43,7 +43,7 @@ pub struct TextEntity {
 ///
 /// Automatically updated by 2d and UI text systems.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Debug, Default)]
+#[reflect(Component, Debug, Default, Clone)]
 pub struct ComputedTextBlock {
     /// Buffer for managing text layout and creating [`TextLayoutInfo`].
     ///
@@ -51,7 +51,7 @@ pub struct ComputedTextBlock {
     /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
     /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
     /// `TextLayoutInfo`.
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub(crate) buffer: CosmicBuffer,
     /// Entities for all text spans in the block, including the root-level text.
     ///
@@ -116,7 +116,7 @@ impl Default for ComputedTextBlock {
 ///
 /// See [`Text2d`](crate::Text2d) for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[require(ComputedTextBlock, TextLayoutInfo)]
 pub struct TextLayout {
     /// The text's internal alignment.
@@ -208,7 +208,7 @@ impl TextLayout {
 /// ));
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[require(TextFont, TextColor)]
 pub struct TextSpan(pub String);
 
@@ -250,7 +250,7 @@ impl From<String> for TextSpan {
 /// _Has no affect on a single line text entity_, unless used together with a
 /// [`TextBounds`](super::bounds::TextBounds) component with an explicit `width` value.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
-#[reflect(Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, Clone, PartialEq, Hash)]
 pub enum JustifyText {
     /// Leftmost character is immediately to the right of the render position.
     /// Bounds start from the render position and advance rightwards.
@@ -282,7 +282,7 @@ impl From<JustifyText> for cosmic_text::Align {
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, and the color.
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
     /// The specific font face to use, as a `Handle` to a [`Font`] asset.
     ///
@@ -360,7 +360,7 @@ impl Default for TextFont {
 ///
 /// Default is 1.2x the font size
 #[derive(Debug, Clone, Copy, Reflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Clone)]
 pub enum LineHeight {
     /// Set line height to a specific number of pixels
     Px(f32),
@@ -385,7 +385,7 @@ impl Default for LineHeight {
 
 /// The color of the text for this section.
 #[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct TextColor(pub Color);
 
 impl Default for TextColor {
@@ -409,7 +409,7 @@ impl TextColor {
 
 /// Determines how lines will be broken when preventing text from running out of bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
-#[reflect(Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, Clone, PartialEq, Hash, Default)]
 pub enum LineBreak {
     /// Uses the [Unicode Line Breaking Algorithm](https://www.unicode.org/reports/tr14/).
     /// Lines will be broken up at the nearest suitable word boundary, usually a space.
@@ -432,7 +432,7 @@ pub enum LineBreak {
 ///
 /// **Note:** Subpixel antialiasing is not currently supported.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
-#[reflect(Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, Clone, PartialEq, Hash, Default)]
 #[doc(alias = "antialiasing")]
 #[doc(alias = "pixelated")]
 pub enum FontSmoothing {
@@ -508,14 +508,14 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - Span component changed.
     // - Span TextFont changed.
     // - Span children changed (can include additions and removals).
-    for (entity, maybe_span_parent, has_text_block) in changed_spans.iter() {
+    for (entity, maybe_span_child_of, has_text_block) in changed_spans.iter() {
         if has_text_block {
             once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
                 text entities (that have {}); this warning only prints once",
                 entity, core::any::type_name::<Root>()));
         }
 
-        let Some(span_parent) = maybe_span_parent else {
+        let Some(span_child_of) = maybe_span_child_of else {
             once!(warn!(
                 "found entity {} with a TextSpan that has no parent; it should have an ancestor \
                 with a root text component ({}); this warning only prints once",
@@ -524,13 +524,13 @@ pub fn detect_text_needs_rerender<Root: Component>(
             ));
             continue;
         };
-        let mut parent: Entity = span_parent.0;
+        let mut parent: Entity = span_child_of.parent();
 
         // Search for the nearest ancestor with ComputedTextBlock.
         // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
         // is outweighed by the expense of tracking visited spans.
         loop {
-            let Ok((maybe_parent, maybe_computed, has_span)) = computed.get_mut(parent) else {
+            let Ok((maybe_child_of, maybe_computed, has_span)) = computed.get_mut(parent) else {
                 once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a ChildOf \
                     component that points at non-existent entity {}; this warning only prints once",
                     entity, parent));
@@ -546,7 +546,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                     entity, parent));
                 break;
             }
-            let Some(next_parent) = maybe_parent else {
+            let Some(next_child_of) = maybe_child_of else {
                 once!(warn!(
                     "found entity {} with a TextSpan that has no ancestor with the root text \
                     component ({}); this warning only prints once",
@@ -555,7 +555,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 ));
                 break;
             };
-            parent = next_parent.0;
+            parent = next_child_of.parent();
         }
     }
 }

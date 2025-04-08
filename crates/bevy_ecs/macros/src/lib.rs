@@ -9,10 +9,13 @@ mod query_filter;
 mod states;
 mod world_query;
 
-use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
+use crate::{
+    component::map_entities, query_data::derive_query_data_impl,
+    query_filter::derive_query_filter_impl,
+};
 use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as TokenStream2};
+use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
@@ -134,7 +137,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         #[allow(deprecated)]
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
-                components: &mut #ecs_path::component::Components,
+                components: &mut #ecs_path::component::ComponentsRegistrator,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
             ){
                 #(#field_component_ids)*
@@ -148,7 +151,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
 
             fn register_required_components(
-                components: &mut #ecs_path::component::Components,
+                components: &mut #ecs_path::component::ComponentsRegistrator,
                 required_components: &mut #ecs_path::component::RequiredComponents
             ){
                 #(#field_required_components)*
@@ -185,105 +188,22 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     })
 }
 
-fn derive_visit_entities_base(
-    input: TokenStream,
-    trait_name: TokenStream2,
-    gen_methods: impl FnOnce(Vec<TokenStream2>) -> TokenStream2,
-) -> TokenStream {
+#[proc_macro_derive(MapEntities, attributes(entities))]
+pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
-
-    let named_fields = match get_struct_fields(&ast.data) {
-        Ok(fields) => fields,
-        Err(e) => return e.into_compile_error().into(),
-    };
-
-    let field = named_fields
-        .iter()
-        .filter_map(|field| {
-            if let Some(attr) = field
-                .attrs
-                .iter()
-                .find(|a| a.path().is_ident("visit_entities"))
-            {
-                let ignore = attr.parse_nested_meta(|meta| {
-                    if meta.path.is_ident("ignore") {
-                        Ok(())
-                    } else {
-                        Err(meta.error("Invalid visit_entities attribute. Use `ignore`"))
-                    }
-                });
-                return match ignore {
-                    Ok(()) => None,
-                    Err(e) => Some(Err(e)),
-                };
-            }
-            Some(Ok(field))
-        })
-        .map(|res| res.map(|field| field.ident.as_ref()))
-        .collect::<Result<Vec<_>, _>>();
-
-    let field = match field {
-        Ok(field) => field,
-        Err(e) => return e.into_compile_error().into(),
-    };
-
-    if field.is_empty() {
-        return syn::Error::new(
-            ast.span(),
-            format!("Invalid `{}` type: at least one field", trait_name),
-        )
-        .into_compile_error()
-        .into();
-    }
-
-    let field_access = field
-        .iter()
-        .enumerate()
-        .map(|(n, f)| {
-            if let Some(ident) = f {
-                quote! {
-                    self.#ident
-                }
-            } else {
-                let idx = Index::from(n);
-                quote! {
-                    self.#idx
-                }
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let methods = gen_methods(field_access);
-
-    let generics = ast.generics;
-    let (impl_generics, ty_generics, _) = generics.split_for_impl();
+    let map_entities_impl = map_entities(
+        &ast.data,
+        Ident::new("self", Span::call_site()),
+        false,
+        false,
+    );
     let struct_name = &ast.ident;
-
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     TokenStream::from(quote! {
-        impl #impl_generics #ecs_path::entity:: #trait_name for #struct_name #ty_generics {
-            #methods
-        }
-    })
-}
-
-#[proc_macro_derive(VisitEntitiesMut, attributes(visit_entities))]
-pub fn derive_visit_entities_mut(input: TokenStream) -> TokenStream {
-    derive_visit_entities_base(input, quote! { VisitEntitiesMut }, |field| {
-        quote! {
-            fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
-                #(#field.visit_entities_mut(&mut f);)*
-            }
-        }
-    })
-}
-
-#[proc_macro_derive(VisitEntities, attributes(visit_entities))]
-pub fn derive_visit_entities(input: TokenStream) -> TokenStream {
-    derive_visit_entities_base(input, quote! { VisitEntities }, |field| {
-        quote! {
-            fn visit_entities<F: FnMut(Entity)>(&self, mut f: F) {
-                #(#field.visit_entities(&mut f);)*
+        impl #impl_generics #ecs_path::entity::MapEntities for #struct_name #type_generics #where_clause {
+            fn map_entities<M: #ecs_path::entity::EntityMapper>(&mut self, mapper: &mut M) {
+                #map_entities_impl
             }
         }
     })
@@ -309,19 +229,39 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let path = bevy_ecs_path();
 
     let mut field_locals = Vec::new();
+    let mut field_names = Vec::new();
     let mut fields = Vec::new();
     let mut field_types = Vec::new();
+    let mut field_messages = Vec::new();
     for (i, field) in field_definitions.iter().enumerate() {
         field_locals.push(format_ident!("f{i}"));
         let i = Index::from(i);
-        fields.push(
-            field
-                .ident
-                .as_ref()
-                .map(|f| quote! { #f })
-                .unwrap_or_else(|| quote! { #i }),
-        );
+        let field_value = field
+            .ident
+            .as_ref()
+            .map(|f| quote! { #f })
+            .unwrap_or_else(|| quote! { #i });
+        field_names.push(format!("::{}", field_value));
+        fields.push(field_value);
         field_types.push(&field.ty);
+        let mut field_message = None;
+        for meta in field
+            .attrs
+            .iter()
+            .filter(|a| a.path().is_ident("system_param"))
+        {
+            if let Err(e) = meta.parse_nested_meta(|nested| {
+                if nested.path.is_ident("validation_message") {
+                    field_message = Some(nested.value()?.parse()?);
+                    Ok(())
+                } else {
+                    Err(nested.error("Unsupported attribute"))
+                }
+            }) {
+                return e.into_compile_error().into();
+            }
+        }
+        field_messages.push(field_message.unwrap_or_else(|| quote! { err.message }));
     }
 
     let generics = ast.generics;
@@ -507,10 +447,15 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 #[inline]
                 unsafe fn validate_param<'w, 's>(
                     state: &'s Self::State,
-                    system_meta: &#path::system::SystemMeta,
-                    world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
-                ) -> bool {
-                    <(#(#tuple_types,)*) as #path::system::SystemParam>::validate_param(&state.state, system_meta, world)
+                    _system_meta: &#path::system::SystemMeta,
+                    _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
+                ) -> Result<(), #path::system::SystemParamValidationError> {
+                    let #state_struct_name { state: (#(#tuple_patterns,)*) } = state;
+                    #(
+                        <#field_types as #path::system::SystemParam>::validate_param(#field_locals, _system_meta, _world)
+                            .map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_messages, #field_names))?;
+                    )*
+                    Ok(())
                 }
 
                 #[inline]
@@ -585,7 +530,7 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::shared().get_path("bevy_ecs")
 }
 
-#[proc_macro_derive(Event)]
+#[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     component::derive_event(input)
 }
@@ -597,18 +542,10 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(
     Component,
-    attributes(component, relationship, relationship_target, entities)
+    attributes(component, require, relationship, relationship_target, entities)
 )]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
-}
-
-/// Allows specifying a component's required components.
-///
-/// See `Component` docs for usage.
-#[proc_macro_attribute]
-pub fn require(attr: TokenStream, item: TokenStream) -> TokenStream {
-    component::document_required_components(attr, item)
 }
 
 #[proc_macro_derive(States)]

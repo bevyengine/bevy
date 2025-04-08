@@ -628,7 +628,10 @@ pub fn prepare_volumetric_fog_pipelines(
     >,
     meshes: Res<RenderAssets<RenderMesh>>,
 ) {
-    let plane_mesh = meshes.get(&PLANE_MESH).expect("Plane mesh not found!");
+    let Some(plane_mesh) = meshes.get(&PLANE_MESH) else {
+        // There's an off chance that the mesh won't be prepared yet if `RenderAssetBytesPerFrame` limiting is in use.
+        return;
+    };
 
     for (
         entity,
@@ -694,19 +697,19 @@ pub fn prepare_volumetric_fog_uniforms(
     render_queue: Res<RenderQueue>,
     mut local_from_world_matrices: Local<Vec<Mat4>>,
 ) {
-    let Some(mut writer) = volumetric_lighting_uniform_buffer.get_writer(
-        view_targets.iter().len(),
-        &render_device,
-        &render_queue,
-    ) else {
-        return;
-    };
-
     // Do this up front to avoid O(n^2) matrix inversion.
     local_from_world_matrices.clear();
     for (_, _, fog_transform) in fog_volumes.iter() {
         local_from_world_matrices.push(fog_transform.compute_matrix().inverse());
     }
+
+    let uniform_count = view_targets.iter().len() * local_from_world_matrices.len();
+
+    let Some(mut writer) =
+        volumetric_lighting_uniform_buffer.get_writer(uniform_count, &render_device, &render_queue)
+    else {
+        return;
+    };
 
     for (view_entity, extracted_view, volumetric_fog) in view_targets.iter() {
         let world_from_view = extracted_view.world_from_view.compute_matrix();

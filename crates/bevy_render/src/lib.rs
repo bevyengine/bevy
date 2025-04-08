@@ -78,9 +78,11 @@ pub use extract_param::Extract;
 
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use experimental::occlusion_culling::OcclusionCullingPlugin;
-use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
-use render_asset::RenderAssetBytesPerFrame;
+use render_asset::{
+    extract_render_asset_bytes_per_frame, reset_render_asset_bytes_per_frame,
+    RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
+};
 use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
@@ -188,7 +190,7 @@ pub enum RenderSet {
 }
 
 /// The main render schedule.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct Render;
 
 impl Render {
@@ -244,7 +246,7 @@ impl Render {
 ///
 /// This schedule is run on the main world, but its buffers are not applied
 /// until it is returned to the render world.
-#[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash)]
+#[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash, Default)]
 pub struct ExtractSchedule;
 
 /// The simulation [`World`] of the application, stored as a resource.
@@ -283,12 +285,12 @@ struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
-pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("475c76aa-4afd-4a6b-9878-1fc1e2f41216");
 pub const MATHS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("d94d70d4-746d-49c4-bfc3-27d63f2acda0");
 pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("33a80b2f-aaf7-4c86-b828-e7ae83b72f1a");
+pub const BINDLESS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("13f1baaa-41bf-448e-929e-258f9307a522");
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
@@ -315,7 +317,7 @@ impl Plugin for RenderPlugin {
                     let primary_window = app
                         .world_mut()
                         .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
-                        .get_single(app.world())
+                        .single(app.world())
                         .ok()
                         .cloned();
                     let settings = render_creation.clone();
@@ -404,10 +406,20 @@ impl Plugin for RenderPlugin {
             StoragePlugin,
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
+            #[cfg(feature = "tracing-tracy")]
+            diagnostic::RenderDiagnosticsPlugin,
         ));
 
-        app.init_resource::<RenderAssetBytesPerFrame>()
-            .add_plugins(ExtractResourcePlugin::<RenderAssetBytesPerFrame>::default());
+        app.init_resource::<RenderAssetBytesPerFrame>();
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
+            render_app
+                .add_systems(ExtractSchedule, extract_render_asset_bytes_per_frame)
+                .add_systems(
+                    Render,
+                    reset_render_asset_bytes_per_frame.in_set(RenderSet::Cleanup),
+                );
+        }
 
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
@@ -434,6 +446,12 @@ impl Plugin for RenderPlugin {
             "color_operations.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            BINDLESS_SHADER_HANDLE,
+            "bindless.wgsl",
+            Shader::from_wgsl
+        );
         if let Some(future_render_resources) =
             app.world_mut().remove_resource::<FutureRenderResources>()
         {
@@ -457,14 +475,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
-                .insert_resource(adapter_info)
-                .add_systems(
-                    Render,
-                    (|mut bpf: ResMut<RenderAssetBytesPerFrame>| {
-                        bpf.reset();
-                    })
-                    .in_set(RenderSet::Cleanup),
-                );
+                .insert_resource(adapter_info);
         }
     }
 }

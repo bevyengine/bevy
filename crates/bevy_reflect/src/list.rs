@@ -104,10 +104,16 @@ pub trait List: PartialReflect {
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
     /// Clones the list, producing a [`DynamicList`].
+    #[deprecated(since = "0.16.0", note = "use `to_dynamic_list` instead")]
     fn clone_dynamic(&self) -> DynamicList {
+        self.to_dynamic_list()
+    }
+
+    /// Creates a new [`DynamicList`] from this list.
+    fn to_dynamic_list(&self) -> DynamicList {
         DynamicList {
             represented_type: self.get_represented_type_info(),
-            values: self.iter().map(PartialReflect::clone_value).collect(),
+            values: self.iter().map(PartialReflect::to_dynamic).collect(),
         }
     }
 
@@ -246,17 +252,6 @@ impl List for DynamicList {
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
         self.values.drain(..).collect()
     }
-
-    fn clone_dynamic(&self) -> DynamicList {
-        DynamicList {
-            represented_type: self.represented_type,
-            values: self
-                .values
-                .iter()
-                .map(|value| value.clone_value())
-                .collect(),
-        }
-    }
 }
 
 impl PartialReflect for DynamicList {
@@ -318,11 +313,6 @@ impl PartialReflect for DynamicList {
     #[inline]
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::List(self)
-    }
-
-    #[inline]
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
     }
 
     #[inline]
@@ -470,7 +460,7 @@ pub fn list_try_apply<L: List>(a: &mut L, b: &dyn PartialReflect) -> Result<(), 
                 v.try_apply(value)?;
             }
         } else {
-            List::push(a, value.clone_value());
+            List::push(a, value.to_dynamic());
         }
     }
 

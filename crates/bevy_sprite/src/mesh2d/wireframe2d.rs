@@ -60,7 +60,7 @@ impl Plugin for Wireframe2dPlugin {
 ///
 /// This requires the [`Wireframe2dPlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct Wireframe2d;
 
 /// Sets the color of the [`Wireframe2d`] of the entity it is attached to.
@@ -70,7 +70,7 @@ pub struct Wireframe2d;
 ///
 /// This overrides the [`Wireframe2dConfig::default_color`].
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct Wireframe2dColor {
     pub color: Color,
 }
@@ -80,11 +80,11 @@ pub struct Wireframe2dColor {
 ///
 /// This requires the [`Wireframe2dPlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct NoWireframe2d;
 
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
-#[reflect(Resource, Debug, Default)]
+#[reflect(Resource, Debug, Default, Clone)]
 pub struct Wireframe2dConfig {
     /// Whether to show wireframes for all 2D meshes.
     /// Can be overridden for individual meshes by adding a [`Wireframe2d`] or [`NoWireframe2d`] component.
@@ -163,7 +163,7 @@ fn apply_wireframe_material(
     global_material: Res<GlobalWireframe2dMaterial>,
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
-        if let Some(mut commands) = commands.get_entity(e) {
+        if let Ok(mut commands) = commands.get_entity(e) {
             commands.remove::<MeshMaterial2d<Wireframe2dMaterial>>();
         }
     }
@@ -180,7 +180,7 @@ fn apply_wireframe_material(
         };
         wireframes_to_spawn.push((e, MeshMaterial2d(material)));
     }
-    commands.insert_or_spawn_batch(wireframes_to_spawn);
+    commands.try_insert_batch(wireframes_to_spawn);
 }
 
 type Wireframe2dFilter = (With<Mesh2d>, Without<Wireframe2d>, Without<NoWireframe2d>);
@@ -209,7 +209,7 @@ fn apply_global_wireframe_material(
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
             material_to_spawn.push((e, MeshMaterial2d(global_material.handle.clone())));
         }
-        commands.insert_or_spawn_batch(material_to_spawn);
+        commands.try_insert_batch(material_to_spawn);
     } else {
         for e in &meshes_with_global_material {
             commands
@@ -220,6 +220,7 @@ fn apply_global_wireframe_material(
 }
 
 #[derive(Default, AsBindGroup, Debug, Clone, Asset, Reflect)]
+#[reflect(Clone, Default)]
 pub struct Wireframe2dMaterial {
     #[uniform(0)]
     pub color: LinearRgba,

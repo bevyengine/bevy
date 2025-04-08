@@ -52,11 +52,11 @@ fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformErr
     use ComputeGlobalTransformError::*;
     match err {
         QueryEntityError::QueryDoesNotMatch(entity, _) => MissingTransform(entity),
-        QueryEntityError::NoSuchEntity(entity, _) => {
+        QueryEntityError::EntityDoesNotExist(error) => {
             if ancestor {
-                MalformedHierarchy(entity)
+                MalformedHierarchy(error.entity)
             } else {
-                NoSuchEntity(entity)
+                NoSuchEntity(error.entity)
             }
         }
         QueryEntityError::AliasedMutability(_) => unreachable!(),
@@ -123,8 +123,8 @@ mod tests {
         for transform in transforms {
             let mut e = app.world_mut().spawn(transform);
 
-            if let Some(entity) = entity {
-                e.insert(ChildOf(entity));
+            if let Some(parent) = entity {
+                e.insert(ChildOf(parent));
             }
 
             entity = Some(e.id());

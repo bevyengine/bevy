@@ -14,7 +14,7 @@ const ENCASE: &str = "encase";
 fn bevy_encase_path() -> syn::Path {
     let bevy_manifest = BevyManifest::shared();
     bevy_manifest
-        .get_subcrate("render")
+        .maybe_get_path("bevy_render")
         .map(|bevy_render_path| {
             let mut segments = bevy_render_path.segments;
             segments.push(BevyManifest::parse_str("render_resource"));
@@ -31,7 +31,7 @@ fn bevy_encase_path() -> syn::Path {
                 segments,
             }
         })
-        .unwrap_or_else(|_err| bevy_manifest.get_path(ENCASE))
+        .unwrap_or_else(|| bevy_manifest.get_path(ENCASE))
 }
 
 implement!(bevy_encase_path());

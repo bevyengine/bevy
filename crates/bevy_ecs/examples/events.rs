@@ -1,6 +1,8 @@
 //! In this example a system sends a custom event with a 50/50 chance during any frame.
 //! If an event was send, it will be printed by the console in a receiving system.
 
+#![expect(clippy::print_stdout, reason = "Allowed in examples.")]
+
 use bevy_ecs::{event::EventRegistry, prelude::*};
 
 fn main() {
@@ -45,7 +47,7 @@ struct MyEvent {
 fn sending_system(mut event_writer: EventWriter<MyEvent>) {
     let random_value: f32 = rand::random();
     if random_value > 0.5 {
-        event_writer.send(MyEvent {
+        event_writer.write(MyEvent {
             message: "A random event with value > 0.5".to_string(),
             random_value,
         });
