@@ -6,8 +6,8 @@
 //! `#[reflect(PartialEq, Default, ...)]`.
 
 use crate::{
-    attribute_parser::terminated_parser, custom_attributes::CustomAttributes,
-    derive_data::ReflectTraitToImpl,
+    attribute_parser::terminated_parser, conversion::Conversion,
+    custom_attributes::CustomAttributes, derive_data::ReflectTraitToImpl,
 };
 use bevy_macro_utils::fq_std::{FQAny, FQClone, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
@@ -27,6 +27,7 @@ mod kw {
     syn::custom_keyword!(no_field_bounds);
     syn::custom_keyword!(no_auto_register);
     syn::custom_keyword!(opaque);
+    pub use crate::conversion::kw::from;
 }
 
 // The "special" trait idents that are used internally for reflection.
@@ -189,6 +190,7 @@ pub(crate) struct ContainerAttributes {
     custom_attributes: CustomAttributes,
     is_opaque: bool,
     idents: Vec<Ident>,
+    conversions: Vec<Conversion>,
 }
 
 impl ContainerAttributes {
@@ -250,6 +252,9 @@ impl ContainerAttributes {
             self.parse_hash(input)
         } else if lookahead.peek(kw::PartialEq) {
             self.parse_partial_eq(input)
+        } else if lookahead.peek(kw::from) {
+            self.conversions.push(Conversion::parse_from_attr(input)?);
+            Ok(())
         } else if lookahead.peek(Ident::peek_any) {
             self.parse_ident(input)
         } else {
@@ -606,6 +611,11 @@ impl ContainerAttributes {
     /// Returns true if the `opaque` attribute was found on this type.
     pub fn is_opaque(&self) -> bool {
         self.is_opaque
+    }
+
+    /// The conversions found within `#[reflect(from(...))]` attributes on this type.
+    pub fn conversions(&self) -> &[Conversion] {
+        &self.conversions
     }
 }
 

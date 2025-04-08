@@ -27,14 +27,19 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_from_reflect_clause = WhereClauseOptions::new(meta).extend_where_clause(where_clause);
+
+    let conversions = get_conversions(meta);
+
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
-                #FQOption::Some(
-                    #FQClone::clone(
-                        <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect)?
-                    )
-                )
+                if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect) {
+                    #FQOption::Some(#FQClone::clone(value))
+                }
+                #conversions
+                else {
+                    #FQOption::None
+                }
             }
         }
     }
@@ -72,6 +77,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         .where_clause_options()
         .extend_where_clause(where_clause);
 
+    let conversions = get_conversions(reflect_enum.meta());
+
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #enum_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(#ref_value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
@@ -82,7 +89,9 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                         #match_branches
                         name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
                     }
-                } else {
+                }
+                #conversions
+                else {
                     #FQOption::None
                 }
             }
@@ -177,6 +186,8 @@ fn impl_struct_internal(
         .where_clause_options()
         .extend_where_clause(where_clause);
 
+    let conversions = get_conversions(reflect_struct.meta());
+
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_path #ty_generics #where_from_reflect_clause {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
@@ -184,7 +195,9 @@ fn impl_struct_internal(
                     = #bevy_reflect_path::PartialReflect::reflect_ref(reflect)
                 {
                     #constructor
-                } else {
+                }
+                #conversions
+                else {
                     #FQOption::None
                 }
             }
@@ -358,5 +371,37 @@ fn get_field_accessor(field: &Field, index: usize, is_tuple: bool) -> Lit {
             .as_ref()
             .map(|ident| Lit::Str(LitStr::new(&ident.to_string(), Span::call_site())))
             .unwrap_or_else(|| Lit::Str(LitStr::new(&index.to_string(), Span::call_site())))
+    }
+}
+
+fn get_conversions(meta: &ReflectMeta) -> proc_macro2::TokenStream {
+    let bevy_reflect_path = meta.bevy_reflect_path();
+    let conversions: Vec<_> = meta
+        .attrs()
+        .conversions()
+        .iter()
+        .map(|conversion| {
+            let path = &conversion.path;
+            match &conversion.func {
+                Some(func) => quote! {
+                    if let #FQOption::Some(value) =
+                    <#path as #bevy_reflect_path::FromReflect>::from_reflect(reflect) {
+                        #FQOption::Some((#func)(value).into())
+                    }
+                },
+                None => quote! {
+                    if let #FQOption::Some(value) =
+                    <#path as #bevy_reflect_path::FromReflect>::from_reflect(reflect) {
+                        #FQOption::Some(value.into())
+                    }
+                },
+            }
+        })
+        .collect();
+
+    if conversions.is_empty() {
+        quote! {}
+    } else {
+        quote! { else #(#conversions)else* }
     }
 }
