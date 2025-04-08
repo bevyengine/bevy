@@ -27,7 +27,6 @@ use bevy_render::{
 };
 use bevy_render::{
     diagnostic::RecordDiagnostics,
-    mesh::RenderMesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
@@ -1720,15 +1719,7 @@ pub fn check_views_lights_need_specialization(
 pub fn specialize_shadows<M: Material>(
     params: SpecializeMeshParams<M>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    (
-        render_meshes,
-        render_mesh_instances,
-        render_materials,
-        render_material_instances,
-        material_bind_group_allocator,
-    ): (
-        Res<RenderAssets<RenderMesh>>,
-        Res<RenderMeshInstances>,
+    (render_materials, render_material_instances, material_bind_group_allocator): (
         Res<RenderAssets<PreparedMaterial<M>>>,
         Res<RenderMaterialInstances<M>>,
         Res<MaterialBindGroupAllocator<M>>,
@@ -1828,8 +1819,9 @@ pub fn specialize_shadows<M: Material>(
                 let Some(material) = render_materials.get(*material_asset_id) else {
                     continue;
                 };
-                let Some(mesh_instance) =
-                    render_mesh_instances.render_mesh_queue_data(visible_entity)
+                let Some(mesh_instance) = params
+                    .render_mesh_instances
+                    .render_mesh_queue_data(visible_entity)
                 else {
                     continue;
                 };
@@ -1844,7 +1836,7 @@ pub fn specialize_shadows<M: Material>(
                 else {
                     continue;
                 };
-                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                let Some(mesh) = params.render_meshes.get(mesh_instance.mesh_asset_id) else {
                     continue;
                 };
 

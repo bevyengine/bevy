@@ -329,6 +329,8 @@ pub struct ViewSpecializationTicks(HashMap<RetainedViewEntity, Tick>);
 pub struct SpecializeMeshParams<'w, M: Material> {
     pub pipeline_cache: Res<'w, PipelineCache>,
     pub entity_specialization_ticks: Res<'w, EntitySpecializationTicks<M>>,
+    pub render_mesh_instances: Res<'w, RenderMeshInstances>,
+    pub render_meshes: Res<'w, RenderAssets<RenderMesh>>,
 }
 
 pub fn check_views_need_specialization(
