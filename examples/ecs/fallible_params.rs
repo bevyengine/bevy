@@ -122,7 +122,7 @@ fn user_input(
 // System that moves the enemies in a circle.
 // Only runs if there are enemies, due to the `Populated` parameter.
 fn move_targets(mut enemies: When<Populated<(&mut Transform, &mut Enemy)>>, time: Res<Time>) {
-    for (mut transform, mut target) in &mut *enemies {
+    for (mut transform, mut target) in &mut **enemies {
         target.rotation += target.rotation_speed * time.delta_secs();
         transform.rotation = Quat::from_rotation_z(target.rotation);
         let offset = transform.right() * target.radius;
