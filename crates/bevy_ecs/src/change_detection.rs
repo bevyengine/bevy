@@ -141,8 +141,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// Manually sets the added tick recording the time when this data was last added.
     ///
     /// # Warning
-    /// The caveats of [`set_last_changed`](DetectChangesMut::set_last_changed) apply, with the additional caveat
-    /// that unexpected behavior may occur should added be ahead of changed. This does not modify the changed tick in any way.
+    /// The caveats of [`set_last_changed`](DetectChangesMut::set_last_changed) apply. This modifies both the added and changed ticks together.
     fn set_last_added(&mut self, last_added: Tick);
 
     /// Manually bypasses change detection, allowing you to mutate the underlying value without updating the change tick.
@@ -419,6 +418,7 @@ macro_rules! change_detection_mut_impl {
             #[track_caller]
             fn set_last_added(&mut self, last_added: Tick) {
                 *self.ticks.added = last_added;
+                *self.ticks.changed = last_added;
                 self.changed_by.assign(MaybeLocation::caller());
             }
 
@@ -1214,6 +1214,7 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
     #[track_caller]
     fn set_last_added(&mut self, last_added: Tick) {
         *self.ticks.added = last_added;
+        *self.ticks.changed = last_added;
         self.changed_by.assign(MaybeLocation::caller());
     }
 
