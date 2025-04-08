@@ -14,6 +14,7 @@ use crate::{
         EntityLocation,
     },
     event::Event,
+    inheritance::InheritedComponents,
     observer::Observer,
     query::{Access, ReadOnlyQueryData},
     relationship::RelationshipHookMode,
@@ -2000,6 +2001,8 @@ impl<'w> EntityWorldMut<'w> {
                 storages,
                 &registrator,
                 &world.observers,
+                &world.entities,
+                &mut world.inherited_components,
                 old_location.archetype_id,
                 false,
             )?
@@ -2036,6 +2039,7 @@ impl<'w> EntityWorldMut<'w> {
         let storages = &mut world.storages;
         let components = &mut world.components;
         let entities = &mut world.entities;
+        let inherited_components = &mut world.inherited_components;
         let removed_components = &mut world.removed_components;
 
         let entity = self.entity;
@@ -2074,6 +2078,8 @@ impl<'w> EntityWorldMut<'w> {
                 entities,
                 archetypes,
                 storages,
+                inherited_components,
+                components,
                 new_archetype_id,
             );
         }
@@ -2099,6 +2105,8 @@ impl<'w> EntityWorldMut<'w> {
         entities: &mut Entities,
         archetypes: &mut Archetypes,
         storages: &mut Storages,
+        inherited_components: &mut InheritedComponents,
+        components: &Components,
         new_archetype_id: ArchetypeId,
     ) {
         let old_archetype = &mut archetypes[old_archetype_id];
@@ -2119,6 +2127,25 @@ impl<'w> EntityWorldMut<'w> {
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
+
+        if old_table_id == archetypes[new_archetype_id].table_id() {
+            inherited_components.update_inherited_archetypes::<false>(
+                archetypes,
+                components,
+                old_archetype_id,
+                new_archetype_id,
+                entity,
+            );
+        } else {
+            inherited_components.update_inherited_archetypes::<true>(
+                archetypes,
+                components,
+                old_archetype_id,
+                new_archetype_id,
+                entity,
+            );
+        }
+
         let new_archetype = &mut archetypes[new_archetype_id];
 
         let new_location = if old_table_id == new_archetype.table_id() {
@@ -2185,6 +2212,8 @@ impl<'w> EntityWorldMut<'w> {
                 &mut world.storages,
                 &world.components,
                 &world.observers,
+                &world.entities,
+                &mut world.inherited_components,
                 location.archetype_id,
                 // components from the bundle that are not present on the entity are ignored
                 true,
@@ -2247,6 +2276,8 @@ impl<'w> EntityWorldMut<'w> {
             &mut world.entities,
             &mut world.archetypes,
             &mut world.storages,
+            &mut world.inherited_components,
+            &world.components,
             new_archetype_id,
         );
 
