@@ -1088,12 +1088,13 @@ impl FromWorld for GpuPreprocessingSupport {
         let adapter = world.resource::<RenderAdapter>();
         let device = world.resource::<RenderDevice>();
 
-        // Filter some Qualcomm devices on Android as they crash when using GPU
-        // preprocessing.
-        // We filter out Adreno 730 and earlier GPUs (except 720, as it's newer
-        // than 730).
+        // Filter Android drivers that are incompatible with GPU preprocessing:
+        // - We filter out Adreno 730 and earlier GPUs (except 720, as it's newer
+        //   than 730).
+        // - We filter out Mali GPUs with driver versions lower than 48.
         fn is_non_supported_android_device(adapter: &RenderAdapter) -> bool {
             crate::get_adreno_model(adapter).is_some_and(|model| model != 720 && model <= 730)
+                || crate::get_mali_driver_version(adapter).is_some_and(|version| version < 48)
         }
 
         let feature_support = device.features().contains(
