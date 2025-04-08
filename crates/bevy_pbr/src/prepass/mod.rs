@@ -898,13 +898,11 @@ pub fn specialize_prepass_material_meshes<M>(
         mut specialized_material_pipeline_cache,
         prepass_pipeline,
         mut pipelines,
-        pipeline_cache,
         view_specialization_ticks,
     ): (
         ResMut<SpecializedPrepassMaterialPipelineCache<M>>,
         Res<PrepassPipeline<M>>,
         ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
-        Res<PipelineCache>,
         Res<ViewPrepassSpecializationTicks>,
     ),
 ) where
@@ -1034,7 +1032,7 @@ pub fn specialize_prepass_material_meshes<M>(
             }
 
             let pipeline_id = pipelines.specialize(
-                &pipeline_cache,
+                &params.pipeline_cache,
                 &prepass_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
