@@ -1738,7 +1738,6 @@ pub fn specialize_shadows<M: Material>(
     light_key_cache: Res<LightKeyCache>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedShadowMaterialPipelineCache<M>>,
     light_specialization_ticks: Res<LightSpecializationTicks>,
-    ticks: SystemChangeTick,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -1810,8 +1809,8 @@ pub fn specialize_shadows<M: Material>(
                     .get(&visible_entity)
                     .map(|(tick, _)| *tick);
                 let needs_specialization = last_specialized_tick.is_none_or(|tick| {
-                    view_tick.is_newer_than(tick, ticks.this_run())
-                        || entity_tick.is_newer_than(tick, ticks.this_run())
+                    view_tick.is_newer_than(tick, params.ticks.this_run())
+                        || entity_tick.is_newer_than(tick, params.ticks.this_run())
                 });
                 if !needs_specialization {
                     continue;
@@ -1884,7 +1883,7 @@ pub fn specialize_shadows<M: Material>(
                 };
 
                 view_specialized_material_pipeline_cache
-                    .insert(visible_entity, (ticks.this_run(), pipeline_id));
+                    .insert(visible_entity, (params.ticks.this_run(), pipeline_id));
             }
         }
     }

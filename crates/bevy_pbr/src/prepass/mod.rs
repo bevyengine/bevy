@@ -897,14 +897,12 @@ pub fn specialize_prepass_material_meshes<M>(
     ),
     (
         mut specialized_material_pipeline_cache,
-        ticks,
         prepass_pipeline,
         mut pipelines,
         pipeline_cache,
         view_specialization_ticks,
     ): (
         ResMut<SpecializedPrepassMaterialPipelineCache<M>>,
-        SystemChangeTick,
         Res<PrepassPipeline<M>>,
         ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
         Res<PipelineCache>,
@@ -947,8 +945,8 @@ pub fn specialize_prepass_material_meshes<M>(
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
             let needs_specialization = last_specialized_tick.is_none_or(|tick| {
-                view_tick.is_newer_than(tick, ticks.this_run())
-                    || entity_tick.is_newer_than(tick, ticks.this_run())
+                view_tick.is_newer_than(tick, params.ticks.this_run())
+                    || entity_tick.is_newer_than(tick, params.ticks.this_run())
             });
             if !needs_specialization {
                 continue;
@@ -1056,7 +1054,7 @@ pub fn specialize_prepass_material_meshes<M>(
             };
 
             view_specialized_material_pipeline_cache
-                .insert(*visible_entity, (ticks.this_run(), pipeline_id));
+                .insert(*visible_entity, (params.ticks.this_run(), pipeline_id));
         }
     }
 }
