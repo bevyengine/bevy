@@ -1,6 +1,5 @@
 mod prepass_bindings;
 
-use crate::SpecializeMeshParams;
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, material_bind_groups::MaterialBindGroupAllocator,
@@ -8,7 +7,7 @@ use crate::{
     DrawMesh, Material, MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline,
     MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, RenderLightmaps,
     RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
-    SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
+    SetMaterialBindGroup, SetMeshBindGroup, ShadowView, SpecializeMeshParams, StandardMaterial,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
