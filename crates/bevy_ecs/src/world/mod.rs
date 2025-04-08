@@ -14,6 +14,7 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
+use crate::inheritance::{Inherited, InheritedComponents};
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
@@ -51,6 +52,7 @@ use crate::{
     },
     entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
+    inheritance::InheritFrom,
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
@@ -100,6 +102,7 @@ pub struct World {
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) observers: Observers,
+    pub(crate) inherited_components: InheritedComponents,
     pub(crate) removed_components: RemovedComponentEvents,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
@@ -127,6 +130,7 @@ impl Default for World {
             last_trigger_id: 0,
             command_queue: RawCommandQueue::new(),
             component_ids: ComponentIds::default(),
+            inherited_components: Default::default(),
         };
         world.bootstrap();
         world
@@ -166,6 +170,12 @@ impl World {
 
         let on_despawn = OnDespawn::register_component_id(self);
         assert_eq!(ON_DESPAWN, on_despawn);
+
+        let inherit_from = self.register_component::<InheritFrom>();
+        assert_eq!(INHERIT_FROM, inherit_from);
+
+        let inherit_from = self.register_component::<Inherited>();
+        assert_eq!(INHERITED, inherit_from);
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();
