@@ -1,4 +1,5 @@
-use super::{blas::BlasManager, RaytracingMesh3d};
+use super::{blas::BlasManager, extract::StandardMaterialAssets, RaytracingMesh3d};
+use bevy_asset::AssetId;
 use bevy_ecs::{
     resource::Resource,
     system::{Query, Res, ResMut},
@@ -6,16 +7,19 @@ use bevy_ecs::{
 };
 use bevy_math::{Mat4, UVec4};
 use bevy_pbr::{MeshMaterial3d, StandardMaterial};
+use bevy_platform_support::{collections::HashMap, hash::FixedHasher};
 use bevy_render::{
     mesh::allocator::MeshAllocator,
+    render_asset::RenderAssets,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
+    texture::{FallbackImage, GpuImage},
 };
 use bevy_transform::components::GlobalTransform;
-use std::num::NonZeroU32;
+use std::{hash::Hash, num::NonZeroU32, ops::Deref};
 
-const MAX_MESH_COUNT: Option<NonZeroU32> = NonZeroU32::new(2u32.pow(16));
-// const MAX_TEXTURE_COUNT: Option<NonZeroU32> = NonZeroU32::new(10_000);
+const MAX_MESH_COUNT: Option<NonZeroU32> = NonZeroU32::new(5_000);
+const MAX_TEXTURE_COUNT: Option<NonZeroU32> = NonZeroU32::new(5_000);
 
 #[derive(Resource)]
 pub struct RaytracingSceneBindings {
@@ -31,6 +35,9 @@ pub fn prepare_raytracing_scene_bindings(
     )>,
     mesh_allocator: Res<MeshAllocator>,
     blas_manager: Res<BlasManager>,
+    material_assets: Res<StandardMaterialAssets>,
+    texture_assets: Res<RenderAssets<GpuImage>>,
+    fallback_texture: Res<FallbackImage>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut raytracing_scene_bindings: ResMut<RaytracingSceneBindings>,
@@ -41,8 +48,10 @@ pub fn prepare_raytracing_scene_bindings(
         return;
     }
 
-    let mut vertex_buffers = Vec::new();
-    let mut index_buffers = Vec::new();
+    let mut vertex_buffers = CachedBindingArray::new();
+    let mut index_buffers = CachedBindingArray::new();
+    let mut textures = CachedBindingArray::new();
+    let mut samplers = Vec::new();
     let mut tlas = TlasPackage::new(render_device.wgpu_device().create_tlas(
         &CreateTlasDescriptor {
             label: Some("tlas"),
@@ -51,44 +60,131 @@ pub fn prepare_raytracing_scene_bindings(
             max_instances: instances.iter().len() as u32,
         },
     ));
-    let mut geometry_slices = StorageBuffer::<Vec<UVec4>>::default();
     let mut transforms = StorageBuffer::<Vec<Mat4>>::default();
+    let mut geometry_ids = StorageBuffer::<Vec<UVec4>>::default();
+    let mut material_ids = StorageBuffer::<Vec<u32>>::default();
 
-    let mut instance_index = 0;
-    for (mesh, _material, transform) in &instances {
-        if let Some(blas) = blas_manager.get(&mesh.id()) {
-            let vertex_slice = mesh_allocator.mesh_vertex_slice(&mesh.id()).unwrap();
-            let index_slice = mesh_allocator.mesh_index_slice(&mesh.id()).unwrap();
-
-            vertex_buffers.push(vertex_slice.buffer.as_entire_buffer_binding());
-            index_buffers.push(index_slice.buffer.as_entire_buffer_binding());
-            geometry_slices.get_mut().push(UVec4::new(
-                vertex_slice.range.start,
-                vertex_slice.range.end,
-                index_slice.range.start,
-                index_slice.range.end,
-            ));
-
-            let transform = transform.compute_matrix();
-            *tlas.get_mut_single(instance_index).unwrap() = Some(TlasInstance::new(
-                blas,
-                tlas_transform(&transform),
-                instance_index as u32,
-                0xFF,
-            ));
-
-            transforms.get_mut().push(transform);
-
-            instance_index += 1;
+    let mut material_id_map: HashMap<AssetId<StandardMaterial>, u32, FixedHasher> =
+        HashMap::default();
+    let mut material_id = 0;
+    for (asset_id, material) in material_assets.iter() {
+        let mut base_color_texture_id = u32::MAX;
+        if let Some(base_color_texture_handle) = &material.base_color_texture {
+            match texture_assets.get(base_color_texture_handle.id()) {
+                Some(base_color_texture) => {
+                    let (texture_id, new) = textures.push_if_absent(
+                        base_color_texture.texture_view.deref(),
+                        base_color_texture_handle.id(),
+                    );
+                    base_color_texture_id = texture_id;
+                    if new {
+                        samplers.push(base_color_texture.sampler.deref());
+                    }
+                }
+                None => continue,
+            }
         }
+
+        let mut normal_map_texture_id = u32::MAX;
+        if let Some(normal_map_texture_handle) = &material.normal_map_texture {
+            match texture_assets.get(normal_map_texture_handle.id()) {
+                Some(normal_map_texture) => {
+                    let (texture_id, new) = textures.push_if_absent(
+                        normal_map_texture.texture_view.deref(),
+                        normal_map_texture_handle.id(),
+                    );
+                    normal_map_texture_id = texture_id;
+                    if new {
+                        samplers.push(normal_map_texture.sampler.deref());
+                    }
+                }
+                None => continue,
+            }
+        }
+
+        let mut emissive_texture_id = u32::MAX;
+        if let Some(emissive_texture_handle) = &material.emissive_texture {
+            match texture_assets.get(emissive_texture_handle.id()) {
+                Some(emissive_texture) => {
+                    let (texture_id, new) = textures.push_if_absent(
+                        emissive_texture.texture_view.deref(),
+                        emissive_texture_handle.id(),
+                    );
+                    emissive_texture_id = texture_id;
+                    if new {
+                        samplers.push(emissive_texture.sampler.deref());
+                    }
+                }
+                None => continue,
+            }
+        }
+
+        material_id_map.insert(*asset_id, material_id);
+        material_id += 1;
     }
 
-    if vertex_buffers.is_empty() {
+    if material_id == 0 {
         return;
     }
 
-    geometry_slices.write_buffer(&render_device, &render_queue);
+    if textures.is_empty() {
+        textures.vec.push(fallback_texture.d2.texture_view.deref());
+        samplers.push(fallback_texture.d2.sampler.deref());
+    }
+
+    let mut instance_id = 0;
+    for (mesh, material, transform) in &instances {
+        let Some(blas) = blas_manager.get(&mesh.id()) else {
+            continue;
+        };
+        let Some(vertex_slice) = mesh_allocator.mesh_vertex_slice(&mesh.id()) else {
+            continue;
+        };
+        let Some(index_slice) = mesh_allocator.mesh_index_slice(&mesh.id()) else {
+            continue;
+        };
+        let Some(material_id) = material_id_map.get(&material.id()) else {
+            continue;
+        };
+
+        let transform = transform.compute_matrix();
+        *tlas.get_mut_single(instance_id).unwrap() = Some(TlasInstance::new(
+            blas,
+            tlas_transform(&transform),
+            instance_id as u32,
+            0xFF,
+        ));
+
+        transforms.get_mut().push(transform);
+
+        let (vertex_buffer_id, _) = vertex_buffers.push_if_absent(
+            vertex_slice.buffer.as_entire_buffer_binding(),
+            vertex_slice.buffer.id(),
+        );
+        let (index_buffer_id, _) = index_buffers.push_if_absent(
+            index_slice.buffer.as_entire_buffer_binding(),
+            index_slice.buffer.id(),
+        );
+
+        geometry_ids.get_mut().push(UVec4::new(
+            vertex_buffer_id,
+            vertex_slice.range.start,
+            index_buffer_id,
+            index_slice.range.start,
+        ));
+
+        material_ids.get_mut().push(*material_id);
+
+        instance_id += 1;
+    }
+
+    if instance_id == 0 {
+        return;
+    }
+
     transforms.write_buffer(&render_device, &render_queue);
+    geometry_ids.write_buffer(&render_device, &render_queue);
+    material_ids.write_buffer(&render_device, &render_queue);
 
     let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
         label: Some("build_tlas_command_encoder"),
@@ -99,12 +195,15 @@ pub fn prepare_raytracing_scene_bindings(
     raytracing_scene_bindings.bind_group = Some(render_device.create_bind_group(
         "raytracing_scene_bind_group",
         &raytracing_scene_bindings.bind_group_layout,
-        &BindGroupEntries::with_indices((
-            (0, vertex_buffers.as_slice()),
-            (1, index_buffers.as_slice()),
-            (4, tlas.as_binding()),
-            (5, geometry_slices.binding().unwrap()),
-            (6, transforms.binding().unwrap()),
+        &BindGroupEntries::sequential((
+            vertex_buffers.as_slice(),
+            index_buffers.as_slice(),
+            textures.as_slice(),
+            samplers.as_slice(),
+            tlas.as_binding(),
+            transforms.binding().unwrap(),
+            geometry_ids.binding().unwrap(),
+            material_ids.binding().unwrap(),
         )),
     ));
 }
@@ -134,22 +233,22 @@ impl FromWorld for RaytracingSceneBindings {
                 },
                 count: MAX_MESH_COUNT,
             },
-            // BindGroupLayoutEntry {
-            //     binding: 2,
-            //     visibility: ShaderStages::COMPUTE,
-            //     ty: BindingType::Texture {
-            //         sample_type: TextureSampleType::Float { filterable: true },
-            //         view_dimension: TextureViewDimension::D2,
-            //         multisampled: false,
-            //     },
-            //     count: MAX_TEXTURE_COUNT,
-            // },
-            // BindGroupLayoutEntry {
-            //     binding: 3,
-            //     visibility: ShaderStages::COMPUTE,
-            //     ty: BindingType::Sampler(SamplerBindingType::Filtering),
-            //     count: MAX_TEXTURE_COUNT,
-            // },
+            BindGroupLayoutEntry {
+                binding: 2,
+                visibility: ShaderStages::COMPUTE,
+                ty: BindingType::Texture {
+                    sample_type: TextureSampleType::Float { filterable: true },
+                    view_dimension: TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: MAX_TEXTURE_COUNT,
+            },
+            BindGroupLayoutEntry {
+                binding: 3,
+                visibility: ShaderStages::COMPUTE,
+                ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                count: MAX_TEXTURE_COUNT,
+            },
             BindGroupLayoutEntry {
                 binding: 4,
                 visibility: ShaderStages::COMPUTE,
@@ -176,6 +275,16 @@ impl FromWorld for RaytracingSceneBindings {
                 },
                 count: None,
             },
+            BindGroupLayoutEntry {
+                binding: 7,
+                visibility: ShaderStages::COMPUTE,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
         ];
 
         Self {
@@ -185,6 +294,39 @@ impl FromWorld for RaytracingSceneBindings {
                 bind_group_layout_entries,
             ),
         }
+    }
+}
+
+struct CachedBindingArray<T, I: Eq + Hash> {
+    map: HashMap<I, u32>,
+    vec: Vec<T>,
+}
+
+impl<T, I: Eq + Hash> CachedBindingArray<T, I> {
+    fn new() -> Self {
+        Self {
+            map: HashMap::default(),
+            vec: Vec::default(),
+        }
+    }
+
+    fn push_if_absent(&mut self, item: T, item_id: I) -> (u32, bool) {
+        let mut new = false;
+        let i = *self.map.entry(item_id).or_insert_with(|| {
+            new = true;
+            let i = self.vec.len() as u32;
+            self.vec.push(item);
+            i
+        });
+        (i, new)
+    }
+
+    fn is_empty(&self) -> bool {
+        self.vec.is_empty()
+    }
+
+    fn as_slice(&self) -> &[T] {
+        self.vec.as_slice()
     }
 }
 

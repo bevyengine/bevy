@@ -11,6 +11,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_render::{
+    extract_resource::ExtractResourcePlugin,
     mesh::{
         allocator::{allocate_and_free_meshes, MeshAllocator},
         RenderMesh,
@@ -22,7 +23,7 @@ use bevy_render::{
 };
 use binder::prepare_raytracing_scene_bindings;
 use blas::{manage_blas, BlasManager};
-use extract::extract_raytracing_scene;
+use extract::{extract_raytracing_scene, StandardMaterialAssets};
 use tracing::warn;
 
 const RAYTRACING_SCENE_BINDINGS_SHADER_HANDLE: Handle<Shader> =
@@ -44,7 +45,6 @@ impl Plugin for RaytracingScenePlugin {
 
     fn finish(&self, app: &mut App) {
         let render_app = app.sub_app_mut(RenderApp);
-
         let render_device = render_app.world().resource::<RenderDevice>();
         let features = render_device.features();
         if !features.contains(SolariPlugin::required_wgpu_features()) {
@@ -55,6 +55,10 @@ impl Plugin for RaytracingScenePlugin {
             return;
         }
 
+        app.add_plugins(ExtractResourcePlugin::<StandardMaterialAssets>::default());
+
+        let render_app = app.sub_app_mut(RenderApp);
+
         render_app
             .world_mut()
             .resource_mut::<MeshAllocator>()
@@ -62,6 +66,7 @@ impl Plugin for RaytracingScenePlugin {
 
         render_app
             .init_resource::<BlasManager>()
+            .init_resource::<StandardMaterialAssets>()
             .init_resource::<RaytracingSceneBindings>()
             .add_systems(ExtractSchedule, extract_raytracing_scene)
             .add_systems(
