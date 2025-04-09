@@ -42,10 +42,10 @@ struct Material {
 @group(0) @binding(1) var<storage> index_buffers: binding_array<array<u32>>;
 @group(0) @binding(2) var textures: binding_array<texture_2d<f32>>;
 @group(0) @binding(3) var samplers: binding_array<sampler>;
-@group(0) @binding(4) var tlas: acceleration_structure;
-@group(0) @binding(5) var<storage> transforms: array<mat4x4<f32>>;
-@group(0) @binding(6) var<storage> geometry_ids: array<InstanceGeometryIds>;
-@group(0) @binding(7) var<storage> material_ids: array<u32>;
-@group(0) @binding(8) var<storage> materials: array<Material>;
+@group(0) @binding(4) var<storage> materials: array<Material>;
+@group(0) @binding(5) var tlas: acceleration_structure;
+@group(0) @binding(6) var<storage> transforms: array<mat4x4<f32>>;
+@group(0) @binding(7) var<storage> geometry_ids: array<InstanceGeometryIds>;
+@group(0) @binding(8) var<storage> material_ids: array<u32>;
 // @group(0) @binding(9) var<storage> light_sources: array<LightSource>;
 // @group(0) @binding(10) var<storage> directional_lights: array<DirectionalLight>;

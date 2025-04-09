@@ -53,6 +53,7 @@ pub fn prepare_raytracing_scene_bindings(
     let mut index_buffers = CachedBindingArray::new();
     let mut textures = CachedBindingArray::new();
     let mut samplers = Vec::new();
+    let mut materials = StorageBuffer::<Vec<GpuRaytracingMaterial>>::default();
     let mut tlas = TlasPackage::new(render_device.wgpu_device().create_tlas(
         &CreateTlasDescriptor {
             label: Some("tlas"),
@@ -64,7 +65,6 @@ pub fn prepare_raytracing_scene_bindings(
     let mut transforms = StorageBuffer::<Vec<Mat4>>::default();
     let mut geometry_ids = StorageBuffer::<Vec<UVec4>>::default();
     let mut material_ids = StorageBuffer::<Vec<u32>>::default();
-    let mut materials = StorageBuffer::<Vec<GpuRaytracingMaterial>>::default();
 
     let mut material_id_map: HashMap<AssetId<StandardMaterial>, u32, FixedHasher> =
         HashMap::default();
@@ -168,10 +168,10 @@ pub fn prepare_raytracing_scene_bindings(
         return;
     }
 
+    materials.write_buffer(&render_device, &render_queue);
     transforms.write_buffer(&render_device, &render_queue);
     geometry_ids.write_buffer(&render_device, &render_queue);
     material_ids.write_buffer(&render_device, &render_queue);
-    materials.write_buffer(&render_device, &render_queue);
 
     let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
         label: Some("build_tlas_command_encoder"),
@@ -187,11 +187,11 @@ pub fn prepare_raytracing_scene_bindings(
             index_buffers.as_slice(),
             textures.as_slice(),
             samplers.as_slice(),
+            materials.binding().unwrap(),
             tlas.as_binding(),
             transforms.binding().unwrap(),
             geometry_ids.binding().unwrap(),
             material_ids.binding().unwrap(),
-            materials.binding().unwrap(),
         )),
     ));
 }
@@ -240,17 +240,17 @@ impl FromWorld for RaytracingSceneBindings {
             BindGroupLayoutEntry {
                 binding: 4,
                 visibility: ShaderStages::COMPUTE,
-                ty: BindingType::AccelerationStructure,
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 5,
-                visibility: ShaderStages::COMPUTE,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 },
+                count: None,
+            },
+            BindGroupLayoutEntry {
+                binding: 5,
+                visibility: ShaderStages::COMPUTE,
+                ty: BindingType::AccelerationStructure,
                 count: None,
             },
             BindGroupLayoutEntry {
