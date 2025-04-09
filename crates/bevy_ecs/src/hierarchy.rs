@@ -268,7 +268,7 @@ impl<'w> EntityWorldMut<'w> {
     /// Spawns children of this entity (with a [`ChildOf`] relationship) by taking a function that operates on a [`ChildSpawner`].
     /// See also [`with_related`](Self::with_related).
     pub fn with_children(&mut self, func: impl FnOnce(&mut ChildSpawner)) -> &mut Self {
-        self.with_related(func);
+        self.with_related_entities(func);
         self
     }
 
@@ -352,7 +352,7 @@ impl<'a> EntityCommands<'a> {
         &mut self,
         func: impl FnOnce(&mut RelatedSpawnerCommands<ChildOf>),
     ) -> &mut Self {
-        self.with_related(func);
+        self.with_related_entities(func);
         self
     }
 
@@ -406,8 +406,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// [`with_children`]: EntityCommands::with_children
     pub fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
-        let parent = self.id();
-        self.commands.spawn((bundle, ChildOf(parent)));
+        self.with_related::<ChildOf>(bundle);
         self
     }
 
