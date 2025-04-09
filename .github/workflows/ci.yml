@@ -271,7 +271,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: cargo-bins/cargo-binstall@main
+      - uses: cargo-bins/cargo-binstall@v1.12.3
       - name: Install taplo
         run: cargo binstall taplo-cli --locked
       - name: Run Taplo
