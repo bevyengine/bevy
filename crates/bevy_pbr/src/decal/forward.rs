@@ -87,9 +87,13 @@ pub type ForwardDecalMaterial<B: Material> = ExtendedMaterial<B, ForwardDecalMat
 /// the forward decal code behind an ifdef.
 #[derive(Asset, AsBindGroup, TypePath, Clone, Debug)]
 pub struct ForwardDecalMaterialExt {
-    /// Controls how far away a surface must be before the decal will stop blending with it, and instead render as opaque.
+    /// Controls the distance threshold for decal blending with surfaces.
     ///
-    /// Decreasing this value will cause the decal to blend only to surfaces closer to it.
+    /// This parameter determines how far away a surface can be before the decal no longer blends
+    /// with it and instead renders with full opacity.
+    ///
+    /// Lower values cause the decal to only blend with close surfaces, while higher values allow
+    /// blending with more distant surfaces.
     ///
     /// Units are in meters.
     #[uniform(200)]

@@ -46,7 +46,7 @@ fn get_forward_decal_info(in: VertexOutput) -> ForwardDecalInformation {
     let uv = in.uv + delta_uv;
 
     let world_position = vec4(in.world_position.xyz + V * diff_depth_abs, in.world_position.w);
-    let alpha = saturate(1.0 - normal_depth * depth_fade_factor);
+    let alpha = saturate(1.0 - (normal_depth / max(depth_fade_factor, 0.001)));
 
     return ForwardDecalInformation(world_position, uv, alpha);
 }
