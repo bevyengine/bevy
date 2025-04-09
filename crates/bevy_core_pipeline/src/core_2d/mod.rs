@@ -19,6 +19,7 @@ pub mod graph {
         MainOpaquePass,
         MainTransparentPass,
         EndMainPass,
+        Wireframe,
         Bloom,
         PostProcessing,
         Tonemapping,
