@@ -1,6 +1,6 @@
 use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
 use allocator::MeshAllocator;
-use bevy_asset::{load_internal_asset, AssetId, UntypedAssetId};
+use bevy_asset::{load_internal_asset, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -193,7 +193,7 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<MorphUniforms>()
                 .init_resource::<MorphIndices>()
                 .init_resource::<MeshCullingDataBuffer>()
-                .init_resource::<RenderMeshMaterialIds>()
+                .init_resource::<RenderMaterialInstances>()
                 .configure_sets(
                     ExtractSchedule,
                     ExtractMeshesSet.after(view::extract_visibility_ranges),
@@ -895,37 +895,6 @@ pub struct RenderMeshInstancesCpu(MainEntityHashMap<RenderMeshInstanceCpu>);
 #[derive(Default, Deref, DerefMut)]
 pub struct RenderMeshInstancesGpu(MainEntityHashMap<RenderMeshInstanceGpu>);
 
-/// Maps each mesh instance to the material ID, and allocated binding ID,
-/// associated with that mesh instance.
-#[derive(Resource, Default)]
-pub struct RenderMeshMaterialIds {
-    /// Maps the mesh instance to the material ID.
-    mesh_to_material: MainEntityHashMap<UntypedAssetId>,
-}
-
-impl RenderMeshMaterialIds {
-    /// Returns the mesh material ID for the entity with the given mesh, or a
-    /// dummy mesh material ID if the mesh has no material ID.
-    ///
-    /// Meshes almost always have materials, but in very specific circumstances
-    /// involving custom pipelines they won't. (See the
-    /// `specialized_mesh_pipelines` example.)
-    pub(crate) fn mesh_material(&self, entity: MainEntity) -> UntypedAssetId {
-        self.mesh_to_material
-            .get(&entity)
-            .cloned()
-            .unwrap_or(AssetId::<StandardMaterial>::invalid().into())
-    }
-
-    pub(crate) fn insert(&mut self, mesh_entity: MainEntity, material_id: UntypedAssetId) {
-        self.mesh_to_material.insert(mesh_entity, material_id);
-    }
-
-    pub(crate) fn remove(&mut self, main_entity: MainEntity) {
-        self.mesh_to_material.remove(&main_entity);
-    }
-}
-
 impl RenderMeshInstances {
     /// Creates a new [`RenderMeshInstances`] instance.
     fn new(use_gpu_instance_buffer_builder: bool) -> RenderMeshInstances {
@@ -1128,7 +1097,7 @@ impl RenderMeshInstanceGpuBuilder {
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         previous_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         mesh_allocator: &MeshAllocator,
-        mesh_material_ids: &RenderMeshMaterialIds,
+        mesh_material_ids: &RenderMaterialInstances,
         render_material_bindings: &RenderMaterialBindings,
         render_lightmaps: &RenderLightmaps,
         skin_uniforms: &SkinUniforms,
@@ -1673,7 +1642,7 @@ pub fn collect_meshes_for_gpu_building(
     mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
     mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
     mesh_allocator: Res<MeshAllocator>,
-    mesh_material_ids: Res<RenderMeshMaterialIds>,
+    mesh_material_ids: Res<RenderMaterialInstances>,
     render_material_bindings: Res<RenderMaterialBindings>,
     render_lightmaps: Res<RenderLightmaps>,
     skin_uniforms: Res<SkinUniforms>,
