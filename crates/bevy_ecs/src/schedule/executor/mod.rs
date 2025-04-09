@@ -315,7 +315,7 @@ mod __rust_begin_short_backtrace {
 #[cfg(test)]
 mod tests {
     use crate::{
-        prelude::{Component, Resource, Schedule},
+        prelude::{Commands, Component, In, IntoSystem, Resource, Schedule},
         schedule::ExecutorKind,
         system::{Populated, Res, ResMut, Single},
         world::World,
@@ -406,6 +406,63 @@ mod tests {
 
         schedule.set_executor_kind(ExecutorKind::MultiThreaded);
         schedule.add_systems(look_for_missing_resource);
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    fn piped_systems_first_system_skipped() {
+        // This system should be skipped when run due to no matching entity
+        fn pipe_out(_single: Single<&TestComponent>) -> u8 {
+            42
+        }
+        fn pipe_in(_input: In<u8>, mut commands: Commands) {
+            commands.remove_resource::<TestState>();
+        }
+
+        let mut world = World::new();
+        world.init_resource::<TestState>();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
+
+        assert!(world.contains_resource::<TestState>());
+    }
+
+    #[test]
+    fn piped_system_second_system_skipped() {
+        fn pipe_out(mut commands: Commands) -> u8 {
+            commands.remove_resource::<TestState>();
+            42
+        }
+
+        // This system should be skipped when run due to no matching entity
+        fn pipe_in(_input: In<u8>, _single: Single<&TestComponent>) {}
+
+        let mut world = World::new();
+        world.init_resource::<TestState>();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
+
+        assert!(world.contains_resource::<TestState>());
+    }
+
+    #[test]
+    #[should_panic]
+    fn piped_system_second_system_panics() {
+        fn pipe_out() -> u8 {
+            42
+        }
+
+        // This system should panic when run because the resource is missing
+        fn pipe_in(_input: In<u8>, _res: Res<TestState>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
         schedule.run(&mut world);
     }
 }
