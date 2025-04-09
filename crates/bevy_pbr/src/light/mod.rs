@@ -102,7 +102,8 @@ pub mod light_consts {
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource, Debug, Default, Clone)]
 pub struct PointLightShadowMap {
-    /// The shadow map texture's width and height in pixels.
+    /// The width and height of each of the 6 faces of the cubemap.
+
     ///
     /// Defaults to `1024`.
     pub size: usize,
@@ -129,7 +130,7 @@ pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLigh
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource, Debug, Default, Clone)]
 pub struct DirectionalLightShadowMap {
-    /// The shadow map texture's width and height in pixels.
+    // The width and height of each cascade.
     ///
     /// Defaults to `2048`.
     pub size: usize,
