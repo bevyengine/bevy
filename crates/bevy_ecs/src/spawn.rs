@@ -125,7 +125,7 @@ impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static>
     for SpawnWith<F>
 {
     fn spawn(self, world: &mut World, entity: Entity) {
-        world.entity_mut(entity).with_relationships(self.0);
+        world.entity_mut(entity).with_related_entities(self.0);
     }
 
     fn size_hint(&self) -> usize {

@@ -23,7 +23,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
-    pub fn with_relationships<R: Relationship>(
+    pub fn with_related_entities<R: Relationship>(
         &mut self,
         func: impl FnOnce(&mut RelatedSpawner<R>),
     ) -> &mut Self {
@@ -339,7 +339,7 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
-    pub fn with_relationships<R: Relationship>(
+    pub fn with_related_entities<R: Relationship>(
         &mut self,
         func: impl FnOnce(&mut RelatedSpawnerCommands<R>),
     ) -> &mut Self {
@@ -356,6 +356,23 @@ impl<'a> EntityCommands<'a> {
 
         self.queue(move |mut entity: EntityWorldMut| {
             entity.add_related::<R>(&related);
+        })
+    }
+
+    /// Relates the given entities to this entity with the relation `R`, starting at this particular index.
+    ///
+    /// If the `related` has duplicates, a related entity will take the index of its last occurrence in `related`.
+    /// If the indices go out of bounds, they will be clamped into bounds.
+    /// This will not re-order existing related entities unless they are in `related`.
+    pub fn insert_related<R: Relationship>(&mut self, index: usize, related: &[Entity]) -> &mut Self
+    where
+        <R::RelationshipTarget as RelationshipTarget>::Collection:
+            OrderedRelationshipSourceCollection,
+    {
+        let related: Box<[Entity]> = related.into();
+
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.insert_related::<R>(index, &related);
         })
     }
 

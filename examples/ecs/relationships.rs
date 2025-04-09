@@ -60,7 +60,7 @@ fn main() {
             .with_related::<Targeting>(Name::new("James"))
             // The `with_relationships` method will automatically add the `Targeting` component to any entities spawned within the closure,
             // targeting the entity that we're calling `with_related` on.
-            .with_relationships::<Targeting>(|related_spawner_commands| {
+            .with_related_entities::<Targeting>(|related_spawner_commands| {
                 // We could spawn multiple entities here, and they would all target `charlie`.
                 related_spawner_commands.spawn(Name::new("Devon"));
             })
