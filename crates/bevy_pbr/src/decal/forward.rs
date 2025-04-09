@@ -105,7 +105,7 @@ pub struct ForwardDecalMaterialExt {
 
 #[derive(Clone, Default, ShaderType)]
 pub struct ForwardDecalMaterialExtUniform {
-    pub depth_fade_factor: f32,
+    pub inv_depth_fade_factor: f32,
 }
 
 impl AsBindGroupShaderType<ForwardDecalMaterialExtUniform> for ForwardDecalMaterialExt {
@@ -114,7 +114,7 @@ impl AsBindGroupShaderType<ForwardDecalMaterialExtUniform> for ForwardDecalMater
         _images: &RenderAssets<GpuImage>,
     ) -> ForwardDecalMaterialExtUniform {
         ForwardDecalMaterialExtUniform {
-            depth_fade_factor: self.depth_fade_factor.max(0.001),
+            inv_depth_fade_factor: 1.0 / self.depth_fade_factor.max(0.001),
         }
     }
 }
