@@ -1,5 +1,6 @@
 use super::{blas::BlasManager, extract::StandardMaterialAssets, RaytracingMesh3d};
 use bevy_asset::{AssetId, Handle};
+use bevy_color::LinearRgba;
 use bevy_ecs::{
     resource::Resource,
     system::{Query, Res, ResMut},
@@ -63,6 +64,7 @@ pub fn prepare_raytracing_scene_bindings(
     let mut transforms = StorageBuffer::<Vec<Mat4>>::default();
     let mut geometry_ids = StorageBuffer::<Vec<UVec4>>::default();
     let mut material_ids = StorageBuffer::<Vec<u32>>::default();
+    let mut materials = StorageBuffer::<Vec<GpuRaytracingMaterial>>::default();
 
     let mut material_id_map: HashMap<AssetId<StandardMaterial>, u32, FixedHasher> =
         HashMap::default();
@@ -93,6 +95,15 @@ pub fn prepare_raytracing_scene_bindings(
         let Some(emissive_texture_id) = process_texture(&material.emissive_texture) else {
             continue;
         };
+
+        materials.get_mut().push(GpuRaytracingMaterial {
+            base_color: material.base_color.to_linear(),
+            emissive: material.emissive,
+            base_color_texture_id,
+            normal_map_texture_id,
+            emissive_texture_id,
+            _padding: Default::default(),
+        });
 
         material_id_map.insert(*asset_id, material_id);
         material_id += 1;
@@ -160,6 +171,7 @@ pub fn prepare_raytracing_scene_bindings(
     transforms.write_buffer(&render_device, &render_queue);
     geometry_ids.write_buffer(&render_device, &render_queue);
     material_ids.write_buffer(&render_device, &render_queue);
+    materials.write_buffer(&render_device, &render_queue);
 
     let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
         label: Some("build_tlas_command_encoder"),
@@ -179,6 +191,7 @@ pub fn prepare_raytracing_scene_bindings(
             transforms.binding().unwrap(),
             geometry_ids.binding().unwrap(),
             material_ids.binding().unwrap(),
+            materials.binding().unwrap(),
         )),
     ));
 }
@@ -260,6 +273,16 @@ impl FromWorld for RaytracingSceneBindings {
                 },
                 count: None,
             },
+            BindGroupLayoutEntry {
+                binding: 8,
+                visibility: ShaderStages::COMPUTE,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
         ];
 
         Self {
@@ -303,6 +326,16 @@ impl<T, I: Eq + Hash> CachedBindingArray<T, I> {
     fn as_slice(&self) -> &[T] {
         self.vec.as_slice()
     }
+}
+
+#[derive(ShaderType)]
+struct GpuRaytracingMaterial {
+    base_color: LinearRgba,
+    emissive: LinearRgba,
+    base_color_texture_id: u32,
+    normal_map_texture_id: u32,
+    emissive_texture_id: u32,
+    _padding: u32,
 }
 
 fn tlas_transform(transform: &Mat4) -> [f32; 12] {
