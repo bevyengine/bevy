@@ -1049,6 +1049,9 @@ impl From<DVec2> for WindowResolution {
 /// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
 /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
 /// - **`iOS/Android`** don't have cursors.
+/// - **`Web`** doesn't support [`CursorGrabMode::Confined`]. Setting `CursorGrabMode::Locked` may
+///   fail in cases where its not initiated by a user clicking or if it has been deactivated
+///   recently. On web `CursorGrabMode::Locked` hides the cursor.
 ///
 /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
