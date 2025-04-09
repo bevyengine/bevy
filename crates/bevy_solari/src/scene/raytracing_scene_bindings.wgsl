@@ -7,6 +7,10 @@ struct InstanceGeometryIds {
     index_buffer_offset: u32,
 }
 
+struct VertexBuffer { vertices: array<PackedVertex> }
+
+struct IndexBuffer { indices: array<u32> }
+
 struct PackedVertex {
     a: vec4<f32>,
     b: vec4<f32>,
@@ -38,8 +42,8 @@ struct Material {
     _padding: u32,
 }
 
-@group(0) @binding(0) var<storage> vertex_buffers: binding_array<array<PackedVertex>>;
-@group(0) @binding(1) var<storage> index_buffers: binding_array<array<u32>>;
+@group(0) @binding(0) var<storage> vertex_buffers: binding_array<VertexBuffer>;
+@group(0) @binding(1) var<storage> index_buffers: binding_array<IndexBuffer>;
 @group(0) @binding(2) var textures: binding_array<texture_2d<f32>>;
 @group(0) @binding(3) var samplers: binding_array<sampler>;
 @group(0) @binding(4) var<storage> materials: array<Material>;
