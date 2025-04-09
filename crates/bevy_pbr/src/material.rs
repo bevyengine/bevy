@@ -316,10 +316,13 @@ where
                 .add_systems(
                     ExtractSchedule,
                     (
-                        early_sweep_material_instances::<M>
+                        (
+                            extract_mesh_materials::<M>,
+                            early_sweep_material_instances::<M>,
+                        )
+                            .chain()
                             .before(late_sweep_material_instances)
                             .before(ExtractMeshesSet),
-                        extract_mesh_materials::<M>.before(early_sweep_material_instances::<M>),
                         extract_entities_needs_specialization::<M>.after(extract_cameras),
                     ),
                 )
@@ -406,6 +409,13 @@ where
         }
     }
 }
+
+/// A dummy [`AssetId`] that we use as a placeholder whenever a mesh doesn't
+/// have a material.
+///
+/// See the comments in [`RenderMaterialInstances::mesh_material`] for more
+/// information.
+static DUMMY_MESH_MATERIAL: AssetId<StandardMaterial> = AssetId::<StandardMaterial>::invalid();
 
 /// A key uniquely identifying a specialized [`MaterialPipeline`].
 pub struct MaterialPipelineKey<M: Material> {
@@ -610,7 +620,7 @@ impl RenderMaterialInstances {
     pub(crate) fn mesh_material(&self, entity: MainEntity) -> UntypedAssetId {
         match self.instances.get(&entity) {
             Some(render_instance) => render_instance.asset_id,
-            None => AssetId::<StandardMaterial>::invalid().into(),
+            None => DUMMY_MESH_MATERIAL.into(),
         }
     }
 }
@@ -683,7 +693,7 @@ pub const fn screen_space_specular_transmission_pipeline_key(
 ///
 /// As [`crate::render::mesh::collect_meshes_for_gpu_building`] only considers
 /// meshes that were newly extracted, and it writes information from the
-/// [`RenderMeshMaterialIds`] into the
+/// [`RenderMaterialInstances`] into the
 /// [`crate::render::mesh::MeshInputUniform`], we must tell
 /// [`crate::render::mesh::extract_meshes_for_gpu_building`] to re-extract a
 /// mesh if its material changed. Otherwise, the material binding information in
@@ -704,8 +714,8 @@ fn mark_meshes_as_changed_if_their_materials_changed<M>(
     }
 }
 
-/// Fills the [`RenderMaterialInstances`] and [`RenderMeshMaterialIds`]
-/// resources from the meshes in the scene.
+/// Fills the [`RenderMaterialInstances`] resources from the meshes in the
+/// scene.
 fn extract_mesh_materials<M: Material>(
     mut material_instances: ResMut<RenderMaterialInstances>,
     changed_meshes_query: Extract<
