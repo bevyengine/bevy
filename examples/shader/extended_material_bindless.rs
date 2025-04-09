@@ -1,6 +1,6 @@
 //! Demonstrates bindless `ExtendedMaterial`.
 
-use std::f32::consts::{FRAC_PI_2, PI};
+use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
     color::palettes::{css::RED, tailwind::GRAY_600},
