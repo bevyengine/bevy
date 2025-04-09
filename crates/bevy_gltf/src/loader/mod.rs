@@ -30,11 +30,9 @@ use bevy_mesh::{
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
     Indices, Mesh, MeshVertexAttribute, PrimitiveTopology, VertexAttributeValues,
 };
+use bevy_pbr::StandardMaterial;
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_pbr::UvChannel;
-use bevy_pbr::{
-    DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial, MAX_JOINTS,
-};
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
@@ -43,6 +41,7 @@ use bevy_render::{
     render_resource::Face,
     view::Visibility,
 };
+use bevy_render_3d::{DirectionalLight, MeshMaterial3d, PointLight, SpotLight, MAX_JOINTS};
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;

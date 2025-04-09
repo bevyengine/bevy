@@ -4,7 +4,7 @@ pub use bevy_gizmos_macros::GizmoConfigGroup;
 
 #[cfg(all(
     feature = "bevy_render",
-    any(feature = "bevy_pbr", feature = "bevy_sprite")
+    any(feature = "bevy_render_3d", feature = "bevy_sprite")
 ))]
 use {crate::GizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
@@ -246,7 +246,7 @@ impl Default for GizmoLineConfig {
 
 #[cfg(all(
     feature = "bevy_render",
-    any(feature = "bevy_pbr", feature = "bevy_sprite")
+    any(feature = "bevy_render_3d", feature = "bevy_sprite")
 ))]
 #[derive(Component)]
 pub(crate) struct GizmoMeshConfig {

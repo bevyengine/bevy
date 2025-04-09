@@ -3,8 +3,8 @@
 use argh::FromArgs;
 use bevy::{
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass},
-    pbr::{DefaultOpaqueRendererMethod, Lightmap},
     prelude::*,
+    render_3d::{DefaultOpaqueRendererMethod, Lightmap},
 };
 
 /// Demonstrates lightmaps

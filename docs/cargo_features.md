@@ -30,6 +30,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
 |bevy_render|Provides rendering functionality|
+|bevy_render_3d|Provides functionality for rendering in 3d|
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
 |bevy_sprite_picking_backend|Provides an implementation for picking sprites|
@@ -69,6 +70,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
+|bevy_volumetrics|Provides volumetric lights, fog, and procedural atmosphere|
 |bmp|BMP image format support|
 |configurable_error_handler|Use the configurable global error handler as the default error handler.|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
@@ -78,7 +80,7 @@ The default feature set enables most of the expected features of a game engine, 
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
-|experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
+|experimental_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
 |ff|Farbfeld image format support|
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
