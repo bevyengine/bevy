@@ -1,5 +1,11 @@
 //! Traits used by label implementations
 
+#![no_std]
+
+pub mod intern;
+
+extern crate alloc;
+
 use core::{
     any::Any,
     hash::{Hash, Hasher},
@@ -73,7 +79,7 @@ where
 /// # Example
 ///
 /// ```
-/// # use bevy_ecs::define_label;
+/// # use bevy_label::define_label;
 /// define_label!(
 ///     /// Documentation of label trait
 ///     MyNewLabelTrait,
@@ -127,10 +133,10 @@ macro_rules! define_label {
             /// Clones this `
             #[doc = stringify!($label_trait_name)]
             ///`.
-            fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name>;
+            fn dyn_clone(&self) -> $crate::Box<dyn $label_trait_name>;
 
             /// Casts this value to a form where it can be compared with other type-erased values.
-            fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq;
+            fn as_dyn_eq(&self) -> &dyn $crate::DynEq;
 
             /// Feeds this value into the given [`Hasher`].
             fn dyn_hash(&self, state: &mut dyn ::core::hash::Hasher);
@@ -147,12 +153,12 @@ macro_rules! define_label {
 
             $($interned_extra_methods_impl)*
 
-            fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name> {
+            fn dyn_clone(&self) -> $crate::Box<dyn $label_trait_name> {
                 (**self).dyn_clone()
             }
 
             /// Casts this value to a form where it can be compared with other type-erased values.
-            fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq {
+            fn as_dyn_eq(&self) -> &dyn $crate::DynEq {
                 (**self).as_dyn_eq()
             }
 
@@ -181,7 +187,7 @@ macro_rules! define_label {
 
         impl $crate::intern::Internable for dyn $label_trait_name {
             fn leak(&self) -> &'static Self {
-                $crate::label::Box::leak(self.dyn_clone())
+                $crate::Box::leak(self.dyn_clone())
             }
 
             fn ref_eq(&self, other: &Self) -> bool {
