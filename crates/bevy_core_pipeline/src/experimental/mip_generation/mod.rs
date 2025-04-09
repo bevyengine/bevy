@@ -7,6 +7,10 @@
 
 use core::array;
 
+use crate::core_3d::{
+    graph::{Core3d, Node3d},
+    prepare_core_3d_depth_textures,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -21,6 +25,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
+use bevy_render::render_resource::WgpuFeatures;
 use bevy_render::{
     experimental::occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
@@ -42,11 +47,6 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 use bitflags::bitflags;
-
-use crate::core_3d::{
-    graph::{Core3d, Node3d},
-    prepare_core_3d_depth_textures,
-};
 
 /// Identifies the `downsample_depth.wgsl` shader.
 pub const DOWNSAMPLE_DEPTH_SHADER_HANDLE: Handle<Shader> =
@@ -325,7 +325,7 @@ pub struct DownsampleDepthPipelines {
     sampler: Sampler,
 }
 
-fn supports_compute_shaders(device: &RenderDevice, adapter: &RenderAdapter) -> bool {
+fn check_required_gpu_features(device: &RenderDevice, adapter: &RenderAdapter) -> bool {
     adapter
         .get_downlevel_capabilities()
         .flags
@@ -335,6 +335,10 @@ fn supports_compute_shaders(device: &RenderDevice, adapter: &RenderAdapter) -> b
     // `wgpu::Limits::downlevel_webgl2_defaults()`). This will have set all the
     // `max_compute_*` limits to zero, so we arbitrarily pick one as a canary.
     && (device.limits().max_compute_workgroup_storage_size != 0)
+    // We also need to check that the adapter supports push constants, since
+    // the downsample depth shader uses them to pass the mip level to the
+    // compute shader.
+    && adapter.features().contains(WgpuFeatures::PUSH_CONSTANTS)
 }
 
 /// Creates the [`DownsampleDepthPipelines`] if downsampling is supported on the
@@ -356,9 +360,7 @@ fn create_downsample_depth_pipelines(
     }
     *has_run = true;
 
-    // If we don't have compute shaders, we can't invoke the downsample depth
-    // compute shader.
-    if !supports_compute_shaders(&render_device, &render_adapter) {
+    if !check_required_gpu_features(&render_device, &render_adapter) {
         return;
     }
 
