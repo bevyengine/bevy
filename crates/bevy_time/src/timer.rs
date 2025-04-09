@@ -1,4 +1,5 @@
 use crate::Stopwatch;
+use bevy_ecs::{component::Component, event::Event};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use core::time::Duration;
@@ -12,7 +13,10 @@ use core::time::Duration;
 /// Paused timers will not have elapsed time increased.
 ///
 /// Note that in order to advance the timer [`tick`](Timer::tick) **MUST** be called.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+/// For timers used as components this will be done automatically by the
+/// [`update_timers_system`](crate::update_timers_system) unless
+/// [`TimerNoAutoTick`] is also present.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Component)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -453,6 +457,16 @@ pub enum TimerMode {
     /// Reset when finished.
     Repeating,
 }
+
+/// Event that is triggered when a [`Timer`] attached as a component finishes.
+#[derive(Event, Debug, Clone, Copy)]
+pub struct TimerFinishedEvent;
+
+/// Marker component to prevent timers used as components from being
+/// automatically ticked by
+/// [`update_timers_system`](crate::update_timers_system).
+#[derive(Component, Debug, Clone, Copy)]
+pub struct TimerNoAutoTick;
 
 #[cfg(test)]
 mod tests {

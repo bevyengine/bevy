@@ -85,7 +85,8 @@ impl Plugin for TimePlugin {
         .add_systems(
             RunFixedMainLoop,
             run_fixed_main_schedule.in_set(RunFixedMainLoopSystem::FixedMainLoop),
-        );
+        )
+        .add_systems(PreUpdate, update_timers_system.in_set(TimeSystem));
 
         // Ensure the events are not dropped until `FixedMain` systems can observe them
         app.add_systems(FixedPostUpdate, signal_event_update_system);
@@ -175,13 +176,33 @@ pub fn time_system(
     update_virtual_time(&mut time, &mut virtual_time, &real_time);
 }
 
+/// Ticks all [`Timer`]s that are used as components without [`TimerNoAutoTick`]
+/// and triggers [`TimerFinishedEvent`] when they finish.
+pub fn update_timers_system(
+    mut commands: Commands,
+    mut timers: Query<(Entity, &mut Timer), Without<TimerNoAutoTick>>,
+    time: Res<Time>,
+) {
+    let delta = time.delta();
+    for (entity, mut timer) in &mut timers {
+        timer.tick(delta);
+        if timer.just_finished() {
+            commands.trigger_targets(TimerFinishedEvent, entity);
+        }
+    }
+}
+
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
-    use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
+    use crate::{
+        Fixed, Time, TimePlugin, TimeUpdateStrategy, Timer, TimerFinishedEvent, TimerMode,
+        TimerNoAutoTick, Virtual,
+    };
     use bevy_app::{App, FixedUpdate, Startup, Update};
     use bevy_ecs::{
         event::{Event, EventReader, EventRegistry, EventWriter, Events, ShouldUpdateEvents},
+        observer::Trigger,
         resource::Resource,
         system::{Local, Res, ResMut},
     };
@@ -397,5 +418,46 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn timer_ticks_and_triggers_elapsed_event() {
+        #[derive(Resource, Default)]
+        struct R(i32);
+
+        let mut app = App::new();
+        app.add_plugins(TimePlugin).init_resource::<R>();
+
+        let world = app.world_mut();
+        let mut entity = world.spawn(Timer::new(Duration::from_secs(0), TimerMode::Repeating));
+        let id = entity.id();
+
+        entity.observe(
+            move |trigger: Trigger<TimerFinishedEvent>, mut resource: ResMut<R>| {
+                assert_eq!(id, trigger.target());
+                resource.0 += 1;
+            },
+        );
+
+        world
+            .spawn((
+                Timer::new(Duration::from_secs(0), TimerMode::Once),
+                TimerNoAutoTick,
+            ))
+            .observe(|_trigger: Trigger<TimerFinishedEvent>| {
+                assert!(false, "Timer should not have been ticked");
+            });
+
+        app.update();
+
+        let times_triggered = app.world_mut().resource::<R>().0;
+
+        assert_eq!(times_triggered, 1);
+
+        app.update();
+
+        let times_triggered = app.world_mut().resource::<R>().0;
+
+        assert_eq!(times_triggered, 2);
     }
 }
