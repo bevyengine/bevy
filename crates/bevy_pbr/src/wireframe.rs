@@ -1,14 +1,28 @@
-use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin, MeshMaterial3d};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+    prelude::resource_changed,
+    query::{Changed, With, Without},
+    reflect::{ReflectComponent, ReflectResource},
+    removal_detection::RemovedComponents,
+    resource::Resource,
+    schedule::IntoScheduleConfigs,
+    system::{Commands, Query, Res, ResMut},
+};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_resource::ExtractResource,
     mesh::{Mesh3d, MeshVertexBufferLayoutRef},
-    prelude::*,
-    render_resource::*,
+    render_resource::{
+        AsBindGroup, PolygonMode, RenderPipelineDescriptor, Shader, ShaderRef,
+        SpecializedMeshPipelineError,
+    },
+};
+use bevy_render_3d::{
+    Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin, MeshMaterial3d,
 };
 
 pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> =

@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*, scene::SceneInstanceReady};
+use bevy::{prelude::*, render_3d::CascadeShadowConfigBuilder, scene::SceneInstanceReady};
 
 // An example asset that contains a mesh and animation.
 const GLTF_PATH: &str = "models/animated/Fox.glb";

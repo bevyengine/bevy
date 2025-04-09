@@ -5,7 +5,8 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::post_process::ChromaticAberration, pbr::CascadeShadowConfigBuilder, prelude::*,
+    core_pipeline::post_process::ChromaticAberration, prelude::*,
+    render_3d::CascadeShadowConfigBuilder,
 };
 
 /// The number of units per frame to add to or subtract from intensity when the

@@ -2,9 +2,9 @@
 
 use bevy::{
     color::palettes::basic::RED,
-    pbr::{ExtendedMaterial, MaterialExtension, OpaqueRendererMethod},
     prelude::*,
     render::render_resource::*,
+    render_3d::{ExtendedMaterial, MaterialExtension, OpaqueRendererMethod},
 };
 
 /// This example uses a shader source file from the assets subdirectory

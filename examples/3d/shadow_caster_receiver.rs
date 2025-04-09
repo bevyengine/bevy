@@ -4,8 +4,8 @@ use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::basic::{BLUE, LIME, RED},
-    pbr::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
     prelude::*,
+    render_3d::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
 };
 
 fn main() {

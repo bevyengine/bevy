@@ -1,7 +1,6 @@
 //! A shader that reads a mesh's custom vertex attribute.
 
 use bevy::{
-    pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -11,6 +10,7 @@ use bevy::{
             VertexFormat,
         },
     },
+    render_3d::{MaterialPipeline, MaterialPipelineKey},
 };
 
 /// This example uses a shader source file from the assets subdirectory

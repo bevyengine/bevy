@@ -6,8 +6,8 @@ use std::{f32::consts::PI, time::Duration};
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    pbr::CascadeShadowConfigBuilder,
     prelude::*,
+    render_3d::CascadeShadowConfigBuilder,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };

@@ -13,9 +13,6 @@ use bevy::{
         query::QueryItem,
         system::{lifetimeless::*, SystemParamItem},
     },
-    pbr::{
-        MeshPipeline, MeshPipelineKey, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
-    },
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -32,6 +29,9 @@ use bevy::{
         sync_world::MainEntity,
         view::{ExtractedView, NoFrustumCulling, NoIndirectDrawing},
         Render, RenderApp, RenderSet,
+    },
+    render_3d::{
+        MeshPipeline, MeshPipelineKey, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
     },
 };
 use bytemuck::{Pod, Zeroable};

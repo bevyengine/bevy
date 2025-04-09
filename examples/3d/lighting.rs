@@ -5,9 +5,9 @@ use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::css::*,
-    pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::camera::{Exposure, PhysicalCameraParameters},
+    render_3d::CascadeShadowConfigBuilder,
 };
 
 fn main() {

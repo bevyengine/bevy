@@ -68,7 +68,7 @@ pub struct PointLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
-    #[cfg(feature = "experimental_pbr_pcss")]
+    #[cfg(feature = "experimental_pcss")]
     pub soft_shadows_enabled: bool,
 
     /// Whether this point light contributes diffuse lighting to meshes with
@@ -119,7 +119,7 @@ impl Default for PointLight {
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,
-            #[cfg(feature = "experimental_pbr_pcss")]
+            #[cfg(feature = "experimental_pcss")]
             soft_shadows_enabled: false,
         }
     }

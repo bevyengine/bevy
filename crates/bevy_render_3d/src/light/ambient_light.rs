@@ -2,7 +2,7 @@ use super::*;
 
 /// An ambient light, which lights the entire scene equally.
 ///
-/// This resource is inserted by the [`PbrPlugin`] and by default it is set to a low ambient light.
+/// This resource is inserted by the [`MeshPipelinePlugin`] and by default it is set to a low ambient light.
 ///
 /// It can also be added to a camera to override the resource (or default) ambient for that camera only.
 ///
@@ -12,7 +12,7 @@ use super::*;
 ///
 /// ```
 /// # use bevy_ecs::system::ResMut;
-/// # use bevy_pbr::AmbientLight;
+/// # use bevy_render_3d::AmbientLight;
 /// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
 ///    ambient_light.brightness = 100.0;
 /// }
