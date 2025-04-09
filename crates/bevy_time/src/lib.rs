@@ -444,8 +444,8 @@ mod tests {
                 Timer::new(Duration::from_secs(0), TimerMode::Once),
                 TimerNoAutoTick,
             ))
-            .observe(|_trigger: Trigger<TimerFinishedEvent>| {
-                assert!(false, "Timer should not have been ticked");
+            .observe(|_trigger: Trigger<TimerFinishedEvent>| -> () {
+                panic!("Timer should not have been ticked");
             });
 
         app.update();
