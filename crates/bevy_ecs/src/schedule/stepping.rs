@@ -160,7 +160,7 @@ impl Stepping {
 
     /// Returns a hashmap of schedules and their systems (represented as a hashmap of systems and their behaviors)
     /// Check type signatures
-    pub fn get_behaviours(&self) -> Result<HashMap<InternedScheduleLabel, &HashMap<NodeId, SystemBehavior>>, NotReady> {
+    pub fn get_behaviors(&self) -> Result<HashMap<InternedScheduleLabel, &HashMap<NodeId, SystemBehavior>>, NotReady> {
         if self.schedule_order.len() == self.schedule_states.len() {
             let mut output = HashMap::with_hasher(FixedHasher);
             for item in &self.schedule_states {
