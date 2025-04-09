@@ -1729,7 +1729,7 @@ pub fn specialize_shadows<M: Material>(
         Res<RenderAssets<RenderMesh>>,
         Res<RenderMeshInstances>,
         Res<RenderAssets<PreparedMaterial<M>>>,
-        Res<RenderMaterialInstances<M>>,
+        Res<RenderMaterialInstances>,
         Res<MaterialBindGroupAllocator<M>>,
     ),
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
@@ -1809,7 +1809,12 @@ pub fn specialize_shadows<M: Material>(
                 .or_default();
 
             for (_, visible_entity) in visible_entities.iter().copied() {
-                let Some(material_asset_id) = render_material_instances.get(&visible_entity) else {
+                let Some(material_instances) =
+                    render_material_instances.instances.get(&visible_entity)
+                else {
+                    continue;
+                };
+                let Ok(material_asset_id) = material_instances.asset_id.try_typed::<M>() else {
                     continue;
                 };
                 let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
@@ -1823,7 +1828,7 @@ pub fn specialize_shadows<M: Material>(
                 if !needs_specialization {
                     continue;
                 }
-                let Some(material) = render_materials.get(*material_asset_id) else {
+                let Some(material) = render_materials.get(material_asset_id) else {
                     continue;
                 };
                 let Some(mesh_instance) =
@@ -1906,7 +1911,7 @@ pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
+    render_material_instances: Res<RenderMaterialInstances>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
@@ -1989,10 +1994,14 @@ pub fn queue_shadows<M: Material>(
                     continue;
                 }
 
-                let Some(material_asset_id) = render_material_instances.get(&main_entity) else {
+                let Some(material_instance) = render_material_instances.instances.get(&main_entity)
+                else {
                     continue;
                 };
-                let Some(material) = render_materials.get(*material_asset_id) else {
+                let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
+                    continue;
+                };
+                let Some(material) = render_materials.get(material_asset_id) else {
                     continue;
                 };
 

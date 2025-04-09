@@ -67,6 +67,7 @@ use bevy_ecs::{
 };
 use core::{fmt::Debug, hash::Hash, iter, marker::PhantomData, ops::Range, slice::SliceIndex};
 use smallvec::SmallVec;
+use tracing::warn;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
 /// views.
@@ -853,6 +854,10 @@ where
             .set_range(self.cached_entity_bin_keys.len().., true);
 
         self.entities_that_changed_bins.clear();
+
+        for unbatchable_bin in self.unbatchable_meshes.values_mut() {
+            unbatchable_bin.buffer_indices.clear();
+        }
     }
 
     /// Checks to see whether the entity is in a bin and returns true if it's
@@ -1325,6 +1330,10 @@ impl UnbatchableBinnedEntityIndexSet {
                 // but let's go ahead and do the sensible thing anyhow: demote
                 // the compressed `NoDynamicOffsets` field to the full
                 // `DynamicOffsets` array.
+                warn!(
+                    "Unbatchable binned entity index set was demoted from sparse to dense. \
+                    This is a bug in the renderer. Please report it.",
+                );
                 let new_dynamic_offsets = (0..instance_range.len() as u32)
                     .flat_map(|entity_index| self.indices_for_entity_index(entity_index))
                     .chain(iter::once(indices))
@@ -1335,6 +1344,17 @@ impl UnbatchableBinnedEntityIndexSet {
             UnbatchableBinnedEntityIndexSet::Dense(dense_indices) => {
                 dense_indices.push(indices);
             }
+        }
+    }
+
+    /// Clears the unbatchable binned entity index set.
+    fn clear(&mut self) {
+        match self {
+            UnbatchableBinnedEntityIndexSet::Dense(dense_indices) => dense_indices.clear(),
+            UnbatchableBinnedEntityIndexSet::Sparse { .. } => {
+                *self = UnbatchableBinnedEntityIndexSet::NoEntities;
+            }
+            _ => {}
         }
     }
 }
