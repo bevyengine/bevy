@@ -1,5 +1,7 @@
 //! Demonstrates bindless `ExtendedMaterial`.
 
+use std::f32::consts::{FRAC_PI_2, PI};
+
 use bevy::{
     color::palettes::{css::RED, tailwind::GRAY_600},
     pbr::{ExtendedMaterial, MaterialExtension, MeshMaterial3d},
@@ -7,6 +9,7 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
     utils::default,
 };
+use bevy_render::mesh::{SphereKind, SphereMeshBuilder};
 
 /// The path to the example material shader.
 static SHADER_ASSET_PATH: &str = "shaders/extended_material_bindless.wgsl";
@@ -97,6 +100,7 @@ fn main() {
             ExtendedMaterial<StandardMaterial, ExampleBindlessExtension>,
         >::default())
         .add_systems(Startup, setup)
+        .add_systems(Update, rotate_sphere)
         .run();
 }
 
@@ -109,7 +113,13 @@ fn setup(
 ) {
     // Create a gray sphere, modulated with a red-tinted Bevy logo.
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(1.0))),
+        Mesh3d(meshes.add(SphereMeshBuilder::new(
+            1.0,
+            SphereKind::Uv {
+                sectors: 20,
+                stacks: 20,
+            },
+        ))),
         MeshMaterial3d(materials.add(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: GRAY_600.into(),
@@ -117,7 +127,7 @@ fn setup(
             },
             extension: ExampleBindlessExtension {
                 modulate_color: RED.into(),
-                modulate_texture: Some(asset_server.load("branding/bevy_logo_light.png")),
+                modulate_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
             },
         })),
         Transform::from_xyz(0.0, 0.5, 0.0),
@@ -134,4 +144,11 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+}
+
+fn rotate_sphere(mut meshes: Query<&mut Transform, With<Mesh3d>>, time: Res<Time>) {
+    for mut transform in &mut meshes {
+        transform.rotation =
+            Quat::from_euler(EulerRot::YXZ, -time.elapsed_secs(), FRAC_PI_2 * 3.0, 0.0);
+    }
 }
