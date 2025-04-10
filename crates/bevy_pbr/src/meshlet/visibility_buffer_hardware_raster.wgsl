@@ -27,17 +27,16 @@ struct VertexOutput {
 
 @vertex
 fn vertex(@builtin(instance_index) instance_index: u32, @builtin(vertex_index) vertex_index: u32) -> VertexOutput {
-    let cluster_id = meshlet_raster_clusters[meshlet_raster_cluster_rightmost_slot - instance_index];
-    let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
-    var meshlet = meshlets[meshlet_id];
+    let cluster_id = meshlet_raster_cluster_rightmost_slot - instance_index;
+    let instanced_offset = meshlet_raster_clusters[cluster_id];
+    var meshlet = meshlets[instanced_offset.offset];
 
     let triangle_id = vertex_index / 3u;
     if triangle_id >= get_meshlet_triangle_count(&meshlet) { return dummy_vertex(); }
     let index_id = (triangle_id * 3u) + (vertex_index % 3u);
     let vertex_id = get_meshlet_vertex_id(meshlet.start_index_id + index_id);
 
-    let instance_id = meshlet_cluster_instance_ids[cluster_id];
-    let instance_uniform = meshlet_instance_uniforms[instance_id];
+    let instance_uniform = meshlet_instance_uniforms[instanced_offset.instance_id];
 
     let vertex_position = get_meshlet_vertex_position(&meshlet, vertex_id);
     let world_from_local = affine3_to_square(instance_uniform.world_from_local);

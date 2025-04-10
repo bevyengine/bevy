@@ -40,12 +40,11 @@ fn rasterize_cluster(
     if workgroup_id_1d >= meshlet_software_raster_cluster_count { return; }
 #endif
 
-    let cluster_id = meshlet_raster_clusters[workgroup_id_1d];
-    let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
-    var meshlet = meshlets[meshlet_id];
+    let cluster_id = workgroup_id_1d;
+    let instanced_offset = meshlet_raster_clusters[cluster_id];
+    var meshlet = meshlets[instanced_offset.offset];
 
-    let instance_id = meshlet_cluster_instance_ids[cluster_id];
-    let instance_uniform = meshlet_instance_uniforms[instance_id];
+    let instance_uniform = meshlet_instance_uniforms[instanced_offset.instance_id];
     let world_from_local = affine3_to_square(instance_uniform.world_from_local);
 
     // Load and project 1 vertex per thread, and then again if there are more than 128 vertices in the meshlet

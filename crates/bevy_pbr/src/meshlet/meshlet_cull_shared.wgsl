@@ -2,7 +2,6 @@
 
 #import bevy_pbr::meshlet_bindings::{
     MeshletAabb,
-    MeshletBoundingSphere,
     DispatchIndirectArgs,
     InstancedOffset,
     view,
@@ -12,11 +11,11 @@
 #import bevy_render::maths::affine3_to_square
 
 // https://github.com/zeux/meshoptimizer/blob/1e48e96c7e8059321de492865165e9ef071bffba/demo/nanite.cpp#L115
-fn lod_error_is_imperceptible(lod_sphere: MeshletBoundingSphere, simplification_error: f32, instance_id: u32) -> bool {
+fn lod_error_is_imperceptible(lod_sphere: vec4<f32>, simplification_error: f32, instance_id: u32) -> bool {
     let world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].world_from_local);
     let world_scale = max(length(world_from_local[0]), max(length(world_from_local[1]), length(world_from_local[2])));
-    let sphere_world_space = (world_from_local * vec4(lod_sphere.center, 1.0)).xyz;
-    let radius_world_space = world_scale * lod_sphere.radius;
+    let sphere_world_space = (world_from_local * vec4(lod_sphere.xyz, 1.0)).xyz;
+    let radius_world_space = world_scale * lod_sphere.w;
     let error_world_space = world_scale * simplification_error;
 
     var projected_error = error_world_space;
@@ -42,17 +41,18 @@ fn aabb_in_frustum(aabb: MeshletAabb, instance_id: u32) -> bool {
     let world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].world_from_local);
     let clip_from_local = view.clip_from_world * world_from_local;
     let planes = array(
-        normalize_plane(clip_from_local[3] + clip_from_local[0]),
-        normalize_plane(clip_from_local[3] - clip_from_local[0]),
-        normalize_plane(clip_from_local[3] + clip_from_local[1]),
-        normalize_plane(clip_from_local[3] - clip_from_local[1]),
-        normalize_plane(clip_from_local[2]),
+        clip_from_local[3] + clip_from_local[0],
+        clip_from_local[3] - clip_from_local[0],
+        clip_from_local[3] + clip_from_local[1],
+        clip_from_local[3] - clip_from_local[1],
+        clip_from_local[2],
     );
 
     for (var i = 0; i < 6; i++) {
-        let flip = sign(planes[i].xyz);
+        let plane = normalize_plane(planes[i]);
+        let flip = sign(plane.xyz);
         let flipped = aabb.half_extent * flip;
-        if dot(aabb.center + flipped, planes[i].xyz) <= -planes[i].w {
+        if dot(aabb.center + flipped, plane.xyz) <= -plane.w {
             return false;
         }
     }

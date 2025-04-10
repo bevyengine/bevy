@@ -244,7 +244,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 view_offset,
                 previous_view_offset,
                 first_instance_cull_pipeline,
-                second_instance_cull_pipeline,
+                first_bvh_cull_pipeline,
                 first_meshlet_cull_pipeline,
                 remap_1d_to_2d_dispatch_pipeline,
             );
@@ -506,12 +506,12 @@ fn cull_pass<'a>(
         timestamp_writes: None,
     });
     pass.set_pipeline(pipeline);
-    pass.set_push_constants(0, bytemuck::cast_slice(push_constants));
     pass.set_bind_group(
         0,
         bind_group,
         &[view_offset.offset, previous_view_offset.offset],
     );
+    pass.set_push_constants(0, bytemuck::cast_slice(push_constants));
     pass
 }
 

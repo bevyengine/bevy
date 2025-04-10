@@ -72,6 +72,7 @@ pub struct BvhNode {
     pub lod_bounds: [MeshletBoundingSphere; 8],
     /// If `u8::MAX`, it indicates that the child of each children is a BVH node, otherwise it is the number of meshlets in the group.
     pub child_counts: [u8; 8],
+    pub _padding: [u32; 2],
 }
 
 /// A single meshlet within a [`MeshletMesh`].

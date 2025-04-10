@@ -209,7 +209,7 @@ impl FromWorld for MeshletPipelines {
                 }],
                 shader: MESHLET_MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
-                    "MESHLET_MESHLET_CULLING_PASS".into(),
+                    "MESHLET_CLUSTER_CULLING_PASS".into(),
                     "MESHLET_FIRST_CULLING_PASS".into(),
                 ],
                 entry_point: "cull_clusters".into(),
@@ -225,7 +225,7 @@ impl FromWorld for MeshletPipelines {
                 }],
                 shader: MESHLET_MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
-                    "MESHLET_MESHLET_CULLING_PASS".into(),
+                    "MESHLET_CLUSTER_CULLING_PASS".into(),
                     "MESHLET_SECOND_CULLING_PASS".into(),
                 ],
                 entry_point: "cull_clusters".into(),

@@ -7,7 +7,7 @@
 
 struct BvhNode {
     aabbs: array<MeshletAabbErrorOffset, 8>,
-    lod_bounds: array<MeshletBoundingSphere, 8>,
+    lod_bounds: array<vec4<f32>, 8>,
     child_counts: array<u32, 2>,
 }
 
@@ -32,7 +32,7 @@ fn get_meshlet_triangle_count(meshlet: ptr<function, Meshlet>) -> u32 {
 
 struct MeshletCullData {
     aabb: MeshletAabbErrorOffset,
-    lod_group_sphere: MeshletBoundingSphere,
+    lod_group_sphere: vec4<f32>,
 }
 
 struct MeshletAabb {
@@ -58,11 +58,6 @@ fn get_aabb_error(aabb: ptr<function, MeshletAabbErrorOffset>) -> f32 {
 
 fn get_aabb_child_offset(aabb: ptr<function, MeshletAabbErrorOffset>) -> u32 {
     return bitcast<u32>((*aabb).half_extent_and_child_offset.w);
-}
-
-struct MeshletBoundingSphere {
-    center: vec3<f32>,
-    radius: f32,
 }
 
 struct DispatchIndirectArgs {
@@ -142,7 +137,7 @@ var<push_constant> constants: Constants;
 @group(0) @binding(10) var<storage, read_write> meshlet_meshlet_cull_count_late: atomic<u32>;
 @group(0) @binding(11) var<storage, read_write> meshlet_meshlet_cull_dispatch_early: DispatchIndirectArgs;
 @group(0) @binding(12) var<storage, read_write> meshlet_meshlet_cull_dispatch_late: DispatchIndirectArgs;
-@group(0) @binding(13) var<storage, read_write> meshlet_meshlet_queue: array<InstancedOffset>;
+@group(0) @binding(13) var<storage, read_write> meshlet_meshlet_cull_queue: array<InstancedOffset>;
 
 // Second pass queue data
 #ifdef MESHLET_FIRST_CULLING_PASS
@@ -179,9 +174,9 @@ var<push_constant> constants: Constants;
 #ifdef MESHLET_FIRST_CULLING_PASS
 @group(0) @binding(9) var<storage, read_write> meshlet_meshlet_cull_count_write: atomic<u32>;
 @group(0) @binding(10) var<storage, read_write> meshlet_meshlet_cull_dispatch: DispatchIndirectArgs;
-@group(0) @binding(11) var<storage, read_write> meshlet_meshlet_queue: array<InstancedOffset>;
+@group(0) @binding(11) var<storage, read_write> meshlet_meshlet_cull_queue: array<InstancedOffset>;
 #else
-@group(0) @binding(9) var<storage, read> meshlet_meshlet_queue: array<InstancedOffset>;
+@group(0) @binding(9) var<storage, read> meshlet_meshlet_cull_queue: array<InstancedOffset>;
 #endif
 #endif
 

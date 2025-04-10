@@ -39,7 +39,7 @@ fn should_cull_instance(instance_id: u32) -> bool {
 }
 
 @compute
-@workgroup_size(128, 1, 1) // 128 threads per workgroup, 1 instance per thread
+@workgroup_size(128, 1, 1) // 1 instance per thread
 fn cull_instances(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
     @builtin(num_workgroups) num_workgroups: vec3<u32>,
