@@ -19,7 +19,7 @@ use core::{
 use bevy_reflect::Reflect;
 use indexmap::map::{self, IndexMap, IntoValues, ValuesMut};
 
-use super::{Entity, EntityHash, EntitySetIterator, TrustedEntityBorrow};
+use super::{Entity, EntityEquivalent, EntityHash, EntitySetIterator};
 
 use bevy_platform_support::prelude::Box;
 
@@ -176,7 +176,7 @@ impl<V> FromIterator<(Entity, V)> for EntityIndexMap<V> {
     }
 }
 
-impl<V, Q: TrustedEntityBorrow + ?Sized> Index<&Q> for EntityIndexMap<V> {
+impl<V, Q: EntityEquivalent + ?Sized> Index<&Q> for EntityIndexMap<V> {
     type Output = V;
     fn index(&self, key: &Q) -> &V {
         self.0.index(&key.entity())
@@ -246,7 +246,7 @@ impl<V> Index<usize> for EntityIndexMap<V> {
     }
 }
 
-impl<V, Q: TrustedEntityBorrow + ?Sized> IndexMut<&Q> for EntityIndexMap<V> {
+impl<V, Q: EntityEquivalent + ?Sized> IndexMut<&Q> for EntityIndexMap<V> {
     fn index_mut(&mut self, key: &Q) -> &mut V {
         self.0.index_mut(&key.entity())
     }

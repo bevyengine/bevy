@@ -28,6 +28,7 @@ pub mod graph {
         MainTransmissivePass,
         MainTransparentPass,
         EndMainPass,
+        Wireframe,
         LateDownsampleDepth,
         Taa,
         MotionBlur,

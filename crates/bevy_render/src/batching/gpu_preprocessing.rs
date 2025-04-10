@@ -111,6 +111,11 @@ impl GpuPreprocessingSupport {
             }
         }
     }
+
+    /// Returns true if GPU culling is supported on this platform.
+    pub fn is_culling_supported(&self) -> bool {
+        self.max_supported_mode == GpuPreprocessingMode::Culling
+    }
 }
 
 /// The amount of GPU preprocessing (compute and indirect draw) that we do.
@@ -1096,7 +1101,7 @@ impl FromWorld for GpuPreprocessingSupport {
             crate::get_adreno_model(adapter).is_some_and(|model| model != 720 && model <= 730)
         }
 
-        let feature_support = device.features().contains(
+        let culling_feature_support = device.features().contains(
             Features::INDIRECT_FIRST_INSTANCE
                 | Features::MULTI_DRAW_INDIRECT
                 | Features::PUSH_CONSTANTS,
@@ -1111,7 +1116,7 @@ impl FromWorld for GpuPreprocessingSupport {
             || is_non_supported_android_device(adapter)
         {
             GpuPreprocessingMode::None
-        } else if !(feature_support && limit_support && downlevel_support) {
+        } else if !(culling_feature_support && limit_support && downlevel_support) {
             GpuPreprocessingMode::PreprocessingOnly
         } else {
             GpuPreprocessingMode::Culling

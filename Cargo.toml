@@ -4325,3 +4325,14 @@ doc-scrape-examples = true
 
 [package.metadata.example.test_animation_transitions]
 hidden = true
+
+[[example]]
+name = "extended_material_bindless"
+path = "examples/shader/extended_material_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.extended_material_bindless]
+name = "Extended Bindless Material"
+description = "Demonstrates bindless `ExtendedMaterial`"
+category = "Shaders"
+wasm = false
