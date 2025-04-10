@@ -15,7 +15,8 @@ fn main() {
         .add_systems(Update, (draw_shapes, handle_click))
         // Observers are systems that run when an event is "triggered". This observer runs whenever
         // `ExplodeMines` is triggered.
-        .add_observer(
+        // Observers an can be optionally named
+        .add_named_observer(
             |trigger: Trigger<ExplodeMines>,
              mines: Query<&Mine>,
              index: Res<SpatialIndex>,
@@ -33,6 +34,7 @@ fn main() {
                     }
                 }
             },
+            "ChainExplosionObserver",
         )
         // This observer runs whenever the `Mine` component is added to an entity, and places it in a simple spatial index.
         .add_observer(on_add_mine)
@@ -92,6 +94,11 @@ fn setup(mut commands: Commands) {
         // This will create a new observer that runs whenever the Explode event
         // is triggered for this spawned entity.
         .observe(explode_mine);
+    commands
+        .spawn(Mine::random(&mut rng))
+        // You can also give the observer a name for easier distinction between them
+        // when using Bevy Remote Protocol or inspectors
+        .observe_named(explode_mine, "ExplodeMine");
 
     // We want to spawn a bunch of mines. We could just call the code above for each of them.
     // That would create a new observer instance for every Mine entity. Having duplicate observers
@@ -110,6 +117,9 @@ fn setup(mut commands: Commands) {
 
     // By spawning the Observer component, it becomes active!
     commands.spawn(observer);
+    // This observer could also be optionally named by adding `Name` component
+    // to the bundle.
+    // e.g. commands.spawn((observer, Name::new("ExplodeMine")));
 }
 
 fn on_add_mine(
