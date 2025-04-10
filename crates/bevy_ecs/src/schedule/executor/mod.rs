@@ -315,7 +315,7 @@ mod __rust_begin_short_backtrace {
 #[cfg(test)]
 mod tests {
     use crate::{
-        prelude::{Commands, Component, In, IntoSystem, Resource, Schedule},
+        prelude::{Component, In, IntoSystem, Resource, Schedule},
         schedule::ExecutorKind,
         system::{Populated, Res, ResMut, Single},
         world::World,
@@ -335,6 +335,9 @@ mod tests {
         populated_ran: bool,
         single_ran: bool,
     }
+
+    #[derive(Resource, Default)]
+    struct Counter(u8);
 
     fn set_single_state(mut _single: Single<&TestComponent>, mut state: ResMut<TestState>) {
         state.single_ran = true;
@@ -415,24 +418,26 @@ mod tests {
         fn pipe_out(_single: Single<&TestComponent>) -> u8 {
             42
         }
-        fn pipe_in(_input: In<u8>, mut commands: Commands) {
-            commands.remove_resource::<TestState>();
+
+        fn pipe_in(_input: In<u8>, mut counter: ResMut<Counter>) {
+            counter.0 += 1;
         }
 
         let mut world = World::new();
-        world.init_resource::<TestState>();
+        world.init_resource::<Counter>();
         let mut schedule = Schedule::default();
 
         schedule.add_systems(pipe_out.pipe(pipe_in));
         schedule.run(&mut world);
 
-        assert!(world.contains_resource::<TestState>());
+        let counter = world.resource::<Counter>();
+        assert_eq!(counter.0, 0);
     }
 
     #[test]
     fn piped_system_second_system_skipped() {
-        fn pipe_out(mut commands: Commands) -> u8 {
-            commands.remove_resource::<TestState>();
+        fn pipe_out(mut counter: ResMut<Counter>) -> u8 {
+            counter.0 += 1;
             42
         }
 
@@ -440,13 +445,30 @@ mod tests {
         fn pipe_in(_input: In<u8>, _single: Single<&TestComponent>) {}
 
         let mut world = World::new();
-        world.init_resource::<TestState>();
+        world.init_resource::<Counter>();
         let mut schedule = Schedule::default();
 
         schedule.add_systems(pipe_out.pipe(pipe_in));
         schedule.run(&mut world);
+        let counter = world.resource::<Counter>();
+        assert_eq!(counter.0, 0);
+    }
 
-        assert!(world.contains_resource::<TestState>());
+    #[test]
+    #[should_panic]
+    fn piped_system_first_system_panics() {
+        // This system should panic when run because the resource is missing
+        fn pipe_out(_res: Res<TestState>) -> u8 {
+            42
+        }
+
+        fn pipe_in(_input: In<u8>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
     }
 
     #[test]
@@ -464,5 +486,86 @@ mod tests {
 
         schedule.add_systems(pipe_out.pipe(pipe_in));
         schedule.run(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn piped_system_skip_and_panic() {
+        // This system should be skipped when run due to no matching entity
+        fn pipe_out(_single: Single<&TestComponent>) -> u8 {
+            42
+        }
+
+        // This system should panic when run because the resource is missing
+        fn pipe_in(_input: In<u8>, _res: Res<TestState>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn piped_system_panic_and_skip() {
+        // This system should panic when run because the resource is missing
+
+        fn pipe_out(_res: Res<TestState>) -> u8 {
+            42
+        }
+
+        // This system should be skipped when run due to no matching entity
+        fn pipe_in(_input: In<u8>, _single: Single<&TestComponent>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn piped_system_panic_and_panic() {
+        // This system should panic when run because the resource is missing
+
+        fn pipe_out(_res: Res<TestState>) -> u8 {
+            42
+        }
+
+        // This system should panic when run because the resource is missing
+        fn pipe_in(_input: In<u8>, _res: Res<TestState>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    fn piped_system_skip_and_skip() {
+        // This system should be skipped when run due to no matching entity
+
+        fn pipe_out(_single: Single<&TestComponent>, mut counter: ResMut<Counter>) -> u8 {
+            counter.0 += 1;
+            42
+        }
+
+        // This system should be skipped when run due to no matching entity
+        fn pipe_in(_input: In<u8>, _single: Single<&TestComponent>, mut counter: ResMut<Counter>) {
+            counter.0 += 1;
+        }
+
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
+
+        let counter = world.resource::<Counter>();
+        assert_eq!(counter.0, 0);
     }
 }

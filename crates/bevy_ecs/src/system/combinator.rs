@@ -433,8 +433,12 @@ where
             (Err(err_a), Ok(_)) => Err(err_a),
             (Err(err_a), Err(err_b)) => {
                 // Combine the errors from both systems, using the most severe outcome.
+                // TODO: consider combining the error strings in a more intelligible way
+                // but be mindful of the possibility of multiple piped systems!
                 Err(SystemParamValidationError {
-                    skipped: err_a.skipped || err_b.skipped,
+                    // Only skip if both systems should be skipped.
+                    // Panicking systems should not be skipped!
+                    skipped: err_a.skipped && err_b.skipped,
                     message: err_a.message + err_b.message,
                     param: err_a.param + err_b.param,
                     field: err_a.field + err_b.field,
