@@ -98,6 +98,6 @@ Keep it short and sweet:
   
   **Relocations**
   
-  | Item                         | Old Path                       | New Path                       |
-  | ---------------------------- | ------------------------------ | ------------------------------ |
-  | `Foo`                        | `bar::foo`                     | `baz`                          |
+  |Item|0.15 Path|0.16 Path|
+  |-|-|-|
+  |`Foo`|`bar::foo`|`baz`|
