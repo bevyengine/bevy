@@ -26,7 +26,7 @@ extern crate std;
 
 extern crate alloc;
 
-#[cfg(target_os = "android")]
+#[cfg(all(target_os = "android", feature = "std"))]
 mod android_tracing;
 mod once;
 #[cfg(feature = "tracing")]

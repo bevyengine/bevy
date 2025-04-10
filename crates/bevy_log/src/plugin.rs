@@ -18,6 +18,9 @@ use tracing_subscriber::{
 
 use crate::error;
 
+#[cfg(all(target_os = "android", feature = "std"))]
+use crate::android_tracing;
+
 #[cfg(feature = "tracing-chrome")]
 use {
     bevy_ecs::resource::Resource,
@@ -315,7 +318,7 @@ impl Plugin for LogPlugin {
             ));
         }
 
-        #[cfg(target_os = "android")]
+        #[cfg(all(target_os = "android", feature = "std"))]
         {
             finished_subscriber = subscriber.with(android_tracing::AndroidLayer::default());
         }
