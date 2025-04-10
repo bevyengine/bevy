@@ -63,14 +63,13 @@ Keep it short and sweet:
 - What, then why, then how to migrate.
 - Some helpful standardized phrases:
   - `OldType` is now `NewType`. Replace all references and imports.
-  - The `Struct::method()` method now requires an additional `magnitude: f32` argument.
+  - The `Struct::method` method now requires an additional `magnitude: f32` argument.
   - `Enum` has a new variant, `Enum::NewVariant`, which must be handled during `match` statements.
-  - The `Type::method()` method has been removed. Use `Type::other_method()` instead.
+  - The `Type::method` method has been removed. Use `Type::other_method` instead.
   - The `crate::old_module` module is now `crate::new_module`. Update your imports.
-  - `function()` now returns `Option<String>` instead of `String`.
+  - `function` now returns `Option<String>` instead of `String`.
 - Make sure it's searchable by directly naming the types and methods involved.
-- Use backticks for types, methods, and modules (e.g. `Vec<T>` or `core::mem::swap()`).
-- Add parentheses to the end of function names to signal they are functions (e.g. `my_function()`).
+- Use backticks for types, methods, and modules (e.g. `Vec<T>` or `core::mem::swap`).
 - Use bullet points when listing affected types / functions of a breaking change, or when the listing several complex steps for migrating. Avoid bullets for simple migrations, however.
 - Avoid headings. If you must, use only level-two (`##`) headings.
 - It's often useful to give a code example explaining what a migration may look like.
