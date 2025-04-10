@@ -3,6 +3,7 @@ use crate::{
     SubApps,
 };
 use alloc::{
+    borrow::Cow,
     boxed::Box,
     string::{String, ToString},
     vec::Vec,
@@ -769,7 +770,7 @@ impl App {
     #[cfg(feature = "reflect_functions")]
     pub fn register_function_with_name<F, Marker>(
         &mut self,
-        name: impl Into<alloc::borrow::Cow<'static, str>>,
+        name: impl Into<Cow<'static, str>>,
         function: F,
     ) -> &mut Self
     where
@@ -1332,6 +1333,46 @@ impl App {
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         self.world_mut().add_observer(observer);
+        self
+    }
+
+    /// Spawns a named [`Observer`] entity, which will watch for and respond to the given event.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_utils::default;
+    /// #
+    /// # let mut app = App::new();
+    /// #
+    /// # #[derive(Event)]
+    /// # struct Party {
+    /// #   friends_allowed: bool,
+    /// # };
+    /// #
+    /// # #[derive(Event)]
+    /// # struct Invite;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Friend;
+    /// #
+    /// // An observer system can be any system where the first parameter is a trigger
+    /// app.add_named_observer(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
+    ///     if trigger.event().friends_allowed {
+    ///         for friend in friends.iter() {
+    ///             commands.trigger_targets(Invite, friend);
+    ///         }
+    ///     }
+    /// }, "PartyObserver");
+    /// ```
+    pub fn add_named_observer<E: Event, B: Bundle, M>(
+        &mut self,
+        observer: impl IntoObserverSystem<E, B, M>,
+        name: impl Into<Cow<'static, str>>,
+    ) -> &mut Self {
+        self.world_mut().add_named_observer(observer, name);
         self
     }
 }
