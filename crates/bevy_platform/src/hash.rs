@@ -108,6 +108,31 @@ impl<V: Copy, H> Copy for Hashed<V, H> {}
 
 impl<V: Eq, H> Eq for Hashed<V, H> {}
 
+#[cfg(feature = "serialize")]
+const _: () = {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    impl<V: Serialize, H> Serialize for Hashed<V, H> {
+        #[inline]
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            self.value.serialize(serializer)
+        }
+    }
+
+    impl<'de, V: Hash + Deserialize<'de>, H: BuildHasher + Default> Deserialize<'de> for Hashed<V, H> {
+        #[inline]
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            V::deserialize(deserializer).map(Self::new)
+        }
+    }
+};
+
 /// A [`BuildHasher`] that results in a [`PassHasher`].
 #[derive(Default, Clone)]
 pub struct PassHash;
@@ -176,5 +201,52 @@ impl Hasher for NoOpHasher {
     #[inline]
     fn write_u64(&mut self, i: u64) {
         self.0 = i;
+    }
+}
+
+#[cfg(all(test, feature = "serialize"))]
+mod serde_tests {
+    use serde_test::{assert_tokens, Token};
+
+    use crate::collections::HashMap;
+
+    use super::*;
+
+    #[test]
+    fn test_serde_hashed() {
+        let value = Hashed::<_, FixedHasher>::new((1, 2));
+        assert_tokens(
+            &value,
+            &[
+                Token::Tuple { len: 2 },
+                Token::I32(1),
+                Token::I32(2),
+                Token::TupleEnd]
+        );
+    }
+
+    #[test]
+    fn test_serde_hashed_map() {
+        let mut map = HashMap::<Hashed<_, FixedHasher>, _, PassHash>::default();
+        map.insert(Hashed::new((1, 2)), 1);
+        map.insert(Hashed::new((3, 4)), 2);
+        assert_tokens(&map, &[
+            Token::Map { len: Some(2) },
+            // key = (1, 2)
+            Token::Tuple { len: 2 },
+            Token::I32(1),
+            Token::I32(2),
+            Token::TupleEnd,
+            // value = 1
+            Token::I32(1),
+            // key = (3, 4)
+            Token::Tuple { len: 2 },
+            Token::I32(3),
+            Token::I32(4),
+            Token::TupleEnd,
+            // value = 2
+            Token::I32(2),
+            Token::MapEnd
+        ]);
     }
 }
