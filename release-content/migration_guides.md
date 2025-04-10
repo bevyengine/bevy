@@ -73,15 +73,23 @@ Keep it short and sweet:
 - Add parentheses to the end of function names to signal they are functions (e.g. `my_function()`).
 - Use bullet points when listing affected types / functions of a breaking change, or when the listing several complex steps for migrating. Avoid bullets for simple migrations, however.
 - Avoid headings. If you must, use only level-two (`##`) headings.
-- Diff codeblocks can be useful for succinctly communicating changes.
-  
-  ```diff
-   fn my_system(world: &mut World) {
-  +    world.new_method();
-  -    world.old_method();
-   }
+- It's often useful to give a code example explaining what a migration may look like.
+
+  ```rust
+  // 0.15
+  fn my_system(world: &mut World) {
+      world.old_method();
+  }
+
+  // 0.16
+  fn my_system(world: &mut World) {
+      // Use `new_method()` instead.
+      world.new_method();
+  }
   ```
-  
+
+  Often you will want to give two examples of the same piece of code, one for the old version and one for the new. You can designate which is which using comments, such as `// 0.15` and `// 0.16`. Avoid code diffs if possible, as they do not syntax highlight Rust code.
+
 - Make sure to reference the currently published version of a crate when writing a migration guide.
   See [docs.rs](https://docs.rs/) for a quick reference to the existing public API.
 - When moving items to a new module or crate, consider a simple table listing
