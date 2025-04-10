@@ -1,5 +1,3 @@
-#[cfg(feature = "configurable_error_handler")]
-use bevy_platform::sync::OnceLock;
 use core::fmt::Display;
 
 use crate::{component::Tick, error::BevyError};
@@ -77,52 +75,82 @@ impl ErrorContext {
     }
 }
 
-/// A global error handler. This can be set at startup, as long as it is set before
-/// any uses. This should generally be configured _before_ initializing the app.
-///
-/// This should be set inside of your `main` function, before initializing the Bevy app.
-/// The value of this error handler can be accessed using the [`default_error_handler`] function,
-/// which calls [`OnceLock::get_or_init`] to get the value.
-///
-/// **Note:** this is only available when the `configurable_error_handler` feature of `bevy_ecs` (or `bevy`) is enabled!
-///
-/// # Example
-///
-/// ```
-/// # use bevy_ecs::error::{GLOBAL_ERROR_HANDLER, warn};
-/// GLOBAL_ERROR_HANDLER.set(warn).expect("The error handler can only be set once, globally.");
-/// // initialize Bevy App here
-/// ```
-///
-/// To use this error handler in your app for custom error handling logic:
-///
-/// ```rust
-/// use bevy_ecs::error::{default_error_handler, GLOBAL_ERROR_HANDLER, BevyError, ErrorContext, panic};
-///
-/// fn handle_errors(error: BevyError, ctx: ErrorContext) {
-///    let error_handler = default_error_handler();
-///    error_handler(error, ctx);        
-/// }
-/// ```
-///
-/// # Warning
-///
-/// As this can *never* be overwritten, library code should never set this value.
-#[cfg(feature = "configurable_error_handler")]
-pub static GLOBAL_ERROR_HANDLER: OnceLock<fn(BevyError, ErrorContext)> = OnceLock::new();
+mod global_error_handler {
+    use super::{panic, BevyError, ErrorContext};
+    use bevy_platform_support::sync::atomic::{
+        AtomicBool, AtomicPtr,
+        Ordering::{AcqRel, Acquire, Relaxed},
+    };
 
-/// The default error handler. This defaults to [`panic()`],
-/// but if set, the [`GLOBAL_ERROR_HANDLER`] will be used instead, enabling error handler customization.
-/// The `configurable_error_handler` feature must be enabled to change this from the panicking default behavior,
-/// as there may be runtime overhead.
-#[inline]
-pub fn default_error_handler() -> fn(BevyError, ErrorContext) {
-    #[cfg(not(feature = "configurable_error_handler"))]
-    return panic;
+    /// The default global error handler, cast to a data pointer as Rust doesn't
+    /// currently have a way to express atomic function pointers.
+    /// Should we add support for a platform on which function pointers and data pointers
+    /// have different sizes, the transmutation back will fail to compile. In that case,
+    /// we can replace the atomic pointer with a regular pointer protected by a `OnceLock`
+    /// on only those platforms.
+    /// SAFETY: Only accessible from within this module.
+    static HANDLER: AtomicPtr<()> = AtomicPtr::new(panic as *mut ());
 
-    #[cfg(feature = "configurable_error_handler")]
-    return *GLOBAL_ERROR_HANDLER.get_or_init(|| panic);
+    /// Set the global error handler.
+    ///
+    /// If used, this should be called [before] any uses of [`default_error_handler`],
+    /// generally inside your `main` function before initializing the app.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::error::{set_global_default_error_handler, warn};
+    /// set_global_default_error_handler(warn);
+    /// // initialize Bevy App here
+    /// ```
+    ///
+    /// To use this error handler in your app for custom error handling logic:
+    ///
+    /// ```rust
+    /// use bevy_ecs::error::{default_error_handler, BevyError, ErrorContext};
+    ///
+    /// fn handle_errors(error: BevyError, ctx: ErrorContext) {
+    ///    let error_handler = default_error_handler();
+    ///    error_handler(error, ctx);        
+    /// }
+    /// ```
+    ///
+    /// # Warning
+    ///
+    /// As this can *never* be overwritten, library code should never set this value.
+    ///
+    /// [before]: https://doc.rust-lang.org/nightly/core/sync/atomic/index.html#memory-model-for-atomic-accesses
+    /// [`default_error_handler`]: super::default_error_handler
+    pub fn set_global_default_error_handler(handler: fn(BevyError, ErrorContext)) {
+        // Prevent the handler from being set multiple times.
+        // We use a separate atomic instead of trying `compare_exchange` on `HANDLER_ADDRESS`
+        // because Rust doesn't guarantee that function addresses are unique.
+        static INITIALIZED: AtomicBool = AtomicBool::new(false);
+        if INITIALIZED
+            .compare_exchange(false, true, AcqRel, Acquire)
+            .is_err()
+        {
+            panic!("Global error handler set multiple times");
+        }
+        HANDLER.store(handler as *mut (), Relaxed);
+    }
+
+    /// The default error handler. This defaults to [`panic`],
+    /// but you can override this behavior via [`set_global_default_error_handler`].
+    ///
+    /// [`panic`]: super::panic
+    #[inline]
+    pub fn default_error_handler() -> fn(BevyError, ErrorContext) {
+        // The error handler must have been already set from the perspective of this thread,
+        // otherwise we will panic. It will never be updated after this point.
+        // We therefore only need a relaxed load.
+        let ptr = HANDLER.load(Relaxed);
+        // SAFETY: We only ever store valid handler functions.
+        unsafe { core::mem::transmute(ptr) }
+    }
 }
+
+pub use global_error_handler::{default_error_handler, set_global_default_error_handler};
 
 macro_rules! inner {
     ($call:path, $e:ident, $c:ident) => {

@@ -2,7 +2,7 @@
 //! from running if their acquiry conditions aren't met.
 //!
 //! Fallible system parameters include:
-//! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist, and the [`GLOBAL_ERROR_HANDLER`] will be called if it doesn't.
+//! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist, and the [`default_error_handler`] will be called if it doesn't.
 //! - [`Single<D, F>`] - There must be exactly one matching entity, but the system will be silently skipped otherwise.
 //! - [`Option<Single<D, F>>`] - There must be zero or one matching entity. The system will be silently skipped if there are more.
 //! - [`Populated<D, F>`] - There must be at least one matching entity, but the system will be silently skipped otherwise.
@@ -18,18 +18,17 @@
 //!
 //! [`SystemParamValidationError`]: bevy::ecs::system::SystemParamValidationError
 //! [`SystemParam::validate_param`]: bevy::ecs::system::SystemParam::validate_param
+//! [`default_error_handler`]: bevy::ecs::error::default_error_handler
 
-use bevy::ecs::error::{warn, GLOBAL_ERROR_HANDLER};
+use bevy::ecs::error::{set_global_default_error_handler, warn};
 use bevy::prelude::*;
 use rand::Rng;
 
 fn main() {
     // By default, if a parameter fail to be fetched,
-    // the `GLOBAL_ERROR_HANDLER` will be used to handle the error,
+    // the `default_error_handler` will be used to handle the error,
     // which by default is set to panic.
-    GLOBAL_ERROR_HANDLER
-        .set(warn)
-        .expect("The error handler can only be set once, globally.");
+    set_global_default_error_handler(warn);
 
     println!();
     println!("Press 'A' to add enemy ships and 'R' to remove them.");
