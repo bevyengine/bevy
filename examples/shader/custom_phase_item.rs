@@ -8,6 +8,7 @@
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
 use bevy::{
+    asset::UntypedAssetId,
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
         component::Tick,
@@ -35,7 +36,6 @@ use bevy::{
         Render, RenderApp, RenderSet,
     },
 };
-use bevy_asset::UntypedAssetId;
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using

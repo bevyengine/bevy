@@ -7,6 +7,7 @@
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
 use bevy::{
+    asset::UntypedAssetId,
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{component::Tick, system::StaticSystemParam},
     math::{vec3, vec4},
@@ -37,12 +38,13 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
-        view::NoIndirectDrawing,
-        view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilityClass},
+        view::{
+            self, ExtractedView, NoIndirectDrawing, RenderVisibleEntities, ViewTarget,
+            VisibilityClass,
+        },
         Render, RenderApp, RenderSet,
     },
 };
-use bevy_asset::UntypedAssetId;
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
 
