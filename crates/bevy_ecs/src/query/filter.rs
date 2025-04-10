@@ -1157,7 +1157,9 @@ mod tests {
                 this_run,
             )
         };
+        // SAFETY: table is valid
         unsafe { F::set_table(&mut fetch, &state, table) };
+        // SAFETY: set_table is called
         unsafe { F::archetype_filter_fetch(&mut fetch, &state, table) }
     }
 
