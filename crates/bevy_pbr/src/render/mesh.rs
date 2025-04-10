@@ -326,7 +326,7 @@ pub struct ViewSpecializationTicks(HashMap<RetainedViewEntity, Tick>);
 
 /// Parameters shared between mesh specialization systems.
 #[derive(SystemParam)]
-pub struct SpecializeMeshParams<'w, M: Material> {
+pub struct SpecializeMeshParams<'w, M: Send + Sync + 'static> {
     pub pipeline_cache: Res<'w, PipelineCache>,
     pub entity_specialization_ticks: Res<'w, EntitySpecializationTicks<M>>,
     pub render_mesh_instances: Res<'w, RenderMeshInstances>,
