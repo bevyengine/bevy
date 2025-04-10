@@ -2605,10 +2605,9 @@ mod tests {
     use alloc::vec::Vec;
     use std::println;
 
-    use crate::component::{self, Component};
+    use crate::component::Component;
     use crate::entity::Entity;
     use crate::prelude::World;
-    use crate::query::Changed;
 
     #[derive(Component, Debug, PartialEq, PartialOrd, Clone, Copy)]
     struct A(f32);
