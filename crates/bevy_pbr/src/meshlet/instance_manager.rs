@@ -1,10 +1,10 @@
 use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
 use crate::{
-    Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, RenderMaterialBindings, RenderMaterialInstances,
-    RenderMeshMaterialIds,
+    Material, MaterialBindingId, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster,
+    NotShadowReceiver, PreviousGlobalTransform, RenderMaterialBindings, RenderMaterialInstances,
+    StandardMaterial,
 };
-use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
+use bevy_asset::{AssetEvent, AssetId, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
     entity::{Entities, Entity, EntityHashMap},
     event::EventReader,
@@ -90,7 +90,7 @@ impl InstanceManager {
         transform: &GlobalTransform,
         previous_transform: Option<&PreviousGlobalTransform>,
         render_layers: Option<&RenderLayers>,
-        mesh_material_ids: &RenderMeshMaterialIds,
+        mesh_material_ids: &RenderMaterialInstances,
         render_material_bindings: &RenderMaterialBindings,
         not_shadow_receiver: bool,
         not_shadow_caster: bool,
@@ -113,10 +113,16 @@ impl InstanceManager {
         };
 
         let mesh_material = mesh_material_ids.mesh_material(instance);
-        let mesh_material_binding_id = render_material_bindings
-            .get(&mesh_material)
-            .cloned()
-            .unwrap_or_default();
+        let mesh_material_binding_id =
+            if mesh_material != AssetId::<StandardMaterial>::invalid().untyped() {
+                render_material_bindings
+                    .get(&mesh_material)
+                    .cloned()
+                    .unwrap_or_default()
+            } else {
+                // Use a dummy binding ID if the mesh has no material
+                MaterialBindingId::default()
+            };
 
         let mesh_uniform = MeshUniform::new(
             &transforms,
@@ -187,7 +193,7 @@ pub fn extract_meshlet_mesh_entities(
     mut instance_manager: ResMut<InstanceManager>,
     // TODO: Replace main_world and system_state when Extract<ResMut<Assets<MeshletMesh>>> is possible
     mut main_world: ResMut<MainWorld>,
-    mesh_material_ids: Res<RenderMeshMaterialIds>,
+    mesh_material_ids: Res<RenderMaterialInstances>,
     render_material_bindings: Res<RenderMaterialBindings>,
     mut system_state: Local<
         Option<
@@ -269,20 +275,22 @@ pub fn extract_meshlet_mesh_entities(
 /// and note that the material is used by at least one entity in the scene.
 pub fn queue_material_meshlet_meshes<M: Material>(
     mut instance_manager: ResMut<InstanceManager>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
+    render_material_instances: Res<RenderMaterialInstances>,
 ) {
     let instance_manager = instance_manager.deref_mut();
 
     for (i, (instance, _, _)) in instance_manager.instances.iter().enumerate() {
-        if let Some(material_asset_id) = render_material_instances.get(instance) {
-            if let Some(material_id) = instance_manager
-                .material_id_lookup
-                .get(&material_asset_id.untyped())
-            {
-                instance_manager
-                    .material_ids_present_in_scene
-                    .insert(*material_id);
-                instance_manager.instance_material_ids.get_mut()[i] = *material_id;
+        if let Some(material_instance) = render_material_instances.instances.get(instance) {
+            if let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() {
+                if let Some(material_id) = instance_manager
+                    .material_id_lookup
+                    .get(&material_asset_id.untyped())
+                {
+                    instance_manager
+                        .material_ids_present_in_scene
+                        .insert(*material_id);
+                    instance_manager.instance_material_ids.get_mut()[i] = *material_id;
+                }
             }
         }
     }
