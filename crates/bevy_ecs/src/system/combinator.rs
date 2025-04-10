@@ -487,3 +487,27 @@ where
     for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
 {
 }
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn exclusive_system_piping_is_possible() {
+        use crate::prelude::*;
+
+        fn my_exclusive_system(_world: &mut World) -> u32 {
+            1
+        }
+
+        fn out_pipe(input: In<u32>) {
+            assert!(input.0 == 1);
+        }
+
+        let mut world = World::new();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(my_exclusive_system.pipe(out_pipe));
+
+        schedule.run(&mut world);
+    }
+}
