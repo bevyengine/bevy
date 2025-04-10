@@ -31,7 +31,7 @@ fn main() {
                 ..default()
             }),
             // You need to add this plugin to enable wireframe rendering
-            Wireframe2dPlugin,
+            Wireframe2dPlugin::default(),
         ))
         // Wireframes can be configured with this resource. This can be changed at runtime.
         .insert_resource(Wireframe2dConfig {

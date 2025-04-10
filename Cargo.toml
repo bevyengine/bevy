@@ -4322,3 +4322,14 @@ name = "`no_std` Compatible Library"
 description = "Example library compatible with `std` and `no_std` targets"
 category = "Embedded"
 wasm = true
+
+[[example]]
+name = "extended_material_bindless"
+path = "examples/shader/extended_material_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.extended_material_bindless]
+name = "Extended Bindless Material"
+description = "Demonstrates bindless `ExtendedMaterial`"
+category = "Shaders"
+wasm = false

@@ -50,3 +50,8 @@ Rust provides a very helpful [`#[deprecated]` attribute](https://doc.rust-lang.o
 This can be a nice a tool to ease migrations, because it downgrades errors to warnings and makes the migration information available right in the user's IDE.
 
 However, it's not always possible to use this attribute, and Bevy does not consider it to be a substitute to a migration guide entry.
+
+```rust
+#[deprecated(since = "0.17.0", note = "This message will appear in the deprecation warning.")]
+struct MyStruct;
+```
