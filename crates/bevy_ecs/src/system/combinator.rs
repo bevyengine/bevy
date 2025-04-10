@@ -426,6 +426,7 @@ where
     // TODO: ensure that systems are only validated just before they are run.
     // Fixing this will require fundamentally rethinking how piped systems work:
     // they're currently treated as a single system from the perspective of the scheduler.
+    // See https://github.com/bevyengine/bevy/issues/18796
     unsafe fn validate_param_unsafe(
         &mut self,
         world: UnsafeWorldCell,
