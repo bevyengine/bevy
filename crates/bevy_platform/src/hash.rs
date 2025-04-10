@@ -221,7 +221,8 @@ mod serde_tests {
                 Token::Tuple { len: 2 },
                 Token::I32(1),
                 Token::I32(2),
-                Token::TupleEnd]
+                Token::TupleEnd,
+            ],
         );
     }
 
@@ -230,23 +231,26 @@ mod serde_tests {
         let mut map = HashMap::<Hashed<_, FixedHasher>, _, PassHash>::default();
         map.insert(Hashed::new((1, 2)), 1);
         map.insert(Hashed::new((3, 4)), 2);
-        assert_tokens(&map, &[
-            Token::Map { len: Some(2) },
-            // key = (1, 2)
-            Token::Tuple { len: 2 },
-            Token::I32(1),
-            Token::I32(2),
-            Token::TupleEnd,
-            // value = 1
-            Token::I32(1),
-            // key = (3, 4)
-            Token::Tuple { len: 2 },
-            Token::I32(3),
-            Token::I32(4),
-            Token::TupleEnd,
-            // value = 2
-            Token::I32(2),
-            Token::MapEnd
-        ]);
+        assert_tokens(
+            &map,
+            &[
+                Token::Map { len: Some(2) },
+                // key = (1, 2)
+                Token::Tuple { len: 2 },
+                Token::I32(1),
+                Token::I32(2),
+                Token::TupleEnd,
+                // value = 1
+                Token::I32(1),
+                // key = (3, 4)
+                Token::Tuple { len: 2 },
+                Token::I32(3),
+                Token::I32(4),
+                Token::TupleEnd,
+                // value = 2
+                Token::I32(2),
+                Token::MapEnd,
+            ],
+        );
     }
 }
