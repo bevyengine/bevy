@@ -46,6 +46,7 @@ jobs:
         run: cargo run -p ci -- test
         env:
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
+          DISPLAY: ":0"
 
   ci:
     runs-on: ubuntu-latest
