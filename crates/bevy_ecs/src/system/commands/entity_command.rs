@@ -4,7 +4,7 @@
 //! It also contains functions that return closures for use with
 //! [`EntityCommands`](crate::system::EntityCommands).
 
-use alloc::vec::Vec;
+use alloc::{borrow::Cow, vec::Vec};
 use log::info;
 
 use crate::{
@@ -218,12 +218,24 @@ pub fn despawn() -> impl EntityCommand {
 /// An [`EntityCommand`] that creates an [`Observer`](crate::observer::Observer)
 /// listening for events of type `E` targeting an entity
 #[track_caller]
-pub fn observe<E: Event, B: Bundle, M>(
+pub fn observe_command<E: Event, B: Bundle, M>(
     observer: impl IntoObserverSystem<E, B, M>,
 ) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         entity.observe_with_caller(observer, caller);
+    }
+}
+/// An [`EntityCommand`] that creates an [`Observer`](crate::observer::Observer) with a [`Name`](crate::name::Name)
+/// listening for events of type `E` targeting an entity
+#[track_caller]
+pub fn observe_named_command<E: Event, B: Bundle, M>(
+    observer: impl IntoObserverSystem<E, B, M>,
+    name: impl Into<Cow<'static, str>> + Send + 'static,
+) -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
+    move |mut entity: EntityWorldMut| {
+        entity.observe_named_with_caller(observer, name, caller);
     }
 }
 

@@ -14,6 +14,7 @@ use crate::{
         EntityLocation,
     },
     event::Event,
+    name::Name,
     observer::Observer,
     query::{Access, ReadOnlyQueryData},
     relationship::RelationshipHookMode,
@@ -26,7 +27,7 @@ use crate::{
         World, ON_DESPAWN, ON_REMOVE, ON_REPLACE,
     },
 };
-use alloc::vec::Vec;
+use alloc::{borrow::Cow, vec::Vec};
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{
@@ -2781,6 +2782,21 @@ impl<'w> EntityWorldMut<'w> {
         self.observe_with_caller(observer, MaybeLocation::caller())
     }
 
+    /// Creates a named [`Observer`] listening for events of type `E` targeting this entity.
+    /// In order to trigger the callback the entity must also match the query when the event is fired.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[track_caller]
+    pub fn observe_named<E: Event, B: Bundle, M>(
+        &mut self,
+        observer: impl IntoObserverSystem<E, B, M>,
+        name: impl Into<Cow<'static, str>>,
+    ) -> &mut Self {
+        self.observe_named_with_caller(observer, name, MaybeLocation::caller())
+    }
+
     pub(crate) fn observe_with_caller<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
@@ -2789,6 +2805,25 @@ impl<'w> EntityWorldMut<'w> {
         self.assert_not_despawned();
         self.world
             .spawn_with_caller(Observer::new(observer).with_entity(self.entity), caller);
+        self.world.flush();
+        self.update_location();
+        self
+    }
+
+    pub(crate) fn observe_named_with_caller<E: Event, B: Bundle, M>(
+        &mut self,
+        observer: impl IntoObserverSystem<E, B, M>,
+        name: impl Into<Cow<'static, str>>,
+        caller: MaybeLocation,
+    ) -> &mut Self {
+        self.assert_not_despawned();
+        self.world.spawn_with_caller(
+            (
+                Observer::new(observer).with_entity(self.entity),
+                Name::new(name),
+            ),
+            caller,
+        );
         self.world.flush();
         self.update_location();
         self
