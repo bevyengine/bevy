@@ -224,7 +224,11 @@ impl Table {
     ///
     /// # Safety
     /// `row` must be in-bounds (`row.as_usize()` < `self.len()`)
-    pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
+    pub(crate) unsafe fn swap_remove_unchecked(
+        &mut self,
+        row: TableRow,
+        change_tick: Tick,
+    ) -> Option<Entity> {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
         if row.as_usize() != last_element_index {
@@ -237,14 +241,18 @@ impl Table {
                 // - `row` != `last_element_index`
                 // - the `len` is kept within `self.entities`, it will update accordingly.
                 unsafe {
-                    col.swap_remove_and_drop_unchecked_nonoverlapping(last_element_index, row);
+                    col.swap_remove_and_drop_unchecked_nonoverlapping(
+                        last_element_index,
+                        row,
+                        change_tick,
+                    );
                 };
             }
         } else {
             // If `row.as_usize()` == `last_element_index` than there's no point in removing the component
             // at `row`, but we still need to drop it.
             for col in self.columns.values_mut() {
-                col.drop_last_component(last_element_index);
+                col.drop_last_component(last_element_index, change_tick);
             }
         }
         let is_last = row.as_usize() == last_element_index;
@@ -273,13 +281,19 @@ impl Table {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
         let is_last = row.as_usize() == last_element_index;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
+        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()), change_tick);
         for (component_id, column) in self.columns.iter_mut() {
-            if let Some(new_column) = new_table.get_column_mut(*component_id, change_tick) {
-                new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
+            if let Some(new_column) = new_table.get_column_mut(*component_id) {
+                new_column.initialize_from_unchecked(
+                    column,
+                    last_element_index,
+                    row,
+                    new_row,
+                    change_tick,
+                );
             } else {
                 // It's the caller's responsibility to drop these cases.
-                column.swap_remove_and_forget_unchecked(last_element_index, row);
+                column.swap_remove_and_forget_unchecked(last_element_index, row, change_tick);
             }
         }
         TableMoveResult {
@@ -307,12 +321,18 @@ impl Table {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
         let is_last = row.as_usize() == last_element_index;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
+        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()), change_tick);
         for (component_id, column) in self.columns.iter_mut() {
-            if let Some(new_column) = new_table.get_column_mut(*component_id, change_tick) {
-                new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
+            if let Some(new_column) = new_table.get_column_mut(*component_id) {
+                new_column.initialize_from_unchecked(
+                    column,
+                    last_element_index,
+                    row,
+                    new_row,
+                    change_tick,
+                );
             } else {
-                column.swap_remove_and_drop_unchecked(last_element_index, row);
+                column.swap_remove_and_drop_unchecked(last_element_index, row, change_tick);
             }
         }
         TableMoveResult {
@@ -341,12 +361,12 @@ impl Table {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
         let is_last = row.as_usize() == last_element_index;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
+        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()), change_tick);
         for (component_id, column) in self.columns.iter_mut() {
             new_table
-                .get_column_mut(*component_id, change_tick)
+                .get_column_mut(*component_id)
                 .debug_checked_unwrap()
-                .initialize_from_unchecked(column, last_element_index, row, new_row);
+                .initialize_from_unchecked(column, last_element_index, row, new_row, change_tick);
         }
         TableMoveResult {
             new_row,
@@ -486,23 +506,17 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub(crate) fn get_column_mut(
-        &mut self,
-        component_id: ComponentId,
-        change_tick: Tick,
-    ) -> Option<&mut ThinColumn> {
-        #[expect(
-            clippy::manual_inspect,
-            reason = "This seems is a false positive https://github.com/rust-lang/rust-clippy/issues/13185"
-        )]
-        self.columns.get_mut(component_id).map(|col| {
-            col.change_tick = change_tick;
-            col
-        })
+    pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut ThinColumn> {
+        self.columns.get_mut(component_id)
     }
 
+    /// Gets change tick of the column matching `component_id`. The change tick should only be used
+    /// for immutable components.
+    ///
+    /// Returns `None` if the column does not exist.
     pub(crate) fn get_column_change_tick(&self, component_id: ComponentId) -> Option<Tick> {
-        self.get_column(component_id).map(|col| col.change_tick)
+        self.get_column(component_id)
+            .map(|col| col.get_change_tick())
     }
 
     /// Checks if the table contains a [`ThinColumn`] for a given [`Component`].
@@ -516,7 +530,7 @@ impl Table {
     }
 
     /// Reserves `additional` elements worth of capacity within the table.
-    pub(crate) fn reserve(&mut self, additional: usize) {
+    pub(crate) fn reserve(&mut self, additional: usize, change_tick: Tick) {
         if self.capacity() - self.entity_count() < additional {
             let column_cap = self.capacity();
             self.entities.reserve(additional);
@@ -534,6 +548,7 @@ impl Table {
                     self.realloc_columns(
                         NonZeroUsize::new_unchecked(column_cap),
                         NonZeroUsize::new_unchecked(new_capacity),
+                        change_tick,
                     );
                 };
             }
@@ -562,6 +577,7 @@ impl Table {
         &mut self,
         current_column_capacity: NonZeroUsize,
         new_capacity: NonZeroUsize,
+        change_tick: Tick,
     ) {
         // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
         // To avoid this, we use `AbortOnPanic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
@@ -573,7 +589,7 @@ impl Table {
         // - `current_capacity` is indeed the capacity - safety requirement
         // - current capacity > 0
         for col in self.columns.values_mut() {
-            col.realloc(current_column_capacity, new_capacity);
+            col.realloc(current_column_capacity, new_capacity, change_tick);
         }
         core::mem::forget(_guard); // The allocation was successful, so we don't drop the guard.
     }
@@ -582,8 +598,8 @@ impl Table {
     ///
     /// # Safety
     /// the allocated row must be written to immediately with valid values in each column
-    pub(crate) unsafe fn allocate(&mut self, entity: Entity) -> TableRow {
-        self.reserve(1);
+    pub(crate) unsafe fn allocate(&mut self, entity: Entity, change_tick: Tick) -> TableRow {
+        self.reserve(1, change_tick);
         let len = self.entity_count();
         self.entities.push(entity);
         for col in self.columns.values_mut() {
@@ -649,14 +665,14 @@ impl Table {
     }
 
     /// Clears all of the stored components in the [`Table`].
-    pub(crate) fn clear(&mut self) {
+    pub(crate) fn clear(&mut self, change_tick: Tick) {
         let len = self.entity_count();
         // We must clear the entities first, because in the drop function causes a panic, it will result in a double free of the columns.
         self.entities.clear();
         for column in self.columns.values_mut() {
             // SAFETY: we defer `self.entities.clear()` until after clearing the columns,
             // so `self.len()` should match the columns' len
-            unsafe { column.clear(len) };
+            unsafe { column.clear(len, change_tick) };
         }
     }
 
@@ -674,9 +690,8 @@ impl Table {
         &mut self,
         component_id: ComponentId,
         row: TableRow,
-        change_tick: Tick,
     ) -> OwningPtr<'_> {
-        self.get_column_mut(component_id, change_tick)
+        self.get_column_mut(component_id)
             .debug_checked_unwrap()
             .data
             .get_unchecked_mut(row.as_usize())
@@ -794,9 +809,9 @@ impl Tables {
     }
 
     /// Clears all data from all [`Table`]s stored within.
-    pub(crate) fn clear(&mut self) {
+    pub(crate) fn clear(&mut self, change_tick: Tick) {
         for table in &mut self.tables {
-            table.clear();
+            table.clear(change_tick);
         }
     }
 
@@ -879,13 +894,15 @@ mod tests {
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards
             unsafe {
-                let row = table.allocate(*entity);
+                let row = table.allocate(*entity, Tick::new(0));
                 let value: W<TableRow> = W(row);
                 OwningPtr::make(value, |value_ptr| {
-                    table
-                        .get_column_mut(component_id, Tick::new(0))
-                        .unwrap()
-                        .initialize(row, value_ptr, Tick::new(0), MaybeLocation::caller());
+                    table.get_column_mut(component_id).unwrap().initialize(
+                        row,
+                        value_ptr,
+                        Tick::new(0),
+                        MaybeLocation::caller(),
+                    );
                 });
             };
         }

@@ -636,9 +636,7 @@ impl BundleInfo {
                     let status = unsafe { bundle_component_status.get_status(bundle_component) };
                     // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                     // the target table contains the component.
-                    let column = table
-                        .get_column_mut(component_id, change_tick)
-                        .debug_checked_unwrap();
+                    let column = table.get_column_mut(component_id).debug_checked_unwrap();
                     match (status, insert_mode) {
                         (ComponentStatus::Added, _) => {
                             column.initialize(table_row, component_ptr, change_tick, caller);
@@ -707,7 +705,7 @@ impl BundleInfo {
                     let column =
                         // SAFETY: If component_id is in required_components, BundleInfo::new requires that
                         // the target table contains the component.
-                        unsafe { table.get_column_mut(component_id, change_tick).debug_checked_unwrap() };
+                        unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     column.initialize(table_row, component_ptr, change_tick, caller);
                 }
                 StorageType::SparseSet => {
@@ -1421,7 +1419,7 @@ impl<'w> BundleSpawner<'w> {
         // SAFETY: There are no outstanding world references
         let (archetype, table) = unsafe { (self.archetype.as_mut(), self.table.as_mut()) };
         archetype.reserve(additional);
-        table.reserve(additional);
+        table.reserve(additional, self.change_tick);
     }
 
     /// # Safety
@@ -1445,7 +1443,7 @@ impl<'w> BundleSpawner<'w> {
                 let world = self.world.world_mut();
                 (&mut world.storages.sparse_sets, &mut world.entities)
             };
-            let table_row = table.allocate(entity);
+            let table_row = table.allocate(entity, self.world.change_tick());
             let location = archetype.allocate(entity, table_row);
             let after_effect = bundle_info.write_components(
                 table,

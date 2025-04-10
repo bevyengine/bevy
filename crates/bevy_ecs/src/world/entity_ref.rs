@@ -2058,7 +2058,6 @@ impl<'w> EntityWorldMut<'w> {
                     component_id,
                     entity,
                     old_location,
-                    change_tick,
                 )
             })
         };
@@ -2567,6 +2566,8 @@ impl<'w> EntityWorldMut<'w> {
         // requires a flush before Entities::free may be called.
         world.flush_entities();
 
+        let change_tick = world.change_tick();
+
         let location = world
             .entities
             .free(self.entity)
@@ -2602,7 +2603,8 @@ impl<'w> EntityWorldMut<'w> {
             }
             // SAFETY: table rows stored in archetypes always exist
             moved_entity = unsafe {
-                world.storages.tables[archetype.table_id()].swap_remove_unchecked(table_row)
+                world.storages.tables[archetype.table_id()]
+                    .swap_remove_unchecked(table_row, change_tick)
             };
         };
 
@@ -4545,7 +4547,6 @@ pub(crate) unsafe fn take_component<'a>(
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
-    change_tick: Tick,
 ) -> OwningPtr<'a> {
     // SAFETY: caller promises component_id to be valid
     let component_info = unsafe { components.get_info_unchecked(component_id) };
@@ -4557,7 +4558,7 @@ pub(crate) unsafe fn take_component<'a>(
             // - archetypes only store valid table_rows
             // - index is in bounds as promised by caller
             // - promote is safe because the caller promises to remove the table row without dropping it immediately afterwards
-            unsafe { table.take_component(component_id, location.table_row, change_tick) }
+            unsafe { table.take_component(component_id, location.table_row) }
         }
         StorageType::SparseSet => storages
             .sparse_sets

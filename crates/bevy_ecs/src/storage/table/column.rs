@@ -20,7 +20,7 @@ pub struct ThinColumn {
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
-    pub(super) change_tick: Tick,
+    change_tick: Tick,
 }
 
 impl ThinColumn {
@@ -49,6 +49,7 @@ impl ThinColumn {
         &mut self,
         last_element_index: usize,
         row: TableRow,
+        tick: Tick,
     ) {
         self.data
             .swap_remove_and_drop_unchecked_nonoverlapping(row.as_usize(), last_element_index);
@@ -59,6 +60,7 @@ impl ThinColumn {
         self.changed_by.as_mut().map(|changed_by| {
             changed_by.swap_remove_unchecked_nonoverlapping(row.as_usize(), last_element_index);
         });
+        self.change_tick = tick;
     }
 
     /// Swap-remove and drop the removed element.
@@ -71,6 +73,7 @@ impl ThinColumn {
         &mut self,
         last_element_index: usize,
         row: TableRow,
+        tick: Tick,
     ) {
         self.data
             .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
@@ -81,6 +84,7 @@ impl ThinColumn {
         self.changed_by.as_mut().map(|changed_by| {
             changed_by.swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
         });
+        self.change_tick = tick;
     }
 
     /// Swap-remove and forget the removed element.
@@ -93,6 +97,7 @@ impl ThinColumn {
         &mut self,
         last_element_index: usize,
         row: TableRow,
+        tick: Tick,
     ) {
         let _ = self
             .data
@@ -104,6 +109,7 @@ impl ThinColumn {
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.swap_remove_unchecked(row.as_usize(), last_element_index));
+        self.change_tick = tick;
     }
 
     /// Call [`realloc`](std::alloc::realloc) to expand / shrink the memory allocation for this [`ThinColumn`]
@@ -115,6 +121,7 @@ impl ThinColumn {
         &mut self,
         current_capacity: NonZeroUsize,
         new_capacity: NonZeroUsize,
+        tick: Tick,
     ) {
         self.data.realloc(current_capacity, new_capacity);
         self.added_ticks.realloc(current_capacity, new_capacity);
@@ -122,6 +129,7 @@ impl ThinColumn {
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.realloc(current_capacity, new_capacity));
+        self.change_tick = tick;
     }
 
     /// Call [`alloc`](std::alloc::alloc) to allocate memory for this [`ThinColumn`]
@@ -160,6 +168,7 @@ impl ThinColumn {
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.as_usize()).get_mut())
             .assign(caller);
+        self.change_tick = tick;
     }
 
     /// Writes component data to the column at given row. Assumes the slot is initialized, drops the previous value.
@@ -184,6 +193,7 @@ impl ThinColumn {
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.as_usize()).get_mut())
             .assign(caller);
+        self.change_tick = change_tick;
     }
 
     /// Removes the element from `other` at `src_row` and inserts it
@@ -203,6 +213,7 @@ impl ThinColumn {
         other_last_element_index: usize,
         src_row: TableRow,
         dst_row: TableRow,
+        tick: Tick,
     ) {
         debug_assert!(self.data.layout() == other.data.layout());
         // Init the data
@@ -229,6 +240,7 @@ impl ThinColumn {
                 self_changed_by.initialize_unchecked(dst_row.as_usize(), changed_by);
             },
         );
+        self.change_tick = tick;
     }
 
     /// Call [`Tick::check_tick`] on all of the ticks stored in this column.
@@ -260,13 +272,14 @@ impl ThinColumn {
     /// # Safety
     /// - `len` must match the actual length of the column
     /// -   The caller must not use the elements this column's data until [`initializing`](Self::initialize) it again (set `len` to 0).
-    pub(crate) unsafe fn clear(&mut self, len: usize) {
+    pub(crate) unsafe fn clear(&mut self, len: usize, tick: Tick) {
         self.added_ticks.clear_elements(len);
         self.changed_ticks.clear_elements(len);
         self.data.clear(len);
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.clear_elements(len));
+        self.change_tick = tick;
     }
 
     /// Because this method needs parameters, it can't be the implementation of the `Drop` trait.
@@ -290,13 +303,14 @@ impl ThinColumn {
     /// # Safety
     /// - `last_element_index` is indeed the index of the last element
     /// - the data stored in `last_element_index` will never be used unless properly initialized again.
-    pub(crate) unsafe fn drop_last_component(&mut self, last_element_index: usize) {
+    pub(crate) unsafe fn drop_last_component(&mut self, last_element_index: usize, tick: Tick) {
         core::ptr::drop_in_place(self.added_ticks.get_unchecked_raw(last_element_index));
         core::ptr::drop_in_place(self.changed_ticks.get_unchecked_raw(last_element_index));
         self.changed_by.as_mut().map(|changed_by| {
             core::ptr::drop_in_place(changed_by.get_unchecked_raw(last_element_index));
         });
         self.data.drop_last_element(last_element_index);
+        self.change_tick = tick;
     }
 
     /// Get a slice to the data stored in this [`ThinColumn`].
@@ -335,6 +349,10 @@ impl ThinColumn {
         self.changed_by
             .as_ref()
             .map(|changed_by| changed_by.as_slice(len))
+    }
+
+    pub fn get_change_tick(&self) -> Tick {
+        self.change_tick
     }
 }
 
