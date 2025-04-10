@@ -90,7 +90,7 @@ use crate::{
 /// which will be passed to an [error handler](crate::error) if the `Result` is an error.
 ///
 /// The [default error handler](crate::error::default_error_handler) panics.
-/// It can be configured by setting the `GLOBAL_ERROR_HANDLER`.
+/// It can be configured via [`set_global_default_error_handler`](crate::error::set_global_default_error_handler).
 ///
 /// Alternatively, you can customize the error handler for a specific command
 /// by calling [`Commands::queue_handled`].
@@ -1224,7 +1224,7 @@ impl<'w, 's> Commands<'w, 's> {
 /// which will be passed to an [error handler](crate::error) if the `Result` is an error.
 ///
 /// The [default error handler](crate::error::default_error_handler) panics.
-/// It can be configured by setting the `GLOBAL_ERROR_HANDLER`.
+/// It can be configured via [`set_global_default_error_handler`](crate::error::set_global_default_error_handler).
 ///
 /// Alternatively, you can customize the error handler for a specific command
 /// by calling [`EntityCommands::queue_handled`].
