@@ -491,6 +491,10 @@ impl Table {
         component_id: ComponentId,
         change_tick: Tick,
     ) -> Option<&mut ThinColumn> {
+        #[expect(
+            clippy::manual_inspect,
+            reason = "This seems is a false positive https://github.com/rust-lang/rust-clippy/issues/13185"
+        )]
         self.columns.get_mut(component_id).map(|col| {
             col.change_tick = change_tick;
             col
