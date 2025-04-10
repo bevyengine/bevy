@@ -428,6 +428,9 @@ where
     /// Because the system validation is performed upfront, this can lead to situations
     /// where later systems pass validation, but fail at runtime due to changes made earlier
     /// in the piped systems.
+    // TODO: ensure that systems are only validated just before they are run.
+    // Fixing this will require fundamentally rethinking how piped systems work:
+    // they're currently treated as a single system from the perspective of the scheduler.
     unsafe fn validate_param_unsafe(
         &mut self,
         world: UnsafeWorldCell,
