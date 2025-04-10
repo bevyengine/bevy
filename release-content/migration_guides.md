@@ -71,7 +71,7 @@ Keep it short and sweet:
 - Make sure it's searchable by directly naming the types and methods involved.
 - Use backticks for types, methods, and modules (e.g. `Vec<T>` or `core::mem::swap()`).
 - Add parentheses to the end of function names to signal they are functions (e.g. `my_function()`).
-- Use bullet points to explain complex changes.
+- Use bullet points when listing affected types / functions of a breaking change, or when the listing several complex steps for migrating. Avoid bullets for simple migrations, however.
 - Avoid headings. If you must, use only level-two (`##`) headings.
 - Diff codeblocks can be useful for succinctly communicating changes.
   
