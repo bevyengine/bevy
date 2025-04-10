@@ -10,11 +10,11 @@ pub enum Return<'a> {
     /// The function returns an owned value.
     ///
     /// This includes functions that return nothing (i.e. they return `()`).
-    Owned(Box<dyn PartialReflect>),
+    Owned(Box<dyn PartialReflect + Send + Sync>),
     /// The function returns a reference to a value.
-    Ref(&'a dyn PartialReflect),
+    Ref(&'a (dyn PartialReflect + Send + Sync)),
     /// The function returns a mutable reference to a value.
-    Mut(&'a mut dyn PartialReflect),
+    Mut(&'a mut (dyn PartialReflect + Send + Sync)),
 }
 
 impl<'a> Return<'a> {
@@ -36,7 +36,7 @@ impl<'a> Return<'a> {
     /// # Panics
     ///
     /// Panics if the return value is not [`Self::Owned`].
-    pub fn unwrap_owned(self) -> Box<dyn PartialReflect> {
+    pub fn unwrap_owned(self) -> Box<dyn PartialReflect + Send + Sync> {
         match self {
             Return::Owned(value) => value,
             _ => panic!("expected owned value"),
@@ -48,7 +48,7 @@ impl<'a> Return<'a> {
     /// # Panics
     ///
     /// Panics if the return value is not [`Self::Ref`].
-    pub fn unwrap_ref(self) -> &'a dyn PartialReflect {
+    pub fn unwrap_ref(self) -> &'a (dyn PartialReflect + Send + Sync) {
         match self {
             Return::Ref(value) => value,
             _ => panic!("expected reference value"),
@@ -60,7 +60,7 @@ impl<'a> Return<'a> {
     /// # Panics
     ///
     /// Panics if the return value is not [`Self::Mut`].
-    pub fn unwrap_mut(self) -> &'a mut dyn PartialReflect {
+    pub fn unwrap_mut(self) -> &'a mut (dyn PartialReflect + Send + Sync) {
         match self {
             Return::Mut(value) => value,
             _ => panic!("expected mutable reference value"),

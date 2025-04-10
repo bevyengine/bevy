@@ -113,7 +113,7 @@ assert!(foo.reflect_partial_eq(&dynamic_struct).unwrap());
 
 ### Trait "reflection"
 
-Call a trait on a given `&dyn Reflect` reference without knowing the underlying type!
+Call a trait on a given `&(dyn Reflect + Send + Sync)` reference without knowing the underlying type!
 
 ```rust ignore
 #[derive(Reflect)]
@@ -133,8 +133,8 @@ pub trait DoThing {
     fn do_thing(&self) -> String;
 }
 
-// First, lets box our type as a Box<dyn Reflect>
-let reflect_value: Box<dyn Reflect> = Box::new(MyType {
+// First, lets box our type as a Box<dyn Reflect + Send + Sync>
+let reflect_value: Box<dyn Reflect + Send + Sync> = Box::new(MyType {
     value: "Hello".to_string(),
 });
 
@@ -152,15 +152,15 @@ let reflect_do_thing = type_registry
     .get_type_data::<ReflectDoThing>(reflect_value.type_id())
     .unwrap();
 
-// We can use this generated type to convert our `&dyn Reflect` reference to a `&dyn DoThing` reference
+// We can use this generated type to convert our `&(dyn Reflect + Send + Sync)` reference to a `&dyn DoThing` reference
 let my_trait: &dyn DoThing = reflect_do_thing.get(&*reflect_value).unwrap();
 
 // Which means we can now call do_thing(). Magic!
 println!("{}", my_trait.do_thing());
 
 // This works because the #[reflect(MyTrait)] we put on MyType informed the Reflect derive to insert a new instance
-// of ReflectDoThing into MyType's registration. The instance knows how to cast &dyn Reflect to &dyn DoThing, because it
-// knows that &dyn Reflect should first be downcasted to &MyType, which can then be safely casted to &dyn DoThing
+// of ReflectDoThing into MyType's registration. The instance knows how to cast &(dyn Reflect + Send + Sync) to &dyn DoThing, because it
+// knows that &(dyn Reflect + Send + Sync) should first be downcasted to &MyType, which can then be safely casted to &dyn DoThing
 ```
 
 ## Why make this?

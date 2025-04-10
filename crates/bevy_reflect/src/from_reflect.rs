@@ -28,7 +28,7 @@ use alloc::boxed::Box;
 )]
 pub trait FromReflect: Reflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self>;
+    fn from_reflect(reflect: &(dyn PartialReflect + Send + Sync)) -> Option<Self>;
 
     /// Attempts to downcast the given value to `Self` using,
     /// constructing the value using [`from_reflect`] if that fails.
@@ -41,8 +41,8 @@ pub trait FromReflect: Reflect + Sized {
     /// [`DynamicStruct`]: crate::DynamicStruct
     /// [`DynamicList`]: crate::DynamicList
     fn take_from_reflect(
-        reflect: Box<dyn PartialReflect>,
-    ) -> Result<Self, Box<dyn PartialReflect>> {
+        reflect: Box<dyn PartialReflect + Send + Sync>,
+    ) -> Result<Self, Box<dyn PartialReflect + Send + Sync>> {
         match reflect.try_take::<Self>() {
             Ok(value) => Ok(value),
             Err(value) => match Self::from_reflect(value.as_ref()) {
@@ -95,7 +95,7 @@ pub trait FromReflect: Reflect + Sized {
 /// let registration = registry.get_with_type_path(<Foo as TypePath>::type_path()).unwrap();
 /// let rfr = registration.data::<ReflectFromReflect>().unwrap();
 ///
-/// let concrete: Box<dyn Reflect> = rfr.from_reflect(&reflected).unwrap();
+/// let concrete: Box<dyn Reflect + Send + Sync> = rfr.from_reflect(&reflected).unwrap();
 ///
 /// assert_eq!(Foo(123), concrete.take::<Foo>().unwrap());
 /// ```
@@ -104,24 +104,28 @@ pub trait FromReflect: Reflect + Sized {
 /// [`DynamicEnum`]: crate::DynamicEnum
 #[derive(Clone)]
 pub struct ReflectFromReflect {
-    from_reflect: fn(&dyn PartialReflect) -> Option<Box<dyn Reflect>>,
+    from_reflect: fn(&(dyn PartialReflect + Send + Sync)) -> Option<Box<dyn Reflect + Send + Sync>>,
 }
 
 impl ReflectFromReflect {
     /// Perform a [`FromReflect::from_reflect`] conversion on the given reflection object.
     ///
     /// This will convert the object to a concrete type if it wasn't already, and return
-    /// the value as `Box<dyn Reflect>`.
-    pub fn from_reflect(&self, reflect_value: &dyn PartialReflect) -> Option<Box<dyn Reflect>> {
+    /// the value as `Box<dyn Reflect + Send + Sync>`.
+    pub fn from_reflect(
+        &self,
+        reflect_value: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<Box<dyn Reflect + Send + Sync>> {
         (self.from_reflect)(reflect_value)
     }
 }
 
-impl<T: FromReflect> FromType<T> for ReflectFromReflect {
+impl<T: FromReflect + Send + Sync> FromType<T> for ReflectFromReflect {
     fn from_type() -> Self {
         Self {
             from_reflect: |reflect_value| {
-                T::from_reflect(reflect_value).map(|value| Box::new(value) as Box<dyn Reflect>)
+                T::from_reflect(reflect_value)
+                    .map(|value| Box::new(value) as Box<dyn Reflect + Send + Sync>)
             },
         }
     }

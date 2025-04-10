@@ -129,7 +129,7 @@ pub fn log_event_debug<E: Event + Debug>(mut events: EventReader<pointer::Pointe
 }
 
 /// Listens for pointer events of type `E` and logs them at "debug" level
-pub fn log_pointer_event_debug<E: Debug + Clone + Reflect>(
+pub fn log_pointer_event_debug<E: Debug + Clone + Reflect + Send + Sync>(
     mut pointer_events: EventReader<Pointer<E>>,
 ) {
     for event in pointer_events.read() {
@@ -138,7 +138,7 @@ pub fn log_pointer_event_debug<E: Debug + Clone + Reflect>(
 }
 
 /// Listens for pointer events of type `E` and logs them at "trace" level
-pub fn log_pointer_event_trace<E: Debug + Clone + Reflect>(
+pub fn log_pointer_event_trace<E: Debug + Clone + Reflect + Send + Sync>(
     mut pointer_events: EventReader<Pointer<E>>,
 ) {
     for event in pointer_events.read() {

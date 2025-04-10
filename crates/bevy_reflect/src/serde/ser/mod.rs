@@ -497,7 +497,7 @@ mod tests {
         impl ReflectSerializerProcessor for FooProcessor {
             fn try_serialize<S>(
                 &self,
-                value: &dyn PartialReflect,
+                value: &(dyn PartialReflect + Send + Sync),
                 _: &TypeRegistry,
                 serializer: S,
             ) -> Result<Result<S::Ok, S>, S::Error>
@@ -556,7 +556,7 @@ mod tests {
         impl ReflectSerializerProcessor for FooProcessor {
             fn try_serialize<S>(
                 &self,
-                value: &dyn PartialReflect,
+                value: &(dyn PartialReflect + Send + Sync),
                 _: &TypeRegistry,
                 serializer: S,
             ) -> Result<Result<S::Ok, S>, S::Error>
@@ -610,7 +610,7 @@ mod tests {
         impl ReflectSerializerProcessor for ErroringProcessor {
             fn try_serialize<S>(
                 &self,
-                value: &dyn PartialReflect,
+                value: &(dyn PartialReflect + Send + Sync),
                 _: &TypeRegistry,
                 serializer: S,
             ) -> Result<Result<S::Ok, S>, S::Error>
@@ -664,7 +664,7 @@ mod tests {
                 func: DynamicFunction<'static>,
             }
 
-            let value: Box<dyn Reflect> = Box::new(MyStruct {
+            let value: Box<dyn Reflect + Send + Sync> = Box::new(MyStruct {
                 func: String::new.into_function(),
             });
 

@@ -77,28 +77,28 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         #function_impls
 
         impl #impl_generics #bevy_reflect_path::Struct for #struct_path #ty_generics #where_reflect_clause {
-            fn field(&self, name: &str) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
+            fn field(&self, name: &str) -> #FQOption<&(dyn #bevy_reflect_path::PartialReflect + Send + Sync)> {
                 match name {
                     #(#field_names => #fqoption::Some(#fields_ref),)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_mut(&mut self, name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
+            fn field_mut(&mut self, name: &str) -> #FQOption<&mut (dyn #bevy_reflect_path::PartialReflect + Send + Sync)> {
                 match name {
                     #(#field_names => #fqoption::Some(#fields_mut),)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_at(&self, index: usize) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
+            fn field_at(&self, index: usize) -> #FQOption<&(dyn #bevy_reflect_path::PartialReflect + Send + Sync)> {
                 match index {
                     #(#field_indices => #fqoption::Some(#fields_ref),)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_at_mut(&mut self, index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
+            fn field_at_mut(&mut self, index: usize) -> #FQOption<&mut (dyn #bevy_reflect_path::PartialReflect + Send + Sync)> {
                 match index {
                     #(#field_indices => #fqoption::Some(#fields_mut),)*
                     _ => #FQOption::None,
@@ -137,7 +137,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             #[inline]
             fn try_apply(
                 &mut self,
-                value: &dyn #bevy_reflect_path::PartialReflect
+                value: &(dyn #bevy_reflect_path::PartialReflect + Send + Sync)
             ) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
                 if let #bevy_reflect_path::ReflectRef::Struct(struct_value)
                     = #bevy_reflect_path::PartialReflect::reflect_ref(value) {

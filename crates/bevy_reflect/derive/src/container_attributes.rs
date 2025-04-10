@@ -514,8 +514,8 @@ impl ContainerAttributes {
     ) -> Option<proc_macro2::TokenStream> {
         match &self.partial_eq {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<bool> {
-                    let value = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<Self>(value);
+                fn reflect_partial_eq(&self, value: &(dyn #bevy_reflect_path::PartialReflect + Send + Sync)) -> #FQOption<bool> {
+                    let value = <dyn #bevy_reflect_path::PartialReflect + Send + Sync>::try_downcast_ref::<Self>(value);
                     if let #FQOption::Some(value) = value {
                         #FQOption::Some(::core::cmp::PartialEq::eq(self, value))
                     } else {
@@ -524,7 +524,7 @@ impl ContainerAttributes {
                 }
             }),
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<bool> {
+                fn reflect_partial_eq(&self, value: &(dyn #bevy_reflect_path::PartialReflect + Send + Sync)) -> #FQOption<bool> {
                     #FQOption::Some(#impl_fn(self, value))
                 }
             }),
@@ -555,13 +555,13 @@ impl ContainerAttributes {
         match &self.clone {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
                 #[inline]
-                fn reflect_clone(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+                fn reflect_clone(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect + Send + Sync>, #bevy_reflect_path::ReflectCloneError> {
                     #FQResult::Ok(#bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#FQClone::clone(self)))
                 }
             }),
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
                 #[inline]
-                fn reflect_clone(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+                fn reflect_clone(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect + Send + Sync>, #bevy_reflect_path::ReflectCloneError> {
                     #FQResult::Ok(#bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#impl_fn(self)))
                 }
             }),

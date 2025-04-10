@@ -97,28 +97,28 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         #function_impls
 
         impl #impl_generics #bevy_reflect_path::Enum for #enum_path #ty_generics #where_reflect_clause {
-            fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
+            fn field(&self, #ref_name: &str) -> #FQOption<&(dyn #bevy_reflect_path::PartialReflect + Send + Sync)> {
                  match #match_this {
                     #(#enum_field,)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_at(&self, #ref_index: usize) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
+            fn field_at(&self, #ref_index: usize) -> #FQOption<&(dyn #bevy_reflect_path::PartialReflect + Send + Sync)> {
                 match #match_this {
                     #(#enum_field_at,)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_mut(&mut self, #ref_name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
+            fn field_mut(&mut self, #ref_name: &str) -> #FQOption<&mut (dyn #bevy_reflect_path::PartialReflect + Send + Sync)> {
                  match #match_this_mut {
                     #(#enum_field_mut,)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_at_mut(&mut self, #ref_index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
+            fn field_at_mut(&mut self, #ref_index: usize) -> #FQOption<&mut (dyn #bevy_reflect_path::PartialReflect + Send + Sync)> {
                 match #match_this_mut {
                     #(#enum_field_at_mut,)*
                     _ => #FQOption::None,
@@ -189,7 +189,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             #[inline]
             fn try_apply(
                 &mut self,
-                #ref_value: &dyn #bevy_reflect_path::PartialReflect
+                #ref_value: &(dyn #bevy_reflect_path::PartialReflect + Send + Sync)
             ) -> #FQResult<(), #bevy_reflect_path::ApplyError>  {
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) =
                     #bevy_reflect_path::PartialReflect::reflect_ref(#ref_value) {

@@ -44,7 +44,7 @@ use crate::{
 /// let foo: &mut dyn List = &mut vec![123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);
 ///
-/// let last_field: Box<dyn PartialReflect> = foo.pop().unwrap();
+/// let last_field: Box<dyn PartialReflect + Send + Sync> = foo.pop().unwrap();
 /// assert_eq!(last_field.try_downcast_ref::<u32>(), Some(&789));
 /// ```
 ///
@@ -53,32 +53,32 @@ use crate::{
 /// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 pub trait List: PartialReflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
-    fn get(&self, index: usize) -> Option<&dyn PartialReflect>;
+    fn get(&self, index: usize) -> Option<&(dyn PartialReflect + Send + Sync)>;
 
     /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
+    fn get_mut(&mut self, index: usize) -> Option<&mut (dyn PartialReflect + Send + Sync)>;
 
     /// Inserts an element at position `index` within the list,
     /// shifting all elements after it towards the back of the list.
     ///
     /// # Panics
     /// Panics if `index > len`.
-    fn insert(&mut self, index: usize, element: Box<dyn PartialReflect>);
+    fn insert(&mut self, index: usize, element: Box<dyn PartialReflect + Send + Sync>);
 
     /// Removes and returns the element at position `index` within the list,
     /// shifting all elements before it towards the front of the list.
     ///
     /// # Panics
     /// Panics if `index` is out of bounds.
-    fn remove(&mut self, index: usize) -> Box<dyn PartialReflect>;
+    fn remove(&mut self, index: usize) -> Box<dyn PartialReflect + Send + Sync>;
 
     /// Appends an element to the _back_ of the list.
-    fn push(&mut self, value: Box<dyn PartialReflect>) {
+    fn push(&mut self, value: Box<dyn PartialReflect + Send + Sync>) {
         self.insert(self.len(), value);
     }
 
     /// Removes the _back_ element from the list and returns it, or [`None`] if it is empty.
-    fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
+    fn pop(&mut self) -> Option<Box<dyn PartialReflect + Send + Sync>> {
         if self.is_empty() {
             None
         } else {
@@ -101,7 +101,7 @@ pub trait List: PartialReflect {
     ///
     /// After calling this function, `self` will be empty. The order of items in the returned
     /// [`Vec`] will match the order of items in `self`.
-    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect + Send + Sync>>;
 
     /// Clones the list, producing a [`DynamicList`].
     #[deprecated(since = "0.16.0", note = "use `to_dynamic_list` instead")]
@@ -136,7 +136,8 @@ pub struct ListInfo {
 
 impl ListInfo {
     /// Create a new [`ListInfo`].
-    pub fn new<TList: List + TypePath, TItem: FromReflect + MaybeTyped + TypePath>() -> Self {
+    pub fn new<TList: List + TypePath, TItem: FromReflect + Send + Sync + MaybeTyped + TypePath>(
+    ) -> Self {
         Self {
             ty: Type::of::<TList>(),
             generics: Generics::new(),
@@ -183,7 +184,7 @@ impl ListInfo {
 #[derive(Default)]
 pub struct DynamicList {
     represented_type: Option<&'static TypeInfo>,
-    values: Vec<Box<dyn PartialReflect>>,
+    values: Vec<Box<dyn PartialReflect + Send + Sync>>,
 }
 
 impl DynamicList {
@@ -206,38 +207,38 @@ impl DynamicList {
     }
 
     /// Appends a typed value to the list.
-    pub fn push<T: PartialReflect>(&mut self, value: T) {
+    pub fn push<T: PartialReflect + Send + Sync>(&mut self, value: T) {
         self.values.push(Box::new(value));
     }
 
     /// Appends a [`Reflect`] trait object to the list.
-    pub fn push_box(&mut self, value: Box<dyn PartialReflect>) {
+    pub fn push_box(&mut self, value: Box<dyn PartialReflect + Send + Sync>) {
         self.values.push(value);
     }
 }
 
 impl List for DynamicList {
-    fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
+    fn get(&self, index: usize) -> Option<&(dyn PartialReflect + Send + Sync)> {
         self.values.get(index).map(|value| &**value)
     }
 
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
+    fn get_mut(&mut self, index: usize) -> Option<&mut (dyn PartialReflect + Send + Sync)> {
         self.values.get_mut(index).map(|value| &mut **value)
     }
 
-    fn insert(&mut self, index: usize, element: Box<dyn PartialReflect>) {
+    fn insert(&mut self, index: usize, element: Box<dyn PartialReflect + Send + Sync>) {
         self.values.insert(index, element);
     }
 
-    fn remove(&mut self, index: usize) -> Box<dyn PartialReflect> {
+    fn remove(&mut self, index: usize) -> Box<dyn PartialReflect + Send + Sync> {
         self.values.remove(index)
     }
 
-    fn push(&mut self, value: Box<dyn PartialReflect>) {
+    fn push(&mut self, value: Box<dyn PartialReflect + Send + Sync>) {
         DynamicList::push_box(self, value);
     }
 
-    fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
+    fn pop(&mut self) -> Option<Box<dyn PartialReflect + Send + Sync>> {
         self.values.pop()
     }
 
@@ -249,7 +250,7 @@ impl List for DynamicList {
         ListIter::new(self)
     }
 
-    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect + Send + Sync>> {
         self.values.drain(..).collect()
     }
 }
@@ -261,37 +262,39 @@ impl PartialReflect for DynamicList {
     }
 
     #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect + Send + Sync> {
         self
     }
 
     #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
+    fn as_partial_reflect(&self) -> &(dyn PartialReflect + Send + Sync) {
         self
     }
 
     #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+    fn as_partial_reflect_mut(&mut self) -> &mut (dyn PartialReflect + Send + Sync) {
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Err(self)
     }
 
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+    fn try_as_reflect(&self) -> Option<&(dyn Reflect + Send + Sync)> {
         None
     }
 
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+    fn try_as_reflect_mut(&mut self) -> Option<&mut (dyn Reflect + Send + Sync)> {
         None
     }
 
-    fn apply(&mut self, value: &dyn PartialReflect) {
+    fn apply(&mut self, value: &(dyn PartialReflect + Send + Sync)) {
         list_apply(self, value);
     }
 
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+    fn try_apply(&mut self, value: &(dyn PartialReflect + Send + Sync)) -> Result<(), ApplyError> {
         list_try_apply(self, value)
     }
 
@@ -320,7 +323,7 @@ impl PartialReflect for DynamicList {
         list_hash(self)
     }
 
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &(dyn PartialReflect + Send + Sync)) -> Option<bool> {
         list_partial_eq(self, value)
     }
 
@@ -344,8 +347,8 @@ impl Debug for DynamicList {
     }
 }
 
-impl FromIterator<Box<dyn PartialReflect>> for DynamicList {
-    fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(values: I) -> Self {
+impl FromIterator<Box<dyn PartialReflect + Send + Sync>> for DynamicList {
+    fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect + Send + Sync>>>(values: I) -> Self {
         Self {
             represented_type: None,
             values: values.into_iter().collect(),
@@ -353,7 +356,7 @@ impl FromIterator<Box<dyn PartialReflect>> for DynamicList {
     }
 }
 
-impl<T: PartialReflect> FromIterator<T> for DynamicList {
+impl<T: PartialReflect + Send + Sync> FromIterator<T> for DynamicList {
     fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
         values
             .into_iter()
@@ -363,7 +366,7 @@ impl<T: PartialReflect> FromIterator<T> for DynamicList {
 }
 
 impl IntoIterator for DynamicList {
-    type Item = Box<dyn PartialReflect>;
+    type Item = Box<dyn PartialReflect + Send + Sync>;
     type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -372,7 +375,7 @@ impl IntoIterator for DynamicList {
 }
 
 impl<'a> IntoIterator for &'a DynamicList {
-    type Item = &'a dyn PartialReflect;
+    type Item = &'a (dyn PartialReflect + Send + Sync);
     type IntoIter = ListIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -395,7 +398,7 @@ impl ListIter<'_> {
 }
 
 impl<'a> Iterator for ListIter<'a> {
-    type Item = &'a dyn PartialReflect;
+    type Item = &'a (dyn PartialReflect + Send + Sync);
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -434,7 +437,7 @@ pub fn list_hash<L: List>(list: &L) -> Option<u64> {
 ///
 /// This function panics if `b` is not a list.
 #[inline]
-pub fn list_apply<L: List>(a: &mut L, b: &dyn PartialReflect) {
+pub fn list_apply<L: List>(a: &mut L, b: &(dyn PartialReflect + Send + Sync)) {
     if let Err(err) = list_try_apply(a, b) {
         panic!("{err}");
     }
@@ -451,7 +454,10 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn PartialReflect) {
 /// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a list or if
 /// applying elements to each other fails.
 #[inline]
-pub fn list_try_apply<L: List>(a: &mut L, b: &dyn PartialReflect) -> Result<(), ApplyError> {
+pub fn list_try_apply<L: List>(
+    a: &mut L,
+    b: &(dyn PartialReflect + Send + Sync),
+) -> Result<(), ApplyError> {
     let list_value = b.reflect_ref().as_list()?;
 
     for (i, value) in list_value.iter().enumerate() {
@@ -476,7 +482,10 @@ pub fn list_try_apply<L: List>(a: &mut L, b: &dyn PartialReflect) -> Result<(), 
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
-pub fn list_partial_eq<L: List + ?Sized>(a: &L, b: &dyn PartialReflect) -> Option<bool> {
+pub fn list_partial_eq<L: List + ?Sized>(
+    a: &L,
+    b: &(dyn PartialReflect + Send + Sync),
+) -> Option<bool> {
     let ReflectRef::List(list) = b.reflect_ref() else {
         return Some(false);
     };
@@ -501,7 +510,7 @@ pub fn list_partial_eq<L: List + ?Sized>(a: &L, b: &dyn PartialReflect) -> Optio
 /// ```
 /// use bevy_reflect::Reflect;
 ///
-/// let my_list: &dyn Reflect = &vec![1, 2, 3];
+/// let my_list: &(dyn Reflect + Send + Sync) = &vec![1, 2, 3];
 /// println!("{:#?}", my_list);
 ///
 /// // Output:

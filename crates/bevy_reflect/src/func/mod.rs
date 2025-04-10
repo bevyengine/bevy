@@ -27,7 +27,7 @@
 //!   // Pushing a known type with owned ownership
 //!   .with_owned(25_i32)
 //!   // Pushing a reflected type with owned ownership
-//!   .with_boxed(Box::new(75_i32) as Box<dyn PartialReflect>);
+//!   .with_boxed(Box::new(75_i32) as Box<dyn PartialReflect + Send + Sync>);
 //! let result: FunctionResult = func.call(args);
 //! let value: Return = result.unwrap();
 //! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&100));
