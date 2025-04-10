@@ -235,6 +235,7 @@ mod tests {
 
     // Regression test for https://github.com/bevyengine/bevy/issues/17697
     #[test]
+    #[cfg(not(target_os = "macos"))] // cannot control which thread event loop is created on in macos
     fn world_is_truly_send() {
         let mut app = App::new();
 
