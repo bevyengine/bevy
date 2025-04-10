@@ -417,34 +417,19 @@ where
         self.b.queue_deferred(world);
     }
 
+    /// This method uses "early out" logic: if the first system fails validation,
+    /// the second system is not validated.
     unsafe fn validate_param_unsafe(
         &mut self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegate to the `System` implementation for `a`.
-        let a_validation = unsafe { self.a.validate_param_unsafe(world) };
+        unsafe { self.a.validate_param_unsafe(world) }?;
 
         // SAFETY: Delegate to the `System` implementation for `b`.
-        let b_validation = unsafe { self.b.validate_param_unsafe(world) };
+        unsafe { self.b.validate_param_unsafe(world) }?;
 
-        match (a_validation, b_validation) {
-            (Ok(()), Ok(())) => Ok(()),
-            (Ok(_), Err(err_b)) => Err(err_b),
-            (Err(err_a), Ok(_)) => Err(err_a),
-            (Err(err_a), Err(err_b)) => {
-                // Combine the errors from both systems, using the most severe outcome.
-                // TODO: consider combining the error strings in a more intelligible way
-                // but be mindful of the possibility of multiple piped systems!
-                Err(SystemParamValidationError {
-                    // Only skip if both systems should be skipped.
-                    // Panicking systems should not be skipped!
-                    skipped: err_a.skipped && err_b.skipped,
-                    message: err_a.message + err_b.message,
-                    param: err_a.param + err_b.param,
-                    field: err_a.field + err_b.field,
-                })
-            }
-        }
+        Ok(())
     }
 
     fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
