@@ -2,15 +2,11 @@ use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, prelude::ReflectComponent};
 use bevy_mesh::Mesh;
-use bevy_pbr::PreviousGlobalTransform;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::sync_world::SyncToRenderWorld;
-use bevy_transform::components::Transform;
 use derive_more::derive::From;
 
-// TODO: update_mesh_previous_global_transforms() will not run for RaytracingMesh3d
-// TODO: This probably has the same issue as https://github.com/bevyengine/bevy/issues/18784
+/// Must be used with a [`bevy_render::mesh::Mesh`] or MeshletMesh. Cannot be used standalone.
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Clone, PartialEq)]
-#[require(Transform, PreviousGlobalTransform, SyncToRenderWorld)]
+#[require(SyncToRenderWorld)]
 pub struct RaytracingMesh3d(pub Handle<Mesh>);
