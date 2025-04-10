@@ -351,6 +351,8 @@ impl ThinColumn {
             .map(|changed_by| changed_by.as_slice(len))
     }
 
+    /// Get change tick of this [`ThinColumn`].
+    /// This change ticks should be used for immutable components only.
     pub fn get_change_tick(&self) -> Tick {
         self.change_tick
     }
