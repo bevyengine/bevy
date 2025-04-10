@@ -421,8 +421,26 @@ where
         &mut self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.a.validate_param_unsafe(world) }
+        // SAFETY: Delegate to the `System` implementation for `a`.
+        let a_validation = unsafe { self.a.validate_param_unsafe(world) };
+
+        // SAFETY: Delegate to the `System` implementation for `b`.
+        let b_validation = unsafe { self.b.validate_param_unsafe(world) };
+
+        match (a_validation, b_validation) {
+            (Ok(()), Ok(())) => Ok(()),
+            (Ok(_), Err(err_b)) => Err(err_b),
+            (Err(err_a), Ok(_)) => Err(err_a),
+            (Err(err_a), Err(err_b)) => {
+                // Combine the errors from both systems, using the most severe outcome.
+                Err(SystemParamValidationError {
+                    skipped: err_a.skipped || err_b.skipped,
+                    message: err_a.message + err_b.message,
+                    param: err_a.param + err_b.param,
+                    field: err_a.field + err_b.field,
+                })
+            }
+        }
     }
 
     fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
