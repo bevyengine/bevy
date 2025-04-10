@@ -222,3 +222,33 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
 
 /// The parameters of the [`create_monitors`] system.
 pub type CreateMonitorParams<'w, 's> = (Commands<'w, 's>, ResMut<'w, WinitMonitors>);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Default, Debug, Event)]
+    enum TestEvent {
+        #[default]
+        E,
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/17697
+    #[test]
+    fn world_is_truly_send() {
+        let mut app = App::new();
+
+        app.add_plugins(WinitPlugin::<TestEvent> {
+            run_on_any_thread: true, // needed because tests don't run on the main thread
+            marker: PhantomData,
+        });
+
+        let world = core::mem::take(app.world_mut());
+
+        let handler = std::thread::spawn(move || {
+            drop(world);
+        });
+
+        handler.join().unwrap();
+    }
+}

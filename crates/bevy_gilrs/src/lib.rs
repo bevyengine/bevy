@@ -113,3 +113,22 @@ impl Plugin for GilrsPlugin {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/17697
+    #[test]
+    fn world_is_truly_send() {
+        let mut app = App::new();
+        app.add_plugins(GilrsPlugin);
+        let world = core::mem::take(app.world_mut());
+
+        let handler = std::thread::spawn(move || {
+            drop(world);
+        });
+
+        handler.join().unwrap();
+    }
+}
