@@ -24,7 +24,7 @@ bevy_reflect = [
 ## Adds serialization support through `serde`.
 serialize = [
   "serde",
-  "smol_str/serde",
+  "smol_str?/serde",
   "bevy_ecs/serialize",
   "bevy_math/serialize",
   "bevy_platform_support/serialize",
