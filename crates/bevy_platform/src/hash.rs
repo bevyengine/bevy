@@ -218,8 +218,8 @@ mod serde_tests {
 
         let serialized = to_value(&value).unwrap();
         assert_eq!(to_value(&(1, 2)).unwrap(), serialized);
-        
-        let deserialized: Hashed::<_, FixedHasher> = from_value(serialized).unwrap();
+
+        let deserialized: Hashed<_, FixedHasher> = from_value(serialized).unwrap();
         assert_eq!(deserialized, value);
     }
 
@@ -228,12 +228,12 @@ mod serde_tests {
     fn test_serde_hashed_map() {
         use alloc::string::String;
 
-        type StringIntMap = HashMap::<Hashed<String, FixedHasher>, i32, PassHash>;
+        type StringIntMap = HashMap<Hashed<String, FixedHasher>, i32, PassHash>;
 
         let mut map = StringIntMap::default();
         map.insert(Hashed::new("abc".into()), 1);
         map.insert(Hashed::new("def".into()), 2);
-        
+
         let serialized = to_value(&map).unwrap();
         let serialized_map = serialized.as_object().unwrap();
         assert_eq!(serialized_map.len(), 2);
