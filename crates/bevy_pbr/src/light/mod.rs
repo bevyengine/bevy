@@ -103,6 +103,7 @@ pub mod light_consts {
 #[reflect(Resource, Debug, Default, Clone)]
 pub struct PointLightShadowMap {
     /// The width and height of each of the 6 faces of the cubemap.
+
     ///
     /// Defaults to `1024`.
     pub size: usize,
