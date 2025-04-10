@@ -1044,7 +1044,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             },
             |sparse_set| {
-                // SAFETY: The caller ensures `entity` is in range.
+                // SAFETY: The caller ensures `entity` is in range1134.
                 let tick = unsafe {
                     sparse_set
                         .debug_checked_unwrap()
@@ -1131,7 +1131,7 @@ mod tests {
 
     use crate::{
         entity::EntityLocation,
-        query::{Added, Changed, Or, QueryFilter, With, WorldQuery},
+        query::{Added, Changed, Or, QueryFilter, With},
         world::World,
     };
 
