@@ -216,8 +216,8 @@ mod serde_tests {
     fn test_serde_hashed() {
         let value = Hashed::<_, FixedHasher>::new((1, 2));
 
-        let serialized = to_value(&value).unwrap();
-        assert_eq!(to_value(&(1, 2)).unwrap(), serialized);
+        let serialized = to_value(value).unwrap();
+        assert_eq!(to_value((1, 2)).unwrap(), serialized);
 
         let deserialized: Hashed<_, FixedHasher> = from_value(serialized).unwrap();
         assert_eq!(deserialized, value);
