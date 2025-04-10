@@ -20,6 +20,7 @@ pub struct ThinColumn {
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
+    pub(super) change_tick: Tick,
 }
 
 impl ThinColumn {
@@ -33,6 +34,7 @@ impl ThinColumn {
             added_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_by: MaybeLocation::new_with(|| ThinArrayPtr::with_capacity(capacity)),
+            change_tick: Tick::new(0),
         }
     }
 
@@ -249,6 +251,8 @@ impl ThinColumn {
                 .get_mut()
                 .check_tick(change_tick);
         }
+
+        self.change_tick.check_tick(change_tick);
     }
 
     /// Clear all the components from this column.

@@ -268,13 +268,14 @@ impl Table {
         &mut self,
         row: TableRow,
         new_table: &mut Table,
+        change_tick: Tick,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
         let is_last = row.as_usize() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
-            if let Some(new_column) = new_table.get_column_mut(*component_id) {
+            if let Some(new_column) = new_table.get_column_mut(*component_id, change_tick) {
                 new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
             } else {
                 // It's the caller's responsibility to drop these cases.
@@ -301,13 +302,14 @@ impl Table {
         &mut self,
         row: TableRow,
         new_table: &mut Table,
+        change_tick: Tick,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
         let is_last = row.as_usize() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
-            if let Some(new_column) = new_table.get_column_mut(*component_id) {
+            if let Some(new_column) = new_table.get_column_mut(*component_id, change_tick) {
                 new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
             } else {
                 column.swap_remove_and_drop_unchecked(last_element_index, row);
@@ -334,6 +336,7 @@ impl Table {
         &mut self,
         row: TableRow,
         new_table: &mut Table,
+        change_tick: Tick,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
@@ -341,7 +344,7 @@ impl Table {
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             new_table
-                .get_column_mut(*component_id)
+                .get_column_mut(*component_id, change_tick)
                 .debug_checked_unwrap()
                 .initialize_from_unchecked(column, last_element_index, row, new_row);
         }
@@ -483,8 +486,19 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut ThinColumn> {
-        self.columns.get_mut(component_id)
+    pub(crate) fn get_column_mut(
+        &mut self,
+        component_id: ComponentId,
+        change_tick: Tick,
+    ) -> Option<&mut ThinColumn> {
+        self.columns.get_mut(component_id).map(|col| {
+            col.change_tick = change_tick;
+            col
+        })
+    }
+
+    pub(crate) fn get_column_change_tick(&self, component_id: ComponentId) -> Option<Tick> {
+        self.get_column(component_id).map(|col| col.change_tick)
     }
 
     /// Checks if the table contains a [`ThinColumn`] for a given [`Component`].
@@ -656,8 +670,9 @@ impl Table {
         &mut self,
         component_id: ComponentId,
         row: TableRow,
+        change_tick: Tick,
     ) -> OwningPtr<'_> {
-        self.get_column_mut(component_id)
+        self.get_column_mut(component_id, change_tick)
             .debug_checked_unwrap()
             .data
             .get_unchecked_mut(row.as_usize())
@@ -863,12 +878,10 @@ mod tests {
                 let row = table.allocate(*entity);
                 let value: W<TableRow> = W(row);
                 OwningPtr::make(value, |value_ptr| {
-                    table.get_column_mut(component_id).unwrap().initialize(
-                        row,
-                        value_ptr,
-                        Tick::new(0),
-                        MaybeLocation::caller(),
-                    );
+                    table
+                        .get_column_mut(component_id, Tick::new(0))
+                        .unwrap()
+                        .initialize(row, value_ptr, Tick::new(0), MaybeLocation::caller());
                 });
             };
         }

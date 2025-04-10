@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{Component, ComponentId, Components, StorageType, Tick},
+    component::{Component, ComponentId, ComponentMutability, Components, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -105,6 +105,18 @@ pub unsafe trait QueryFilter: WorldQuery {
         entity: Entity,
         table_row: TableRow,
     ) -> bool;
+
+    /// # Safety
+    ///
+    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
+    /// `table_row` must be in the range of the current table and archetype.
+    unsafe fn archetype_filter_fetch(
+        _fetch: &mut Self::Fetch<'_>,
+        _state: &Self::State,
+        _table: &Table,
+    ) -> bool {
+        true
+    }
 }
 
 /// Filter that selects entities with a component `T`.
@@ -1002,6 +1014,21 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             },
         )
+    }
+
+    #[inline(always)]
+    unsafe fn archetype_filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        state: &Self::State,
+        table: &Table,
+    ) -> bool {
+        if !Self::IS_DENSE || <T::Mutability as ComponentMutability>::MUTABLE {
+            return true;
+        }
+
+        let change_tick = table.get_column_change_tick(*state).debug_checked_unwrap();
+
+        change_tick.is_newer_than(fetch.last_run, fetch.this_run)
     }
 }
 

@@ -2470,6 +2470,15 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     if table.is_empty() {
                         continue;
                     }
+
+                    if !F::archetype_filter_fetch(
+                        &mut self.filter,
+                        &query_state.filter_state,
+                        table,
+                    ) {
+                        continue;
+                    }
+
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     unsafe {
@@ -2596,9 +2605,10 @@ mod tests {
     use alloc::vec::Vec;
     use std::println;
 
-    use crate::component::Component;
+    use crate::component::{self, Component};
     use crate::entity::Entity;
     use crate::prelude::World;
+    use crate::query::Changed;
 
     #[derive(Component, Debug, PartialEq, PartialOrd, Clone, Copy)]
     struct A(f32);

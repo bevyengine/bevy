@@ -636,7 +636,9 @@ impl BundleInfo {
                     let status = unsafe { bundle_component_status.get_status(bundle_component) };
                     // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                     // the target table contains the component.
-                    let column = table.get_column_mut(component_id).debug_checked_unwrap();
+                    let column = table
+                        .get_column_mut(component_id, change_tick)
+                        .debug_checked_unwrap();
                     match (status, insert_mode) {
                         (ComponentStatus::Added, _) => {
                             column.initialize(table_row, component_ptr, change_tick, caller);
@@ -705,7 +707,7 @@ impl BundleInfo {
                     let column =
                         // SAFETY: If component_id is in required_components, BundleInfo::new requires that
                         // the target table contains the component.
-                        unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
+                        unsafe { table.get_column_mut(component_id, change_tick).debug_checked_unwrap() };
                     column.initialize(table_row, component_ptr, change_tick, caller);
                 }
                 StorageType::SparseSet => {
@@ -1239,7 +1241,9 @@ impl<'w> BundleInserter<'w> {
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
-                let move_result = table.move_to_superset_unchecked(result.table_row, new_table);
+                let change_tick = self.world.change_tick();
+                let move_result =
+                    table.move_to_superset_unchecked(result.table_row, new_table, change_tick);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
                 entities.set(entity.index(), new_location);
 

@@ -7,7 +7,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped},
     component::{
         Component, ComponentId, ComponentTicks, Components, ComponentsRegistrator, Mutable,
-        StorageType,
+        StorageType, Tick,
     },
     entity::{
         ContainsEntity, Entities, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
@@ -2032,6 +2032,7 @@ impl<'w> EntityWorldMut<'w> {
             );
         }
 
+        let change_tick = world.change_tick();
         let archetypes = &mut world.archetypes;
         let storages = &mut world.storages;
         let components = &mut world.components;
@@ -2057,6 +2058,7 @@ impl<'w> EntityWorldMut<'w> {
                     component_id,
                     entity,
                     old_location,
+                    change_tick,
                 )
             })
         };
@@ -2075,6 +2077,7 @@ impl<'w> EntityWorldMut<'w> {
                 archetypes,
                 storages,
                 new_archetype_id,
+                change_tick,
             );
         }
         self.world.flush();
@@ -2100,6 +2103,7 @@ impl<'w> EntityWorldMut<'w> {
         archetypes: &mut Archetypes,
         storages: &mut Storages,
         new_archetype_id: ArchetypeId,
+        change_tick: Tick,
     ) {
         let old_archetype = &mut archetypes[old_archetype_id];
         let remove_result = old_archetype.swap_remove(old_location.archetype_row);
@@ -2130,10 +2134,22 @@ impl<'w> EntityWorldMut<'w> {
 
             let move_result = if DROP {
                 // SAFETY: old_table_row exists
-                unsafe { old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table) }
+                unsafe {
+                    old_table.move_to_and_drop_missing_unchecked(
+                        old_table_row,
+                        new_table,
+                        change_tick,
+                    )
+                }
             } else {
                 // SAFETY: old_table_row exists
-                unsafe { old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table) }
+                unsafe {
+                    old_table.move_to_and_forget_missing_unchecked(
+                        old_table_row,
+                        new_table,
+                        change_tick,
+                    )
+                }
             };
 
             // SAFETY: move_result.new_row is a valid position in new_archetype's table
@@ -2236,6 +2252,7 @@ impl<'w> EntityWorldMut<'w> {
             }
         }
 
+        let change_tick = world.change_tick();
         // SAFETY: `new_archetype_id` is a subset of the components in `old_location.archetype_id`
         // because it is created by removing a bundle from these components.
         let mut new_location = location;
@@ -2248,6 +2265,7 @@ impl<'w> EntityWorldMut<'w> {
             &mut world.archetypes,
             &mut world.storages,
             new_archetype_id,
+            change_tick,
         );
 
         new_location
@@ -4527,6 +4545,7 @@ pub(crate) unsafe fn take_component<'a>(
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
+    change_tick: Tick,
 ) -> OwningPtr<'a> {
     // SAFETY: caller promises component_id to be valid
     let component_info = unsafe { components.get_info_unchecked(component_id) };
@@ -4538,7 +4557,7 @@ pub(crate) unsafe fn take_component<'a>(
             // - archetypes only store valid table_rows
             // - index is in bounds as promised by caller
             // - promote is safe because the caller promises to remove the table row without dropping it immediately afterwards
-            unsafe { table.take_component(component_id, location.table_row) }
+            unsafe { table.take_component(component_id, location.table_row, change_tick) }
         }
         StorageType::SparseSet => storages
             .sparse_sets
