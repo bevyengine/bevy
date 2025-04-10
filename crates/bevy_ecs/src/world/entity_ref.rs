@@ -2128,24 +2128,6 @@ impl<'w> EntityWorldMut<'w> {
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
 
-        if old_table_id == archetypes[new_archetype_id].table_id() {
-            inherited_components.update_inherited_archetypes::<false>(
-                archetypes,
-                components,
-                old_archetype_id,
-                new_archetype_id,
-                entity,
-            );
-        } else {
-            inherited_components.update_inherited_archetypes::<true>(
-                archetypes,
-                components,
-                old_archetype_id,
-                new_archetype_id,
-                entity,
-            );
-        }
-
         let new_archetype = &mut archetypes[new_archetype_id];
 
         let new_location = if old_table_id == new_archetype.table_id() {
@@ -2185,6 +2167,28 @@ impl<'w> EntityWorldMut<'w> {
 
             new_location
         };
+
+        if archetypes[new_archetype_id].is_inherited() {
+            if old_table_id == archetypes[new_archetype_id].table_id() {
+                inherited_components.update_inherited_archetypes::<false>(
+                    archetypes,
+                    &mut storages.tables,
+                    new_archetype_id,
+                    old_archetype_id,
+                    entity,
+                    new_location,
+                );
+            } else {
+                inherited_components.update_inherited_archetypes::<true>(
+                    archetypes,
+                    &mut storages.tables,
+                    new_archetype_id,
+                    old_archetype_id,
+                    entity,
+                    new_location,
+                );
+            }
+        }
 
         *self_location = new_location;
         // SAFETY: The entity is valid and has been moved to the new location already.

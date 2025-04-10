@@ -23,6 +23,7 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
     entity::{Entity, EntityLocation},
+    inheritance::InheritedArchetypeComponent,
     observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
     world::{INHERITED, INHERIT_FROM},
@@ -379,6 +380,7 @@ pub struct Archetype {
     entities: Vec<ArchetypeEntity>,
     components: ImmutableSparseSet<ComponentId, ArchetypeComponentInfo>,
     pub(crate) flags: ArchetypeFlags,
+    pub(crate) inherited_components: HashMap<ComponentId, InheritedArchetypeComponent>,
 }
 
 impl Archetype {
@@ -453,6 +455,7 @@ impl Archetype {
             components: archetype_components.into_immutable(),
             edges: Default::default(),
             flags,
+            inherited_components: Default::default(),
         }
     }
 
@@ -530,6 +533,16 @@ impl Archetype {
         self.components
             .iter()
             .map(|(component_id, info)| (*component_id, info.archetype_component_id))
+    }
+
+    pub(crate) fn components_with_inherited_and_archetype_component_id(
+        &self,
+    ) -> impl Iterator<Item = (ComponentId, ArchetypeComponentId)> + '_ {
+        self.components_with_archetype_component_id().chain(
+            self.inherited_components
+                .iter()
+                .map(|(component_id, info)| (*component_id, info.archetype_component_id())),
+        )
     }
 
     /// Fetches an immutable reference to the archetype's [`Edges`], a cache of
@@ -635,6 +648,11 @@ impl Archetype {
     #[inline]
     pub fn contains(&self, component_id: ComponentId) -> bool {
         self.components.contains(component_id)
+    }
+
+    #[inline]
+    pub fn contains_with_inherited(&self, component_id: ComponentId) -> bool {
+        self.contains(component_id) || self.inherited_components.contains_key(&component_id)
     }
 
     /// Gets the type of storage where a component in the archetype can be found.

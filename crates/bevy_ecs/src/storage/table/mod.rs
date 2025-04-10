@@ -2,6 +2,7 @@ use crate::{
     change_detection::MaybeLocation,
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
     entity::Entity,
+    inheritance::InheritedTableComponent,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
     world::INHERIT_FROM,
@@ -182,6 +183,7 @@ impl TableBuilder {
             columns: self.columns.into_immutable(),
             entities: Vec::with_capacity(self.capacity),
             has_inherited_components: self.has_inherited_components,
+            inherited_components: Default::default(),
         }
     }
 }
@@ -202,6 +204,7 @@ pub struct Table {
     columns: ImmutableSparseSet<ComponentId, ThinColumn>,
     entities: Vec<Entity>,
     has_inherited_components: bool,
+    pub(crate) inherited_components: HashMap<ComponentId, InheritedTableComponent>,
 }
 
 struct AbortOnPanic;

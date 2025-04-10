@@ -3,7 +3,7 @@ use crate::{
     component::{ComponentId, Tick},
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
-    inheritance::InheritedComponents,
+    inheritance::{InheritedArchetypeComponent, InheritedComponents},
     prelude::FromWorld,
     query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
     storage::{SparseSetIndex, TableId},
@@ -643,25 +643,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         archetype: &Archetype,
         inherited_components: &InheritedComponents,
     ) -> bool {
-        let is_matching = if archetype.has_inherited_components() {
-            let inherited_components = inherited_components
-                .archetype_inherited_components
-                .get(&archetype.id())
-                .unwrap();
-            D::matches_component_set(&self.fetch_state, &|id| {
-                archetype.contains(id) || inherited_components.contains_key(&id)
-            }) && F::matches_component_set(&self.filter_state, &|id| {
-                archetype.contains(id) || inherited_components.contains_key(&id)
-            }) && self.matches_component_set(&|id| {
-                archetype.contains(id) || inherited_components.contains_key(&id)
-            }) && !inherited_components
+        let is_matching = D::matches_component_set(&self.fetch_state, &|id| {
+            archetype.contains_with_inherited(id)
+        }) && F::matches_component_set(&self.filter_state, &|id| {
+            archetype.contains_with_inherited(id)
+        }) && self
+            .matches_component_set(&|id| archetype.contains_with_inherited(id))
+            && !archetype
+                .inherited_components
                 .keys()
-                .any(|id| self.component_access.access.has_component_write(*id))
-        } else {
-            D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
-                && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
-                && self.matches_component_set(&|id| archetype.contains(id))
-        };
+                .any(|id| self.component_access.access.has_component_write(*id));
 
         if is_matching {
             let archetype_index = archetype.id().index();
@@ -721,12 +712,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     .get_archetype_component_id(*component_access.index())
                     .or_else(|| {
                         if archetype.has_inherited_components() {
-                            inherited_components
-                                .archetype_inherited_components
-                                .get(&archetype.id())
-                                .and_then(|map| {
-                                    map.get(component_access.index()).map(|(_, id)| *id)
-                                })
+                            archetype
+                                .inherited_components
+                                .get(component_access.index())
+                                .map(InheritedArchetypeComponent::archetype_component_id)
                         } else {
                             None
                         }
@@ -746,22 +735,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             return;
         }
 
-        let empty_map = Default::default();
         for (component_id, archetype_component_id) in
-            archetype.components_with_archetype_component_id().chain(
-                if archetype.has_inherited_components() {
-                    inherited_components
-                        .archetype_inherited_components
-                        .get(&archetype.id())
-                        .unwrap_or(&empty_map)
-                } else {
-                    &empty_map
-                }
-                .iter()
-                .map(|(component_id, (_, archetype_component_id))| {
-                    (*component_id, *archetype_component_id)
-                }),
-            )
+            archetype.components_with_inherited_and_archetype_component_id()
         {
             if self
                 .component_access

@@ -841,8 +841,8 @@ impl BundleInfo {
             );
             inherited_components.init_inherited_components(
                 entities,
-                components,
                 archetypes,
+                &mut storages.tables,
                 new_archetype_id,
             );
             // Add an edge from the old archetype to the new archetype.
@@ -960,8 +960,8 @@ impl BundleInfo {
             );
             inherited_components.init_inherited_components(
                 entities,
-                components,
                 archetypes,
+                &mut storages.tables,
                 new_archetype_id,
             );
             Some(new_archetype_id)
@@ -1184,21 +1184,6 @@ impl<'w> BundleInserter<'w> {
                 (archetype, location, after_effect)
             }
             ArchetypeMoveType::NewArchetypeSameTable { new_archetype } => {
-                {
-                    let new_archetype_id = new_archetype.as_ref().id();
-                    let old_archetype_id = self.archetype.as_ref().id();
-                    let world = self.world.world_mut();
-                    world
-                        .inherited_components
-                        .update_inherited_archetypes::<false>(
-                            &mut world.archetypes,
-                            &world.components,
-                            old_archetype_id,
-                            new_archetype_id,
-                            entity,
-                        );
-                }
-
                 let new_archetype = new_archetype.as_mut();
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
@@ -1243,21 +1228,6 @@ impl<'w> BundleInserter<'w> {
                 new_archetype,
                 new_table,
             } => {
-                {
-                    let new_archetype_id = new_archetype.as_ref().id();
-                    let old_archetype_id = self.archetype.as_ref().id();
-                    let world = self.world.world_mut();
-                    world
-                        .inherited_components
-                        .update_inherited_archetypes::<true>(
-                            &mut world.archetypes,
-                            &world.components,
-                            old_archetype_id,
-                            new_archetype_id,
-                            entity,
-                        );
-                }
-
                 let new_table = new_table.as_mut();
                 let new_archetype = new_archetype.as_mut();
 
@@ -1339,6 +1309,36 @@ impl<'w> BundleInserter<'w> {
         };
 
         let new_archetype = &*new_archetype;
+
+        if new_archetype.is_inherited() {
+            let new_archetype_id = new_location.archetype_id;
+            let old_archetype_id = location.archetype_id;
+            let world = self.world.world_mut();
+            if new_location.table_id != location.table_id {
+                world
+                    .inherited_components
+                    .update_inherited_archetypes::<true>(
+                        &mut world.archetypes,
+                        &mut world.storages.tables,
+                        new_archetype_id,
+                        old_archetype_id,
+                        entity,
+                        new_location,
+                    );
+            } else {
+                world
+                    .inherited_components
+                    .update_inherited_archetypes::<false>(
+                        &mut world.archetypes,
+                        &mut world.storages.tables,
+                        new_archetype_id,
+                        old_archetype_id,
+                        entity,
+                        new_location,
+                    );
+            }
+        }
+
         // SAFETY: We have no outstanding mutable references to world as they were dropped
         let mut deferred_world = unsafe { self.world.into_deferred() };
 

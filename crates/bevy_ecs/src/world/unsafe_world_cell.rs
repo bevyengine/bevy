@@ -7,7 +7,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
     entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
-    inheritance::InheritedComponents,
+    inheritance::{InheritedArchetypeComponent, InheritedComponents},
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -986,20 +986,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 .debug_checked_unwrap()
         };
 
-        let archetype_inherited_components = if archetype.has_inherited_components() {
-            self.world
-                .inherited_components()
-                .archetype_inherited_components
-                .get(&archetype.id())
-        } else {
-            None
-        };
-
-        if Q::matches_component_set(&state, &|id| {
-            archetype.contains(id)
-                || archetype_inherited_components
-                    .is_some_and(|components| components.contains_key(&id))
-        }) {
+        if Q::matches_component_set(&state, &|id| archetype.contains_with_inherited(id)) {
             // SAFETY: state was initialized above using the world passed into this function
             let mut fetch = unsafe {
                 Q::init_fetch(
@@ -1231,13 +1218,26 @@ unsafe fn get_component(
     }
     .or_else(|| {
         let archetype = world.archetypes().get(location.archetype_id)?;
-        let (base, ..) = *world
-            .inherited_components()
-            .archetype_inherited_components
-            .get(&archetype.id())?
-            .get(&component_id)?;
-        let location = world.entities().get(base)?;
-        get_component(world, component_id, storage_type, base, location)
+        match *archetype.inherited_components.get(&component_id)? {
+            InheritedArchetypeComponent::Table {
+                table_id,
+                table_row,
+                ..
+            } => {
+                // This is fine since `fetch_table` only uses table_id
+                let location = EntityLocation {
+                    table_id,
+                    table_row,
+                    ..location
+                };
+                world
+                    .fetch_table(location)?
+                    .get_component(component_id, table_row)
+            }
+            InheritedArchetypeComponent::Sparse { entity, .. } => {
+                world.fetch_sparse_set(component_id)?.get(entity)
+            }
+        }
     })
 }
 
@@ -1292,13 +1292,42 @@ unsafe fn get_component_and_ticks(
             return None;
         }
         let archetype = world.archetypes().get(location.archetype_id)?;
-        let (base, ..) = *world
-            .inherited_components()
-            .archetype_inherited_components
-            .get(&archetype.id())?
-            .get(&component_id)?;
-        let location = world.entities().get(base)?;
-        get_component_and_ticks(world, component_id, storage_type, base, location, false)
+        match archetype.inherited_components.get(&component_id)? {
+            &InheritedArchetypeComponent::Table {
+                table_id,
+                table_row,
+                ..
+            } => {
+                // This is fine since archetype-related fields aren't used by later code
+                let location = EntityLocation {
+                    table_id,
+                    table_row,
+                    ..location
+                };
+                let table = world.fetch_table(location)?;
+                table
+                    .get_component(component_id, location.table_row)
+                    .map(|ptr| {
+                        (
+                            ptr,
+                            TickCells {
+                                added: table
+                                    .get_added_tick(component_id, location.table_row)
+                                    .debug_checked_unwrap(),
+                                changed: table
+                                    .get_changed_tick(component_id, location.table_row)
+                                    .debug_checked_unwrap(),
+                            },
+                            table
+                                .get_changed_by(component_id, location.table_row)
+                                .map(|changed_by| changed_by.debug_checked_unwrap()),
+                        )
+                    })
+            }
+            &InheritedArchetypeComponent::Sparse { entity, .. } => {
+                world.fetch_sparse_set(component_id)?.get_with_ticks(entity)
+            }
+        }
     })
 }
 
@@ -1328,13 +1357,26 @@ unsafe fn get_ticks(
     }
     .or_else(|| {
         let archetype = world.archetypes().get(location.archetype_id)?;
-        let (base, ..) = *world
-            .inherited_components()
-            .archetype_inherited_components
-            .get(&archetype.id())?
-            .get(&component_id)?;
-        let location = world.entities().get(base)?;
-        get_ticks(world, component_id, storage_type, base, location)
+        match archetype.inherited_components.get(&component_id)? {
+            &InheritedArchetypeComponent::Table {
+                table_id,
+                table_row,
+                ..
+            } => {
+                // This is fine since `fetch_table` only uses table_id
+                let location = EntityLocation {
+                    table_id,
+                    table_row,
+                    ..location
+                };
+                world
+                    .fetch_table(location)?
+                    .get_ticks_unchecked(component_id, table_row)
+            }
+            &InheritedArchetypeComponent::Sparse { entity, .. } => {
+                world.fetch_sparse_set(component_id)?.get_ticks(entity)
+            }
+        }
     })
 }
 

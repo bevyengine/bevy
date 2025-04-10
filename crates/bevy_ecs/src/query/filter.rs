@@ -757,7 +757,7 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
     ) -> bool {
         // SAFETY: The invariants are upheld by the caller.
         fetch.ticks.extract(
-            |table| {
+            |table, _| {
                 // SAFETY: set_table was previously called
                 let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY: The caller ensures `table_row` is in range.
@@ -765,7 +765,7 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             },
-            |sparse_set| {
+            |sparse_set, _| {
                 // SAFETY: The caller ensures `entity` is in range.
                 let tick = unsafe {
                     sparse_set
@@ -986,7 +986,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
     ) -> bool {
         // SAFETY: The invariants are upheld by the caller.
         fetch.ticks.extract(
-            |table| {
+            |table, _| {
                 // SAFETY: set_table was previously called
                 let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY: The caller ensures `table_row` is in range.
@@ -994,7 +994,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             },
-            |sparse_set| {
+            |sparse_set, _| {
                 // SAFETY: The caller ensures `entity` is in range.
                 let tick = unsafe {
                     sparse_set

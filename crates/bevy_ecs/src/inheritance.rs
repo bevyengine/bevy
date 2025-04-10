@@ -15,11 +15,11 @@ use bevy_ptr::OwningPtr;
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeEntity, ArchetypeId, ArchetypeRecord, Archetypes},
     component::{
-        Component, ComponentCloneBehavior, ComponentDescriptor, ComponentId, Components,
-        HookContext, StorageType,
+        Component, ComponentCloneBehavior, ComponentDescriptor, ComponentId, HookContext,
+        StorageType,
     },
-    entity::{Entities, Entity, EntityHashMap},
-    storage::TableId,
+    entity::{Entities, Entity, EntityHashMap, EntityLocation},
+    storage::{TableId, TableRow, Tables},
     world::{DeferredWorld, World},
 };
 
@@ -139,6 +139,39 @@ impl Inherited {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum InheritedArchetypeComponent {
+    Sparse {
+        archetype_component_id: ArchetypeComponentId,
+        entity: Entity,
+    },
+    Table {
+        archetype_component_id: ArchetypeComponentId,
+        table_id: TableId,
+        table_row: TableRow,
+    },
+}
+
+impl InheritedArchetypeComponent {
+    pub fn archetype_component_id(&self) -> ArchetypeComponentId {
+        match self {
+            InheritedArchetypeComponent::Table {
+                archetype_component_id,
+                ..
+            }
+            | InheritedArchetypeComponent::Sparse {
+                archetype_component_id,
+                ..
+            } => *archetype_component_id,
+        }
+    }
+}
+
+pub(crate) struct InheritedTableComponent {
+    pub(crate) table_id: TableId,
+    pub(crate) table_row: TableRow,
+}
+
 #[derive(Default)]
 /// Contains information about inherited components and entities.
 ///
@@ -151,11 +184,11 @@ pub struct InheritedComponents {
     /// Mapping of component ids to entities representing the inherited archetypes and tables.
     /// Must be kept synchronized with `entities_to_ids`
     pub(crate) ids_to_entities: HashMap<ComponentId, Entity>,
-    /// List of inherited components along with entities containing the inherited component for the archetypes
-    pub(crate) archetype_inherited_components:
-        HashMap<ArchetypeId, HashMap<ComponentId, (Entity, ArchetypeComponentId)>>,
-    /// List of inherited components along with entities containing the inherited component for the tables
-    pub(crate) table_inherited_components: HashMap<TableId, HashMap<ComponentId, Entity>>,
+    // /// List of inherited components along with entities containing the inherited component for the archetypes
+    // pub(crate) archetype_inherited_components:
+    //     HashMap<ArchetypeId, HashMap<ComponentId, (Entity, ArchetypeComponentId)>>,
+    // /// List of inherited components along with entities containing the inherited component for the tables
+    // pub(crate) table_inherited_components: HashMap<TableId, HashMap<ComponentId, Entity>>,
 }
 
 impl InheritedComponents {
@@ -163,48 +196,56 @@ impl InheritedComponents {
     pub(crate) fn init_inherited_components(
         &mut self,
         entities: &Entities,
-        components: &Components,
         archetypes: &mut Archetypes,
+        tables: &mut Tables,
         archetype_id: ArchetypeId,
     ) {
         let archetype = &archetypes.archetypes[archetype_id.index()];
         if !archetype.has_inherited_components() {
             return;
         }
-        // Empty inherited components hashmap to enable .chain
-        let empty_inherited_components = HashMap::default();
-        let archetype_inherited_components = HashMap::from_iter(
+        let archetype_inherited_components: HashMap<ComponentId, InheritedArchetypeComponent> =
             archetype
                 .table_components()
                 .filter_map(|id| {
-                    self.ids_to_entities
-                        .get(&id)
-                        .and_then(|entity| {
-                            entities.get(*entity).map(|location| (location, *entity))
-                        })
-                        .and_then(|(location, entity)| {
+                    self.ids_to_entities.get(&id).and_then(|entity| {
+                        entities.get(*entity).and_then(|location| {
                             archetypes
                                 .get(location.archetype_id)
-                                .map(|archetype| (archetype, entity))
+                                .map(|archetype| (archetype, *entity, location))
                         })
+                    })
                 })
-                .flat_map(|(inherited_archetype, entity)| {
+                .flat_map(|(inherited_archetype, entity, location)| {
                     inherited_archetype
                         .components_with_archetype_component_id()
-                        .zip(core::iter::repeat(entity))
-                        .map(|((component_id, archetype_component_id), entity)| {
-                            (component_id, (entity, archetype_component_id))
+                        .map(move |(component_id, archetype_component_id)| {
+                            (
+                                component_id,
+                                match inherited_archetype.get_storage_type(component_id).unwrap() {
+                                    StorageType::Table => InheritedArchetypeComponent::Table {
+                                        archetype_component_id,
+                                        table_id: location.table_id,
+                                        table_row: location.table_row,
+                                    },
+                                    StorageType::SparseSet => InheritedArchetypeComponent::Sparse {
+                                        archetype_component_id,
+                                        entity,
+                                    },
+                                },
+                            )
                         })
                         .chain(
-                            self.archetype_inherited_components
-                                .get(&inherited_archetype.id())
-                                .unwrap_or(&empty_inherited_components)
+                            archetypes
+                                .get(inherited_archetype.id())
+                                .unwrap()
+                                .inherited_components
                                 .iter()
-                                .map(|(&id, &entity)| (id, entity)),
+                                .map(|(a, b)| (*a, *b)),
                         )
                 })
-                .filter(|(id, ..)| !archetype.contains(*id)),
-        );
+                .filter(|(component, ..)| !archetype.contains(*component))
+                .collect();
 
         // Update component index to include this archetype in all the inherited components.
         for (inherited_component, ..) in archetype_inherited_components.iter() {
@@ -225,165 +266,159 @@ impl InheritedComponents {
         // Since the only difference between archetypes with the same table is in sparse set components,
         // we can skip reinitializing table's inherited components.
         // `update_inherited_components` will take care of updating existing table's components.
-        self.table_inherited_components
-            .entry(archetype.table_id())
-            .or_insert_with(|| {
-                HashMap::from_iter(
-                    archetype_inherited_components
-                        .iter()
-                        .map(|(id, (e, ..))| (*id, *e))
-                        .filter(|(id, ..)| {
-                            components.get_info(*id).unwrap().storage_type() == StorageType::Table
-                        }),
-                )
-            });
+        let table_id = archetype.table_id();
+        if tables[table_id].inherited_components.is_empty() {
+            let inherited_components = archetype_inherited_components
+                .iter()
+                .filter_map(|(&component_id, component)| match component {
+                    InheritedArchetypeComponent::Sparse { .. } => None,
+                    &InheritedArchetypeComponent::Table {
+                        table_id,
+                        table_row,
+                        ..
+                    } => Some((
+                        component_id,
+                        InheritedTableComponent {
+                            table_id,
+                            table_row,
+                        },
+                    )),
+                })
+                .collect();
+            tables[table_id].inherited_components = inherited_components;
+        }
 
-        self.archetype_inherited_components
-            .insert(archetype_id, archetype_inherited_components);
+        let archetype = &mut archetypes[archetype_id];
+        archetype.inherited_components = archetype_inherited_components;
     }
 
-    /// This method must be called after an entity changes archetype to update all archetypes inheriting components from this entity.
+    /// This method must be called after an entity moves to update all inherited archetypes/tables.
     pub(crate) fn update_inherited_archetypes<const UPDATE_TABLES: bool>(
         &mut self,
         archetypes: &mut Archetypes,
-        components: &Components,
-        old_base_archetype_id: ArchetypeId,
-        new_base_archetype_id: ArchetypeId,
+        tables: &mut Tables,
+        new_archetype_id: ArchetypeId,
+        old_archetype_id: ArchetypeId,
         entity: Entity,
+        new_location: EntityLocation,
     ) {
         let Some(component_id) = self.entities_to_ids.get(&entity) else {
             return;
         };
-        let old_base_archetype = &archetypes.archetypes[old_base_archetype_id.index()];
-        let new_base_archetype = &archetypes.archetypes[new_base_archetype_id.index()];
-        let added_components = new_base_archetype
+        let new_archetype = &archetypes[new_archetype_id];
+        let new_components: HashMap<_, _> = new_archetype
             .components_with_archetype_component_id()
-            .filter(|(component_id, ..)| !old_base_archetype.contains(*component_id))
-            .collect::<Vec<_>>();
-        let mut removed_components = old_base_archetype
+            .map(|(component_id, archetype_component_id)| {
+                (
+                    component_id,
+                    (
+                        archetype_component_id,
+                        new_archetype.get_storage_type(component_id).unwrap(),
+                    ),
+                )
+            })
+            .collect();
+        let removed_components: HashSet<_> = archetypes[old_archetype_id]
             .components()
-            .filter(|component_id| !new_base_archetype.contains(*component_id))
-            .collect::<Vec<_>>();
-        removed_components.sort_unstable();
+            .filter(|&component_id| !new_archetype.contains(component_id))
+            .collect();
 
-        let mut inherited_entities_queue = VecDeque::from([(entity, *component_id)]);
-        let mut archetypes_to_update = Vec::new();
+        let mut base_entities = VecDeque::from([(entity, *component_id)]);
+        let mut inherited_archetypes = Vec::new();
         let mut processed_archetypes = HashSet::<ArchetypeId>::default();
 
-        while let Some((entity, component_id)) = inherited_entities_queue.pop_front() {
-            archetypes_to_update.extend(
-                archetypes
-                    .by_component
-                    .get(&component_id)
-                    .unwrap()
-                    .keys()
-                    .copied()
-                    .filter(|archetype_id| !processed_archetypes.contains(archetype_id)),
-            );
-            for archetype in archetypes_to_update.drain(..) {
-                // Update archetype's inherited components
-                let archetype = &archetypes.archetypes[archetype.index()];
-                let archetype_inherited_components = self
-                    .archetype_inherited_components
-                    .entry(archetype.id())
-                    .or_default();
-                archetype_inherited_components.retain(|component_id, _| {
-                    removed_components.binary_search(component_id).is_err()
-                });
-                archetype_inherited_components.extend(
-                    added_components
-                        .iter()
+        while let Some((entity, inherited_entity_component_id)) = base_entities.pop_front() {
+            if let Some(map) = archetypes.by_component.get(&inherited_entity_component_id) {
+                inherited_archetypes.extend(
+                    map.keys()
                         .copied()
-                        .filter(|(component_id, ..)| !archetype.contains(*component_id))
-                        .zip(core::iter::repeat(entity))
-                        .map(|((component_id, archetype_component_id), entity)| {
-                            (component_id, (entity, archetype_component_id))
-                        }),
+                        .filter(|archetype_id| !processed_archetypes.contains(archetype_id)),
                 );
+            };
+            for archetype_id in inherited_archetypes.drain(..) {
+                // Update archetype's inherited components
+                let mut archetype_inherited_components =
+                    core::mem::take(&mut archetypes[archetype_id].inherited_components);
+                archetype_inherited_components.retain(|component_id, _| {
+                    !new_components.contains_key(component_id)
+                        && !removed_components.contains(component_id)
+                });
+                archetype_inherited_components.extend(new_components.iter().map(
+                    |(&component_id, &(archetype_component_id, storage_type))| {
+                        (
+                            component_id,
+                            match storage_type {
+                                StorageType::Table => InheritedArchetypeComponent::Table {
+                                    archetype_component_id,
+                                    table_id: new_location.table_id,
+                                    table_row: new_location.table_row,
+                                },
+                                StorageType::SparseSet => InheritedArchetypeComponent::Sparse {
+                                    archetype_component_id,
+                                    entity,
+                                },
+                            },
+                        )
+                    },
+                ));
+                archetypes[archetype_id].inherited_components = archetype_inherited_components;
 
                 // Update component index
-                for removed_component in &removed_components {
-                    archetypes
-                        .by_component
-                        .entry(*removed_component)
-                        .and_modify(|map| {
-                            if let Some(record) = map.get(&archetype.id()) {
-                                if !record.is_inherited {
-                                    return;
-                                }
-                            }
-                            map.remove(&archetype.id());
-                        });
-                }
-                for (added_component, ..) in &added_components {
-                    archetypes
-                        .by_component
-                        .entry(*added_component)
-                        .and_modify(|map| {
-                            if !map.contains_key(&archetype.id()) {
-                                map.insert(
-                                    archetype.id(),
-                                    ArchetypeRecord {
-                                        column: None,
-                                        is_inherited: true,
-                                    },
-                                );
-                            }
-                        });
-                }
-
-                // Update tables's inherited components
-                if UPDATE_TABLES {
-                    let table_inherited_components = self
-                        .table_inherited_components
-                        .entry(archetype.table_id())
-                        .or_default();
-                    table_inherited_components.retain(|component_id, _| {
-                        removed_components.binary_search(component_id).is_err()
+                for &component in new_components.keys() {
+                    archetypes.by_component.entry(component).and_modify(|map| {
+                        map.insert(
+                            new_archetype_id,
+                            ArchetypeRecord {
+                                column: None,
+                                is_inherited: true,
+                            },
+                        );
                     });
-                    table_inherited_components.extend(
-                        added_components
-                            .iter()
-                            .map(|(component_id, ..)| *component_id)
-                            .filter(|component_id| {
-                                !archetype.contains(*component_id)
-                                    && components.get_info(*component_id).unwrap().storage_type()
-                                        == StorageType::Table
-                            })
-                            .zip(core::iter::repeat(entity)),
-                    );
                 }
 
+                // Update archetype table's inherited components
+                // This needs to be done only if entity moved tables
+                if UPDATE_TABLES {
+                    let table_id = archetypes[archetype_id].table_id();
+                    let mut table_inherited_components =
+                        core::mem::take(&mut tables[table_id].inherited_components);
+                    let table = &tables[table_id];
+                    table_inherited_components.retain(|component_id, _| {
+                        !new_components.contains_key(component_id)
+                            && !removed_components.contains(component_id)
+                    });
+                    table_inherited_components.extend(new_components.iter().filter_map(
+                        |(&component_id, &(_, storage_type))| {
+                            if !table.has_column(component_id) && storage_type == StorageType::Table
+                            {
+                                Some((
+                                    component_id,
+                                    InheritedTableComponent {
+                                        table_id: new_location.table_id,
+                                        table_row: new_location.table_row,
+                                    },
+                                ))
+                            } else {
+                                None
+                            }
+                        },
+                    ));
+                    tables[table_id].inherited_components = table_inherited_components;
+                }
+
+                let archetype = &archetypes[archetype_id];
                 if archetype.is_inherited() {
                     for (entity, component_id) in archetype.entities().iter().filter_map(|entity| {
                         self.entities_to_ids
                             .get(&entity.id())
                             .map(|component_id| (entity.id(), *component_id))
                     }) {
-                        inherited_entities_queue.push_back((entity, component_id));
+                        base_entities.push_back((entity, component_id));
                     }
                     processed_archetypes.insert(archetype.id());
                 }
             }
         }
-    }
-
-    /// Returns an iterator yielding all archetypes acting as a base for the passed archetype.
-    pub fn get_base_archetypes(
-        &self,
-        entities: &Entities,
-        archetype_id: ArchetypeId,
-    ) -> impl Iterator<Item = ArchetypeId> {
-        HashSet::<ArchetypeId>::from_iter(
-            self.archetype_inherited_components
-                .get(&archetype_id)
-                .unwrap()
-                .values()
-                .filter_map(|(entity, ..)| {
-                    entities.get(*entity).map(|location| location.archetype_id)
-                }),
-        )
-        .into_iter()
     }
 }
 
