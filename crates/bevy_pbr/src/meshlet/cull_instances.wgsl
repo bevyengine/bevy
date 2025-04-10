@@ -7,14 +7,13 @@
     meshlet_bvh_cull_count_write,
     meshlet_bvh_cull_dispatch,
     meshlet_bvh_cull_queue,
-    meshlet_second_pass_instance_count_write,
+    meshlet_second_pass_instance_count,
     meshlet_second_pass_instance_dispatch,
     meshlet_second_pass_instance_candidates,
 }
 #import bevy_pbr::meshlet_cull_shared::{
     aabb_in_frustum,
     should_occlusion_cull_aabb,
-    push_bvh,
 }
 
 fn instance_count() -> u32 {
@@ -60,7 +59,7 @@ fn cull_instances(
 
     // If we pass, try occlusion culling
     // If this instance was occluded, push it to the second pass to check against this frame's HZB
-    if occlusion_cull_aabb(aabb, instance_id) {
+    if should_occlusion_cull_aabb(aabb, instance_id) {
 #ifdef MESHLET_FIRST_CULLING_PASS
         let id = atomicAdd(&meshlet_second_pass_instance_count, 1u);
         meshlet_second_pass_instance_candidates[id] = instance_id;
@@ -73,11 +72,9 @@ fn cull_instances(
 
     // If we pass, push the instance's root node to BVH cull
     let root_node = meshlet_instance_bvh_root_nodes[instance_id];
-    push(
-        &meshlet_bvh_cull_count_write,
-        &meshlet_bvh_cull_dispatch,
-        &meshlet_bvh_cull_queue,
-        InstancedOffset(instance_id, root_node),
-        0u, 0u
-    );
+    let id = atomicAdd(&meshlet_bvh_cull_count_write, 1u);
+    meshlet_bvh_cull_queue[id] = InstancedOffset(instance_id, root_node);
+    if ((id & 15u) == 0u) {
+        atomicAdd(&meshlet_bvh_cull_dispatch.x, 1u);
+    }
 }

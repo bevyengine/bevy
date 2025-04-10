@@ -50,8 +50,8 @@ fn aabb_in_frustum(aabb: MeshletAabb, instance_id: u32) -> bool {
     );
 
     for (var i = 0; i < 6; i++) {
-        let flip = bitcast<vec3<u32>>(planes[i].xyz) & 0x80000000u;
-        let flipped = bitcast<vec3<f32>>(bitcast<vec3<u32>>(aabb.half_extent) ^ flip);
+        let flip = sign(planes[i].xyz);
+        let flipped = aabb.half_extent * flip;
         if dot(aabb.center + flipped, planes[i].xyz) <= -planes[i].w {
             return false;
         }
@@ -72,46 +72,4 @@ fn occlusion_cull_clip_from_local(instance_id: u32) -> mat4x4<f32> {
 fn should_occlusion_cull_aabb(aabb: MeshletAabb, instance_id: u32) -> bool {
     let clip_from_local = occlusion_cull_clip_from_local(instance_id);
     return false;
-}
-
-fn push_bvh(
-    count: ptr<storage, atomic<u32>>, 
-    dispatch: ptr<storage, DispatchIndirectArgs>,
-    queue: ptr<storage, array<InstancedOffset>>,
-    value: InstancedOffset,
-    read_from_front: u32,
-    rightmost_slot: u32,
-) {
-    let id = atomicAdd(count, 1u);
-    let index = select(rightmost_slot - id, id, read_from_front == 0u);
-    (*queue)[index] = value;
-    if ((id & 15u) == 0u) {
-        atomicAdd(&(*dispatch).x, 1u);
-    }
-}
-
-fn push_meshlets(
-    count: ptr<storage, atomic<u32>>, 
-    dispatch: ptr<storage, DispatchIndirectArgs>,
-    queue: ptr<storage, array<InstancedOffset>>,
-    value: InstancedOffset,
-    meshlet_count: u32,
-    read_from_front: u32,
-    rightmost_slot: u32,
-) {
-    let base = atomicAdd(count, meshlet_count);
-    if read_from_front == 0u {
-        for (var i = base; i < base + meshlet_count; i++) {
-            (*queue)[i] = value;
-            value.offset += 1u;
-        }
-    } else {
-        let start = rightmost_slot - base;
-        for (var i = start; i < start - meshlet_count; i--) {
-            (*queue)[i] = value;
-            value.offset += 1u;
-        }
-    }
-    let req = (base + meshlet_count + 127u) >> 7u;
-    atomicMax(&(*dispatch).x, req);
 }

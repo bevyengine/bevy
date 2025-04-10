@@ -16,7 +16,6 @@
     lod_error_is_imperceptible,
     aabb_in_frustum,
     should_occlusion_cull_aabb,
-    push_meshlets,
 }
 
 @compute
@@ -51,7 +50,7 @@ fn cull_clusters(
 
     // If we pass, try occlusion culling
     // If this node was occluded, push it's children to the second pass to check against this frame's HZB
-    if occlusion_cull_aabb(aabb, instance_id) {
+    if should_occlusion_cull_aabb(aabb, instance_id) {
 #ifdef MESHLET_FIRST_CULLING_PASS
         push_meshlets(
             &meshlet_meshlet_cull_count_write,
@@ -60,7 +59,13 @@ fn cull_clusters(
             InstancedOffset(instance_id, instanced_offset.offset),
             1u,
             1u, constants.rightmost_slot,
-        );
+        );            
+        let id = atomicAdd(&meshlet_meshlet_cull_count_write, 1u);
+        let value = InstancedOffset(instance_id, instanced_offset.offset);
+        meshlet_meshlet_cull_queue[constants.rightmost_slot - id] = value;
+        if ((id & 127u) == 0) {
+            atomicAdd(&meshlet_meshlet_cull_dispatch.x, 1u);
+        }
 #endif
         return;
     }

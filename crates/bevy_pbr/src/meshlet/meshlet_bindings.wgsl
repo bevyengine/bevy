@@ -103,7 +103,7 @@ var<push_constant> constants: Constants;
 // BVH cull queue data
 @group(0) @binding(7) var<storage, read_write> meshlet_bvh_cull_count_write: atomic<u32>;
 @group(0) @binding(8) var<storage, read_write> meshlet_bvh_cull_dispatch: DispatchIndirectArgs;
-@group(0) @binding(9) var<storage, read_write> meshlet_bvh_queue: array<InstancedOffset>;
+@group(0) @binding(9) var<storage, read_write> meshlet_bvh_cull_queue: array<InstancedOffset>;
 
 // Second pass queue data
 #ifdef MESHLET_FIRST_CULLING_PASS
@@ -135,7 +135,7 @@ var<push_constant> constants: Constants;
 @group(0) @binding(5) var<storage, read> meshlet_bvh_cull_count_read: u32;
 @group(0) @binding(6) var<storage, read_write> meshlet_bvh_cull_count_write: atomic<u32>;
 @group(0) @binding(7) var<storage, read_write> meshlet_bvh_cull_dispatch: DispatchIndirectArgs;
-@group(0) @binding(8) var<storage, read_write> meshlet_bvh_queue: array<InstancedOffset>;
+@group(0) @binding(8) var<storage, read_write> meshlet_bvh_cull_queue: array<InstancedOffset>;
 
 // Meshlet cull queue data
 @group(0) @binding(9) var<storage, read_write> meshlet_meshlet_cull_count_early: atomic<u32>;
