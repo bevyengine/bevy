@@ -93,7 +93,7 @@ Keep it short and sweet:
   See [docs.rs](https://docs.rs/) for a quick reference to the existing public API.
 - When moving items to a new module or crate, consider a simple table listing
   the moved items and the before and after paths.
-  For example, _`Foo` has been moved from `bar::foo` to `baz`_ could be written:
+  For example, "`Foo` has been moved from `bar::foo` to `baz`" could be written:
   
   **Relocations**
   
