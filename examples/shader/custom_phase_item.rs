@@ -35,6 +35,7 @@ use bevy::{
         Render, RenderApp, RenderSet,
     },
 };
+use bevy_asset::UntypedAssetId;
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using
@@ -275,7 +276,7 @@ fn queue_custom_phase_item(
                     index_slab: None,
                 },
                 Opaque3dBinKey {
-                    asset_id: AssetId::<Mesh>::invalid().untyped(),
+                    asset_id: UntypedAssetId::Invalid,
                 },
                 entity,
                 InputUniformIndex::default(),

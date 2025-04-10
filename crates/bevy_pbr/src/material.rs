@@ -415,7 +415,7 @@ where
 ///
 /// See the comments in [`RenderMaterialInstances::mesh_material`] for more
 /// information.
-static DUMMY_MESH_MATERIAL: AssetId<StandardMaterial> = AssetId::<StandardMaterial>::invalid();
+static DUMMY_MESH_MATERIAL: UntypedAssetId = UntypedAssetId::Invalid;
 
 /// A key uniquely identifying a specialized [`MaterialPipeline`].
 pub struct MaterialPipelineKey<M: Material> {
@@ -620,7 +620,7 @@ impl RenderMaterialInstances {
     pub(crate) fn mesh_material(&self, entity: MainEntity) -> UntypedAssetId {
         match self.instances.get(&entity) {
             Some(render_instance) => render_instance.asset_id,
-            None => DUMMY_MESH_MATERIAL.into(),
+            None => DUMMY_MESH_MATERIAL,
         }
     }
 }

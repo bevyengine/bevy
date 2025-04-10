@@ -332,8 +332,18 @@ impl UntypedHandle {
     #[inline]
     pub fn type_id(&self) -> TypeId {
         match self {
-            UntypedHandle::Strong(handle) => handle.id.type_id(),
-            UntypedHandle::Weak(id) => id.type_id(),
+            UntypedHandle::Strong(handle) => {
+                let Some(type_id) = handle.id.type_id() else {
+                    unreachable!("This should never be called with an Invalid id.");
+                };
+                type_id
+            }
+            UntypedHandle::Weak(id) => {
+                let Some(type_id) = id.type_id() else {
+                    unreachable!("This should never be called with an Invalid id.");
+                };
+                type_id
+            }
         }
     }
 

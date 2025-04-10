@@ -42,6 +42,7 @@ use bevy::{
         Render, RenderApp, RenderSet,
     },
 };
+use bevy_asset::UntypedAssetId;
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
 
@@ -418,11 +419,8 @@ fn queue_custom_mesh_pipeline(
                     index_slab: None,
                     lightmap_slab: None,
                 },
-                // The asset ID is arbitrary; we simply use [`AssetId::invalid`],
-                // but you can use anything you like. Note that the asset ID need
-                // not be the ID of a [`Mesh`].
                 Opaque3dBinKey {
-                    asset_id: AssetId::<Mesh>::invalid().untyped(),
+                    asset_id: UntypedAssetId::Invalid,
                 },
                 (render_entity, visible_entity),
                 mesh_instance.current_uniform_index,
