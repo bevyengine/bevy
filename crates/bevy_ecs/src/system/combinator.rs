@@ -419,6 +419,10 @@ where
 
     /// This method uses "early out" logic: if the first system fails validation,
     /// the second system is not validated.
+    ///
+    /// Because the system validation is performed upfront, this can lead to situations
+    /// where later systems pass validation, but fail at runtime due to changes made earlier
+    /// in the piped systems.
     unsafe fn validate_param_unsafe(
         &mut self,
         world: UnsafeWorldCell,
@@ -432,6 +436,12 @@ where
         Ok(())
     }
 
+    /// This method uses "early out" logic: if the first system fails validation,
+    /// the second system is not validated.
+    ///
+    /// Because the system validation is performed upfront, this can lead to situations
+    /// where later systems pass validation, but fail at runtime due to changes made earlier
+    /// in the piped systems.
     fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
         self.a.validate_param(world)?;
         self.b.validate_param(world)?;
