@@ -12,7 +12,7 @@ use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     prelude::*,
     query::{QueryData, ROQueryItem},
-    system::{lifetimeless::*, SystemParam, SystemParamItem, SystemState},
+    system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
@@ -323,16 +323,6 @@ pub struct ViewKeyCache(HashMap<RetainedViewEntity, MeshPipelineKey>);
 
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct ViewSpecializationTicks(HashMap<RetainedViewEntity, Tick>);
-
-/// Parameters shared between mesh specialization systems.
-#[derive(SystemParam)]
-pub struct SpecializeMeshParams<'w, M: Send + Sync + 'static> {
-    pub pipeline_cache: Res<'w, PipelineCache>,
-    pub entity_specialization_ticks: Res<'w, EntitySpecializationTicks<M>>,
-    pub render_mesh_instances: Res<'w, RenderMeshInstances>,
-    pub render_meshes: Res<'w, RenderAssets<RenderMesh>>,
-    pub ticks: SystemChangeTick,
-}
 
 pub fn check_views_need_specialization(
     mut view_key_cache: ResMut<ViewKeyCache>,

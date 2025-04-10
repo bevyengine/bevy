@@ -7,7 +7,7 @@ use crate::{
     DrawMesh, Material, MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline,
     MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, RenderLightmaps,
     RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
-    SetMaterialBindGroup, SetMeshBindGroup, ShadowView, SpecializeMeshParams, StandardMaterial,
+    SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -869,7 +869,7 @@ pub fn check_prepass_views_need_specialization(
 }
 
 pub fn specialize_prepass_material_meshes<M>(
-    params: SpecializeMeshParams<M>,
+    params: SpecializeMeshParams<M, RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances>,
     render_lightmaps: Res<RenderLightmaps>,

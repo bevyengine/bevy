@@ -865,22 +865,6 @@ impl<M> Default for EntitiesNeedingSpecialization<M> {
     }
 }
 
-#[derive(Resource, Deref, DerefMut, Clone, Debug)]
-pub struct EntitySpecializationTicks<M> {
-    #[deref]
-    pub entities: MainEntityHashMap<Tick>,
-    _marker: PhantomData<M>,
-}
-
-impl<M> Default for EntitySpecializationTicks<M> {
-    fn default() -> Self {
-        Self {
-            entities: MainEntityHashMap::default(),
-            _marker: Default::default(),
-        }
-    }
-}
-
 /// Stores the [`SpecializedMaterialViewPipelineCache`] for each view.
 #[derive(Resource, Deref, DerefMut)]
 pub struct SpecializedMaterialPipelineCache<M> {
@@ -946,7 +930,7 @@ pub fn check_entities_needing_specialization<M>(
 }
 
 pub fn specialize_material_meshes<M: Material>(
-    params: SpecializeMeshParams<M>,
+    params: SpecializeMeshParams<M, RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances>,
     render_lightmaps: Res<RenderLightmaps>,

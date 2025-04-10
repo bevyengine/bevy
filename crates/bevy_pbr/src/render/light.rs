@@ -1717,7 +1717,7 @@ pub fn check_views_lights_need_specialization(
 }
 
 pub fn specialize_shadows<M: Material>(
-    params: SpecializeMeshParams<M>,
+    params: SpecializeMeshParams<M, RenderMeshInstances>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     (render_materials, render_material_instances, material_bind_group_allocator): (
         Res<RenderAssets<PreparedMaterial<M>>>,

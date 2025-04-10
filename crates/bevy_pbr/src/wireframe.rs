@@ -1,7 +1,6 @@
 use crate::{
-    DrawMesh, EntitySpecializationTicks, MeshPipeline, MeshPipelineKey, RenderMeshInstanceFlags,
-    RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SpecializeMeshParams,
-    ViewKeyCache, ViewSpecializationTicks,
+    DrawMesh, MeshPipeline, MeshPipelineKey, RenderMeshInstanceFlags, RenderMeshInstances,
+    SetMeshBindGroup, SetMeshViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
@@ -735,7 +734,7 @@ pub fn check_wireframe_entities_needing_specialization(
 }
 
 pub fn specialize_wireframes(
-    params: SpecializeMeshParams<WireframeMaterial>,
+    params: SpecializeMeshParams<WireframeMaterial, RenderMeshInstances>,
     render_wireframe_instances: Res<RenderWireframeInstances>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,

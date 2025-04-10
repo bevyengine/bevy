@@ -1,20 +1,25 @@
 use crate::renderer::WgpuWrapper;
 use crate::{
+    mesh::RenderMesh,
+    render_asset::RenderAssets,
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
+    sync_world::MainEntityHashMap,
     Extract,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{AssetEvent, AssetId, Assets};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    component::Tick,
     event::EventReader,
     resource::Resource,
-    system::{Res, ResMut},
+    system::{Res, ResMut, SystemChangeTick, SystemParam},
 };
 use bevy_platform_support::collections::{hash_map::EntryRef, HashMap, HashSet};
 use bevy_tasks::Task;
 use bevy_utils::default;
-use core::{future::Future, hash::Hash, mem, ops::Deref};
+use core::{future::Future, hash::Hash, marker::PhantomData, mem, ops::Deref};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
@@ -1064,6 +1069,32 @@ impl PipelineCache {
             }
         }
     }
+}
+
+#[derive(Resource, Deref, DerefMut, Clone, Debug)]
+pub struct EntitySpecializationTicks<M> {
+    #[deref]
+    pub entities: MainEntityHashMap<Tick>,
+    _marker: PhantomData<M>,
+}
+
+impl<M> Default for EntitySpecializationTicks<M> {
+    fn default() -> Self {
+        Self {
+            entities: MainEntityHashMap::default(),
+            _marker: Default::default(),
+        }
+    }
+}
+
+/// Parameters shared between mesh specialization systems.
+#[derive(SystemParam)]
+pub struct SpecializeMeshParams<'w, M: Send + Sync + 'static, RenderMeshInstances: Resource> {
+    pub pipeline_cache: Res<'w, PipelineCache>,
+    pub entity_specialization_ticks: Res<'w, EntitySpecializationTicks<M>>,
+    pub render_mesh_instances: Res<'w, RenderMeshInstances>,
+    pub render_meshes: Res<'w, RenderAssets<RenderMesh>>,
+    pub ticks: SystemChangeTick,
 }
 
 #[cfg(all(
