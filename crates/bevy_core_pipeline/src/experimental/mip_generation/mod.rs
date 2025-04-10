@@ -25,6 +25,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
+use bevy_render::batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport};
 use bevy_render::render_resource::WgpuFeatures;
 use bevy_render::{
     experimental::occlusion_culling::{
@@ -47,6 +48,7 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 use bitflags::bitflags;
+use tracing::debug;
 
 /// Identifies the `downsample_depth.wgsl` shader.
 pub const DOWNSAMPLE_DEPTH_SHADER_HANDLE: Handle<Shader> =
@@ -325,30 +327,14 @@ pub struct DownsampleDepthPipelines {
     sampler: Sampler,
 }
 
-fn check_required_gpu_features(device: &RenderDevice, adapter: &RenderAdapter) -> bool {
-    adapter
-        .get_downlevel_capabilities()
-        .flags
-        .contains(DownlevelFlags::COMPUTE_SHADERS)
-    // Even if the adapter supports compute, we might be simulating a lack of
-    // compute via device limits (see `WgpuSettingsPriority::WebGL2` and
-    // `wgpu::Limits::downlevel_webgl2_defaults()`). This will have set all the
-    // `max_compute_*` limits to zero, so we arbitrarily pick one as a canary.
-    && (device.limits().max_compute_workgroup_storage_size != 0)
-    // We also need to check that the adapter supports push constants, since
-    // the downsample depth shader uses them to pass the mip level to the
-    // compute shader.
-    && adapter.features().contains(WgpuFeatures::PUSH_CONSTANTS)
-}
-
 /// Creates the [`DownsampleDepthPipelines`] if downsampling is supported on the
 /// current platform.
 fn create_downsample_depth_pipelines(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    render_adapter: Res<RenderAdapter>,
     pipeline_cache: Res<PipelineCache>,
     mut specialized_compute_pipelines: ResMut<SpecializedComputePipelines<DownsampleDepthPipeline>>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mut has_run: Local<bool>,
 ) {
     // Only run once.
@@ -360,7 +346,8 @@ fn create_downsample_depth_pipelines(
     }
     *has_run = true;
 
-    if !check_required_gpu_features(&render_device, &render_adapter) {
+    if !gpu_preprocessing_support.is_culling_supported() {
+        debug!("Downsample depth is not supported on this platform.");
         return;
     }
 
