@@ -488,8 +488,9 @@ mod tests {
         schedule.run(&mut world);
     }
 
+    // This test runs without panicking because we've
+    // decided to use early-out behavior for piped systems
     #[test]
-    #[should_panic]
     fn piped_system_skip_and_panic() {
         // This system should be skipped when run due to no matching entity
         fn pipe_out(_single: Single<&TestComponent>) -> u8 {
