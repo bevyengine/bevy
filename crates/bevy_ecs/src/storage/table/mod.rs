@@ -516,7 +516,7 @@ impl Table {
     /// Returns `None` if the column does not exist.
     pub(crate) fn get_column_change_tick(&self, component_id: ComponentId) -> Option<Tick> {
         self.get_column(component_id)
-            .map(|col| col.get_change_tick())
+            .map(ThinColumn::get_change_tick)
     }
 
     /// Checks if the table contains a [`ThinColumn`] for a given [`Component`].

@@ -219,6 +219,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             table,
         );
 
+        // SAFETY: set_table was called prior.
+        unsafe {
+            if !F::archetype_filter_fetch(
+                &mut self.cursor.filter,
+                &self.query_state.filter_state,
+                table,
+            ) {
+                return accum;
+            }
+        };
+
         let entities = table.entities();
         for row in rows {
             // SAFETY: Caller assures `row` in range of the current archetype.
@@ -275,6 +286,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             archetype,
             table,
         );
+
+        // SAFETY: set_archetype was called prior.
+        unsafe {
+            if !F::archetype_filter_fetch(
+                &mut self.cursor.filter,
+                &self.query_state.filter_state,
+                table,
+            ) {
+                return accum;
+            }
+        };
 
         let entities = archetype.entities();
         for index in indices {
@@ -353,6 +375,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             archetype,
             table,
         );
+
+        // SAFETY: set_archetype was called prior.
+        unsafe {
+            if !F::archetype_filter_fetch(
+                &mut self.cursor.filter,
+                &self.query_state.filter_state,
+                table,
+            ) {
+                return accum;
+            }
+        };
+
         let entities = table.entities();
         for row in rows {
             // SAFETY: Caller assures `row` in range of the current archetype.
@@ -2471,20 +2505,24 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         continue;
                     }
 
-                    if !F::archetype_filter_fetch(
-                        &mut self.filter,
-                        &query_state.filter_state,
-                        table,
-                    ) {
-                        continue;
-                    }
-
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     unsafe {
                         D::set_table(&mut self.fetch, &query_state.fetch_state, table);
                         F::set_table(&mut self.filter, &query_state.filter_state, table);
                     }
+
+                    // SAFETY: set_table was called prior.
+                    unsafe {
+                        if !F::archetype_filter_fetch(
+                            &mut self.filter,
+                            &query_state.filter_state,
+                            table,
+                        ) {
+                            continue;
+                        }
+                    }
+
                     self.table_entities = table.entities();
                     self.current_len = table.entity_count();
                     self.current_row = 0;
@@ -2518,6 +2556,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         continue;
                     }
                     let table = tables.get(archetype.table_id()).debug_checked_unwrap();
+
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     unsafe {
@@ -2534,6 +2573,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                             table,
                         );
                     }
+                    // SAFETY: set_archetype was called prior.
+                    unsafe {
+                        if !F::archetype_filter_fetch(
+                            &mut self.filter,
+                            &query_state.filter_state,
+                            table,
+                        ) {
+                            continue;
+                        }
+                    };
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_row = 0;

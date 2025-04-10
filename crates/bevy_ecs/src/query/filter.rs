@@ -108,8 +108,7 @@ pub unsafe trait QueryFilter: WorldQuery {
 
     /// # Safety
     ///
-    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
-    /// `table_row` must be in the range of the current table and archetype.
+    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`].
     unsafe fn archetype_filter_fetch(
         _fetch: &mut Self::Fetch<'_>,
         _state: &Self::State,
@@ -523,6 +522,7 @@ macro_rules! impl_or_query_filter {
                 let ($($filter,)*) = fetch;
                 let ($($state,)*) = state;
 
+                // SAFETY: The invariants are upheld by the caller.
                 false $(|| ($filter.matches && unsafe { $filter::archetype_filter_fetch(&mut $filter.fetch, $state, table) }))*
             }
         }
@@ -567,6 +567,7 @@ macro_rules! impl_tuple_query_filter {
             ) -> bool {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
+                // SAFETY: The invariants are upheld by the caller.
                 true $(&& unsafe { $name::archetype_filter_fetch($name, $state, table) })*
             }
         }
