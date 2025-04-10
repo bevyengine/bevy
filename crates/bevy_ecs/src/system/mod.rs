@@ -337,7 +337,8 @@ mod tests {
         component::{Component, Components},
         entity::{Entities, Entity},
         error::Result,
-        prelude::{AnyOf, EntityRef},
+        name::Name,
+        prelude::{AnyOf, EntityRef, Trigger},
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
         resource::Resource,
@@ -349,7 +350,7 @@ mod tests {
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
             Single, StaticSystemParam, System, SystemState,
         },
-        world::{DeferredWorld, EntityMut, FromWorld, World},
+        world::{DeferredWorld, EntityMut, FromWorld, OnAdd, World},
     };
 
     use super::ScheduleSystem;
@@ -1822,5 +1823,56 @@ mod tests {
 
         let mut world = World::new();
         run_system(&mut world, sys);
+    }
+
+    // Regression test for
+    // https://github.com/bevyengine/bevy/issues/18778
+    //
+    // Dear rustc team, please reach out if you encounter this
+    // in a crater run and we can work something out!
+    //
+    // These todo! macro calls should never be removed;
+    // they're intended to demonstrate real-world usage
+    // in a way that's clearer than simply calling `panic!`
+    //
+    // Because type inference behaves differently for functions and closures,
+    // we need to test both, in addition to explicitly annotating the return type
+    // to ensure that there are no upstream regressions there.
+    #[test]
+    fn nondiverging_never_trait_impls() {
+        // This test is a compilation test:
+        // no meaningful logic is ever actually evaluated.
+        // It is simply intended to check that the correct traits are implemented
+        // when todo! or similar nondiverging panics are used.
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        fn sys(_query: Query<&Name>) {
+            todo!()
+        }
+
+        schedule.add_systems(sys);
+        schedule.add_systems(|_query: Query<&Name>| {});
+        schedule.add_systems(|_query: Query<&Name>| todo!());
+        schedule.add_systems(|_query: Query<&Name>| -> () { todo!() });
+
+        fn obs(_trigger: Trigger<OnAdd, Name>) {
+            todo!()
+        }
+
+        world.add_observer(|trigger: Trigger<OnAdd, Name>| {});
+        world.add_observer(|trigger: Trigger<OnAdd, Name>| todo!());
+        world.add_observer(|trigger: Trigger<OnAdd, Name>| -> () { todo!() });
+
+        fn my_command(_world: &mut World) {
+            todo!()
+        }
+
+        world.commands().queue(my_command);
+        world.commands().queue(|_world: &mut World| {});
+        world.commands().queue(|_world: &mut World| todo!());
+        world
+            .commands()
+            .queue(|_world: &mut World| -> () { todo!() });
     }
 }
