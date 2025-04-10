@@ -1,11 +1,8 @@
 //! Showcases how fallible systems and observers can make use of Rust's powerful result handling
 //! syntax.
-//!
-//! Important note: to set the global error handler, the `configurable_error_handler` feature must be
-//! enabled. This feature is disabled by default, as it may introduce runtime overhead, especially for commands.
 
 use bevy::ecs::{
-    error::{warn, GLOBAL_ERROR_HANDLER},
+    error::{set_global_default_error_handler, warn},
     world::DeferredWorld,
 };
 use bevy::math::sampling::UniformMeshSampler;
@@ -22,9 +19,7 @@ fn main() {
     // Here we set the global error handler using one of the built-in
     // error handlers. Bevy provides built-in handlers for `panic`, `error`, `warn`, `info`,
     // `debug`, `trace` and `ignore`.
-    GLOBAL_ERROR_HANDLER
-        .set(warn)
-        .expect("The error handler can only be set once, globally.");
+    set_global_default_error_handler(warn);
 
     let mut app = App::new();
 
