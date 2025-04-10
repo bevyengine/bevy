@@ -204,8 +204,13 @@ where
         &mut self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.a.validate_param_unsafe(world) }
+        // SAFETY: Delegate to the `System` implementation for `a`.
+        unsafe { self.a.validate_param_unsafe(world) }?;
+
+        // SAFETY: Delegate to the `System` implementation for `b`.
+        unsafe { self.b.validate_param_unsafe(world) }?;
+
+        Ok(())
     }
 
     fn initialize(&mut self, world: &mut World) {
