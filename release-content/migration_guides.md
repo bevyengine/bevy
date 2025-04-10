@@ -72,7 +72,7 @@ Keep it short and sweet:
 - Use backticks for types, methods, and modules (e.g. `Vec<T>` or `core::mem::swap()`).
 - Add parentheses to the end of function names to signal they are functions (e.g. `my_function()`).
 - Use bullet points to explain complex changes.
-- Avoid headings. If you must, use only level-two headings.
+- Avoid headings. If you must, use only level-two (`##`) headings.
 - Diff codeblocks can be useful for succinctly communicating changes.
   
   ```diff
