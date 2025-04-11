@@ -326,7 +326,7 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
 }
 
 impl RelationshipSourceCollection for Entity {
-    type SourceIter<'a> = core::iter::Once<Entity>;
+    type SourceIter<'a> = core::option::IntoIter<Entity>;
 
     fn new() -> Self {
         Entity::PLACEHOLDER
@@ -355,7 +355,11 @@ impl RelationshipSourceCollection for Entity {
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
-        core::iter::once(*self)
+        if *self == Entity::PLACEHOLDER {
+            return None.into_iter();
+        }
+
+        Some(*self).into_iter()
     }
 
     fn len(&self) -> usize {
