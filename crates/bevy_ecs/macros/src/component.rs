@@ -570,7 +570,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
 
     if attrs.relationship_target.is_some() && attrs.clone_behavior.is_some() {
         return Err(syn::Error::new_spanned(
-                &attrs.clone_behavior, // or any token from the attribute
+                &attrs.clone_behavior, 
                 "A Relationship Target already has it's own clone behavior, please remove `clone_behavior = ...`",
             ).into());
     }
