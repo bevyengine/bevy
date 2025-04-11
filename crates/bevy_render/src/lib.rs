@@ -586,3 +586,26 @@ pub fn get_adreno_model(adapter: &RenderAdapter) -> Option<u32> {
             .fold(0, |acc, digit| acc * 10 + digit),
     )
 }
+
+/// Get the Mali driver version if the adapter is a Mali GPU.
+pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
+    if !cfg!(target_os = "android") {
+        return None;
+    }
+
+    let driver_name = adapter.get_info().name;
+    if !driver_name.contains("Mali") {
+        return None;
+    }
+    let driver_info = adapter.get_info().driver_info;
+    if let Some(start_pos) = driver_info.find("v1.r") {
+        if let Some(end_pos) = driver_info[start_pos..].find('p') {
+            let start_idx = start_pos + 4; // Skip "v1.r"
+            let end_idx = start_pos + end_pos;
+
+            return driver_info[start_idx..end_idx].parse::<u32>().ok();
+        }
+    }
+
+    None
+}
