@@ -3,7 +3,7 @@ use core::any::Any;
 
 use crate::{
     component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
-    error::{default_error_handler, ErrorContext},
+    error::ErrorContext,
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -458,14 +458,14 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             ..Default::default()
         };
 
-        let error_handler = default_error_handler();
+        let default_error_handler = world.default_error_handler;
 
         // Initialize System
         let system: *mut dyn ObserverSystem<E, B> =
             if let Some(mut observe) = world.get_mut::<Observer>(entity) {
                 descriptor.merge(&observe.descriptor);
                 if observe.error_handler.is_none() {
-                    observe.error_handler = Some(error_handler);
+                    observe.error_handler = Some(default_error_handler);
                 }
                 let system = observe.system.downcast_mut::<S>().unwrap();
                 &mut *system

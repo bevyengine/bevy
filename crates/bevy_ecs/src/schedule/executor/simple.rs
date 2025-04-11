@@ -8,7 +8,7 @@ use tracing::info_span;
 use std::eprintln;
 
 use crate::{
-    error::{default_error_handler, BevyError, ErrorContext},
+    error::{ErrorContext, ErrorHandler},
     schedule::{
         executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
@@ -44,7 +44,7 @@ impl SystemExecutor for SimpleExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(BevyError, ErrorContext),
+        error_handler: ErrorHandler,
     ) {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
@@ -167,8 +167,6 @@ impl SimpleExecutor {
 }
 
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
-    let error_handler = default_error_handler();
-
     #[expect(
         clippy::unnecessary_fold,
         reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
@@ -180,7 +178,7 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
                 Ok(()) => (),
                 Err(e) => {
                     if !e.skipped {
-                        error_handler(
+                        world.default_error_handler()(
                             e.into(),
                             ErrorContext::System {
                                 name: condition.name(),
