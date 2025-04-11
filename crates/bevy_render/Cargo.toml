@@ -25,7 +25,7 @@ decoupled_naga = []
 basis-universal = ["bevy_image/basis-universal"]
 exr = ["bevy_image/exr"]
 hdr = ["bevy_image/hdr"]
-ktx2 = ["dep:ktx2", "bevy_image/ktx2"]
+ktx2 = ["bevy_image/ktx2"]
 
 multi_threaded = ["bevy_tasks/multi_threaded"]
 
@@ -78,7 +78,6 @@ bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-d
 image = { version = "0.25.2", default-features = false }
 
 # misc
-codespan-reporting = "0.11.0"
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use Wasm threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
@@ -97,7 +96,6 @@ downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
 futures-lite = "2.0.1"
-ktx2 = { version = "0.3.0", optional = true }
 encase = { version = "0.10", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = [
