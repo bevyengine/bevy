@@ -53,8 +53,6 @@
 //! use bevy_dylib;
 //! ```
 
-#![no_std]
-
 // Force linking of the main bevy crate
 #[expect(
     unused_imports,
