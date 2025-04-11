@@ -126,7 +126,9 @@ impl<A: Asset> Hash for AssetId<A> {
     #[inline]
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.internal().hash(state);
-        TypeId::of::<A>().hash(state);
+        if !matches!(self, Self::Invalid) {
+            TypeId::of::<A>().hash(state);
+        }
     }
 }
 
@@ -517,6 +519,20 @@ mod tests {
             type_id: TypeId::of::<TestAsset>(),
             uuid: UUID_1,
         };
+
+        assert_eq!(
+            hash(&typed),
+            hash(&AssetId::<TestAsset>::try_from(untyped).unwrap())
+        );
+        assert_eq!(hash(&UntypedAssetId::from(typed)), hash(&untyped));
+        assert_eq!(hash(&typed), hash(&untyped));
+    }
+
+    /// Typed and Untyped `AssetIds` should be equivalently hashable to each other and themselves
+    #[test]
+    fn hashing_of_invalid() {
+        let typed = AssetId::<TestAsset>::Invalid;
+        let untyped = UntypedAssetId::Invalid;
 
         assert_eq!(
             hash(&typed),
