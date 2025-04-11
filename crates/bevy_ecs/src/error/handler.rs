@@ -82,13 +82,13 @@ mod global_error_handler {
         Ordering::{AcqRel, Acquire, Relaxed},
     };
 
-    // The default global error handler, cast to a data pointer as Rust doesn't
-    // currently have a way to express atomic function pointers.
-    // Should we add support for a platform on which function pointers and data pointers
-    // have different sizes, the transmutation back will fail to compile. In that case,
-    // we can replace the atomic pointer with a regular pointer protected by a `RwLock`
-    // on only those platforms.
-    // SAFETY: Only accessible from within this module.
+    /// The default global error handler, cast to a data pointer as Rust doesn't
+    /// currently have a way to express atomic function pointers.
+    /// Should we add support for a platform on which function pointers and data pointers
+    /// have different sizes, the transmutation back will fail to compile. In that case,
+    /// we can replace the atomic pointer with a regular pointer protected by a `RwLock`
+    /// on only those platforms.
+    /// SAFETY: Only accessible from within this module.
     static HANDLER: AtomicPtr<()> = AtomicPtr::new(panic as *mut ());
 
     /// Set the global error handler.
@@ -107,7 +107,7 @@ mod global_error_handler {
     /// To use this error handler in your app for custom error handling logic:
     ///
     /// ```rust
-    /// use bevy_ecs::error::{default_error_handler, BevyError, ErrorContext, panic};
+    /// use bevy_ecs::error::{default_error_handler, BevyError, ErrorContext};
     ///
     /// fn handle_errors(error: BevyError, ctx: ErrorContext) {
     ///    let error_handler = default_error_handler();
@@ -123,7 +123,7 @@ mod global_error_handler {
     /// [`default_error_handler`]: super::default_error_handler
     pub fn set_global_default_error_handler(handler: fn(BevyError, ErrorContext)) {
         // Prevent the handler from being set multiple times.
-        // We use a seperate atomic instead of trying `compare_exchange` on `HANDLER_ADDRESS`
+        // We use a separate atomic instead of trying `compare_exchange` on `HANDLER_ADDRESS`
         // because Rust doesn't guarantee that function addresses are unique.
         static INITIALIZED: AtomicBool = AtomicBool::new(false);
         if INITIALIZED
@@ -137,6 +137,8 @@ mod global_error_handler {
 
     /// The default error handler. This defaults to [`panic`],
     /// but you can override this behavior via [`set_global_default_error_handler`].
+    ///
+    /// [`panic`]: super::panic
     #[inline]
     pub fn default_error_handler() -> fn(BevyError, ErrorContext) {
         // The error handler must have been already set from the perspective of this thread,
