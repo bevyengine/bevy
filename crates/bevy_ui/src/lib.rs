@@ -15,8 +15,11 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
+#[cfg(feature = "bevy_ui_debug")]
+mod debug_overlay;
 #[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
+mod render;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -27,16 +30,15 @@ pub mod experimental;
 mod focus;
 mod geometry;
 mod layout;
-mod render;
 mod stack;
 mod ui_node;
 
+use bevy_ui_render::UiRenderPlugin;
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
-pub use ui_material::*;
 pub use ui_node::*;
 
 use widget::{ImageNode, ImageNodeSize};
@@ -45,12 +47,12 @@ use widget::{ImageNode, ImageNodeSize};
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_ui_debug")]
+    pub use crate::debug_overlay::UiDebugOptions;
     #[cfg(feature = "bevy_ui_picking_backend")]
     #[doc(hidden)]
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
-    #[doc(hidden)]
-    #[cfg(feature = "bevy_ui_debug")]
-    pub use crate::render::UiDebugOptions;
     #[doc(hidden)]
     pub use crate::widget::{Text, TextUiReader, TextUiWriter};
     #[doc(hidden)]
@@ -60,17 +62,18 @@ pub mod prelude {
             ui_material::*,
             ui_node::*,
             widget::{Button, ImageNode, Label, NodeImageMode},
-            Interaction, MaterialNode, UiMaterialPlugin, UiScale,
+            Interaction, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
+        bevy_ui_render::box_shadow::BoxShadowSamples,
     };
 }
 
 use bevy_app::{prelude::*, Animation};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_render::{camera::CameraUpdateSystem, RenderApp};
+use bevy_render::camera::CameraUpdateSystem;
 use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
@@ -165,8 +168,6 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
             .register_type::<Outline>()
-            .register_type::<BoxShadowSamples>()
-            .register_type::<UiAntiAlias>()
             .register_type::<TextShadow>()
             .register_type::<ComputedNodeTarget>()
             .configure_sets(
@@ -225,22 +226,12 @@ impl Plugin for UiPlugin {
             return;
         }
 
+        app.add_plugins(UiRenderPlugin);
+
+        add_ui_extraction_schedule(app);
+
         #[cfg(feature = "bevy_ui_debug")]
-        app.init_resource::<UiDebugOptions>();
-
-        build_ui_render(app);
-    }
-
-    fn finish(&self, app: &mut App) {
-        if !self.enable_rendering {
-            return;
-        }
-
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<UiPipeline>();
+        app.init_resource::<debug_overlay::UiDebugOptions>();
     }
 }
 

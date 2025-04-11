@@ -1,31 +1,182 @@
 use core::{hash::Hash, marker::PhantomData, ops::Range};
 
-use crate::*;
-use bevy_asset::*;
+use bevy_app::{App, Plugin};
 use bevy_ecs::{
+    entity::Entity,
     prelude::Component,
-    query::ROQueryItem,
+    query::{ROQueryItem, With},
+    resource::Resource,
+    schedule::IntoScheduleConfigs,
     system::{
         lifetimeless::{Read, SRes},
         *,
     },
+    world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
-use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy_render::{
-    extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     view::*,
-    Extract, ExtractSchedule, Render, RenderSet,
+    Render, RenderSet,
 };
+use bevy_render::{sync_world::MainEntity, RenderApp};
 use bevy_sprite::BorderRect;
-use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
+
+use crate::{stack_z_offsets, TransparentUi, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, AssetId, AssetServer, Handle};
+use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
+
+/// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`]
+/// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
+/// way to render `Node` entities with custom shader logic.
+///
+/// `UiMaterials` must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
+/// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
+///
+/// Materials must also implement [`Asset`] so they can be treated as such.
+///
+/// If you are only using the fragment shader, make sure your shader imports the `UiVertexOutput`
+/// from `bevy_ui::ui_vertex_output` and uses it as the input of your fragment shader like the
+/// example below does.
+///
+/// # Example
+///
+/// Here is a simple [`UiMaterial`] implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
+/// check out the [`AsBindGroup`] documentation.
+/// ```
+/// # use bevy_ui::prelude::*;
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_image::Image;
+/// # use bevy_reflect::TypePath;
+/// # use bevy_render::render_resource::{AsBindGroup, ShaderRef};
+/// # use bevy_color::LinearRgba;
+/// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
+///
+/// #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
+/// pub struct CustomMaterial {
+///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
+///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
+///     #[uniform(0)]
+///     color: LinearRgba,
+///     // Images can be bound as textures in shaders. If the Image's sampler is also needed, just
+///     // add the sampler attribute with a different binding index.
+///     #[texture(1)]
+///     #[sampler(2)]
+///     color_texture: Handle<Image>,
+/// }
+///
+/// // All functions on `UiMaterial` have default impls. You only need to implement the
+/// // functions that are relevant for your material.
+/// impl UiMaterial for CustomMaterial {
+///     fn fragment_shader() -> ShaderRef {
+///         "shaders/custom_material.wgsl".into()
+///     }
+/// }
+///
+/// // Spawn an entity using `CustomMaterial`.
+/// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
+///     commands.spawn((
+///         MaterialNode(materials.add(CustomMaterial {
+///             color: LinearRgba::RED,
+///             color_texture: asset_server.load("some_image.png"),
+///         })),
+///         Node {
+///             width: Val::Percent(100.0),
+///             ..Default::default()
+///         },
+///     ));
+/// }
+/// ```
+/// In WGSL shaders, the material's binding would look like this:
+///
+/// If you only use the fragment shader make sure to import `UiVertexOutput` from
+/// `bevy_ui::ui_vertex_output` in your wgsl shader.
+/// Also note that bind group 0 is always bound to the [`View Uniform`](bevy_render::view::ViewUniform)
+/// and the [`Globals Uniform`](bevy_render::globals::GlobalsUniform).
+///
+/// ```wgsl
+/// #import bevy_ui::ui_vertex_output UiVertexOutput
+///
+/// struct CustomMaterial {
+///     color: vec4<f32>,
+/// }
+///
+/// @group(1) @binding(0)
+/// var<uniform> material: CustomMaterial;
+/// @group(1) @binding(1)
+/// var color_texture: texture_2d<f32>;
+/// @group(1) @binding(2)
+/// var color_sampler: sampler;
+///
+/// @fragment
+/// fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
+///
+/// }
+/// ```
+pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
+    /// Returns this materials vertex shader. If [`ShaderRef::Default`] is returned, the default UI
+    /// vertex shader will be used.
+    fn vertex_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this materials fragment shader. If [`ShaderRef::Default`] is returned, the default
+    /// UI fragment shader will be used.
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
+    #[inline]
+    fn specialize(descriptor: &mut RenderPipelineDescriptor, key: UiMaterialKey<Self>) {}
+}
+
+pub struct UiMaterialKey<M: UiMaterial> {
+    pub hdr: bool,
+    pub bind_group_data: M::Data,
+}
+
+impl<M: UiMaterial> Eq for UiMaterialKey<M> where M::Data: PartialEq {}
+
+impl<M: UiMaterial> PartialEq for UiMaterialKey<M>
+where
+    M::Data: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.hdr == other.hdr && self.bind_group_data == other.bind_group_data
+    }
+}
+
+impl<M: UiMaterial> Clone for UiMaterialKey<M>
+where
+    M::Data: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            hdr: self.hdr,
+            bind_group_data: self.bind_group_data.clone(),
+        }
+    }
+}
+
+impl<M: UiMaterial> Hash for UiMaterialKey<M>
+where
+    M::Data: Hash,
+{
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.hdr.hash(state);
+        self.bind_group_data.hash(state);
+    }
+}
 
 pub const UI_MATERIAL_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("b5612b7b-aed5-41b4-a930-1d1588239fcd");
@@ -61,9 +212,9 @@ where
             Shader::from_wgsl
         );
         app.init_asset::<M>()
-            .register_type::<MaterialNode<M>>()
+            //.register_type::<MaterialNode<M>>()
             .add_plugins((
-                ExtractComponentPlugin::<MaterialNode<M>>::extract_visible(),
+                //ExtractComponentPlugin::<MaterialNode<M>>::extract_visible(),
                 RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
             ));
 
@@ -73,10 +224,10 @@ where
                 .init_resource::<ExtractedUiMaterialNodes<M>>()
                 .init_resource::<UiMaterialMeta<M>>()
                 .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractBackgrounds),
-                )
+                // .add_systems(
+                //     ExtractSchedule,
+                //     extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractBackgrounds),
+                // )
                 .add_systems(
                     Render,
                     (
@@ -340,7 +491,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub transform: Mat4,
     pub rect: Rect,
     pub border: BorderRect,
-    pub border_radius: ResolvedBorderRadius,
+    pub border_radius: [f32; 4],
     pub material: AssetId<M>,
     pub clip: Option<Rect>,
     // Camera to render this UI node to. By the time it is extracted,
@@ -348,7 +499,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     // Nodes with ambiguous camera will be ignored.
     pub extracted_camera_entity: Entity,
     pub main_entity: MainEntity,
-    render_entity: Entity,
+    pub render_entity: Entity,
 }
 
 #[derive(Resource)]
@@ -361,60 +512,6 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
         Self {
             uinodes: Default::default(),
         }
-    }
-}
-
-pub fn extract_ui_material_nodes<M: UiMaterial>(
-    mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
-    materials: Extract<Res<Assets<M>>>,
-    uinode_query: Extract<
-        Query<(
-            Entity,
-            &ComputedNode,
-            &GlobalTransform,
-            &MaterialNode<M>,
-            &InheritedVisibility,
-            Option<&CalculatedClip>,
-            &ComputedNodeTarget,
-        )>,
-    >,
-    camera_map: Extract<UiCameraMap>,
-) {
-    let mut camera_mapper = camera_map.get_mapper();
-
-    for (entity, computed_node, transform, handle, inherited_visibility, clip, camera) in
-        uinode_query.iter()
-    {
-        // skip invisible nodes
-        if !inherited_visibility.get() || computed_node.is_empty() {
-            continue;
-        }
-
-        // Skip loading materials
-        if !materials.contains(handle) {
-            continue;
-        }
-
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
-            continue;
-        };
-
-        extracted_uinodes.uinodes.push(ExtractedUiMaterialNode {
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            stack_index: computed_node.stack_index,
-            transform: transform.compute_matrix(),
-            material: handle.id(),
-            rect: Rect {
-                min: Vec2::ZERO,
-                max: computed_node.size(),
-            },
-            border: computed_node.border(),
-            border_radius: computed_node.border_radius(),
-            clip: clip.map(|clip| clip.clip),
-            extracted_camera_entity,
-            main_entity: entity.into(),
-        });
     }
 }
 
@@ -553,12 +650,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
                             size: extracted_uinode.rect.size().into(),
-                            radius: [
-                                extracted_uinode.border_radius.top_left,
-                                extracted_uinode.border_radius.top_right,
-                                extracted_uinode.border_radius.bottom_right,
-                                extracted_uinode.border_radius.bottom_left,
-                            ],
+                            radius: extracted_uinode.border_radius,
                             border: [
                                 extracted_uinode.border.left,
                                 extracted_uinode.border.top,
