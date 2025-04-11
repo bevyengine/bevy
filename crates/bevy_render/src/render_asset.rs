@@ -263,7 +263,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                         // when it's final handle is dropped triggering an `AssetEvent::Unused`
                         // event. However, removal without unused can happen when the asset
                         // is explicitly removed from the asset server and re-added by the user.
-                        // We mark the assset as modified in this case to ensure that
+                        // We mark the asset as modified in this case to ensure that
                         // any necessary render world bookkeeping still runs.
 
                         // TODO: consider removing this check and just emitting Unused after
