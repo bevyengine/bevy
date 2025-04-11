@@ -1,6 +1,5 @@
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::{ComponentCloneBehavior, Mutable, StorageType};
 use bevy_ecs::entity::EntityHash;
 use bevy_ecs::{
     component::Component,
