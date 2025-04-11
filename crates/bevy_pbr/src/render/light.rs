@@ -13,8 +13,8 @@ use bevy_ecs::{
     system::lifetimeless::Read,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_platform_support::hash::FixedHasher;
+use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::hash::FixedHasher;
 use bevy_render::experimental::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };

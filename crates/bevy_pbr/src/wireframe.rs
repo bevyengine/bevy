@@ -19,7 +19,7 @@ use bevy_ecs::{
     query::QueryItem,
     system::{lifetimeless::SRes, SystemChangeTick, SystemParamItem},
 };
-use bevy_platform_support::{
+use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
 };

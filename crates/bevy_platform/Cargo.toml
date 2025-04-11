@@ -1,8 +1,8 @@
 [package]
-name = "bevy_platform_support"
+name = "bevy_platform"
 version = "0.16.0-dev"
 edition = "2024"
-description = "Platform compatibility support for Bevy Engine"
+description = "Provides common platform agnostic APIs, as well as platform-specific features for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"

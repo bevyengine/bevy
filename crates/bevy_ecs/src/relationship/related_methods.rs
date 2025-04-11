@@ -7,7 +7,7 @@ use crate::{
     system::{Commands, EntityCommands},
     world::{EntityWorldMut, World},
 };
-use bevy_platform_support::prelude::{Box, Vec};
+use bevy_platform::prelude::{Box, Vec};
 use core::{marker::PhantomData, mem};
 
 use super::OrderedRelationshipSourceCollection;

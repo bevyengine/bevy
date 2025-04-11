@@ -29,9 +29,9 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_platform_support::collections::hash_map::Entry;
-use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_platform_support::hash::FixedHasher;
+use bevy_platform::collections::hash_map::Entry;
+use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::camera::extract_cameras;

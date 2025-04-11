@@ -1,7 +1,7 @@
 #[doc(hidden)]
 pub use crate::{
     app::prelude::*, ecs::prelude::*, input::prelude::*, log::prelude::*, math::prelude::*,
-    platform_support::prelude::*, reflect::prelude::*, time::prelude::*, transform::prelude::*,
+    platform::prelude::*, reflect::prelude::*, time::prelude::*, transform::prelude::*,
     utils::prelude::*, DefaultPlugins, MinimalPlugins,
 };
 

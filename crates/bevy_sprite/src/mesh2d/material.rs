@@ -19,7 +19,7 @@ use bevy_ecs::{
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_math::FloatOrd;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::camera::extract_cameras;
 use bevy_render::render_phase::{DrawFunctionId, InputUniformIndex};
