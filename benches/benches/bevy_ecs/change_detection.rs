@@ -1,7 +1,7 @@
 use core::hint::black_box;
 
 use bevy_ecs::{
-    component::{Component, ComponentMutability, Mutable},
+    component::{Component, Mutable},
     entity::Entity,
     prelude::{Added, Changed, EntityWorldMut, QueryState},
     query::QueryFilter,
