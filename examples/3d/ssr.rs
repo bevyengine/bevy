@@ -3,8 +3,9 @@
 use std::ops::Range;
 
 use bevy::{
+    anti_aliasing::fxaa::Fxaa,
     color::palettes::css::{BLACK, WHITE},
-    core_pipeline::{fxaa::Fxaa, Skybox},
+    core_pipeline::Skybox,
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
@@ -338,7 +339,6 @@ fn move_camera(
 }
 
 // Adjusts app settings per user input.
-#[allow(clippy::too_many_arguments)]
 fn adjust_app_settings(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,

@@ -1,4 +1,3 @@
-#[allow(clippy::module_inception)]
 mod camera;
 mod camera_driver_node;
 mod clear_color;
@@ -16,7 +15,7 @@ use crate::{
     render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_ecs::schedule::IntoScheduleConfigs;
 
 #[derive(Default)]
 pub struct CameraPlugin;

@@ -34,6 +34,7 @@ fn setup(
             color: WHITE.into(),
             alpha_mode: AlphaMode2d::Opaque,
             texture: Some(texture_handle.clone()),
+            ..default()
         })),
         Transform::from_xyz(-400.0, 0.0, 0.0),
     ));
@@ -43,6 +44,7 @@ fn setup(
             color: BLUE.into(),
             alpha_mode: AlphaMode2d::Opaque,
             texture: Some(texture_handle.clone()),
+            ..default()
         })),
         Transform::from_xyz(-300.0, 0.0, 1.0),
     ));
@@ -52,6 +54,7 @@ fn setup(
             color: GREEN.into(),
             alpha_mode: AlphaMode2d::Opaque,
             texture: Some(texture_handle.clone()),
+            ..default()
         })),
         Transform::from_xyz(-200.0, 0.0, -1.0),
     ));
@@ -67,6 +70,7 @@ fn setup(
             color: WHITE.into(),
             alpha_mode: AlphaMode2d::Mask(0.5),
             texture: Some(texture_handle.clone()),
+            ..default()
         })),
         Transform::from_xyz(200.0, 0.0, 0.0),
     ));
@@ -76,6 +80,7 @@ fn setup(
             color: BLUE.with_alpha(0.7).into(),
             alpha_mode: AlphaMode2d::Blend,
             texture: Some(texture_handle.clone()),
+            ..default()
         })),
         Transform::from_xyz(300.0, 0.0, 1.0),
     ));
@@ -85,6 +90,7 @@ fn setup(
             color: GREEN.with_alpha(0.7).into(),
             alpha_mode: AlphaMode2d::Blend,
             texture: Some(texture_handle),
+            ..default()
         })),
         Transform::from_xyz(400.0, 0.0, -1.0),
     ));

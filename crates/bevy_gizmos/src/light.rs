@@ -2,7 +2,7 @@
 
 use core::f32::consts::PI;
 
-use crate::{self as bevy_gizmos, primitives::dim3::GizmoPrimitive3d};
+use crate::primitives::dim3::GizmoPrimitive3d;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_color::{
@@ -14,7 +14,7 @@ use bevy_ecs::{
     entity::Entity,
     query::Without,
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
 use bevy_math::{
@@ -133,6 +133,7 @@ impl Plugin for LightGizmoPlugin {
 
 /// Configures how a color is attributed to a light gizmo.
 #[derive(Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Clone, Default)]
 pub enum LightGizmoColor {
     /// User-specified color.
     Manual(Color),
@@ -147,6 +148,7 @@ pub enum LightGizmoColor {
 
 /// The [`GizmoConfigGroup`] used to configure the visualization of lights.
 #[derive(Clone, Reflect, GizmoConfigGroup)]
+#[reflect(Clone, Default)]
 pub struct LightGizmoConfigGroup {
     /// Draw a gizmo for all lights if true.
     ///

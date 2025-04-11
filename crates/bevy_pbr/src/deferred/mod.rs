@@ -6,10 +6,11 @@ use crate::{
     TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use crate::{
-    MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset, ViewLightsUniformOffset,
+    DistanceFog, MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset,
+    ViewLightsUniformOffset,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     deferred::{
@@ -34,7 +35,7 @@ use bevy_render::{
 pub struct DeferredPbrLightingPlugin;
 
 pub const DEFERRED_LIGHTING_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2708011359337029741);
+    weak_handle!("f4295279-8890-4748-b654-ca4d2183df1c");
 
 pub const DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID: u8 = 1;
 
@@ -328,6 +329,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("HAS_PREVIOUS_MORPH".into());
         }
 
+        if key.contains(MeshPipelineKey::DISTANCE_FOG) {
+            shader_defs.push("DISTANCE_FOG".into());
+        }
+
         // Always true, since we're in the deferred lighting pipeline
         shader_defs.push("DEFERRED_PREPASS".into());
 
@@ -339,6 +344,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("SHADOW_FILTER_METHOD_GAUSSIAN".into());
         } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL {
             shader_defs.push("SHADOW_FILTER_METHOD_TEMPORAL".into());
+        }
+        if self.mesh_pipeline.binding_arrays_are_usable {
+            shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
+            shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
         }
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -427,27 +436,26 @@ pub fn prepare_deferred_lighting_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
     deferred_lighting_layout: Res<DeferredLightingLayout>,
-    views: Query<
+    views: Query<(
+        Entity,
+        &ExtractedView,
+        Option<&Tonemapping>,
+        Option<&DebandDither>,
+        Option<&ShadowFilteringMethod>,
         (
-            Entity,
-            &ExtractedView,
-            Option<&Tonemapping>,
-            Option<&DebandDither>,
-            Option<&ShadowFilteringMethod>,
-            (
-                Has<ScreenSpaceAmbientOcclusion>,
-                Has<ScreenSpaceReflectionsUniform>,
-            ),
-            (
-                Has<NormalPrepass>,
-                Has<DepthPrepass>,
-                Has<MotionVectorPrepass>,
-            ),
-            Has<RenderViewLightProbes<EnvironmentMapLight>>,
-            Has<RenderViewLightProbes<IrradianceVolume>>,
+            Has<ScreenSpaceAmbientOcclusion>,
+            Has<ScreenSpaceReflectionsUniform>,
+            Has<DistanceFog>,
         ),
-        With<DeferredPrepass>,
-    >,
+        (
+            Has<NormalPrepass>,
+            Has<DepthPrepass>,
+            Has<MotionVectorPrepass>,
+            Has<DeferredPrepass>,
+        ),
+        Has<RenderViewLightProbes<EnvironmentMapLight>>,
+        Has<RenderViewLightProbes<IrradianceVolume>>,
+    )>,
 ) {
     for (
         entity,
@@ -455,12 +463,20 @@ pub fn prepare_deferred_lighting_pipelines(
         tonemapping,
         dither,
         shadow_filter_method,
-        (ssao, ssr),
-        (normal_prepass, depth_prepass, motion_vector_prepass),
+        (ssao, ssr, distance_fog),
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         has_environment_maps,
         has_irradiance_volumes,
     ) in &views
     {
+        // If there is no deferred prepass, remove the old pipeline if there was
+        // one. This handles the case in which a view using deferred stops using
+        // it.
+        if !deferred_prepass {
+            commands.entity(entity).remove::<DeferredLightingPipeline>();
+            continue;
+        }
+
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
 
         if normal_prepass {
@@ -506,6 +522,9 @@ pub fn prepare_deferred_lighting_pipelines(
         }
         if ssr {
             view_key |= MeshPipelineKey::SCREEN_SPACE_REFLECTIONS;
+        }
+        if distance_fog {
+            view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
 
         // We don't need to check to see whether the environment map is loaded

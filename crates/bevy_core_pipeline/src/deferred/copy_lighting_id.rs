@@ -3,7 +3,7 @@ use crate::{
     prepass::{DeferredPrepass, ViewPrepassTextures},
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_render::{
@@ -24,7 +24,7 @@ use bevy_render::{
 use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
 
 pub const COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(5230948520734987);
+    weak_handle!("70d91342-1c43-4b20-973f-aa6ce93aa617");
 pub struct CopyDeferredLightingIdPlugin;
 
 impl Plugin for CopyDeferredLightingIdPlugin {

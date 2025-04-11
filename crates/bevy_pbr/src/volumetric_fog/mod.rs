@@ -29,8 +29,6 @@
 //!
 //! [Henyey-Greenstein phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
 
-#![expect(deprecated)]
-
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_color::Color;
@@ -39,10 +37,7 @@ use bevy_core_pipeline::core_3d::{
     prepare_core_3d_depth_textures,
 };
 use bevy_ecs::{
-    bundle::Bundle,
-    component::{require, Component},
-    reflect::ReflectComponent,
-    schedule::IntoSystemConfigs as _,
+    component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs as _,
 };
 use bevy_image::Image;
 use bevy_math::{
@@ -55,10 +50,10 @@ use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, SpecializedRenderPipelines},
     sync_component::SyncComponentPlugin,
-    view::{InheritedVisibility, ViewVisibility, Visibility},
+    view::Visibility,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::components::Transform;
 use render::{
     VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer, CUBE_MESH, PLANE_MESH,
     VOLUMETRIC_FOG_HANDLE,
@@ -76,14 +71,14 @@ pub struct VolumetricFogPlugin;
 ///
 /// This allows the light to generate light shafts/god rays.
 #[derive(Clone, Copy, Component, Default, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct VolumetricLight;
 
 /// When placed on a [`bevy_core_pipeline::core_3d::Camera3d`], enables
 /// volumetric fog and volumetric lighting, also known as light shafts or god
 /// rays.
 #[derive(Clone, Copy, Component, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct VolumetricFog {
     /// Color of the ambient light.
     ///
@@ -120,34 +115,8 @@ pub struct VolumetricFog {
     pub step_count: u32,
 }
 
-#[deprecated(since = "0.15.0", note = "Renamed to `VolumetricFog`")]
-pub type VolumetricFogSettings = VolumetricFog;
-
-/// A convenient [`Bundle`] that contains all components necessary to generate a
-/// fog volume.
-#[derive(Bundle, Clone, Debug, Default)]
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `FogVolume` component instead. Inserting it will now also insert the other components required by it automatically."
-)]
-pub struct FogVolumeBundle {
-    /// The actual fog volume.
-    pub fog_volume: FogVolume,
-    /// Visibility.
-    pub visibility: Visibility,
-    /// Inherited visibility.
-    pub inherited_visibility: InheritedVisibility,
-    /// View visibility.
-    pub view_visibility: ViewVisibility,
-    /// The local transform. Set this to change the position, and scale of the
-    /// fog's axis-aligned bounding box (AABB).
-    pub transform: Transform,
-    /// The global transform.
-    pub global_transform: GlobalTransform,
-}
-
 #[derive(Clone, Component, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[require(Transform, Visibility)]
 pub struct FogVolume {
     /// The color of the fog.

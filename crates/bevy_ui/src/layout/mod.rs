@@ -1,25 +1,22 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, LayoutConfig, Node, Outline,
-    OverflowAxis, ScrollPosition, TargetCamera, UiScale, Val,
+    BorderRadius, ComputedNode, ComputedNodeTarget, ContentSize, Display, LayoutConfig, Node,
+    Outline, OverflowAxis, ScrollPosition, Val,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    entity::{Entity, EntityBorrow, EntityHashMap, EntityHashSet},
-    event::EventReader,
+    entity::Entity,
+    hierarchy::{ChildOf, Children},
     query::With,
     removal_detection::RemovedComponents,
-    system::{Commands, Local, Query, Res, ResMut, SystemParam},
+    system::{Commands, Query, ResMut},
     world::Ref,
 };
-use bevy_hierarchy::{Children, Parent};
-use bevy_math::{UVec2, Vec2};
-use bevy_render::camera::{Camera, NormalizedRenderTarget};
+use bevy_math::Vec2;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
-use bevy_utils::tracing::warn;
-use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use thiserror::Error;
+use tracing::warn;
 use ui_surface::UiSurface;
 
 use bevy_text::ComputedTextBlock;
@@ -71,51 +68,19 @@ pub enum LayoutError {
     TaffyError(taffy::TaffyError),
 }
 
-#[doc(hidden)]
-#[derive(SystemParam)]
-pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
-    removed_cameras: RemovedComponents<'w, 's, Camera>,
-    removed_children: RemovedComponents<'w, 's, Children>,
-    removed_content_sizes: RemovedComponents<'w, 's, ContentSize>,
-    removed_nodes: RemovedComponents<'w, 's, Node>,
-}
-
-#[doc(hidden)]
-#[derive(Default)]
-pub struct UiLayoutSystemBuffers {
-    interned_root_nodes: Vec<Vec<Entity>>,
-    resized_windows: EntityHashSet,
-    camera_layout_info: EntityHashMap<CameraLayoutInfo>,
-}
-
-struct CameraLayoutInfo {
-    size: UVec2,
-    resized: bool,
-    scale_factor: f32,
-    root_nodes: Vec<Entity>,
-}
-
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
-#[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
     mut commands: Commands,
-    mut buffers: Local<UiLayoutSystemBuffers>,
-    primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
-    camera_data: (Query<(Entity, &Camera)>, DefaultUiCamera),
-    ui_scale: Res<UiScale>,
-    mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
-    mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
-    root_nodes: UiRootNodes,
+    ui_root_node_query: UiRootNodes,
     mut node_query: Query<(
         Entity,
         Ref<Node>,
         Option<&mut ContentSize>,
-        Option<&TargetCamera>,
+        Ref<ComputedNodeTarget>,
     )>,
-    computed_node_query: Query<(Entity, Option<Ref<Parent>>), With<ComputedNode>>,
+    computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,
     ui_children: UiChildren,
-    mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(
         &mut ComputedNode,
         &mut Transform,
@@ -125,138 +90,49 @@ pub fn ui_layout_system(
         Option<&Outline>,
         Option<&ScrollPosition>,
     )>,
-
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<CosmicFontSystem>,
+    mut removed_children: RemovedComponents<Children>,
+    mut removed_content_sizes: RemovedComponents<ContentSize>,
+    mut removed_nodes: RemovedComponents<Node>,
 ) {
-    let UiLayoutSystemBuffers {
-        interned_root_nodes,
-        resized_windows,
-        camera_layout_info,
-    } = &mut *buffers;
-
-    let (cameras, default_ui_camera) = camera_data;
-
-    let default_camera = default_ui_camera.get();
-    let camera_with_default = |target_camera: Option<&TargetCamera>| {
-        target_camera.map(TargetCamera::entity).or(default_camera)
-    };
-
-    resized_windows.clear();
-    resized_windows.extend(resize_events.read().map(|event| event.window));
-    let mut calculate_camera_layout_info = |camera: &Camera| {
-        let size = camera.physical_viewport_size().unwrap_or(UVec2::ZERO);
-        let scale_factor = camera.target_scaling_factor().unwrap_or(1.0);
-        let camera_target = camera
-            .target
-            .normalize(primary_window.get_single().map(|(e, _)| e).ok());
-        let resized = matches!(camera_target,
-          Some(NormalizedRenderTarget::Window(window_ref)) if resized_windows.contains(&window_ref.entity())
-        );
-        CameraLayoutInfo {
-            size,
-            resized,
-            scale_factor: scale_factor * ui_scale.0,
-            root_nodes: interned_root_nodes.pop().unwrap_or_default(),
-        }
-    };
-
-    // Precalculate the layout info for each camera, so we have fast access to it for each node
-    camera_layout_info.clear();
-
-    node_query
-        .iter_many(root_nodes.iter())
-        .for_each(|(entity, _, _, target_camera)| {
-            match camera_with_default(target_camera) {
-                Some(camera_entity) => {
-                    let Ok((_, camera)) = cameras.get(camera_entity) else {
-                        warn!(
-                            "TargetCamera (of root UI node {entity}) is pointing to a camera {} which doesn't exist",
-                            camera_entity
-                        );
-                        return;
-                    };
-                    let layout_info = camera_layout_info
-                        .entry(camera_entity)
-                        .or_insert_with(|| calculate_camera_layout_info(camera));
-                    layout_info.root_nodes.push(entity);
-                }
-                None => {
-                    if cameras.is_empty() {
-                        warn!("No camera found to render UI to. To fix this, add at least one camera to the scene.");
-                    } else {
-                        warn!(
-                            "Multiple cameras found, causing UI target ambiguity. \
-                            To fix this, add an explicit `TargetCamera` component to the root UI node {}",
-                            entity
-                        );
-                    }
-                }
-            }
-
-        }
-    );
-
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_components.removed_content_sizes.read() {
+    for entity in removed_content_sizes.read() {
         ui_surface.try_remove_node_context(entity);
     }
 
     // Sync Node and ContentSize to Taffy for all nodes
     node_query
         .iter_mut()
-        .for_each(|(entity, node, content_size, target_camera)| {
-            if let Some(camera) =
-                camera_with_default(target_camera).and_then(|c| camera_layout_info.get(&c))
+        .for_each(|(entity, node, content_size, computed_target)| {
+            if computed_target.is_changed()
+                || node.is_changed()
+                || content_size
+                    .as_ref()
+                    .is_some_and(|c| c.is_changed() || c.measure.is_some())
             {
-                if camera.resized
-                    || !scale_factor_events.is_empty()
-                    || ui_scale.is_changed()
-                    || node.is_changed()
-                    || content_size
-                        .as_ref()
-                        .is_some_and(|c| c.is_changed() || c.measure.is_some())
-                {
-                    let layout_context = LayoutContext::new(
-                        camera.scale_factor,
-                        [camera.size.x as f32, camera.size.y as f32].into(),
-                    );
-                    let measure = content_size.and_then(|mut c| c.measure.take());
-                    ui_surface.upsert_node(&layout_context, entity, &node, measure);
-                }
-            } else {
-                ui_surface.upsert_node(&LayoutContext::DEFAULT, entity, &Node::default(), None);
+                let layout_context = LayoutContext::new(
+                    computed_target.scale_factor,
+                    computed_target.physical_size.as_vec2(),
+                );
+                let measure = content_size.and_then(|mut c| c.measure.take());
+                ui_surface.upsert_node(&layout_context, entity, &node, measure);
             }
         });
-    scale_factor_events.clear();
-
-    // clean up removed cameras
-    ui_surface.remove_camera_entities(removed_components.removed_cameras.read());
-
-    // update camera children
-    for (camera_id, _) in cameras.iter() {
-        let root_nodes =
-            if let Some(CameraLayoutInfo { root_nodes, .. }) = camera_layout_info.get(&camera_id) {
-                root_nodes.iter().cloned()
-            } else {
-                [].iter().cloned()
-            };
-        ui_surface.set_camera_children(camera_id, root_nodes);
-    }
 
     // update and remove children
-    for entity in removed_components.removed_children.read() {
+    for entity in removed_children.read() {
         ui_surface.try_remove_children(entity);
     }
 
     computed_node_query
         .iter()
-        .for_each(|(entity, maybe_parent)| {
-            if let Some(parent) = maybe_parent {
+        .for_each(|(entity, maybe_child_of)| {
+            if let Some(child_of) = maybe_child_of {
                 // Note: This does not cover the case where a parent's Node component was removed.
                 // Users are responsible for fixing hierarchies if they do that (it is not recommended).
                 // Detecting it here would be a permanent perf burden on the hot path.
-                if parent.is_changed() && !ui_children.is_ui_node(parent.get()) {
+                if child_of.is_changed() && !ui_children.is_ui_node(child_of.parent()) {
                     warn!(
                         "Node ({entity}) is in a non-UI entity hierarchy. You are using an entity \
 with UI components as a child of an entity without UI components, your UI layout may be broken."
@@ -269,11 +145,9 @@ with UI components as a child of an entity without UI components, your UI layout
             }
         });
 
-    let text_buffers = &mut buffer_query;
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(
-        removed_components
-            .removed_nodes
+        removed_nodes
             .read()
             .filter(|entity| !node_query.contains(*entity)),
     );
@@ -285,28 +159,28 @@ with UI components as a child of an entity without UI components, your UI layout
         }
     });
 
-    for (camera_id, mut camera) in camera_layout_info.drain() {
-        let inverse_target_scale_factor = camera.scale_factor.recip();
+    for ui_root_entity in ui_root_node_query.iter() {
+        let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
 
-        ui_surface.compute_camera_layout(camera_id, camera.size, text_buffers, &mut font_system);
+        ui_surface.compute_layout(
+            ui_root_entity,
+            computed_target.physical_size,
+            &mut buffer_query,
+            &mut font_system,
+        );
 
-        for root in &camera.root_nodes {
-            update_uinode_geometry_recursive(
-                &mut commands,
-                *root,
-                &mut ui_surface,
-                true,
-                None,
-                &mut node_transform_query,
-                &ui_children,
-                inverse_target_scale_factor,
-                Vec2::ZERO,
-                Vec2::ZERO,
-            );
-        }
-
-        camera.root_nodes.clear();
-        interned_root_nodes.push(camera.root_nodes);
+        update_uinode_geometry_recursive(
+            &mut commands,
+            ui_root_entity,
+            &mut ui_surface,
+            true,
+            None,
+            &mut node_transform_query,
+            &ui_children,
+            computed_target.scale_factor.recip(),
+            Vec2::ZERO,
+            Vec2::ZERO,
+        );
     }
 
     // Returns the combined bounding box of the node and any of its overflowing children.
@@ -474,26 +348,17 @@ mod tests {
 
     use bevy_asset::{AssetEvent, Assets};
     use bevy_core_pipeline::core_2d::Camera2d;
-    use bevy_ecs::{
-        entity::Entity,
-        event::Events,
-        prelude::{Commands, Component, In, Query, With},
-        query::Without,
-        schedule::{ApplyDeferred, IntoSystemConfigs, Schedule},
-        system::RunSystemOnce,
-        world::World,
-    };
-    use bevy_hierarchy::{
-        despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
-    };
+    use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
+    use bevy_platform_support::collections::HashMap;
     use bevy_render::{camera::ManualTextureViews, prelude::Camera};
+    use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::{
         prelude::GlobalTransform,
-        systems::{propagate_transforms, sync_simple_transforms},
+        systems::{propagate_parent_transforms, sync_simple_transforms},
     };
-    use bevy_utils::{prelude::default, HashMap};
+    use bevy_utils::prelude::default;
     use bevy_window::{
         PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
         WindowScaleFactorChanged,
@@ -501,7 +366,7 @@ mod tests {
 
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
-        update::update_target_camera_system, ContentSize, LayoutContext,
+        update::update_ui_context_system, ContentSize, LayoutContext,
     };
 
     // these window dimensions are easy to convert to and from percentage values
@@ -541,11 +406,12 @@ mod tests {
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system,
-                update_target_camera_system,
+                update_ui_context_system,
                 ApplyDeferred,
                 ui_layout_system,
+                mark_dirty_trees,
                 sync_simple_transforms,
-                propagate_transforms,
+                propagate_parent_transforms,
             )
                 .chain(),
         );
@@ -616,54 +482,6 @@ mod tests {
     }
 
     #[test]
-    fn ui_surface_tracks_camera_entities() {
-        let (mut world, mut ui_schedule) = setup_ui_test_world();
-
-        // despawn all cameras so we can reset ui_surface back to a fresh state
-        let camera_entities = world
-            .query_filtered::<Entity, With<Camera>>()
-            .iter(&world)
-            .collect::<Vec<_>>();
-        for camera_entity in camera_entities {
-            world.despawn(camera_entity);
-        }
-
-        ui_schedule.run(&mut world);
-
-        // no UI entities in world, none in UiSurface
-        let ui_surface = world.resource::<UiSurface>();
-        assert!(ui_surface.camera_entity_to_taffy.is_empty());
-
-        // respawn camera
-        let camera_entity = world.spawn(Camera2d).id();
-
-        let ui_entity = world
-            .spawn((Node::default(), TargetCamera(camera_entity)))
-            .id();
-
-        // `ui_layout_system` should map `camera_entity` to a ui node in `UiSurface::camera_entity_to_taffy`
-        ui_schedule.run(&mut world);
-
-        let ui_surface = world.resource::<UiSurface>();
-        assert!(ui_surface
-            .camera_entity_to_taffy
-            .contains_key(&camera_entity));
-        assert_eq!(ui_surface.camera_entity_to_taffy.len(), 1);
-
-        world.despawn(ui_entity);
-        world.despawn(camera_entity);
-
-        // `ui_layout_system` should remove `camera_entity` from `UiSurface::camera_entity_to_taffy`
-        ui_schedule.run(&mut world);
-
-        let ui_surface = world.resource::<UiSurface>();
-        assert!(!ui_surface
-            .camera_entity_to_taffy
-            .contains_key(&camera_entity));
-        assert!(ui_surface.camera_entity_to_taffy.is_empty());
-    }
-
-    #[test]
     #[should_panic]
     fn despawning_a_ui_entity_should_remove_its_corresponding_ui_node() {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
@@ -686,7 +504,7 @@ mod tests {
         let ui_surface = world.resource::<UiSurface>();
 
         // `ui_node` is removed, attempting to retrieve a style for `ui_node` panics
-        let _ = ui_surface.taffy.style(ui_node);
+        let _ = ui_surface.taffy.style(ui_node.id);
     }
 
     #[test]
@@ -702,7 +520,7 @@ mod tests {
         let ui_parent_node = ui_surface.entity_to_taffy[&ui_parent_entity];
 
         // `ui_parent_node` shouldn't have any children yet
-        assert_eq!(ui_surface.taffy.child_count(ui_parent_node), 0);
+        assert_eq!(ui_surface.taffy.child_count(ui_parent_node.id), 0);
 
         let mut ui_child_entities = (0..10)
             .map(|_| {
@@ -721,7 +539,7 @@ mod tests {
             1 + ui_child_entities.len()
         );
         assert_eq!(
-            ui_surface.taffy.child_count(ui_parent_node),
+            ui_surface.taffy.child_count(ui_parent_node.id),
             ui_child_entities.len()
         );
 
@@ -733,7 +551,7 @@ mod tests {
 
         // the children should have a corresponding ui node and that ui node's parent should be `ui_parent_node`
         for node in child_node_map.values() {
-            assert_eq!(ui_surface.taffy.parent(*node), Some(ui_parent_node));
+            assert_eq!(ui_surface.taffy.parent(node.id), Some(ui_parent_node.id));
         }
 
         // delete every second child
@@ -752,7 +570,7 @@ mod tests {
             1 + ui_child_entities.len()
         );
         assert_eq!(
-            ui_surface.taffy.child_count(ui_parent_node),
+            ui_surface.taffy.child_count(ui_parent_node.id),
             ui_child_entities.len()
         );
 
@@ -760,12 +578,15 @@ mod tests {
         for child_entity in &ui_child_entities {
             let child_node = child_node_map[child_entity];
             assert_eq!(ui_surface.entity_to_taffy[child_entity], child_node);
-            assert_eq!(ui_surface.taffy.parent(child_node), Some(ui_parent_node));
+            assert_eq!(
+                ui_surface.taffy.parent(child_node.id),
+                Some(ui_parent_node.id)
+            );
             assert!(ui_surface
                 .taffy
-                .children(ui_parent_node)
+                .children(ui_parent_node.id)
                 .unwrap()
-                .contains(&child_node));
+                .contains(&child_node.id));
         }
 
         // the nodes of the deleted children should have been removed from the layout tree
@@ -776,13 +597,13 @@ mod tests {
             let deleted_child_node = child_node_map[deleted_child_entity];
             assert!(!ui_surface
                 .taffy
-                .children(ui_parent_node)
+                .children(ui_parent_node.id)
                 .unwrap()
-                .contains(&deleted_child_node));
+                .contains(&deleted_child_node.id));
         }
 
         // despawn the parent entity and its descendants
-        despawn_with_children_recursive(&mut world, ui_parent_entity, true);
+        world.entity_mut(ui_parent_entity).despawn();
 
         ui_schedule.run(&mut world);
 
@@ -861,7 +682,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let overlap_check = world
-            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<Parent>>()
+            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<ChildOf>>()
             .iter(&world)
             .fold(
                 Option::<(Rect, bool)>::None,
@@ -906,7 +727,7 @@ mod tests {
             mut cameras: Query<&mut Camera>,
         ) {
             let primary_window = primary_window_query
-                .get_single()
+                .single()
                 .expect("missing primary window");
             let camera_count = cameras.iter().len();
             for (camera_index, mut camera) in cameras.iter_mut().enumerate() {
@@ -943,7 +764,7 @@ mod tests {
             for moving_ui_entity in moving_ui_query.iter() {
                 commands
                     .entity(moving_ui_entity)
-                    .insert(TargetCamera(target_camera_entity))
+                    .insert(UiTargetCamera(target_camera_entity))
                     .insert(Node {
                         position_type: PositionType::Absolute,
                         top: Val::Px(pos.y),
@@ -961,9 +782,9 @@ mod tests {
         ) {
             world.run_system_once_with(move_ui_node, new_pos).unwrap();
             ui_schedule.run(world);
-            let (ui_node_entity, TargetCamera(target_camera_entity)) = world
-                .query_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
-                .get_single(world)
+            let (ui_node_entity, UiTargetCamera(target_camera_entity)) = world
+                .query_filtered::<(Entity, &UiTargetCamera), With<MovingUiNode>>()
+                .single(world)
                 .expect("missing MovingUiNode");
             assert_eq!(expected_camera_entity, target_camera_entity);
             let mut ui_surface = world.resource_mut::<UiSurface>();
@@ -1084,7 +905,7 @@ mod tests {
         let ui_node = ui_surface.entity_to_taffy[&ui_entity];
 
         // a node with a content size should have taffy context
-        assert!(ui_surface.taffy.get_node_context(ui_node).is_some());
+        assert!(ui_surface.taffy.get_node_context(ui_node.id).is_some());
         let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
         assert_eq!(layout.size.width, content_size.x);
         assert_eq!(layout.size.height, content_size.y);
@@ -1095,7 +916,7 @@ mod tests {
 
         let mut ui_surface = world.resource_mut::<UiSurface>();
         // a node without a content size should not have taffy context
-        assert!(ui_surface.taffy.get_node_context(ui_node).is_none());
+        assert!(ui_surface.taffy.get_node_context(ui_node.id).is_none());
 
         // Without a content size, the node has no width or height constraints so the length of both dimensions is 0.
         let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
@@ -1131,7 +952,6 @@ mod tests {
             .get::<Children>()
             .unwrap()
             .iter()
-            .copied()
             .collect::<Vec<Entity>>();
 
         for r in [2, 3, 5, 7, 11, 13, 17, 19, 21, 23, 29, 31].map(|n| (n as f32).recip()) {
@@ -1185,7 +1005,7 @@ mod tests {
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system,
-                update_target_camera_system,
+                update_ui_context_system,
                 ApplyDeferred,
                 ui_layout_system,
             )
@@ -1219,11 +1039,9 @@ mod tests {
 
         let (mut world, ..) = setup_ui_test_world();
 
-        let camera_entity = Entity::from_raw(0);
         let root_node_entity = Entity::from_raw(1);
 
         struct TestSystemParam {
-            camera_entity: Entity,
             root_node_entity: Entity,
         }
 
@@ -1240,25 +1058,83 @@ mod tests {
                 None,
             );
 
-            ui_surface.compute_camera_layout(
-                params.camera_entity,
+            ui_surface.compute_layout(
+                params.root_node_entity,
                 UVec2::new(800, 600),
                 &mut computed_text_block_query,
                 &mut font_system,
             );
         }
 
-        let _ = world.run_system_once_with(
-            test_system,
-            TestSystemParam {
-                camera_entity,
-                root_node_entity,
-            },
-        );
+        let _ = world.run_system_once_with(test_system, TestSystemParam { root_node_entity });
 
         let ui_surface = world.resource::<UiSurface>();
 
         let taffy_node = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
-        assert!(ui_surface.taffy.layout(*taffy_node).is_ok());
+        assert!(ui_surface.taffy.layout(taffy_node.id).is_ok());
+    }
+
+    #[test]
+    fn no_viewport_node_leak_on_root_despawned() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let ui_root_entity = world.spawn(Node::default()).id();
+
+        // The UI schedule synchronizes Bevy UI's internal `TaffyTree` with the
+        // main world's tree of `Node` entities.
+        ui_schedule.run(&mut world);
+
+        // Two taffy nodes are added to the internal `TaffyTree` for each root UI entity.
+        // An implicit taffy node representing the viewport and a taffy node corresponding to the
+        // root UI entity which is parented to the viewport taffy node.
+        assert_eq!(
+            world.resource_mut::<UiSurface>().taffy.total_node_count(),
+            2
+        );
+
+        world.despawn(ui_root_entity);
+
+        // The UI schedule removes both the taffy node corresponding to `ui_root_entity` and its
+        // parent viewport node.
+        ui_schedule.run(&mut world);
+
+        // Both taffy nodes should now be removed from the internal `TaffyTree`
+        assert_eq!(
+            world.resource_mut::<UiSurface>().taffy.total_node_count(),
+            0
+        );
+    }
+
+    #[test]
+    fn no_viewport_node_leak_on_parented_root() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let ui_root_entity_1 = world.spawn(Node::default()).id();
+        let ui_root_entity_2 = world.spawn(Node::default()).id();
+
+        ui_schedule.run(&mut world);
+
+        // There are two UI root entities. Each root taffy node is given it's own viewport node parent,
+        // so a total of four taffy nodes are added to the `TaffyTree` by the UI schedule.
+        assert_eq!(
+            world.resource_mut::<UiSurface>().taffy.total_node_count(),
+            4
+        );
+
+        // Parent `ui_root_entity_2` onto `ui_root_entity_1` so now only `ui_root_entity_1` is a
+        // UI root entity.
+        world
+            .entity_mut(ui_root_entity_1)
+            .add_child(ui_root_entity_2);
+
+        // Now there is only one root node so the second viewport node is removed by
+        // the UI schedule.
+        ui_schedule.run(&mut world);
+
+        // There is only one viewport node now, so the `TaffyTree` contains 3 nodes in total.
+        assert_eq!(
+            world.resource_mut::<UiSurface>().taffy.total_node_count(),
+            3
+        );
     }
 }

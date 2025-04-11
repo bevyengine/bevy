@@ -7,10 +7,11 @@ use crate::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
-    system::{Resource, SystemParam},
+    resource::Resource,
+    system::SystemParam,
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 
 /// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",
 /// which can be used in situations where an image was not explicitly defined. The most common
@@ -97,7 +98,7 @@ fn fallback_image_new(
             RenderAssetUsages::RENDER_WORLD,
         )
     } else {
-        let mut image = Image::default();
+        let mut image = Image::default_uninit();
         image.texture_descriptor.dimension = TextureDimension::D2;
         image.texture_descriptor.size = extents;
         image.texture_descriptor.format = format;
@@ -113,7 +114,7 @@ fn fallback_image_new(
             render_queue,
             &image.texture_descriptor,
             TextureDataOrder::default(),
-            &image.data,
+            &image.data.expect("Image has no data"),
         )
     } else {
         render_device.create_texture(&image.texture_descriptor)

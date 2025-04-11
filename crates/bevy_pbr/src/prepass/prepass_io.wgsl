@@ -15,7 +15,9 @@ struct Vertex {
 #endif
 
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
+#ifdef VERTEX_NORMALS
     @location(3) normal: vec3<f32>,
+#endif
 #ifdef VERTEX_TANGENTS
     @location(4) tangent: vec4<f32>,
 #endif

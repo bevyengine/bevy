@@ -7,7 +7,7 @@ use crate::{
     prelude::World,
     query::Access,
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemIn},
+    system::{input::SystemInput, SystemIn, SystemParamValidationError},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -176,6 +176,7 @@ where
             input,
             // SAFETY: The world accesses for both underlying systems have been registered,
             // so the caller will guarantee that no other systems will conflict with `a` or `b`.
+            // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
             // Since these closures are `!Send + !Sync + !'static`, they can never be called
             // in parallel, so their world accesses will not conflict with each other.
             // Additionally, `update_archetype_component_access` has been called,
@@ -183,19 +184,6 @@ where
             |input| unsafe { self.a.run_unsafe(input, world) },
             // SAFETY: See the comment above.
             |input| unsafe { self.b.run_unsafe(input, world) },
-        )
-    }
-
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
-        let world = world.as_unsafe_world_cell();
-        Func::combine(
-            input,
-            // SAFETY: Since these closures are `!Send + !Sync + !'static`, they can never
-            // be called in parallel. Since mutable access to `world` only exists within
-            // the scope of either closure, we can be sure they will never alias one another.
-            |input| self.a.run(input, unsafe { world.world_mut() }),
-            #[allow(clippy::undocumented_unsafe_blocks)]
-            |input| self.b.run(input, unsafe { world.world_mut() }),
         )
     }
 
@@ -212,7 +200,10 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegate to other `System` implementations.
         unsafe { self.a.validate_param_unsafe(world) }
     }
@@ -416,11 +407,6 @@ where
         self.b.run_unsafe(value, world)
     }
 
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
-        let value = self.a.run(input, world);
-        self.b.run(value, world)
-    }
-
     fn apply_deferred(&mut self, world: &mut World) {
         self.a.apply_deferred(world);
         self.b.apply_deferred(world);
@@ -431,13 +417,27 @@ where
         self.b.queue_deferred(world);
     }
 
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
-        // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.a.validate_param_unsafe(world) }
-    }
+    /// This method uses "early out" logic: if the first system fails validation,
+    /// the second system is not validated.
+    ///
+    /// Because the system validation is performed upfront, this can lead to situations
+    /// where later systems pass validation, but fail at runtime due to changes made earlier
+    /// in the piped systems.
+    // TODO: ensure that systems are only validated just before they are run.
+    // Fixing this will require fundamentally rethinking how piped systems work:
+    // they're currently treated as a single system from the perspective of the scheduler.
+    // See https://github.com/bevyengine/bevy/issues/18796
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        // SAFETY: Delegate to the `System` implementation for `a`.
+        unsafe { self.a.validate_param_unsafe(world) }?;
 
-    fn validate_param(&mut self, world: &World) -> bool {
-        self.a.validate_param(world) && self.b.validate_param(world)
+        // SAFETY: Delegate to the `System` implementation for `b`.
+        unsafe { self.b.validate_param_unsafe(world) }?;
+
+        Ok(())
     }
 
     fn initialize(&mut self, world: &mut World) {
@@ -485,4 +485,28 @@ where
     B: ReadOnlySystem,
     for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
 {
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn exclusive_system_piping_is_possible() {
+        use crate::prelude::*;
+
+        fn my_exclusive_system(_world: &mut World) -> u32 {
+            1
+        }
+
+        fn out_pipe(input: In<u32>) {
+            assert!(input.0 == 1);
+        }
+
+        let mut world = World::new();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(my_exclusive_system.pipe(out_pipe));
+
+        schedule.run(&mut world);
+    }
 }

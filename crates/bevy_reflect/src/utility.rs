@@ -2,17 +2,15 @@
 
 use crate::TypeInfo;
 use alloc::boxed::Box;
-use bevy_utils::{DefaultHasher, FixedHasher, NoOpHash, TypeIdMap};
+use bevy_platform_support::{
+    hash::{DefaultHasher, FixedHasher, NoOpHash},
+    sync::{OnceLock, PoisonError, RwLock},
+};
+use bevy_utils::TypeIdMap;
 use core::{
     any::{Any, TypeId},
     hash::BuildHasher,
 };
-
-#[cfg(feature = "std")]
-use std::sync::{OnceLock, PoisonError, RwLock};
-
-#[cfg(not(feature = "std"))]
-use spin::{Once as OnceLock, RwLock};
 
 /// A type that can be stored in a ([`Non`])[`GenericTypeCell`].
 ///
@@ -90,7 +88,6 @@ mod sealed {
 /// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
 /// # impl Reflect for Foo {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
@@ -122,11 +119,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
     where
         F: FnOnce() -> T::Stored,
     {
-        #[cfg(feature = "std")]
-        return self.0.get_or_init(f);
-
-        #[cfg(not(feature = "std"))]
-        return self.0.call_once(f);
+        self.0.get_or_init(f)
     }
 }
 
@@ -182,7 +175,6 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
 /// # impl<T: Reflect + Typed + TypePath> Reflect for Foo<T> {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
@@ -259,12 +251,11 @@ impl<T: TypedProperty> GenericTypeCell<T> {
     ///
     /// This method will then return the correct [`TypedProperty`] reference for the given type `T`.
     fn get_by_type_id(&self, type_id: TypeId) -> Option<&T::Stored> {
-        let read_lock = self.0.read();
-
-        #[cfg(feature = "std")]
-        let read_lock = read_lock.unwrap_or_else(PoisonError::into_inner);
-
-        read_lock.get(&type_id).copied()
+        self.0
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&type_id)
+            .copied()
     }
 
     /// Returns a reference to the [`TypedProperty`] stored in the cell.
@@ -282,12 +273,7 @@ impl<T: TypedProperty> GenericTypeCell<T> {
     }
 
     fn insert_by_type_id(&self, type_id: TypeId, value: T::Stored) -> &T::Stored {
-        let write_lock = self.0.write();
-
-        #[cfg(feature = "std")]
-        let write_lock = write_lock.unwrap_or_else(PoisonError::into_inner);
-
-        let mut write_lock = write_lock;
+        let mut write_lock = self.0.write().unwrap_or_else(PoisonError::into_inner);
 
         write_lock
             .entry(type_id)

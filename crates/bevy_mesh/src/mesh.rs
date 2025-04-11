@@ -6,15 +6,15 @@ use super::{
     GenerateTangentsError, Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute,
     MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
     MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
-    VertexFormatSize,
 };
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle, RenderAssetUsages};
 use bevy_image::Image;
 use bevy_math::{primitives::Triangle3d, *};
 use bevy_reflect::Reflect;
-use bevy_utils::tracing::warn;
 use bytemuck::cast_slice;
+use thiserror::Error;
+use tracing::warn;
 use wgpu_types::{VertexAttribute, VertexFormat, VertexStepMode};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
@@ -85,34 +85,35 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ## Common points of confusion
 ///
 /// - UV maps in Bevy start at the top-left, see [`ATTRIBUTE_UV_0`](Mesh::ATTRIBUTE_UV_0),
-///     other APIs can have other conventions, `OpenGL` starts at bottom-left.
+///   other APIs can have other conventions, `OpenGL` starts at bottom-left.
 /// - It is possible and sometimes useful for multiple vertices to have the same
-///     [position attribute](Mesh::ATTRIBUTE_POSITION) value,
-///     it's a common technique in 3D modeling for complex UV mapping or other calculations.
+///   [position attribute](Mesh::ATTRIBUTE_POSITION) value,
+///   it's a common technique in 3D modeling for complex UV mapping or other calculations.
 /// - Bevy performs frustum culling based on the `Aabb` of meshes, which is calculated
-///     and added automatically for new meshes only. If a mesh is modified, the entity's `Aabb`
-///     needs to be updated manually or deleted so that it is re-calculated.
+///   and added automatically for new meshes only. If a mesh is modified, the entity's `Aabb`
+///   needs to be updated manually or deleted so that it is re-calculated.
 ///
 /// ## Use with `StandardMaterial`
 ///
 /// To render correctly with `StandardMaterial`, a mesh needs to have properly defined:
 /// - [`UVs`](Mesh::ATTRIBUTE_UV_0): Bevy needs to know how to map a texture onto the mesh
-///     (also true for `ColorMaterial`).
+///   (also true for `ColorMaterial`).
 /// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh.
-///     [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
-///     because simple meshes are smooth and they don't require complex light calculations.
+///   [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
+///   because simple meshes are smooth and they don't require complex light calculations.
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is `Some(Face::Back)`,
-///     which means that Bevy would *only* render the "front" of each triangle, which
-///     is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
+///   which means that Bevy would *only* render the "front" of each triangle, which
+///   is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 #[derive(Asset, Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub struct Mesh {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
     /// for this mesh. Attribute ids to attribute values.
     /// Uses a [`BTreeMap`] because, unlike `HashMap`, it has a defined iteration order,
     /// which allows easy stable `VertexBuffers` (i.e. same buffer order)
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
@@ -280,13 +281,22 @@ impl Mesh {
         self.attributes.contains_key(&id.into())
     }
 
-    /// Retrieves the data currently set to the vertex attribute with the specified `name`.
+    /// Retrieves the data currently set to the vertex attribute with the specified [`MeshVertexAttributeId`].
     #[inline]
     pub fn attribute(
         &self,
         id: impl Into<MeshVertexAttributeId>,
     ) -> Option<&VertexAttributeValues> {
         self.attributes.get(&id.into()).map(|data| &data.values)
+    }
+
+    /// Retrieves the full data currently set to the vertex attribute with the specified [`MeshVertexAttributeId`].
+    #[inline]
+    pub(crate) fn attribute_data(
+        &self,
+        id: impl Into<MeshVertexAttributeId>,
+    ) -> Option<&MeshAttributeData> {
+        self.attributes.get(&id.into())
     }
 
     /// Retrieves the data currently set to the vertex attribute with the specified `name` mutably.
@@ -369,7 +379,7 @@ impl Mesh {
     pub fn get_vertex_size(&self) -> u64 {
         self.attributes
             .values()
-            .map(|data| data.attribute.format.get_size())
+            .map(|data| data.attribute.format.size())
             .sum()
     }
 
@@ -404,7 +414,7 @@ impl Mesh {
                 format: data.attribute.format,
                 shader_location: index as u32,
             });
-            accumulated_offset += data.attribute.format.get_size();
+            accumulated_offset += data.attribute.format.size();
         }
 
         let layout = MeshVertexBufferLayout {
@@ -472,7 +482,7 @@ impl Mesh {
         // bundle into interleaved buffers
         let mut attribute_offset = 0;
         for attribute_data in self.attributes.values() {
-            let attribute_size = attribute_data.attribute.format.get_size() as usize;
+            let attribute_size = attribute_data.attribute.format.size() as usize;
             let attributes_bytes = attribute_data.values.get_bytes();
             for (vertex_index, attribute_bytes) in attributes_bytes
                 .chunks_exact(attribute_size)
@@ -491,7 +501,6 @@ impl Mesh {
     ///
     /// This can dramatically increase the vertex count, so make sure this is what you want.
     /// Does nothing if no [Indices] are set.
-    #[allow(clippy::match_same_arms)]
     pub fn duplicate_vertices(&mut self) {
         fn duplicate<T: Copy>(values: &[T], indices: impl Iterator<Item = usize>) -> Vec<T> {
             indices.map(|i| values[i]).collect()
@@ -503,6 +512,10 @@ impl Mesh {
 
         for attributes in self.attributes.values_mut() {
             let indices = indices.iter();
+            #[expect(
+                clippy::match_same_arms,
+                reason = "Although the `vec` binding on some match arms may have different types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+            )]
             match &mut attributes.values {
                 VertexAttributeValues::Float32(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Sint32(vec) => *vec = duplicate(vec, indices),
@@ -785,12 +798,11 @@ impl Mesh {
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the vertex attribute values of `other` are incompatible with `self`.
+    /// Returns [`Err(MergeMeshError)`](MergeMeshError) if the vertex attribute values of `other` are incompatible with `self`.
     /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
-    #[allow(clippy::match_same_arms)]
-    pub fn merge(&mut self, other: &Mesh) {
+    pub fn merge(&mut self, other: &Mesh) -> Result<(), MergeMeshError> {
         use VertexAttributeValues::*;
 
         // The indices of `other` should start after the last vertex of `self`.
@@ -798,8 +810,11 @@ impl Mesh {
 
         // Extend attributes of `self` with attributes of `other`.
         for (attribute, values) in self.attributes_mut() {
-            let enum_variant_name = values.enum_variant_name();
             if let Some(other_values) = other.attribute(attribute.id) {
+                #[expect(
+                    clippy::match_same_arms,
+                    reason = "Although the bindings on some match arms may have different types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+                )]
                 match (values, other_values) {
                     (Float32(vec1), Float32(vec2)) => vec1.extend(vec2),
                     (Sint32(vec1), Sint32(vec2)) => vec1.extend(vec2),
@@ -829,11 +844,14 @@ impl Mesh {
                     (Snorm8x4(vec1), Snorm8x4(vec2)) => vec1.extend(vec2),
                     (Uint8x4(vec1), Uint8x4(vec2)) => vec1.extend(vec2),
                     (Unorm8x4(vec1), Unorm8x4(vec2)) => vec1.extend(vec2),
-                    _ => panic!(
-                        "Incompatible vertex attribute types {} and {}",
-                        enum_variant_name,
-                        other_values.enum_variant_name()
-                    ),
+                    _ => {
+                        return Err(MergeMeshError {
+                            self_attribute: *attribute,
+                            other_attribute: other
+                                .attribute_data(attribute.id)
+                                .map(|data| data.attribute),
+                        })
+                    }
                 }
             }
         }
@@ -842,6 +860,7 @@ impl Mesh {
         if let (Some(indices), Some(other_indices)) = (self.indices_mut(), other.indices()) {
             indices.extend(other_indices.iter().map(|i| (i + index_offset) as u32));
         }
+        Ok(())
     }
 
     /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
@@ -863,7 +882,7 @@ impl Mesh {
             "mesh transform scale cannot be zero on more than one axis"
         );
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply scale, rotation, and translation to vertex positions
@@ -880,7 +899,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
             self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
         {
             // Transform normals, taking into account non-uniform scaling and rotation
@@ -891,13 +910,16 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+        if let Some(VertexAttributeValues::Float32x4(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents, taking into account non-uniform scaling and rotation
             tangents.iter_mut().for_each(|tangent| {
+                let handedness = tangent[3];
                 let scaled_tangent = Vec3::from_slice(tangent) * transform.scale;
-                *tangent = (transform.rotation * scaled_tangent.normalize_or_zero()).to_array();
+                *tangent = (transform.rotation * scaled_tangent.normalize_or_zero())
+                    .extend(handedness)
+                    .to_array();
             });
         }
     }
@@ -918,7 +940,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply translation to vertex positions
@@ -940,7 +962,7 @@ impl Mesh {
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     pub fn rotate_by(&mut self, rotation: Quat) {
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply rotation to vertex positions
@@ -954,7 +976,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
             self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
         {
             // Transform normals
@@ -963,12 +985,15 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+        if let Some(VertexAttributeValues::Float32x4(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents
             tangents.iter_mut().for_each(|tangent| {
-                *tangent = (rotation * Vec3::from_slice(tangent).normalize_or_zero()).to_array();
+                let handedness = tangent[3];
+                *tangent = (rotation * Vec3::from_slice(tangent).normalize_or_zero())
+                    .extend(handedness)
+                    .to_array();
             });
         }
     }
@@ -992,7 +1017,7 @@ impl Mesh {
             "mesh transform scale cannot be zero on more than one axis"
         );
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply scale to vertex positions
@@ -1006,7 +1031,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
             self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
         {
             // Transform normals, taking into account non-uniform scaling
@@ -1015,13 +1040,17 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+        if let Some(VertexAttributeValues::Float32x4(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents, taking into account non-uniform scaling
             tangents.iter_mut().for_each(|tangent| {
+                let handedness = tangent[3];
                 let scaled_tangent = Vec3::from_slice(tangent) * scale;
-                *tangent = scaled_tangent.normalize_or_zero().to_array();
+                *tangent = scaled_tangent
+                    .normalize_or_zero()
+                    .extend(handedness)
+                    .to_array();
             });
         }
     }
@@ -1078,7 +1107,7 @@ impl Mesh {
     /// Normalize joint weights so they sum to 1.
     pub fn normalize_joint_weights(&mut self) {
         if let Some(joints) = self.attribute_mut(Self::ATTRIBUTE_JOINT_WEIGHT) {
-            let VertexAttributeValues::Float32x4(ref mut joints) = joints else {
+            let VertexAttributeValues::Float32x4(joints) = joints else {
                 panic!("unexpected joint weight format");
             };
 
@@ -1205,6 +1234,14 @@ impl core::ops::Mul<Mesh> for Transform {
     fn mul(self, rhs: Mesh) -> Self::Output {
         rhs.transformed_by(self)
     }
+}
+
+/// Error that can occur when calling [`Mesh::merge`].
+#[derive(Error, Debug, Clone)]
+#[error("Incompatible vertex attribute types {} and {}", self_attribute.name, other_attribute.map(|a| a.name).unwrap_or("None"))]
+pub struct MergeMeshError {
+    pub self_attribute: MeshVertexAttribute,
+    pub other_attribute: Option<MeshVertexAttribute>,
 }
 
 #[cfg(test)]

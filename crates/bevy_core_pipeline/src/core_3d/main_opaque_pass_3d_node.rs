@@ -2,7 +2,7 @@ use crate::{
     core_3d::Opaque3d,
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
-use bevy_ecs::{entity::Entity, prelude::World, query::QueryItem};
+use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -10,11 +10,11 @@ use bevy_render::{
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use tracing::info_span;
 
 use super::AlphaMask3d;
 
@@ -24,8 +24,8 @@ use super::AlphaMask3d;
 pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
     type ViewQuery = (
-        Entity,
         &'static ExtractedCamera,
+        &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
         Option<&'static SkyboxPipelineId>,
@@ -38,8 +38,8 @@ impl ViewNode for MainOpaquePass3dNode {
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (
-            view,
             camera,
+            extracted_view,
             target,
             depth,
             skybox_pipeline,
@@ -55,9 +55,10 @@ impl ViewNode for MainOpaquePass3dNode {
             return Ok(());
         };
 
-        let (Some(opaque_phase), Some(alpha_mask_phase)) =
-            (opaque_phases.get(&view), alpha_mask_phases.get(&view))
-        else {
+        let (Some(opaque_phase), Some(alpha_mask_phase)) = (
+            opaque_phases.get(&extracted_view.retained_view_entity),
+            alpha_mask_phases.get(&extracted_view.retained_view_entity),
+        ) else {
             return Ok(());
         };
 

@@ -6,6 +6,7 @@
 //! [`Material2d`]: bevy::sprite::Material2d
 
 use bevy::{
+    asset::weak_handle,
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     math::{ops, FloatOrd},
@@ -24,7 +25,8 @@ use bevy::{
             SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
             TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
-        sync_world::MainEntityHashMap,
+        sync_component::SyncComponentPlugin,
+        sync_world::{MainEntityHashMap, RenderEntity},
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderSet,
     },
@@ -115,7 +117,6 @@ fn star(
         Mesh2d(meshes.add(star)),
     ));
 
-    // Spawn the camera
     commands.spawn(Camera2d);
 }
 
@@ -126,7 +127,7 @@ pub struct ColoredMesh2d;
 /// Custom pipeline for 2d meshes with vertex colors
 #[derive(Resource)]
 pub struct ColoredMesh2dPipeline {
-    /// this pipeline wraps the standard [`Mesh2dPipeline`]
+    /// This pipeline wraps the standard [`Mesh2dPipeline`]
     mesh2d_pipeline: Mesh2dPipeline,
 }
 
@@ -286,7 +287,7 @@ pub struct ColoredMesh2dPlugin;
 
 /// Handle to the custom shader with a unique random ID
 pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(13828845428412094821);
+    weak_handle!("f48b148f-7373-4638-9900-392b3b3ccc66");
 
 /// Our custom pipeline needs its own instance storage
 #[derive(Resource, Deref, DerefMut, Default)]
@@ -300,6 +301,7 @@ impl Plugin for ColoredMesh2dPlugin {
             &COLORED_MESH2D_SHADER_HANDLE,
             Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()),
         );
+        app.add_plugins(SyncComponentPlugin::<ColoredMesh2d>::default());
 
         // Register our custom draw function, and add our render systems
         app.get_sub_app_mut(RenderApp)
@@ -329,12 +331,21 @@ pub fn extract_colored_mesh2d(
     // When extracting, you must use `Extract` to mark the `SystemParam`s
     // which should be taken from the main world.
     query: Extract<
-        Query<(Entity, &ViewVisibility, &GlobalTransform, &Mesh2d), With<ColoredMesh2d>>,
+        Query<
+            (
+                Entity,
+                RenderEntity,
+                &ViewVisibility,
+                &GlobalTransform,
+                &Mesh2d,
+            ),
+            With<ColoredMesh2d>,
+        >,
     >,
     mut render_mesh_instances: ResMut<RenderColoredMesh2dInstances>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, view_visibility, transform, handle) in &query {
+    for (entity, render_entity, view_visibility, transform, handle) in &query {
         if !view_visibility.get() {
             continue;
         }
@@ -344,7 +355,7 @@ pub fn extract_colored_mesh2d(
             flags: MeshFlags::empty().bits(),
         };
 
-        values.push((entity, ColoredMesh2d));
+        values.push((render_entity, ColoredMesh2d));
         render_mesh_instances.insert(
             entity.into(),
             RenderMesh2dInstance {
@@ -352,15 +363,15 @@ pub fn extract_colored_mesh2d(
                 transforms,
                 material_bind_group_id: Material2dBindGroupId::default(),
                 automatic_batching: false,
+                tag: 0,
             },
         );
     }
     *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
+    commands.try_insert_batch(values);
 }
 
 /// Queue the 2d meshes marked with [`ColoredMesh2d`] using our custom pipeline and draw function
-#[allow(clippy::too_many_arguments)]
 pub fn queue_colored_mesh2d(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     colored_mesh2d_pipeline: Res<ColoredMesh2dPipeline>,
@@ -369,14 +380,15 @@ pub fn queue_colored_mesh2d(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderColoredMesh2dInstances>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    views: Query<(Entity, &RenderVisibleEntities, &ExtractedView, &Msaa)>,
+    views: Query<(&RenderVisibleEntities, &ExtractedView, &Msaa)>,
 ) {
     if render_mesh_instances.is_empty() {
         return;
     }
     // Iterate each view (a camera is a view)
-    for (view_entity, visible_entities, view, msaa) in &views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+    for (visible_entities, view, msaa) in &views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -392,10 +404,10 @@ pub fn queue_colored_mesh2d(
                 let mesh2d_transforms = &mesh_instance.transforms;
                 // Get our specialized pipeline
                 let mut mesh2d_key = mesh_key;
-                if let Some(mesh) = render_meshes.get(mesh2d_handle) {
-                    mesh2d_key |=
-                        Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology());
-                }
+                let Some(mesh) = render_meshes.get(mesh2d_handle) else {
+                    continue;
+                };
+                mesh2d_key |= Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology());
 
                 let pipeline_id =
                     pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
@@ -411,6 +423,8 @@ pub fn queue_colored_mesh2d(
                     // This material is not batched
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    extracted_index: usize::MAX,
+                    indexed: mesh.indexed(),
                 });
             }
         }

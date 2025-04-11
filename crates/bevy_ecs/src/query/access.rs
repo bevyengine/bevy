@@ -3,9 +3,10 @@ use crate::storage::SparseSetIndex;
 use crate::world::World;
 use alloc::{format, string::String, vec, vec::Vec};
 use core::{fmt, fmt::Debug, marker::PhantomData};
-use derive_more::derive::From;
+use derive_more::From;
 use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
+use thiserror::Error;
 
 /// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
 /// to read, when used to store [`SparseSetIndex`].
@@ -307,6 +308,16 @@ impl<T: SparseSetIndex> Access<T> {
     /// Returns `true` if this accesses any resource mutably.
     pub fn has_any_resource_write(&self) -> bool {
         self.writes_all_resources || !self.resource_writes.is_clear()
+    }
+
+    /// Returns `true` if this accesses any resources or components.
+    pub fn has_any_read(&self) -> bool {
+        self.has_any_component_read() || self.has_any_resource_read()
+    }
+
+    /// Returns `true` if this accesses any resources or components mutably.
+    pub fn has_any_write(&self) -> bool {
+        self.has_any_component_write() || self.has_any_resource_write()
     }
 
     /// Returns true if this has an archetypal (indirect) access to the component given by `index`.
@@ -763,38 +774,99 @@ impl<T: SparseSetIndex> Access<T> {
         self.archetypal.ones().map(T::get_sparse_set_index)
     }
 
-    /// Returns an iterator over the component IDs that this `Access` either
-    /// reads and writes or can't read or write.
+    /// Returns an iterator over the component IDs and their [`ComponentAccessKind`].
     ///
-    /// The returned flag specifies whether the list consists of the components
-    /// that the access *can* read or write (false) or whether the list consists
-    /// of the components that the access *can't* read or write (true).
+    /// Returns `Err(UnboundedAccess)` if the access is unbounded.
+    /// This typically occurs when an [`Access`] is marked as accessing all
+    /// components, and then adding exceptions.
     ///
-    /// Because this method depends on internal implementation details of
-    /// `Access`, it's not recommended. Prefer to manage your own lists of
-    /// accessible components if your application needs to do that.
-    #[doc(hidden)]
-    // TODO: this should be deprecated and removed, see https://github.com/bevyengine/bevy/issues/16339
-    pub fn component_reads_and_writes(&self) -> (impl Iterator<Item = T> + '_, bool) {
-        (
-            self.component_read_and_writes
-                .ones()
-                .map(T::get_sparse_set_index),
-            self.component_read_and_writes_inverted,
-        )
-    }
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_ecs::query::{Access, ComponentAccessKind};
+    /// let mut access = Access::<usize>::default();
+    ///
+    /// access.add_component_read(1);
+    /// access.add_component_write(2);
+    /// access.add_archetypal(3);
+    ///
+    /// let result = access
+    ///     .try_iter_component_access()
+    ///     .map(Iterator::collect::<Vec<_>>);
+    ///
+    /// assert_eq!(
+    ///     result,
+    ///     Ok(vec![
+    ///         ComponentAccessKind::Shared(1),
+    ///         ComponentAccessKind::Exclusive(2),
+    ///         ComponentAccessKind::Archetypal(3),
+    ///     ]),
+    /// );
+    /// ```
+    pub fn try_iter_component_access(
+        &self,
+    ) -> Result<impl Iterator<Item = ComponentAccessKind<T>> + '_, UnboundedAccessError> {
+        // component_writes_inverted is only ever true when component_read_and_writes_inverted is
+        // also true. Therefore it is sufficient to check just component_read_and_writes_inverted.
+        if self.component_read_and_writes_inverted {
+            return Err(UnboundedAccessError {
+                writes_inverted: self.component_writes_inverted,
+                read_and_writes_inverted: self.component_read_and_writes_inverted,
+            });
+        }
 
-    /// Returns an iterator over the component IDs that this `Access` either
-    /// writes or can't write.
-    ///
-    /// The returned flag specifies whether the list consists of the components
-    /// that the access *can* write (false) or whether the list consists of the
-    /// components that the access *can't* write (true).
-    pub(crate) fn component_writes(&self) -> (impl Iterator<Item = T> + '_, bool) {
-        (
-            self.component_writes.ones().map(T::get_sparse_set_index),
-            self.component_writes_inverted,
-        )
+        let reads_and_writes = self.component_read_and_writes.ones().map(|index| {
+            let sparse_index = T::get_sparse_set_index(index);
+
+            if self.component_writes.contains(index) {
+                ComponentAccessKind::Exclusive(sparse_index)
+            } else {
+                ComponentAccessKind::Shared(sparse_index)
+            }
+        });
+
+        let archetypal = self
+            .archetypal
+            .ones()
+            .filter(|&index| {
+                !self.component_writes.contains(index)
+                    && !self.component_read_and_writes.contains(index)
+            })
+            .map(|index| ComponentAccessKind::Archetypal(T::get_sparse_set_index(index)));
+
+        Ok(reads_and_writes.chain(archetypal))
+    }
+}
+
+/// Error returned when attempting to iterate over items included in an [`Access`]
+/// if the access excludes items rather than including them.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Error)]
+#[error("Access is unbounded")]
+pub struct UnboundedAccessError {
+    /// [`Access`] is defined in terms of _excluding_ [exclusive](ComponentAccessKind::Exclusive)
+    /// access.
+    pub writes_inverted: bool,
+    /// [`Access`] is defined in terms of _excluding_ [shared](ComponentAccessKind::Shared) and
+    /// [exclusive](ComponentAccessKind::Exclusive) access.
+    pub read_and_writes_inverted: bool,
+}
+
+/// Describes the level of access for a particular component as defined in an [`Access`].
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
+pub enum ComponentAccessKind<T> {
+    /// Archetypical access, such as `Has<Foo>`.
+    Archetypal(T),
+    /// Shared access, such as `&Foo`.
+    Shared(T),
+    /// Exclusive access, such as `&mut Foo`.
+    Exclusive(T),
+}
+
+impl<T> ComponentAccessKind<T> {
+    /// Gets the index of this `ComponentAccessKind`.
+    pub fn index(&self) -> &T {
+        let (Self::Archetypal(value) | Self::Shared(value) | Self::Exclusive(value)) = self;
+        value
     }
 }
 
@@ -809,7 +881,7 @@ impl<T: SparseSetIndex> Access<T> {
 /// otherwise would allow for queries to be considered disjoint when they shouldn't:
 /// - `Query<(&mut T, Option<&U>)>` read/write `T`, read `U`, with `U`
 /// - `Query<&mut T, Without<U>>` read/write `T`, without `U`
-///     from this we could reasonably conclude that the queries are disjoint but they aren't.
+///   from this we could reasonably conclude that the queries are disjoint but they aren't.
 ///
 /// In order to solve this the actual access that `Query<(&mut T, Option<&U>)>` has
 /// is read/write `T`, read `U`. It must still have a read `U` access otherwise the following
@@ -896,11 +968,10 @@ impl AccessConflicts {
                     format!(
                         "{}",
                         ShortName(
-                            world
+                            &world
                                 .components
-                                .get_info(ComponentId::get_sparse_set_index(index))
+                                .get_name(ComponentId::get_sparse_set_index(index))
                                 .unwrap()
-                                .name()
                         )
                     )
                 })
@@ -1123,6 +1194,16 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
             .iter()
             .flat_map(|f| f.without.ones().map(T::get_sparse_set_index))
     }
+
+    /// Returns true if the index is used by this `FilteredAccess` in any way
+    pub fn contains(&self, index: T) -> bool {
+        self.access().has_component_read(index.clone())
+            || self.access().has_archetypal(index.clone())
+            || self.filter_sets.iter().any(|f| {
+                f.with.contains(index.sparse_set_index())
+                    || f.without.contains(index.sparse_set_index())
+            })
+    }
 }
 
 #[derive(Eq, PartialEq)]
@@ -1309,12 +1390,16 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
 
     /// Marks the set as reading all possible indices of type T.
     pub fn read_all(&mut self) {
-        self.combined_access.read_all();
+        let mut filter = FilteredAccess::matches_everything();
+        filter.read_all();
+        self.add(filter);
     }
 
     /// Marks the set as writing all T.
     pub fn write_all(&mut self) {
-        self.combined_access.write_all();
+        let mut filter = FilteredAccess::matches_everything();
+        filter.write_all();
+        self.add(filter);
     }
 
     /// Removes all accesses stored in this set.
@@ -1336,9 +1421,10 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 #[cfg(test)]
 mod tests {
     use crate::query::{
-        access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
+        access::AccessFilters, Access, AccessConflicts, ComponentAccessKind, FilteredAccess,
+        FilteredAccessSet, UnboundedAccessError,
     };
-    use alloc::vec;
+    use alloc::{vec, vec::Vec};
     use core::marker::PhantomData;
     use fixedbitset::FixedBitSet;
 
@@ -1609,5 +1695,71 @@ mod tests {
         ];
 
         assert_eq!(access_a, expected);
+    }
+
+    #[test]
+    fn try_iter_component_access_simple() {
+        let mut access = Access::<usize>::default();
+
+        access.add_component_read(1);
+        access.add_component_read(2);
+        access.add_component_write(3);
+        access.add_archetypal(5);
+
+        let result = access
+            .try_iter_component_access()
+            .map(Iterator::collect::<Vec<_>>);
+
+        assert_eq!(
+            result,
+            Ok(vec![
+                ComponentAccessKind::Shared(1),
+                ComponentAccessKind::Shared(2),
+                ComponentAccessKind::Exclusive(3),
+                ComponentAccessKind::Archetypal(5),
+            ]),
+        );
+    }
+
+    #[test]
+    fn try_iter_component_access_unbounded_write_all() {
+        let mut access = Access::<usize>::default();
+
+        access.add_component_read(1);
+        access.add_component_read(2);
+        access.write_all();
+
+        let result = access
+            .try_iter_component_access()
+            .map(Iterator::collect::<Vec<_>>);
+
+        assert_eq!(
+            result,
+            Err(UnboundedAccessError {
+                writes_inverted: true,
+                read_and_writes_inverted: true
+            }),
+        );
+    }
+
+    #[test]
+    fn try_iter_component_access_unbounded_read_all() {
+        let mut access = Access::<usize>::default();
+
+        access.add_component_read(1);
+        access.add_component_read(2);
+        access.read_all();
+
+        let result = access
+            .try_iter_component_access()
+            .map(Iterator::collect::<Vec<_>>);
+
+        assert_eq!(
+            result,
+            Err(UnboundedAccessError {
+                writes_inverted: false,
+                read_and_writes_inverted: true
+            }),
+        );
     }
 }

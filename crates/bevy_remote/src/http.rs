@@ -15,7 +15,8 @@ use anyhow::Result as AnyhowResult;
 use async_channel::{Receiver, Sender};
 use async_io::Async;
 use bevy_app::{App, Plugin, Startup};
-use bevy_ecs::system::{Res, Resource};
+use bevy_ecs::resource::Resource;
+use bevy_ecs::system::Res;
 use bevy_tasks::{futures_lite::StreamExt, IoTaskPool};
 use core::{
     convert::Infallible,

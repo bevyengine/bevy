@@ -1,10 +1,7 @@
 use crate::Node;
 use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{
-    component::{require, Component},
-    reflect::ReflectComponent,
-};
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::ExtractComponent,
@@ -113,7 +110,10 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
         ShaderRef::Default
     }
 
-    #[allow(unused_variables)]
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
     #[inline]
     fn specialize(descriptor: &mut RenderPipelineDescriptor, key: UiMaterialKey<Self>) {}
 }

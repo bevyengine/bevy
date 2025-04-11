@@ -2,6 +2,7 @@ use core::fmt::Debug;
 
 use crate::{primitives::Frustum, view::VisibilitySystems};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
+use bevy_asset::AssetEvents;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::{ops, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
@@ -29,7 +30,9 @@ impl Plugin for CameraProjectionPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    crate::camera::camera_system.in_set(CameraUpdateSystem),
+                    crate::camera::camera_system
+                        .in_set(CameraUpdateSystem)
+                        .before(AssetEvents),
                     crate::view::update_frusta
                         .in_set(VisibilitySystems::UpdateFrusta)
                         .after(crate::camera::camera_system)
@@ -126,7 +129,7 @@ mod sealed {
 ///
 /// The contained dynamic object can be downcast into a static type using [`CustomProjection::get`].
 #[derive(Component, Debug, Reflect, Deref, DerefMut)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub struct CustomProjection {
     #[reflect(ignore)]
     #[deref]
@@ -218,7 +221,7 @@ impl CustomProjection {
 ///
 /// [`Camera`]: crate::camera::Camera
 #[derive(Component, Debug, Clone, Reflect, From)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub enum Projection {
     Perspective(PerspectiveProjection),
     Orthographic(OrthographicProjection),
@@ -295,7 +298,7 @@ impl Default for Projection {
 
 /// A 3D camera projection in which distant objects appear smaller than close objects.
 #[derive(Debug, Clone, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct PerspectiveProjection {
     /// The vertical field of view (FOV) in radians.
     ///
@@ -430,7 +433,7 @@ impl Default for PerspectiveProjection {
 /// });
 /// ```
 #[derive(Default, Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
-#[reflect(Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, Default, Clone)]
 pub enum ScalingMode {
     /// Match the viewport size.
     ///
@@ -487,7 +490,7 @@ pub enum ScalingMode {
 /// });
 /// ```
 #[derive(Debug, Clone, Reflect)]
-#[reflect(Debug, FromWorld)]
+#[reflect(Debug, FromWorld, Clone)]
 pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.
     ///
@@ -637,8 +640,8 @@ impl CameraProjection for OrthographicProjection {
             ScalingMode::Fixed { width, height } => (width, height),
         };
 
-        let origin_x = (projection_width * self.viewport_origin.x).round();
-        let origin_y = (projection_height * self.viewport_origin.y).round();
+        let origin_x = projection_width * self.viewport_origin.x;
+        let origin_y = projection_height * self.viewport_origin.y;
 
         self.area = Rect::new(
             self.scale * -origin_x,

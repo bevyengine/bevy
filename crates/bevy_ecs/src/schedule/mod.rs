@@ -1,18 +1,27 @@
 //! Contains APIs for ordering systems and executing them on a [`World`](crate::world::World)
 
+mod auto_insert_apply_deferred;
 mod condition;
 mod config;
 mod executor;
-mod graph;
-#[allow(clippy::module_inception)]
+mod pass;
 mod schedule;
 mod set;
 mod stepping;
 
 use self::graph::*;
 pub use self::{condition::*, config::*, executor::*, schedule::*, set::*};
+pub use pass::ScheduleBuildPass;
 
 pub use self::graph::NodeId;
+
+/// An implementation of a graph data structure.
+pub mod graph;
+
+/// Included optional schedule build passes.
+pub mod passes {
+    pub use crate::schedule::auto_insert_apply_deferred::*;
+}
 
 #[cfg(test)]
 mod tests {
@@ -20,11 +29,11 @@ mod tests {
     use alloc::{string::ToString, vec, vec::Vec};
     use core::sync::atomic::{AtomicU32, Ordering};
 
-    pub use crate as bevy_ecs;
     pub use crate::{
         prelude::World,
+        resource::Resource,
         schedule::{Schedule, SystemSet},
-        system::{Res, ResMut, Resource},
+        system::{Res, ResMut},
     };
 
     #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
@@ -720,8 +729,6 @@ mod tests {
         use alloc::collections::BTreeSet;
 
         use super::*;
-        // Required to make the derive macro behave
-        use crate as bevy_ecs;
         use crate::prelude::*;
 
         #[derive(Resource)]
@@ -1082,7 +1089,7 @@ mod tests {
 
             schedule.graph_mut().initialize(&mut world);
             let _ = schedule.graph_mut().build_schedule(
-                world.components(),
+                &mut world,
                 TestSchedule.intern(),
                 &BTreeSet::new(),
             );
@@ -1090,28 +1097,38 @@ mod tests {
             let ambiguities: Vec<_> = schedule
                 .graph()
                 .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
+                .map(|item| {
+                    (
+                        item.0,
+                        item.1,
+                        item.2
+                            .into_iter()
+                            .map(|name| name.to_string())
+                            .collect::<Vec<_>>(),
+                    )
+                })
                 .collect();
 
             let expected = &[
                 (
                     "system_d".to_string(),
                     "system_a".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
+                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
                 ),
                 (
                     "system_d".to_string(),
                     "system_e".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
+                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
                 ),
                 (
                     "system_b".to_string(),
                     "system_a".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
+                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
                 ),
                 (
                     "system_b".to_string(),
                     "system_e".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
+                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
                 ),
             ];
 
@@ -1131,7 +1148,7 @@ mod tests {
             let mut world = World::new();
             schedule.graph_mut().initialize(&mut world);
             let _ = schedule.graph_mut().build_schedule(
-                world.components(),
+                &mut world,
                 TestSchedule.intern(),
                 &BTreeSet::new(),
             );
@@ -1139,6 +1156,16 @@ mod tests {
             let ambiguities: Vec<_> = schedule
                 .graph()
                 .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
+                .map(|item| {
+                    (
+                        item.0,
+                        item.1,
+                        item.2
+                            .into_iter()
+                            .map(|name| name.to_string())
+                            .collect::<Vec<_>>(),
+                    )
+                })
                 .collect();
 
             assert_eq!(
@@ -1146,7 +1173,7 @@ mod tests {
                 (
                     "resmut_system (in set (resmut_system, resmut_system))".to_string(),
                     "resmut_system (in set (resmut_system, resmut_system))".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
+                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
                 )
             );
         }
@@ -1185,7 +1212,7 @@ mod tests {
                 let mut schedule = Schedule::new(TestSchedule);
                 schedule
                     .set_executor_kind($executor)
-                    .add_systems(|| panic!("Executor ignored Stepping"));
+                    .add_systems(|| -> () { panic!("Executor ignored Stepping") });
 
                 // Add our schedule to stepping & and enable stepping; this should
                 // prevent any systems in the schedule from running

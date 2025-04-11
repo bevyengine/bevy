@@ -1,11 +1,17 @@
-use crate::{
-    self as bevy_asset, loader::AssetLoader, processor::Process, Asset, AssetPath,
-    DeserializeMetaError, VisitAssetDependencies,
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    vec::Vec,
 };
-use bevy_utils::tracing::error;
+
+use crate::{
+    loader::AssetLoader, processor::Process, Asset, AssetPath, DeserializeMetaError,
+    VisitAssetDependencies,
+};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 pub const META_FORMAT_VERSION: &str = "1.0";
 pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;

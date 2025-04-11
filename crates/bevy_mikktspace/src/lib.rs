@@ -1,4 +1,9 @@
 #![allow(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "Much of the code here is still code that's been transpiled from C; we want to save 'fixing' this crate until after it's ported to safe rust."
+)]
+#![allow(
     unsafe_op_in_unsafe_fn,
     clippy::all,
     clippy::undocumented_unsafe_blocks,

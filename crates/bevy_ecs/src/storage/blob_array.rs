@@ -76,7 +76,7 @@ impl BlobArray {
     ///
     /// # Safety
     /// - The element at index `index` is safe to access.
-    ///     (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
+    ///   (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
     ///
     /// [`Vec::len`]: alloc::vec::Vec::len
     #[inline]
@@ -99,7 +99,7 @@ impl BlobArray {
     ///
     /// # Safety
     /// - The element with at index `index` is safe to access.
-    ///     (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
+    ///   (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
     ///
     /// [`Vec::len`]: alloc::vec::Vec::len
     #[inline]
@@ -156,7 +156,7 @@ impl BlobArray {
     ///
     /// # Safety
     /// - For every element with index `i`, if `i` < `len`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
-    ///     (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `len` is correct.)
+    ///   (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `len` is correct.)
     ///
     /// [`Vec::clear`]: alloc::vec::Vec::clear
     pub unsafe fn clear(&mut self, len: usize) {
@@ -256,7 +256,7 @@ impl BlobArray {
         new_capacity: NonZeroUsize,
     ) {
         #[cfg(debug_assertions)]
-        debug_assert_eq!(self.capacity, current_capacity.into());
+        debug_assert_eq!(self.capacity, current_capacity.get());
         if !self.is_zst() {
             // SAFETY: `new_capacity` can't overflow usize
             let new_layout =
@@ -289,7 +289,7 @@ impl BlobArray {
     /// # Safety
     /// - `index` must be in bounds (`index` < capacity)
     /// - The [`Layout`] of the value must match the layout of the blobs stored in this array,
-    ///     and it must be safe to use the `drop` function of this [`BlobArray`] to drop `value`.
+    ///   and it must be safe to use the `drop` function of this [`BlobArray`] to drop `value`.
     /// - `value` must not point to the same value that is being initialized.
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
@@ -305,7 +305,7 @@ impl BlobArray {
     /// # Safety
     /// - Index must be in-bounds (`index` < `len`)
     /// - `value`'s [`Layout`] must match this [`BlobArray`]'s `item_layout`,
-    ///     and it must be safe to use the `drop` function of this [`BlobArray`] to drop `value`.
+    ///   and it must be safe to use the `drop` function of this [`BlobArray`] to drop `value`.
     /// - `value` must not point to the same value that is being replaced.
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         #[cfg(debug_assertions)]
@@ -479,7 +479,6 @@ impl BlobArray {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use bevy_ecs::prelude::*;
 
     #[derive(Component)]

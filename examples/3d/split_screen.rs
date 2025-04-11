@@ -84,7 +84,7 @@ fn setup(
         // Set up UI
         commands
             .spawn((
-                TargetCamera(camera),
+                UiTargetCamera(camera),
                 Node {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
@@ -105,7 +105,7 @@ fn setup(
             });
     }
 
-    fn buttons_panel(parent: &mut ChildBuilder) {
+    fn buttons_panel(parent: &mut ChildSpawnerCommands) {
         parent
             .spawn(Node {
                 position_type: PositionType::Absolute,
@@ -124,7 +124,7 @@ fn setup(
             });
     }
 
-    fn rotate_button(parent: &mut ChildBuilder, caption: &str, direction: Direction) {
+    fn rotate_button(parent: &mut ChildSpawnerCommands, caption: &str, direction: Direction) {
         parent
             .spawn((
                 RotateCamera(direction),
@@ -181,19 +181,21 @@ fn set_camera_viewports(
     }
 }
 
-#[allow(clippy::type_complexity)]
 fn button_system(
     interaction_query: Query<
-        (&Interaction, &TargetCamera, &RotateCamera),
+        (&Interaction, &ComputedNodeTarget, &RotateCamera),
         (Changed<Interaction>, With<Button>),
     >,
     mut camera_query: Query<&mut Transform, With<Camera>>,
 ) {
-    for (interaction, target_camera, RotateCamera(direction)) in &interaction_query {
+    for (interaction, computed_target, RotateCamera(direction)) in &interaction_query {
         if let Interaction::Pressed = *interaction {
             // Since TargetCamera propagates to the children, we can use it to find
             // which side of the screen the button is on.
-            if let Ok(mut camera_transform) = camera_query.get_mut(target_camera.entity()) {
+            if let Some(mut camera_transform) = computed_target
+                .camera()
+                .and_then(|camera| camera_query.get_mut(camera).ok())
+            {
                 let angle = match direction {
                     Direction::Left => -0.1,
                     Direction::Right => 0.1,

@@ -2,7 +2,8 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use core::any::Any;
 
 use crate::{
-    component::{ComponentHook, ComponentHooks, ComponentId, Mutable, StorageType},
+    component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
+    error::{default_error_handler, ErrorContext},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -65,13 +66,16 @@ impl Component for ObserverState {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
 
-    fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_add(|mut world, entity, _| {
+    fn on_add() -> Option<ComponentHook> {
+        Some(|mut world, HookContext { entity, .. }| {
             world.commands().queue(move |world: &mut World| {
                 world.register_observer(entity);
             });
-        });
-        hooks.on_remove(|mut world, entity, _| {
+        })
+    }
+
+    fn on_remove() -> Option<ComponentHook> {
+        Some(|mut world, HookContext { entity, .. }| {
             let descriptor = core::mem::take(
                 &mut world
                     .entity_mut(entity)
@@ -83,7 +87,7 @@ impl Component for ObserverState {
             world.commands().queue(move |world: &mut World| {
                 world.unregister_observer(entity, descriptor);
             });
-        });
+        })
     }
 }
 
@@ -269,6 +273,7 @@ pub struct Observer {
     system: Box<dyn Any + Send + Sync + 'static>,
     descriptor: ObserverDescriptor,
     hook_on_add: ComponentHook,
+    error_handler: Option<fn(BevyError, ErrorContext)>,
 }
 
 impl Observer {
@@ -279,6 +284,7 @@ impl Observer {
             system: Box::new(IntoObserverSystem::into_system(system)),
             descriptor: Default::default(),
             hook_on_add: hook_on_add::<E, B, I::System>,
+            error_handler: None,
         }
     }
 
@@ -312,19 +318,32 @@ impl Observer {
         self.descriptor.events.push(event);
         self
     }
+
+    /// Set the error handler to use for this observer.
+    ///
+    /// See the [`error` module-level documentation](crate::error) for more information.
+    pub fn with_error_handler(mut self, error_handler: fn(BevyError, ErrorContext)) -> Self {
+        self.error_handler = Some(error_handler);
+        self
+    }
+
+    /// Returns the [`ObserverDescriptor`] for this [`Observer`].
+    pub fn descriptor(&self) -> &ObserverDescriptor {
+        &self.descriptor
+    }
 }
 
 impl Component for Observer {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
-    fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_add(|world, entity, _id| {
-            let Some(observe) = world.get::<Self>(entity) else {
+    fn on_add() -> Option<ComponentHook> {
+        Some(|world, context| {
+            let Some(observe) = world.get::<Self>(context.entity) else {
                 return;
             };
             let hook = observe.hook_on_add;
-            hook(world, entity, _id);
-        });
+            hook(world, context);
+        })
     }
 }
 
@@ -355,6 +374,15 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     }
     state.last_trigger_id = last_trigger;
 
+    // SAFETY: Observer was triggered so must have an `Observer` component.
+    let error_handler = unsafe {
+        observer_cell
+            .get::<Observer>()
+            .debug_checked_unwrap()
+            .error_handler
+            .debug_checked_unwrap()
+    };
+
     let trigger: Trigger<E, B> = Trigger::new(
         // SAFETY: Caller ensures `ptr` is castable to `&mut T`
         unsafe { ptr.deref_mut() },
@@ -374,17 +402,39 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     // - `update_archetype_component_access` is called first
     // - there are no outstanding references to world except a private component
     // - system is an `ObserverSystem` so won't mutate world beyond the access of a `DeferredWorld`
+    //   and is never exclusive
     // - system is the same type erased system from above
     unsafe {
         (*system).update_archetype_component_access(world);
-        if (*system).validate_param_unsafe(world) {
-            (*system).run_unsafe(trigger, world);
-            (*system).queue_deferred(world.into_deferred());
+        match (*system).validate_param_unsafe(world) {
+            Ok(()) => {
+                if let Err(err) = (*system).run_unsafe(trigger, world) {
+                    error_handler(
+                        err,
+                        ErrorContext::Observer {
+                            name: (*system).name(),
+                            last_run: (*system).get_last_run(),
+                        },
+                    );
+                };
+                (*system).queue_deferred(world.into_deferred());
+            }
+            Err(e) => {
+                if !e.skipped {
+                    error_handler(
+                        e.into(),
+                        ErrorContext::Observer {
+                            name: (*system).name(),
+                            last_run: (*system).get_last_run(),
+                        },
+                    );
+                }
+            }
         }
     }
 }
 
-/// A [`ComponentHook`] used by [`Observer`] to handle its [`on-add`](`ComponentHooks::on_add`).
+/// A [`ComponentHook`] used by [`Observer`] to handle its [`on-add`](`crate::component::ComponentHooks::on_add`).
 ///
 /// This function exists separate from [`Observer`] to allow [`Observer`] to have its type parameters
 /// erased.
@@ -394,25 +444,29 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
 /// ensure type parameters match.
 fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld<'_>,
-    entity: Entity,
-    _: ComponentId,
+    HookContext { entity, .. }: HookContext,
 ) {
     world.commands().queue(move |world: &mut World| {
-        let event_type = world.register_component::<E>();
+        let event_id = E::register_component_id(world);
         let mut components = Vec::new();
-        B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
+        B::component_ids(&mut world.components_registrator(), &mut |id| {
             components.push(id);
         });
         let mut descriptor = ObserverDescriptor {
-            events: vec![event_type],
+            events: vec![event_id],
             components,
             ..Default::default()
         };
+
+        let error_handler = default_error_handler();
 
         // Initialize System
         let system: *mut dyn ObserverSystem<E, B> =
             if let Some(mut observe) = world.get_mut::<Observer>(entity) {
                 descriptor.merge(&observe.descriptor);
+                if observe.error_handler.is_none() {
+                    observe.error_handler = Some(error_handler);
+                }
                 let system = observe.system.downcast_mut::<S>().unwrap();
                 &mut *system
             } else {
@@ -434,4 +488,45 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{event::Event, observer::Trigger};
+
+    #[derive(Event)]
+    struct TriggerEvent;
+
+    #[test]
+    #[should_panic(expected = "I failed!")]
+    fn test_fallible_observer() {
+        fn system(_: Trigger<TriggerEvent>) -> Result {
+            Err("I failed!".into())
+        }
+
+        let mut world = World::default();
+        world.add_observer(system);
+        Schedule::default().run(&mut world);
+        world.trigger(TriggerEvent);
+    }
+
+    #[test]
+    fn test_fallible_observer_ignored_errors() {
+        #[derive(Resource, Default)]
+        struct Ran(bool);
+
+        fn system(_: Trigger<TriggerEvent>, mut ran: ResMut<Ran>) -> Result {
+            ran.0 = true;
+            Err("I failed!".into())
+        }
+
+        let mut world = World::default();
+        world.init_resource::<Ran>();
+        let observer = Observer::new(system).with_error_handler(crate::error::ignore);
+        world.spawn(observer);
+        Schedule::default().run(&mut world);
+        world.trigger(TriggerEvent);
+        assert!(world.resource::<Ran>().0);
+    }
 }

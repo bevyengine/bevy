@@ -1,16 +1,36 @@
 //! This example demonstrates how fallible parameters can prevent their systems
 //! from running if their acquiry conditions aren't met.
 //!
-//! Fallible parameters include:
-//! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist.
-//! - [`Single<D, F>`] - There must be exactly one matching entity.
-//! - [`Option<Single<D, F>>`] - There must be zero or one matching entity.
-//! - [`Populated<D, F>`] - There must be at least one matching entity.
+//! Fallible system parameters include:
+//! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist, and the [`GLOBAL_ERROR_HANDLER`] will be called if it doesn't.
+//! - [`Single<D, F>`] - There must be exactly one matching entity, but the system will be silently skipped otherwise.
+//! - [`Option<Single<D, F>>`] - There must be zero or one matching entity. The system will be silently skipped if there are more.
+//! - [`Populated<D, F>`] - There must be at least one matching entity, but the system will be silently skipped otherwise.
+//!
+//! Other system parameters, such as [`Query`], will never fail validation: returning a query with no matching entities is valid.
+//!
+//! The result of failed system parameter validation is determined by the [`SystemParamValidationError`] returned
+//! by [`SystemParam::validate_param`] for each system parameter.
+//! Each system will pass if all of its parameters are valid, or else return [`SystemParamValidationError`] for the first failing parameter.
+//!
+//! To learn more about setting the fallback behavior for [`SystemParamValidationError`] failures,
+//! please see the `error_handling.rs` example.
+//!
+//! [`SystemParamValidationError`]: bevy::ecs::system::SystemParamValidationError
+//! [`SystemParam::validate_param`]: bevy::ecs::system::SystemParam::validate_param
 
+use bevy::ecs::error::{warn, GLOBAL_ERROR_HANDLER};
 use bevy::prelude::*;
 use rand::Rng;
 
 fn main() {
+    // By default, if a parameter fail to be fetched,
+    // the `GLOBAL_ERROR_HANDLER` will be used to handle the error,
+    // which by default is set to panic.
+    GLOBAL_ERROR_HANDLER
+        .set(warn)
+        .expect("The error handler can only be set once, globally.");
+
     println!();
     println!("Press 'A' to add enemy ships and 'R' to remove them.");
     println!("Player ship will wait for enemy ships and track one if it exists,");
@@ -20,20 +40,9 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        // Default system policy is to panic if parameters fail to be fetched.
-        // We overwrite that configuration, to either warn us once or never.
-        // This is good for catching unexpected behavior without crashing the app,
-        // but can lead to spam.
-        .add_systems(
-            Update,
-            (
-                user_input.param_warn_once(),
-                move_targets.never_param_warn(),
-                move_pointer.never_param_warn(),
-            )
-                .chain(),
-        )
-        .add_systems(Update, do_nothing_fail_validation.param_warn_once())
+        .add_systems(Update, (user_input, move_targets, track_targets).chain())
+        // This system will always fail validation, because we never create an entity with both `Player` and `Enemy` components.
+        .add_systems(Update, do_nothing_fail_validation)
         .run();
 }
 
@@ -111,7 +120,7 @@ fn user_input(
 }
 
 // System that moves the enemies in a circle.
-// Only runs if there are enemies.
+// Only runs if there are enemies, due to the `Populated` parameter.
 fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
     for (mut transform, mut target) in &mut *enemies {
         target.rotation += target.rotation_speed * time.delta_secs();
@@ -121,11 +130,11 @@ fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<
     }
 }
 
-/// System that moves the player.
+/// System that moves the player, causing them to track a single enemy.
 /// The player will search for enemies if there are none.
 /// If there is one, player will track it.
 /// If there are too many enemies, the player will cease all action (the system will not run).
-fn move_pointer(
+fn track_targets(
     // `Single` ensures the system runs ONLY when exactly one matching entity exists.
     mut player: Single<(&mut Transform, &Player)>,
     // `Option<Single>` ensures that the system runs ONLY when zero or one matching entity exists.
@@ -147,7 +156,7 @@ fn move_pointer(
             player_transform.translation += front * velocity;
         }
     } else {
-        // No enemy found, keep searching.
+        // 0 or multiple enemies found, keep searching.
         player_transform.rotate_axis(Dir3::Z, player.rotation_speed * time.delta_secs());
     }
 }

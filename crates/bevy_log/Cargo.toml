@@ -1,7 +1,7 @@
 [package]
 name = "bevy_log"
-version = "0.15.0-dev"
-edition = "2021"
+version = "0.16.0-dev"
+edition = "2024"
 description = "Provides logging for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -9,32 +9,55 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-trace = ["tracing-error"]
-trace_tracy_memory = ["dep:tracy-client"]
+default = ["std", "tracing"]
+
+tracing = ["dep:tracing", "dep:tracing-subscriber", "dep:tracing-log"]
+trace = ["tracing", "tracing-error"]
+trace_tracy_memory = ["tracing", "dep:tracy-client"]
+tracing-chrome = ["tracing", "dep:tracing-chrome"]
+tracing-error = ["tracing", "dep:tracing-error"]
+tracing-tracy = ["tracing", "dep:tracing-tracy"]
+
+# Allows access to the `std` crate. Enabling this feature will prevent compilation
+# on `no_std` targets, but provides access to certain additional features on
+# supported platforms.
+std = ["bevy_app/std", "bevy_utils/std", "bevy_ecs/std"]
+
+# Enables use of browser APIs.
+# Note this is currently only applicable on `wasm32` architectures.
+web = ["bevy_app/web", "dep:tracing-wasm"]
 
 [dependencies]
-bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
+  "alloc",
+] }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
 
-tracing-subscriber = { version = "0.3.1", features = [
+# other
+log = { version = "0.4", default-features = false }
+tracing-subscriber = { version = "0.3.1", optional = true, features = [
   "registry",
   "env-filter",
 ] }
 tracing-chrome = { version = "0.7.0", optional = true }
-tracing-log = "0.2.0"
+tracing-log = { version = "0.2.0", optional = true }
 tracing-error = { version = "0.2.0", optional = true }
+tracing = { version = "0.1", default-features = false, optional = true, features = [
+  "std",
+] }
 
 # Tracy dependency compatibility table:
 # https://github.com/nagisa/rust_tracy_client
-tracing-tracy = { version = "0.11.0", optional = true }
-tracy-client = { version = "0.17.0", optional = true }
+tracing-tracy = { version = "0.11.4", optional = true }
+tracy-client = { version = "0.18.0", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_log-sys = "0.3.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-tracing-wasm = "0.2.1"
+tracing-wasm = { version = "0.2.1", optional = true }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 tracing-oslog = "0.2"

@@ -1,19 +1,18 @@
-#![expect(deprecated)]
-
 use crate::NodePbr;
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prelude::Camera3d,
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
-    prelude::{require, Bundle, Component, Entity},
+    prelude::{Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    schedule::IntoScheduleConfigs,
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -36,16 +35,17 @@ use bevy_render::{
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{
-    prelude::default,
-    tracing::{error, warn},
-};
+use bevy_utils::prelude::default;
 use core::mem;
+use tracing::{error, warn};
 
-const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
-const SSAO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(253938746510568);
-const SPATIAL_DENOISE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(466162052558226);
-const SSAO_UTILS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(366465052568786);
+const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("b7f2cc3d-c935-4f5c-9ae2-43d6b0d5659a");
+const SSAO_SHADER_HANDLE: Handle<Shader> = weak_handle!("9ea355d7-37a2-4cc4-b4d1-5d8ab47b07f5");
+const SPATIAL_DENOISE_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("0f2764a0-b343-471b-b7ce-ef5d636f4fc3");
+const SSAO_UTILS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("da53c78d-f318-473e-bdff-b388bc50ada2");
 
 /// Plugin for screen space ambient occlusion.
 pub struct ScreenSpaceAmbientOcclusionPlugin;
@@ -132,18 +132,6 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     }
 }
 
-/// Bundle to apply screen space ambient occlusion.
-#[derive(Bundle, Default, Clone)]
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `ScreenSpaceAmbientOcclusion` component instead. Inserting it will now also insert the other components required by it automatically."
-)]
-pub struct ScreenSpaceAmbientOcclusionBundle {
-    pub settings: ScreenSpaceAmbientOcclusion,
-    pub depth_prepass: DepthPrepass,
-    pub normal_prepass: NormalPrepass,
-}
-
 /// Component to apply screen space ambient occlusion to a 3d camera.
 ///
 /// Screen space ambient occlusion (SSAO) approximates small-scale,
@@ -158,12 +146,12 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 /// Requires that you add [`ScreenSpaceAmbientOcclusionPlugin`] to your app.
 ///
 /// It strongly recommended that you use SSAO in conjunction with
-/// TAA ([`bevy_core_pipeline::experimental::taa::TemporalAntiAliasing`]).
+/// TAA (`TemporalAntiAliasing`).
 /// Doing so greatly reduces SSAO noise.
 ///
 /// SSAO is not supported on `WebGL2`, and is not currently supported on `WebGPU`.
 #[derive(Component, ExtractComponent, Reflect, PartialEq, Clone, Debug)]
-#[reflect(Component, Debug, Default, PartialEq)]
+#[reflect(Component, Debug, Default, PartialEq, Clone)]
 #[require(DepthPrepass, NormalPrepass)]
 #[doc(alias = "Ssao")]
 pub struct ScreenSpaceAmbientOcclusion {
@@ -185,10 +173,8 @@ impl Default for ScreenSpaceAmbientOcclusion {
     }
 }
 
-#[deprecated(since = "0.15.0", note = "Renamed to `ScreenSpaceAmbientOcclusion`")]
-pub type ScreenSpaceAmbientOcclusionSettings = ScreenSpaceAmbientOcclusion;
-
 #[derive(Reflect, PartialEq, Eq, Hash, Clone, Copy, Default, Debug)]
+#[reflect(PartialEq, Hash, Clone, Default)]
 pub enum ScreenSpaceAmbientOcclusionQualityLevel {
     Low,
     Medium,
@@ -771,17 +757,9 @@ fn prepare_ssao_bind_groups(
     }
 }
 
-#[allow(clippy::needless_range_loop)]
 fn generate_hilbert_index_lut() -> [[u16; 64]; 64] {
-    let mut t = [[0; 64]; 64];
-
-    for x in 0..64 {
-        for y in 0..64 {
-            t[x][y] = hilbert_index(x as u16, y as u16);
-        }
-    }
-
-    t
+    use core::array::from_fn;
+    from_fn(|x| from_fn(|y| hilbert_index(x as u16, y as u16)))
 }
 
 // https://www.shadertoy.com/view/3tB3z3

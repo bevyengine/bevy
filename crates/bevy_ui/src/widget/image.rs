@@ -1,18 +1,17 @@
-use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiScale};
+use crate::{ComputedNodeTarget, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
-use bevy_sprite::{TextureAtlas, TextureAtlasLayout, TextureSlicer};
-use bevy_window::{PrimaryWindow, Window};
+use bevy_sprite::TextureSlicer;
 use taffy::{MaybeMath, MaybeResolve};
 
 /// A UI Node that renders an image.
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[require(Node, ImageNodeSize, ContentSize)]
 pub struct ImageNode {
     /// The tint color used to draw the image.
@@ -140,6 +139,7 @@ impl From<Handle<Image>> for ImageNode {
 
 /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
 #[derive(Default, Debug, Clone, Reflect)]
+#[reflect(Clone, Default)]
 pub enum NodeImageMode {
     /// The image will be sized automatically by taking the size of the source image and applying any layout constraints.
     #[default]
@@ -175,7 +175,7 @@ impl NodeImageMode {
 ///
 /// This component is updated automatically by [`update_image_content_size_system`]
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct ImageNodeSize {
     /// The size of the image's texture
     ///
@@ -254,21 +254,19 @@ type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
-    mut previous_combined_scale_factor: Local<f32>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    ui_scale: Res<UiScale>,
     textures: Res<Assets<Image>>,
-
     atlases: Res<Assets<TextureAtlasLayout>>,
-    mut query: Query<(&mut ContentSize, Ref<ImageNode>, &mut ImageNodeSize), UpdateImageFilter>,
+    mut query: Query<
+        (
+            &mut ContentSize,
+            Ref<ImageNode>,
+            &mut ImageNodeSize,
+            Ref<ComputedNodeTarget>,
+        ),
+        UpdateImageFilter,
+    >,
 ) {
-    let combined_scale_factor = windows
-        .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.)
-        * ui_scale.0;
-
-    for (mut content_size, image, mut image_size) in &mut query {
+    for (mut content_size, image, mut image_size, computed_target) in &mut query {
         if !matches!(image.image_mode, NodeImageMode::Auto)
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
@@ -289,18 +287,13 @@ pub fn update_image_content_size_system(
                 })
         {
             // Update only if size or scale factor has changed to avoid needless layout calculations
-            if size != image_size.size
-                || combined_scale_factor != *previous_combined_scale_factor
-                || content_size.is_added()
-            {
+            if size != image_size.size || computed_target.is_changed() || content_size.is_added() {
                 image_size.size = size;
                 content_size.set(NodeMeasure::Image(ImageMeasure {
                     // multiply the image size by the scale factor to get the physical size
-                    size: size.as_vec2() * combined_scale_factor,
+                    size: size.as_vec2() * computed_target.scale_factor(),
                 }));
             }
         }
     }
-
-    *previous_combined_scale_factor = combined_scale_factor;
 }

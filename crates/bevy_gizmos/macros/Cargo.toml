@@ -1,7 +1,7 @@
 [package]
 name = "bevy_gizmos_macros"
-version = "0.15.0-dev"
-edition = "2021"
+version = "0.16.0-dev"
+edition = "2024"
 description = "Derive implementations for bevy_gizmos"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -13,7 +13,7 @@ proc-macro = true
 
 
 [dependencies]
-bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.15.0-dev" }
+bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.16.0-dev" }
 
 syn = "2.0"
 proc-macro2 = "1.0"

@@ -13,9 +13,9 @@ use ktx2::{
     BasicDataFormatDescriptor, ChannelTypeQualifiers, ColorModel, DataFormatDescriptorHeader,
     Header, SampleInformation,
 };
-use wgpu::TextureViewDescriptor;
 use wgpu_types::{
-    AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDimension,
+    AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor,
+    TextureViewDimension,
 };
 
 use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};
@@ -61,7 +61,7 @@ pub fn ktx2_buffer_to_image(
                 #[cfg(feature = "ruzstd")]
                 SupercompressionScheme::Zstandard => {
                     let mut cursor = std::io::Cursor::new(_level_data);
-                    let mut decoder = ruzstd::StreamingDecoder::new(&mut cursor)
+                    let mut decoder = ruzstd::decoding::StreamingDecoder::new(&mut cursor)
                         .map_err(|err| TextureError::SuperDecompressionError(err.to_string()))?;
                     let mut decompressed = Vec::new();
                     decoder.read_to_end(&mut decompressed).map_err(|err| {
@@ -266,7 +266,7 @@ pub fn ktx2_buffer_to_image(
     // error cases have been handled
     let mut image = Image::default();
     image.texture_descriptor.format = texture_format;
-    image.data = wgpu_data.into_iter().flatten().collect::<Vec<_>>();
+    image.data = Some(wgpu_data.into_iter().flatten().collect::<Vec<_>>());
     image.texture_descriptor.size = Extent3d {
         width,
         height,

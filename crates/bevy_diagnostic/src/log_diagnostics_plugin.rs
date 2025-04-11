@@ -1,11 +1,10 @@
 use super::{Diagnostic, DiagnosticPath, DiagnosticsStore};
+use alloc::vec::Vec;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_time::{Real, Time, Timer, TimerMode};
-use bevy_utils::{
-    tracing::{debug, info},
-    Duration,
-};
+use core::time::Duration;
+use log::{debug, info};
 
 /// An App Plugin that logs diagnostics to the console.
 ///
@@ -93,7 +92,7 @@ impl LogDiagnosticsPlugin {
             };
 
             info!(
-                target: "bevy diagnostic",
+                target: "bevy_diagnostic",
                 // Suffix is only used for 's' or 'ms' currently,
                 // so we reserve two columns for it; however,
                 // Do not reserve columns for the suffix in the average
@@ -104,7 +103,7 @@ impl LogDiagnosticsPlugin {
             );
         } else {
             info!(
-                target: "bevy diagnostic",
+                target: "bevy_diagnostic",
                 "{path:<path_width$}: {value:>.6}{suffix:}",
                 path = diagnostic.path(),
                 suffix = diagnostic.suffix,

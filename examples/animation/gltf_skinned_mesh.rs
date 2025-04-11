@@ -44,21 +44,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// It is similar to the animation defined in `models/SimpleSkin/SimpleSkin.gltf`.
 fn joint_animation(
     time: Res<Time>,
-    parent_query: Query<&Parent, With<SkinnedMesh>>,
-    children_query: Query<&Children>,
+    children: Query<&ChildOf, With<SkinnedMesh>>,
+    parents: Query<&Children>,
     mut transform_query: Query<&mut Transform>,
 ) {
     // Iter skinned mesh entity
-    for skinned_mesh_parent in &parent_query {
+    for child_of in &children {
         // Mesh node is the parent of the skinned mesh entity.
-        let mesh_node_entity = skinned_mesh_parent.get();
+        let mesh_node_entity = child_of.parent();
         // Get `Children` in the mesh node.
-        let mesh_node_children = children_query.get(mesh_node_entity).unwrap();
+        let mesh_node_parent = parents.get(mesh_node_entity).unwrap();
 
         // First joint is the second child of the mesh node.
-        let first_joint_entity = mesh_node_children[1];
+        let first_joint_entity = mesh_node_parent[1];
         // Get `Children` in the first joint.
-        let first_joint_children = children_query.get(first_joint_entity).unwrap();
+        let first_joint_children = parents.get(first_joint_entity).unwrap();
 
         // Second joint is the first child of the first joint.
         let second_joint_entity = first_joint_children[0];

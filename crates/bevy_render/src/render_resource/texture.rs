@@ -1,8 +1,7 @@
 use crate::define_atomic_id;
 use crate::renderer::WgpuWrapper;
-use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use core::ops::Deref;
 
 define_atomic_id!(TextureId);
@@ -11,10 +10,19 @@ define_atomic_id!(TextureId);
 ///
 /// May be converted from and dereferences to a wgpu [`Texture`](wgpu::Texture).
 /// Can be created via [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture).
+///
+/// Other options for storing GPU-accessible data are:
+/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 #[derive(Clone, Debug)]
 pub struct Texture {
     id: TextureId,
-    value: Arc<WgpuWrapper<wgpu::Texture>>,
+    value: WgpuWrapper<wgpu::Texture>,
 }
 
 impl Texture {
@@ -34,7 +42,7 @@ impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
         Texture {
             id: TextureId::new(),
-            value: Arc::new(WgpuWrapper::new(value)),
+            value: WgpuWrapper::new(value),
         }
     }
 }
@@ -54,18 +62,16 @@ define_atomic_id!(TextureViewId);
 #[derive(Clone, Debug)]
 pub struct TextureView {
     id: TextureViewId,
-    value: Arc<WgpuWrapper<wgpu::TextureView>>,
+    value: WgpuWrapper<wgpu::TextureView>,
 }
 
 pub struct SurfaceTexture {
-    value: Arc<WgpuWrapper<wgpu::SurfaceTexture>>,
+    value: WgpuWrapper<wgpu::SurfaceTexture>,
 }
 
 impl SurfaceTexture {
-    pub fn try_unwrap(self) -> Option<wgpu::SurfaceTexture> {
-        Arc::try_unwrap(self.value)
-            .map(WgpuWrapper::into_inner)
-            .ok()
+    pub fn present(self) {
+        self.value.into_inner().present();
     }
 }
 
@@ -81,7 +87,7 @@ impl From<wgpu::TextureView> for TextureView {
     fn from(value: wgpu::TextureView) -> Self {
         TextureView {
             id: TextureViewId::new(),
-            value: Arc::new(WgpuWrapper::new(value)),
+            value: WgpuWrapper::new(value),
         }
     }
 }
@@ -89,7 +95,7 @@ impl From<wgpu::TextureView> for TextureView {
 impl From<wgpu::SurfaceTexture> for SurfaceTexture {
     fn from(value: wgpu::SurfaceTexture) -> Self {
         SurfaceTexture {
-            value: Arc::new(WgpuWrapper::new(value)),
+            value: WgpuWrapper::new(value),
         }
     }
 }
@@ -122,7 +128,7 @@ define_atomic_id!(SamplerId);
 #[derive(Clone, Debug)]
 pub struct Sampler {
     id: SamplerId,
-    value: Arc<WgpuWrapper<wgpu::Sampler>>,
+    value: WgpuWrapper<wgpu::Sampler>,
 }
 
 impl Sampler {
@@ -137,7 +143,7 @@ impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {
         Sampler {
             id: SamplerId::new(),
-            value: Arc::new(WgpuWrapper::new(value)),
+            value: WgpuWrapper::new(value),
         }
     }
 }

@@ -1,12 +1,12 @@
 //! Shows how to create a custom [`Decodable`] type by implementing a Sine wave.
 
 use bevy::{
-    audio::{AddAudioSource, AudioPlugin, Source},
+    audio::{AddAudioSource, AudioPlugin, Source, Volume},
     math::ops,
     prelude::*,
     reflect::TypePath,
-    utils::Duration,
 };
+use core::time::Duration;
 
 // This struct usually contains the data for the audio being played.
 // This is where data read from an audio file would be stored, for example.
@@ -86,7 +86,7 @@ fn main() {
     let mut app = App::new();
     // register the audio source so that it can be used
     app.add_plugins(DefaultPlugins.set(AudioPlugin {
-        global_volume: GlobalVolume::new(0.2),
+        global_volume: Volume::Linear(0.2).into(),
         ..default()
     }))
     .add_audio_source::<SineAudio>()

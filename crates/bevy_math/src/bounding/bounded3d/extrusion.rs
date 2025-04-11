@@ -348,7 +348,10 @@ mod tests {
 
     #[test]
     fn segment() {
-        let extrusion = Extrusion::new(Segment2d::new(Dir2::new_unchecked(Vec2::NEG_Y), 3.), 4.0);
+        let extrusion = Extrusion::new(
+            Segment2d::new(Vec2::new(0.0, -1.5), Vec2::new(0.0, 1.5)),
+            4.0,
+        );
         let translation = Vec3::new(3., 4., 5.);
         let rotation = Quat::from_rotation_x(FRAC_PI_4);
         let isometry = Isometry3d::new(translation, rotation);

@@ -14,6 +14,8 @@ use alloc::{borrow::Cow, vec, vec::Vec};
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
+use super::SystemParamValidationError;
+
 /// A function system that runs with exclusive [`World`] access.
 ///
 /// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
@@ -111,13 +113,11 @@ where
     #[inline]
     unsafe fn run_unsafe(
         &mut self,
-        _input: SystemIn<'_, Self>,
-        _world: UnsafeWorldCell,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
     ) -> Self::Out {
-        panic!("Cannot run exclusive systems with a shared World reference");
-    }
-
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        // SAFETY: The safety is upheld by the caller.
+        let world = unsafe { world.world_mut() };
         world.last_change_tick_scope(self.system_meta.last_run, |world| {
             #[cfg(feature = "trace")]
             let _span_guard = self.system_meta.system_span.enter();
@@ -150,9 +150,12 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, _world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        _world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         // All exclusive system params are always available.
-        true
+        Ok(())
     }
 
     #[inline]
@@ -219,7 +222,14 @@ pub struct HasExclusiveSystemInput;
 
 macro_rules! impl_exclusive_system_function {
     ($($param: ident),*) => {
-        #[allow(non_snake_case)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
         impl<Out, Func, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn($($param,)*) -> Out> for Func
         where
             Func: Send + Sync + 'static,
@@ -236,7 +246,6 @@ macro_rules! impl_exclusive_system_function {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
-                #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(
                     mut f: impl FnMut(&mut World, $($param,)*) -> Out,
                     world: &mut World,
@@ -249,7 +258,14 @@ macro_rules! impl_exclusive_system_function {
             }
         }
 
-        #[allow(non_snake_case)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
         impl<In, Out, Func, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<(HasExclusiveSystemInput, fn(In, $($param,)*) -> Out)> for Func
         where
             Func: Send + Sync + 'static,
@@ -267,7 +283,6 @@ macro_rules! impl_exclusive_system_function {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
-                #[allow(clippy::too_many_arguments)]
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
                     mut f: impl FnMut(In::Param<'_>, &mut World, $($param,)*) -> Out,
                     input: In::Inner<'_>,

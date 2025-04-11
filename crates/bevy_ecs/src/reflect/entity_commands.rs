@@ -2,7 +2,8 @@ use crate::{
     entity::Entity,
     prelude::Mut,
     reflect::{AppTypeRegistry, ReflectBundle, ReflectComponent},
-    system::{EntityCommands, Resource},
+    resource::Resource,
+    system::EntityCommands,
     world::{EntityWorldMut, World},
 };
 use alloc::{borrow::Cow, boxed::Box};
@@ -19,7 +20,7 @@ pub trait ReflectCommandExt {
     ///
     /// - If the entity doesn't exist.
     /// - If [`AppTypeRegistry`] does not have the reflection data for the given
-    ///     [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
+    ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
     /// - If [`AppTypeRegistry`] is not present in the [`World`].
     ///
@@ -81,7 +82,7 @@ pub trait ReflectCommandExt {
     ///     // use the insert_reflect entity command to insert that component/bundle into an entity.
     ///     commands
     ///         .spawn_empty()
-    ///         .insert_reflect(prefab.data.clone_value());
+    ///         .insert_reflect(prefab.data.reflect_clone().unwrap().into_partial_reflect());
     /// }
     /// ```
     fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self;
@@ -169,10 +170,8 @@ pub trait ReflectCommandExt {
 
 impl ReflectCommandExt for EntityCommands<'_> {
     fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.insert_reflect(component);
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.insert_reflect(component);
         })
     }
 
@@ -180,19 +179,15 @@ impl ReflectCommandExt for EntityCommands<'_> {
         &mut self,
         component: Box<dyn PartialReflect>,
     ) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.insert_reflect_with_registry::<T>(component);
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.insert_reflect_with_registry::<T>(component);
         })
     }
 
     fn remove_reflect(&mut self, component_type_path: impl Into<Cow<'static, str>>) -> &mut Self {
         let component_type_path: Cow<'static, str> = component_type_path.into();
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.remove_reflect(component_type_path);
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_reflect(component_type_path);
         })
     }
 
@@ -201,10 +196,8 @@ impl ReflectCommandExt for EntityCommands<'_> {
         component_type_path: impl Into<Cow<'static, str>>,
     ) -> &mut Self {
         let component_type_path: Cow<'static, str> = component_type_path.into();
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.remove_reflect_with_registry::<T>(component_type_path);
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_reflect_with_registry::<T>(component_type_path);
         })
     }
 }
@@ -219,7 +212,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If [`AppTypeRegistry`] does not have the reflection data for the given
-    ///     [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
+    ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
     /// - If [`AppTypeRegistry`] is not present in the [`World`].
     ///
@@ -250,7 +243,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If the given [`Resource`] does not have the reflection data for the given
-    ///     [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
+    ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
     /// - If the given [`Resource`] is not present in the [`World`].
     pub fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
@@ -357,7 +350,7 @@ fn insert_reflect_with_registry_ref(
     let type_path = type_info.type_path();
     let Ok(mut entity) = world.get_entity_mut(entity) else {
         panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003",
-        world.entities().entity_does_not_exist_error_details_message(entity));
+        world.entities().entity_does_not_exist_error_details(entity));
     };
     let Some(type_registration) = type_registry.get(type_info.type_id()) else {
         panic!("`{type_path}` should be registered in type registry via `App::register_type<{type_path}>`");
@@ -395,7 +388,6 @@ fn remove_reflect_with_registry_ref(
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         bundle::Bundle,
         component::Component,
         prelude::{AppTypeRegistry, ReflectComponent},
@@ -450,21 +442,30 @@ mod tests {
 
         let entity = commands.spawn_empty().id();
         let entity2 = commands.spawn_empty().id();
+        let entity3 = commands.spawn_empty().id();
 
         let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn PartialReflect>;
-        let boxed_reflect_component_a_clone = boxed_reflect_component_a.clone_value();
+        let boxed_reflect_component_a_clone = boxed_reflect_component_a.reflect_clone().unwrap();
+        let boxed_reflect_component_a_dynamic = boxed_reflect_component_a.to_dynamic();
 
         commands
             .entity(entity)
             .insert_reflect(boxed_reflect_component_a);
         commands
             .entity(entity2)
-            .insert_reflect(boxed_reflect_component_a_clone);
+            .insert_reflect(boxed_reflect_component_a_clone.into_partial_reflect());
+        commands
+            .entity(entity3)
+            .insert_reflect(boxed_reflect_component_a_dynamic);
         system_state.apply(&mut world);
 
         assert_eq!(
             world.entity(entity).get::<ComponentA>(),
-            world.entity(entity2).get::<ComponentA>()
+            world.entity(entity2).get::<ComponentA>(),
+        );
+        assert_eq!(
+            world.entity(entity).get::<ComponentA>(),
+            world.entity(entity3).get::<ComponentA>(),
         );
     }
 

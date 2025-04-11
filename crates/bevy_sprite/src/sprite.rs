@@ -1,10 +1,8 @@
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
-use bevy_ecs::{
-    component::{require, Component},
-    reflect::ReflectComponent,
-};
-use bevy_image::Image;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -13,12 +11,12 @@ use bevy_render::{
 };
 use bevy_transform::components::Transform;
 
-use crate::{TextureAtlas, TextureAtlasLayout, TextureSlicer};
+use crate::TextureSlicer;
 
 /// Describes a sprite to be rendered to a 2D camera
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[require(Transform, Visibility, SyncToRenderWorld, VisibilityClass)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct Sprite {
     /// The image used to render the sprite
@@ -157,11 +155,14 @@ impl From<Handle<Image>> for Sprite {
 
 /// Controls how the image is altered when scaled.
 #[derive(Default, Debug, Clone, Reflect, PartialEq)]
-#[reflect(Debug)]
+#[reflect(Debug, Default, Clone)]
 pub enum SpriteImageMode {
     /// The sprite will take on the size of the image by default, and will be stretched or shrunk if [`Sprite::custom_size`] is set.
     #[default]
     Auto,
+    /// The texture will be scaled to fit the rect bounds defined in [`Sprite::custom_size`].
+    /// Otherwise no scaling will be applied.
+    Scale(ScalingMode),
     /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
     Sliced(TextureSlicer),
     /// The texture will be repeated if stretched beyond `stretched_value`
@@ -185,43 +186,92 @@ impl SpriteImageMode {
             SpriteImageMode::Sliced(..) | SpriteImageMode::Tiled { .. }
         )
     }
+
+    /// Returns [`ScalingMode`] if scale is presented or [`Option::None`] otherwise.
+    #[inline]
+    #[must_use]
+    pub const fn scale(&self) -> Option<ScalingMode> {
+        if let SpriteImageMode::Scale(scale) = self {
+            Some(*scale)
+        } else {
+            None
+        }
+    }
 }
 
-/// How a sprite is positioned relative to its [`Transform`].
-/// It defaults to `Anchor::Center`.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
-#[reflect(Component, Default, Debug, PartialEq)]
-#[doc(alias = "pivot")]
-pub enum Anchor {
+/// Represents various modes for proportional scaling of a texture.
+///
+/// Can be used in [`SpriteImageMode::Scale`].
+#[derive(Debug, Clone, Copy, PartialEq, Default, Reflect)]
+#[reflect(Debug, Default, Clone)]
+pub enum ScalingMode {
+    /// Scale the texture uniformly (maintain the texture's aspect ratio)
+    /// so that both dimensions (width and height) of the texture will be equal
+    /// to or larger than the corresponding dimension of the target rectangle.
+    /// Fill sprite with a centered texture.
     #[default]
-    Center,
-    BottomLeft,
-    BottomCenter,
-    BottomRight,
-    CenterLeft,
-    CenterRight,
-    TopLeft,
-    TopCenter,
-    TopRight,
-    /// Custom anchor point. Top left is `(-0.5, 0.5)`, center is `(0.0, 0.0)`. The value will
-    /// be scaled with the sprite size.
-    Custom(Vec2),
+    FillCenter,
+    /// Scales the texture to fill the target rectangle while maintaining its aspect ratio.
+    /// One dimension of the texture will match the rectangle's size,
+    /// while the other dimension may exceed it.
+    /// The exceeding portion is aligned to the start:
+    /// * Horizontal overflow is left-aligned if the width exceeds the rectangle.
+    /// * Vertical overflow is top-aligned if the height exceeds the rectangle.
+    FillStart,
+    /// Scales the texture to fill the target rectangle while maintaining its aspect ratio.
+    /// One dimension of the texture will match the rectangle's size,
+    /// while the other dimension may exceed it.
+    /// The exceeding portion is aligned to the end:
+    /// * Horizontal overflow is right-aligned if the width exceeds the rectangle.
+    /// * Vertical overflow is bottom-aligned if the height exceeds the rectangle.
+    FillEnd,
+    /// Scaling the texture will maintain the original aspect ratio
+    /// and ensure that the original texture fits entirely inside the rect.
+    /// At least one axis (x or y) will fit exactly. The result is centered inside the rect.
+    FitCenter,
+    /// Scaling the texture will maintain the original aspect ratio
+    /// and ensure that the original texture fits entirely inside rect.
+    /// At least one axis (x or y) will fit exactly.
+    /// Aligns the result to the left and top edges of rect.
+    FitStart,
+    /// Scaling the texture will maintain the original aspect ratio
+    /// and ensure that the original texture fits entirely inside rect.
+    /// At least one axis (x or y) will fit exactly.
+    /// Aligns the result to the right and bottom edges of rect.
+    FitEnd,
 }
+
+/// Normalized (relative to its size) offset of a 2d renderable entity from its [`Transform`].
+#[derive(Component, Debug, Clone, Copy, PartialEq, Deref, DerefMut, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+#[doc(alias = "pivot")]
+pub struct Anchor(pub Vec2);
 
 impl Anchor {
+    pub const BOTTOM_LEFT: Self = Self(Vec2::new(-0.5, -0.5));
+    pub const BOTTOM_CENTER: Self = Self(Vec2::new(0.0, -0.5));
+    pub const BOTTOM_RIGHT: Self = Self(Vec2::new(0.5, -0.5));
+    pub const CENTER_LEFT: Self = Self(Vec2::new(-0.5, 0.0));
+    pub const CENTER: Self = Self(Vec2::ZERO);
+    pub const CENTER_RIGHT: Self = Self(Vec2::new(0.5, 0.0));
+    pub const TOP_LEFT: Self = Self(Vec2::new(-0.5, 0.5));
+    pub const TOP_CENTER: Self = Self(Vec2::new(0.0, 0.5));
+    pub const TOP_RIGHT: Self = Self(Vec2::new(0.5, 0.5));
+
     pub fn as_vec(&self) -> Vec2 {
-        match self {
-            Anchor::Center => Vec2::ZERO,
-            Anchor::BottomLeft => Vec2::new(-0.5, -0.5),
-            Anchor::BottomCenter => Vec2::new(0.0, -0.5),
-            Anchor::BottomRight => Vec2::new(0.5, -0.5),
-            Anchor::CenterLeft => Vec2::new(-0.5, 0.0),
-            Anchor::CenterRight => Vec2::new(0.5, 0.0),
-            Anchor::TopLeft => Vec2::new(-0.5, 0.5),
-            Anchor::TopCenter => Vec2::new(0.0, 0.5),
-            Anchor::TopRight => Vec2::new(0.5, 0.5),
-            Anchor::Custom(point) => *point,
-        }
+        self.0
+    }
+}
+
+impl Default for Anchor {
+    fn default() -> Self {
+        Self::CENTER
+    }
+}
+
+impl From<Vec2> for Anchor {
+    fn from(value: Vec2) -> Self {
+        Self(value)
     }
 }
 
@@ -230,10 +280,11 @@ mod tests {
     use bevy_asset::{Assets, RenderAssetUsages};
     use bevy_color::Color;
     use bevy_image::Image;
+    use bevy_image::{TextureAtlas, TextureAtlasLayout};
     use bevy_math::{Rect, URect, UVec2, Vec2};
     use bevy_render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-    use crate::{Anchor, TextureAtlas, TextureAtlasLayout};
+    use crate::Anchor;
 
     use super::Sprite;
 
@@ -304,7 +355,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             ..Default::default()
         };
 
@@ -326,7 +377,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::TopRight,
+            anchor: Anchor::TOP_RIGHT,
             ..Default::default()
         };
 
@@ -348,7 +399,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             flip_x: true,
             ..Default::default()
         };
@@ -371,7 +422,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::TopRight,
+            anchor: Anchor::TOP_RIGHT,
             flip_y: true,
             ..Default::default()
         };
@@ -395,7 +446,7 @@ mod tests {
         let sprite = Sprite {
             image,
             rect: Some(Rect::new(1.5, 3.0, 3.0, 9.5)),
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             ..Default::default()
         };
 
@@ -419,7 +470,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             texture_atlas: Some(TextureAtlas {
                 layout: texture_atlas,
                 index: 0,
@@ -447,7 +498,7 @@ mod tests {
 
         let sprite = Sprite {
             image,
-            anchor: Anchor::BottomLeft,
+            anchor: Anchor::BOTTOM_LEFT,
             texture_atlas: Some(TextureAtlas {
                 layout: texture_atlas,
                 index: 0,

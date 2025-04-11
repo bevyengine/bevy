@@ -1,5 +1,5 @@
 use bevy_app::{App, MainScheduleOrder, Plugin, PreStartup, PreUpdate, SubApp};
-use bevy_ecs::{event::Events, schedule::IntoSystemConfigs, world::FromWorld};
+use bevy_ecs::{event::Events, schedule::IntoScheduleConfigs, world::FromWorld};
 use bevy_utils::once;
 use log::warn;
 
@@ -320,7 +320,6 @@ impl Plugin for StatesPlugin {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_state,
         app::StatesPlugin,
         state::{State, StateTransition, StateTransitionEvent},
     };

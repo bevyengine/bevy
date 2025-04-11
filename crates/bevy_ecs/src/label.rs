@@ -22,6 +22,9 @@ pub trait DynEq: Any {
     fn dyn_eq(&self, other: &dyn DynEq) -> bool;
 }
 
+// Tests that this trait is dyn-compatible
+const _: Option<Box<dyn DynEq>> = None;
+
 impl<T> DynEq for T
 where
     T: Any + Eq,
@@ -47,6 +50,9 @@ pub trait DynHash: DynEq {
     /// Feeds this value into the given [`Hasher`].
     fn dyn_hash(&self, state: &mut dyn Hasher);
 }
+
+// Tests that this trait is dyn-compatible
+const _: Option<Box<dyn DynHash>> = None;
 
 impl<T> DynHash for T
 where
@@ -136,6 +142,7 @@ macro_rules! define_label {
             }
         }
 
+        #[diagnostic::do_not_recommend]
         impl $label_trait_name for $crate::intern::Interned<dyn $label_trait_name> {
 
             $($interned_extra_methods_impl)*
@@ -174,7 +181,7 @@ macro_rules! define_label {
 
         impl $crate::intern::Internable for dyn $label_trait_name {
             fn leak(&self) -> &'static Self {
-                Box::leak(self.dyn_clone())
+                $crate::label::Box::leak(self.dyn_clone())
             }
 
             fn ref_eq(&self, other: &Self) -> bool {
@@ -200,20 +207,4 @@ macro_rules! define_label {
         static $interner_name: $crate::intern::Interner<dyn $label_trait_name> =
             $crate::intern::Interner::new();
     };
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{DynEq, DynHash};
-    use bevy_utils::assert_object_safe;
-
-    #[test]
-    fn dyn_eq_object_safe() {
-        assert_object_safe::<dyn DynEq>();
-    }
-
-    #[test]
-    fn dyn_hash_object_safe() {
-        assert_object_safe::<dyn DynHash>();
-    }
 }

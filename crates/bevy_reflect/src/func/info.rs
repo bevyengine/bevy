@@ -612,7 +612,6 @@ macro_rules! impl_typed_function {
                 FunctionInfo::new(
                     create_info::<Function>()
                         .with_args({
-                            #[allow(unused_mut)]
                             let mut _index = 0;
                             vec![
                                 $(ArgInfo::new::<$Arg>({
@@ -638,7 +637,6 @@ macro_rules! impl_typed_function {
                 FunctionInfo::new(
                     create_info::<Function>()
                         .with_args({
-                            #[allow(unused_mut)]
                             let mut _index = 1;
                             vec![
                                 ArgInfo::new::<&Receiver>(0),
@@ -665,7 +663,6 @@ macro_rules! impl_typed_function {
                 FunctionInfo::new(
                     create_info::<Function>()
                         .with_args({
-                            #[allow(unused_mut)]
                             let mut _index = 1;
                             vec![
                                 ArgInfo::new::<&mut Receiver>(0),
@@ -692,7 +689,6 @@ macro_rules! impl_typed_function {
                 FunctionInfo::new(
                     create_info::<Function>()
                         .with_args({
-                            #[allow(unused_mut)]
                             let mut _index = 1;
                             vec![
                                 ArgInfo::new::<&mut Receiver>(0),

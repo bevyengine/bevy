@@ -1,9 +1,13 @@
-use alloc::{borrow::Cow, collections::VecDeque};
-use core::hash::{Hash, Hasher};
+use alloc::{borrow::Cow, collections::VecDeque, string::String};
+use core::{
+    hash::{Hash, Hasher},
+    time::Duration,
+};
 
 use bevy_app::{App, SubApp};
-use bevy_ecs::system::{Deferred, Res, Resource, SystemBuffer, SystemParam};
-use bevy_utils::{Duration, HashMap, Instant, PassHash};
+use bevy_ecs::resource::Resource;
+use bevy_ecs::system::{Deferred, Res, SystemBuffer, SystemParam};
+use bevy_platform_support::{collections::HashMap, hash::PassHash, time::Instant};
 use const_fnv1a_hash::fnv1a_hash_str_64;
 
 use crate::DEFAULT_MAX_HISTORY_LENGTH;
@@ -351,8 +355,7 @@ impl<'w, 's> Diagnostics<'w, 's> {
         if self
             .store
             .get(path)
-            .filter(|diagnostic| diagnostic.is_enabled)
-            .is_some()
+            .is_some_and(|diagnostic| diagnostic.is_enabled)
         {
             let measurement = DiagnosticMeasurement {
                 time: Instant::now(),

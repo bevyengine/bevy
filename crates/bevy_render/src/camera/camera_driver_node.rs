@@ -4,8 +4,8 @@ use crate::{
     renderer::RenderContext,
     view::ExtractedWindows,
 };
-use bevy_ecs::{entity::EntityBorrow, prelude::QueryState, world::World};
-use bevy_utils::HashSet;
+use bevy_ecs::{entity::ContainsEntity, prelude::QueryState, world::World};
+use bevy_platform_support::collections::HashSet;
 use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp};
 
 pub struct CameraDriverNode {
@@ -71,7 +71,7 @@ impl Node for CameraDriverNode {
             };
 
             #[cfg(feature = "trace")]
-            let _span = bevy_utils::tracing::info_span!("no_camera_clear_pass").entered();
+            let _span = tracing::info_span!("no_camera_clear_pass").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("no_camera_clear_pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {

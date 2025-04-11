@@ -1,7 +1,8 @@
 use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle};
+use alloc::boxed::Box;
 use atomicow::CowArc;
+use bevy_platform_support::collections::HashMap;
 use bevy_tasks::ConditionalSendFuture;
-use bevy_utils::HashMap;
 use core::{
     borrow::Borrow,
     convert::Infallible,
@@ -253,6 +254,7 @@ pub struct IdentityAssetTransformer<A: Asset> {
 }
 
 impl<A: Asset> IdentityAssetTransformer<A> {
+    /// Creates a new [`IdentityAssetTransformer`] with the correct internal [`PhantomData`] field.
     pub const fn new() -> Self {
         Self {
             _phantom: PhantomData,

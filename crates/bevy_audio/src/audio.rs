@@ -1,5 +1,3 @@
-#![expect(deprecated)]
-
 use crate::{AudioSource, Decodable, Volume};
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::prelude::*;
@@ -8,6 +6,7 @@ use bevy_reflect::prelude::*;
 
 /// The way Bevy manages the sound playback.
 #[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Clone)]
 pub enum PlaybackMode {
     /// Play the sound once. Do nothing when it ends.
     ///
@@ -31,7 +30,7 @@ pub enum PlaybackMode {
 /// [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink]
 /// components. Changes to this component will *not* be applied to already-playing audio.
 #[derive(Component, Clone, Copy, Debug, Reflect)]
-#[reflect(Default, Component, Debug)]
+#[reflect(Clone, Default, Component, Debug)]
 pub struct PlaybackSettings {
     /// The desired playback behavior.
     pub mode: PlaybackMode,
@@ -76,7 +75,7 @@ impl PlaybackSettings {
     /// added again.
     pub const ONCE: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Once,
-        volume: Volume(1.0),
+        volume: Volume::Linear(1.0),
         speed: 1.0,
         paused: false,
         muted: false,
@@ -144,7 +143,7 @@ impl PlaybackSettings {
 /// This must be accompanied by `Transform` and `GlobalTransform`.
 /// Only one entity with a `SpatialListener` should be present at any given time.
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Default, Component, Debug)]
+#[reflect(Clone, Default, Component, Debug)]
 pub struct SpatialListener {
     /// Left ear position relative to the `GlobalTransform`.
     pub left_ear_offset: Vec3,
@@ -176,6 +175,7 @@ impl SpatialListener {
 ///
 /// Default is `Vec3::ONE`.
 #[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Clone, Default)]
 pub struct SpatialScale(pub Vec3);
 
 impl SpatialScale {
@@ -204,15 +204,8 @@ impl Default for SpatialScale {
 ///
 /// Default is `Vec3::ONE`.
 #[derive(Resource, Default, Clone, Copy, Reflect)]
-#[reflect(Resource, Default)]
+#[reflect(Resource, Default, Clone)]
 pub struct DefaultSpatialScale(pub SpatialScale);
-
-/// Bundle for playing a standard bevy audio asset
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `AudioPlayer` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
-)]
-pub type AudioBundle = AudioSourceBundle<AudioSource>;
 
 /// A component for playing a sound.
 ///
@@ -227,7 +220,7 @@ pub type AudioBundle = AudioSourceBundle<AudioSource>;
 /// Playback can be configured using the [`PlaybackSettings`] component. Note that changes to the
 /// `PlaybackSettings` component will *not* affect already-playing audio.
 #[derive(Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Clone)]
 #[require(PlaybackSettings)]
 pub struct AudioPlayer<Source = AudioSource>(pub Handle<Source>)
 where
@@ -250,50 +243,5 @@ impl AudioPlayer<AudioSource> {
     /// tuple struct syntax.
     pub fn new(source: Handle<AudioSource>) -> Self {
         Self(source)
-    }
-}
-
-/// Bundle for playing a sound.
-///
-/// Insert this bundle onto an entity to trigger a sound source to begin playing.
-///
-/// If the handle refers to an unavailable asset (such as if it has not finished loading yet),
-/// the audio will not begin playing immediately. The audio will play when the asset is ready.
-///
-/// When Bevy begins the audio playback, an [`AudioSink`][crate::AudioSink] component will be
-/// added to the entity. You can use that component to control the audio settings during playback.
-#[derive(Bundle)]
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `AudioPlayer` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
-)]
-pub struct AudioSourceBundle<Source = AudioSource>
-where
-    Source: Asset + Decodable,
-{
-    /// Asset containing the audio data to play.
-    pub source: AudioPlayer<Source>,
-    /// Initial settings that the audio starts playing with.
-    /// If you would like to control the audio while it is playing,
-    /// query for the [`AudioSink`][crate::AudioSink] component.
-    /// Changes to this component will *not* be applied to already-playing audio.
-    pub settings: PlaybackSettings,
-}
-
-impl<T: Asset + Decodable> Clone for AudioSourceBundle<T> {
-    fn clone(&self) -> Self {
-        Self {
-            source: self.source.clone(),
-            settings: self.settings,
-        }
-    }
-}
-
-impl<T: Decodable + Asset> Default for AudioSourceBundle<T> {
-    fn default() -> Self {
-        Self {
-            source: AudioPlayer(Handle::default()),
-            settings: Default::default(),
-        }
     }
 }

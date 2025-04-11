@@ -5,6 +5,7 @@ use crate::{
 use alloc::{
     boxed::Box,
     string::{String, ToString},
+    vec::Vec,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
@@ -12,13 +13,12 @@ use bevy_ecs::{
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
-    schedule::{ScheduleBuildSettings, ScheduleLabel},
-    system::{IntoObserverSystem, SystemId, SystemInput},
+    schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
 };
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
-use thiserror::Error;
 
 #[cfg(feature = "trace")]
 use tracing::info_span;
@@ -29,11 +29,11 @@ use std::{
     process::{ExitCode, Termination},
 };
 
-#[cfg(feature = "downcast")]
-use alloc::vec::Vec;
-
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
+    )]
     AppLabel,
     APP_LABEL_INTERNER
 );
@@ -43,7 +43,7 @@ pub use bevy_ecs::label::DynEq;
 /// A shorthand for `Interned<dyn AppLabel>`.
 pub type InternedAppLabel = Interned<dyn AppLabel>;
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub(crate) enum AppError {
     #[error("duplicate plugin {plugin_name:?}")]
     DuplicatePlugin { plugin_name: String },
@@ -106,6 +106,8 @@ impl Default for App {
         {
             app.init_resource::<AppTypeRegistry>();
             app.register_type::<Name>();
+            app.register_type::<ChildOf>();
+            app.register_type::<Children>();
         }
 
         #[cfg(feature = "reflect_functions")]
@@ -299,7 +301,7 @@ impl App {
     pub fn add_systems<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        systems: impl IntoSystemConfigs<M>,
+        systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
     ) -> &mut Self {
         self.main_mut().add_systems(schedule, systems);
         self
@@ -327,10 +329,10 @@ impl App {
 
     /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
     #[track_caller]
-    pub fn configure_sets(
+    pub fn configure_sets<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        sets: impl IntoSystemSetConfigs,
+        sets: impl IntoScheduleConfigs<InternedSystemSet, M>,
     ) -> &mut Self {
         self.main_mut().configure_sets(schedule, sets);
         self
@@ -522,7 +524,6 @@ impl App {
     /// # app.add_plugins(ImagePlugin::default());
     /// let default_sampler = app.get_added_plugins::<ImagePlugin>()[0].default_sampler;
     /// ```
-    #[cfg(feature = "downcast")]
     pub fn get_added_plugins<T>(&self) -> Vec<&T>
     where
         T: Plugin,
@@ -1032,6 +1033,17 @@ impl App {
             .try_register_required_components_with::<T, R>(constructor)
     }
 
+    /// Registers a component type as "disabling",
+    /// using [default query filters](bevy_ecs::entity_disabling::DefaultQueryFilters) to exclude entities with the component from queries.
+    ///
+    /// # Warning
+    ///
+    /// As discussed in the [module docs](bevy_ecs::entity_disabling), this can have performance implications,
+    /// as well as create interoperability issues, and should be used with caution.
+    pub fn register_disabling_component<C: Component>(&mut self) {
+        self.world_mut().register_disabling_component::<C>();
+    }
+
     /// Returns a reference to the main [`SubApp`]'s [`World`]. This is the same as calling
     /// [`app.main().world()`].
     ///
@@ -1328,7 +1340,7 @@ type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
 
 fn run_once(mut app: App) -> AppExit {
     while app.plugins_state() == PluginsState::Adding {
-        #[cfg(all(not(target_arch = "wasm32"), feature = "bevy_tasks"))]
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         bevy_tasks::tick_global_task_pools_on_main_thread();
     }
     app.finish();
@@ -1360,7 +1372,7 @@ pub enum AppExit {
 }
 
 impl AppExit {
-    /// Creates a [`AppExit::Error`] with a error code of 1.
+    /// Creates a [`AppExit::Error`] with an error code of 1.
     #[must_use]
     pub const fn error() -> Self {
         Self::Error(NonZero::<u8>::MIN)
@@ -1392,7 +1404,6 @@ impl AppExit {
 }
 
 impl From<u8> for AppExit {
-    #[must_use]
     fn from(value: u8) -> Self {
         Self::from_code(value)
     }
@@ -1411,7 +1422,7 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use core::{iter, marker::PhantomData};
+    use core::marker::PhantomData;
     use std::sync::Mutex;
 
     use bevy_ecs::{
@@ -1421,8 +1432,9 @@ mod tests {
         event::{Event, EventWriter, Events},
         query::With,
         removal_detection::RemovedComponents,
-        schedule::{IntoSystemConfigs, ScheduleLabel},
-        system::{Commands, Query, Resource},
+        resource::Resource,
+        schedule::{IntoScheduleConfigs, ScheduleLabel},
+        system::{Commands, Query},
         world::{FromWorld, World},
     };
 
@@ -1529,7 +1541,6 @@ mod tests {
     #[test]
     fn test_derive_app_label() {
         use super::AppLabel;
-        use crate::{self as bevy_app};
 
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct UnitLabel;
@@ -1635,7 +1646,7 @@ mod tests {
         struct Foo;
 
         let mut app = App::new();
-        app.world_mut().spawn_batch(iter::repeat(Foo).take(5));
+        app.world_mut().spawn_batch(core::iter::repeat_n(Foo, 5));
 
         fn despawn_one_foo(mut commands: Commands, foos: Query<Entity, With<Foo>>) {
             if let Some(e) = foos.iter().next() {
@@ -1661,7 +1672,6 @@ mod tests {
     #[test]
     fn test_extract_sees_changes() {
         use super::AppLabel;
-        use crate::{self as bevy_app};
 
         #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug)]
         struct MySubApp;
@@ -1690,9 +1700,9 @@ mod tests {
         fn raise_exits(mut exits: EventWriter<AppExit>) {
             // Exit codes chosen by a fair dice roll.
             // Unlikely to overlap with default values.
-            exits.send(AppExit::Success);
-            exits.send(AppExit::from_code(4));
-            exits.send(AppExit::from_code(73));
+            exits.write(AppExit::Success);
+            exits.write(AppExit::from_code(4));
+            exits.write(AppExit::from_code(73));
         }
 
         let exit = App::new().add_systems(Update, raise_exits).run();
@@ -1736,7 +1746,7 @@ mod tests {
 
     #[test]
     fn app_exit_size() {
-        // There wont be many of them so the size isn't a issue but
+        // There wont be many of them so the size isn't an issue but
         // it's nice they're so small let's keep it that way.
         assert_eq!(size_of::<AppExit>(), size_of::<u8>());
     }

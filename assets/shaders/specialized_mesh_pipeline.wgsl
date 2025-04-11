@@ -2,7 +2,7 @@
 //! between the vertex and fragment shader. Also shows the custom vertex layout.
 
 // First we import everything we need from bevy_pbr
-// A 2d shader would be vevry similar but import from bevy_sprite instead
+// A 2D shader would be very similar but import from bevy_sprite instead
 #import bevy_pbr::{
     mesh_functions,
     view_transformations::position_world_to_clip

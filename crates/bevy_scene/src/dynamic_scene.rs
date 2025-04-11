@@ -1,17 +1,23 @@
-use crate::{ron, DynamicSceneBuilder, Scene, SceneSpawnError};
+use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
-use bevy_ecs::reflect::ReflectResource;
+use bevy_ecs::reflect::{ReflectMapEntities, ReflectResource};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap, SceneEntityMapper},
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
+    reflect::{AppTypeRegistry, ReflectComponent},
     world::World,
 };
-use bevy_reflect::{PartialReflect, TypePath, TypeRegistry};
+use bevy_reflect::{PartialReflect, TypePath};
+
+use crate::reflect_utils::clone_reflect_value;
+use bevy_ecs::component::ComponentCloneBehavior;
+use bevy_ecs::relationship::RelationshipHookMode;
 
 #[cfg(feature = "serialize")]
-use crate::serde::SceneSerializer;
-#[cfg(feature = "serialize")]
-use serde::Serialize;
+use {
+    crate::{ron, serde::SceneSerializer},
+    bevy_reflect::TypeRegistry,
+    serde::Serialize,
+};
 
 /// A collection of serializable resources and dynamic entities.
 ///
@@ -85,7 +91,6 @@ impl DynamicScene {
 
             // Apply/ add each component to the given entity.
             for component in &scene_entity.components {
-                let mut component = component.clone_value();
                 let type_info = component.get_represented_type_info().ok_or_else(|| {
                     SceneSpawnError::NoRepresentedType {
                         type_path: component.reflect_type_path().to_string(),
@@ -103,26 +108,32 @@ impl DynamicScene {
                         }
                     })?;
 
-                // If this component references entities in the scene, update
-                // them to the entities in the world.
-                if let Some(map_entities) = registration.data::<ReflectMapEntities>() {
-                    SceneEntityMapper::world_scope(entity_map, world, |_, mapper| {
-                        map_entities.map_entities(component.as_partial_reflect_mut(), mapper);
-                    });
+                {
+                    let component_id = reflect_component.register_component(world);
+                    // SAFETY: we registered the component above. the info exists
+                    #[expect(unsafe_code, reason = "this is faster")]
+                    let component_info =
+                        unsafe { world.components().get_info_unchecked(component_id) };
+                    if *component_info.clone_behavior() == ComponentCloneBehavior::Ignore {
+                        continue;
+                    }
                 }
 
-                reflect_component.apply_or_insert(
-                    &mut world.entity_mut(entity),
-                    component.as_partial_reflect(),
-                    &type_registry,
-                );
+                SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
+                    reflect_component.apply_or_insert_mapped(
+                        &mut world.entity_mut(entity),
+                        component.as_partial_reflect(),
+                        &type_registry,
+                        mapper,
+                        RelationshipHookMode::Skip,
+                    );
+                });
             }
         }
 
         // Insert resources after all entities have been added to the world.
         // This ensures the entities are available for the resources to reference during mapping.
         for resource in &self.resources {
-            let mut resource = resource.clone_value();
             let type_info = resource.get_represented_type_info().ok_or_else(|| {
                 SceneSpawnError::NoRepresentedType {
                     type_path: resource.reflect_type_path().to_string(),
@@ -141,15 +152,22 @@ impl DynamicScene {
 
             // If this component references entities in the scene, update
             // them to the entities in the world.
-            if let Some(map_entities) = registration.data::<ReflectMapEntities>() {
+            let mut cloned_resource;
+            let partial_reflect_resource = if let Some(map_entities) =
+                registration.data::<ReflectMapEntities>()
+            {
+                cloned_resource = clone_reflect_value(resource.as_partial_reflect(), registration);
                 SceneEntityMapper::world_scope(entity_map, world, |_, mapper| {
-                    map_entities.map_entities(resource.as_partial_reflect_mut(), mapper);
+                    map_entities.map_entities(cloned_resource.as_partial_reflect_mut(), mapper);
                 });
-            }
+                cloned_resource.as_partial_reflect()
+            } else {
+                resource.as_partial_reflect()
+            };
 
             // If the world already contains an instance of the given resource
             // just apply the (possibly) new value, otherwise insert the resource
-            reflect_resource.apply_or_insert(world, resource.as_partial_reflect(), &type_registry);
+            reflect_resource.apply_or_insert(world, partial_reflect_resource, &type_registry);
         }
 
         Ok(())
@@ -199,23 +217,24 @@ where
 mod tests {
     use bevy_ecs::{
         component::Component,
-        entity::{
-            Entity, EntityHashMap, EntityMapper, MapEntities, VisitEntities, VisitEntitiesMut,
-        },
+        entity::{Entity, EntityHashMap, EntityMapper, MapEntities},
+        hierarchy::ChildOf,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
-        system::Resource,
+        resource::Resource,
         world::World,
     };
-    use bevy_hierarchy::{BuildChildren, Parent};
+
     use bevy_reflect::Reflect;
 
     use crate::dynamic_scene::DynamicScene;
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
-    #[derive(Resource, Reflect, Debug, VisitEntities, VisitEntitiesMut)]
+    #[derive(Resource, Reflect, MapEntities, Debug)]
     #[reflect(Resource, MapEntities)]
     struct TestResource {
+        #[entities]
         entity_a: Entity,
+        #[entities]
         entity_b: Entity,
     }
 
@@ -268,7 +287,7 @@ mod tests {
         world
             .resource_mut::<AppTypeRegistry>()
             .write()
-            .register::<Parent>();
+            .register::<ChildOf>();
         let original_parent_entity = world.spawn_empty().id();
         let original_child_entity = world.spawn_empty().id();
         world
@@ -296,7 +315,7 @@ mod tests {
 
         // We then reload the scene to make sure that from_scene_parent_entity's parent component
         // isn't updated with the entity map, since this component isn't defined in the scene.
-        // With bevy_hierarchy, this can cause serious errors and malformed hierarchies.
+        // With [`bevy_ecs::hierarchy`], this can cause serious errors and malformed hierarchies.
         scene.write_to_world(&mut world, &mut entity_map).unwrap();
 
         assert_eq!(
@@ -304,9 +323,9 @@ mod tests {
             world
                 .get_entity(original_child_entity)
                 .unwrap()
-                .get::<Parent>()
+                .get::<ChildOf>()
                 .unwrap()
-                .get(),
+                .parent(),
             "something about reloading the scene is touching entities with the same scene Ids"
         );
         assert_eq!(
@@ -314,9 +333,9 @@ mod tests {
             world
                 .get_entity(from_scene_parent_entity)
                 .unwrap()
-                .get::<Parent>()
+                .get::<ChildOf>()
                 .unwrap()
-                .get(),
+                .parent(),
             "something about reloading the scene is touching components not defined in the scene but on entities defined in the scene"
         );
         assert_eq!(
@@ -324,9 +343,9 @@ mod tests {
             world
                 .get_entity(from_scene_child_entity)
                 .unwrap()
-                .get::<Parent>()
+                .get::<ChildOf>()
                 .expect("something is wrong with this test, and the scene components don't have a parent/child relationship")
-                .get(),
+                .parent(),
             "something is wrong with this test or the code reloading scenes since the relationship between scene entities is broken"
         );
     }
@@ -339,13 +358,13 @@ mod tests {
         #[reflect(Component)]
         struct A;
 
-        #[derive(Component, Reflect, VisitEntities)]
-        #[reflect(Component, MapEntities)]
+        #[derive(Component, Reflect)]
+        #[reflect(Component)]
         struct B(pub Entity);
 
         impl MapEntities for B {
-            fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-                self.0 = entity_mapper.map_entity(self.0);
+            fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+                self.0 = entity_mapper.get_mapped(self.0);
             }
         }
 
@@ -364,7 +383,7 @@ mod tests {
         let mut dst_world = World::new();
         dst_world
             .register_component_hooks::<A>()
-            .on_add(|mut world, _, _| {
+            .on_add(|mut world, _| {
                 world.commands().spawn_empty();
             });
         dst_world.insert_resource(reg.clone());

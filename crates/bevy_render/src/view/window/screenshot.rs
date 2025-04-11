@@ -17,20 +17,16 @@ use crate::{
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
 };
-use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_image::{Image, TextureFormatPixelInfo};
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
-use bevy_utils::{
-    default,
-    tracing::{error, info, warn},
-    HashSet,
-};
+use bevy_utils::default;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::ops::Deref;
 use std::{
@@ -40,6 +36,7 @@ use std::{
         Mutex,
     },
 };
+use tracing::{error, info, warn};
 use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
 #[derive(Event, Deref, DerefMut, Reflect, Debug)]
@@ -74,12 +71,12 @@ pub struct ScreenshotCaptured(pub Image);
 pub struct Screenshot(pub RenderTarget);
 
 /// A marker component that indicates that a screenshot is currently being captured.
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct Capturing;
 
 /// A marker component that indicates that a screenshot has been captured, the image is ready, and
 /// the screenshot entity can be despawned.
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct Captured;
 
 impl Screenshot {
@@ -188,7 +185,7 @@ pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(Trigger<ScreenshotCapt
 
 fn clear_screenshots(mut commands: Commands, screenshots: Query<Entity, With<Captured>>) {
     for entity in screenshots.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -243,7 +240,7 @@ fn extract_screenshots(
                 entity, render_target
             );
             // If we don't despawn the entity here, it will be captured again in the next frame
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
             continue;
         }
         seen_targets.insert(render_target.clone());
@@ -254,7 +251,6 @@ fn extract_screenshots(
     system_state.apply(&mut main_world);
 }
 
-#[allow(clippy::too_many_arguments)]
 fn prepare_screenshots(
     targets: Res<RenderScreenshotTargets>,
     mut prepared: ResMut<RenderScreenshotsPrepared>,
@@ -371,8 +367,7 @@ fn prepare_screenshot_state(
     let texture_view = texture.create_view(&Default::default());
     let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("screenshot-transfer-buffer"),
-        size: gpu_readback::get_aligned_size(size.width, size.height, format.pixel_size() as u32)
-            as u64,
+        size: gpu_readback::get_aligned_size(size, format.pixel_size() as u32) as u64,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -397,7 +392,8 @@ fn prepare_screenshot_state(
 
 pub struct ScreenshotPlugin;
 
-const SCREENSHOT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11918575842344596158);
+const SCREENSHOT_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("c31753d6-326a-47cb-a359-65c97a471fda");
 
 impl Plugin for ScreenshotPlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -579,7 +575,6 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn render_screenshot(
     encoder: &mut CommandEncoder,
     prepared: &RenderScreenshotsPrepared,
@@ -591,17 +586,18 @@ fn render_screenshot(
     texture_view: &wgpu::TextureView,
 ) {
     if let Some(prepared_state) = &prepared.get(entity) {
+        let extent = Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
         encoder.copy_texture_to_buffer(
             prepared_state.texture.as_image_copy(),
-            wgpu::ImageCopyBuffer {
+            wgpu::TexelCopyBufferInfo {
                 buffer: &prepared_state.buffer,
-                layout: gpu_readback::layout_data(width, height, texture_format),
+                layout: gpu_readback::layout_data(extent, texture_format),
             },
-            Extent3d {
-                width,
-                height,
-                ..Default::default()
-            },
+            extent,
         );
 
         if let Some(pipeline) = pipelines.get_render_pipeline(prepared_state.pipeline_id) {
@@ -628,7 +624,7 @@ fn render_screenshot(
 
 pub(crate) fn collect_screenshots(world: &mut World) {
     #[cfg(feature = "trace")]
-    let _span = bevy_utils::tracing::info_span!("collect_screenshots").entered();
+    let _span = tracing::info_span!("collect_screenshots").entered();
 
     let sender = world.resource::<RenderScreenshotsSender>().deref().clone();
     let prepared = world.resource::<RenderScreenshotsPrepared>();

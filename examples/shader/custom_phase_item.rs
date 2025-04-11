@@ -10,6 +10,7 @@
 use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
+        component::Tick,
         query::ROQueryItem,
         system::{lifetimeless::SRes, SystemParamItem},
     },
@@ -18,8 +19,9 @@ use bevy::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         primitives::Aabb,
         render_phase::{
-            AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, PhaseItem, RenderCommand,
-            RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
+            AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, InputUniformIndex, PhaseItem,
+            RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
+            ViewBinnedRenderPhases,
         },
         render_resource::{
             BufferUsages, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
@@ -223,7 +225,8 @@ fn queue_custom_phase_item(
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     mut specialized_render_pipelines: ResMut<SpecializedRenderPipelines<CustomPhasePipeline>>,
-    views: Query<(Entity, &RenderVisibleEntities, &Msaa), With<ExtractedView>>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    mut next_tick: Local<Tick>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
         .read()
@@ -232,8 +235,8 @@ fn queue_custom_phase_item(
     // Render phases are per-view, so we need to iterate over all views so that
     // the entity appears in them. (In this example, we have only one view, but
     // it's good practice to loop over all views anyway.)
-    for (view_entity, view_visible_entities, msaa) in views.iter() {
-        let Some(opaque_phase) = opaque_render_phases.get_mut(&view_entity) else {
+    for (view, view_visible_entities, msaa) in views.iter() {
+        let Some(opaque_phase) = opaque_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
 
@@ -250,6 +253,10 @@ fn queue_custom_phase_item(
                 *msaa,
             );
 
+            // Bump the change tick in order to force Bevy to rebuild the bin.
+            let this_tick = next_tick.get() + 1;
+            next_tick.set(this_tick);
+
             // Add the custom render item. We use the
             // [`BinnedRenderPhaseType::NonMesh`] type to skip the special
             // handling that Bevy has for meshes (preprocessing, indirect
@@ -259,19 +266,21 @@ fn queue_custom_phase_item(
             // but you can use anything you like. Note that the asset ID need
             // not be the ID of a [`Mesh`].
             opaque_phase.add(
+                Opaque3dBatchSetKey {
+                    draw_function: draw_custom_phase_item,
+                    pipeline: pipeline_id,
+                    material_bind_group_index: None,
+                    lightmap_slab: None,
+                    vertex_slab: default(),
+                    index_slab: None,
+                },
                 Opaque3dBinKey {
-                    batch_set_key: Opaque3dBatchSetKey {
-                        draw_function: draw_custom_phase_item,
-                        pipeline: pipeline_id,
-                        material_bind_group_index: None,
-                        lightmap_slab: None,
-                        vertex_slab: default(),
-                        index_slab: None,
-                    },
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
                 },
                 entity,
+                InputUniformIndex::default(),
                 BinnedRenderPhaseType::NonMesh,
+                *next_tick,
             );
         }
     }

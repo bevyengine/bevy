@@ -9,10 +9,11 @@
 //! driven by lower-level input devices and consumed by higher-level interaction systems.
 
 use bevy_ecs::prelude::*;
+use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
-use bevy_utils::HashMap;
 use bevy_window::PrimaryWindow;
 
 use uuid::Uuid;
@@ -27,7 +28,7 @@ use crate::backend::HitData;
 /// stable ID that persists regardless of the Entity they are associated with.
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, Component, Reflect)]
 #[require(PointerLocation, PointerPress, PointerInteraction)]
-#[reflect(Component, Default, Debug, Hash, PartialEq)]
+#[reflect(Component, Default, Debug, Hash, PartialEq, Clone)]
 pub enum PointerId {
     /// The mouse pointer.
     #[default]
@@ -36,7 +37,7 @@ pub enum PointerId {
     Touch(u64),
     /// A custom, uniquely identified pointer. Useful for mocking inputs or implementing a software
     /// controlled cursor.
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     Custom(Uuid),
 }
 
@@ -66,7 +67,7 @@ impl PointerId {
 /// Holds a list of entities this pointer is currently interacting with, sorted from nearest to
 /// farthest.
 #[derive(Debug, Default, Clone, Component, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct PointerInteraction {
     pub(crate) sorted_entities: Vec<(Entity, HitData)>,
 }
@@ -109,7 +110,7 @@ pub fn update_pointer_map(pointers: Query<(Entity, &PointerId)>, mut map: ResMut
 
 /// Tracks the state of the pointer's buttons in response to [`PointerInput`] events.
 #[derive(Debug, Default, Clone, Component, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct PointerPress {
     primary: bool,
     secondary: bool,
@@ -144,6 +145,7 @@ impl PointerPress {
 
 /// The stage of the pointer button press event
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub enum PressDirection {
     /// The pointer button was just pressed
     Pressed,
@@ -153,6 +155,7 @@ pub enum PressDirection {
 
 /// The button that was just pressed or released
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub enum PointerButton {
     /// The primary pointer button
     Primary,
@@ -171,11 +174,11 @@ impl PointerButton {
 
 /// Component that tracks a pointer's current [`Location`].
 #[derive(Debug, Default, Clone, Component, Reflect, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct PointerLocation {
     /// The [`Location`] of the pointer. Note that a location is both the target, and the position
     /// on the target.
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub location: Option<Location>,
 }
 
@@ -203,7 +206,7 @@ impl PointerLocation {
 ///   render target. It is up to picking backends to associate a Pointer's `Location` with a
 ///   specific `Camera`, if any.
 #[derive(Debug, Clone, Component, Reflect, PartialEq)]
-#[reflect(Component, Debug, PartialEq)]
+#[reflect(Component, Debug, PartialEq, Clone)]
 pub struct Location {
     /// The [`NormalizedRenderTarget`] associated with the pointer, usually a window.
     pub target: NormalizedRenderTarget,
@@ -223,7 +226,7 @@ impl Location {
     ) -> bool {
         if camera
             .target
-            .normalize(Some(match primary_window.get_single() {
+            .normalize(Some(match primary_window.single() {
                 Ok(w) => w,
                 Err(_) => return false,
             }))
@@ -239,31 +242,39 @@ impl Location {
     }
 }
 
-/// Types of actions that can be taken by pointers.
+/// Event sent to drive a pointer.
 #[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Clone)]
 pub enum PointerAction {
-    /// A button has been pressed on the pointer.
-    Pressed {
-        /// The press state, either pressed or released.
-        direction: PressDirection,
-        /// The button that was pressed.
-        button: PointerButton,
-    },
-    /// The pointer has moved.
-    Moved {
+    /// Causes the pointer to press a button.
+    Press(PointerButton),
+    /// Causes the pointer to release a button.
+    Release(PointerButton),
+    /// Move the pointer.
+    Move {
         /// How much the pointer moved from the previous position.
         delta: Vec2,
     },
-    /// The pointer has been canceled. The OS can cause this to happen to touch events.
-    Canceled,
+    /// Scroll the pointer
+    Scroll {
+        /// The mouse scroll unit.
+        unit: MouseScrollUnit,
+        /// The horizontal scroll value.
+        x: f32,
+        /// The vertical scroll value.
+        y: f32,
+    },
+    /// Cancel the pointer. Often used for touch events.
+    Cancel,
 }
 
 /// An input event effecting a pointer.
 #[derive(Event, Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub struct PointerInput {
     /// The id of the pointer.
     pub pointer_id: PointerId,
-    /// The location of the pointer. For [[`PointerAction::Moved`]], this is the location after the movement.
+    /// The location of the pointer. For [`PointerAction::Move`], this is the location after the movement.
     pub location: Location,
     /// The action that the event describes.
     pub action: PointerAction,
@@ -284,8 +295,8 @@ impl PointerInput {
     /// Returns true if the `target_button` of this pointer was just pressed.
     #[inline]
     pub fn button_just_pressed(&self, target_button: PointerButton) -> bool {
-        if let PointerAction::Pressed { direction, button } = self.action {
-            direction == PressDirection::Pressed && button == target_button
+        if let PointerAction::Press(button) = self.action {
+            button == target_button
         } else {
             false
         }
@@ -294,8 +305,8 @@ impl PointerInput {
     /// Returns true if the `target_button` of this pointer was just released.
     #[inline]
     pub fn button_just_released(&self, target_button: PointerButton) -> bool {
-        if let PointerAction::Pressed { direction, button } = self.action {
-            direction == PressDirection::Released && button == target_button
+        if let PointerAction::Release(button) = self.action {
+            button == target_button
         } else {
             false
         }
@@ -308,21 +319,33 @@ impl PointerInput {
     ) {
         for event in events.read() {
             match event.action {
-                PointerAction::Pressed { direction, button } => {
+                PointerAction::Press(button) => {
                     pointers
                         .iter_mut()
                         .for_each(|(pointer_id, _, mut pointer)| {
                             if *pointer_id == event.pointer_id {
-                                let is_pressed = direction == PressDirection::Pressed;
                                 match button {
-                                    PointerButton::Primary => pointer.primary = is_pressed,
-                                    PointerButton::Secondary => pointer.secondary = is_pressed,
-                                    PointerButton::Middle => pointer.middle = is_pressed,
+                                    PointerButton::Primary => pointer.primary = true,
+                                    PointerButton::Secondary => pointer.secondary = true,
+                                    PointerButton::Middle => pointer.middle = true,
                                 }
                             }
                         });
                 }
-                PointerAction::Moved { .. } => {
+                PointerAction::Release(button) => {
+                    pointers
+                        .iter_mut()
+                        .for_each(|(pointer_id, _, mut pointer)| {
+                            if *pointer_id == event.pointer_id {
+                                match button {
+                                    PointerButton::Primary => pointer.primary = false,
+                                    PointerButton::Secondary => pointer.secondary = false,
+                                    PointerButton::Middle => pointer.middle = false,
+                                }
+                            }
+                        });
+                }
+                PointerAction::Move { .. } => {
                     pointers.iter_mut().for_each(|(id, mut pointer, _)| {
                         if *id == event.pointer_id {
                             pointer.location = Some(event.location.to_owned());

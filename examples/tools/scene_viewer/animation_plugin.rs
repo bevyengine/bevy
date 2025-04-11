@@ -32,11 +32,10 @@ impl Clips {
 /// Automatically assign [`AnimationClip`]s to [`AnimationPlayer`] and play
 /// them, if the clips refer to descendants of the animation player (which is
 /// the common case).
-#[allow(clippy::too_many_arguments)]
 fn assign_clips(
     mut players: Query<&mut AnimationPlayer>,
     targets: Query<(Entity, &AnimationTarget)>,
-    parents: Query<&Parent>,
+    children: Query<&ChildOf>,
     scene_handle: Res<SceneHandle>,
     clips: Res<Assets<AnimationClip>>,
     gltf_assets: Res<Assets<Gltf>>,
@@ -108,7 +107,7 @@ fn assign_clips(
                 }
 
                 // Go to the next parent.
-                current = parents.get(entity).ok().map(Parent::get);
+                current = children.get(entity).ok().map(ChildOf::parent);
             }
         }
 

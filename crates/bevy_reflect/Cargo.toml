@@ -1,49 +1,89 @@
 [package]
 name = "bevy_reflect"
-version = "0.15.0-dev"
-edition = "2021"
+version = "0.16.0-dev"
+edition = "2024"
 description = "Dynamically interact with rust types"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
-rust-version = "1.81.0"
+rust-version = "1.85.0"
 
 [features]
 default = ["std", "smallvec", "debug"]
+
+# Features
+
+## When enabled, allows documentation comments to be accessed via reflection
+documentation = ["bevy_reflect_derive/documentation"]
+
+## Enables function reflection
+functions = ["bevy_reflect_derive/functions"]
+
+# Debugging Features
+
+## Enables features useful for debugging reflection
+debug = ["debug_stack"]
+
+## When enabled, keeps track of the current serialization/deserialization context for better error messages
+debug_stack = ["std"]
+
+# Integrations
+
+## Adds reflection support to `glam` types.
+glam = ["dep:glam"]
+
+## Adds reflection support to `petgraph` types.
+petgraph = ["dep:petgraph", "std"]
+
+## Adds reflection support to `smallvec` types.
+smallvec = ["dep:smallvec"]
+
+## Adds reflection support to `uuid` types.
+uuid = ["dep:uuid"]
+
+## Adds reflection support to `wgpu-types` types.
+wgpu-types = ["dep:wgpu-types"]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
 std = [
   "bevy_utils/std",
   "erased-serde/std",
   "downcast-rs/std",
   "serde/std",
-  "spin/std",
   "glam?/std",
   "smol_str?/std",
   "uuid?/std",
+  "bevy_platform_support/std",
+  "wgpu-types?/std",
 ]
-# When enabled, provides Bevy-related reflection implementations
-bevy = ["smallvec", "smol_str"]
-glam = ["dep:glam"]
-petgraph = ["dep:petgraph", "std"]
-smallvec = ["dep:smallvec"]
-uuid = ["dep:uuid"]
-wgpu-types = ["dep:wgpu-types", "std"]
-# Enables features useful for debugging reflection
-debug = ["debug_stack"]
-# When enabled, keeps track of the current serialization/deserialization context for better error messages
-debug_stack = []
-# When enabled, allows documentation comments to be accessed via reflection
-documentation = ["bevy_reflect_derive/documentation"]
-# Enables function reflection
-functions = ["bevy_reflect_derive/functions"]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = [
+  "bevy_platform_support/critical-section",
+  "bevy_utils/critical-section",
+]
+
+## Enables use of browser APIs.
+## Note this is currently only applicable on `wasm32` architectures.
+web = ["bevy_platform_support/web", "uuid?/js"]
 
 [dependencies]
 # bevy
-bevy_reflect_derive = { path = "derive", version = "0.15.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false, features = [
+bevy_reflect_derive = { path = "derive", version = "0.16.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
-bevy_ptr = { path = "../bevy_ptr", version = "0.15.0-dev" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "alloc",
+  "serialize",
+] }
 
 # used by bevy-utils, but it also needs reflect impls
 foldhash = { version = "0.1.3", default-features = false }
@@ -53,35 +93,32 @@ erased-serde = { version = "0.4", default-features = false, features = [
   "alloc",
 ] }
 disqualified = { version = "1.0", default-features = false }
-downcast-rs = { version = "1.2", default-features = false }
+downcast-rs = { version = "2", default-features = false }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
-spin = { version = "0.9.8", default-features = false, features = [
-  "once",
-  "rwlock",
-] }
 assert_type_match = "0.1.1"
-
 smallvec = { version = "1.11", default-features = false, optional = true }
-glam = { version = "0.29", default-features = false, features = [
+glam = { version = "0.29.3", default-features = false, features = [
   "serde",
 ], optional = true }
-petgraph = { version = "0.6", features = ["serde-1"], optional = true }
+petgraph = { version = "0.7", features = ["serde-1"], optional = true }
 smol_str = { version = "0.2.0", default-features = false, features = [
   "serde",
 ], optional = true }
-uuid = { version = "1.0", default-features = false, optional = true, features = [
+uuid = { version = "1.13.1", default-features = false, optional = true, features = [
   "v4",
   "serde",
 ] }
 variadics_please = "1.1"
-wgpu-types = { version = "23", features = ["serde"], optional = true }
+wgpu-types = { version = "24", features = [
+  "serde",
+], optional = true, default-features = false }
 
 [dev-dependencies]
 ron = "0.8.0"
 rmp-serde = "1.1"
-bincode = "1.3"
+bincode = { version = "2.0", features = ["serde"] }
 serde_json = "1.0"
 serde = { version = "1", features = ["derive"] }
 static_assertions = "1.1.0"

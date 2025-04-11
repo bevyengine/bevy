@@ -7,8 +7,11 @@
 use crate::{
     change_detection::Mut,
     component::ComponentId,
-    system::Resource,
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    resource::Resource,
+    world::{
+        error::ResourceFetchError, unsafe_world_cell::UnsafeWorldCell, FilteredResources,
+        FilteredResourcesMut, World,
+    },
 };
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
 
@@ -52,7 +55,12 @@ pub struct ReflectResourceFns {
     /// Function pointer implementing [`ReflectResource::remove()`].
     pub remove: fn(&mut World),
     /// Function pointer implementing [`ReflectResource::reflect()`].
-    pub reflect: fn(&World) -> Option<&dyn Reflect>,
+    pub reflect:
+        for<'w> fn(FilteredResources<'w, '_>) -> Result<&'w dyn Reflect, ResourceFetchError>,
+    /// Function pointer implementing [`ReflectResource::reflect_mut()`].
+    pub reflect_mut: for<'w> fn(
+        FilteredResourcesMut<'w, '_>,
+    ) -> Result<Mut<'w, dyn Reflect>, ResourceFetchError>,
     /// Function pointer implementing [`ReflectResource::reflect_unchecked_mut()`].
     ///
     /// # Safety
@@ -111,14 +119,23 @@ impl ReflectResource {
     }
 
     /// Gets the value of this [`Resource`] type from the world as a reflected reference.
-    pub fn reflect<'a>(&self, world: &'a World) -> Option<&'a dyn Reflect> {
-        (self.0.reflect)(world)
+    ///
+    /// Note that [`&World`](World) is a valid type for `resources`.
+    pub fn reflect<'w, 's>(
+        &self,
+        resources: impl Into<FilteredResources<'w, 's>>,
+    ) -> Result<&'w dyn Reflect, ResourceFetchError> {
+        (self.0.reflect)(resources.into())
     }
 
     /// Gets the value of this [`Resource`] type from the world as a mutable reflected reference.
-    pub fn reflect_mut<'a>(&self, world: &'a mut World) -> Option<Mut<'a, dyn Reflect>> {
-        // SAFETY: unique world access
-        unsafe { (self.0.reflect_unchecked_mut)(world.as_unsafe_world_cell()) }
+    ///
+    /// Note that [`&mut World`](World) is a valid type for `resources`.
+    pub fn reflect_mut<'w, 's>(
+        &self,
+        resources: impl Into<FilteredResourcesMut<'w, 's>>,
+    ) -> Result<Mut<'w, dyn Reflect>, ResourceFetchError> {
+        (self.0.reflect_mut)(resources.into())
     }
 
     /// # Safety
@@ -212,7 +229,12 @@ impl<R: Resource + FromReflect + TypePath> FromType<R> for ReflectResource {
             remove: |world| {
                 world.remove_resource::<R>();
             },
-            reflect: |world| world.get_resource::<R>().map(|res| res as &dyn Reflect),
+            reflect: |world| world.get::<R>().map(|res| res.into_inner() as &dyn Reflect),
+            reflect_mut: |world| {
+                world
+                    .into_mut::<R>()
+                    .map(|res| res.map_unchanged(|value| value as &mut dyn Reflect))
+            },
             reflect_unchecked_mut: |world| {
                 // SAFETY: all usages of `reflect_unchecked_mut` guarantee that there is either a single mutable
                 // reference or multiple immutable ones alive at any given point

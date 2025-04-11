@@ -540,10 +540,7 @@ where
         }
         // draw normal of the plane (orthogonal to the plane itself)
         let normal = primitive.normal;
-        let normal_segment = Segment2d {
-            direction: normal,
-            half_length: HALF_MIN_LINE_LEN,
-        };
+        let normal_segment = Segment2d::from_direction_and_length(normal, HALF_MIN_LINE_LEN * 2.);
         self.primitive_2d(
             &normal_segment,
             // offset the normal so it starts on the plane line
@@ -577,8 +574,8 @@ where
 {
     gizmos: &'a mut GizmoBuffer<Config, Clear>,
 
-    direction: Dir2,  // Direction of the line segment
-    half_length: f32, // Half-length of the line segment
+    point1: Vec2, // First point of the segment
+    point2: Vec2, // Second point of the segment
 
     isometry: Isometry2d, // isometric transformation of the line segment
     color: Color,         // color of the line segment
@@ -616,8 +613,8 @@ where
     ) -> Self::Output<'_> {
         Segment2dBuilder {
             gizmos: self,
-            direction: primitive.direction,
-            half_length: primitive.half_length,
+            point1: primitive.point1(),
+            point2: primitive.point2(),
 
             isometry: isometry.into(),
             color: color.into(),
@@ -637,14 +634,14 @@ where
             return;
         }
 
-        let direction = self.direction * self.half_length;
-        let start = self.isometry * (-direction);
-        let end = self.isometry * direction;
+        let segment = Segment2d::new(self.point1, self.point2).transformed(self.isometry);
 
         if self.draw_arrow {
-            self.gizmos.arrow_2d(start, end, self.color);
+            self.gizmos
+                .arrow_2d(segment.point1(), segment.point2(), self.color);
         } else {
-            self.gizmos.line_2d(start, end, self.color);
+            self.gizmos
+                .line_2d(segment.point1(), segment.point2(), self.color);
         }
     }
 }

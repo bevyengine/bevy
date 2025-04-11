@@ -1,4 +1,3 @@
-#![allow(clippy::single_component_path_imports)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 //! [![Bevy Logo](https://bevyengine.org/assets/bevy_logo_docs.svg)](https://bevyengine.org)
@@ -45,10 +44,15 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![no_std]
 
 pub use bevy_internal::*;
 
 // Wasm does not support dynamic linking.
 #[cfg(all(feature = "dynamic_linking", not(target_family = "wasm")))]
-#[allow(unused_imports)]
+#[expect(
+    unused_imports,
+    clippy::single_component_path_imports,
+    reason = "This causes bevy to be compiled as a dylib when using dynamic linking, and as such cannot be removed or changed without affecting dynamic linking."
+)]
 use bevy_dylib;

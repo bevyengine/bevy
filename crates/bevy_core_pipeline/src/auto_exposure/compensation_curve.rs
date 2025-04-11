@@ -18,7 +18,7 @@ const LUT_SIZE: usize = 256;
 /// This curve is used to map the average log luminance of a scene to an
 /// exposure compensation value, to allow for fine control over the final exposure.
 #[derive(Asset, Reflect, Debug, Clone)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub struct AutoExposureCompensationCurve {
     /// The minimum log luminance value in the curve. (the x-axis)
     min_log_lum: f32,
@@ -136,7 +136,10 @@ impl AutoExposureCompensationCurve {
                 let lut_inv_range = 1.0 / (lut_end - lut_begin);
 
                 // Iterate over all LUT entries whose pixel centers fall within the current segment.
-                #[allow(clippy::needless_range_loop)]
+                #[expect(
+                    clippy::needless_range_loop,
+                    reason = "This for-loop also uses `i` to calculate a value `t`."
+                )]
                 for i in lut_begin.ceil() as usize..=lut_end.floor() as usize {
                     let t = (i as f32 - lut_begin) * lut_inv_range;
                     lut[i] = previous.y.lerp(current.y, t);

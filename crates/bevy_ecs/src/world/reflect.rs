@@ -80,7 +80,7 @@ impl World {
             let component_name = self
                 .components()
                 .get_name(component_id)
-                .map(ToString::to_string);
+                .map(|name| name.to_string());
 
             return Err(GetComponentReflectError::EntityDoesNotHaveComponent {
                 entity,
@@ -169,7 +169,7 @@ impl World {
         let component_name = self
             .components()
             .get_name(component_id)
-            .map(ToString::to_string);
+            .map(|name| name.to_string());
 
         let Some(comp_mut_untyped) = self.get_mut_by_id(entity, component_id) else {
             return Err(GetComponentReflectError::EntityDoesNotHaveComponent {
@@ -251,11 +251,7 @@ mod tests {
 
     use bevy_reflect::Reflect;
 
-    use crate::{
-        // For bevy_ecs_macros
-        self as bevy_ecs,
-        prelude::{AppTypeRegistry, Component, DetectChanges, World},
-    };
+    use crate::prelude::{AppTypeRegistry, Component, DetectChanges, World};
 
     #[derive(Component, Reflect)]
     struct RFoo(i32);

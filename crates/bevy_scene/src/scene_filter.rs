@@ -1,4 +1,4 @@
-use bevy_utils::{hashbrown::hash_set::IntoIter, HashSet};
+use bevy_platform_support::collections::{hash_set::IntoIter, HashSet};
 use core::any::{Any, TypeId};
 
 /// A filter used to control which types can be added to a [`DynamicScene`].

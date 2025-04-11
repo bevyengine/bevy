@@ -22,7 +22,7 @@ fn setup(system_count: usize) -> (World, Schedule) {
 }
 
 fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
-    if i & 1 << B != 0 {
+    if i & (1 << B) != 0 {
         entity.insert(A::<B>(1.0));
     }
 }

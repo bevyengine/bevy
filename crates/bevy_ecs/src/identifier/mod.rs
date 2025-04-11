@@ -21,7 +21,7 @@ pub(crate) mod masks;
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Debug, Hash, PartialEq))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Debug, Hash, PartialEq, Clone))]
 // Alignment repr necessary to allow LLVM to better output
 // optimized codegen for `to_bits`, `PartialEq` and `Ord`.
 #[repr(C, align(8))]
@@ -201,7 +201,7 @@ mod tests {
         // and also Entity flag.
         let high = 0x7FFFFFFF;
         let low = 0xC;
-        let bits: u64 = high << u32::BITS | low;
+        let bits: u64 = (high << u32::BITS) | low;
 
         let id = Identifier::try_from_bits(bits).unwrap();
 
@@ -216,7 +216,10 @@ mod tests {
 
     #[rustfmt::skip]
     #[test]
-    #[allow(clippy::nonminimal_bool)] // This is intentionally testing `lt` and `ge` as separate functions.
+    #[expect(
+        clippy::nonminimal_bool,
+        reason = "This intentionally tests all possible comparison operators as separate functions; thus, we don't want to rewrite these comparisons to use different operators."
+    )]
     fn id_comparison() {
         assert!(Identifier::new(123, 456, IdKind::Entity).unwrap() == Identifier::new(123, 456, IdKind::Entity).unwrap());
         assert!(Identifier::new(123, 456, IdKind::Placeholder).unwrap() == Identifier::new(123, 456, IdKind::Placeholder).unwrap());

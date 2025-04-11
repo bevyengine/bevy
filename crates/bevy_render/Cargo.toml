@@ -1,7 +1,7 @@
 [package]
 name = "bevy_render"
-version = "0.15.0-dev"
-edition = "2021"
+version = "0.16.0-dev"
+edition = "2024"
 description = "Provides rendering functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -9,9 +9,20 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+# Bevy users should _never_ turn this feature on.
+#
+# Bevy/wgpu developers can turn this feature on to test a newer version of wgpu without needing to also update naga_oil.
+#
+# When turning this feature on, you can add the following to bevy/Cargo.toml (not this file), and then run `cargo update`:
+# [patch.crates-io]
+# wgpu = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+# wgpu-core = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+# wgpu-hal = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+# wgpu-types = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+decoupled_naga = []
+
 # Texture formats (require more than just image support)
 basis-universal = ["bevy_image/basis-universal"]
-dds = ["bevy_image/dds"]
 exr = ["bevy_image/exr"]
 hdr = ["bevy_image/hdr"]
 ktx2 = ["dep:ktx2", "bevy_image/ktx2"]
@@ -20,43 +31,48 @@ multi_threaded = ["bevy_tasks/multi_threaded"]
 
 shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
 shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
+shader_format_wesl = ["wesl"]
 
 # Enable SPIR-V shader passthrough
 spirv_shader_passthrough = ["wgpu/spirv"]
 
+# Statically linked DXC shader compiler for DirectX 12
+# TODO: When wgpu switches to DirectX 12 instead of Vulkan by default on windows, make this a default feature
+statically-linked-dxc = ["wgpu/static-dxc"]
+
 trace = ["profiling"]
-tracing-tracy = []
+tracing-tracy = ["dep:tracy-client"]
 ci_limits = []
 webgl = ["wgpu/webgl"]
 webgpu = ["wgpu/webgpu"]
-ios_simulator = []
 detailed_trace = []
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.15.0-dev" }
-bevy_color = { path = "../bevy_color", version = "0.15.0-dev", features = [
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.16.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.16.0-dev", features = [
   "serialize",
   "wgpu-types",
 ] }
-bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
-bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.15.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
-bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.15.0-dev" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.15.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
-  "bevy",
+bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.16.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
+bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.16.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
+bevy_render_macros = { path = "macros", version = "0.16.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.16.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.16.0-dev" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "std",
+  "serialize",
 ] }
-bevy_render_macros = { path = "macros", version = "0.15.0-dev" }
-bevy_time = { path = "../bevy_time", version = "0.15.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.15.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.15.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
-bevy_image = { path = "../bevy_image", version = "0.15.0-dev" }
-bevy_mesh = { path = "../bevy_mesh", version = "0.15.0-dev" }
 
 # rendering
 image = { version = "0.25.2", default-features = false }
@@ -67,17 +83,17 @@ codespan-reporting = "0.11.0"
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
-wgpu = { version = "23.0.1", default-features = false, features = [
+wgpu = { version = "24", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
   "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-naga = { version = "23", features = ["wgsl-in"] }
+naga = { version = "24", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
-downcast-rs = "1.2.0"
+downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
 futures-lite = "2.0.1"
@@ -92,15 +108,24 @@ nonmax = "0.5"
 smallvec = { version = "1.11", features = ["const_new"] }
 offset-allocator = "0.2"
 variadics_please = "1.1"
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracy-client = { version = "0.18.0", optional = true }
+indexmap = { version = "2" }
+fixedbitset = { version = "0.5" }
+bitflags = "2"
+wesl = { version = "0.1.2", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { version = "0.16", default-features = false, features = [
+naga_oil = { version = "0.17", default-features = false, features = [
   "test_shader",
 ] }
 
+[dev-dependencies]
+proptest = "1"
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-naga_oil = "0.16"
+naga_oil = "0.17"
 js-sys = "0.3"
 web-sys = { version = "0.3.67", features = [
   'Blob',
@@ -112,6 +137,19 @@ web-sys = { version = "0.3.67", features = [
   'Window',
 ] }
 wasm-bindgen = "0.2"
+# TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
+  "web",
+] }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, features = [
+  "web",
+] }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "web",
+] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [
+  "web",
+] }
 
 [target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
 send_wrapper = "0.6.0"

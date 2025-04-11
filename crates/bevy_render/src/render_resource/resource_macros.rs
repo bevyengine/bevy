@@ -4,9 +4,11 @@ macro_rules! define_atomic_id {
         #[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Debug)]
         pub struct $atomic_id_type(core::num::NonZero<u32>);
 
-        // We use new instead of default to indicate that each ID created will be unique.
-        #[allow(clippy::new_without_default)]
         impl $atomic_id_type {
+            #[expect(
+                clippy::new_without_default,
+                reason = "Implementing the `Default` trait on atomic IDs would imply that two `<AtomicIdType>::default()` equal each other. By only implementing `new()`, we indicate that each atomic ID created will be unique."
+            )]
             pub fn new() -> Self {
                 use core::sync::atomic::{AtomicU32, Ordering};
 

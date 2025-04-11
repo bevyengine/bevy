@@ -4,14 +4,21 @@ use crate::{
     Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
     UntypedAssetId, UntypedHandle,
 };
-use alloc::sync::{Arc, Weak};
+use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
+    sync::{Arc, Weak},
+    vec::Vec,
+};
 use bevy_ecs::world::World;
+use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::Task;
-use bevy_utils::{tracing::warn, Entry, HashMap, HashSet, TypeIdMap};
+use bevy_utils::TypeIdMap;
 use core::{any::TypeId, task::Waker};
 use crossbeam_channel::Sender;
 use either::Either;
 use thiserror::Error;
+use tracing::warn;
 
 #[derive(Debug)]
 pub(crate) struct AssetInfo {
@@ -112,10 +119,6 @@ impl AssetInfos {
         .unwrap()
     }
 
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "Arguments needed so that both `create_loading_handle_untyped()` and `get_or_create_path_handle_internal()` may share code."
-    )]
     fn create_handle_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         handle_providers: &TypeIdMap<AssetHandleProvider>,
@@ -344,14 +347,9 @@ impl AssetInfos {
 
     /// Returns `true` if the asset this path points to is still alive
     pub(crate) fn is_path_alive<'a>(&self, path: impl Into<AssetPath<'a>>) -> bool {
-        let path = path.into();
-
-        let result = self
-            .get_path_ids(&path)
+        self.get_path_ids(&path.into())
             .filter_map(|id| self.infos.get(&id))
-            .any(|info| info.weak_handle.strong_count() > 0);
-
-        result
+            .any(|info| info.weak_handle.strong_count() > 0)
     }
 
     /// Returns `true` if the asset at this path should be reloaded
