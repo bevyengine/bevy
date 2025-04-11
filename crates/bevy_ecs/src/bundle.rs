@@ -1209,6 +1209,7 @@ impl<'w> BundleInserter<'w> {
                 new_archetype,
                 new_table,
             } => {
+                let change_tick = self.world.change_tick();
                 let new_table = new_table.as_mut();
                 let new_archetype = new_archetype.as_mut();
 
@@ -1239,7 +1240,6 @@ impl<'w> BundleInserter<'w> {
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
-                let change_tick = self.world.change_tick();
                 let move_result =
                     table.move_to_superset_unchecked(result.table_row, new_table, change_tick);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
